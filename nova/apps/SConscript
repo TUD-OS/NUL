@@ -1,0 +1,8 @@
+# -*- Mode: Python -*-
+
+# XXX We could just collect all SConscripts using Glob().
+SConscript([
+        'example/SConscript',
+        ])
+
+# EOF

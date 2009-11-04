@@ -1,0 +1,101 @@
+# -*- Mode: Python -*-
+
+import os
+import subprocess
+
+# Uncomment this to get ccache-like behaviour.
+# CacheDir(".objcache")
+
+# Uncomment this to optimizing build system performance by sacrificing
+# accuracy. Does not help a lot. YMMV.
+# SourceSignatures('timestamp')
+# TargetSignatures('timestamp')
+# SetOption('implicit_cache', 1)
+
+# Collect output of external programs
+
+def collect_output(cmd):
+    return subprocess.Popen(cmd, stdout=subprocess.PIPE).communicate()[0]
+
+def chomp(line):
+    if line[-1] == '\n':
+        line = line[:-1]
+    return line
+
+# Compilation flags
+
+opt_arch = 'core2'
+
+# Optimization flags
+
+debug = ARGUMENTS.get('debug', 0)
+if int(debug):
+    debug_opts = ' -g -O1 '
+else:
+    debug_opts = ' -g -Os -fomit-frame-pointer '
+
+# Installation flags
+
+tftp_dir = ARGUMENTS.get('tftp', '')
+if tftp_dir:
+    Install(tftp_dir, '#bin/sigma0.nova')
+
+# Default environment for host machine. Use this to build host tools,
+# that need to run during the build.
+host_env = Environment()
+
+# Freestanding environment for IA-32. Use this to build standalone
+# binaries.
+target_env = Environment()
+
+target_env['CCFLAGS'] = '-m32 -mregparm=3 -pipe -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc'
+target_env.Append(CCFLAGS = (' -march=' + opt_arch))
+target_env.Append(CCFLAGS = debug_opts)
+
+target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"
+target_env['CFLAGS'] = " -Wimplicit-function-declaration"
+target_env['ASFLAGS'] = "-m32 -pipe -g"
+target_env['LINK'] = "ld"
+target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections"]
+
+target_env['CPPPATH'] = [chomp(collect_output([target_env['CC'], "-print-file-name=include"])),
+                         "#include"]
+
+target_env['LIBPATH'] = ['#lib']
+
+# We want to be able to use linker scripts without doing a manual Depends.
+
+def link(env, target, source, linkscript=None, **rest):
+    if linkscript:
+        linkscript = File(linkscript)
+        # XXX get_abspath works, but is a bit ugly. How do I get a
+        # path relative to the current working directory?
+        add_ld = ["-T", linkscript.get_abspath()]
+    else:
+        add_ld = []
+    p = env.Program(target + ".debug", source,
+                    LINKFLAGS=env['LINKFLAGS'] + add_ld,
+                    **rest)
+    g = env.Command(target, p,
+                    [ Copy("$TARGET", "$SOURCE"),
+                      "strip $TARGET",
+                      "size $TARGET",
+                      "gzip $TARGET",
+                      Move("$TARGET", "${TARGET}.gz")
+                      ])
+    if linkscript:
+        env.Depends(p, linkscript)
+    return g
+
+target_env.AddMethod(link, "Link")
+
+# Export our environments. Should be cloned before changing them.
+Export('host_env')
+Export('target_env')
+Export('debug_opts')
+
+SConscript([
+        "apps/SConscript",
+        ])
+
+# EOF

@@ -1,0 +1,10 @@
+# -*- Mode: Python -*-
+
+Import('target_env')
+
+target_env.Link('#bin/example.nova',
+                [ 'example.cc'
+                  ],
+                linkscript="example.ld")
+
+# EOF
