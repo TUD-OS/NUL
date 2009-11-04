@@ -1,0 +1,8 @@
+The NUL make system.
+
+Requirements:
+	* support for different repositories that extend and shadow the sources
+	* libraries
+	* partial builds
+	* parallel build
+	* fast and simple

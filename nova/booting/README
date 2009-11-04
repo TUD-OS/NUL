@@ -1,0 +1,7 @@
+This directory contains multiboot tools used for booting.
+All follow the multiboot chainloading approach.
+
+* coswig:       write physical memory
+* marburg:      search for VGA cards on the PCI bus and programs the MTRRs to make the framebuffer writecombining.
+* munich:       start linux from multiboot
+* santamonica:  gunzip multiboot modules
