@@ -1,0 +1,13 @@
+# -*- Mode: Python -*-
+
+# Files are resolved by searching the repositories in the order they
+# are declared. The first match wins. Order repositories from most to
+# least specific!
+Repository('../project-skeleton')
+Repository('../nova')
+
+# We pull the top-level SCons logic from the first repository that has
+# a SConscript file in its root directory.
+SConscript('SConscript')
+
+# EOF

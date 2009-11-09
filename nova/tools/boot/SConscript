@@ -1,0 +1,14 @@
+# -*- Mode: Python -*-
+
+Import('output_dir')
+
+
+prebuilt = [ 'coswig',
+             'marburg',
+             'munich',
+             'santamonica',
+             ]
+
+Install(output_dir + '/boot', prebuilt)
+
+# EOF

@@ -22,6 +22,11 @@ def chomp(line):
         line = line[:-1]
     return line
 
+# Target directories
+
+output_dir = ARGUMENTS.get('output', '#bin')
+print('Binaries are generated in %s.' % output_dir)
+
 # Compilation flags
 
 opt_arch = 'core2'
@@ -63,14 +68,15 @@ target_env['CPPPATH'] = [chomp(collect_output([target_env['CC'], "-print-file-na
 
 target_env['LIBPATH'] = ['#lib']
 
-# We want to be able to use linker scripts without doing a manual Depends.
+# We want to be able to use linker scripts without doing a manual
+# Depends().
 
 def link(env, target, source, linkscript=None, **rest):
     if linkscript:
         linkscript = File(linkscript)
-        # XXX get_abspath works, but is a bit ugly. How do I get a
-        # path relative to the current working directory?
-        add_ld = ["-T", linkscript.get_abspath()]
+        # XXX rstr() does not work if linkscript is in the current
+        # repository, i.e. the repository in which you typed `scons'.
+        add_ld = ["-T", linkscript.rstr()]
     else:
         add_ld = []
     p = env.Program(target + ".debug", source,
@@ -83,8 +89,13 @@ def link(env, target, source, linkscript=None, **rest):
                       "gzip $TARGET",
                       Move("$TARGET", "${TARGET}.gz")
                       ])
+    # Explicitly add linkscript to the dependencies.
     if linkscript:
         env.Depends(p, linkscript)
+    # Always put both the debug and the final version in the current
+    # directory. Even if they are already built elsewhere.
+    Local(p)
+    Local(g)
     return g
 
 target_env.AddMethod(link, "Link")
@@ -93,9 +104,8 @@ target_env.AddMethod(link, "Link")
 Export('host_env')
 Export('target_env')
 Export('debug_opts')
+Export('output_dir')
 
-SConscript([
-        "apps/SConscript",
-        ])
+SConscript(Glob('*/SConscript'))
 
 # EOF

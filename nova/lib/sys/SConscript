@@ -1,0 +1,7 @@
+# -*- Mode: Python -*-
+
+Import('target_env')
+
+target_env.StaticLibrary('#bin/sys', [])
+
+# EOF

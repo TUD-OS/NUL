@@ -1,9 +1,10 @@
 # -*- Mode: Python -*-
 
+Import('output_dir')
 Import('target_env')
 
-target_env.Link('#bin/example.nova',
-                [ 'example.cc'
+target_env.Link(output_dir + '/apps/example.nova',
+                [ File('example.cc')
                   ],
                 linkscript="example.ld")
 
