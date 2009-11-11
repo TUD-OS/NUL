@@ -1,62 +1,76 @@
-/*
- * Sigma0 linker script.
- *
- * Copyright (C) 2008, Bernhard Kauer <kauer@tudos.org>
- *
- * This file is part of Vancouver.nova.
- *
- * Vancouver.nova is free software: you can redistribute it and/or
- * modify it under the terms of the GNU General Public License version
- * 2 as published by the Free Software Foundation.
- *
- * Vancouver.nova is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License version 2 for more details.
- */
-PHDRS
-{
-	text     PT_LOAD FLAGS(5);
-	data     PT_LOAD FLAGS(6);
+OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
+OUTPUT_ARCH(i386)
+ENTRY(_start)
+
+/* Without this _start is not linked into the binary, if it is in a
+library! */
+EXTERN(_start)
+
+PHDRS {
+      text PT_LOAD ;
+      gcdata   PT_LOAD ;
+      userdata PT_LOAD ;
 }
 
 SECTIONS
 {
-  ENTRY(__start)
-   . =  0x00400000;
-   __image_start = .;
-    . +=   SIZEOF_HEADERS;
-  .text :
-  {
-    *(.text .text.*);
-    KEEP (*(.mark_beg_dde_ctors));
-    KEEP (*(SORT(.ctors.*)));
-    KEEP (*(.mark_end_dde_ctors));
-    . = ALIGN(0x1000);
-  } :text
+  .  = 4K;			/* Skip first page to trap NULL pointer dereference */
+  PROVIDE (_utcb_start = .);
+  /* XXX This is defined in nova/memory.h */
+  . += 1024*4096;
+  PROVIDE (_utcb_end = .);
 
-  .data :
-  {
-    __profile_table_start = .;
-    KEEP(*(.profile));
-    __profile_table_end = .;
-    __param_table_start = .;
-    KEEP(*(.param));
-    __param_table_end = .;
-    *(.rodata .rodata.*);
-    *(.data);
-    *(.data.*);
-    *(.bss);
-    *(.bss.*);
-    *(.bss.stack);
-    __mempoolstart = .;
-    . += 0x800000;
-    __mempoolend = .;
-  } : data
-   __image_end = .;
+  /* Leave space after UTCBs to catch stupid mistakes. */
+  . += 4K;
 
+  /* VGA memory */
+  PROVIDE (_vga_start = .);
+  . += 4K;
+
+  PROVIDE (_img_begin = .);
+
+  .gcdata ALIGN(4K):
+  {
+    KEEP(*(.gcdata));
+    LONG(1);
+  } : gcdata
+
+  .text ALIGN(4K):
+  {
+    KEEP(*(.text._start));
+    *(.text .text.* .gnu.linkonce.t.*);
+  } : text
+
+  .data ALIGN(4K):
+  {
+    PROVIDE (_data_begin = .);
+    PROVIDE (_ctors_start = .);
+    KEEP (*(.ctors))
+    KEEP (*(SORT(.ctors.*)))
+    PROVIDE (_ctors_end = .);
+    *(.rodata .rodata.* .gnu.linkonce.r.*)
+
+    *(.data .data.* .gnu.linkonce.d.*)
+    /* Nova does not allow a real BSS. */
+    KEEP(*(.bss .bss.* .gnu.linkonce.b.*))
+
+    . = ALIGN(4K);
+    PROVIDE(_stack_top = .);
+    KEEP(*(.mainstack))		/* Stack of initial thread */
+    PROVIDE(_stack_bottom = .);
+    PROVIDE (_img_end = .);
+  } : userdata
+
+  /* Leave room for video memory at 0xb8000 */
+
+  . = 0x10000000; /* ALIGN(4K); */
+  PROVIDE (_heap_start = .);
+  . = 0xC0000000;		/* ~3GB */
+  PROVIDE (_heap_end = .);
+  
   /DISCARD/ :
   {
-    *(.comment);
+     *(.note.GNU-stack)
+     *(.comment)
   }
 }
