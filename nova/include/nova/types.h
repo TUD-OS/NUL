@@ -38,7 +38,7 @@ enum {
 
 NOVA_INLINE Mtd empty_message() { return 0; }
 NOVA_INLINE Mtd untyped_words(unsigned u) { return u; }
-NOVA_INLINE Mtd typed_words(unsigned x) { return x << 32; }
+NOVA_INLINE Mtd typed_words(unsigned x) { return x << 23; }
 
 NOVA_INLINE Cap_range mem_range(uint32_t address, uint8_t order, uint8_t access)
 {

@@ -62,7 +62,7 @@ NOVA_INLINE unsigned int cpu_desc_no(struct HypervisorInfoPage *hip)
 
 NOVA_INLINE struct HypervisorCpuDesc *cpu_desc(struct HypervisorInfoPage *hip, unsigned int no)
 {
-  return NOVA_CAST(HypervisorCpuDesc *,
+  return NOVA_CAST(struct HypervisorCpuDesc *,
 		   NOVA_CAST(char *, hip) + hip->cpu_offset + hip->cpu_desc_size*no);
 }
 
@@ -71,9 +71,9 @@ NOVA_INLINE unsigned int mem_desc_no(struct HypervisorInfoPage *hip)
   return (hip->hip_length - hip->mem_offset) / hip->mem_desc_size;
 }
 
-NOVA_INLINE HypervisorMemDesc *mem_desc(struct HypervisorInfoPage *hip, unsigned int no)
+NOVA_INLINE struct HypervisorMemDesc *mem_desc(struct HypervisorInfoPage *hip, unsigned int no)
 {
-  return NOVA_CAST(HypervisorMemDesc *,
+  return NOVA_CAST(struct HypervisorMemDesc *,
 		   NOVA_CAST(char *, hip) + hip->mem_offset + hip->mem_desc_size*no);
 }
 

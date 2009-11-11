@@ -59,7 +59,7 @@ target_env.Append(CCFLAGS = debug_opts)
 
 target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"
 target_env['CFLAGS'] = " -Wimplicit-function-declaration"
-target_env['ASFLAGS'] = "-m32 -pipe -g"
+target_env['ASFLAGS'] = "--32 -g"
 target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections"]
 
