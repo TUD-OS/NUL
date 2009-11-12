@@ -3,8 +3,7 @@
 # Files are resolved by searching the repositories in the order they
 # are declared. The first match wins. Order repositories from most to
 # least specific!
-Repository('../project-skeleton')
-Repository('../vancouver')
+#Repository('../vancouver')
 Repository('../nova')
 
 # We pull the top-level SCons logic from the first repository that has
