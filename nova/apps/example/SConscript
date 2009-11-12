@@ -4,7 +4,7 @@ Import('output_dir')
 Import('target_env')
 
 target_env.Link(output_dir + '/apps/example.nova',
-                [ 'start.s',
+                [ 'start.S',
                   'main.c',
                   
                   ],
