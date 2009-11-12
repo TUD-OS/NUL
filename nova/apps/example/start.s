@@ -1,4 +1,4 @@
-	/* -*- Mode: Assembler -*- */
+	/* -*- Mode: Asm -*- */
 
 	.intel_syntax noprefix
 	
@@ -14,9 +14,8 @@ _mbheader:
 _start:
 	mov     eax, esp	/* HIP */
         mov     esp, _stack
-	push	eax
 	push 	0xDEADBEEF
-	jmp	main
+	jmp	main		/* main accepts regparm arguments */
 
 	.section .mainstack
 	.align 0x1000

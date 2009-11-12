@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <stddef.h>
+
 #ifdef __i386
 typedef unsigned long long uint64_t;
 typedef unsigned int       uint32_t;

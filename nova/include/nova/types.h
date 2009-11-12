@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #include <nova/compiler.h>
 
@@ -32,8 +32,20 @@ enum {
   MTD_EIP  = (1 << 3),
   MTD_EFL  = (1 << 4),
   MTD_DSES = (1 << 5),
-  // XXX incomplete
-  MTD_ADDR = (1 << 20),
+  MTD_FSGS = (1 << 6),
+  MTD_CSSS = (1 << 7),
+  MTD_TR   = (1 << 8),
+  MTD_LDTR = (1 << 9),
+  MTD_GDTR = (1 << 10),
+  MTD_IDTR = (1 << 11),
+  MTD_CR   = (1 << 12),
+  MTD_DR   = (1 << 13),
+  MTD_SYS  = (1 << 14),
+  MTD_QUAL = (1 << 15),
+  MTD_CTRL = (1 << 16),
+  MTD_INJ  = (1 << 17),
+  MTD_STA  = (1 << 18),
+  MTD_TSC  = (1 << 19),
 };
 
 NOVA_INLINE Mtd empty_message() { return 0; }
