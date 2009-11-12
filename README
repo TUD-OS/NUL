@@ -1,6 +1,6 @@
 -*- Mode: Org -*-
 #+TODO: TODO FEEDBACK VERIFY | DONE CANCELED
-#+STARTUP: content
+#+STARTUP: showall hidestars
 
 Thank you for obtaining your personal NOVA userland (NUL) source
 tree. You will not be disappointed.
@@ -17,7 +17,13 @@ The NUL tree consists of several applications and libraries, which are
 loosely grouped by topic into repositories. Each subdirectory of the
 top-level directory is a repository.
 
-** TODO Describe layout of individual repositories
+** nova
+
+The kernel bindings and a very small example roottask live in this
+repository.
+
+** TODO Describe vancouver/
+*** TODO Move vancouver/lib/runtime into nova/
 
 * Building
 
