@@ -61,8 +61,6 @@ SECTIONS
     PROVIDE (_img_end = .);
   } : userdata
 
-  /* Leave room for video memory at 0xb8000 */
-
   . = 0x10000000; /* ALIGN(4K); */
   PROVIDE (_heap_start = .);
   . = 0xC0000000;		/* ~3GB */

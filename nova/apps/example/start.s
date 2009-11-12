@@ -13,12 +13,11 @@ _mbheader:
 
 _start:
 	mov     eax, esp	/* HIP */
-        mov     esp, _stack
+        mov     esp, offset _stack
 	push 	0xDEADBEEF
 	jmp	main		/* main accepts regparm arguments */
 
 	.section .mainstack
-	.align 0x1000
 	.space 0x1000
 _stack:
 

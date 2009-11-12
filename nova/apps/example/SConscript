@@ -8,6 +8,6 @@ target_env.Link(output_dir + '/apps/example.nova',
                   'main.c',
                   
                   ],
-                linkscript="example.ld")
+                linkscript="roottask.ld")
 
 # EOF

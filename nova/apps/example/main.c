@@ -6,8 +6,7 @@
 int
 main(struct HypervisorInfoPage *hip)
 {
-
-
+  /* Empty! */
   return 0;
 }
 
