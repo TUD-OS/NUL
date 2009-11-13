@@ -16,7 +16,7 @@
  */
 #include "driver/logging.h"
 #include "models/keyboard.h"
-#include "sigma0.h"
+#include "sigma0/sigma0.h"
 #include "sys/elf.h"
 #include "vmm/motherboard.h"
 #include "host/screen.h"
