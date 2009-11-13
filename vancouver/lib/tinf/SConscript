@@ -1,0 +1,15 @@
+# -*- Mode: Python -*-
+
+Import('target_env')
+Import('output_dir')
+
+target_env.StaticLibrary(output_dir + "/lib/tinf",
+                         [
+        'src/tinflate.c',
+        'src/tinfgzip.c',
+        'src/tinfzlib.c',
+        'src/adler32.c',
+        'src/crc32.c',
+        ])
+
+# EOF

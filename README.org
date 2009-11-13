@@ -1,0 +1,70 @@
+#+TITLE: NUL: NOVA Userland
+#+AUTHOR Julian Stecklina
+#+LANGUAGE: en
+#+TODO: TODO INPROGRESS | CLOSED CANCELED
+#+STARTUP: showall hidestars
+
+Thank you for obtaining your personal NOVA userland (NUL) source
+tree. You will not be disappointed.
+
+* Org-Mode HOWTO						   :noexport:
+
+  This file uses Org-Mode, which ships with a nice manual that you can
+  find via the Info browser (C-h i). I recommend reading the 5min
+  tutorial, if you are unfamiliar with Org-Mode:
+  http://orgmode.org/worg/org-tutorials/
+
+  Some hints:
+  C-c C-t: Cycle through TODO states.
+  C-c C-z: Take a note.
+  TAB on section header: Cycle through visibility states.
+  Shift-TAB: Toggle overview.
+  C-c C-e l: Export as LaTeX. :-D
+
+* Prerequisites
+
+  - *binutils* 2.19 or later
+  - *GCC* 4.2 or later
+  - *scons* 1.2.0 or later
+  - *git* 1.6 or later
+
+* Where To Get It
+
+  The latest public version is available by cloning our Git
+  repository. You have to be member of the =nul-hackers= group to
+  commit.
+
+  =git clone ssh://os.inf.tu-dresden.de/srv/git/repos/nul.git=
+
+* Directory Layout
+
+  The NUL tree consists of several applications and libraries, which
+  are loosely grouped by topic into repositories. Each subdirectory of
+  the top-level directory is a repository.
+
+** /nova/
+
+   The kernel bindings and a very small example roottask live in this
+   repository.
+
+** TODO Describe /vancouver/
+*** INPROGRESS Move vancouver/lib/runtime into nova/
+
+* Building
+
+  To build NUL you need a build directory. Luckily, there is already a
+  preconfigured one in build/. We use a minimal SCons-based build
+  system that mostly does what we want. So to build the default
+  configuration just cd into build and type 'scons'. Binaries will be
+  installed in build/bin by default.
+
+  To use a customized build configuration, copy the default build
+  repository and adapt its SConstruct file.
+
+* Tasks
+
+** TODO Organize 3rd-Party Source Code
+*** TODO Move vancouver/lib/tinf to some kind of contrib/ directory
+    - Note taken on [2009-11-13 Fri 16:12] \\
+      rocknshine including tinf should perhaps move to their own
+      repo. Something like julian-stuff.

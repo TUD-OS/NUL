@@ -1,0 +1,49 @@
+-*- Mode: Org -*-
+
+* Usage
+
+** Converting a Presentation
+
+Assuming that you have your presentation as PDF file, you can use the
+pdfprepare.py script to create a special data file that rocknshine can
+render:
+
+ ./pdfprepare your.pdf rocknshine.data
+
+Although this script has only been tested with PDFs, it should be able
+to convert anything ImageMagick can convert.
+
+Note that you might run into trouble, if your converted data file
+exceeds a certain limit (see __module_start in linker.ld).
+
+** Presentation
+
+An example of the relevant part of the Pulsar config could be:
+
+ load rocknshine.nova sigma0::mem:48
+ load rocknshine.data sigma0::attach
+
+You can use Space, Enter, and the arrow keys to navigate. Pressing 1
+jumps to the first slide.
+
+* File Format
+
+** Data Layout
+
+Data is stored in little-endian order (except magic).
+
+|------------------+----------+-----------------------------------------------------------------|
+|           Offset | Name     | Description                                                     |
+|------------------+----------+-----------------------------------------------------------------|
+|                0 | magic    | Contains the magic characters "PRE0" as string.                 |
+|                2 | width    | Width of images in pixels                                       |
+|                4 | height   | Height of images in pixels                                      |
+|                8 | pages    | number of pages                                                 |
+|               12 | offset[] | offset of each page relative to magic (including offset to EOF) |
+| 12 + (pages+1)*4 | data     | image data                                                      |
+|------------------+----------+-----------------------------------------------------------------|
+
+** Hints
+
+The size of each compressed page can be computed by subtracting the
+next page's offset from the current offset.
