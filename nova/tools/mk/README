@@ -1,0 +1,25 @@
+Hectic - the NUL build system
+#############################
+
+
+The build system should not be a bottleneck, especially building a
+single application needs to be fast, as it is done many times a day.
+Furthermore, with multi-cores everywhere parallel building is
+mandatory.
+
+Hectic is an event based system...
+
+
+Requirements:
+	* partial builds
+	* parallel build
+	* fast and simple
+	* support for different repositories that extend and shadow the sources
+	* libraries
+	* extensible
+todo:
+	* build goals only once
+	* general caching
+	* parallelize the goal search
+	* cache stats
+	* 
