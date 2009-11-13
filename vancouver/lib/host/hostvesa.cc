@@ -17,7 +17,7 @@
 
 #include "vmm/motherboard.h"
 #include "vmm/vesa.h"
-#include "../../executor/novainstcache.h"
+#include "../executor/novainstcache.h"
 
 /**
  * A Vesa console.

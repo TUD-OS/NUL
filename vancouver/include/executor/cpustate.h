@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "../nova/sys/utcb.h"
+#include <sys/utcb.h>
 
 /**
  * A generic cpu state class.

@@ -64,7 +64,9 @@ target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections"]
 
 target_env['CPPPATH'] = [chomp(collect_output([target_env['CC'], "-print-file-name=include"])),
-                         "#include"]
+                         "#include",
+                         "#include/libc",
+                         ]
 
 target_env['LIBPATH'] = ['#bin/lib']
 

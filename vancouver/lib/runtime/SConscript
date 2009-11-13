@@ -6,6 +6,9 @@ Import('output_dir')
 target_env.StaticLibrary(output_dir + "/lib/runtime",
                          [
         'asm.S',
+        'logging.cc',
+        'simplemalloc.cc',
+        'vprintf.cc',
         ])
 
 # EOF

@@ -4,7 +4,37 @@ Import('output_dir')
 Import('target_env')
 
 target_env.Link(output_dir + '/apps/sigma0.nova',
-                [ 
+                [ 'sigma0.cc',
+
+                  # Host driver
+                  '#lib/host/hostio.cc',
+                  '#lib/host/hostpcicfg.cc',
+                  '#lib/host/hostkeyboard.cc',
+                  '#lib/host/hostsink.cc',
+                  '#lib/host/hostserial.cc',
+                  '#lib/host/hostpit.cc',
+                  '#lib/host/hostvga.cc',
+                  '#lib/host/hostrtc.cc',
+
+                  # Disk driver
+                  '#lib/host/hostide.cc',
+                  '#lib/host/hostahci.cc',
+                  '#lib/host/virtualdisk.cc',
+
+                  # VESA support
+                  '#lib/host/hostvesa.cc',
+                  '#lib/models/memorycontroller.cc',
+                  '#lib/executor/novahalifax.cc',
+                  '#lib/models/pit8254.cc',
+                  '#lib/models/sysctrlport.cc',
+                  '#lib/models/pcihostbridge.cc',
+                  '#lib/models/pcidirect.cc',
+                  '#lib/models/directio.cc',
+
+                  # Others
+                  '#lib/models/aliases.cc',
+                  '#lib/host/simplebootp.cc',
+
                   ],
                 LIBS=['runtime'],
                 linkscript="linker.ld")
