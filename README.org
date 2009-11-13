@@ -62,7 +62,7 @@ tree. You will not be disappointed.
   repository and adapt its SConstruct file.
 
 * Tasks
-
+** TODO Port existing code to C-friendly syscall bindings in nova/
 ** TODO Organize 3rd-Party Source Code
 *** TODO Move vancouver/lib/tinf to some kind of contrib/ directory
     - Note taken on [2009-11-13 Fri 16:12] \\
