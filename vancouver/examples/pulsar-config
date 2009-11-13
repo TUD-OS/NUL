@@ -1,0 +1,13 @@
+# Save as config-MACADDR in your TFTP path. Adjust paths to your local setup.
+exec tools/coswig a=0x400 s=0x1000
+load tools/santamonica
+load tools/marburg
+addr 0x6000000
+
+load nul/hypervisor nokeyb nosmx nomp nodmar
+load nul/sigma0.nova ioio pcicfg hostkeyb:0,0x60,1 hostvga:0x10000,0x20000 hostrtc  hostpit:4000,0x40,0 hostpit:4000,0x40,2 hostvesa:0
+load nul/gt.nova
+load nul/rocknshine.nova sigma0::mem:48 sigma0::log
+load nul/rocknshine.example sigma0::attach
+
+# TODO Add vancouver example.
