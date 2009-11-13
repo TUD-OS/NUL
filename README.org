@@ -23,10 +23,10 @@ tree. You will not be disappointed.
 
 * Prerequisites
 
-  - *binutils* 2.19 or later
+  - *Binutils* 2.19 or later
   - *GCC* 4.2 or later
-  - *scons* 1.2.0 or later
-  - *git* 1.6 or later
+  - *SCons[fn:1]* 1.2.0 or later
+  - *Git* 1.6 or later
 
 * Where To Get It
 
@@ -53,9 +53,9 @@ tree. You will not be disappointed.
 * Building
 
   To build NUL you need a build directory. Luckily, there is already a
-  preconfigured one in build/. We use a minimal SCons-based build
+  preconfigured one in /build/. We use a minimal SCons-based build
   system that mostly does what we want. So to build the default
-  configuration just cd into build and type 'scons'. Binaries will be
+  configuration just cd into build and type =scons=. Binaries will be
   installed in build/bin by default.
 
   To use a customized build configuration, copy the default build
@@ -68,3 +68,8 @@ tree. You will not be disappointed.
     - Note taken on [2009-11-13 Fri 16:12] \\
       rocknshine including tinf should perhaps move to their own
       repo. Something like julian-stuff.
+
+
+* Footnotes
+
+[fn:1] We are actively exploring alternatives to write our build system, but SCons fills in quite nicely for now.
