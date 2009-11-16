@@ -14,8 +14,6 @@ typedef uint32_t Cap_range;
 typedef uint32_t Mtd;
 typedef uint32_t Qpd;
 
-typedef uint8_t Syscall_status;
-
 enum {
   CAP_R   = 1,
   CAP_W   = 2,

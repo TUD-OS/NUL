@@ -17,11 +17,13 @@
 #ifdef __cplusplus
 # define NOVA_BEGIN namespace Nova {
 # define NOVA_END   }
+# define NOVA_EXTERN_C extern "C"
 # define NOVA_PROTO(x) x
 # define NOVA_CAST(type, expr) (reinterpret_cast<type>(expr))
 #else
 # define NOVA_BEGIN
 # define NOVA_END
+# define NOVA_EXTERN_C extern "C"
 # define NOVA_PROTO(x) nova_##x
 # define NOVA_CAST(type, expr) ((type)expr)
 #endif
