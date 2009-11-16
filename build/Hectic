@@ -1,0 +1,3 @@
+config["debug.."]=1
+repositories = ["../vancouver", "../nova"]
+#goals = goals or ["apps/example/"]
