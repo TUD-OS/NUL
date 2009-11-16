@@ -4,10 +4,11 @@ Import('output_dir')
 Import('target_env')
 
 target_env.Link(output_dir + '/apps/example.nova',
-                [ 'start.S',
+                [
                   'main.c',
                   
                   ],
-                linkscript="roottask.ld")
+                LIBS = ['sys'],
+                linkscript = "roottask.ld")
 
 # EOF

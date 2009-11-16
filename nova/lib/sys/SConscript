@@ -3,6 +3,10 @@
 Import('target_env')
 Import('output_dir')
 
-target_env.StaticLibrary(output_dir + "/lib/sys", [])
+target_env.StaticLibrary(output_dir + "/lib/sys",
+                         [
+                           'start.S',
+                           'reply.S',
+                           ])
 
 # EOF

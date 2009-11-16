@@ -4,7 +4,7 @@
 #include <nova/syscall.h>
 
 int
-main(struct HypervisorInfoPage *hip)
+start(struct HypervisorInfoPage *hip)
 {
   /* Empty! */
   return 0;

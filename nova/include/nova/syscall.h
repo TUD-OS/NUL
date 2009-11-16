@@ -10,7 +10,7 @@ NOVA_BEGIN
 enum {
   // Syscalls
   CALL = 0,
-  REPLY,
+  REPLY,			// XXX Hardcoded in assembler bindings.
   CREATE_PD,
   CREATE_EC,
   CREATE_SC,
