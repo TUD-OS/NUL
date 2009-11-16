@@ -8,29 +8,31 @@ ENTRY(_start)
 EXTERN(_start)
 ENTRY(_start)
 
-PHDRS {
-      text	PT_LOAD FLAGS(5) FILEHDR PHDRS;
-      data 	PT_LOAD FLAGS(6);
+PHDRS
+{
+	text PT_LOAD FILEHDR PHDRS;
+	data PT_LOAD;
 }
 
 SECTIONS
 {
 
-  . = 0x00400000;
-  .text ALIGN(4K):
+  . = 0x00400000 + SIZEOF_HEADERS;
+
+  .text :
   {
-    KEEP(*(.text._start));
-    *(.text .text.* .gnu.linkonce.t.*);
+    KEEP(*(.text._start))
+    *(.text .text.*)
   } : text
 
-  .data ALIGN(4K):
+  .data :
   {
-    *(.rodata .rodata.* .gnu.linkonce.r.*)
-    *(.data .data.* .gnu.linkonce.d.*)
-    /* Nova does not allow a real BSS. */
-    KEEP(*(.bss .bss.* .gnu.linkonce.b.*))
-    KEEP(*(.stack))
-  } : data
+    *(.bss .bss.*)
+    /* Nova does not allow a real BSS for the roottask, so force the
+    linker allocate space for the BSS. */
+    LONG(1)
+    *(.rodata .rodata.*)
+    *(.data .data.*) } : data
 
   /DISCARD/ :
   {

@@ -21,8 +21,8 @@ _start:
 	.global _abort
 _abort:
 	ud2a
-	
-	.section .stack
+
+	.section .bss.stack
 	.align 0x4000
 	.space 0x4000
 stack:
