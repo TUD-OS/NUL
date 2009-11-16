@@ -139,7 +139,7 @@ reply(Mtd mtd, void *esp)
        "0:\n"
        : "=a" (result) // Output
        : "a" (REPLY), // Input
-	 // Why is EDI left out?
+	 // Why is EDI left out? -> was used as conditional 
 	 "S" (mtd),
 	 "c" (esp)
        : "edx", "memory" // Clobbers

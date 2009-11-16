@@ -6,9 +6,6 @@
 
 NOVA_BEGIN
 
-// enum {
-//   EXC_MSG_INDEX = 0x120 / 4,
-// };
 
 typedef struct Descriptor {
   uint16_t sel;
@@ -94,6 +91,7 @@ typedef struct Utcb
       uint32_t sysenter_esp;
       uint32_t sysenter_eip;
 
+      uint32_t items[];
     } state;
     uint32_t msg[1024 - sizeof(struct head) / sizeof(uint32_t)];
   };
