@@ -33,12 +33,8 @@ class Hectic:
     """Hectic consists of a couple worker threads waiting on a queue for
     jobs to execute."""
     def __init__(self):
-        import threading, Queue
+        import Queue
         self.q = Queue.Queue()
-        for i in range(config.get(1, "Hectic", "threads")):
-            t = threading.Thread(target=self.worker)
-            t.setDaemon(True)
-            t.start()
     def worker(self):
         while True:
             try:
@@ -53,8 +49,13 @@ class Hectic:
         "put something in the work queue"
         debug(">>>", job.name)
         self.q.put(job)
-    def wait(self):
-        "wait for all jobs to finish"
+    def run(self):
+        "run and wait for all jobs to finish"
+        import threading
+        for i in range(config.get(1, "hectic.threads")):
+            t = threading.Thread(target=self.worker)
+            t.setDaemon(True)
+            t.start()
         self.q.join()
 
 
@@ -64,7 +65,8 @@ if __name__ == "__main__":
     import sys, os
 
     # default parameters
-    config["Hectic.threads"] = 8
+    config["hectic.threads"] = 8
+    h = Hectic()
 
     # config file
     exec open("Hectic")
@@ -79,6 +81,5 @@ if __name__ == "__main__":
             pass
         config[key] = value
 
-    h = Hectic()
-    h.put(Job("first"))
-    h.wait()
+    # run the jobs
+    h.run()

@@ -1,3 +1,5 @@
-config["debug.."]=1
-repositories = ["../vancouver", "../nova"]
-#goals = goals or ["apps/example/"]
+#-*- mode: python -*-
+config["debug.."] = 1
+config["repositories"] = ["../vancouver", "../nova"]
+execfile("../nova/tools/mk/nulbuildenv")
+
