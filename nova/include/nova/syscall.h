@@ -110,19 +110,20 @@ hypercall_4(uint8_t syscall_no, uint8_t flags, uint32_t word1,
   uint32_t dummy1;
   uint8_t result;
 
-  asm ("push %%ebp\n" // XXX Always safe? ESP might be bogus.
-       "mov %%ecx, %%ebp\n"
-       "mov %%esp, %%ecx\n"
-       "mov $0f, %%edx\n"
-       "sysenter\n"
-       "0: pop %%ebp\n"
-       : "=a" (result),
-	 "+c" (word4)
-       : "a" (syscall_no | (flags << 8)),
-	 "D" (word1),
-	 "S" (word2),
-	 "b" (word3)
-       : "edx", "memory");
+  asm volatile ("push %%ebp\n"
+		"mov %%ecx, %%ebp\n"
+		"mov %%esp, %%ecx\n"
+		"mov $0f, %%edx\n"
+		"sysenter\n"
+		"0:\n"
+		"pop %%ebp\n"
+		: "=a" (result),
+		  "+c" (word4)
+		: "a" (syscall_no | (flags << 8)),
+		  "D" (word1),
+		  "S" (word2),
+		  "b" (word3)
+		: "edx");
 
   return result;
 }
@@ -130,26 +131,26 @@ hypercall_4(uint8_t syscall_no, uint8_t flags, uint32_t word1,
 
 
 NOVA_INLINE uint8_t call(uint32_t flags, Cap_idx pt, Mtd mtd) {
-  return hypercall_2(CALL, flags, pt, mtd);
+  uint8_t res = hypercall_2(CALL, flags, pt, mtd);
+  NOVA_MEMCLOBBER;
+  return res;
 }
 
-NOVA_INLINE uint8_t
+NOVA_NORETURN NOVA_INLINE void
 reply(Mtd mtd, void *esp)
 {
   uint8_t result;
 
-  asm ("mov $0f, %%edx\n"
-       "sysenter\n"
-       "0:\n"
-       : "=a" (result) // Output
-       : "a" (REPLY), // Input
-	 // Why is EDI left out? -> was used as conditional 
-	 "S" (mtd),
-	 "c" (esp)
-       : "edx", "memory" // Clobbers
-       );
+  asm volatile ("mov $_abort, %%edx\n"
+		"sysenter\n"
+		: "=a" (result)		// Output
+		: "a" (REPLY),		// Input
+		  // Why is EDI left out? -> was used as conditional 
+		  "S" (mtd),
+		  "c" (esp)
+		);
 
-  return result;
+  NOVA_NOTREACHED;
 }
 
 NOVA_INLINE uint8_t
@@ -188,7 +189,9 @@ NOVA_INLINE uint8_t recall(Cap_idx ec)
 
 NOVA_INLINE uint8_t revoke(Cap_range caps, bool self)
 {
-  return hypercall_1(REVOKE, self ? 1 : 0, caps);
+  uint8_t res = hypercall_1(REVOKE, self ? 1 : 0, caps);
+  NOVA_MEMCLOBBER;
+  return res;
 }
 
 NOVA_INLINE uint8_t semup(Cap_idx sm)

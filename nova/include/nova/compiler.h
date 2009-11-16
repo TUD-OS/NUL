@@ -10,6 +10,7 @@
 # define NOVA_NOTREACHED __builtin_trap()
 # define NOVA_INLINE     static inline
 # define NOVA_WEAK       __attribute__((weak))
+# define NOVA_MEMCLOBBER asm volatile ("" ::: "memory")
 #else
 # error "Unknown compiler"
 #endif
