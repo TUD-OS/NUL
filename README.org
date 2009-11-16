@@ -68,7 +68,7 @@ tree. You will not be disappointed.
     - Note taken on [2009-11-13 Fri 16:12] \\
       rocknshine including tinf should perhaps move to their own
       repo. Something like julian-stuff.
-
+** TODO Fix rocknshine regarding bytes-per-scanline.
 
 * Footnotes
 
