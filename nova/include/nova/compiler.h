@@ -24,7 +24,7 @@
 #else
 # define NOVA_BEGIN
 # define NOVA_END
-# define NOVA_EXTERN_C extern "C"
+# define NOVA_EXTERN_C
 # define NOVA_PROTO(x) nova_##x
 # define NOVA_CAST(type, expr) ((type)expr)
 #endif

@@ -1,0 +1,9 @@
+# -*- Mode: Python -*-
+
+Import('target_env')
+Import('output_dir')
+
+target_env.StaticLibrary(output_dir + "/lib/string",
+                         [ 'string.c' ])
+
+# EOF
