@@ -1,0 +1,98 @@
+#+TITLE: A Modern Build System
+#+AUTHOR: Julian Stecklina
+#+EMAIL: jsteckli@os.inf.tu-dresden.de
+#+LANGUAGE: en
+#+STARTUP: showall hidestars
+
+* Introduction
+
+  Almost everybody that has written code had at one point or the other
+  wrap his head around how to produce an executable file from source
+  code in an efficient and reliable way. Given the pervasive nature of
+  this problem, it is surprising that there is no easy way to do this.
+
+** Definitions
+
+   - Project :: A set of source code files that are to be compiled
+                into a set of programs and libraries.
+   - Build Description :: A formal description of how to build each target.
+   - Build Tool :: A program that reads build descriptions for a particular project and builds all or a user-specified subset of targets.
+   - Targets :: The files we actually want to build from source code.
+   - Dependencies :: The set of files that is needed to build a target.
+   - Rules :: The description how to build a target from its dependencies.
+
+** Goals
+
+   Before starting to bash existing systems, I want to clearly define
+   (at a very high level) what I expect from a build system:
+   
+   - Correct Builds :: Each invocation of the build tool has to
+                       rebuild every target whose dependencies have
+                       changed since this target was last built.
+
+   - Minimal Builds :: Each invocation of the build tool should
+                       execute the minimum number of rules to build
+                       up-to-date versions of all targets.
+
+   - Scales to Large Projects :: The build tool should be able to cope
+        with large projects with a huge set of source files, a complex
+        dependency graph, and complex build descriptions without
+        sacrificing neither correctness nor minimality.
+
+   - Minimal Build Descriptions :: The build description should be as
+        terse as possible, leaving out all information that can be
+        inferred by the build tool. Exceptions to this rule can be
+        made, if it /significantly/ improves handling large projects.
+
+   - Scalability :: The build tool has to be able to build targets
+                    concurrently, if possible.
+
+   - Portability :: The build description should be as agnostic as
+                    possible about the system that hosts the build
+                    process.
+   - Simplicity :: Make it simple.
+
+** TODO Assumptions
+   - Note taken on [2009-11-13 Fr 20:20] \\
+     We implicitly assume that
+     we have a C-like compilation model, where (given the right
+     headers) we compile each source file on its own into an object
+     file. A set of object files is then combined into a
+     program. There are bad fits for this model, e.g. Java and
+     TeX. Describe which assumptions these tools violate.
+
+* Generating the Dependency Graph
+  - Note taken on [2009-11-13 Fr 20:30] \\
+    Should rules be nodes, too? This would solve the problem that targets
+    might not be rebuilt when rules change (compiler flags).
+
+    The process of building a project can be visualized using a dependency
+    graph. Each node in the graph represents a single source file or
+    target. Nodes are connected by rules, e.g. =foo.c= is connected to
+    =foo.o= via =cc -o foo.o foo.c=.
+
+    The first design question for a build tool is, how to generate the
+    dependency graph. There are several choices.
+
+** Always Correct vs. Manually Regenerated
+
+   SCons vs. =make depend= ...
+
+** Generate Dependencies before or while building
+
+   SCons vs =gcc -MD= ...
+  
+
+* An Evolving Plan: Interleaved Dependency Discovery And Build
+
+
+
+* Indentifying Change
+
+
+
+
+* TODO Related Work
+
+How do other tools fail?
+

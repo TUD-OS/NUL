@@ -1,5 +1,5 @@
 #+TITLE: NUL: NOVA Userland
-#+AUTHOR Julian Stecklina
+#+AUTHOR: Julian Stecklina
 #+LANGUAGE: en
 #+TODO: TODO INPROGRESS | CLOSED CANCELED
 #+STARTUP: showall hidestars
