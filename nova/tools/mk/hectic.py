@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Hectic is an event based build system."""
+"""Hectic is an event based job system."""
 
 class State:
     def __init__(self):
@@ -59,17 +59,14 @@ class Hectic:
         self.q.join()
 
 
-
 config = State()
 if __name__ == "__main__":
     import sys, os
 
     # default parameters
     config["hectic.threads"] = 8
+    config["hectic.configfile"] = "Hectic"
     h = Hectic()
-
-    # config file
-    exec open("Hectic")
 
     # evaluate cmdline params
     for arg in sys.argv[1:]:
@@ -80,6 +77,9 @@ if __name__ == "__main__":
         except ValueError:
             pass
         config[key] = value
+
+    # config file
+    exec open(config.get(None, "hectic.configfile"))
 
     # run the jobs
     h.run()
