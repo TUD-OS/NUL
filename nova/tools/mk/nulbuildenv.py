@@ -26,7 +26,7 @@ def has_changed(dest, *sources):
 
 class LoadLocalHectic(Job):
     "find definitions for a given goal by loading a Hectic file from the repositories"
-    def execute(self, queue):
+    def execute(self, hectic):
         cfgfile = config.get("", "hectic:configfile")
         goal = self.name
         path,appname = find_path(goal, cfgfile)
@@ -45,9 +45,9 @@ class LoadLocalHectic(Job):
             job.path = path
             job.goal = goal
             job.name = os.path.join(goal, job.name)
-            queue.put(job)
+            hectic.put(job)
         debug("Load", path, appname, config.values.keys())
-        Job.execute(self, queue)
+        Job.execute(self, hectic)
         
 class ShellJob(Job):
     "A job that executes a shell command"
@@ -65,55 +65,67 @@ class NulObject(ShellJob):
             assert len(l) == 2 and l[0] == self.dest()
             return has_changed(self.dest(), *l[1].split())
         return True
-    def execute(self, q):
+    def execute(self, hectic):
         env = self.env
         if self.changed():
             is_cpp = self.name.endswith(".cc")
-            self.system("%s -c -MD %s %s %s -o %s "%(
+            self.system("%s -c -MD -g %s %s %s -o %s"%(
                     is_cpp and "g++" or "gcc",
                     env[is_cpp and "CXXFLAGS" or "CFLAGS"],
                     " ".join(map(lambda x: "-I%s"%(x), search_files(*map(lambda x: os.path.join(self.goal, x), self.include)))),
                     " ".join(search_files(self.name)), self.dest()))
-        ShellJob.execute(self, q)
+        ShellJob.execute(self, hectic)
 
 
 class NulLink(ShellJob):
-    "link an object"
-    def execute(self, q):
+    "link objects to an application self.name <- [self.objects]"
+    def execute(self, hectic):
         linkfile = search_files(os.path.join(self.goal, self.linkfile))[0]
         if has_changed(self.name, linkfile, *self.objects):
             self.system("ld %s -o %s -T %s %s"%(self.env["LDFLAGS"], self.name, linkfile, " ".join(self.objects)))
-        ShellJob.execute(self, q)
+        ShellJob.execute(self, hectic)
 
 class StripJob(ShellJob):
-    "strip an application"
-    def execute(self, q):
+    "strip an application: self.name <- self.src"
+    def execute(self, hectic):
         if has_changed(self.name, self.src):
             self.system("strip -o %s %s"%(self.name, self.src))
-        ShellJob.execute(self, q)
+        ShellJob.execute(self, hectic)
 
 class GzipJob(ShellJob):
-    def execute(self, q):
+    "gzip a file: self.name <- self.src"
+    def execute(self, hectic):
         if has_changed(self.name, self.src):
             self.system("gzip -c %s > %s"%(self.src, self.name))
-        ShellJob.execute(self, q)
+        ShellJob.execute(self, hectic)
     
 
 class NulApp(Job):
     "build a NUL application"
-    def execute(self, queue):
+    def execute(self, hectic):
         debug("NulApp", self.name)
-        objs = map(lambda x: type(x) != type("") and x or NulObject(os.path.join(self.goal, x), env=self.env, include=self.include, goal=self.goal), self.src)
-        link = NulLink(self.name+".nuldebug", env=self.env, goal=self.goal, linkfile=self.linkfile, objects = map(lambda x: x.dest(), objs))
-        link.add_dep(queue, *objs)
-        strip = StripJob(self.name+".nul", src=link.name)
-        strip.add_dep(queue, link)
-        c = GzipJob(strip.name+".gz", src=strip.name)
-        c.add_dep(queue, strip)
-        Job.execute(self, queue)
+        objs = map(lambda x: type(x) != type("") and x or NulObject(os.path.join(self.goal, x), env=self.env, include=self.include, goal=self.goal, deps=[self]), self.src)
+        link = NulLink(self.name+".nuldebug", env=self.env, goal=self.goal, linkfile=self.linkfile, objects = map(lambda x: x.dest(), objs), deps = objs)
+        strip = StripJob(self.name+".nul", src=link.name, deps = [link])
+        c = GzipJob(strip.name+".gz", src=strip.name, deps = [strip])
+        Job.execute(self, hectic)
+
+class CleanAll(ShellJob):
+    "clean the working directory"
+    def execute(self, hectic):
+        self.system("find -mindepth 2 -type f -exec rm {} \\; ")
+        ShellJob.execute(self, hectic)
 
 
+class NulBuild(Job):
+    "build everything"
+    def execute(self, hectic):
+        pregoals = [self]
+        if config.has_key("-c"):
+            pregoals = [CleanAll("cleanall", deps=pregoals)]
+        for goal in config.get("","goals").split():  
+            LoadLocalHectic(goal, deps=pregoals)
+        Job.execute(self, hectic)
 
 if __name__ == "__main__":
-    for goal in config.get("","goals").split():  
-        h.put(LoadLocalHectic(goal))
+    h.put(NulBuild("build"))

@@ -1,11 +1,11 @@
 env = {"CFLAGS" : "-m32 -Os" + 
        " -ffunction-sections -fstrict-aliasing -fno-exceptions -fshort-enums -fomit-frame-pointer" +
-       " --param max-inline-insns-single=100 -mregparm=3 -minline-all-stringops  -g -nostdinc" +
-       " -Wextra -Waggregate-return -Wattributes -Wcast-align -Wdeprecated-declarations -Wmissing-noreturn -Wpacked -Wshadow" +
+       " --param max-inline-insns-single=100 -mregparm=3 -minline-all-stringops  -nostdinc" +
+       " -Wextra -Waggregate-return -Wattributes -Wcast-align -Wdeprecated-declarations -Wmissing-noreturn -Wshadow" +
        " -Wstack-protector -Wstrict-aliasing -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wunsafe-loop-optimizations" +
        " -Wvolatile-register-var -Wdisabled-optimization -Wformat -Wreturn-type -Wuninitialized -Wunused",
        "LDFLAGS" : "-N -m elf_i386 -gc-sections"}
-
+#  -Wpacked
 goals.append(
     NulApp("example",
            env = env,
