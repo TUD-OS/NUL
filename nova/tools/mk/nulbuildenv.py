@@ -99,7 +99,6 @@ class GzipJob(ShellJob):
             self.system("gzip -c %s > %s"%(self.src, self.name))
         ShellJob.execute(self, hectic)
     
-
 class NulApp(Job):
     "build a NUL application"
     def execute(self, hectic):
@@ -116,7 +115,6 @@ class CleanAll(ShellJob):
         self.system("find -mindepth 2 -type f -exec rm {} \\; ")
         ShellJob.execute(self, hectic)
 
-
 class NulBuild(Job):
     "build everything"
     def execute(self, hectic):
@@ -127,5 +125,16 @@ class NulBuild(Job):
             LoadLocalHectic(goal, deps=pregoals)
         Job.execute(self, hectic)
 
+
+config.setdefault("nulenv",
+                  {"CFLAGS" : "-m32 -Os" +
+                   " -ffunction-sections -fstrict-aliasing -fno-exceptions -fshort-enums -fomit-frame-pointer" +
+                   " --param max-inline-insns-single=100 -mregparm=3 -minline-all-stringops  -nostdinc" +
+                   " -Wextra -Waggregate-return -Wattributes -Wcast-align -Wdeprecated-declarations -Wmissing-noreturn -Wshadow" +
+                   " -Wstack-protector -Wstrict-aliasing -Wswitch -Wswitch-default -Wswitch-enum -Wsystem-headers -Wunsafe-loop-optimizations" +
+                   " -Wvolatile-register-var -Wdisabled-optimization -Wformat -Wreturn-type -Wuninitialized -Wunused",
+                   #  -Wpacked
+                   "LDFLAGS" : "-N -m elf_i386 -gc-sections"})
+
 if __name__ == "__main__":
-    h.put(NulBuild("build"))
+    h.put(NulBuild("start"))

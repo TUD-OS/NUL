@@ -13,6 +13,7 @@ class State:
             st = ":".join(s)
             if self.values.has_key(st):  return self.values[st]
         return default
+    def __getitem__(self, key): return self.values[key]
     def __setitem__(self, key, value): self.values[key] = value
     def setdefault(self, key, value):  self.values.setdefault(key, value)
     def has_key(self, key):     return self.values.has_key(key)
