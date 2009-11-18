@@ -14,6 +14,7 @@ class State:
             if self.values.has_key(st):  return self.values[st]
         return default
     def __setitem__(self, key, value): self.values[key] = value
+    def setdefault(self, key, value): self.values.setdefault(key, value)
 
 def debug(postfix, name, *params):
     "output a debug string if a debug.postfix.name config option is present"

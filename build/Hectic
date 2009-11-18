@@ -1,4 +1,5 @@
 #-*- mode: python -*-
+config.setdefault("debug::", 1)
 config["repositories"] = ["../vancouver", "../nova"]
 execfile("../nova/tools/mk/nulbuildenv.py")
 
