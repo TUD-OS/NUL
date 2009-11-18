@@ -1,19 +1,17 @@
-	.intel_syntax noprefix
-
 	.global _start
 	.section .text._start
 _start:
 	// ESP points to HIP. Below the HIP is our initial UTCB, which
 	// is always 4K at the moment.
-	mov	eax, esp
+        mov     %esp, %eax
 
 	// Setup initial stack and let the first word on the stack
 	// point to our UTCB.
-	mov	esp, offset stack
-	push 	eax
-	sub	[dword ptr esp], 0x1000
+	mov	$stack, %esp
+	push 	%eax
+	subl	$0x1000, (%esp)
 
-	push	offset _abort
+	pushl	$_abort
 	jmp	start
 
 	.section .text._abort

@@ -36,21 +36,27 @@ tree. You will not be disappointed.
 
   =git clone ssh://os.inf.tu-dresden.de/srv/git/repos/nul.git=
 
-* Directory Layout
+* Development
+
+This section is aimed at the prospective NUL hacker. Its purpose is to
+boot your knowledge about nul to a point where you can start hacking
+on it.
+
+** Directory Layout
 
   The NUL tree consists of several applications and libraries, which
   are loosely grouped by topic into repositories. Each subdirectory of
   the top-level directory is a repository.
 
-** /nova/
+*** /nova/
 
    The kernel bindings and a very small example roottask live in this
    repository.
 
-** TODO Describe /vancouver/
-*** INPROGRESS Move vancouver/lib/runtime into nova/
+*** TODO Describe /vancouver/
 
-* Building
+
+** Building
 
   To build NUL you need a build directory. Luckily, there is already a
   preconfigured one in /build/. We use a minimal SCons-based build
@@ -60,6 +66,65 @@ tree. You will not be disappointed.
 
   To use a customized build configuration, copy the default build
   repository and adapt its SConstruct file.
+
+** TODO Booting 
+
+** Using Git
+
+   We use git to manage our source code. (Un)fortunately, there are
+   many ways to use git. Let's summarize some hints and "best
+   practices". If you are completely unfamiliar with Git, you should
+   read one of the many tutorials first. A good one for the
+   Subversion-proficient reader is http://git.or.cz/course/svn.html.
+
+*** User Setup
+
+    It is important to use your real name and a working email address as these are stored in your commits. Set them using:
+
+    - =git config --global user.name yourname=
+    - =git config --global user.email you@yourdomain.example.com=
+
+*** Simple Updating and Committing
+
+    If you cloned the repository as shown [[git clone][above]], you can pull the
+    latest changes from the central repository by simply typing =git
+    pull=. If you have local commits and someone else committed to the
+    central repository, this will automatically create a merge between
+    your repository head and the head of the central repository.
+
+    =git push= does the reverse and pushes your changes to the central
+    server.
+
+*** Rebase
+
+    There are two downsides to the simple approach: Pulling blindly
+    might be undesirable in some cases, as it can create a lot of
+    conflicts. A second downside is the creation of a non-linear
+    history, if you push the created merge commits back to the central
+    repository. This is easily avoidable, except for very complex
+    patches and merging of long-lived branches.
+
+    A slightly more complex way to update your tree and commit your
+    changes is to first inspect the changes your co-workers commited
+    and then /rebase/ your changes on top of theirs before you push
+    them to the central repository. Rebasing your local changes before
+    committing keeps the central history merge-free and linear, which
+    is a good thing!
+
+    The workflow would thus be:
+    
+    - =git remote update= to get the latest changes from the central repository[fn:2]
+    - =gitk --all= (for X11 users) or =tig --all= (for those console junkies) to see your local branches as well as the remote branches.
+    - =git rebase origin/master= to rebase your local commits on top
+      of the central repository's head. If you like to reorder or
+      squash your commits[fn:3], you can pass the =-i= flag to rebase.
+
+    At this point, your local branch contains all commits from the
+    central repository with your commits on top of them. If you wish
+    to commit them, you can now do =git push= to send them to the
+    central repository.
+
+** TODO Using the Build System
 
 * Tasks
 ** TODO Port existing code to C-friendly syscall bindings in nova/
@@ -73,3 +138,7 @@ tree. You will not be disappointed.
 * Footnotes
 
 [fn:1] We are actively exploring alternatives to write our build system, but SCons fills in quite nicely for now.
+
+[fn:2] This step might be optional. I have to check this.
+
+[fn:3] Git rocks, doesn't it?
