@@ -1,4 +1,0 @@
-#-*- mode: python -*-
-print "build",config.values
-h.put(Job("first"))
-h.put(Job("second"))

@@ -1,5 +1,4 @@
 #-*- mode: python -*-
-config["debug.."] = 1
 config["repositories"] = ["../vancouver", "../nova"]
-execfile("../nova/tools/mk/nulbuildenv")
+execfile("../nova/tools/mk/nulbuildenv.py")
 
