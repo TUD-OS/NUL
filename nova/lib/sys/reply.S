@@ -1,23 +1,21 @@
-	.intel_syntax noprefix
-
 	.section .text._reply_and_wait
 	.global _reply_and_wait
 _reply_and_wait_fast:
 	// We come here via a return from a portal function, which was
 	// called from an empty stack. The first word on the stack is
 
-	mov	esi, [esp]	// ESI = &utcb
-	mov	esi, [esp + 4]	// ESI = utcb->mtr
+        mov     (%esp),  %esi	// ESI = &utcb
+        mov     4(%esp), %esi	// ESI = utcb->mtr
 
-	xor	eax, eax
-	inc	eax		// EAX = REPLY
+        xor     %eax, %eax
+        inc     %eax            // EAX = REPLY
 
 	// ECX contains the new stack address.
-	push	offset _reply_and_wait_fast
-	mov	ecx, esp
+	pushl	$_reply_and_wait_fast
+	mov	%esp, %ecx
 
 	// EDX return address. Only used in case of an error.
-	mov	edx, offset _abort
+	mov	$_abort, %edx
 	sysenter
 
 	// EOF
