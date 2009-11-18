@@ -27,7 +27,7 @@ def debug(postfix, name, *params):
         print "\t", s
 
 class Job:
-    "Jobs have a name and can have dependencies and return values."
+    "Jobs have a name and can have dependencies and return failure codes."
     def __init__(self, name, **params):
         self.name = name
         self.rdeps = []
@@ -37,13 +37,14 @@ class Job:
         if params.has_key("deps"):
             self.add_dep(*self.deps)
     def add_dep(self, *deps):
+        "add jobs that need to be finished before we can be executed"
         self.wait += len(deps)
         for s in deps:
             s.rdeps.append(self)
 
     def execute(self, hectic):
         """execute this event, new events can be generated and be put into the workqueue
-        If we are finished successful, we wakeup Nodes that depend on ourself"""
+        If we are finished successful, we wakeup Nodes that depend on ourself."""
 
         if not self.res:
             debug("...", "success", self.__class__.__name__, self.name)
