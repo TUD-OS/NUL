@@ -9,9 +9,10 @@ def find_path(path, filename):
         f = os.path.join(p, filename)
         if os.path.exists(f):
             return p,n
-    raise Exception("could not find '%s' in repos %s"%(path, repos))
+    raise Exception("could not find '%s' in repos %s"%(os.path.join(path, filename), repos))
 
 def search_files(*files):
+    "search files in the repositories"
     return map(lambda x: os.path.normpath(os.path.join(x[0], x[1])), map(lambda z: find_path(z, ""), files))
 
 def has_changed(dest, sources):
@@ -46,6 +47,7 @@ class LoadLocalHectic(Job):
             job.name = os.path.join(goal, job.name)
             queue.put(job)
         debug("LoadLocal", path, appname, config.values.keys())
+        Job.execute(self, queue)
         
 class NovaApp(Job):
     def execute(self, queue):
@@ -54,8 +56,11 @@ class NovaApp(Job):
         objs = map(lambda x: type(x) != type("") and x or Buildgcc(os.path.join(self.goal, x), env=self.env, include=self.include, goal=self.goal), self.src)
         l.objects = map(lambda x: x.dest(), objs)
         l.add_deps(queue, objs)
+        Job.execute(self, queue)
+
 
 class ShellJob(Job):
+    "A job that executes a shell command"
     def system(self, cmd):
         debug("sh", cmd)
         os.system(cmd)
@@ -91,5 +96,6 @@ class Buildgcc(ShellJob):
         ShellJob.execute(self, q)
 
 
-for goal in config.get("","goals").split():  
-    h.put(LoadLocalHectic(goal))
+if __name__ == "__main__":
+    for goal in config.get("","goals").split():  
+        h.put(LoadLocalHectic(goal))
