@@ -45,7 +45,7 @@ class LoadLocalHectic(Job):
             job.path = path
             job.goal = goal
             job.name = os.path.join(goal, job.name)
-            hectic.put(job)
+            job.add_dep(self)
         debug("Load", path, appname, config.values.keys())
         Job.execute(self, hectic)
         
@@ -53,7 +53,7 @@ class ShellJob(Job):
     "A job that executes a shell command"
     def system(self, cmd):
         debug("sh", cmd)
-        os.system(cmd)
+        self.res = self.res or os.system(cmd)
 
 class NulObject(ShellJob):
     "build an object file from a source"

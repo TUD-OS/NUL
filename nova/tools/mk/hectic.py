@@ -27,11 +27,12 @@ def debug(postfix, name, *params):
         print "\t", s
 
 class Job:
-    "Jobs have a name and can have dependencies."
+    "Jobs have a name and can have dependencies and return values."
     def __init__(self, name, **params):
         self.name = name
         self.rdeps = []
         self.wait  = 0
+        self.res   = None
         self.__dict__.update(params)
         if params.has_key("deps"):
             self.add_dep(*self.deps)
@@ -40,16 +41,20 @@ class Job:
         for s in deps:
             s.rdeps.append(self)
 
-    def execute(self, q):
-        "execute this event, new events can be generated and be put into the workqueue"
-        # wakeup Nodes depending on ourself
-        debug("...", "executed", self, self.rdeps)
-        self.wait -= 1
-        for r in self.rdeps:
-            assert r.wait,(r.wait, self)
-            r.wait -= 1
-            if r.wait == 0:
-                q.put(r)
+    def execute(self, hectic):
+        """execute this event, new events can be generated and be put into the workqueue
+        If we are finished successful, we wakeup Nodes that depend on ourself"""
+
+        if not self.res:
+            debug("...", "success", self.__class__.__name__, self.name)
+            self.wait -= 1
+            for r in self.rdeps:
+                assert r.wait,(r.wait, self)
+                r.wait -= 1
+                if r.wait == 0:
+                    hectic.put(r)
+        else:
+            debug("...", "error", self.res, self.__class__.__name__, self.name)
 
 class Hectic:
     """Hectic consists of a couple worker threads waiting on a queue for
