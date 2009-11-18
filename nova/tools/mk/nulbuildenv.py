@@ -15,7 +15,7 @@ def search_files(*files):
     "search files in the repositories"
     return map(lambda x: os.path.normpath(os.path.join(x[0], x[1])), map(lambda z: find_path(z, ""), files))
 
-def has_changed(dest, sources):
+def has_changed(dest, *sources):
     "check whether a dest is newer than its sources"
     # we could cache results here, but we do not have to
     try:
@@ -46,54 +46,72 @@ class LoadLocalHectic(Job):
             job.goal = goal
             job.name = os.path.join(goal, job.name)
             queue.put(job)
-        debug("LoadLocal", path, appname, config.values.keys())
+        debug("Load", path, appname, config.values.keys())
         Job.execute(self, queue)
         
-class NovaApp(Job):
-    def execute(self, queue):
-        debug("NovaApp", self.name)
-        l = NovaLinking(self.name, env=self.env, goal=self.goal, linkfile=self.linkfile)
-        objs = map(lambda x: type(x) != type("") and x or Buildgcc(os.path.join(self.goal, x), env=self.env, include=self.include, goal=self.goal), self.src)
-        l.objects = map(lambda x: x.dest(), objs)
-        l.add_deps(queue, objs)
-        Job.execute(self, queue)
-
-
 class ShellJob(Job):
     "A job that executes a shell command"
     def system(self, cmd):
         debug("sh", cmd)
         os.system(cmd)
 
-class NovaLinking(ShellJob):
-    def execute(self, q):
-        linkfile = search_files(os.path.join(self.goal, self.linkfile))[0]
-        if has_changed(self.name, self.objects+[linkfile]):
-            self.system("ld -N -m elf_i386 -gc-sections -o %s -T %s %s"%(self.name, linkfile, " ".join(self.objects)))
-        ShellJob.execute(self, q)
-
-
-class Buildgcc(ShellJob):
+class NulObject(ShellJob):
+    "build an object file from a source"
     def dest(self):
         return self.name+".o"
     def changed(self):
         if os.path.exists(self.name+".d"):
             l = open(self.name+".d").read().replace("\\\n", "").split(":")
             assert len(l) == 2 and l[0] == self.dest()
-            return has_changed(self.dest(), l[1].split())
+            return has_changed(self.dest(), *l[1].split())
         return True
-        
     def execute(self, q):
         env = self.env
         if self.changed():
             is_cpp = self.name.endswith(".cc")
-            self.system("%s -c -o %s %s %s %s"%(
+            self.system("%s -c -MD %s %s %s -o %s "%(
                     is_cpp and "g++" or "gcc",
-                    self.dest(),
                     env[is_cpp and "CXXFLAGS" or "CFLAGS"],
                     " ".join(map(lambda x: "-I%s"%(x), search_files(*map(lambda x: os.path.join(self.goal, x), self.include)))),
-                    " ".join(search_files(self.name))))
+                    " ".join(search_files(self.name)), self.dest()))
         ShellJob.execute(self, q)
+
+
+class NulLink(ShellJob):
+    "link an object"
+    def execute(self, q):
+        linkfile = search_files(os.path.join(self.goal, self.linkfile))[0]
+        if has_changed(self.name, linkfile, *self.objects):
+            self.system("ld %s -o %s -T %s %s"%(self.env["LDFLAGS"], self.name, linkfile, " ".join(self.objects)))
+        ShellJob.execute(self, q)
+
+class StripJob(ShellJob):
+    "strip an application"
+    def execute(self, q):
+        if has_changed(self.name, self.src):
+            self.system("strip -o %s %s"%(self.name, self.src))
+        ShellJob.execute(self, q)
+
+class GzipJob(ShellJob):
+    def execute(self, q):
+        if has_changed(self.name, self.src):
+            self.system("gzip -c %s > %s"%(self.src, self.name))
+        ShellJob.execute(self, q)
+    
+
+class NulApp(Job):
+    "build a NUL application"
+    def execute(self, queue):
+        debug("NulApp", self.name)
+        objs = map(lambda x: type(x) != type("") and x or NulObject(os.path.join(self.goal, x), env=self.env, include=self.include, goal=self.goal), self.src)
+        link = NulLink(self.name+".nuldebug", env=self.env, goal=self.goal, linkfile=self.linkfile, objects = map(lambda x: x.dest(), objs))
+        link.add_dep(queue, *objs)
+        strip = StripJob(self.name+".nul", src=link.name)
+        strip.add_dep(queue, link)
+        c = GzipJob(strip.name+".gz", src=strip.name)
+        c.add_dep(queue, strip)
+        Job.execute(self, queue)
+
 
 
 if __name__ == "__main__":

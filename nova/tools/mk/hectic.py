@@ -18,7 +18,7 @@ class State:
 
 def debug(postfix, name, *params):
     "output a debug string if a debug.postfix.name config option is present"
-    if config.get(None, "debug", postfix, name): print "%s: '%s'"%(postfix, name), " ".join(map(str,params))
+    if config.get(None, "debug", postfix, name): print "%s\t'%s'"%(postfix, name), " ".join(map(str,params))
 
 class Job:
     "Jobs have a name and can have dependencies."
@@ -27,7 +27,7 @@ class Job:
         self.rdeps = []
         self.wait  = 0
         self.__dict__.update(params)
-    def add_deps(self, q, deps):
+    def add_dep(self, q, *deps):
         self.wait += len(deps)
         for s in deps:
             s.rdeps.append(self)
