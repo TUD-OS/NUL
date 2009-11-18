@@ -124,6 +124,8 @@ on it.
     to commit them, you can now do =git push= to send them to the
     central repository.
 
+** TODO Using the Build System
+
 * Tasks
 ** TODO Port existing code to C-friendly syscall bindings in nova/
 ** TODO Organize 3rd-Party Source Code
