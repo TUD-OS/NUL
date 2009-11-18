@@ -6,7 +6,6 @@
 
 NOVA_BEGIN
 
-
 typedef struct Descriptor {
   uint16_t sel;
   uint16_t ar;

@@ -51,24 +51,16 @@ NOVA_INLINE Mtd untyped_words(unsigned u) { return u; }
 NOVA_INLINE Mtd typed_words(unsigned x) { return x << 23; }
 
 NOVA_INLINE Cap_range mem_range(uint32_t address, uint8_t order, uint8_t access)
-{
-  return 1 | (access << 2) | (order << 7) | address;
-}
+{ return 1 | (access << 2) | (order << 7) | address; }
 
 NOVA_INLINE Cap_range io_range(uint16_t io_address, uint8_t order)
-{
-  return 2 | (order << 7) | (io_address << 12);
-  }
+{ return 2 | (order << 7) | (io_address << 12); }
 
 NOVA_INLINE Cap_range obj_range(Cap_idx idx, uint8_t order)
-{
-    return 3 | (order << 7) | (idx << 12);
-}
+{ return 3 | (order << 7) | (idx << 12); }
 
 NOVA_INLINE Qpd make_qpd(uint8_t prio, uint32_t quantum)
-{
-  return prio | ( quantum << 12);
-}
+{ return prio | ( quantum << 12); }
 
 NOVA_END
 
