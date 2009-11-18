@@ -1,14 +1,16 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('output_dir')
 Import('target_env')
 
-target_env.Link(output_dir + '/apps/example.nova',
-                [
-                  'main.c',
-                  
-                  ],
-                LIBS = ['sys'],
-                linkscript = "roottask.ld")
+nul.App(target_env, output_dir,
+        "example",
+        SOURCES = [ 'main.c' ],
+        # LIBS defaults to ['nova']
+        LIBS = ['string', 'nova'],
+        # LINKSCRIPT defaults to example.ld
+        LINKSCRIPT = 'roottask.ld')
 
 # EOF
