@@ -14,11 +14,17 @@ class State:
             if self.values.has_key(st):  return self.values[st]
         return default
     def __setitem__(self, key, value): self.values[key] = value
-    def setdefault(self, key, value): self.values.setdefault(key, value)
+    def setdefault(self, key, value):  self.values.setdefault(key, value)
+    def has_key(self, key):     return self.values.has_key(key)
 
 def debug(postfix, name, *params):
     "output a debug string if a debug.postfix.name config option is present"
-    if config.get(None, "debug", postfix, name): print "%s\t'%s'"%(postfix, name), " ".join(map(str,params))
+    if config.get(None, "debug", postfix, name):
+        d = config.get(80, "debuglen")
+        s = "%s\t%s %s"%(postfix, name," ".join(map(str, params)))
+        if d < len(s):
+            s = s[:d/2]+ " ... " + s[-d/2:]
+        print "\t", s
 
 class Job:
     "Jobs have a name and can have dependencies."
@@ -27,16 +33,18 @@ class Job:
         self.rdeps = []
         self.wait  = 0
         self.__dict__.update(params)
-    def add_dep(self, q, *deps):
+        if params.has_key("deps"):
+            self.add_dep(*self.deps)
+    def add_dep(self, *deps):
         self.wait += len(deps)
         for s in deps:
             s.rdeps.append(self)
-            if not s.wait:
-                q.put(s)
+
     def execute(self, q):
         "execute this event, new events can be generated and be put into the workqueue"
         # wakeup Nodes depending on ourself
-        debug("execute", "executed", self, self.rdeps)
+        debug("...", "executed", self, self.rdeps)
+        self.wait -= 1
         for r in self.rdeps:
             assert r.wait,(r.wait, self)
             r.wait -= 1
@@ -53,16 +61,16 @@ class Hectic:
         while True:
             try:
                 job = self.q.get()
-                debug("===", job.name)
+                debug("---", job.name)
                 job.execute(self)
             except:
                 import traceback
                 traceback.print_exc()
-            debug("<<<", job.name)
+            debug("<--", job.name)
             self.q.task_done()
     def put(self, job):
         "put something in the work queue"
-        debug(">>>", job.name)
+        debug("-->", job.name)
         self.q.put(job)
     def run(self):
         "run and wait for all jobs to finish"
