@@ -1,1 +1,0 @@
-../../lib/tinf/src/tinf.h

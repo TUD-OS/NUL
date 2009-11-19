@@ -1,6 +1,6 @@
 #include "vmm/message.h"
 #include "host/screen.h"
-#include "sigma0/sigma0.h"
+#include <sigma0.h>
 
 /**
  * A helper class that implements a vga console and forwards message to sigma0.

@@ -6,15 +6,13 @@
  */
 
 #include "sys/console.h"
-#include "sys/syscalls.h"
 #include "driver/logging.h"
 #include "vmm/message.h"
 #include "vmm/timer.h"
 #include "vmm/math.h"
-#include "vmm/cpu.h"
-#include "sigma0/sigma0.h"
+#include <sigma0.h>
 
-#include <tinf/tinf.h>
+#include <tinf.h>
 
 #define LINES 1024
 #define ROWS   768
