@@ -5,7 +5,7 @@ reply_and_wait_fast:
 	// called from an empty stack. The first word on the stack is
 
         mov     (%esp),  %esi	// ESI = &utcb
-        mov     4(%esp), %esi	// ESI = utcb->mtr
+        mov     4(%esi), %esi	// ESI = utcb->mtr
 
         xor     %eax, %eax
         inc     %eax            // EAX = REPLY
