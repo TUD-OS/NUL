@@ -31,8 +31,8 @@ typedef struct HipCpu {
 typedef struct HipMem {
   uint64_t address;
   uint64_t size;
-  int16_t type;
-  uint16_t aux;
+  int32_t  type;
+  uint32_t aux;
 } NOVA_PACKED HipMem;
 
 typedef struct Hip {
