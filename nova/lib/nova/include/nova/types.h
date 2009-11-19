@@ -22,7 +22,11 @@ enum {
   CAP_W   = 2,
   CAP_X   = 4,
   CAP_RW  = CAP_R | CAP_W,
-  CAP_RWX = CAP_RW | CAP_X
+  CAP_RWX = CAP_RW | CAP_X,
+
+  CRD_MEM = 1,
+  CRD_IO  = 2,
+  CRD_OBJ = 3,
 };
 
 enum {
@@ -57,13 +61,13 @@ NOVA_INLINE unsigned mtd_typed(Mtd m) { return m >> 23; }
 NOVA_INLINE unsigned mtd_untyped(Mtd m) { return m & ((1<<23)-1); }
 
 NOVA_INLINE Crd mem_range(uint32_t address, uint8_t order, uint8_t access)
-{ return 1 | (access << 2) | (order << 7) | address; }
+{ return CRD_MEM | (access << 2) | (order << 7) | address; }
 
 NOVA_INLINE Crd io_range(uint16_t io_address, uint8_t order)
-{ return 2 | (order << 7) | (io_address << 12); }
+{ return CRD_IO  | (order << 7)  | (io_address << 12); }
 
 NOVA_INLINE Crd obj_range(Cap_idx idx, uint8_t order)
-{ return 3 | (order << 7) | (idx << 12); }
+{ return CRD_OBJ | (order << 7) | (idx << 12); }
 
 NOVA_INLINE Qpd qpd(uint8_t prio, uint32_t quantum)
 { return prio | ( quantum << 12); }
