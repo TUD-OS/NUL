@@ -221,7 +221,7 @@ private:
   /**
    * Init the pager and the console.
    */
-  unsigned __attribute__((noinline)) preinit(Hip *hip)
+  unsigned preinit(Hip *hip)
   {
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
@@ -712,7 +712,7 @@ public:
   }
 
 
-  void  __attribute__((always_inline, noreturn)) run(Hip *hip)
+  NOVA_NORETURN void run(Hip *hip)
   {
     unsigned res;
     if ((res = preinit(hip)))              Logging::panic("init() failed with %x\n", res);
