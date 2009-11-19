@@ -2,8 +2,7 @@
 
 import SCons.Script
 
-# XXX How do we do this?
-#SCons.Script.Import(['target_env', 'output_dir'])
+output = '#bin'
 
 def AppEnv(tenv, libs):
     """Clone tenv and modify it to make the given libs available."""
@@ -20,7 +19,7 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = [ '#lib/%s/include' % lib ])
     return env
 
-def App(tenv, output, name, SOURCES = [], LIBS = ['nova'],
+def App(tenv, name, SOURCES = [], LIBS = ['nova'],
         LINKSCRIPT = None):
     env = AppEnv(tenv, LIBS)
     if not LINKSCRIPT:
@@ -29,7 +28,7 @@ def App(tenv, output, name, SOURCES = [], LIBS = ['nova'],
                     SOURCES,
                     linkscript = LINKSCRIPT)
 
-def Lib(tenv, output, name, SOURCES = [], LIBS = ['nova']):
+def Lib(tenv, name, SOURCES = [], LIBS = ['nova']):
     env = LibEnv(tenv, LIBS + [ name ])
     return env.StaticLibrary(output + "/lib/%s" % name,
                              SOURCES)

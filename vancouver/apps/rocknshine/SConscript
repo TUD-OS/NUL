@@ -1,16 +1,15 @@
 # -*- Mode: Python -*-
 
-Import('output_dir')
 Import('target_env')
 Import('host_env')
 
-target_env.Link(output_dir + '/apps/rocknshine.nova',
+target_env.Link('#bin/apps/rocknshine.nova',
                 [ 'rocknshine.cc',
                   ],
                 LIBS=['runtime', 'tinf'],
                 linkscript="linker.ld")
 
-host_env.Command(output_dir + '/apps/rocknshine.example', ['pdfprepare.py', 'presentation.pdf'],
+host_env.Command('#bin/apps/rocknshine.example', ['pdfprepare.py', 'presentation.pdf'],
                  '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
 
 # EOF

@@ -3,9 +3,8 @@
 import nul
 
 Import('target_env')
-Import('output_dir')
 
-nul.Lib(target_env, output_dir,
+nul.Lib(target_env,
         "nova",
         SOURCES = [ 'start.S',
                     'reply.S',

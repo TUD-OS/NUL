@@ -1,9 +1,8 @@
 # -*- Mode: Python -*-
 
-Import('output_dir')
 Import('target_env')
 
-target_env.Link(output_dir + '/apps/vancouver.nova',
+target_env.Link('#bin/apps/vancouver.nova',
                 [ 'vancouver.cc',
 
                   # Host driver

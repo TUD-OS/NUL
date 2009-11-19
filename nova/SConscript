@@ -22,11 +22,6 @@ def chomp(line):
         line = line[:-1]
     return line
 
-# Target directories
-
-output_dir = ARGUMENTS.get('output', '#bin')
-print('Binaries are generated in %s.' % output_dir)
-
 # Compilation flags
 
 opt_arch = 'core2'
@@ -106,7 +101,6 @@ target_env.AddMethod(link, "Link")
 Export('host_env')
 Export('target_env')
 Export('debug_opts')
-Export('output_dir')
 
 SConscript(Glob('*/SConscript'))
 
