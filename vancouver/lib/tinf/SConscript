@@ -1,9 +1,12 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('target_env')
 
-target_env.StaticLibrary('#bin/lib/tinf',
-                         [
+nul.Lib(target_env,
+        "tinf",
+        SOURCES = [
         'src/tinflate.c',
         'src/tinfgzip.c',
         'src/tinfzlib.c',
