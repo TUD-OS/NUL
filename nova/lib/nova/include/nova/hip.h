@@ -31,9 +31,9 @@ struct HypervisorCpuDesc {
 struct HypervisorMemDesc {
   uint64_t address;
   uint64_t size;
-  int16_t type;
-  uint16_t auxiliary;
-} NOVA_PACKED;
+  int32_t  type;
+  uint32_t aux;
+} NOVA_PACKED HipMem;
 
 struct HypervisorInfoPage {
   uint32_t signature;
