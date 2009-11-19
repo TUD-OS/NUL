@@ -29,16 +29,18 @@ typedef struct Descriptor {
   };
 
 
+typedef struct Utcb_head {
+  Cap_idx   pid;
+  Mtd       mtr;
+  Crd       crd;
+  Cap_idx   exc;
+  uint32_t  _reserved;
+  uint32_t  tls;
+} NOVA_PACKED Utcb_head;
+
 typedef struct Utcb
 {
-  struct head {
-    Cap_idx   pt;
-    Mtd       mtr;
-    Cap_range rcv;
-    Cap_idx   exc;
-    uint32_t  _reserved;
-    uint32_t  tls;
-  } head;
+  Utcb_head head;
   union {
     struct {
       union {
@@ -56,7 +58,7 @@ typedef struct Utcb
 	uint32_t gpr[8];
       };
 
-      uint32_t eflags;
+      uint32_t efl;
       uint32_t eip;
       uint32_t cr0;
       uint32_t cr2;
@@ -91,10 +93,14 @@ typedef struct Utcb
       uint32_t sysenter_eip;
 
       uint32_t items[];
-    } state;
-    uint32_t msg[1024 - sizeof(struct head) / sizeof(uint32_t)];
+    };
+    uint32_t msg[1024 - sizeof(struct Utcb_head) / sizeof(uint32_t)];
   };
 } NOVA_PACKED Utcb;
+
+enum { MAPMINSHIFT = 12, };
+NOVA_EXTERN_C uint32_t utcb_add_mappings(Utcb *utcb, bool exception, uint32_t addr,
+					 uint32_t size, uint32_t hotspot, unsigned rights);
 
 NOVA_END
 

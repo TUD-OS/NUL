@@ -17,10 +17,9 @@
 
 
 #include <cassert>
-#include <cstring>
+#include <string.h>
 #include "driver/vprintf.h"
 #include "vmm/math.h"
-
 
 /**
  * Output a number with base.

@@ -1,6 +1,6 @@
-	.section .text._reply_and_wait
-	.global _reply_and_wait
-_reply_and_wait_fast:
+	.section .text.reply_and_wait_fast
+	.global reply_and_wait_fast
+reply_and_wait_fast:
 	// We come here via a return from a portal function, which was
 	// called from an empty stack. The first word on the stack is
 
@@ -11,7 +11,7 @@ _reply_and_wait_fast:
         inc     %eax            // EAX = REPLY
 
 	// ECX contains the new stack address.
-	pushl	$_reply_and_wait_fast
+	pushl	$reply_and_wait_fast
 	mov	%esp, %ecx
 
 	// EDX return address. Only used in case of an error.

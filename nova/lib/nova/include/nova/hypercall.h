@@ -116,8 +116,8 @@ NOVA_NORETURN NOVA_INLINE void reply(Mtd mtd, void *esp)
   NOVA_NOTREACHED;
 }
 
-NOVA_INLINE uint8_t create_pd(Cap_idx pd, Utcb *utcb, Qpd qpd, Cap_range obj, bool vm)
-{ return hypercall_4(CREATE_PT, vm ? 1 : 0, pd, NOVA_CAST(uint32_t, utcb), qpd, obj); }
+NOVA_INLINE uint8_t create_pd(Cap_idx pd, uint32_t utcb_addr, Qpd qpd, Crd obj, bool vm)
+{ return hypercall_4(CREATE_PD, vm ? 1 : 0, pd, utcb_addr, qpd, obj); }
 
 NOVA_INLINE uint8_t create_ec(Cap_idx ec, Utcb *utcb, void *sp)
 { return hypercall_3(CREATE_EC, 0, ec, NOVA_CAST(uint32_t, utcb), NOVA_CAST(uint32_t, sp)); }
@@ -125,8 +125,8 @@ NOVA_INLINE uint8_t create_ec(Cap_idx ec, Utcb *utcb, void *sp)
 NOVA_INLINE uint8_t create_sc(Cap_idx sc, Cap_idx ec, Qpd qpd)
 { return hypercall_3(CREATE_SC, 0, sc, ec, qpd); }
 
-NOVA_INLINE uint8_t create_pt(Cap_idx pt, Cap_idx ec, Mtd mtd, uint32_t ip)
-{ return hypercall_4(CREATE_PT, 0, pt, ec, mtd, ip); }
+NOVA_INLINE uint8_t create_pt(Cap_idx pt, Cap_idx ec, Mtd mtd, Portal_fn ip)
+{ return hypercall_4(CREATE_PT, 0, pt, ec, mtd, NOVA_CAST(uint32_t, ip)); }
 
 NOVA_INLINE uint8_t create_sm(Cap_idx sm, uint32_t count)
 { return hypercall_2(CREATE_SM, 0, sm, count); }
@@ -134,7 +134,7 @@ NOVA_INLINE uint8_t create_sm(Cap_idx sm, uint32_t count)
 NOVA_INLINE uint8_t recall(Cap_idx ec)
 { return hypercall_1(RECALL, 0, ec); }
 
-NOVA_INLINE uint8_t revoke(Cap_range caps, bool self)
+NOVA_INLINE uint8_t revoke(Crd caps, bool self)
 {
   uint8_t res = hypercall_1(REVOKE, self ? 1 : 0, caps);
   NOVA_MEMCLOBBER;
@@ -143,6 +143,8 @@ NOVA_INLINE uint8_t revoke(Cap_range caps, bool self)
 
 NOVA_INLINE uint8_t semup(Cap_idx sm) { return hypercall_1(SEMCTL, 0, sm); }
 NOVA_INLINE uint8_t semdown(Cap_idx sm) { return hypercall_1(SEMCTL, 1, sm); }
+
+NOVA_EXTERN_C NOVA_NORETURN NOVA_REGPARM(1) void reply_and_wait_fast(Utcb *utcb);
 
 NOVA_END
 

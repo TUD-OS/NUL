@@ -15,13 +15,11 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include <cstring>
+#include <string.h>
 #include <cstdlib>
-#include "vmm/cpu.h"
 #include "driver/logging.h"
 #include "driver/vprintf.h"
-#include "sys/hip.h"
-#include "sys/syscalls.h"
+#include <nova.h>
 #include "sys/region.h"
 
 
@@ -33,7 +31,7 @@
  * Unfortunately this can not be a template.
  */
 #define ASMFUNCS(X)				\
-  extern "C" void start(Hip *hip)		\
+  extern "C" void start(Nova::Hip *hip)		\
   {						\
     (new X())->run(hip);			\
   }						\
@@ -59,10 +57,14 @@ class NovaProgram
   };
  protected:
 
-  Hip *     _hip;
-  Utcb *    _boot_utcb;
-  unsigned  _cap_free;
-  unsigned  _cap_block;
+  typedef ::Nova::Utcb Utcb;
+  typedef ::Nova::Hip Hip;
+  typedef ::Nova::Cap_idx Cap_idx;
+
+  Hip  *_hip;
+  Utcb *_boot_utcb;
+  Cap_idx  _cap_free;
+  Cap_idx  _cap_block;
 
   // memory map
   RegionList<512> _free_virt;
@@ -88,7 +90,7 @@ class NovaProgram
     void **stack = reinterpret_cast<void **>(memalign(0x4000, stack_size));
     
     stack[stack_size/sizeof(void *) - 1] = utcb;
-    stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
+    stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(Nova::reply_and_wait_fast);
     Logging::printf("\t\tcreate ec id %d stack %p utcb %p at %p = %p tls %x\n", 
 		    _cap_free, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
     check(create_ec(_cap_free, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME));
@@ -104,37 +106,40 @@ class NovaProgram
    */
   unsigned __attribute__((noinline)) init(Hip *hip)
   {
-    check(hip->calc_checksum());
+    #warning HIP checksum disabled.
+    // check(hip->calc_checksum());
     _hip = hip;
     _boot_utcb = reinterpret_cast<Utcb *>(hip) - 1;
-    _cap_free = hip->cfg_pre + hip->cfg_gsi;
-    create_sm(_cap_block = _cap_free++);
+    _cap_free = hip->pre + hip->gsi;
+    Nova::create_sm(_cap_block = _cap_free++, 0);
 
     // prepopulate phys+virt memory
     extern char __image_start, __image_end;
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(_boot_utcb) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
-    _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, hip->get_mod(0)->addr));
+    _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start,
+			  Nova::hip_module(hip, 0)->address));
     return 0;
   };
 
   /**
    * Block ourself.
    */
-  void __attribute__((noreturn)) block_forever() { while (1) semdown(_cap_block); };
+  void __attribute__((noreturn)) block_forever() { while (1) Nova::semdown(_cap_block); };
 
   static void debug_ec_name(const char *prefix, unsigned value)
   {
+    #warning Using reserved field in UTCB
     Utcb *u = myutcb();
-    u->head.res = 0;
+    u->head._reserved = 0;
     static const char hex[] = "01234567890abcdef";
     for (unsigned i=0; i < 4; i++)
       {
-	u->head.res |= (hex[value & 0xf] & 0xff) << 8*(3-i);
+	u->head._reserved |= (hex[value & 0xf] & 0xff) << 8*(3-i);
 	value >>= 4;
       }
     for (unsigned i=0; i < 4 && prefix[i]; i++)
-      u->head.res = (u->head.res & ~(0xff << i*8)) | (prefix[i] << i*8);
+      u->head._reserved = (u->head._reserved & ~(0xff << i*8)) | (prefix[i] << i*8);
   }
 };
 

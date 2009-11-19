@@ -8,6 +8,7 @@ nul.Lib(target_env,
         "nova",
         SOURCES = [ 'start.S',
                     'reply.S',
+                    'utcb.c',
                     ]) 
 
 # EOF

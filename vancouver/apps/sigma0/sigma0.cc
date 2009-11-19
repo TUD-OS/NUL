@@ -16,10 +16,12 @@
  */
 #include "driver/logging.h"
 #include "models/keyboard.h"
-#include "sigma0/sigma0.h"
+#include <sigma0.h>
 #include "sys/elf.h"
 #include "vmm/motherboard.h"
 #include "host/screen.h"
+
+using namespace Nova;
 
 bool      startlate;
 bool      noswitch;
@@ -37,7 +39,7 @@ private:
   // capabilities
   unsigned  _cap_echo;
   unsigned  _cap_ec_requester;
-  
+
   char     *args;
 
   // irq+worker synchronisation
@@ -49,14 +51,14 @@ private:
   // device data
   Motherboard *_mb;
   volatile unsigned _disk_requests_completed;
-  
+
   // module data
   static const unsigned MAXDISKS = 32;
   static const unsigned long MEM_OFFSET = 1 << 31;
   static const unsigned MAXMODULES = 64;
   static const unsigned MAXDISKREQUESTS = DISKS_SIZE; // max number of outstanding disk requests per client
-  struct ModuleInfo 
-  { 
+  struct ModuleInfo
+  {
     Hip * hip;
     unsigned mod_nr;
     unsigned mod_count;
@@ -93,7 +95,7 @@ private:
   unsigned long find_free_tag(unsigned short client, unsigned char disknr, unsigned long usertag, unsigned long &tag)
   {
     struct ModuleInfo *module = _modinfo + client;
-	
+
     assert (disknr < module->disk_count);
     for (unsigned i = 0; i < MAXDISKREQUESTS; i++)
       if (!module->tags[i].disk)
@@ -111,12 +113,12 @@ private:
    * Returns true on error.
    */
   template<typename T>
-  bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size) 
-  { 
+  bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size)
+  {
     unsigned long offset = reinterpret_cast<unsigned long>(ptr);
     if (offset < MEM_OFFSET || modinfo->physsize + MEM_OFFSET <= offset || size > modinfo->physsize + MEM_OFFSET - offset)
       return true;
-    ptr = reinterpret_cast<T *>(offset + modinfo->mem - MEM_OFFSET); 
+    ptr = reinterpret_cast<T *>(offset + modinfo->mem - MEM_OFFSET);
     return false;
   }
 
@@ -132,27 +134,27 @@ private:
       Logging::printf("(%x) consumer %p out of memory %lx\n", utcb->head.pid, con, modinfo->physsize);
     else
       {
-	res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
+	res = PRODUCER(con, utcb->head.crd >> MAPMINSHIFT);
 	utcb->msg[0] = 0;
       }
 
     //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
     // alloc new cap for next request
-    utcb->head.crd = (_cap_free++ << Utcb::MINSHIFT) | 3;
-    utcb->head.mtr = Mtd(1, 0);
+    utcb->head.crd = (_cap_free++ << MAPMINSHIFT) | 3;
+    utcb->head.mtr = untyped_words(1);
   }
 
   /**
    * Create the needed host devices aka instantiate the drivers.
    */
-  unsigned create_host_devices(Hip *hip) 
+  unsigned create_host_devices(Hip *hip)
   {
 
     // prealloc timeouts for every module
     _timeouts.init();
     for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
 
-    _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
+    _mb = new Motherboard(new Clock(hip->tsc_freq_khz*1000));
     global_mb = _mb;
     _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
     _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>);
@@ -179,7 +181,7 @@ private:
     msg2.ptr += 0x1000;
     _mb->bus_console.send(msg2);
     if (!noswitch) switch_view(_mb, 0);
-    
+
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
     _mb->bus_disk.debug_dump();
@@ -206,7 +208,7 @@ private:
 
 
   static void putc(void *data, long value)
-  {   
+  {
     if (data)
       {
 	PutcData *p = reinterpret_cast<PutcData *>(data);
@@ -226,22 +228,22 @@ private:
     check(init(hip));
 
     Logging::printf("create pf echo thread\n");
-    debug_ec_name("s pf", 0);   
+    debug_ec_name("s pf", 0);
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this));
     _cap_echo = _cap_free++;
-    create_pt(_cap_echo, cap, do_map_wrapper, Mtd());
-    create_pt(14,        cap, do_pf_wrapper,  Mtd(MTD_QUAL | MTD_RIP_LEN, 0));
+    create_pt(_cap_echo, cap, empty_message(), do_map_wrapper);
+    create_pt(14,        cap, MTD_QUAL | MTD_EIP, do_pf_wrapper);
 
     // get all ioports
-    map_self(_boot_utcb, 0, 1 << (16+Utcb::MINSHIFT), 2);
+    map_self(_boot_utcb, 0, 1 << (16+MAPMINSHIFT), 2);
 
     // map our arguments
-    args = map_string(_boot_utcb, hip->get_mod(0)->aux);
+    args = map_string(_boot_utcb, hip_module(hip, 0)->aux);
 
     // map vga memory
     Logging::printf("map vga memory\n");
     _vga = map_self(_boot_utcb, 0xa0000, 1<<17);
-    
+
     // keep the boot screen
     memcpy(_vga + 0x1a000, _vga + 0x18000, 0x1000);
 
@@ -253,7 +255,7 @@ private:
     Logging::init(putc, &putcd);
 
 
-    // get serial port from the bios data area 
+    // get serial port from the bios data area
     char *zeropage = map_self(_boot_utcb, 0x0, 1<<12);
     serial_port = *reinterpret_cast<unsigned short *>(zeropage + 0x400);
     //unmap(zeropage, 1<<12);
@@ -268,23 +270,23 @@ private:
   unsigned __attribute__((noinline)) init_memmap(Utcb *utcb)
   {
     Logging::printf("init memory map\n");
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	Logging::printf("\tmmap[%2x] addr %8llx len %8llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
-	if (hmem->type == 1)
-	  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
+
+    for (unsigned i = 0; i < hip_mem_desc_no(_hip); i++) {
+      HipMem *hmem = hip_mem_desc(_hip, i);
+      Logging::printf("\tmmap[%2x] addr %8llx len %8llx type %2d aux %8x\n", i, hmem->address, hmem->size, hmem->type, hmem->aux);
+      if (hmem->type == MEM_AVAILABLE)
+	_free_phys.add(Region(hmem->address, hmem->size, hmem->address));
+    }
+
+    for (unsigned i = 0; i < hip_mem_desc_no(_hip); i++) {
+      HipMem *hmem = hip_mem_desc(_hip, i);
+      if (hmem->type !=  MEM_AVAILABLE) _free_phys.del(Region(hmem->address, (hmem->size+ 0xfff) & ~0xffful));
+      // make sure to remove the cmdline
+      if (hmem->type == MEM_MULTIBOOT && hmem->aux)  {
+	_free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
       }
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
-	// make sure to remove the cmdline
-	if (hmem->type == -2 && hmem->aux)  { 
-	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
-	}
-      }
-    
+    }
+
     // reserve the very first 1MB
     _free_phys.del(Region(0, 1<<20));
     return 0;
@@ -302,100 +304,110 @@ private:
 	  Logging::printf("Sigma0: ignore drive %lx during attach!\n", nr);
       }
   }
-  
+
 
   unsigned create_requester()
   {
     _lock = Semaphore(&_lockcount, _cap_free++);
-    check(create_sm(_lock.sm()));
+    check(create_sm(_lock.sm(), 0));
     Utcb *utcb;
-    debug_ec_name("s rq", 0);   
+    debug_ec_name("s rq", 0);
     _cap_ec_requester = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb);
-    
+
     // initialize the receive window
-    utcb->head.crd = (_cap_free++ << Utcb::MINSHIFT) | 3;
+    utcb->head.crd = (_cap_free++ << MAPMINSHIFT) | 3;
     return 0;
   }
 
 
+  void hip_append_mem(Hip *hip, uint64_t addr, uint64_t size, int type, uint32_t aux)
+  {
+    HipMem * mem = reinterpret_cast<HipMem *>(reinterpret_cast<char *>(hip) + hip->length);
+    hip->length += hip->mem_desc_size;
+    mem->address = addr;
+    mem->size = size;
+    mem->type = type;
+    mem->aux = aux;
+  }
+
   unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned mask)
   {
     unsigned long maxptr;
-    Hip_mem *mod;
+    HipMem *mod;
     unsigned mods = 0;
-    for (unsigned i=0; mod = _hip->get_mod(i); i++)
-      {
-	char *cmdline = map_string(utcb, mod->aux);
-	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
-	  {
-	    bool vcpus = strstr(cmdline, "sigma0::vmm");
-	    if (++_modcount >= MAXMODULES)
-	      {
-		Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
-		_modcount--;
-		return __LINE__;
-	      }
-	    ModuleInfo *modinfo = _modinfo + _modcount;
-	    memset(modinfo, 0, sizeof(*modinfo));
-	    modinfo->cmdline   = cmdline;
-	    modinfo->mod_nr    = i;
-	    modinfo->mod_count = 1;
-	    modinfo->log = strstr(cmdline, "sigma0::log");
-	    Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
+    for (unsigned i=0; mod = hip_module(_hip, i); i++) {
+      char *cmdline = map_string(utcb, mod->aux);
+      if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
+	{
+	  bool vcpus = strstr(cmdline, "sigma0::vmm");
+	  if (++_modcount >= MAXMODULES)
+	    {
+	      Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+	      _modcount--;
+	      return __LINE__;
+	    }
+	  ModuleInfo *modinfo = _modinfo + _modcount;
+	  memset(modinfo, 0, sizeof(*modinfo));
+	  modinfo->cmdline   = cmdline;
+	  modinfo->mod_nr    = i;
+	  modinfo->mod_count = 1;
+	  modinfo->log = strstr(cmdline, "sigma0::log");
+	  Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
 
-	    // alloc memory
-	    modinfo->physsize = 32 << 20;
-	    char *p = strstr(cmdline, "sigma0::mem:");
-	    if (p) modinfo->physsize = strtoul(p+12, 0, 0) << 20;
-	    if (!(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22)) || !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
-	      {
-		_free_phys.debug_dump("free phys");
-		Logging::printf("(%x) could not allocate %ld MB physmem\n", _modcount, modinfo->physsize >> 20);
-		_modcount--;
-		return __LINE__;
-	      }
-	    Logging::printf("(%x) using memory: %ld MB at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->pmem);
+	  // alloc memory
+	  modinfo->physsize = 32 << 20;
+	  char *p = strstr(cmdline, "sigma0::mem:");
+	  if (p) modinfo->physsize = strtoul(p+12, 0, 0) << 20;
+	  if (!(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22)) || !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
+	    {
+	      _free_phys.debug_dump("free phys");
+	      Logging::printf("(%x) could not allocate %ld MB physmem\n", _modcount, modinfo->physsize >> 20);
+	      _modcount--;
+	      return __LINE__;
+	    }
+	  Logging::printf("(%x) using memory: %ld MB at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->pmem);
 
-	    // allocate a console for it
-	    MessageConsole msg1;
-	    msg1.clientname = cmdline;
-	    if (_mb->bus_console.send(msg1))  modinfo->console = msg1.id;
+	  // allocate a console for it
+	  MessageConsole msg1;
+	  msg1.clientname = cmdline;
+	  if (_mb->bus_console.send(msg1))  modinfo->console = msg1.id;
 
 
-	    //memset(phys_mem, 0, modinfo->physsize);
-				
-	    // decode elf
-	    maxptr = 0;
-	    Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
-	    unsigned  slen = strlen(cmdline) + 1;
-	    unsigned long mod_end = (modinfo->physsize - slen) & ~0xfff;
-	    debug_ec_name(cmdline, 0);   
+	  //memset(phys_mem, 0, modinfo->physsize);
 
-	    // XXX fiasco hack to workaround himem and kmem allocator!
-	    if (strstr(cmdline, "sigma0::fiascohack") && (mod_end > 0x4400000)) mod_end -= 0x4000000;  
-	    memcpy(modinfo->mem + mod_end, cmdline, slen);
-	    attach_drives(cmdline, modinfo);
+	  // decode elf
+	  maxptr = 0;
+	  Elf::decode_elf(map_self(utcb, mod->address, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
+	  unsigned  slen = strlen(cmdline) + 1;
+	  unsigned long mod_end = (modinfo->physsize - slen) & ~0xfff;
+	  debug_ec_name(cmdline, 0);
 
-	    modinfo->hip = reinterpret_cast<Hip *>(modinfo->mem + mod_end - 0x1000);
-	    memcpy(modinfo->hip, _hip, _hip->length);
-	    modinfo->hip->length = modinfo->hip->mem_offs;		
-	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, modinfo->pmem);
-	    modinfo->hip->append_mem(0, 0, -2, mod_end + MEM_OFFSET);
-		
-	    // attach modules
-	    for (;(mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"); modinfo->mod_count++)
-	      ;
-	    i--;
-	    modinfo->hip->fix_checksum();
-	    assert(_hip->length > modinfo->hip->length);
+	  // XXX fiasco hack to workaround himem and kmem allocator!
+	  if (strstr(cmdline, "sigma0::fiascohack") && (mod_end > 0x4400000)) mod_end -= 0x4000000;
+	  memcpy(modinfo->mem + mod_end, cmdline, slen);
+	  attach_drives(cmdline, modinfo);
 
-	    // create special portal for every module, we start at 64k, to have enough space for static fields
-	    unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 4);
-	    check(create_pt(pt+14, _cap_ec_requester, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL | MTD_QUAL, 0)));
-	    Logging::printf(vcpus ? "create VMM\n" : "create PD\n");
-	    check(create_pd(_cap_free++, 0xbfffe000, Crd(pt, 4), Qpd(1, 10000), vcpus));
-	  }
-      }
+	  modinfo->hip = reinterpret_cast<Hip *>(modinfo->mem + mod_end - 0x1000);
+	  memcpy(modinfo->hip, _hip, _hip->length);
+	  modinfo->hip->length = modinfo->hip->mem_offset;
+	  hip_append_mem(modinfo->hip, MEM_OFFSET, modinfo->physsize, 1, modinfo->pmem);
+	  hip_append_mem(modinfo->hip, 0, 0, -2, mod_end + MEM_OFFSET);
+
+	  // attach modules
+	  for (;(mod = hip_module(_hip, ++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"); 
+		 modinfo->mod_count++)
+	    ;
+	  i--;
+	  hip_fix_checksum(modinfo->hip);
+	  assert(_hip->length > modinfo->hip->length);
+
+	  // create special portal for every module, we start at 64k, to have enough space for static fields
+	  unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 4);
+	  check(create_pt(pt+14, _cap_ec_requester,  MTD_EIP | MTD_QUAL, do_request_wrapper));
+	  Logging::printf(vcpus ? "create VMM\n" : "create PD\n");
+	  check(create_pd(_cap_free++, 0xbfffe000, obj_range(pt, 4), qpd(1, 10000), vcpus));
+	}
+    }
     return 0;
   }
 
@@ -412,19 +424,20 @@ private:
 	if (!virt) return 0;
       }
     unsigned old = utcb->head.crd;
-    utcb->head.crd = Crd(0, 20, rights).value();
+    // utcb->head.crd = Crd(0, 20, rights).value();
+    utcb->head.crd = 20<<7 | rights; // XXX ?!
     char *res = reinterpret_cast<char *>(virt);
     unsigned long offset = 0;
     while (size > offset)
       {
-	utcb->head.mtr = Mtd();
-	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
+	utcb->head.mtr = empty_message();
+	unsigned long s = utcb_add_mappings(utcb, false, physmem + offset, size - offset, virt + offset, rights);
 	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx\n", physmem, virt, size, offset, s);
 	offset = size - s;
 	unsigned err;
-	if ((err = idc_call(_cap_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
+	if ((err = call(DCALL, _cap_echo, untyped_words(mtd_typed(utcb->head.mtr)*2))));
 	  {
-	    Logging::printf("map_self failed with %x\n", utcb->head.mtr.typed());
+	    Logging::printf("map_self failed with %x\n", mtd_typed(utcb->head.mtr));
 	    res = 0;
 	    break;
 	  }
@@ -477,22 +490,23 @@ private:
 
 
 #define PT_FUNC_NORETURN(NAME, CODE)					\
-  static void  NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0), noreturn)) \
+  NOVA_REGPARM(0) NOVA_NORETURN static void  NAME##_wrapper(Utcb *utcb)	\
   { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); }		\
   									\
-  void __attribute__((always_inline, noreturn))  NAME(Utcb *utcb)	\
+  NOVA_NORETURN void NAME(Utcb *utcb)					\
   {									\
     CODE;								\
   }
 
 #define PT_FUNC(NAME, CODE, ...)					\
-  static void  NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0))) \
-  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); }	\
+  NOVA_REGPARM(0) static void  NAME##_wrapper(Utcb *utcb)		\
+  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); }		\
 									\
-  void __attribute__((always_inline))  NAME(Utcb *utcb) __VA_ARGS__	\
+  void NAME(Utcb *utcb) __VA_ARGS__					\
   {									\
     CODE;								\
   }
+
 #include "pt_funcs.h"
 
 
@@ -588,8 +602,9 @@ public:
 	  return true;
 	}
       case MessageConsole::TYPE_DEBUG:
-	if (!msg.id) _mb->dump_counters();	  
-	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
+	if (!msg.id) _mb->dump_counters();
+	//Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
+	Logging::printf("DEBUG(%x) -> not implemented\n", msg.id);
 	return true;
       case MessageConsole::TYPE_ALLOC_CLIENT:
       case MessageConsole::TYPE_ALLOC_VIEW:
@@ -615,11 +630,11 @@ public:
 	  Logging::printf("create ec for irq\n");
 	  unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this));
 	  unsigned pt = _cap_free++;
-	  create_pt(pt, cap, do_gsi_wrapper, Mtd());
-	  if (!create_sc(_cap_free++, cap, Qpd(2, 10000)))
+	  create_pt(pt, cap, empty_message(), do_gsi_wrapper);
+	  if (!create_sc(_cap_free++, cap, qpd(2, 10000)))
 	    {
-	      myutcb()->msg[0] = _hip->cfg_pre + msg.value;
-	      res = !idc_send(pt , Mtd(1, 0));
+	      myutcb()->msg[0] = _hip->pre + msg.value;
+	      res = !call(SEND, pt , untyped_words(1));
 	      Logging::printf("send for irq\n");
 	    }
 	  else
@@ -646,29 +661,29 @@ public:
       break;
       case MessageHostOp::OP_GET_MODULE:
 	{
-	  Hip_mem *mod  = _hip->get_mod(msg.module);
+	  HipMem *mod  = hip_module(_hip, msg.module);
 	  if (mod)
 	    {
-	      msg.start   =  map_self(myutcb(), mod->addr, (mod->size + 0xfff) & ~0xffful);
+	      msg.start   =  map_self(myutcb(), mod->address, (mod->size + 0xfff) & ~0xffful);
 	      msg.size    =  mod->size;
 	      msg.cmdline =  map_string(myutcb(), mod->aux);
 	      msg.cmdlen  =  strlen(msg.cmdline) + 1;
 	    }
-	  else 
+	  else
 	    res = false;
-	  
+
 	}
 	break;
       case MessageHostOp::OP_UNMASK_IRQ:
-      case MessageHostOp::OP_GET_UID:	
+      case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_GUEST_MEM:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
     return res;
   }
-    
-    
+
+
   bool  receive(MessageDiskCommit &msg)
   {
     // user provided write?
@@ -701,8 +716,8 @@ public:
   {
     unsigned res;
     if ((res = preinit(hip)))              Logging::panic("init() failed with %x\n", res);
-    Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
-    
+    Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->sel, hip->mem_desc_size);
+
     if ((res = init_memmap(_boot_utcb)))          Logging::panic("init memmap failed %x\n", res);
     if ((res = create_requester()))     Logging::panic("create requester failed %x\n", res);
     if ((res = create_host_devices(hip)))  Logging::panic("create host devices failed %x\n", res);

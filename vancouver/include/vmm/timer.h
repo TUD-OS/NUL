@@ -15,7 +15,8 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "vmm/cpu.h"
+
+#include <nova/cpu.h>
 #include "vmm/math.h"
 
 

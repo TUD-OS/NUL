@@ -15,6 +15,9 @@
  * General Public License version 2 for more details.
  */
 #pragma once
+
+#error wrong one
+
 #include "sys/hip.h"
 #include "sys/utcb.h"
 

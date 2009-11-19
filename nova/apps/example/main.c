@@ -5,7 +5,7 @@
 #define CHECK(x) do { if ((x) != SUCCESS) NOVA_TRAP; } while (0)
 
 int
-start(struct HypervisorInfoPage *hip)
+start(struct Hip *hip)
 {
   Cap_idx user_cap = hip->sel;
 

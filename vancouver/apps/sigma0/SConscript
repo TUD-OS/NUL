@@ -1,41 +1,49 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('target_env')
 
-target_env.Link('#bin/apps/sigma0.nova',
-                [ 'sigma0.cc',
+nul.App(target_env, 'sigma0',
+        SOURCES = [ 'sigma0.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ],
+        LINKSCRIPT = 'linker.ld')
 
-                  # Host driver
-                  '#lib/host/hostio',
-                  '#lib/host/hostpcicfg',
-                  '#lib/host/hostkeyboard',
-                  '#lib/host/hostsink',
-                  '#lib/host/hostserial',
-                  '#lib/host/hostpit',
-                  '#lib/host/hostvga',
-                  '#lib/host/hostrtc',
+# target_env.Link('#bin/apps/sigma0.nova',
+#                 [ 'sigma0.cc',
 
-                  # Disk driver
-                  '#lib/host/hostide',
-                  '#lib/host/hostahci',
-                  '#lib/host/virtualdisk',
+#                   # Host driver
+#                   '#lib/host/hostio',
+#                   '#lib/host/hostpcicfg',
+#                   '#lib/host/hostkeyboard',
+#                   '#lib/host/hostsink',
+#                   '#lib/host/hostserial',
+#                   '#lib/host/hostpit',
+#                   '#lib/host/hostvga',
+#                   '#lib/host/hostrtc',
 
-                  # VESA support
-                  '#lib/host/hostvesa',
-                  '#lib/models/memorycontroller',
-                  '#lib/executor/novahalifax',
-                  '#lib/models/pit8254',
-                  '#lib/models/sysctrlport',
-                  '#lib/models/pcihostbridge',
-                  '#lib/models/pcidirect',
-                  '#lib/models/directio',
+#                   # Disk driver
+#                   '#lib/host/hostide',
+#                   '#lib/host/hostahci',
+#                   '#lib/host/virtualdisk',
 
-                  # Others
-                  '#lib/models/aliases',
-                  '#lib/host/simplebootp',
+#                   # VESA support
+#                   '#lib/host/hostvesa',
+#                   '#lib/models/memorycontroller',
+#                   '#lib/executor/novahalifax',
+#                   '#lib/models/pit8254',
+#                   '#lib/models/sysctrlport',
+#                   '#lib/models/pcihostbridge',
+#                   '#lib/models/pcidirect',
+#                   '#lib/models/directio',
 
-                  ],
-                LIBS=['runtime'],
-                linkscript="linker.ld")
+#                   # Others
+#                   '#lib/models/aliases',
+#                   '#lib/host/simplebootp',
+
+#                   ],
+#                 LIBS=['runtime'],
+#                 linkscript="linker.ld")
 
 # EOF

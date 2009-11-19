@@ -17,12 +17,13 @@
 #pragma once
 
 
+#include <nova/cpu.h>
+
 #ifdef __LP64__
-#define split64(INPUT, HIGH, LOW)   LOW = INPUT & 0xffffffff; HIGH = INPUT >> 0x20;
-#define union64(HIGH, LOW)          ((static_cast<unsigned long long>(HIGH) << 0x20) | LOW)
+/* #define split64(INPUT, HIGH, LOW)   LOW = INPUT & 0xffffffff; HIGH = INPUT >> 0x20; */
+/* #define union64(HIGH, LOW)          ((static_cast<unsigned long long>(HIGH) << 0x20) | LOW) */
 #else
-#define union64(HIGH, LOW)          ({ unsigned long long res; asm volatile ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; });
-#define split64(INPUT, HIGH, LOW)   asm volatile ("" : "=d"(HIGH), "=a"(LOW) : "A"(INPUT));
+/* split64 and union64 already defined in cpu.h */
 #endif
 
 class Math

@@ -24,15 +24,15 @@ PT_FUNC_NORETURN(do_pf,
 	)
 PT_FUNC(do_map,
 	// make sure we have enough words to reply
-	Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
-	assert(~utcb->head.mtr.untyped() & 1);
-	utcb->head.mtr = Mtd(0, utcb->head.mtr.untyped()/2);
+	Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
+	assert(~mtd_untyped(utcb->head.mtr) & 1);
+	utcb->head.mtr = typed_words(mtd_untyped(utcb->head.mtr)/2);
 	)
 PT_FUNC_NORETURN(do_gsi,
 		 unsigned char res;
 		 unsigned irq = utcb->msg[0];
 		 Logging::printf("%s(%x) initial\n", __func__, irq); 
-		 MessageIrq msg(MessageIrq::ASSERT_IRQ, irq - _hip->cfg_pre);
+		 MessageIrq msg(MessageIrq::ASSERT_IRQ, irq - _hip->pre);
 		 while (!(res = semdown(irq)))
 		   {
 		     SemaphoreGuard s(_lock);
@@ -43,12 +43,12 @@ PT_FUNC_NORETURN(do_gsi,
 		 )
 PT_FUNC(do_request,
 	SemaphoreGuard l(_lock);
-	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x msg0 %x utcb %p\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->phys_info, utcb->head.crd, utcb->head.pid, utcb->msg[0], utcb);
+	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x msg0 %x utcb %p\n", __func__, utcb->head.mtr, utcb->eip, utcb->phys_info, utcb->head.crd, utcb->head.pid, utcb->msg[0], utcb);
 	COUNTER_INC("request");
 	bool write_op = false;
 	unsigned short client = (utcb->head.pid & 0xfff0) >> 4;
 	ModuleInfo *modinfo = _modinfo + client;
-	if (utcb->head.mtr.untyped() < 0x1000)
+	if (mtd_untyped(utcb->head.mtr) < 0x1000)
 	  {
 	    switch (utcb->msg[0])
 	      {
@@ -79,33 +79,33 @@ PT_FUNC(do_request,
 		    // XXX check permissions
 		    // XXX move to hostops
 		    Logging::printf("[%x] ioports %x granted\n", utcb->head.pid, utcb->msg[2]);
-		    utcb->head.mtr = Mtd(1, 1);
+		    utcb->head.mtr = untyped_words(1) | typed_words(1);
 		  }
 		else
-		  Logging::printf("[%x] ioport request dropped %x ports %x\n", utcb->head.pid, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
+		  Logging::printf("[%x] ioport request dropped %x ports %x\n", utcb->head.pid, utcb->msg[2], utcb->msg[2]>>MAPMINSHIFT);
 		break;
 	      case REQUEST_IOMEM:
 		if ((utcb->msg[2] & 0x3) == 1)
 		  {
 		    Logging::printf("[%x] iomem %x granted\n", utcb->head.pid, utcb->msg[2]);
-		    utcb->head.mtr = Mtd(1, 1);
+		    utcb->head.mtr = untyped_words(1) | typed_words(1);
 		  }
 		else
 		  Logging::printf("[%x] iomem request dropped %x\n", utcb->head.pid, utcb->msg[2]);
 		break;
 	      case REQUEST_IRQ:
-		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= _hip->cfg_pre && (utcb->msg[2] >> Utcb::MINSHIFT) <  _hip->cfg_pre + _hip->cfg_gsi)
+		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> MAPMINSHIFT) >= _hip->pre && (utcb->msg[2] >> MAPMINSHIFT) <  _hip->pre + _hip->gsi)
 		  {
 		    Logging::printf("[%x] irq %x granted\n", utcb->head.pid, utcb->msg[2]);
-		    utcb->head.mtr = Mtd(1, 1);
+		    utcb->head.mtr = untyped_words(1) | typed_words(1);
 		  }
 		else
-		  Logging::printf("[%x] irq request dropped %x pre %x nr %x\n", utcb->head.pid, utcb->msg[2], _hip->cfg_pre, utcb->msg[2] >> Utcb::MINSHIFT);
+		  Logging::printf("[%x] irq request dropped %x pre %x nr %x\n", utcb->head.pid, utcb->msg[2], _hip->pre, utcb->msg[2] >> MAPMINSHIFT);
 		break;
 	      case REQUEST_DISK:
 		{
 		  MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
-		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+		  if (mtd_untyped(utcb->head.mtr)*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 		    goto fail;
 		  else
 		    {
@@ -144,7 +144,7 @@ PT_FUNC(do_request,
 	      case REQUEST_CONSOLE:
 		{
 		  MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
-		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
+		  if (mtd_untyped(utcb->head.mtr)*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
 		  {		       
 		    MessageConsole msg2 = *msg;
 		    if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW &&
@@ -170,14 +170,14 @@ PT_FUNC(do_request,
 	      case REQUEST_HOSTOP:
 		{
 		  MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
-		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
+		  if (mtd_untyped(utcb->head.mtr)*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
 
 		  switch (msg->type)
 		    {
 		    case MessageHostOp::OP_GET_MODULE:
 		      {
 			if (modinfo->mod_count <= msg->module)  break;
-			Hip_mem *mod  = _hip->get_mod(modinfo->mod_nr + msg->module);
+			HipMem *mod  = hip_module(_hip, modinfo->mod_nr + msg->module);
 			char *cstart  = msg->start;
 			char *s   = cstart;
 			char *cmdline = map_string(utcb, mod->aux);
@@ -188,8 +188,8 @@ PT_FUNC(do_request,
 			unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
 			if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
 
-			//Logging::printf("send module: %x %lx %llx %x mtd %x\n", msg2.module, msg2.start, mod->addr, mod->aux, utcb->head.mtr.untyped());
-			memcpy(s, map_self(utcb, mod->addr, (mod->size | 0xfff)+1), mod->size);
+			//Logging::printf("send module: %x %lx %llx %x mtd %x\n", msg2.module, msg2.start, mod->address, mod->aux, utcb->head.mtr.untyped());
+			memcpy(s, map_self(utcb, mod->address, (mod->size | 0xfff)+1), mod->size);
 			s += msize;
 			char *p = strstr(cmdline, "sigma0::attach");
 			unsigned clearsize = 14;
@@ -199,7 +199,7 @@ PT_FUNC(do_request,
 			memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
 			// build response
 			memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
-			utcb->head.mtr = Mtd(sizeof(unsigned) + sizeof(*msg), 0);
+			utcb->head.mtr = untyped_words(sizeof(unsigned) + sizeof(*msg));
 			msg->start   = cstart;
 			msg->cmdline = cstart + msize;
 			msg->size    = msize + slen;
@@ -234,7 +234,7 @@ PT_FUNC(do_request,
 	      case REQUEST_TIMER:
 		{
 		  MessageTimer *msg = reinterpret_cast<MessageTimer *>(utcb->msg+1);
-		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+		  if (mtd_untyped(utcb->head.mtr)*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 		    utcb->msg[0] = ~0x10u;
 		  else
 		    if (msg->type == MessageTimer::TIMER_CANCEL_TIMEOUT ||
@@ -254,7 +254,7 @@ PT_FUNC(do_request,
 		    {
 		      // we assume the same mb->clock() source here
 		      *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
-		      utcb->head.mtr = Mtd((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
+		      utcb->head.mtr = untyped_words((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned));
 		      utcb->msg[0] = 0;
 		    }
 		}
@@ -262,7 +262,7 @@ PT_FUNC(do_request,
 	      case REQUEST_NETWORK:
 		{
 		  MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
-		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+		  if (mtd_untyped(utcb->head.mtr)*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 		    utcb->msg[0] = ~0x10u;
 		  else
 		    {
@@ -279,13 +279,13 @@ PT_FUNC(do_request,
 	    return;
 	  fail:
 	    utcb->msg[0] = ~0x10u;
-	    utcb->head.mtr = Mtd(1, 0);
+	    utcb->head.mtr = untyped_words(1);
 	  }
 	else
 	  {
 	    if (!modinfo->hip)  {
-	      Logging::printf("(%x) second request %x for %llx at %x -> killing\n", (utcb->head.pid & 0xfff0) >> 4, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
-	      if (revoke(Crd(utcb->head.pid, 4), true))
+	      Logging::printf("(%x) second request %x for %llx at %x -> killing\n", (utcb->head.pid & 0xfff0) >> 4, utcb->head.mtr, utcb->qual[1], utcb->eip);
+	      if (revoke(obj_range(utcb->head.pid, 4), true))
 		Logging::panic("kill connection to %x failed", (utcb->head.pid & 0xfff0) >> 4);
 	    }
 	    else
@@ -295,10 +295,10 @@ PT_FUNC(do_request,
 		
 		utcb->eip = modinfo->rip;
 		utcb->esp = 0xbffff000;
-		utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
+		utcb->head.mtr = MTD_EIP | MTD_ESP;
 		
-		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, utcb->esp, 0x1c | 1);
+		utcb_add_mappings(utcb, true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
+		utcb_add_mappings(utcb, true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, utcb->esp, 0x1c | 1);
 		modinfo->hip = 0;
 	      }
 	  }

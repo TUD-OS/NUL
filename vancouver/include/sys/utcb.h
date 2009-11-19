@@ -10,6 +10,8 @@
 
 #pragma once
 
+#error Wrong one.
+
 #include "sys/hip.h"
 #include "sys/desc.h"
 #include "vmm/cpu.h"

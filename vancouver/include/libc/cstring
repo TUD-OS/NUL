@@ -18,6 +18,8 @@
 
 #pragma once
 
+#error wrong one
+
 static inline
 void *
 memcpy(void *dst, const void *src, long count)

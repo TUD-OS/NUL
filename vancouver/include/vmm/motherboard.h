@@ -22,7 +22,7 @@
 #include "vmm/message.h"
 #include "vmm/params.h"
 #include "vmm/timer.h"
-#include <cstring>
+#include <string.h>
 
 /**
  * A virtual motherboard is a collection of busses.

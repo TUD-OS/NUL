@@ -18,7 +18,7 @@
 
 #include "driver/logging.h"
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 
 /**
  * The generic Device used in generic bus transactions.

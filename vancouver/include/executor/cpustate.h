@@ -15,12 +15,12 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include <sys/utcb.h>
+#include <nova/utcb.h>
 
 /**
  * A generic cpu state class.
  */
-class CpuState : public Utcb
+class CpuState : public Nova::Utcb
 {
  public:
   unsigned cpl()   { return (ss.ar >> 5) & 3; } 

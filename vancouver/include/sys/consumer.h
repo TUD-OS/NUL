@@ -16,7 +16,7 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "sys/syscalls.h"
+#include <nova.h>
 #include "sys/semaphore.h"
 
 
@@ -32,7 +32,7 @@ public:
   unsigned  _rpos;
   unsigned  _wpos;
   T         _buffer[SIZE];
-  unsigned sm() { return _sem.sm(); }
+  Nova::Cap_idx sm() { return _sem.sm(); }
 
   T * get_buffer() {
     _sem.down();
@@ -42,10 +42,10 @@ public:
   void free_buffer()  { _rpos = (_rpos + 1) % SIZE; }
 
 
-  Consumer(unsigned cap_sm) : _sem(Semaphore(&_count, cap_sm)),  _count(0), _rpos(0), _wpos(0) 
+  Consumer(Nova::Cap_idx cap_sm) : _sem(Semaphore(&_count, cap_sm)),  _count(0), _rpos(0), _wpos(0) 
   { 
     unsigned res;
-    if ((res = create_sm(cap_sm)))
+    if ((res = Nova::create_sm(cap_sm, 0)))
       Logging::panic("create Consumer failed with %x\n", res);
     Logging::printf("create Consumer ok with %x nq %x\n", res, cap_sm);
   }

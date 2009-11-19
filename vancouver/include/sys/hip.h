@@ -17,6 +17,9 @@
  */
 
 #pragma once
+
+#error Wrong one.
+
 #include "vmm/cpu.h"
 
 typedef unsigned char  uint8;

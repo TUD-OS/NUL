@@ -1,13 +1,15 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('target_env')
 
-target_env.StaticLibrary('#bin/lib/runtime',
-                         [
-        'asm.S',
+nul.Lib(target_env, 'runtime',
+        SOURCES = [
         'logging.cc',
         'simplemalloc.cc',
         'vprintf.cc',
-        ])
+        ],
+        LIBS = ['string', 'nova'])
 
 # EOF

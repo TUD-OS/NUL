@@ -49,27 +49,29 @@ class Sigma0Base : public NovaProgram
   template <unsigned OP> 
     static unsigned request_attach(void *buffer, unsigned sem_nq)
     {
+      using namespace Nova;
       Utcb *utcb = myutcb();
-      TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
+      TemporarySave<sizeof(utcb->head) + 5> save(utcb);
       
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
-      utcb->head.mtr    = Mtd(3, 0);
-      utcb->add_mappings(false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 3);
-      check(idc_call(14, utcb->head.mtr));
+      utcb->head.mtr = typed_words(3);
+      utcb_add_mappings(utcb, false, sem_nq << MAPMINSHIFT, 1 << MAPMINSHIFT, 0, 3);
+      check(call(DCALL, 14, utcb->head.mtr));
       return utcb->msg[0];
     }
 
   template <class MESSAGE, unsigned OP>
   static unsigned sigma0_message(MESSAGE &msg)
   {
+    using namespace Nova;
     Utcb *utcb = myutcb();
     assert(utcb);
     const unsigned words = (sizeof(msg) +  sizeof(unsigned) - 1) / sizeof(unsigned);
-    TemporarySave<Utcb::HEADER_SIZE + 1 + words> save(utcb);
+    TemporarySave<sizeof(utcb->head) + 1 + words> save(utcb);
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
-    if (idc_call(14, Mtd(1 + words, 0)))
+    if (call(DCALL, 14, untyped_words(1 + words)))
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return !utcb->msg[0];
@@ -89,26 +91,29 @@ class Sigma0Base : public NovaProgram
 
   static unsigned request_irq(unsigned irq)
   {
+    using namespace Nova;
     Utcb *utcb = myutcb();
-    TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
+    TemporarySave<sizeof(utcb->head) + 5> save(utcb);
 
-    utcb->head.mtr = Mtd(1, 0);
+    utcb->head.mtr = untyped_words(1);
     utcb->msg[0] = REQUEST_IRQ;
-    utcb->add_mappings(false, irq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 3);
+    utcb_add_mappings(utcb, false, irq << MAPMINSHIFT, 1 << MAPMINSHIFT, 0, 3);
     utcb->head.crd = utcb->msg[2];
-    return idc_call(14, Mtd(3, 0));
+    return call(DCALL, 14, untyped_words(3));
   }
 
   static unsigned request_io(unsigned long base, unsigned long size, bool io, unsigned long &iomem_start)
   {
+    using namespace Nova;
+
     Utcb *utcb = myutcb();
-    TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
-    utcb->head.mtr = Mtd(1, 0);
+    TemporarySave<sizeof(utcb->head) + 5> save(utcb);
+    utcb->head.mtr = untyped_words(1);
     if (io)
       {
 	utcb->msg[0] = REQUEST_IOIO;
-	size <<= Utcb::MINSHIFT;
-	base <<= Utcb::MINSHIFT;
+	size <<= MAPMINSHIFT;
+	base <<= MAPMINSHIFT;
       }
     else
       {
@@ -116,10 +121,10 @@ class Sigma0Base : public NovaProgram
 	utcb->msg[0] = REQUEST_IOMEM;
       }
     Logging::printf("request_io(%lx, %lx, utcb %p)\n", base, size, utcb);
-    utcb->add_mappings(false, base, size, 0, io ? 2 : 1);
+    utcb_add_mappings(utcb, false, base, size, 0, io ? 2 : 1);
     utcb->head.crd = io ? utcb->msg[2] : (iomem_start | (Cpu::bsr(size) << 5) | 1);
     
-    unsigned res = idc_call(14, Mtd(3,0));
+    unsigned res = call(DCALL, 14, untyped_words(3));
     if (!res && !io)
       {
 	res = iomem_start;

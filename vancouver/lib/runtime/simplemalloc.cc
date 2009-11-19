@@ -17,10 +17,8 @@
 
 #include <cassert>
 #include <cstdlib>
-#include <cstring>
+#include <string.h>
 #include <driver/logging.h>
-
-
 
 void *
 malloc(unsigned long size)

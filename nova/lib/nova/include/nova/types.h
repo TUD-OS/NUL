@@ -10,9 +10,12 @@
 NOVA_BEGIN
 
 typedef uint32_t Cap_idx;
-typedef uint32_t Cap_range;
+typedef uint32_t Crd;
 typedef uint32_t Mtd;
 typedef uint32_t Qpd;
+
+struct Utcb;
+typedef NOVA_REGPARM(0) NOVA_NORETURN void (*Portal_fn)(struct Utcb *);
 
 enum {
   CAP_R   = 1,
@@ -50,16 +53,19 @@ NOVA_INLINE Mtd empty_message() { return 0; }
 NOVA_INLINE Mtd untyped_words(unsigned u) { return u; }
 NOVA_INLINE Mtd typed_words(unsigned x) { return x << 23; }
 
-NOVA_INLINE Cap_range mem_range(uint32_t address, uint8_t order, uint8_t access)
+NOVA_INLINE unsigned mtd_typed(Mtd m) { return m >> 23; }
+NOVA_INLINE unsigned mtd_untyped(Mtd m) { return m & ((1<<23)-1); }
+
+NOVA_INLINE Crd mem_range(uint32_t address, uint8_t order, uint8_t access)
 { return 1 | (access << 2) | (order << 7) | address; }
 
-NOVA_INLINE Cap_range io_range(uint16_t io_address, uint8_t order)
+NOVA_INLINE Crd io_range(uint16_t io_address, uint8_t order)
 { return 2 | (order << 7) | (io_address << 12); }
 
-NOVA_INLINE Cap_range obj_range(Cap_idx idx, uint8_t order)
+NOVA_INLINE Crd obj_range(Cap_idx idx, uint8_t order)
 { return 3 | (order << 7) | (idx << 12); }
 
-NOVA_INLINE Qpd make_qpd(uint8_t prio, uint32_t quantum)
+NOVA_INLINE Qpd qpd(uint8_t prio, uint32_t quantum)
 { return prio | ( quantum << 12); }
 
 NOVA_END

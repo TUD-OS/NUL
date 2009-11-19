@@ -23,11 +23,11 @@ PHDRS
 	data     PT_LOAD FLAGS(6);
 }
 
-EXTERN(__start)
+EXTERN(_start)
 
 SECTIONS
 {
-  ENTRY(__start)
+  ENTRY(_start)
    .  =  0x00400000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
