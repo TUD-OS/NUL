@@ -81,7 +81,7 @@ class NovaProgram
   /**
    * Create an ec and setup the stack.
    */
-  unsigned  __attribute__((noinline))  create_ec_helper(unsigned tls, Utcb **utcb_out=0)
+  unsigned create_ec_helper(unsigned tls, Utcb **utcb_out=0)
   {
     const unsigned stack_size = 0x4000;
     const unsigned STACK_FRAME = 2;
@@ -104,7 +104,7 @@ class NovaProgram
   /**
    * Initialize ourself.
    */
-  unsigned __attribute__((noinline)) init(Hip *hip)
+  unsigned init(Hip *hip)
   {
     #warning HIP checksum disabled.
     // check(hip->calc_checksum());
