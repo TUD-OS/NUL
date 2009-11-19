@@ -1,3 +1,5 @@
+#-*- mode: python -*-
+
 goals.append(
     NulApp("example",
            env = config["nulenv"],
