@@ -4,11 +4,16 @@ import SCons.Script
 
 output = '#bin'
 
+def guess_include(name):
+    libs_inc = SCons.Script.Glob('#lib/%s/include' % name)
+    apps_inc = SCons.Script.Glob('#apps/%s/include' % name)
+    return [ i.rstr() for i in libs_inc + apps_inc ]
+
 def AppEnv(tenv, libs):
     """Clone tenv and modify it to make the given libs available."""
     env = tenv.Clone()
     for lib in libs:
-        env.Append(CPPPATH = [ '#lib/%s/include' % lib ],
+        env.Append(CPPPATH = guess_include(lib),
                    LIBS = [ lib ])
     return env
 
@@ -16,12 +21,13 @@ def LibEnv(tenv, libs):
     """Clone tenv and modify it to make the given libs available."""
     env = tenv.Clone()
     for lib in libs:
-        env.Append(CPPPATH = [ '#lib/%s/include' % lib ])
+        env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], LIBS = ['nova'],
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova'],
         LINKSCRIPT = None):
-    env = AppEnv(tenv, LIBS)
+    env = LibEnv(tenv, INCLUDE)
+    env = AppEnv(env,  LIBS)
     if not LINKSCRIPT:
         LINKSCRIPT = "%s.ld" % name
     return env.Link(output + '/apps/%s.nova' % name,
