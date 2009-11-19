@@ -2,10 +2,9 @@
 
 import nul
 
-Import('output_dir')
 Import('target_env')
 
-nul.App(target_env, output_dir,
+nul.App(target_env,
         "example",
         SOURCES = [ 'main.c' ],
         # LIBS defaults to ['nova']

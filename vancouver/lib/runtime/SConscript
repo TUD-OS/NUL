@@ -1,9 +1,8 @@
 # -*- Mode: Python -*-
 
 Import('target_env')
-Import('output_dir')
 
-target_env.StaticLibrary(output_dir + "/lib/runtime",
+target_env.StaticLibrary('#bin/lib/runtime',
                          [
         'asm.S',
         'logging.cc',

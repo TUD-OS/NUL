@@ -1,9 +1,8 @@
 # -*- Mode: Python -*-
 
-Import('output_dir')
 Import('target_env')
 
-target_env.Link(output_dir + '/apps/sigma0.nova',
+target_env.Link('#bin/apps/sigma0.nova',
                 [ 'sigma0.cc',
 
                   # Host driver
