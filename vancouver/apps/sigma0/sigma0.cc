@@ -154,7 +154,13 @@ private:
     _timeouts.init();
     for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
 
-    _mb = new Motherboard(new Clock(hip->tsc_freq_khz*1000));
+    if (hip->tsc_freq_khz != 0) {
+      _mb = new Motherboard(new Clock(hip->tsc_freq_khz*1000));
+    } else {
+      // XXX Evil workaround for bogus TSC.
+      _mb = new Motherboard(new Clock(2000000000UL));
+    }
+
     global_mb = _mb;
     _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
     _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>);
