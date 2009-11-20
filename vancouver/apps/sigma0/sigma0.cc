@@ -235,7 +235,7 @@ private:
     create_pt(14,        cap, MTD_QUAL | MTD_EIP, do_pf_wrapper);
 
     // get all ioports
-    map_self(_boot_utcb, 0, 1 << (16+MAPMINSHIFT), 2);
+    map_self(_boot_utcb, 0, 1 << (16+MAPMINSHIFT), CRD_IO);
 
     // map our arguments
     args = map_string(_boot_utcb, hip_module(hip, 0)->aux);
@@ -253,7 +253,6 @@ private:
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;
     Logging::init(putc, &putcd);
-
 
     // get serial port from the bios data area
     char *zeropage = map_self(_boot_utcb, 0x0, 1<<12);
@@ -416,7 +415,7 @@ private:
   {
     assert(size);
     unsigned long virt = 0;
-    if ((rights & 3) == 1)
+    if ((rights & 3) == CRD_MEM)
       {
 	unsigned long s = _virt_phys.find_phys(physmem, size);
 	if (s)  return reinterpret_cast<char *>(s);
@@ -424,8 +423,7 @@ private:
 	if (!virt) return 0;
       }
     unsigned old = utcb->head.crd;
-    // utcb->head.crd = Crd(0, 20, rights).value();
-    utcb->head.crd = 20<<7 | rights; // XXX ?!
+    utcb->head.crd = 20<<7 | rights; // Map 32-bit of memory.
     char *res = reinterpret_cast<char *>(virt);
     unsigned long offset = 0;
     while (size > offset)
