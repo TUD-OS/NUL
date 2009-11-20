@@ -19,4 +19,12 @@ nul.Lib(target_env,
         INCLUDE = [ 'sigma0' ],
         LIBS = [ 'runtime', 'string', 'nova' ])
 
+nul.Lib(target_env,
+        'hostvga',
+        SOURCES = [ 'hostvga.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ])
+
+
+
 # EOF
