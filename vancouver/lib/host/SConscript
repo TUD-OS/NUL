@@ -1,8 +1,22 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('target_env')
 
-for f in Glob('*.cc'):
-    target_env.Object(f)
+#for f in Glob('*.cc'):
+#    target_env.Object(f)
+
+nul.Lib(target_env,
+        'hostsimple',
+        SOURCES = [ 'hostio.cc',
+                    'hostpcicfg.cc',
+                    'hostkeyboard.cc',
+                    'hostsink.cc',
+                    'hostserial.cc',
+                    'hostpit.cc',
+                    ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ])
 
 # EOF

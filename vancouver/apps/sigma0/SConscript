@@ -7,7 +7,8 @@ Import('target_env')
 nul.App(target_env, 'sigma0',
         SOURCES = [ 'sigma0.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS = [ 'runtime', 'string', 'nova' ],
+        LIBS = [ 'hostsimple',
+                 'runtime', 'string', 'nova' ],
         LINKSCRIPT = 'linker.ld')
 
 # target_env.Link('#bin/apps/sigma0.nova',
