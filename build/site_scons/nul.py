@@ -4,10 +4,13 @@ import SCons.Script
 
 output = '#bin'
 
+# def guess_include(name):
+#     libs_inc = SCons.Script.Glob('#lib/%s/include' % name)
+#     apps_inc = SCons.Script.Glob('#apps/%s/include' % name)
+#     return [ i.rstr() for i in libs_inc + apps_inc ]
+
 def guess_include(name):
-    libs_inc = SCons.Script.Glob('#lib/%s/include' % name)
-    apps_inc = SCons.Script.Glob('#apps/%s/include' % name)
-    return [ i.rstr() for i in libs_inc + apps_inc ]
+    return [ ('#%s/%s/include') % (f, name) for f in ['lib', 'apps']]
 
 def AppEnv(tenv, libs):
     """Clone tenv and modify it to make the given libs available."""
@@ -34,8 +37,8 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova'],
                     SOURCES,
                     linkscript = LINKSCRIPT)
 
-def Lib(tenv, name, SOURCES = [], LIBS = ['nova']):
-    env = LibEnv(tenv, LIBS + [ name ])
+def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova']):
+    env = LibEnv(tenv, INCLUDE + LIBS + [ name ])
     return env.StaticLibrary(output + "/lib/%s" % name,
                              SOURCES)
 
