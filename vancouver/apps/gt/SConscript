@@ -1,11 +1,13 @@
 # -*- Mode: Python -*-
 
+import nul
+
 Import('target_env')
 
-target_env.Link('#bin/apps/gt.nova',
-                [ 'gt.cc',
-                  ],
-                LIBS=['runtime'],
-                linkscript="linker.ld")
+nul.App(target_env, 'gt',
+        SOURCES = [ 'gt.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS    = [ 'runtime', 'string', 'nova' ],
+        LINKSCRIPT = 'linker.ld')
 
 # EOF
