@@ -433,7 +433,7 @@ private:
 	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx\n", physmem, virt, size, offset, s);
 	offset = size - s;
 	unsigned err;
-	if ((err = call(DCALL, _cap_echo, untyped_words(mtd_typed(utcb->head.mtr)*2))));
+	if ((err = call(DCALL, _cap_echo, untyped_words(mtd_typed(utcb->head.mtr)*2))))
 	  {
 	    Logging::printf("map_self failed with %x\n", mtd_typed(utcb->head.mtr));
 	    res = 0;
