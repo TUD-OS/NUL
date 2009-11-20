@@ -134,6 +134,8 @@ on it.
       rocknshine including tinf should perhaps move to their own
       repo. Something like julian-stuff.
 ** TODO Fix rocknshine regarding bytes-per-scanline.
+ * TODO Implement "jump to page" in rocknshine.
+ * TODO Write tool that collects sigma0/vancouver command line arguments.
 
 * Footnotes
 
