@@ -19,12 +19,13 @@ nul.Lib(target_env,
         INCLUDE = [ 'sigma0' ],
         LIBS = [ 'runtime', 'string', 'nova' ])
 
-nul.Lib(target_env,
-        'hostvga',
-        SOURCES = [ 'hostvga.cc' ],
-        INCLUDE = [ 'sigma0' ],
-        LIBS = [ 'runtime', 'string', 'nova' ])
+def SimpleHost(name):
+    return nul.Lib(target_env, name,
+                   SOURCES = [ name + '.cc'],
+                   INCLUDE = [ 'sigma0' ],
+                   LIBS = ['runtime', 'string', 'nova'])
 
-
+for n in ['hostvga', 'hostrtc']:
+    SimpleHost(n)
 
 # EOF

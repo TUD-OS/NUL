@@ -8,7 +8,7 @@ nul.App(target_env, 'sigma0',
         SOURCES = [ 'sigma0.cc' ],
         INCLUDE = [ 'sigma0' ],
         LIBS = [ 'hostsimple',
-                 'hostvga',
+                 'hostvga', 'hostrtc',
                  'runtime', 'string', 'nova' ],
         LINKSCRIPT = 'linker.ld')
 
