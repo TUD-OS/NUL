@@ -2,63 +2,63 @@
 
 Import('target_env')
 
-target_env.Link('#bin/apps/vancouver.nova',
-                [ 'vancouver.cc',
+# target_env.Link('#bin/apps/vancouver.nova',
+#                 [ 'vancouver.cc',
 
-                  # Host driver
-                  '#lib/host/hostio',
-                  '#lib/host/hostpcicfg',
-                  '#lib/host/hostkeyboard',
-                  '#lib/host/hostsink',
-                  '#lib/host/hostserial',
-                  '#lib/host/hostpit',
-                  '#lib/models/irqrouting',
+#                   # Host driver
+#                   '#lib/host/hostio',
+#                   '#lib/host/hostpcicfg',
+#                   '#lib/host/hostkeyboard',
+#                   '#lib/host/hostsink',
+#                   '#lib/host/hostserial',
+#                   '#lib/host/hostpit',
+#                   '#lib/models/irqrouting',
 
-                  # Generic IO and memory
-                  '#lib/models/aliases',
-                  '#lib/models/directio',
-                  '#lib/models/nullio',
-                  '#lib/models/memorycontroller',
+#                   # Generic IO and memory
+#                   '#lib/models/aliases',
+#                   '#lib/models/directio',
+#                   '#lib/models/nullio',
+#                   '#lib/models/memorycontroller',
                   
-                  # Keyboard, mouse, serial
-                  '#lib/models/keyboardcontroller',
-                  '#lib/models/ps2keyboard',
-                  '#lib/models/ps2mouse',
-                  '#lib/models/serial16550',
-                  '#lib/models/serial2kbd',
-                  '#lib/models/kbd2serial',
+#                   # Keyboard, mouse, serial
+#                   '#lib/models/keyboardcontroller',
+#                   '#lib/models/ps2keyboard',
+#                   '#lib/models/ps2mouse',
+#                   '#lib/models/serial16550',
+#                   '#lib/models/serial2kbd',
+#                   '#lib/models/kbd2serial',
 
-                  # PIT, PIC, Sysctrl, RTC
-                  '#lib/models/pic8259',
-                  '#lib/models/pit8254',
-                  '#lib/models/sysctrlport',
-                  '#lib/models/rtc146818',
+#                   # PIT, PIC, Sysctrl, RTC
+#                   '#lib/models/pic8259',
+#                   '#lib/models/pit8254',
+#                   '#lib/models/sysctrlport',
+#                   '#lib/models/rtc146818',
 
-                  # PCI
-                  '#lib/models/pcihostbridge',
+#                   # PCI
+#                   '#lib/models/pcihostbridge',
 
-                  # SATA
-                  '#lib/models/ahcicontroller',
-                  '#lib/models/satadrive',
+#                   # SATA
+#                   '#lib/models/ahcicontroller',
+#                   '#lib/models/satadrive',
 
-                  # VGA
-                  '#lib/models/vga',
+#                   # VGA
+#                   '#lib/models/vga',
 
-                  # Basic executors
-                  '#lib/executor/cpuidexecutor',
-                  '#lib/executor/msrexecutor',
-                  '#lib/executor/triplefaultexecutor',
-                  '#lib/executor/irqexecutor',
-                  '#lib/executor/initexecutor',
-                  '#lib/executor/novahalifax',
+#                   # Basic executors
+#                   '#lib/executor/cpuidexecutor',
+#                   '#lib/executor/msrexecutor',
+#                   '#lib/executor/triplefaultexecutor',
+#                   '#lib/executor/irqexecutor',
+#                   '#lib/executor/initexecutor',
+#                   '#lib/executor/novahalifax',
                   
-                  # BIOS and Multiboot
-                  '#lib/executor/virtualbios',
-                  '#lib/executor/vesabios',
-                  '#lib/executor/multiboot',
+#                   # BIOS and Multiboot
+#                   '#lib/executor/virtualbios',
+#                   '#lib/executor/vesabios',
+#                   '#lib/executor/multiboot',
 
-                  ],
-                LIBS=['runtime'],
-                linkscript="linker.ld")
+#                   ],
+#                 LIBS=['runtime'],
+#                 linkscript="linker.ld")
 
 # EOF

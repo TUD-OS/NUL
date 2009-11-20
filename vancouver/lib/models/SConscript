@@ -2,7 +2,7 @@
 
 Import('target_env')
 
-for f in Glob('*.cc'):
-    target_env.Object(f)
+#for f in Glob('*.cc'):
+#    target_env.Object(f)
 
 # EOF
