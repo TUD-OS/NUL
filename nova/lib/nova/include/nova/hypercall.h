@@ -77,7 +77,6 @@ NOVA_INLINE uint8_t hypercall_3(uint8_t syscall_no, uint8_t flags, uint32_t word
 NOVA_INLINE uint8_t hypercall_4(uint8_t syscall_no, uint8_t flags, uint32_t word1,
                                 uint32_t word2, uint32_t word3, uint32_t word4)
 {
-  uint32_t dummy1;
   uint8_t result;
 
   asm volatile ("push %%ebp\n"
