@@ -300,7 +300,7 @@ private:
 
   void attach_drives(char *cmdline, ModuleInfo *modinfo)
   {
-    for (char *p; p = strstr(cmdline,"sigma0::drive:"); cmdline = p + 1)
+    for (char *p; (p = strstr(cmdline,"sigma0::drive:")) != NULL; cmdline = p + 1)
       {
 	unsigned long  nr = strtoul(p+14, 0, 0);
 	if (nr < _mb->bus_disk.count() && modinfo->disk_count < MAXDISKS)
@@ -340,7 +340,7 @@ private:
     unsigned long maxptr;
     HipMem *mod;
     unsigned mods = 0;
-    for (unsigned i=0; mod = hip_module(_hip, i); i++) {
+    for (unsigned i=0; (mod = hip_module(_hip, i)) != NULL; i++) {
       char *cmdline = map_string(utcb, mod->aux);
       if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
 	{

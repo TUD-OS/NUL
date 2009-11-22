@@ -75,7 +75,7 @@ class NovaProgram
   /**
    * Get the UTCB pointer from the top of the stack. This is a hack, as long we do not have a myself systemcall!
    */
-  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); return *reinterpret_cast<Utcb **>((esp & ~0x3 | 0x3ffc)); };
+  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); return *reinterpret_cast<Utcb **>(((esp & ~0x3) | 0x3ffc)); };
 
 
   /**

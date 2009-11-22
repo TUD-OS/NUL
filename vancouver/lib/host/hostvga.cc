@@ -463,7 +463,7 @@ PARAM(hostvga,
 
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM_REGION, 0xb8000 | HostVga::BACKEND_ORDER);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");	
-	HostVga *dev = new HostVga(mb, msg.ptr, modifier_switch, modifier_system);
+	new HostVga(mb, msg.ptr, modifier_switch, modifier_system);
       },
       "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN> - provide a VGA console.",
       "Example: 'hostvga'.",
