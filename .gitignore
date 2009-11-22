@@ -2,4 +2,4 @@ bin
 .scons*
 *.[oa]
 *~
-
+*.pyc
