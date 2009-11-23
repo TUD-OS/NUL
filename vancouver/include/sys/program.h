@@ -106,8 +106,7 @@ class NovaProgram
    */
   unsigned init(Hip *hip)
   {
-    #warning HIP checksum disabled.
-    // check(hip->calc_checksum());
+    check(hip_calc_checksum(hip));
     _hip = hip;
     _boot_utcb = reinterpret_cast<Utcb *>(hip) - 1;
     _cap_free = hip->pre + hip->gsi;
