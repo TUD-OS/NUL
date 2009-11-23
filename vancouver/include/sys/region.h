@@ -14,6 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+
 #pragma once
 #include <cassert>
 
@@ -27,7 +28,7 @@ struct Region
 };
 
 /**
- * A region allocator.  
+ * A region allocator.
  *
  */
 template <unsigned SIZE>
@@ -35,10 +36,10 @@ class RegionList
 {
 
 private:
-  
+
   unsigned _count;
   Region  _list[SIZE];
-  
+
 public:
   Region *find(unsigned long pos)
   {
@@ -66,7 +67,7 @@ public:
   {
     if (!region.size)  return;
 
-    //Logging::printf("add %lx+%lx\n", region.virt, region.size);
+    // Logging::printf("add %lx+%lx\n", region.virt, region.size);
     del(region);
     _count++;
     assert(_count < SIZE);
@@ -78,43 +79,44 @@ public:
    */
   void del(Region value)
   {
-    //Logging::printf("del %lx+%lx\n", value.virt, value.size);
-    for (Region *r = _list ; r < _list + _count; r++)
-      {
-	if (r->virt >= value.end() || value.virt >= r->end()) continue;
-	if (value.virt > r->virt)
-	  {
-	    // we have to split the current one
-	    if (r->end() > value.end())
-	      {
-		_count++;
-		assert(_count < SIZE);
-		memmove(r+1, r, (_count - (r - _list) - 1) * sizeof(Region));
-		(r+1)->phys += value.end() - r->virt;
-		(r+1)->size -= value.end() - (r+1)->virt;
-		(r+1)->virt  = value.end();
-	      }
-	    r->size = value.virt - r->virt;
-	  }
-	else
-	  {
-	    // we can remove from the beginning
-	    if (value.end() >= r->end())
-	      {
-		memmove(r, r+1, (_count - (r - _list) - 1) * sizeof(Region));
-		_count--;
-		r--;
-	      }
-	    else
-	      {
-		r->phys += value.end() - r->virt;
-		r->size -= value.end() - r->virt;
-		r->virt  = value.end();
-	      }
-	  }
-      }
-  }
+    //Logging::printf("del %8lx+%lx\n", value.virt, value.size);
+    for (unsigned i = 0; i < _count; i++) {
+      Region *r = &_list[i];
 
+      // Skip this entry, if it is not touched by value.
+      if (r->virt >= value.end() || value.virt >= r->end()) continue;
+
+      if (value.virt > r->virt) {
+	// We have to split the current entry. The new entry is
+	// appended to the end of the list.
+	if (value.end() < r->end()) {
+	  assert(_count < SIZE);
+	  Region &last = _list[_count];
+
+	  last.virt = value.end();
+	  last.size = r->end() - value.end();
+	  last.phys = r->phys + last.size;
+
+	  _count++;
+	}
+	r->size = value.virt - r->virt;
+      } else {
+	if (value.end() >= r->end()) {
+	  // Remove this entry by switching it with the last one.
+	  *r = _list[_count-- - 1];
+	  // As there is now a new entry at this point, rerun this
+	  // loop iteration. If we removed the last item, the loop
+	  // condition fails and we are done.
+	  i--; continue;
+	} else {
+	  unsigned long off = r->virt - value.end();
+	  r->phys += off;
+	  r->size -= off;
+	  r->virt += off;
+	}
+      }
+    }
+  }
 
   /**
    * Alloc a region from the list.
@@ -123,7 +125,6 @@ public:
   {
     assert(align_order < 8*sizeof(unsigned long));
     for (Region *r = _list; r < _list + _count; r++)
-      //for (Region *r = _list + _count; --r >= _list;)
       {
 	unsigned long virt = (r->end() - size) & ~((1ul << align_order) - 1);
 	if (size <= r->size && virt >= r->virt)
@@ -135,6 +136,22 @@ public:
     return 0;
   }
 
+  /**
+   * Sort region list.
+   */
+  void sort()
+  {
+    // It's small: Use Bubble Sort! :-D
+    for (unsigned i = 0; i < _count; i++)
+      for (unsigned j = i + 1; j < _count; j++) {
+	if (_list[i].virt > _list[j].virt) {
+	  Region temp;
+	  temp = _list[j];
+	  _list[j] = _list[i];
+	  _list[i] = temp;
+	}
+      }
+  }
 
   void debug_dump(const char *prefix)
   {
