@@ -638,7 +638,7 @@ public:
 	  if (!create_sc(_cap_free++, cap, qpd(2, 10000)))
 	    {
 	      myutcb()->msg[0] = _hip->pre + msg.value;
-	      res = !call(SEND, pt , untyped_words(1));
+	      res = (call(SEND, pt , untyped_words(1)) == SUCCESS);
 	      Logging::printf("send for irq\n");
 	    }
 	  else
