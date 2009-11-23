@@ -45,7 +45,6 @@ PT_FUNC(do_request,
 	SemaphoreGuard l(_lock);
 	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x msg0 %x utcb %p\n", __func__, utcb->head.mtr, utcb->eip, utcb->phys_info, utcb->head.crd, utcb->head.pid, utcb->msg[0], utcb);
 	COUNTER_INC("request");
-	bool write_op = false;
 	unsigned short client = (utcb->head.pid & 0xfff0) >> 4;
 	ModuleInfo *modinfo = _modinfo + client;
 	if (mtd_untyped(utcb->head.mtr) < 0x1000)
