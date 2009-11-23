@@ -1,0 +1,13 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+# nul.App(target_env, 'cycleburner',
+#         SOURCES = [ 'cycleburner.cc' ],
+#         INCLUDE = [ 'sigma0' ],
+#         LIBS    = [ 'runtime', 'string', 'nova' ],
+#         LINKSCRIPT = 'linker.ld')
+
+# EOF
