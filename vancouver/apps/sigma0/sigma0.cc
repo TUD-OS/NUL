@@ -272,7 +272,7 @@ private:
   /**
    * Init the memory map from the hip.
    */
-  unsigned __attribute__((noinline)) init_memmap(Utcb *utcb)
+  unsigned init_memmap(Utcb *utcb)
   {
     Logging::printf("init memory map\n");
 
