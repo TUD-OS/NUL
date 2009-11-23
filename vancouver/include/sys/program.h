@@ -124,7 +124,7 @@ class NovaProgram
   /**
    * Block ourself.
    */
-  void __attribute__((noreturn)) block_forever() { while (1) Nova::semdown(_cap_block); };
+  void NOVA_NORETURN block_forever() { while (1) Nova::semdown(_cap_block); };
 
   static void debug_ec_name(const char *prefix, unsigned value)
   {
