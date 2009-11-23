@@ -476,10 +476,10 @@ private:
     COUNTER_INC("check_to");
     static timevalue old;
     timevalue now = _mb->clock()->time();
-    unsigned diff = (now - _timeouts.timeout());
-    unsigned diff2 = (now - old);
+    // unsigned diff = (now - _timeouts.timeout());
+    // unsigned diff2 = (now - old);
     old = now;
-    static unsigned c;
+    //   static unsigned c;
     //   if (now > _timeouts.timeout() && !((c++) & 0xf))   Logging::printf("%s now %llx to %llx d1 %d d2 %d\n", __func__, now, _timeouts.timeout(), diff / 2666, diff2 / 2666);
     unsigned nr;
     bool reprogram = false;
