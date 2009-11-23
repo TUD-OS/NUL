@@ -128,7 +128,7 @@ class NovaProgram
 
   static void debug_ec_name(const char *prefix, unsigned value)
   {
-    #warning Using reserved field in UTCB
+    // XXX Using reserved field in UTCB
     Utcb *u = myutcb();
     u->head._reserved = 0;
     static const char hex[] = "01234567890abcdef";
