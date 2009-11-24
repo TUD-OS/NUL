@@ -335,7 +335,7 @@ private:
     mem->aux = aux;
   }
 
-  unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned mask)
+  unsigned start_modules(Utcb *utcb, unsigned mask)
   {
     unsigned long maxptr;
     HipMem *mod;
