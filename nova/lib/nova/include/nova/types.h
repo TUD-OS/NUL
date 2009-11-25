@@ -51,6 +51,12 @@ enum {
   MTD_INJ  = (1 << 17),
   MTD_STA  = (1 << 18),
   MTD_TSC  = (1 << 19),
+
+  MTD_ALL  = (~0U >> 13) & ~MTD_CTRL,
+};
+
+enum {
+  INJ_IRQWIN = 0x1000,
 };
 
 NOVA_INLINE Mtd empty_message() { return 0; }

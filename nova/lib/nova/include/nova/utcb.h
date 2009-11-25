@@ -12,6 +12,11 @@ typedef struct Descriptor {
   uint32_t limit;
   uint32_t base;
   uint32_t _reserved;
+
+#ifdef __cplusplus
+  void set(unsigned short _sel, unsigned _base, unsigned _limit, unsigned short _ar) { sel = _sel; base = _base; limit = _limit; ar = _ar; };
+#endif
+
 } NOVA_PACKED Descriptor;
 
 #define NOVA_GREG(NAME)				\
