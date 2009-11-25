@@ -731,9 +731,9 @@ public:
 	if ((res = start_modules(_boot_utcb, ~1U)))        Logging::printf("start modules failed %x\n", res);
 
     Logging::printf("INIT done\n");
-    _free_phys.sort(); _free_phys.debug_dump("free phys");
-    _free_virt.sort(); _free_virt.debug_dump("free virt");
-    _virt_phys.sort(); _virt_phys.debug_dump("virt->phys");
+    // _free_phys.sort(); _free_phys.debug_dump("free phys");
+    // _free_virt.sort(); _free_virt.debug_dump("free virt");
+    // _virt_phys.sort(); _virt_phys.debug_dump("virt->phys");
 
     // unblock the requester and IRQ threads
     _lock.up();
