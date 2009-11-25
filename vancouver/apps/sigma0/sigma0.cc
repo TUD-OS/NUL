@@ -409,8 +409,8 @@ private:
 	  // create special portal for every module, we start at 64k, to have enough space for static fields
 	  unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 4);
 	  check(create_pt(pt+14, _cap_ec_requester,  MTD_EIP | MTD_QUAL, do_request_wrapper));
-	  Logging::printf(vcpus ? "create VMM\n" : "create PD\n");
-	  check(create_pd(_cap_free++, 0xbfffe000, obj_range(pt, 4), qpd(1, 10000), vcpus));
+	  check(create_pd(_cap_free++, 0xbfffe000, qpd(1, 10000), obj_range(pt, 4), vcpus));
+	  Logging::printf("create %s\n", vcpus ? "VMM" : "PD");
 	}
     }
     return 0;
