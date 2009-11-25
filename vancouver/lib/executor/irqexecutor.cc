@@ -16,6 +16,8 @@
  */
 #include "vmm/motherboard.h"
 
+using namespace Nova;
+
 /**
  * Handle IRQ injection.
  *
@@ -36,15 +38,15 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
     if (msg.cpu->head.pid != 1 && msg.cpu->head.pid != 7)  return false;
 
     CpuState *cpu = msg.cpu;
-    assert_mtr(MTD_STATE | MTD_INJ | MTD_RFLAGS);
+    assert_mtr(MTD_STA | MTD_INJ | MTD_EFL);
 
     bool res = false;
     if (msg.vcpu->hazard & VirtualCpuState::HAZARD_IRQ)
       {
 	COUNTER_INC("lint0");
 	//if (msg.vcpu->instcache->debug) Logging::printf("check IRQ %lx lint0 %x rip %x %x %x %x mtr %x\n", -1UL, msg.vcpu->hazard, msg.cpu->eip, msg.cpu->inj_info, msg.cpu->actv_state, msg.cpu->efl, msg.cpu->head.mtr.untyped());
-	//Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
-	if (((~msg.cpu->head.mtr.untyped() & MTD_INJ) || ~msg.cpu->inj_info & 0x80000000) && can_inject(msg.cpu))
+	//Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, msg.cpu->head.mtr, msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
+	if (((~mtd_untyped(msg.cpu->head.mtr) & MTD_INJ) || ~msg.cpu->inj_info & 0x80000000) && can_inject(msg.cpu))
 	  {
 	    msg.vcpu->hazard &= ~VirtualCpuState::HAZARD_IRQ;
 	    MessageApic msg2(0);

@@ -18,9 +18,11 @@
 
 #include "host/screen.h"
 #include "models/keyboard.h"
-#include "sigma0/sigma0.h"
+#include <sigma0.h>
 #include "sys/console.h"
 #include "vmm/motherboard.h"
+
+using namespace Nova;
 
 /**
  * Layout of the capability space.
@@ -79,14 +81,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
     utcb->ctrl[1] = 0;
-    utcb->head.mtr = Mtd(MTD_CTRL, 0);
+    utcb->head.mtr = MTD_CTRL;
     Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_CTRL);
   };
 
   static void force_invalid_gueststate_intel(Utcb *utcb)
   {
     utcb->efl &= ~2;
-    utcb->head.mtr = Mtd(MTD_RFLAGS, 0);
+    utcb->head.mtr = MTD_EFL;
   };
 
 
@@ -95,7 +97,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     _timeouts.init();
 
-    _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
+    _mb = new Motherboard(new Clock(hip->tsc_freq_khz*1000));
     _mb->bus_irqlines.add(this, &Vancouver::receive_static<MessageIrq>);
     _mb->bus_hostop.add(this, &Vancouver::receive_static<MessageHostOp>);
     _mb->bus_console.add(this, &Vancouver::receive_static<MessageConsole>);
@@ -119,20 +121,20 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
   
-    if (hostirq != ~0u) check(Sigma0Base::request_irq(hostirq + _hip->cfg_pre));
+    if (hostirq != ~0u) check(Sigma0Base::request_irq(hostirq + _hip->pre));
 
     debug_ec_name("v ", hostirq);
     unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned>(this));
     unsigned cap_pt = _cap_free++;
-    create_pt(cap_pt, cap_ec, func, Mtd());
+    create_pt(cap_pt, cap_ec, empty_message(), func);
 
     // XXX How many time should an IRQ thread get?
-    check(create_sc(_cap_free++, cap_ec, Qpd(2, 10000)));
+    check(create_sc(_cap_free++, cap_ec, qpd(2, 10000)));
 
     Utcb *utcb = myutcb();
-    utcb->msg[0] = hostirq + _hip->cfg_pre; // the caps for irq threads start here
+    utcb->msg[0] = hostirq + _hip->pre; // the caps for irq threads start here
     utcb->msg[1] = hostirq;
-    check(idc_send(cap_pt, Mtd(2, 0)));
+    check(call(SEND, cap_pt, untyped_words(2)));
     return cap_ec;
   }
 
@@ -140,7 +142,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned init_caps(Hip *hip)
   {
     _lock = Semaphore(&_lockcount, _cap_free++);
-    check(create_sm(_lock.sm()));
+    check(create_sm(_lock.sm(), 0));
 
     // create exception EC
     debug_ec_name("excp", 0);
@@ -148,7 +150,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i!=9) check(create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
+      if (i!=14 && i!=9) check(create_pt(i, cap_ex, MTD_ALL, got_exception));
     
     // create worker
     debug_ec_name("work", 0);   
@@ -156,7 +158,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
     // initialize feature specific variables
-    unsigned features =  (hip->has_svm() << 1) | hip->has_vmx();
+    unsigned features =  (Cpu::has_svm() << 1) | Cpu::has_vmx();
 
     // create portals for VCPU faults
 
@@ -176,7 +178,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	if (!(vm_caps[i].nr >> 8) || (vm_caps[i].nr >> 8) == features)
 	  {
 	    Logging::printf("create pt %x features %x\n", vm_caps[i].nr, features);
-	    check(create_pt(vm_caps[i].nr & 0xff, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+	    check(create_pt(vm_caps[i].nr & 0xff, cap_worker, vm_caps[i].mtd, vm_caps[i].func));
 	  }
       }
     return 0;
@@ -202,7 +204,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	
     //Logging::printf("executed %s at %x:%x pid %d cr3 %x intr %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid, utcb->cr3, utcb->inj_info);
     if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CRWRITE) 
-      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() & ~MTD_CR, 0);
+      utcb->head.mtr =  mtd_untyped(utcb->head.mtr) & ~MTD_CR;
     else
       Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CRWRITE);
   }	
@@ -217,8 +219,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void skip_instruction(Utcb *utcb)
   {
-    assert(utcb->head.mtr.untyped() & MTD_RIP_LEN);
-    assert(utcb->head.mtr.untyped() & MTD_STATE);
+    assert(mtd_untyped(utcb->head.mtr) & MTD_EIP);
+    assert(mtd_untyped(utcb->head.mtr) & MTD_STA);
     utcb->eip += utcb->inst_len;
     /**
      * Cancel sti and mov-ss blocking as we emulated an instruction.
@@ -429,7 +431,7 @@ public:
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
-    char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    char *args = reinterpret_cast<char *>(hip_module(hip, 0)->aux);
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, _boot_utcb, args);
 
     extern char __guestmem;
@@ -437,13 +439,13 @@ public:
     _physsize = 0;
     
     // get physsize
-    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++)
+    for (int i=0; i < (hip->length - hip->mem_offset) / hip->mem_desc_size; i++)
       {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
-	if (hmem->type == 1 && hmem->addr <= _physmem)
+	HipMem *hmem = reinterpret_cast<HipMem *>(reinterpret_cast<char *>(hip) + hip->mem_offset) + i;
+	if (hmem->type == 1 && hmem->address <= _physmem)
 	  {
-	    _physsize = hmem->size - (_physmem - hmem->addr);
-	    _iomem_start = hmem->addr + hmem->size;
+	    _physsize = hmem->size - (_physmem - hmem->address);
+	    _iomem_start = hmem->address + hmem->size;
 	    break;
 	  }
       }
@@ -463,10 +465,10 @@ public:
     // create a single VCPU
     debug_ec_name("vcpu", 0);
     _mb->vcpustate(0)->block_sem = new Semaphore(&_mb->vcpustate(0)->block_count, _cap_free++);
-    if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
+    if (create_sm(_mb->vcpustate(0)->block_sem->sm(), 0))
       Logging::panic("could not create blocking semaphore\n");
     _mb->vcpustate(0)->cap_vcpu = _cap_free++;
-    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0) || create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 100000)))
+    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0) || create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, qpd(1, 100000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX?");
 
     _lock.up();

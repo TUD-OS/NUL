@@ -32,7 +32,7 @@ class CpuState : public Nova::Utcb
   typedef Nova::Descriptor Descriptor;
 };
 
-#define assert_mtr(value) { assert((cpu->head.mtr.untyped() & (value)) == (value)); }
+#define assert_mtr(value) { assert((Nova::mtd_untyped(cpu->head.mtr) & (value)) == (value)); }
 
 
 

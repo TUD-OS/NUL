@@ -155,7 +155,7 @@ private:
     assert(msg.cpu->head.pid == 33);
     if (msg.cpu->cs.base + msg.cpu->eip != _base)  return false;
     Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, 
-		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
+		    msg.cpu->head.mtr, msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     unsigned long rip;
     unsigned long mbi = 0x10000;
@@ -176,7 +176,7 @@ private:
     msg.cpu->ss.base  = msg.cpu->ds.base  = msg.cpu->es.base  = msg.cpu->fs.base  = msg.cpu->gs.base  = msg.cpu->cs.base;
     msg.cpu->ss.limit = msg.cpu->ds.limit = msg.cpu->es.limit = msg.cpu->fs.limit = msg.cpu->gs.limit = msg.cpu->cs.limit;
     msg.cpu->tr.limit = msg.cpu->ld.limit = msg.cpu->gd.limit = msg.cpu->id.limit = 0xffff;
-    msg.cpu->head.mtr = Mtd(MTD_ALL, 0);
+    msg.cpu->head.mtr = Nova::MTD_ALL;
     msg.vcpu->hazard |= VirtualCpuState::HAZARD_CRWRITE;
     return true;
   }

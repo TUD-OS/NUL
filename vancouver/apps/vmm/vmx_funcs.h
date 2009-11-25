@@ -28,7 +28,7 @@ EXCP_FUNC(do_gsi,
 	  Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb); 
 	  while (1)
 	    {
-	      if ((res = semdown(utcb->msg[0])))
+	      if ((res = Nova::semdown(utcb->msg[0])))
 		Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res); 
 	      SemaphoreGuard l(_lock);
 	      MessageIrq msg(MessageIrq::ASSERT_IRQ, utcb->msg[1]);
@@ -55,7 +55,7 @@ EXCP_FUNC(do_stdin,
 		    unsigned const perf2 = 0x4f08;
 		    unsigned long long c1;
 		    unsigned long long c2;
-		    perfcount(perf1, perf2, c1, c2);
+		    // XXX NOTIMPLEMENTED perfcount(perf1, perf2, c1, c2);
 		    Logging::printf("PERF %lld %lld\n", c1, c2);
 		  }
 		  break;
@@ -69,7 +69,7 @@ EXCP_FUNC(do_stdin,
 		  //Logging::printf("enable _debug\n");
 		  _debug = true;
 		  _mb->dump_counters();
-		  syscall(254, 0, 0, 0, 0);
+		  // XXX NOTIMPLEMENTED syscall(254, 0, 0, 0, 0);
 		  //_mb->bus_pic.debug_dump();
 		  break;
 		  // HOME -> reset VM
@@ -173,7 +173,7 @@ VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
 	}
 	)
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
-	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl);
+	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, utcb->head.mtr, utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl);
 	utcb->head.pid = 3;
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
@@ -183,14 +183,14 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin"); 
 	do_recall(utcb);
 	)
-VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB,
+VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_EIP | MTD_ACDB,
 	utcb->head.pid = 10;
 	COUNTER_INC("cpuid"); 
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
 	// XXX call skip instruction for MTD_STATE update
 	)
-VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
+VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_EIP | MTD_IRQ,
 	COUNTER_INC("hlt"); 
 	skip_instruction(utcb);
 	 
@@ -204,28 +204,30 @@ VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	//if (~utcb->intr_info & 0x80000000)  Logging::printf("guest hlt at %x intr %x act %x efl %x info %x\n", utcb->eip, utcb->intr_state, utcb->actv_state, utcb->efl, utcb->intr_info);
 	)
 
-VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
+VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_EIP | MTD_ACDB | MTD_STA,
 	unsigned long long c1;
 	unsigned long long c2;
 	unsigned const perf1 = 0x3c00;
 	unsigned const perf2 = 0x2e41;
 	if (utcb->eax & 0x80000000)
 	  { 
-	    syscall(254, utcb->eax & 0xffff, 0, 0, 0);
-	    perfcount(perf1, perf2, c1, c2);
-	    Logging::printf("PERF1 %lld %lld\n", c1, c2);
+	    // XXX NOTIMPLEMENTED
+	    // syscall(254, utcb->eax & 0xffff, 0, 0, 0);
+	    // perfcount(perf1, perf2, c1, c2);
+	    // Logging::printf("PERF1 %lld %lld\n", c1, c2);
 	    }
 	_mb->dump_counters();
 	if (~utcb->eax & 0x80000000) 
 	  {	      
-	    perfcount(perf1, perf2, c1, c2);
-	    Logging::printf("PERF2 %lld %lld\n", c1, c2);
-	    syscall(254, utcb->eax & 0xffff, 0, 0, 0);
+	    // XXX NOTIMPLEMENTED
+	    // perfcount(perf1, perf2, c1, c2);
+	    // Logging::printf("PERF2 %lld %lld\n", c1, c2);
+	    // syscall(254, utcb->eax & 0xffff, 0, 0, 0);
 	  }
 	skip_instruction(utcb);
 	)
 
-VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
+VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_EIP | MTD_QUAL | MTD_ACDB | MTD_EFL | MTD_STA,
 	if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
 	//Logging::printf("ioio reason: %x\n", utcb->qual[0]);
 	
@@ -243,13 +245,13 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	  }
 	)
 
-VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
+VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_EIP | MTD_ACDB | MTD_TSC | MTD_SYS,
 	utcb->head.pid = 31;
 	COUNTER_INC("rdmsr"); 
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
 	)
-VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
+VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_EIP | MTD_ACDB | MTD_TSC | MTD_SYS,
 	utcb->head.pid = 32;
 	COUNTER_INC("wrmsr"); 
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
@@ -265,7 +267,7 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL) 
 	    {
 	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
-	      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
+	      utcb->head.mtr =  mtd_untyped(utcb->head.mtr) | MTD_CTRL;
 	      utcb->ctrl[0] = 1 << 3; // tscoffs
 	      utcb->ctrl[1] = 1 << 1; // vmmcall
 	    }
@@ -274,7 +276,7 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
-	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
+	 * Need state: ACDB, BSD, EIP, EFL, CS, DS, SS, ES, RSP, CR, EFER
 	 */
 	 
 	// make sure we do not inject the #PF!
@@ -285,8 +287,8 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	if (_mb->bus_memmap.send(msg))
 	  {
 	    Logging::printf("%s(%llx) phys %lx ptr %p+%x eip %x\n", __func__, utcb->qual[1], msg.phys, msg.ptr, msg.count, utcb->eip);
-	    utcb->head.mtr = Mtd();
-	    utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count, msg.phys, 0x1c | 1);
+	    utcb->head.mtr = empty_message();
+	    utcb_add_mappings(utcb, true, reinterpret_cast<unsigned long>(msg.ptr), msg.count, msg.phys, 0x1c | 1);
 	  }
 	else
 	    // this is an access to MMIO
@@ -296,8 +298,8 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 // and now the SVM portals
 VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(utcb); )
 VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_ALL, svm_invalid(utcb); )
-VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(utcb); )
-VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
+VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_EIP | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(utcb); )
+VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_EIP | MTD_QUAL | MTD_ACDB | MTD_STA,
 	{
 	  if (utcb->qual[0] & 0x4)
 	    {
@@ -315,14 +317,14 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	)
 VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(utcb); )
 VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(utcb); )
-VM_FUNC(PT_SVM + 0x81,  svm_vmmcall, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE, utcb->inst_len = 3; vmx_vmcall(utcb); )
+VM_FUNC(PT_SVM + 0x81,  svm_vmmcall, MTD_EIP | MTD_ACDB | MTD_STA, utcb->inst_len = 3; vmx_vmcall(utcb); )
 VM_FUNC(PT_SVM_END - 1, svm_npt,     MTD_ALL, vmx_mmio(utcb); )
 VM_FUNC(PT_SVM_END - 0, svm_invalid, MTD_ALL, 
 	  instruction_emulation(utcb);
 	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL) 
 	    {
 	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
-	      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
+	      utcb->head.mtr =  mtd_untyped(utcb->head.mtr) | MTD_CTRL;
 	      utcb->ctrl[0] = 1 << 18; // cpuid
 	      utcb->ctrl[1] = 1 << 0;  // vmrun
 	    }

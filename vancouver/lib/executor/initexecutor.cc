@@ -30,7 +30,7 @@ class InitExecutor : public StaticReceiver<InitExecutor>
   bool  receive(MessageExecutor &msg)
   {
     assert(msg.cpu->head.pid == 3);
-    Logging::printf(">\t%s mtr %x rip %x il %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
+    Logging::printf(">\t%s mtr %x rip %x il %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, msg.cpu->head.mtr, msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     memset(msg.cpu->msg, 0, sizeof(msg.cpu->msg));
     msg.cpu->eip      = 0xfff0;
@@ -45,7 +45,7 @@ class InitExecutor : public StaticReceiver<InitExecutor>
     msg.cpu->tr.ar    = 0x8b;
     msg.cpu->ss.limit = msg.cpu->ds.limit = msg.cpu->es.limit = msg.cpu->fs.limit = msg.cpu->gs.limit = msg.cpu->cs.limit;
     msg.cpu->tr.limit = msg.cpu->ld.limit = msg.cpu->gd.limit = msg.cpu->id.limit = 0xffff;
-    msg.cpu->head.mtr = Mtd(MTD_ALL, 0);
+    msg.cpu->head.mtr = Nova::MTD_ALL;
     /*msg.cpu->dr6      = 0xffff0ff0;*/
     msg.cpu->dr7      = 0x400;
     // goto singlestep instruction?

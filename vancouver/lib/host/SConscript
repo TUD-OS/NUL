@@ -4,9 +4,6 @@ import nul
 
 Import('target_env')
 
-#for f in Glob('*.cc'):
-#    target_env.Object(f)
-
 nul.Lib(target_env,
         'hostsimple',
         SOURCES = [ 'hostio.cc',
@@ -32,13 +29,13 @@ nul.Lib(target_env,
 nul.Lib(target_env,
         'hostvesa',
         SOURCES = [ 'hostvesa.cc',
-                    '../models/memorycontroller.cc',
-                    '../executor/novahalifax.cc',
-                    '../models/pit8254.cc',
-                    '../models/sysctrlport.cc',
-                    '../models/pcihostbridge.cc',
-                    '../models/pcidirect.cc',
-                    '../models/directio.cc',
+                    '../models/memorycontroller.o',
+                    '../executor/novahalifax.o',
+                    '../models/pit8254.o',
+                    '../models/sysctrlport.o',
+                    '../models/pcihostbridge.o',
+                    '../models/pcidirect.o',
+                    '../models/directio.o',
                     ],
         INCLUDE = [ 'sigma0' ],
         LIBS = [ 'runtime', 'string', 'nova' ])

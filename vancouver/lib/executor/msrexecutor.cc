@@ -48,13 +48,13 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
     switch (msg.cpu->head.pid)
       {
       case 16: // rdtsc
-	set_value(msg.cpu, msg.cpu->tsc_off + Cpu::rdtsc());
+	set_value(msg.cpu, msg.cpu->tsc_offset + Cpu::rdtsc());
 	break;
       case 31: // rdmsr
 	switch (msg.cpu->ecx)
 	  {
 	  case MSR_TSC:
-	    set_value(msg.cpu, msg.cpu->tsc_off + Cpu::rdtsc());
+	    set_value(msg.cpu, msg.cpu->tsc_offset + Cpu::rdtsc());
 	    break;
 	  case MSR_SYSENTER_CS:
 	  case MSR_SYSENTER_ESP:
@@ -80,8 +80,8 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	switch (msg.cpu->ecx)
 	  {
 	  case MSR_TSC:
-	    msg.cpu->tsc_off = -Cpu::rdtsc() + get_value(msg.cpu);
-	    Logging::printf("reset RDTSC to %llx at %x value %llx\n", msg.cpu->tsc_off, msg.cpu->eip, get_value(msg.cpu));
+	    msg.cpu->tsc_offset = -Cpu::rdtsc() + get_value(msg.cpu);
+	    Logging::printf("reset RDTSC to %llx at %x value %llx\n", msg.cpu->tsc_offset, msg.cpu->eip, get_value(msg.cpu));
 	    break;
 	  case MSR_SYSENTER_CS:
 	  case MSR_SYSENTER_ESP:

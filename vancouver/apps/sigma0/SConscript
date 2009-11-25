@@ -7,8 +7,11 @@ Import('target_env')
 nul.App(target_env, 'sigma0',
         SOURCES = [ 'sigma0.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS = [ 'hostvesa', 'hostdisk', 'hostsimple',
-                 'hostvga', 'hostrtc',
+        LIBS = [ 'hostvesa', 
+                 'hostdisk',
+                 'hostsimple',
+                 'hostvga',
+                 'hostrtc',
                  'runtime', 'string', 'nova' ],
         LINKSCRIPT = 'linker.ld')
 

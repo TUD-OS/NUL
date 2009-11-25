@@ -28,7 +28,7 @@ class TripleFaultExecutor : public StaticReceiver<TripleFaultExecutor>
  public:
   bool  receive(MessageExecutor &msg)
   {
-    Logging::printf(">\t%s mtr %x rip %x il %x cr0 %x efl %x pid %x\n", __PRETTY_FUNCTION__, msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl, msg.cpu->head.pid);
+    Logging::printf(">\t%s mtr %x rip %x il %x cr0 %x efl %x pid %x\n", __PRETTY_FUNCTION__, msg.cpu->head.mtr, msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl, msg.cpu->head.pid);
     assert(msg.cpu->head.pid == 2);
 
     MessageLegacy msg1(MessageLegacy::RESET, 0);

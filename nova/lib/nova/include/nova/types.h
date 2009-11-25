@@ -31,7 +31,7 @@ enum {
 
 enum {
   MTD_NONE = 0,
-  MTD_ABCD = (1 << 0),
+  MTD_ACDB = (1 << 0),
   MTD_BSD  = (1 << 1),
   MTD_ESP  = (1 << 2),
   MTD_EIP  = (1 << 3),
@@ -52,6 +52,7 @@ enum {
   MTD_STA  = (1 << 18),
   MTD_TSC  = (1 << 19),
 
+  MTD_IRQ  = MTD_EFL | MTD_STA | MTD_INJ,
   MTD_ALL  = (~0U >> 13) & ~MTD_CTRL,
 };
 
