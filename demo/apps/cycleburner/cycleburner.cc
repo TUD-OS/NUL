@@ -336,6 +336,7 @@ public:
       MessageTimer timeout(0, clock->time() + 50000000);
       Sigma0Base::timer(timeout);
       timerconsumer->get_buffer();
+      timerconsumer->free_buffer();
     }
 
     block_forever();
