@@ -55,7 +55,7 @@ class Sigma0Base : public NovaProgram
       
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
-      utcb->head.mtr = typed_words(3);
+      utcb->head.mtr = untyped_words(3); /* XXX 3? */
       utcb_add_mappings(utcb, false, sem_nq << MAPMINSHIFT, 1 << MAPMINSHIFT, 0, 3);
       check(call(DCALL, 14, utcb->head.mtr));
       return utcb->msg[0];
