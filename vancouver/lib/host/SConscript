@@ -19,6 +19,30 @@ nul.Lib(target_env,
         INCLUDE = [ 'sigma0' ],
         LIBS = [ 'runtime', 'string', 'nova' ])
 
+nul.Lib(target_env,
+        'hostdisk',
+        SOURCES = [ 'hostide.cc',
+                    'hostahci.cc',
+                    'virtualdisk.cc',
+                    ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ])
+
+
+nul.Lib(target_env,
+        'hostvesa',
+        SOURCES = [ 'hostvesa.cc',
+                    '../models/memorycontroller.cc',
+                    '../executor/novahalifax.cc',
+                    '../models/pit8254.cc',
+                    '../models/sysctrlport.cc',
+                    '../models/pcihostbridge.cc',
+                    '../models/pcidirect.cc',
+                    '../models/directio.cc',
+                    ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ])
+
 def SimpleHost(name):
     return nul.Lib(target_env, name,
                    SOURCES = [ name + '.cc'],

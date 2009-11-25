@@ -29,6 +29,7 @@ class CpuState : public Nova::Utcb
   unsigned pg()    { return cr0 & 0x80000000; }
   unsigned v86()   { return cr0 & 0x1 && efl & (1 << 17); }
 
+  typedef Nova::Descriptor Descriptor;
 };
 
 #define assert_mtr(value) { assert((cpu->head.mtr.untyped() & (value)) == (value)); }

@@ -21,14 +21,14 @@
  */
 enum 
   {
-    RMTR_eip = MTD_RIP_LEN,
-    RMTR_efl = MTD_RFLAGS,
-    RMTR_cr0 = MTD_CR,
-    RMTR_cr2 = MTD_CR,
-    RMTR_cr3 = MTD_CR,
-    RMTR_cr4 = MTD_CR,
-    RMTR_cs  = MTD_CS_SS,
-    RMTR_ss  = MTD_CS_SS,
+    RMTR_eip = Nova::MTD_EIP,
+    RMTR_efl = Nova::MTD_EFL,
+    RMTR_cr0 = Nova::MTD_CR,
+    RMTR_cr2 = Nova::MTD_CR,
+    RMTR_cr3 = Nova::MTD_CR,
+    RMTR_cr4 = Nova::MTD_CR,
+    RMTR_cs  = Nova::MTD_CSSS,
+    RMTR_ss  = Nova::MTD_CSSS,
   };
 
 /**
@@ -468,9 +468,9 @@ public:
      * Have we accessed more than we are allowed to?
      * Do a recall with more state.
      */
-    if (msg.vcpu->mtr_read & ~msg.cpu->head.mtr.value())
+    if (msg.vcpu->mtr_read & ~msg.cpu->head.mtr)
       {
-	Logging::printf("recall %x out of %x\n", msg.vcpu->mtr_read, msg.cpu->head.mtr.value());
+	Logging::printf("recall %x out of %x\n", msg.vcpu->mtr_read, msg.cpu->head.mtr);
 	// signal a recall
 	COUNTER_INC("recall");
 	FAULT(FAULT_RECALL);
@@ -488,8 +488,8 @@ public:
     if (msg.vcpu->fault)  msg.cpu->actv_state = msg.vcpu->oactv_state;
     if (msg.cpu->actv_state != msg.vcpu->oactv_state)
       {
-	msg.vcpu->mtr_read  |= MTD_STATE;
-	msg.vcpu->mtr_write |= MTD_STATE;
+	msg.vcpu->mtr_read  |= Nova::MTD_STA;
+	msg.vcpu->mtr_write |= Nova::MTD_STA;
       }
 
     if (!msg.vcpu->fault || msg.vcpu->fault == FAULT_RETRY)
@@ -547,9 +547,9 @@ public:
 	    // consolidate two exceptions
 	    
 	    // triple fault ?
-	    if ((msg.cpu->inj_info & ~INJ_IRQWIN) == 0x80000b08)
+	    if ((msg.cpu->inj_info & ~Nova::INJ_IRQWIN) == 0x80000b08)
 	      {
-		msg.cpu->inj_info = (msg.cpu->inj_info & INJ_IRQWIN);
+		msg.cpu->inj_info = (msg.cpu->inj_info & Nova::INJ_IRQWIN);
 		msg.cpu->head.pid = 2;
 	      }
 	    else
@@ -561,7 +561,7 @@ public:
 		      msg.vcpu->fault = 0x80000b08;
 		      msg.vcpu->error_code = 0;
 		    }
-		msg.cpu->inj_info = msg.vcpu->fault | (msg.cpu->inj_info & INJ_IRQWIN);
+		msg.cpu->inj_info = msg.vcpu->fault | (msg.cpu->inj_info & Nova::INJ_IRQWIN);
 		msg.cpu->inj_error = msg.vcpu->error_code;
 	      }
 	  }

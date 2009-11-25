@@ -19,6 +19,8 @@
 #include "vmm/vesa.h"
 #include "../executor/novainstcache.h"
 
+using namespace Nova;
+
 /**
  * A Vesa console.
  *
@@ -62,7 +64,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.tr.ar    = 0x8b;
     _cpu.ss.limit = _cpu.ds.limit = _cpu.es.limit = _cpu.fs.limit = _cpu.gs.limit = _cpu.cs.limit;
     _cpu.tr.limit = _cpu.ld.limit = _cpu.gd.limit = _cpu.id.limit = 0xffff;
-    _cpu.head.mtr = Mtd(MTD_ALL, 0);
+    _cpu.head.mtr = MTD_ALL;
     _cpu.dr7      = 0x400;
 
     // copy iret frame as well as HLT instruction to be able to come back

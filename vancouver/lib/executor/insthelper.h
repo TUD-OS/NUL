@@ -786,7 +786,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 	    if (!msg.cpu->v86())
 	      {
 		
-		Utcb::Descriptor oldss = msg.cpu->ss;
+		CpuState::Descriptor oldss = msg.cpu->ss;
 		unsigned short new_ss;
 		unsigned new_esp;
 		if (newcpl != msg.cpu->cpl())
