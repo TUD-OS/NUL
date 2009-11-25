@@ -52,7 +52,7 @@ public:
   {
     memcpy(_buffer, target->_buffer, sizeof(_buffer));
   }
-  
+
   void blt_to(uint16_t *target)
   {
     memcpy(target, _buffer, sizeof(_buffer));
@@ -62,7 +62,7 @@ public:
   {
     while ((len-- != 0) && *str != 0) {
       if (*str != ' ')
-        character(row, col) = *str | (attr<<8);
+	character(row, col) = *str | (attr<<8);
       col++;
       str++;
     }
@@ -75,7 +75,7 @@ public:
 
 template <unsigned ROW, unsigned COL>
 class TextAnimator : public TextBuffer<ROW, COL> {
-  
+
 public:
   virtual void render(timevalue now) = 0;
 
@@ -89,9 +89,9 @@ class PlasmaAnimator : public TextAnimator<ROW, COL> {
   {
     int icol = (((int)color) + 128) >> 4;
     uint16_t coltab[8] = { ' ' | 0x0000, ' ' | 0x0000,
-                           ':' | 0x0200, ':' | 0x0A00,
-                           'o' | 0x0200, 'O' | 0x0200,
-                           'O' | 0x0A00, 'Q' | 0x0A00 };
+			   ':' | 0x0200, ':' | 0x0A00,
+			   'o' | 0x0200, 'O' | 0x0200,
+			   'O' | 0x0A00, 'Q' | 0x0A00 };
     uint16_t attr = coltab[(icol <= 8) ? (8 - icol) : (icol - 8)];
     if (icol <= 8)
       attr = (attr & 0x8FF) | 0x0100;
@@ -109,16 +109,16 @@ public:
     // Double ROW to correct aspect ratio.
     for (int rc = 0; rc < ROW*2; rc += 2)
       for (int cc = 0; cc < COL; cc++) {
-        int8_t v1 = lsin(distance(rc, cc, ROW*2/2, COL/2)*2 + 2*t);
-        int8_t v2 = lsin(distance(rc, cc,
-                                  (lsin(t>>5)/2 + 60),
-                                  (lcos(t>>5)/2 + 60)));
+	int8_t v1 = lsin(distance(rc, cc, ROW*2/2, COL/2)*2 + 2*t);
+	int8_t v2 = lsin(distance(rc, cc,
+				  (lsin(t>>5)/2 + 60),
+				  (lcos(t>>5)/2 + 60)));
 
-        int8_t v3 = lsin(distance(rc, cc,
-                                  (lsin(-t*3)/2 + 64),
-                                  (lcos(-t*3)/2 + 64)));
-        
-        plasma_put(rc/2, cc, (v1 + v2 + v3)/3);
+	int8_t v3 = lsin(distance(rc, cc,
+				  (lsin(-t*3)/2 + 64),
+				  (lcos(-t*3)/2 + 64)));
+
+	plasma_put(rc/2, cc, (v1 + v2 + v3)/3);
       }
 
     this->character(ROW-1, 0) = this->character(ROW-1, 0) & 0xFF00 | 'J';
@@ -149,61 +149,61 @@ public:
 
     unsigned t = ((unsigned)((now - _start) >> 22)) % 10000;
     unsigned cycle = ((unsigned)((now - _start) >> 22)) / 10000;
-    
+
     if (t < 800) {
       // 0-799: Bar in
       for (int rc = 0; rc < ROW; rc++)
-        for (int cc = 0; cc < COL; cc++) {
-          if ((cc <= t/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
-            uint16_t &ch = this->character(rc, cc);
-            ch = ch & 0xFF | text_bg_attr;
-          }
-        }
+	for (int cc = 0; cc < COL; cc++) {
+	  if ((cc <= t/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
+	    uint16_t &ch = this->character(rc, cc);
+	    ch = ch & 0xFF | text_bg_attr;
+	  }
+	}
     } else if (t < 5000) {
       // 800-1290 Empty bar
       for (int rc = 0; rc < ROW; rc++)
-        for (int cc = 0; cc < COL; cc++) {
-          if ((rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
-            uint16_t &ch = this->character(rc, cc);
-            ch = ch & 0xFF | text_bg_attr;
-          }
-        }
+	for (int cc = 0; cc < COL; cc++) {
+	  if ((rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
+	    uint16_t &ch = this->character(rc, cc);
+	    ch = ch & 0xFF | text_bg_attr;
+	  }
+	}
       // 1300-4999
       const char *msg[] = {
-        // A collection of nice Perlisms.
-        "Simplicity does not precede complexity, but follows it.",
-        "If your computer speaks English, it was probably made in Japan.",
-        "To understand a program you must become both the machine and the program.",
-        "If a listener nods his head when you're explaining your program, wake him up.",
-        // Alan Kay quotes
-        "Perspective is worth 80 IQ points.",
-        "A successful technology creates problems that only it can solve.",
-        "Simple things should be simple. Complex things should be possible.",
-        // "If you don't fail at least 90 percent of the time, you're not aiming high enough." // XXX Too long
-        // Kent Pitman
-        "Lisp is a language for doing what you've been told is impossible.",
-        // Paul Graham
-        "Like DNA, such a language [Lisp] does not go out of style.",
+	// A collection of nice Perlisms.
+	"Simplicity does not precede complexity, but follows it.",
+	"If your computer speaks English, it was probably made in Japan.",
+	"To understand a program you must become both the machine and the program.",
+	"If a listener nods his head when you're explaining your program, wake him up.",
+	// Alan Kay quotes
+	"Perspective is worth 80 IQ points.",
+	"A successful technology creates problems that only it can solve.",
+	"Simple things should be simple. Complex things should be possible.",
+	// "If you don't fail at least 90 percent of the time, you're not aiming high enough." // XXX Too long
+	// Kent Pitman
+	"Lisp is a language for doing what you've been told is impossible.",
+	// Paul Graham
+	"Like DNA, such a language [Lisp] does not go out of style.",
       };
       unsigned msg_no = sizeof(msg) / sizeof(*msg);
       const char *cur_msg = msg[cycle % msg_no];
       unsigned msg_len = strlen(cur_msg);
-      
+
       if ((t >= 1300) && (t < 4500)) {
-        this->put_text(ROW/2, COL/2 - msg_len/2 - 1, 0x0F, cur_msg, (t-1300)/10);
+	this->put_text(ROW/2, COL/2 - msg_len/2 - 1, 0x0F, cur_msg, (t-1300)/10);
       }
       if ((t >= 4500) && (t < 4600)) {
-        this->put_text(ROW/2, COL/2 - msg_len/2 - 1, 0x07, cur_msg, (t-1300)/10);
+	this->put_text(ROW/2, COL/2 - msg_len/2 - 1, 0x07, cur_msg, (t-1300)/10);
       }
     } else {
       // Bar out
       for (int rc = 0; rc < ROW; rc++)
-        for (int cc = 0; cc < COL; cc++) {
-          if ((cc >= (t - 5000)/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
-            uint16_t &ch = this->character(rc, cc);
-            ch = ch & 0xFF | text_bg_attr;
-          }
-        }
+	for (int cc = 0; cc < COL; cc++) {
+	  if ((cc >= (t - 5000)/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
+	    uint16_t &ch = this->character(rc, cc);
+	    ch = ch & 0xFF | text_bg_attr;
+	  }
+	}
 
     }
 
@@ -229,7 +229,7 @@ random()
   static uint32_t x = 1;
 
   x = a*x + c;
-  
+
   return x;
 }
 
@@ -245,42 +245,42 @@ public:
   {
     unsigned ROW = 25;
     unsigned COL = 80;
-      
+
 
     if (!_start_init) {
       _start = now;
       _start_init = true;
-      
+
       for (int rc = 0; rc < ROW; rc++)
-        for (int cc = 0; cc < COL; cc++) {
-          uint32_t r = random() % (127 - 32) + 32;
-          character(rc, cc) = r | 0x0800;
-        }
+	for (int cc = 0; cc < COL; cc++) {
+	  uint32_t r = random() % (127 - 32) + 32;
+	  character(rc, cc) = r | 0x0800;
+	}
     } else {
-      
+
       for (int rc = 0; rc < ROW; rc++)
-        for (int cc = 0; cc < COL; cc++) {
-          unsigned target;
-          uint16_t &chara = character(rc, cc);
+	for (int cc = 0; cc < COL; cc++) {
+	  unsigned target;
+	  uint16_t &chara = character(rc, cc);
 
-          unsigned start_row = (ROW - sizeof(intro_text)/sizeof(*intro_text)) / 2;
-          if ((rc >= start_row) && (rc - start_row < sizeof(intro_text)/sizeof(*intro_text))
-              && (cc < strlen(intro_text[rc - start_row]))) {
-             target = intro_text[rc - start_row][cc];
-          } else {
-            target = ' ';
-          }
+	  unsigned start_row = (ROW - sizeof(intro_text)/sizeof(*intro_text)) / 2;
+	  if ((rc >= start_row) && (rc - start_row < sizeof(intro_text)/sizeof(*intro_text))
+	      && (cc < strlen(intro_text[rc - start_row]))) {
+	     target = intro_text[rc - start_row][cc];
+	  } else {
+	    target = ' ';
+	  }
 
-            if ((chara & 0xFF) == target) {
-              chara = chara & 0xFF | 0x0F00;
-              continue;
-            }
-            
-            chara++;
-            if ((chara & 0xFF) > 127)
-              chara = 0x0700 | 32;
+	    if ((chara & 0xFF) == target) {
+	      chara = chara & 0xFF | 0x0F00;
+	      continue;
+	    }
 
-        }
+	    chara++;
+	    if ((chara & 0xFF) > 127)
+	      chara = 0x0700 | 32;
+
+	}
 
     }
   }
