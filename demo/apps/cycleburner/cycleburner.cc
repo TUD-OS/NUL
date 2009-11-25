@@ -1,4 +1,5 @@
-#include "sys/console.h"
+#include <sys/console.h>
+#include <vmm/motherboard.h>
 #include <sigma0.h>
 
 #include "math.h"
@@ -93,7 +94,7 @@ class PlasmaAnimator : public TextAnimator<ROW, COL> {
                            'O' | 0x0A00, 'Q' | 0x0A00 };
     uint16_t attr = coltab[(icol <= 8) ? (8 - icol) : (icol - 8)];
     if (icol <= 8)
-      attr = attr & 0x8FF | 0x0100;
+      attr = (attr & 0x8FF) | 0x0100;
 
     this->character(row, col) = attr;
   }
@@ -295,11 +296,18 @@ class Cycleburner : public NovaProgram,
 {
   const char *debug_getname() { return "Cycleburner"; };
   uint16_t _vga_console[0x1000/2];
+  VgaRegs  _vga_regs;
 
 public:
-  void __attribute__((noreturn)) run(Hip *hip)
+  static void exit(unsigned long status)
   {
-    MessageConsole msg_con("PLS", _vga_console);
+    Logging::printf("%s(%lx)\n", __func__, status);
+  }
+
+
+  NOVA_NORETURN void run(Hip *hip)
+  {
+    MessageConsole msg_con("PLS", (char *)_vga_console, sizeof(_vga_console), &_vga_regs);
     msg_con.size = sizeof(_vga_console);
     Sigma0Base::console(msg_con);
     
@@ -311,7 +319,7 @@ public:
     gen_sinlut();
     gen_sqrtlut();
 
-    Clock *clock = new Clock(hip->freq_tsc*1000);
+    Clock *clock = new Clock(hip->tsc_freq_khz*1000);
     IntroAnimator *ia = new IntroAnimator;
     PlasmaAnimator<25, 80> *pa = new PlasmaAnimator<25, 80>;
     QuoteAnimator<25, 80> *qa = new QuoteAnimator<25, 80>(pa);
@@ -331,7 +339,7 @@ public:
       // Wait
       MessageTimer timeout(0, clock->time() + 50000000);
       Sigma0Base::timer(timeout);
-      timerconsumer->read();
+      timerconsumer->get_buffer();
     }
 
     block_forever();
@@ -339,18 +347,5 @@ public:
   }
 };
 
-extern "C" void mymain(Hip *hip) asm ("main");
-void __attribute__((noreturn)) mymain(Hip *hip)
-{
-  (new Cycleburner())->run(hip);
-}
-
-
-extern "C" void  __exit(unsigned long status)
-{
-  while (1)
-    Cpu::hlt();
-}
-
-
+ASMFUNCS(Cycleburner);
 // EOF

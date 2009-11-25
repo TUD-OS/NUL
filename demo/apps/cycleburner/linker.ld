@@ -14,18 +14,23 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
+OUTPUT_ARCH(i386)
+
+EXTERN(_start)
+
 PHDRS
 {
 	text     PT_LOAD FLAGS(5) FILEHDR PHDRS;
 	data     PT_LOAD FLAGS(6);
 }
 
-ENTRY(_start)
-EXTERN(_start)
-
 SECTIONS
 {
-    . =  0x80000000 + SIZEOF_HEADERS;
+  ENTRY(_start)
+   .  =  0x80000000;
+   __image_start = .;
+   . +=  SIZEOF_HEADERS;
   .text :
   {
     *(.text .text.*);
@@ -43,16 +48,19 @@ SECTIONS
     *(.rodata .rodata.*);
     *(.data);
     *(.data.*);
+   __image_end = .;
   } : data
   .bss :
   {
     *(.bss);
     *(.bss.*);
     __mempoolstart = .;
-    . += 0x10000;
+    . += 0x800000;
     __mempoolend = .;
+    __module_start = .;
+    . += 32M;
+    __module_end = .;
   }
-
 
   /DISCARD/ :
   {
