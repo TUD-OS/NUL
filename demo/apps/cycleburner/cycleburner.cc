@@ -295,8 +295,6 @@ class Cycleburner : public NovaProgram,
 		    public ProgramConsole
 {
   const char *debug_getname() { return "Cycleburner"; };
-  uint16_t _vga_console[0x1000/2];
-  VgaRegs  _vga_regs;
 
 public:
   static void exit(unsigned long status)
@@ -307,10 +305,8 @@ public:
 
   NOVA_NORETURN void run(Hip *hip)
   {
-    MessageConsole msg_con("PLS", (char *)_vga_console, sizeof(_vga_console), &_vga_regs);
-    msg_con.size = sizeof(_vga_console);
-    Sigma0Base::console(msg_con);
-    
+    console_init("CYC");
+
     init(hip);
 
     TimerConsumer *timerconsumer = new TimerConsumer(_cap_free++);
@@ -329,13 +325,13 @@ public:
       timevalue now = clock->time();
 
       if (now - starttime < 10000000000ULL) {
-        ia->render(now);
-        ia->blt_to(_vga_console);
+	ia->render(now);
+	ia->blt_to(_console_data.screen_address);
       } else {
-        qa->render(now);
-        qa->blt_to(_vga_console);
+	qa->render(now);
+	qa->blt_to(_console_data.screen_address);
       }
-      
+
       // Wait
       MessageTimer timeout(0, clock->time() + 50000000);
       Sigma0Base::timer(timeout);
@@ -348,4 +344,5 @@ public:
 };
 
 ASMFUNCS(Cycleburner);
+
 // EOF
