@@ -45,13 +45,12 @@ memmove(void *dst, const void *src, size_t count)
     {
       d+=count-1;
       s+=count-1;
-      asm ("std; rep movsb; cld;" : "+D"(d), "+S"(s), "+c"(count) : : "memory");
+      asm volatile ("std; rep movsb; cld;" : "+D"(d), "+S"(s), "+c"(count) : : "memory");
     }
   else
-    asm ("rep movsb" : "+D"(d), "+S"(s), "+c"(count) :  : "memory");
+    asm volatile ("rep movsb" : "+D"(d), "+S"(s), "+c"(count) :  : "memory");
   return dst;
 }
-
 
 NOVA_INLINE int
 memcmp(const void *dst, const void *src, size_t count)
