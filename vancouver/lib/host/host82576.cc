@@ -41,11 +41,26 @@
 // 	Kernel driver in use: igb
 // 	Kernel modules: igb
 
+
+
+// TODO Map registers.
+// TODO Query extended capabilities.
+// TODO MSI support
+
 class Host82576 : public StaticReceiver<Host82576>
 {
   unsigned long _address;
   unsigned _hostirq;
   const char *debug_getname() { return "Host82576"; }
+
+  enum MessageLevel {
+    INFO  = 1<<0,
+    DEBUG = 1<<1,
+
+    ALL   = ~0U,
+  };
+
+  unsigned _msg_level;
 
 public:
 
@@ -58,13 +73,30 @@ public:
     return true;
   };
 
-  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned long address, unsigned hostirq)
-    : _address(address), _hostirq(hostirq)
+  void msg(unsigned level, const char *msg, ...)
   {
-    Logging::printf("Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
+    if ((level & _msg_level) != 0) {
+      va_list ap;
+      va_start(ap, msg);
+      Logging::vprintf(msg, ap);
+      va_end(ap);
+    }
+  }
+
+  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned long address, unsigned hostirq)
+    : _address(address), _hostirq(hostirq), _msg_level(ALL)
+  {
+    msg(INFO, "Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
+
+    // IRQ
     MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
     if (!(msg.value == ~0U || bus_hostop.send(msg)))
       Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
+
+    // Capabilities
+    // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);
+    // if (sriov_cap != 0)
+    //   msg(INFO, "It is SR-IOV capable.\n");
   }
 };
 
@@ -83,15 +115,6 @@ PARAM(host82576,
 	      mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	    }
 	  }
-
-	  // HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), address, irqline);
-	  // Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, address, irqline, irqpin);
-	  // mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
-	  // mb.bus_console.add(dev, &HostAhci::receive_static<MessageConsole>);
-
-	  // MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
-	  // if (!(msg.value == ~0U || mb.bus_hostop.send(msg)))
-	  //   Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, irqline);
 	}
       },
       "host82576:func,irq - provide driver for Intel 82576 Ethernet controller.");
