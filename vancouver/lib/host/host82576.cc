@@ -61,7 +61,7 @@ public:
   Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned long address, unsigned hostirq)
     : _address(address), _hostirq(hostirq)
   {
-    
+    Logging::printf("Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
     MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
     if (!(msg.value == ~0U || bus_hostop.send(msg)))
       Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
@@ -73,19 +73,15 @@ PARAM(host82576,
 	unsigned irqline; 
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
+	unsigned found = 0;
 
 	for (unsigned address, num = 0; (address = pci.search_device(0x2, 0x0, num++, irqline, irqpin));) {
-	  Logging::printf("Ethernet controller #%x at %x irq %x pin %x.\n", num, address, irqline, irqpin);
-
 	  unsigned cfg0 = pci.conf_read(address + 0x0);
 	  if (cfg0 == 0x10c98086) {
-	    Logging::printf("Found Intel 82576-style controller.\n");
-	    
-	    Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), address, irqline);
-	    mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
-	  } else {
-	    Logging::printf("Ignored unknown Ethernet controller (%x:%x).\n",
-			    cfg0 & 0xFFFF, cfg0 >> 16);
+	    if (found++ == argv[0]) {
+	      Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), address, argv[1]);
+	      mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
+	    }
 	  }
 
 	  // HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), address, irqline);
@@ -98,6 +94,6 @@ PARAM(host82576,
 	  //   Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, irqline);
 	}
       },
-      "host82576:irq=0x13 - provide a hostdriver for all Intel 82576 Ethernet controller.");
+      "host82576:func,irq - provide driver for Intel 82576 Ethernet controller.");
 
 // EOF
