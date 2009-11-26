@@ -17,7 +17,7 @@
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
 
-EXTERN(__start)
+EXTERN(_start)
 
 PHDRS
 {
@@ -27,7 +27,7 @@ PHDRS
 
 SECTIONS
 {
-  ENTRY(__start)
+  ENTRY(_start)
    .  =  0x80000000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
