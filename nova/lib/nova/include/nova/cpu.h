@@ -75,13 +75,13 @@ NOVA_INLINE uint32_t cpuid(uint32_t eax, uint32_t *ebx, uint32_t *ecx, uint32_t 
   return eax;
 }
 
-NOVA_INLINE bool has_vmx() {
+NOVA_INLINE unsigned has_vmx() {
   unsigned ebx, ecx, edx;
   cpuid(0x1, &ebx, &ecx, &edx); 
   return ecx & 0x20;
 };
 
-NOVA_INLINE bool has_svm() {
+NOVA_INLINE unsigned has_svm() {
   unsigned ebx, ecx, edx;
   if (cpuid(0x80000000, &ebx, &ecx, &edx) < 0x8000000A) return false;
   cpuid(0x80000001, &ebx, &ecx, &edx);
