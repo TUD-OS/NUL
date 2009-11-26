@@ -32,7 +32,7 @@ enum Cap_space_layout
     PT_RECALL    = 9,
     PT_VMX       = 0x120,
     PT_SVM       = 0x220,
-    PT_SVM_END   = PT_SVM + 0xdf,
+    PT_SVM_END   = PT_SVM + 0xff,
   };
 
 /****************************************************/

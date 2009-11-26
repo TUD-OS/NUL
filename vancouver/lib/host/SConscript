@@ -5,6 +5,13 @@ import nul
 Import('target_env')
 
 nul.Lib(target_env,
+        'hostnetwork',
+        SOURCES = [ 'host82576.cc',
+                    ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS = [ 'runtime', 'string', 'nova' ])
+
+nul.Lib(target_env,
         'hostsimple',
         SOURCES = [ 'hostio.cc',
                     'hostpcicfg.cc',
