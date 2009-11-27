@@ -631,7 +631,7 @@ public:
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
 	{
 	  debug_ec_name("s ", msg.value);
-	  Logging::printf("create ec for irq\n");
+	  // Logging::printf("create ec for irq\n");
 	  unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this));
 	  unsigned pt = _cap_free++;
 	  create_pt(pt, cap, empty_message(), do_gsi_wrapper);
@@ -639,7 +639,7 @@ public:
 	    {
 	      myutcb()->msg[0] = _hip->pre + msg.value;
 	      res = (call(SEND, pt , untyped_words(1)) == SUCCESS);
-	      Logging::printf("send for irq\n");
+	      // Logging::printf("send for irq\n");
 	    }
 	  else
 	    res = false;

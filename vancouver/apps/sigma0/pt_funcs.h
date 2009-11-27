@@ -31,7 +31,7 @@ PT_FUNC(do_map,
 PT_FUNC_NORETURN(do_gsi,
 		 unsigned char res;
 		 unsigned irq = utcb->msg[0];
-		 Logging::printf("%s(%x) initial\n", __func__, irq); 
+		 //Logging::printf("%s(%x) initial\n", __func__, irq); 
 		 MessageIrq msg(MessageIrq::ASSERT_IRQ, irq - _hip->pre);
 		 while (!(res = semdown(irq)))
 		   {
