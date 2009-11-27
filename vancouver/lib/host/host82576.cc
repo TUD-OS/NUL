@@ -49,16 +49,44 @@
 
 class Host82576 : public StaticReceiver<Host82576>
 {
-  unsigned long _address;
-  unsigned _hostirq;
-  const char *debug_getname() { return "Host82576"; }
-
   enum MessageLevel {
     INFO  = 1<<0,
     DEBUG = 1<<1,
 
     ALL   = ~0U,
   };
+
+  enum Register {
+    // Spec p.399
+
+    // General
+    CTRL      = 0x0000/4,
+    STATUS    = 0x0008/4,
+    CTRL_EXT  = 0x0018/4,
+    MDIC      = 0x0020/4,
+    SERDESCTL = 0x0024/4,
+    
+    FRTIMER   = 0x1048/4,	// Free Running Timer
+
+    // Interrupts
+    ICR       = 0x01500/4,
+    ICS       = 0x01504/4,
+    IMS       = 0x01508/4,	// Interrupt Mask Set/Read
+    IMC       = 0x0150C/4,	// Interrupt Mask Clear
+
+    // General
+    RCTL      = 0x00100/4,	// RX Control
+    RXPBS     = 0x02404/4,	// RX Packet Buffer Size
+    
+  };
+
+
+  unsigned long _address;	 // Address of PCI config space
+  volatile uint32_t *_hwreg;	 // Device MMIO registers (128K)
+  uint16_t _hwioreg;		 // Device I/O  registers (32)
+
+  unsigned _hostirq;
+  const char *debug_getname() { return "Host82576"; }
 
   unsigned _msg_level;
 
@@ -88,10 +116,58 @@ public:
   {
     msg(INFO, "Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
 
-    // IRQ
-    MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
-    if (!(msg.value == ~0U || bus_hostop.send(msg)))
-      Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
+    // Discover our register windows.
+    _hwreg   = 0;
+    _hwioreg = 0;
+
+    for (unsigned bar_i = 0; bar_i < pci.MAX_BAR; bar_i++) {
+      uint32_t bar_addr = address + pci.BAR0 + bar_i*pci.BAR_SIZE;
+      uint32_t bar = pci.conf_read(bar_addr);
+      size_t size  = pci.bar_size(bar_addr);
+
+      if (bar == 0) continue;
+      msg(DEBUG, "BAR %d: %08lx (size %08lx)\n", bar_i, bar, size);
+
+      if ((bar & pci.BAR_IO) == 1) {
+	// I/O bar
+	if (size == 32) {
+	  _hwioreg = bar & pci.BAR_IO_MASK;
+
+	  // XXX Why <<8 ?
+	  MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOIO_REGION, (_hwioreg << 8) | 5);
+	  if (!bus_hostop.send(iomsg))
+	    Logging::panic("%s could not allocate I/O window.\n", __PRETTY_FUNCTION__);
+
+	  msg(INFO, "Found I/O window at %x.\n", _hwioreg);
+	}
+      } else {
+	// Memory BAR
+	// XXX 64-bit bars!
+	uint32_t phys_addr = bar & pci.BAR_MEM_MASK;
+
+	if (size == (1<<17 /* 128K */)) {
+	  if (phys_addr & 0xFFF)
+	    Logging::panic("%s: MMIO window not page-aligned.", __PRETTY_FUNCTION__);
+
+	  MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM_REGION, phys_addr | 17);
+	  if (bus_hostop.send(iomsg) && iomsg.ptr)
+	    _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
+	  else
+	    Logging::panic("%s could not map register window.\n", __PRETTY_FUNCTION__);
+
+	  msg(INFO, "Found MMIO window at %p (phys %lx).\n", _hwreg, phys_addr);
+	}
+      }
+
+      if (!_hwreg && !_hwioreg)
+	Logging::panic("%s could not find its register windows.\n", __PRETTY_FUNCTION__);
+
+      // IRQ
+      MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
+      if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
+	Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
+
+    }
 
     // Capabilities
     // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);
@@ -102,7 +178,7 @@ public:
 
 PARAM(host82576,
       {
-	unsigned irqline; 
+	unsigned irqline;
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
 	unsigned found = 0;
