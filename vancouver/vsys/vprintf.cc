@@ -73,7 +73,6 @@ Vprintf::handle_formatstring(PutcFunction putc, void *data, const char *format, 
 	  pad = (2*(*format - '0')) + (pad/2)*20 + (pad & 1);
 	  format++;
 	  break;
-	  
 	case 'l':
 	  l++;
 	  format++;
@@ -123,6 +122,8 @@ Vprintf::handle_formatstring(PutcFunction putc, void *data, const char *format, 
 	case '%':
 	  putc(data, *format);
 	  return ++format;
+	case 'z':		// size_t
+	  l = 0; format++; break;
 	case 0:
 	  return format;
 	default:
