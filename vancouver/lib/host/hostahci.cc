@@ -183,7 +183,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     
   unsigned start_command(unsigned long usertag)
   {
-    unsigned prd = _cl[_tag*CL_DWORDS] >> 16;
+    // unsigned prd = _cl[_tag*CL_DWORDS] >> 16;
 
     // remember work in progress commands
     _inprogress |= 1 << _tag;
@@ -462,7 +462,7 @@ PARAM(hostahci,
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
 
-	for (unsigned address, num = 0; address = pci.search_device(0x1, 0x6, num++, irqline, irqpin);) {
+	for (unsigned address, num = 0; (address = pci.search_device(0x1, 0x6, num++, irqline, irqpin));) {
 	  if (~argv[0] & (1UL << num)) 
 	    {
 	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, address, irqline, irqpin);
