@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "vmm/motherboard.h"
+#include <vmm/motherboard.h>
+#include <nova/cpu.h>
 
 /**
  * A helper for PCI config space access.
@@ -27,6 +28,27 @@ class HostPci
   DBus<MessagePciCfg> _bus_pcicfg;
 
  public:
+
+  enum {
+    BAR0 = 0x10,
+    BAR1 = 0x14,
+    
+    MAX_BAR  = 6,
+    BAR_SIZE = 4,
+  };
+
+  enum {
+    BAR_PREFETCH  = 0x4,
+
+    BAR_TYPE_MASK = 0x6,
+    BAR_TYPE_32B  = 0x0,
+    BAR_TYPE_64B  = 0x4,
+    BAR_TYPE_1MB  = 0x2,
+
+    BAR_IO        = 0x1,
+    BAR_IO_MASK   = 0xFFFFFFFCU,
+    BAR_MEM_MASK  = 0xFFFFFFF0U,
+  };
 
   unsigned conf_read(unsigned address)
   {
@@ -39,6 +61,39 @@ class HostPci
   {
     MessagePciCfg msg(address, value);
     _bus_pcicfg.send(msg);
+  }
+
+  /** Determines BAR size. You should probably disable interrupt
+   * Delivery from this device, while querying BAR sizes.
+   */
+  size_t bar_size(unsigned address)
+  {
+    uint32_t old = conf_read(address);
+    size_t  size = 0;
+    
+    if ((old & BAR_IO) == 1) {
+      // I/O BAR
+      conf_write(address, 0xFFFFFFFFU);
+      size = ((conf_read(address) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
+      conf_write(address, old);
+    } else {
+      // Memory BAR
+      switch (old & BAR_TYPE_MASK) {
+      case BAR_TYPE_32B:
+	conf_write(address, 0xFFFFFFFFU);
+	size = ((conf_read(address) & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
+	conf_write(address, old);
+	break;
+
+      case BAR_TYPE_64B:
+	// XXX Support 64-bit BARs.
+      case BAR_TYPE_1MB:
+      default:
+	// Not Supported. Return 0.
+	;
+      }
+    }
+    return size;
   }
 
   /**
