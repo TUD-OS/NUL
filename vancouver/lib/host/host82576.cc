@@ -52,6 +52,8 @@ class Host82576 : public StaticReceiver<Host82576>
   enum MessageLevel {
     INFO  = 1<<0,
     DEBUG = 1<<1,
+    PCI   = 1<<2,
+    IRQ   = 1<<3,
 
     ALL   = ~0U,
   };
@@ -65,7 +67,7 @@ class Host82576 : public StaticReceiver<Host82576>
     CTRL_EXT  = 0x0018/4,
     MDIC      = 0x0020/4,
     SERDESCTL = 0x0024/4,
-    
+
     FRTIMER   = 0x1048/4,	// Free Running Timer
 
     // Interrupts
@@ -74,16 +76,60 @@ class Host82576 : public StaticReceiver<Host82576>
     IMS       = 0x01508/4,	// Interrupt Mask Set/Read
     IMC       = 0x0150C/4,	// Interrupt Mask Clear
 
+    EIMS      = 0x01528/4,	// Extended Interrupt Mask Clear
+
     // General
     RCTL      = 0x00100/4,	// RX Control
     RXPBS     = 0x02404/4,	// RX Packet Buffer Size
-    
+
+  };
+
+  enum Ctrl {
+    CTRL_GIO_MASTER_DISABLE = 1<<2,
+    CTRL_SLU      = 1<<6,	// Set Link Up
+    CTRL_FRCSPD   = 1<<11,	// Force Speed
+    CTRL_FRCDPLX  = 1<<12,	// Force Duplex
+    CTRL_RST      = 1<<26,	// Device Reset
+    CTRL_VME      = 1<<30,	// VLAN Mode Enable
+  };
+
+  enum CtrlExt {
+    CTRL_EXT_LINK_MODE = 0x3<<22, // Set to 0 for Copper link.
+  };
+
+  enum Status {
+    STATUS_FD     = 0x1,        // Full duplex (0 = Half Duplex, 1 = Full Duplex)
+    STATUS_LU     = 0x2,        // Link Up
+    STATUS_LAN_ID = 0x3<<2,     // LAN ID (2-bit)
+    STATUS_SPEED  = 0x3<<6,
+    STATUS_SPEED_SHIFT = 6,
+
+    STATUS_NUMVF  = 0xF<<14,    // Number of VFs
+    STATUS_NUMVF_SHIFT = 14,
+    STATUS_IOV    = 1<<18,      // Value of VF Enable Bit
+    STATUS_GIO_MASTER_ENABLE = 1<<19,
+  };
+
+  enum StatusSpeed {
+    SPEED_10M     = 0x0,
+    SPEED_100M    = 0x1,
+    SPEED_1000M   = 0x2,
+    SPEED_1000M2  = 0x3,
   };
 
 
-  unsigned long _address;	 // Address of PCI config space
-  volatile uint32_t *_hwreg;	 // Device MMIO registers (128K)
-  uint16_t _hwioreg;		 // Device I/O  registers (32)
+  enum Interrupt {
+    IRQ_LSC       = 1<<2,       // Link Status Change
+    IRQ_FER       = 1<<22,      // Fatal Error
+    IRQ_NFER      = 1<<23,      // Non-Fatal Error
+    IRQ_SWD       = 1<<26,      // Software Watchdog expired
+    IRQ_INTA      = 1U<<31,     // INTA asserted (not available for MSIs)
+  };
+
+  Clock *_clock;
+  unsigned long _address;        // Address of PCI config space
+  volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
+  uint16_t _hwioreg;             // Device I/O  registers (32)
 
   unsigned _hostirq;
   const char *debug_getname() { return "Host82576"; }
@@ -92,27 +138,67 @@ class Host82576 : public StaticReceiver<Host82576>
 
 public:
 
-  bool receive(MessageIrq &msg)
-  {
-    if (msg.line != _hostirq || msg.type != MessageIrq::ASSERT_IRQ)  return false;
-
-    // XXX Do something
-
-    return true;
-  };
-
+  __attribute__ ((format (printf, 3, 4)))
   void msg(unsigned level, const char *msg, ...)
   {
     if ((level & _msg_level) != 0) {
       va_list ap;
       va_start(ap, msg);
+      Logging::printf("82576 %lx: ", (_address >> 8) & 0xF);
       Logging::vprintf(msg, ap);
       va_end(ap);
     }
   }
 
+  bool receive(MessageIrq &irq_msg)
+  {
+    if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
+
+    uint32_t irq_cause = _hwreg[ICR];
+    if (irq_cause == 0) return false;
+
+    msg(IRQ, "IRQ! ICR = %x\n", irq_cause);
+
+    // XXX Do something
+    log_device_status();
+
+    return true;
+  };
+
+  void log_device_status()
+  {
+    uint32_t status = _hwreg[STATUS];
+    const char *up = (status & STATUS_LU ? "UP" : "DOWN");
+    const char *speed[] = { "10", "100", "1000", "1000" };
+    msg(INFO, "%s %sBASE-T %cD | %u VFs %s\n", up,
+	speed[(status & STATUS_SPEED) >> STATUS_SPEED_SHIFT],
+	status & STATUS_FD ? 'F' : 'H',
+	(status & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT,
+	status & STATUS_IOV ? "ON" : "OFF");
+  }
+
+  void spin(unsigned micros)
+  {
+    timevalue done = _clock->abstime(micros, 1000000);
+    while (_clock->time() < done)
+      Cpu::pause();
+  }
+
+  bool wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
+	    unsigned timeout_micros = 1000000 /* 1s */)
+  {
+    timevalue timeout = _clock->abstime(timeout_micros, 1000000);
+
+    while ((reg & mask) != value) {
+      Cpu::pause();
+      if (_clock->time() >= timeout)
+	return false;
+    }
+    return true;
+  }
+
   Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned long address, unsigned hostirq)
-    : _address(address), _hostirq(hostirq), _msg_level(ALL)
+    : _clock(clock), _address(address), _hostirq(hostirq), _msg_level(ALL & ~PCI)
   {
     msg(INFO, "Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
 
@@ -126,7 +212,7 @@ public:
       size_t size  = pci.bar_size(bar_addr);
 
       if (bar == 0) continue;
-      msg(DEBUG, "BAR %d: %08lx (size %08lx)\n", bar_i, bar, size);
+      msg(PCI, "BAR %u: %08x (size %08zx)\n", bar_i, bar, size);
 
       if ((bar & pci.BAR_IO) == 1) {
 	// I/O bar
@@ -155,19 +241,54 @@ public:
 	  else
 	    Logging::panic("%s could not map register window.\n", __PRETTY_FUNCTION__);
 
-	  msg(INFO, "Found MMIO window at %p (phys %lx).\n", _hwreg, phys_addr);
+	  msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
 	}
       }
-
-      if (!_hwreg && !_hwioreg)
-	Logging::panic("%s could not find its register windows.\n", __PRETTY_FUNCTION__);
-
-      // IRQ
-      MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
-      if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
-	Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
-
     }
+
+    if ((_hwreg == 0) || (_hwioreg == 0))
+      Logging::panic("%s could not find its register windows.\n", __PRETTY_FUNCTION__);
+
+    /// Initialization (4.5)
+    // XXX Does this apply to one or both functions?
+    msg(INFO, "Perform Global Reset.\n");
+    // Disable interrupts
+    _hwreg[IMS] = 0;
+    _hwreg[EIMS] = 0;
+
+    // Global Reset (5.2.3.3)
+    _hwreg[CTRL] = _hwreg[CTRL] | CTRL_GIO_MASTER_DISABLE;
+    if (!wait(_hwreg[STATUS], STATUS_GIO_MASTER_ENABLE, 0))
+      Logging::panic("%s: Device hang?", __PRETTY_FUNCTION__);
+
+    _hwreg[CTRL] = _hwreg[CTRL] | CTRL_RST;
+    spin(1000 /* 1ms */);
+    if (!wait(_hwreg[CTRL], CTRL_RST, 0))
+      Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
+
+    // Disable Interrupts (again)
+    _hwreg[IMS] = 0;
+    _hwreg[EIMS] = 0;
+    msg(INFO, "Global Reset successful.\n");
+
+    // XXX Do we need to do anything for flow control?
+
+    // Direct Copper link mode (set link mode to 0)
+    _hwreg[CTRL_EXT] &= ~CTRL_EXT_LINK_MODE;
+
+    // Enable PHY autonegotiation (4.5.7.2.1
+    _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
+
+    // XXX Set CTRL.RFCE/CTRL.TFCE
+
+    // IRQ
+    MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
+    if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
+      Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
+    msg(IRQ, "Attached to IRQ. Waiting for link to come up.\n");
+
+    // Wait for Link Up event
+    _hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER;
 
     // Capabilities
     // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);
