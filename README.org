@@ -51,7 +51,10 @@ on it.
 *** /nova/
 
    The kernel bindings and a very small example roottask live in this
-   repository.
+   repository. =lib/nova/include= contains the relevant header files.
+   
+**** TODO Clean up handling of MTDs.
+     The current solution makes it very easy to shoot yourself in the foot.
 
 *** TODO Describe /vancouver/
 
