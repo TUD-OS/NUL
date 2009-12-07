@@ -209,6 +209,8 @@ class Host82576 : public StaticReceiver<Host82576>
 
       bool done() { return (word1 & 1) == 1; }
       uint8_t type() { return (word0 >> 4) & 0x1FFF; }
+      uint16_t header_length() { return (word0 >> 21) & 0x1FF; }
+      uint16_t packet_length() { return (word1 >> 32) & 0xFFFF; }
     };
 
     // Descriptors must be 128-byte aligned. (8.10.5)
@@ -260,9 +262,6 @@ class Host82576 : public StaticReceiver<Host82576>
       // small step first.
       _rxreg(RDT) = 1;
       _rxreg(RDT) = 0;		// All buffers valid.
-
-      _dev->msg(Host82576::RX, "RXDCTL[%u] = %x\n", _no, _rxreg(RXDCTL));
-      _dev->msg(Host82576::RX, "SRRCTL[%u] = %x\n", _no, _rxreg(SRRCTL));
     }
 
     unsigned dropped() { return _rxreg(RQDPC); }
@@ -271,11 +270,15 @@ class Host82576 : public StaticReceiver<Host82576>
     {
       while (desc[_last].done()) {
 	unsigned type = desc[_last].type();
-	_dev->msg(Host82576::RX, "Packet received: %08x %s%s%s%s\n", type,
-		  (type & (TYPE_IPV4|TYPE_IPV4E)) ? "IPv4 " : "",
-		  (type & (TYPE_IPV6|TYPE_IPV6E)) ? "IPv6 " : "",
-		  (type & TYPE_TCP) ? "TCP " : "",
-		  (type & TYPE_UDP) ? "UDP" : "");
+	_dev->msg(Host82576::RX, "Packet received:%s%s%s%s%s (H:%u, P:%u)\n",
+		  (type & TYPE_L2) ? " L2" : "",
+		  (type & (TYPE_IPV4|TYPE_IPV4E)) ? " IPv4" : "",
+		  (type & (TYPE_IPV6|TYPE_IPV6E)) ? " IPv6" : "",
+		  (type & TYPE_TCP) ? " TCP" : "",
+		  (type & TYPE_UDP) ? " UDP" : "",
+		  desc[_last].header_length(),
+		  desc[_last].packet_length()
+		  );
 
 	init_slot(_last);
 	_last = (_last+1) % desc_no;
@@ -395,8 +398,7 @@ public:
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
       if (gone_up) {
-	// XXX Enable promiscuous mode for now.
-	_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM | RCTL_UPE | RCTL_MPE;
+	_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM;
 	_rx->enable();
 	msg(RX | IRQ, "RX enabled.\n");
       } else {
@@ -404,10 +406,10 @@ public:
 	msg(RX | IRQ, "RX disabled.\n");
 	_hwreg[RCTL] &= ~RCTL_RXEN;
       }
+
+      log_device_status();
     }
 
-    // XXX Do something
-    log_device_status();
 
     return true;
   };
