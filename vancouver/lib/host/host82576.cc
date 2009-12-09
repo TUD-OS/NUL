@@ -220,7 +220,8 @@ class Host82576 : public StaticReceiver<Host82576>
       NOVA_ALIGN(2) char packet[2048];
     } desc_local[desc_no];	// For our personal use
 
-    enum RX {
+    // Add offset _no*0x40/4
+    enum RX40 {
       RDBAL  = 0x0C000/4,	// Base Address Low
       RDBAH  = 0x0C004/4,	// Base Address High
       RDLEN  = 0x0C008/4,	// Length
@@ -231,6 +232,12 @@ class Host82576 : public StaticReceiver<Host82576>
       RQDPC  = 0x0C030/4,	// Drop Packet Count
     };
 
+    // Add offset _no*8/4
+    enum RX8 {
+      RAL    = 0x05400/4,	// Receive Address Low
+      RAH    = 0x05404/4,	// Receive Address High
+    };
+
     enum Control {
       RXDCTL_ENABLE = 1<<25,	   // Queue Enable
       SRRCTL_DROP_ENABLE = 1U<<31, // Drop Enable
@@ -238,7 +245,8 @@ class Host82576 : public StaticReceiver<Host82576>
       SRRCTL_DESCTYPE_ADV_1BUF = 1<<25 // One Buffer, No Splitting
     };
 
-    volatile uint32_t &_rxreg(unsigned reg) { return _dev->_hwreg[0x10*_no + reg]; }
+    volatile uint32_t &_rxreg40(enum RX40 reg) { return _dev->_hwreg[0x10*_no + reg]; }
+    volatile uint32_t &_rxreg8(enum RX8 reg)  { return _dev->_hwreg[2*_no + reg]; }
 
   public:
 
@@ -251,20 +259,20 @@ class Host82576 : public StaticReceiver<Host82576>
     void enable()
     {
       _dev->ensure_rx_enabled();
-      _rxreg(RXDCTL) = RXDCTL_ENABLE;
+      _rxreg40(RXDCTL) = RXDCTL_ENABLE;
 
       for (unsigned i = 0; i < desc_no; i++) {
 	init_slot(i);
       }
 
       _last = 0;
-      // XXX Just setting it to 0 does not work. So try it with a
-      // small step first.
-      _rxreg(RDT) = 1;
-      _rxreg(RDT) = 0;		// All buffers valid.
+      // Just setting it to 0 does not work. So try it with a small
+      // step first.
+      _rxreg40(RDT) = 1;
+      _rxreg40(RDT) = 0;	// All buffers valid.
     }
 
-    unsigned dropped() { return _rxreg(RQDPC); }
+    unsigned dropped() { return _rxreg40(RQDPC); }
 
     void irq(uint32_t cause)
     {
@@ -284,10 +292,10 @@ class Host82576 : public StaticReceiver<Host82576>
 	_last = (_last+1) % desc_no;
 
 	// Advance the pointer here to avoid
-	_rxreg(RDT) = _last;
+	_rxreg40(RDT) = _last;
       }
 
-      unsigned dropped = _rxreg(RQDPC);
+      unsigned dropped = _rxreg40(RQDPC);
       if (dropped > 0) _dev->msg(Host82576::RX, "Dropped %u packets.\n", dropped);
     }
 
@@ -297,16 +305,20 @@ class Host82576 : public StaticReceiver<Host82576>
       memset(desc, 0, sizeof(desc)); // Just to be sure.
 
       uint64_t phys_desc = _dev->to_phys(desc);
-      _rxreg(RXDCTL) = 0;	// Disable queue.
-      _rxreg(SRRCTL) = (_rxreg(SRRCTL) & ~SRRCTL_DESCTYPE) |
+      _rxreg40(RXDCTL) = 0;	// Disable queue.
+      _rxreg40(SRRCTL) = (_rxreg40(SRRCTL) & ~SRRCTL_DESCTYPE) |
 	SRRCTL_DESCTYPE_ADV_1BUF | SRRCTL_DROP_ENABLE;
 
-      _rxreg(RDBAL) = phys_desc & 0xFFFFFFFFU;
-      _rxreg(RDBAH) = phys_desc >> 32;
-      _rxreg(RDLEN) = sizeof(RXDesc)*desc_no;
+      _rxreg40(RDBAL) = phys_desc & 0xFFFFFFFFU;
+      _rxreg40(RDBAH) = phys_desc >> 32;
+      _rxreg40(RDLEN) = sizeof(RXDesc)*desc_no;
+
+      // Accept packets for our MAC.
+      _rxreg8(RAL) = _dev->_mac.raw;
+      _rxreg8(RAH) = _dev->_mac.raw >> 32;
 
       _dev->msg(Host82576::RX, "RX queue %u initialized with %u descriptors (%u bytes).\n", no,
-		desc_no, _rxreg(RDLEN));
+		desc_no, _rxreg40(RDLEN));
 
     }
   } *_rx;
