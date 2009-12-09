@@ -107,7 +107,7 @@ class Host82576 : public StaticReceiver<Host82576>
     RXPBS     = 0x02404/4,	// RX Packet Buffer Size
 
     RAL0      = 0x05400/4,
-    RAH0      = 0x05400/4,
+    RAH0      = 0x05404/4,
 
   };
 
