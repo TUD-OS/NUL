@@ -219,7 +219,8 @@ class Host82576 : public StaticReceiver<Host82576>
     // Descriptors must be 128-byte aligned. (8.10.5)
     NOVA_ALIGN(128) RXDesc desc[desc_no];
     struct {
-      NOVA_ALIGN(2) char header[1024];
+      // Splitting is disabled.
+      //NOVA_ALIGN(2) char header[1024];
       NOVA_ALIGN(2) char packet[2048];
     } desc_local[desc_no];	// For our personal use
 
@@ -241,6 +242,10 @@ class Host82576 : public StaticReceiver<Host82576>
       RAH    = 0x05404/4,	// Receive Address High
     };
 
+    enum RAH {
+      RAH_AV = 1U<<31,		// Address Valid
+    };
+
     enum Control {
       RXDCTL_ENABLE = 1<<25,	   // Queue Enable
       SRRCTL_DROP_ENABLE = 1U<<31, // Drop Enable
@@ -249,13 +254,15 @@ class Host82576 : public StaticReceiver<Host82576>
     };
 
     volatile uint32_t &_rxreg40(enum RX40 reg) { return _dev->_hwreg[0x10*_no + reg]; }
-    volatile uint32_t &_rxreg8(enum RX8 reg)  { return _dev->_hwreg[2*_no + reg]; }
+    volatile uint32_t &_rxreg8(enum RX8 reg)   { return _dev->_hwreg[   2*_no + reg]; }
 
   public:
 
     void init_slot(unsigned i)
     {
-      desc[i].header_buf = _dev->to_phys(desc_local[i].header);
+      // Splitting is disabled.
+      //desc[i].header_buf = _dev->to_phys(desc_local[i].header);
+      desc[i].header_buf = 0;
       desc[i].packet_buf = _dev->to_phys(desc_local[i].packet);
     }
 
@@ -279,7 +286,11 @@ class Host82576 : public StaticReceiver<Host82576>
 
     void irq(uint32_t cause)
     {
-      while (desc[_last].done()) {
+      unsigned processed = 0;
+      
+      // Check that we don't loop forever when someone sends packets to
+      // us like crazy by only running through the queue once.
+      while ((processed++ < desc_no) && desc[_last].done()) {
 	unsigned type = desc[_last].type();
 	_dev->msg(Host82576::RX, "Packet received:%s%s%s%s%s (H:%u, P:%u)\n",
 		  (type & TYPE_L2) ? " L2" : "",
@@ -294,7 +305,7 @@ class Host82576 : public StaticReceiver<Host82576>
 	init_slot(_last);
 	_last = (_last+1) % desc_no;
 
-	// Advance the pointer here to avoid
+	asm volatile ("sfence" ::: "memory");
 	_rxreg40(RDT) = _last;
       }
 
@@ -318,7 +329,7 @@ class Host82576 : public StaticReceiver<Host82576>
 
       // Accept packets for our MAC.
       _rxreg8(RAL) = _dev->_mac.raw;
-      _rxreg8(RAH) = _dev->_mac.raw >> 32;
+      _rxreg8(RAH) = _dev->_mac.raw >> 32 | RAH_AV;
 
       _dev->msg(Host82576::RX, "RX queue %u initialized with %u descriptors (%u bytes).\n", no,
 		desc_no, _rxreg40(RDLEN));
