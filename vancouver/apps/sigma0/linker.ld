@@ -48,6 +48,7 @@ SECTIONS
     *(.rodata .rodata.*);
     *(.data);
     *(.data.*);
+    *(COMMON);
     *(.bss);
     *(.bss.*);
     *(.bss.stack);
