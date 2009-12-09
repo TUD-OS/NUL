@@ -65,6 +65,33 @@ struct EthernetAddr {
 #define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC_SPLIT(x) (x)->byte[0], (x)->byte[1], (x)->byte[2],(x)->byte[3], (x)->byte[4], (x)->byte[5]
 
+void hexdump(const char *data, size_t len)
+{
+  const unsigned chars_per_row = 16;
+  const char *data_end = data + len;
+  size_t cur = 0;
+  while (cur < len) {
+    Logging::printf("%08x:", cur);
+    for (unsigned i = 0; i < chars_per_row; i++)
+      if (data+i < data_end) {
+	Logging::printf(" %02x", ((const unsigned char *)data)[i]);
+      } else {
+	Logging::printf("   ");
+      }
+    Logging::printf(" | ");
+    for (unsigned i = 0; i < chars_per_row; i++) {
+      if (data < data_end) {
+	Logging::printf("%c", ((data[0] >= 32) && (data[0] < 128)) ? data[0] : '.');
+      } else {
+	Logging::printf(" ");
+      }
+      data++;
+    }
+    Logging::printf("\n");
+    cur += chars_per_row;
+  }
+}
+
 class Host82576 : public StaticReceiver<Host82576>
 {
 
@@ -301,6 +328,9 @@ class Host82576 : public StaticReceiver<Host82576>
 		  desc[_last].header_length(),
 		  desc[_last].packet_length()
 		  );
+
+	// Splitting is disabled, our header is in the packet buffer.
+	//hexdump(desc_local[_last].packet, desc[_last].header_length());
 
 	init_slot(_last);
 	_last = (_last+1) % desc_no;
