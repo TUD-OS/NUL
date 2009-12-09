@@ -17,7 +17,8 @@
 #pragma once
 
 #include <nova/cpu.h>
-#include "vmm/math.h"
+#include <vmm/math.h>
+#include <driver/logging.h>
 
 
 typedef unsigned long long timevalue;
