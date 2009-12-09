@@ -62,7 +62,7 @@ typedef unsigned char process_event_t;
 #define UIP_CONF_MAX_CONNECTIONS 3 
 #define UIP_CONF_MAX_LISTENPORTS 1 
 #define UIP_CONF_TCP_SPLIT       1
-#define UIP_CONF_LOGGING         0
+#define UIP_CONF_LOGGING         1
 #define UIP_CONF_UDP_CHECKSUMS   0 
 
 #if UIP_CONF_IPV6

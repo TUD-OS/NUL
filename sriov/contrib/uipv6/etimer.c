@@ -49,8 +49,6 @@
 
 #include "etimer.h"
 
-#include <stdio.h>
-
 static struct etimer *timerlist = NULL;
 static clock_time_t next_expiration;
 

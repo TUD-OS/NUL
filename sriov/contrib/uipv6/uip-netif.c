@@ -59,7 +59,6 @@
 #endif
 
 #if UIP_LOGGING
-#include <stdio.h>
 void uip_log(char *msg);
 #define UIP_LOG(m) uip_log(m)
 #else
@@ -425,7 +424,7 @@ uip_netif_dad_failed(uip_ipaddr_t *ipaddr)
     dad_ns = 0;
   }
   
-  exit(-1);
+  __builtin_trap();
 }
 
 

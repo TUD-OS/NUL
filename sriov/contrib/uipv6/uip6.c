@@ -94,7 +94,6 @@
 #endif
 
 #if UIP_LOGGING == 1
-#include <stdio.h>
 void uip_log(char *msg);
 #define UIP_LOG(m) uip_log(m)
 #else
