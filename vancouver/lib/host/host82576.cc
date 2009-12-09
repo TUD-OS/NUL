@@ -50,7 +50,10 @@
 // TODO Query extended capabilities.
 // TODO MSI support
 
-// 00:1b:21:4d:00:1b
+// Our test NICs:
+// 00:1b:21:4d:e2:e8
+// 00:1b:21:4d:e2:e9
+
 
 struct EthernetAddr {
   union {
