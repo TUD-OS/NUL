@@ -282,9 +282,10 @@ class Host82576 : public StaticReceiver<Host82576>
 
 	init_slot(_last);
 	_last = (_last+1) % desc_no;
-      }
 
-      _rxreg(RDT) = _last;
+	// Advance the pointer here to avoid
+	_rxreg(RDT) = _last;
+      }
 
       unsigned dropped = _rxreg(RQDPC);
       if (dropped > 0) _dev->msg(Host82576::RX, "Dropped %u packets.\n", dropped);
