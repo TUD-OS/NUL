@@ -1,0 +1,26 @@
+CC=avr-gcc
+AR=avr-ar
+NM=avr-avr
+RANLIB=avr-ranlib
+
+CFLAGS= -Os -Wall -mcall-prologues -mmcu=$(MCU) -DF_CPU=$(FREQ)UL
+SRCS=httpd-fs.c httpd.c http-strings.c
+CFLAGS+=-I../../
+
+ifneq ($(HAVE_HTTPCGI),)
+SRCS += httpd-cgi.c
+endif
+
+ifneq ($(HTTPD_FS_PATH),)
+CFLAGS+= -I`pwd` -I$(HTTPD_FS_PATH)
+endif
+
+LIB=httpd
+
+OBJS= $(SRCS:.c=.o)
+all: $(OBJS)
+	$(AR) cr $(LIB).a $(OBJS)
+	$(RANLIB) $(LIB).a
+
+clean:
+	@-rm *.o *.a
