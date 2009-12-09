@@ -71,7 +71,7 @@ struct udpip_hdr {
   u16_t udpchksum;
 };
 
-#include <stdio.h>
+//#include <stdio.h>
 
 /*---------------------------------------------------------------------------*/
 /**

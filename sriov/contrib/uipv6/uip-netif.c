@@ -45,7 +45,6 @@
 #include "random.h"
 
 #include <string.h>
-#include <stdlib.h>
 
 
 #if DEBUG

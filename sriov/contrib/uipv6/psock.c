@@ -33,7 +33,6 @@
  * $Id: psock.c,v 1.5 2007/11/17 18:05:21 adamdunkels Exp $
  */
 
-#include <stdio.h>
 #include <string.h>
 
 #include "psock.h"

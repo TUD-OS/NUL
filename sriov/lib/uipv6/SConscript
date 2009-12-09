@@ -1,0 +1,31 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+uipv6_env = target_env.Clone()
+
+uipv6_env.Append(CPPFLAGS = ['-DUIP_CONF_IPV6=1'])
+
+nul.Lib(uipv6_env, 'uipv6',
+        SOURCES = [
+        'uipv6-vancouver.c',
+        'uipv6-vancouver-glue.cc',
+        
+        '#contrib/uipv6/uip6.c',
+        '#contrib/uipv6/tcpip.c',
+        '#contrib/uipv6/uip-udp-packet.c',
+        '#contrib/uipv6/uip-split.c',
+        '#contrib/uipv6/resolv.c',
+        '#contrib/uipv6/hc.c',
+        '#contrib/uipv6/uiplib.c',
+        '#contrib/uipv6/uip-icmp6.c',
+        '#contrib/uipv6/uip-nd6.c',
+        '#contrib/uipv6/uip-nd6-io.c',
+        '#contrib/uipv6/uip-netif.c',
+        '#contrib/uipv6/psock.c',
+        ],
+        LIBS = ['string', 'nova'])
+
+# EOF
