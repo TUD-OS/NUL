@@ -209,6 +209,7 @@ class Host82576 : public StaticReceiver<Host82576>
 
   Clock *_clock;
   DBus<MessageHostOp> &_bus_hostop;
+  DBus<MessageNetwork> &_bus_network;
   unsigned long _address;        // Address of PCI config space
   volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
   uint16_t _hwioreg;             // Device I/O  registers (32)
@@ -331,6 +332,9 @@ class Host82576 : public StaticReceiver<Host82576>
 
 	// Splitting is disabled, our header is in the packet buffer.
 	//hexdump(desc_local[_last].packet, desc[_last].header_length());
+	MessageNetwork msg((unsigned char *)desc_local[_last].packet, desc[_last].packet_length(), ~0U);
+	if (!_dev->_bus_network.send(msg))
+	  _dev->msg(Host82576::RX, "Packet forward failed.\n");
 
 	init_slot(_last);
 	_last = (_last+1) % desc_no;
@@ -471,8 +475,10 @@ public:
     return true;
   };
 
-  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned long address, unsigned hostirq)
-    : _clock(clock), _bus_hostop(bus_hostop), _address(address), _hostirq(hostirq), _msg_level(ALL & ~PCI)
+  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network, 
+	    Clock *clock, unsigned long address, unsigned hostirq)
+    : _clock(clock), _bus_hostop(bus_hostop), _bus_network(bus_network),
+      _address(address), _hostirq(hostirq), _msg_level(ALL & ~PCI)
   {
     msg(INFO, "Found Intel 82576-style controller at %lx. Attaching IRQ %x.\n", address, hostirq);
 
@@ -588,7 +594,8 @@ PARAM(host82576, {
       unsigned cfg0 = pci.conf_read(address + 0x0);
       if (cfg0 == 0x10c98086) {
 	if (found++ == argv[0]) {
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), address, argv[1]);
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.bus_network,
+					 mb.clock(), address, argv[1]);
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }
