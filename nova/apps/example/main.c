@@ -1,6 +1,7 @@
 /* -*- Mode: C -*- */
 
 #include <nova.h>
+#include <stdio.h>
 
 #define CHECK(x) do { if ((x) != SUCCESS) NOVA_TRAP; } while (0)
 
@@ -15,9 +16,17 @@ NOVA_REGPARM(0) void test_entry(uint32_t arg)
 
 void _abort();
 
+int putchar(int c)
+{
+  /* Dummy */
+  return c;
+}
+
 int
 start(struct Hip *hip)
 {
+  printf("Example Roottask\n");
+
   Cap_idx user_cap = hip->sel;
 
   /* Create a semaphore for fun. */
@@ -39,7 +48,7 @@ start(struct Hip *hip)
 
   CHECK(call(SEND, test_pt, empty_message()));
 
-  /* Wait for keyboard interrupt and die. */
+  printf("Waiting for keyboard interrupt to crash spectacularly.\n");
   CHECK(semdown(hip->pre + 1));
 
   return 0;

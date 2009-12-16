@@ -8,7 +8,7 @@ nul.App(target_env,
         "example",
         SOURCES = [ 'main.c' ],
         # LIBS defaults to ['nova']
-        LIBS = ['string', 'nova'],
+        LIBS = ['stdio', 'string', 'nova'],
         # LINKSCRIPT defaults to example.ld
         LINKSCRIPT = 'roottask.ld')
 
