@@ -9,6 +9,9 @@ nul.Lib(target_env,
         SOURCES = [ 'start.S',
                     'reply.S',
                     'utcb.c',
+
+                    # Should we put the following into libgcc-support?
+                    'qdivrem.c',
                     ]) 
 
 # EOF
