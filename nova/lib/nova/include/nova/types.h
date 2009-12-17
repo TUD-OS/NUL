@@ -18,11 +18,11 @@ struct Utcb;
 typedef NOVA_REGPARM(0) NOVA_NORETURN void (*Portal_fn)(struct Utcb *);
 
 enum {
-  CAP_R   = 1,
-  CAP_W   = 2,
-  CAP_X   = 4,
-  CAP_RW  = CAP_R | CAP_W,
-  CAP_RWX = CAP_RW | CAP_X,
+  // CAP_R   = 1,
+  // CAP_W   = 2,
+  // CAP_X   = 4,
+  // CAP_RW  = CAP_R | CAP_W,
+  // CAP_RWX = CAP_RW | CAP_X,
 
   CRD_MEM = 1,
   CRD_IO  = 2,
