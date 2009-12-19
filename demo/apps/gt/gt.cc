@@ -19,9 +19,7 @@
 #include "driver/logging.h"
 #include "vmm/message.h"
 #include "vmm/timer.h"
-#include <sigma0.h>
-
-using namespace Nova;
+#include "sigma0/sigma0.h"
 
 class Gt : public ProgramConsole
 {
@@ -89,9 +87,9 @@ public:
 
 
     Logging::printf("request timer\n");
-    TimerConsumer *timerconsumer = new TimerConsumer(hip->pre + hip->gsi);
+    TimerConsumer *timerconsumer = new TimerConsumer(hip->cfg_exc + hip->cfg_gsi);
     Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
-    Clock * clock = new Clock(hip->tsc_freq_khz*1000);
+    Clock * clock = new Clock(hip->freq_tsc*1000);
 
     // switch to the graphic console
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;

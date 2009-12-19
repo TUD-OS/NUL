@@ -8,7 +8,7 @@ Import('host_env')
 nul.App(target_env, 'rocknshine',
         SOURCES = [ 'rocknshine.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS    = [ 'tinf', 'runtime', 'string', 'nova' ],
+        LIBS    = [ 'tinf', 'vsys', 'string', 'nova' ],
         LINKSCRIPT = 'linker.ld')
 
 host_env.Command('#bin/apps/rocknshine.example', ['pdfprepare.py', 'presentation.pdf'],

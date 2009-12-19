@@ -1,6 +1,6 @@
 #include <sys/console.h>
 #include <vmm/motherboard.h>
-#include <sigma0.h>
+#include <sigma0/sigma0.h>
 
 #include "math.h"
 
@@ -315,7 +315,7 @@ public:
     gen_sinlut();
     gen_sqrtlut();
 
-    Clock *clock = new Clock(hip->tsc_freq_khz*1000);
+    Clock *clock = new Clock(hip->freq_tsc*1000);
     IntroAnimator *ia = new IntroAnimator;
     PlasmaAnimator<25, 80> *pa = new PlasmaAnimator<25, 80>;
     QuoteAnimator<25, 80> *qa = new QuoteAnimator<25, 80>(pa);

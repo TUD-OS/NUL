@@ -7,7 +7,7 @@ Import('target_env')
 nul.App(target_env, 'cycleburner',
         SOURCES = [ 'cycleburner.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS    = [ 'runtime', 'string', 'nova' ],
+        LIBS    = [ 'vsys', 'string', 'nova' ],
         LINKSCRIPT = 'linker.ld')
 
 # EOF

@@ -1,0 +1,10 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+nul.App(target_env, 'vancouver',
+        SOURCES = [ 'vancouver.cc'],
+        LIBS    = [ 'host', 'executor', 'model', 'qemunet', 'vsys'],
+        LINKSCRIPT = 'linker.ld')
+# EOF

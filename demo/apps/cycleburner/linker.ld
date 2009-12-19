@@ -55,11 +55,8 @@ SECTIONS
     *(.bss);
     *(.bss.*);
     __mempoolstart = .;
-    . += 0x800000;
+    . += 0x80000;
     __mempoolend = .;
-    __module_start = .;
-    . += 32M;
-    __module_end = .;
   }
 
   /DISCARD/ :

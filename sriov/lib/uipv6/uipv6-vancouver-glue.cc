@@ -1,6 +1,8 @@
 // -*- Mode: C++ -*-
 
+#include <driver/logging.h>
 #include <vmm/timer.h>
+#include <stdint.h>
 
 Clock *uipv6_clock;
 

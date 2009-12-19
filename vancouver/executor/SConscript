@@ -1,0 +1,7 @@
+# -*- Mode: Python -*-
+
+import nul
+Import('target_env')
+nul.Lib(target_env, 'executor', SOURCES = target_env.Object(Glob('*.cc')))
+
+# EOF

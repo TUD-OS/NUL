@@ -10,7 +10,7 @@
 #include "vmm/message.h"
 #include "vmm/timer.h"
 #include "vmm/math.h"
-#include <sigma0.h>
+#include "sigma0/sigma0.h"
 
 #include <tinf.h>
 

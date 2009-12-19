@@ -1,0 +1,11 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+nul.App(target_env, 'sigma0',
+        SOURCES = [ 'sigma0.cc'],
+        INCLUDE = [  ],
+        LIBS    = [ 'hostvesa', 'host', 'vsys'],
+        LINKSCRIPT = 'linker.ld')
+# EOF

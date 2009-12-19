@@ -1,0 +1,7 @@
+# -*- Mode: Python -*-
+
+import nul
+Import('target_env')
+nul.Lib(target_env, 'host', SOURCES = filter(lambda x: x.name != 'hostvesa.cc',Glob('*.cc')))
+nul.Lib(target_env, 'hostvesa', SOURCES = target_env.Object("hostvesa.cc") +'../model/memorycontroller.o ../executor/novahalifax.o ../model/pit8254.o ../model/sysctrlport.o ../model/pcihostbridge.o ../model/pcidirect.o ../model/directio.o'.split())
+# EOF

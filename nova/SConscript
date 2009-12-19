@@ -48,9 +48,10 @@ host_env = Environment()
 # binaries.
 target_env = Environment()
 
-target_env['CCFLAGS'] = '-m32 -mregparm=3 -pipe -ffreestanding -nostdlib -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc -Wall'
-target_env.Append(CCFLAGS = (' -march=' + opt_arch))
+target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
+target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc -Wall')
+target_env.Append(CCFLAGS = (' -march=' + opt_arch))
 
 target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"
 target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration"

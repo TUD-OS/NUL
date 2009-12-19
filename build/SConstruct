@@ -5,7 +5,7 @@
 # least specific!
 Repository('../demo')
 Repository('../sriov')
-Repository('../vancouver.old')
+Repository('../vancouver')
 Repository('../nova')
 
 # We pull the top-level SCons logic from the first repository that has

@@ -1,0 +1,7 @@
+# -*- Mode: Python -*-
+
+import nul
+Import('target_env')
+nul.Lib(target_env, 'vsys', SOURCES = nul.LibEnv(target_env, []).Object(Glob('*.cc')+Glob('*.S')))
+
+# EOF
