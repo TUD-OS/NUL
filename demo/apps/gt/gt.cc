@@ -16,6 +16,7 @@
  */
 
 #include "sys/console.h"
+#include "sys/syscalls.h"
 #include "driver/logging.h"
 #include "vmm/message.h"
 #include "vmm/timer.h"
@@ -101,7 +102,7 @@ public:
       {
 	MessageTimer msg3(0, clock->abstime(1, 50));
 	Sigma0Base::timer(msg3);
-	TimerItem *item = timerconsumer->get_buffer();
+	timerconsumer->get_buffer();
 	timerconsumer->free_buffer();
 	animate();
       }

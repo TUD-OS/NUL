@@ -25,9 +25,9 @@
  *
  * State: unstable
  * Features: IDT, ResetVector, Keyboard, Timer, Disk
- * Missing: EBDA, ACPI, PCIBios, PCIRoutingInfo, ...
+ * Missing: EBDA, ACPI, PCIBios, PCIRoutingInfo, MultipleDisks...
  *
- * Please note that VGA and Vesa are provided in elsewhere.
+ * Please note that Vesa and VGA BIOS routines are provided in vesabios and vga.
  */
 class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 {
