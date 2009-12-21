@@ -45,8 +45,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   Motherboard *_hostmb;
   unsigned _lastkey;
   unsigned _timer;
-  static const unsigned long disk_sectors = 0x1cc26f4; // XXX get from backend
-
+  DiskParameter _disk_params;
 
   const char* debug_getname() { return "VirtualBios"; }
   void debug_dump() {  
@@ -372,8 +371,9 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	if (check_drive(cpu))
 	  {
 	    cpu->ah = 0x03;  // we report a harddisk
-	    cpu->dx = disk_sectors & 0xffff;
-	    cpu->cx = disk_sectors >> 16;
+	    unsigned sectors = (_disk_params.sectors >> 32) ? 0xffffffff : _disk_params.sectors;
+	    cpu->dx = sectors & 0xffff;
+	    cpu->cx = sectors >> 16;
 	  }
 	break;
       case 0x41:  // int13 extension supported?
@@ -415,10 +415,12 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	      unsigned short sectorsize;
 	    } params;
 	    params.flags = 2;
-	    params.sectors = disk_sectors;
+	    params.sectors = _disk_params.sectors;
 	    params.pheads = 255;
 	    params.psectors = 63;
-	    params.pcylinders = disk_sectors/params.psectors/params.pheads;
+	    unsigned long long sectors =  _disk_params.sectors;
+	    Math::div64(sectors, params.psectors*params.pheads);
+	    params.pcylinders = sectors;
 	    params.size = 0x1a;
 	    params.sectorsize = 512;
 	    copy_out(cpu->ds.base + cpu->si, &params, params.size);
@@ -789,8 +791,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   bool  receive(MessageLegacy &msg) { return _hostmb->bus_legacy.send_fifo(msg); }
 
 
-
-
   VirtualBios(unsigned short segment, Motherboard &mb)  : BiosCommon(mb), _base(static_cast<unsigned>(segment) << 4)
     {
       MessageTimer msg0;
@@ -829,6 +829,14 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       mb.bus_memread.add(this,     &VirtualBios::receive_static<MessageMemRead>);
       mb.bus_diskcommit.add(this,  &VirtualBios::receive_static<MessageDiskCommit>);
       mb.bus_timeout.add(this,     &VirtualBios::receive_static<MessageTimeout>);
+
+      // get sectors of the disk
+      MessageDisk msg2(0, &_disk_params);
+      if (!_mb.bus_disk.send(msg2))
+	{
+	  _disk_params.flags = 0;
+	  _disk_params.sectors = 0;
+	}
     }
 };
 
