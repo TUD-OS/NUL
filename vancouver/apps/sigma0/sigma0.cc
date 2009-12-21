@@ -23,9 +23,12 @@
 
 bool      startlate;
 bool      noswitch;
+unsigned  forcestart;
 unsigned  repeat;
 unsigned  console_id;
+
 PARAM(startlate,  startlate = true;, "startlate - do not start all domains at bootup" );
+PARAM(forcestart,  forcestart = argv[0];, "forcestart - force a module to be started (ignoring startlate)" );
 PARAM(repeat,  repeat = argv[0],     "repeat the domain start" );
 PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" );
 
@@ -756,6 +759,9 @@ public:
     if (!startlate)
       for (unsigned i=0; i <= repeat; i++)
 	if ((res = start_modules(_boot_utcb, ~1U)))        Logging::printf("start modules failed %x\n", res);
+
+    if (forcestart && startlate)
+      start_modules(_boot_utcb, 1<<forcestart);
 
     Logging::printf("INIT done\n");
     //_free_phys.debug_dump("free phys");
