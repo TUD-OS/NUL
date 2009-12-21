@@ -262,8 +262,7 @@ PT_FUNC(do_request,
 		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 		    utcb->msg[0] = ~0x10u;
 		  else
-		    if (msg->type == MessageTimer::TIMER_CANCEL_TIMEOUT ||
-			msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
+		    if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
 		      {
 			//if (client > 1) Logging::printf("request TO %x\n", client);
 			msg->nr = client;

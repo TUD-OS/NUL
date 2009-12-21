@@ -440,9 +440,6 @@ public:
       case MessageTimer::TIMER_NEW:
 	msg.nr = _timeouts.alloc();
 	return true;
-      case MessageTimer::TIMER_CANCEL_TIMEOUT:
-	res = _timeouts.cancel(msg.nr);
-	break;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
 	res = _timeouts.request(msg.nr, msg.abstime);
 	break;
@@ -456,7 +453,7 @@ public:
     //if (!(c++ & 0x1f))  Logging::printf("%s: res %x abstime %lld diff %d\n", __PRETTY_FUNCTION__, msg.res, msg.abstime, diff / 2666);
     old = msg.abstime;
 #endif
-    if (res == 0 )
+    if (res == 0)
       {
 	// update timeout in sigma0
 	MessageTimer msg2(0, _timeouts.timeout());

@@ -588,13 +588,11 @@ struct MessageTimer
   enum Type
     {
       TIMER_NEW,
-      TIMER_CANCEL_TIMEOUT,
       TIMER_REQUEST_TIMEOUT,
     } type;
   unsigned  nr;
   timevalue abstime;
   MessageTimer()              : type(TIMER_NEW) {}
-  MessageTimer(unsigned  _nr) : type(TIMER_CANCEL_TIMEOUT), nr(_nr) {}
   MessageTimer(unsigned  _nr, timevalue _abstime) : type(TIMER_REQUEST_TIMEOUT), nr(_nr), abstime(_abstime) {}
 };
 

@@ -165,9 +165,6 @@ public:
       case MessageTimer::TIMER_NEW:
 	msg.nr = TIMER_NR;
 	return true;
-      case MessageTimer::TIMER_CANCEL_TIMEOUT:
-	assert(msg.nr == TIMER_NR);
-	return true;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
 	assert(msg.nr == TIMER_NR);
 	_timeout = msg.abstime;

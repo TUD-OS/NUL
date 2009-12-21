@@ -630,9 +630,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   {
     if (msg.usertag == MAGIC_DISK_TAG)
       {
-	// cancel timeout
-	MessageTimer msg2(_timer);
-	_mb.bus_timer.send(msg2);
 	Cpu::atomic_and<volatile unsigned>(&_mb.vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_BIOS);
 	write_bda(DISK_COMPLETION_CODE, msg.status, 1);
 	return true;
@@ -647,10 +644,13 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   {
     if (msg.nr == _timer)
       {
-	// a timeout happened -> howto return error code?
-	Logging::printf("BIOS disk timeout\n");
-	write_bda(DISK_COMPLETION_CODE, 1, 1);
-	Cpu::atomic_and<volatile unsigned>(&_mb.vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_BIOS);
+	if (_mb.vcpustate(0)->hazard & VirtualCpuState::HAZARD_BIOS)
+	  {
+	    // a timeout happened -> howto return error code?
+	    Logging::printf("BIOS disk timeout\n");
+	    write_bda(DISK_COMPLETION_CODE, 1, 1);
+	    Cpu::atomic_and<volatile unsigned>(&_mb.vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_BIOS);
+	  }
 	return true;
       }
     return false;

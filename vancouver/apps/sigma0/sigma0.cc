@@ -568,9 +568,6 @@ public:
       case MessageTimer::TIMER_NEW:
 	msg.nr = _timeouts.alloc();
 	return true;
-      case MessageTimer::TIMER_CANCEL_TIMEOUT:
-	_timeouts.cancel(msg.nr);
-	break;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
 	//Logging::printf("request to %x %llx\n", msg.nr, msg.abstime);
 	if (msg.nr!= MessageTimeout::HOST_TIMEOUT)  
@@ -647,6 +644,11 @@ public:
 	}
       case MessageConsole::TYPE_DEBUG:
 	if (!msg.id) _mb->dump_counters();	  
+	if (msg.id == 1) check_timeouts();
+	if (msg.id == 2)
+	  {
+	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
+	  }
 	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
 	return true;
       case MessageConsole::TYPE_ALLOC_CLIENT:
