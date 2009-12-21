@@ -1,0 +1,17 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+Import('host_env')
+
+nul.App(target_env, 'tutor',
+        SOURCES = [ 'tutor.cc', 'screen1.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        LIBS    = [ 'vsys', 'string', 'nova' ],
+        LINKSCRIPT = 'linker.ld')
+
+host_env.Command('screen1.cc', ['screen.py', 'screen1.txt'],
+                 '${SOURCES[0]} screen1 < ${SOURCES[1:]} > ${TARGET}')
+
+# EOF
