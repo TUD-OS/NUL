@@ -1,7 +1,7 @@
 /**
  * Route messages between HostIrq and Irqlines.
  *
- * Copyright (C) 2009, Bernhard Kauer <kauer@tudos.org>
+ * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *

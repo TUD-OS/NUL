@@ -1,7 +1,7 @@
 /**
  * Cpu abstraction with inline asm.
  *
- * Copyright (C) 2007-2009, Bernhard Kauer <kauer@tudos.org>
+ * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver and was developed for Florence2.
  *

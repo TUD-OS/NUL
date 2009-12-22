@@ -1,9 +1,9 @@
 /*
  * Linker script for Vancouver.nova.
  *
- * Copyright (C) 2008, Bernhard Kauer <kauer@tudos.org>
+ * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>
  *
- * This file is part of Vancouver.nova.
+ * This file is part of Vancouver.
  *
  * Vancouver.nova is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
