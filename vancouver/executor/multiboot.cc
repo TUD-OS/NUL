@@ -111,7 +111,7 @@ private:
 
 	switch(modcount)
 	  {
-	  case 0:  Logging::panic("invald module to start");
+	  case 0:  Logging::panic("invalid module to start");
 	  case 1:
 	    if (Elf::decode_elf(physmem + offset, physmem, rip, offset, memsize, 0)) return res;
 	    offset = (offset + 0xffful) & ~0xffful;
