@@ -7,7 +7,7 @@ Import('target_env')
 nul.App(target_env, 'gt',
         SOURCES = [ 'gt.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS    = [ 'vsys', 'string', 'nova' ],
+        LIBS    = [ 'vsys', 'string' ],
         LINKSCRIPT = 'linker.ld')
 
 # EOF

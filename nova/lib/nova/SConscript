@@ -4,14 +4,15 @@ import nul
 
 Import('target_env')
 
-nul.Lib(target_env,
-        "nova",
-        SOURCES = [ 'start.S',
-                    'reply.S',
-                    'utcb.c',
-
-                    # Should we put the following into libgcc-support?
-                    'qdivrem.c',
-                    ]) 
+# nul.Lib(target_env,
+#         "nova",
+#         SOURCES = [ 
+#         'start.S',
+#         'reply.S',
+#         'utcb.c',
+        
+#         # Should we put the following into libgcc-support?
+#         'qdivrem.c',
+#         ]) 
 
 # EOF

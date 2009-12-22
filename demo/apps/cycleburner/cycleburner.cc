@@ -303,7 +303,7 @@ public:
   }
 
 
-  NOVA_NORETURN void run(Hip *hip)
+  void run(Hip *hip)
   {
     console_init("CYC");
 
