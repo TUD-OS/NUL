@@ -1,10 +1,7 @@
-#include <nova/compiler.h>
-
 /* XXX Major hackery. */
 
-#undef NOVA_INLINE
-#define NOVA_INLINE
+#define STRING_INLINE
 
-/* We don't need NOVA_EXTERN_C, because we compile the non-inline
-   version from C only. For the inline version, it does not matter. */
+/* We don't need extern "C", because we compile the non-inline version
+   from C only. For the inline version, it does not matter. */
 #include <string.h>

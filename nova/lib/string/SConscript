@@ -6,7 +6,6 @@ Import('target_env')
 
 nul.Lib(target_env,
         "string",
-        SOURCES = [ 'string.c' ],
-        LIBS = [ 'nova' ])
+        SOURCES = [ 'string.c' ])
 
 # EOF

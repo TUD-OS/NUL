@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include <nova/compiler.h>
 #include <stddef.h>
 
 #ifndef __GNUC__
@@ -29,18 +28,28 @@
 # error Unknown platform.
 #endif
 
-NOVA_INLINE void *
+#ifndef STRING_INLINE
+# define STRING_INLINE static inline
+#endif
+
+#ifdef __cplusplus
+# define STRING_CAST(type, expr) (reinterpret_cast<type>(expr))
+#else
+# define STRING_CAST(type, expr) ((type)(expr))
+#endif
+
+STRING_INLINE void *
 memcpy(void *dst, const void *src, size_t count)
 {
   return __builtin_memcpy(dst, src, count);
 }
 
 
-NOVA_INLINE void *
+STRING_INLINE void *
 memmove(void *dst, const void *src, size_t count)
 {
-  char *d = NOVA_CAST(char *, dst);
-  const char *s = NOVA_CAST(const char *, src);
+  char *d = STRING_CAST(char *, dst);
+  const char *s = STRING_CAST(const char *, src);
   if (d > s)
     {
       d+=count-1;
@@ -52,14 +61,14 @@ memmove(void *dst, const void *src, size_t count)
   return dst;
 }
 
-NOVA_INLINE int
+STRING_INLINE int
 memcmp(const void *dst, const void *src, size_t count)
 {
   return __builtin_memcmp(dst, src, count);
 }
 
 
-NOVA_INLINE void *
+STRING_INLINE void *
 memset(void *dst, int n, size_t count)
 {
   void *res = dst;
@@ -68,7 +77,7 @@ memset(void *dst, int n, size_t count)
 }
 
 
-NOVA_INLINE size_t
+STRING_INLINE size_t
 strnlen(const char *src, size_t maxlen)
 {
   unsigned long count = maxlen;
@@ -79,14 +88,14 @@ strnlen(const char *src, size_t maxlen)
 }
 
 
-NOVA_INLINE size_t
+STRING_INLINE size_t
 strlen(const char *src)
 {
   return __builtin_strlen(src);
 }
 
 
-NOVA_INLINE char *
+STRING_INLINE char *
 strstr(char *haystack, const char *needle)
 {
   int index;
@@ -101,7 +110,7 @@ strstr(char *haystack, const char *needle)
 
 }
 
-NOVA_INLINE unsigned long
+STRING_INLINE unsigned long
 strtoul(char *nptr, char **endptr, int base)
 {
   unsigned long res = 0;
@@ -129,7 +138,7 @@ strtoul(char *nptr, char **endptr, int base)
   return res;
 }
 
-NOVA_INLINE
+STRING_INLINE
 const char *
 strchr(const char *s, int c)
 {
@@ -140,7 +149,7 @@ strchr(const char *s, int c)
   return 0;
 }
 
-NOVA_INLINE
+STRING_INLINE
 char *
 strsep(char **stringp, const char *delim)
 {
@@ -164,7 +173,7 @@ strsep(char **stringp, const char *delim)
 
 }
 
-NOVA_INLINE
+STRING_INLINE
 char *
 strcpy(char *dst, const char *src)
 {
@@ -172,7 +181,7 @@ strcpy(char *dst, const char *src)
   return dst;   
 }
 
-NOVA_INLINE
+STRING_INLINE
 unsigned
 strcmp(const char *dst, const char *src) 
 {
