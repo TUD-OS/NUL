@@ -4,6 +4,7 @@
  * \author  Udo Steinberg <udo@hypervisor.org>
  *
  * Copyright (C) 2005-2007, Udo Steinberg <udo@hypervisor.org>
+ * Copyright (C) 2008-2009, Bernhard Kauer <bk@vmmon.org>
  * Technische Universitaet Dresden, Operating Systems Group
  * All rights reserved.
  */
@@ -65,11 +66,11 @@ struct Utcb
 	};
 	unsigned gpr[];
       };
-      unsigned     efl; 
+      unsigned     efl;
       unsigned     eip;
       unsigned     cr0, cr2, cr3, cr4;
       unsigned     res;
-      unsigned     dr7;      
+      unsigned     dr7;
       Descriptor   es;
       Descriptor   cs;
       Descriptor   ss;
@@ -88,14 +89,13 @@ struct Utcb
       unsigned     inst_len;
       unsigned     sysenter_cs, sysenter_esp, sysenter_eip;
       unsigned     items[];
-	
     };
     unsigned msg[1024 - sizeof(struct head) / sizeof(unsigned)];
   };
 
   enum { MINSHIFT = 12, };
   unsigned long add_mappings(bool exception, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
-  {      
+  {
     while (size > 0)
       {
 	unsigned minshift = Cpu::minshift(addr | hotspot, size);
