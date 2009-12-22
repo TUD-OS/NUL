@@ -52,18 +52,7 @@ EXCP_FUNC(do_stdin,
 	      switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
 		{
 		case KBFLAG_EXTEND0 | 0x7c: // printscr
-		  //_debug = false;
-		  //for (unsigned i=0; i < Motherboard::MAX_CPUS; i++)
-		  //_debug ^= 1;
-		  {
-		    
-		    unsigned const perf1 = 0x4f04;
-		    unsigned const perf2 = 0x4f08;
-		    unsigned long long c1;
-		    unsigned long long c2;
-		    perfcount(perf1, perf2, c1, c2);
-		    Logging::printf("PERF %lld %lld\n", c1, c2);
-		  }
+		  recall(_mb->vcpustate(0)->cap_vcpu);
 		  break;
 		case 0x7E: // scroll lock
 		  Logging::printf("toggle HLT\n");
@@ -251,7 +240,7 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	  vmx_invalid(utcb);
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(utcb); )
-VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
+VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ | MTD_RIP_LEN | MTD_RSP | MTD_CR,
 	//if (utcb->intr_info & 0x80000000)  Logging::printf("recall eip %x %x hz %x\n", utcb->eip, utcb->intr_info, _mb->vcpustate(0)->hazard);
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
 	  vmx_init(utcb);
@@ -260,6 +249,10 @@ VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	    SemaphoreGuard l(_lock);
 	    //if (_debug) Logging::printf("recall %x\n", utcb->eip);
 	    COUNTER_INC("recall"); 
+	    COUNTER_SET("rEIP", utcb->eip);
+	    COUNTER_SET("rESP", utcb->esp);
+	    COUNTER_SET("rCR3", utcb->cr3);
+	    COUNTER_SET("HZ", _mb->vcpustate(0)->hazard);
 	    unsigned lastpid = utcb->head.pid;
 	    utcb->head.pid = 1;
 	    MessageExecutor msg(static_cast<CpuState*>(utcb), _mb->vcpustate(0));

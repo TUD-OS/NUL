@@ -287,8 +287,8 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 
 
     // get serial port from the bios data area 
-    char *zeropage = map_self(_boot_utcb, 0x0, 1<<12);
-    serial_port = *reinterpret_cast<unsigned short *>(zeropage + 0x400);
+    //char *zeropage = map_self(_boot_utcb, 0x0, 1<<12);
+    //serial_port = *reinterpret_cast<unsigned short *>(zeropage + 0x400);
     //unmap(zeropage, 1<<12);
 
     return 0;
