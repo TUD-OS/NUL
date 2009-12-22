@@ -27,7 +27,7 @@ PHDRS
 
 SECTIONS
 {
-  ENTRY(_start)
+  ENTRY(__start)
    .  =  0x80000000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
