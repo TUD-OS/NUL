@@ -24,8 +24,11 @@ def chomp(line):
 
 # Compilation flags
 
-opt_arch = 'core2'
+#opt_arch = 'core2'
 
+# Compiler override
+target_cc  = ARGUMENTS.get('target_cc')
+target_cxx = ARGUMENTS.get('target_cxx')
 # Optimization flags
 
 debug = ARGUMENTS.get('debug', 0)
@@ -48,10 +51,22 @@ host_env = Environment()
 # binaries.
 target_env = Environment()
 
+if target_cc:
+    print("Target CC forced to '%s'." % target_cc)
+    if not target_cxx:
+        print("!!! You probably want to set a proper target_cxx !!!")
+    target_env['CC'] = target_cc
+
+if target_cxx:
+    print("Target CXX forced to '%s'." % target_cxx)
+    if not target_cc:
+        print("!!! You probably want to set a proper target_cc !!!")
+    target_env['CXX'] = target_cxx
+
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
 target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc -Wall')
-target_env.Append(CCFLAGS = (' -march=' + opt_arch))
+#target_env.Append(CCFLAGS = (' -march=' + opt_arch))
 
 target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"
 target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration"
