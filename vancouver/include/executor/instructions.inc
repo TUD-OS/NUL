@@ -1,3 +1,4 @@
+/* This file is auto-generated. Do not edit. */
 static void __attribute__ ((regparm (3))) exec_00_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock addb %al,(%ecx)");
