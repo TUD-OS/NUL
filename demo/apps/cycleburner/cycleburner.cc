@@ -1,3 +1,11 @@
+/// -*- Mode: C++ -*-
+/// Show a sinus plasma and some motivational quotes.
+///
+/// Copyright (C) 2009, Julian Stecklina
+//
+/// This file is part of NUL, the NOVA userland. See LICENSE for
+/// licensing details.
+
 #include <sys/console.h>
 #include <vmm/motherboard.h>
 #include <sigma0/sigma0.h>
