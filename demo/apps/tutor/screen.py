@@ -2,7 +2,7 @@
 
 import sys
 
-print("#include <stdint.h>")
+print("#include <cstdint>")
 print("void print_%s(uint16_t *dst) {" % sys.argv[1])
 input = sys.stdin
 lpos = 0

@@ -9,7 +9,7 @@
 #include <sys/console.h>
 #include <vmm/motherboard.h>
 #include <sigma0/sigma0.h>
-#include <stdint.h>
+#include <cstdint>
 
 void print_screen1(uint16_t *dst);
 
