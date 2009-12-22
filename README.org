@@ -70,6 +70,20 @@ on it.
   To use a customized build configuration, copy the default build
   repository and adapt its SConstruct file.
 
+  There are several variables that can be passed to SCons in order to
+  control the build process:
+
+  |------------------+-----------------------------|
+  | *Argument*       | *Description*               |
+  |------------------+-----------------------------|
+  | target_cc=mycc   | Compile C code with mycc.   |
+  |------------------+-----------------------------|
+  | target_cxx=myc++ | Compile C++ code with myc++ |
+  |------------------+-----------------------------|
+
+  To compile nul with an old version of GCC, type:
+  =scons target_cc=gcc-4.2.4 target_cxx=g++-4.2.4=
+
 ** TODO Booting 
 
 ** Using Git
