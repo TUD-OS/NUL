@@ -118,8 +118,8 @@ private:
 	    res = true;
 	    m->cmdline = msg.cmdline - physmem;
 	    m->flags |= MBI_FLAG_CMDLINE;
-	    // keep space for fiasco
-	    offset += 0x200000;
+	    // keep space for fiasco and linux
+	    offset += 0x1000000;
 	    break;
 	  default:
 	    {
