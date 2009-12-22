@@ -38,7 +38,7 @@ else:
 
 tftp_dir = ARGUMENTS.get('tftp', '')
 if tftp_dir:
-    Install(tftp_dir, '#bin/sigma0.nova')
+    Install(tftp_dir, '#bin/sigma0.nul')
 
 # Default environment for host machine. Use this to build host tools,
 # that need to run during the build.
@@ -84,8 +84,7 @@ def link(env, target, source, linkscript=None, **rest):
                     [ Copy("$TARGET", "$SOURCE"),
                       "strip $TARGET",
                       "size $TARGET",
-                      "gzip $TARGET",
-                      Move("$TARGET", "${TARGET}.gz")
+                      "gzip -c $TARGET > ${TARGET}.gz"
                       ])
     # Explicitly add linkscript to the dependencies.
     if linkscript:

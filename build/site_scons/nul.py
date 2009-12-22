@@ -33,7 +33,7 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova'],
     env = AppEnv(env,  LIBS)
     if not LINKSCRIPT:
         LINKSCRIPT = "%s.ld" % name
-    return env.Link(output + '/apps/%s.nova' % name,
+    return env.Link(output + '/apps/%s.nul' % name,
                     SOURCES,
                     linkscript = LINKSCRIPT)
 
