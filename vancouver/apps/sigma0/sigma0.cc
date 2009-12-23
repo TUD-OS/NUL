@@ -24,7 +24,6 @@
 bool      startlate;
 bool      noswitch;
 unsigned  repeat;
-unsigned  serial_port;
 unsigned  console_id;
 PARAM(startlate,  startlate = true;, "startlate - do not start all domains at bootup" );
 PARAM(repeat,  repeat = argv[0],     "repeat the domain start" );
@@ -199,15 +198,10 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   }
 
   static void serial_send(long value) {
-    if (serial_port && global_mb)
+    if (global_mb)
       {
-
-	MessageIOIn  msg1(MessageIOIn ::TYPE_INB,  serial_port+0x5);
-	msg1.value = 0x20;
-	MessageIOOut msg2(MessageIOOut::TYPE_OUTB, serial_port, value);
-	while (global_mb->bus_hwioin.send(msg1) && ~msg1.value & 0x20)
-	  Cpu::pause();
-	global_mb->bus_hwioout.send(msg2);
+	MessageSerial msg(1, value);
+	global_mb->bus_serial.send(msg);
       }
   }
   struct PutcData
@@ -284,13 +278,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 
     // get all ioports
     map_self(_boot_utcb, 0, 1 << (16+Utcb::MINSHIFT), 2);
-
-
-    // get serial port from the bios data area 
-    //char *zeropage = map_self(_boot_utcb, 0x0, 1<<12);
-    //serial_port = *reinterpret_cast<unsigned short *>(zeropage + 0x400);
-    //unmap(zeropage, 1<<12);
-
     return 0;
   };
 
