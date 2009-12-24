@@ -44,7 +44,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     ICW4_BUF  = 0x08,
     ICW4_SFNM = 0x10,
   };
-  
+
   DBus<MessageIrq>       &_bus_irq;
   DBus<MessagePic>       &_bus_pic;
   DBus<MessageIrqNotify> &_bus_notify;
@@ -68,7 +68,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 
   // debug functions
   const char *debug_getname() { return "Pic8259"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %x+2", _base);
     Logging::printf(" lines %2x+8 _irr %02x _imr %02x _isr %02x vec %02x", _virq, _irr, _imr, _isr, _icw[ICW2]);
@@ -82,7 +82,7 @@ class PicDevice : public StaticReceiver<PicDevice>
   bool is_slave()                      { return (_icw[ICW4] & ICW4_BUF) ? (~_icw[ICW4] & ICW4_MS) : _virq; }
   void rotate_prios()                  { _prio_lowest = (_prio_lowest+1) & 7; }
   void specific_eoi(unsigned char irq) { _isr &= ~irq; propagate_irq(); }
-  void non_specific_eoi() 
+  void non_specific_eoi()
   {
     for (unsigned i=0; i<8; i++)
       {
@@ -160,7 +160,6 @@ class PicDevice : public StaticReceiver<PicDevice>
   void propagate_irq()
   {
     unsigned char dummy;
-    //Logging::printf("PicDevice::%s() for irr %x isr %x imr %x\n", __func__, _irr, _isr, _imr);
     if (prioritize_irq(dummy, false))
       {
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
@@ -204,11 +203,10 @@ class PicDevice : public StaticReceiver<PicDevice>
   bool  receive(MessageApic &msg)
   {
     bool res = (msg.line == _virq) && get_irqvector(msg.vector);
-    //Logging::printf("%s(%lx,%lx)\n", __PRETTY_FUNCTION__, address, value);
     if (res)  propagate_irq();
     return res;
   }
-  
+
 
   /**
    * We get an request on the three-wire PIC bus.
@@ -256,9 +254,7 @@ class PicDevice : public StaticReceiver<PicDevice>
   {
       if (!in_range(msg.port, _base, 2) && msg.port != _elcr_base || msg.type != MessageIOOut::TYPE_OUTB)
 	return false;
-      //if ((_isr & ~_imr) != 1)
-      //Logging::printf("PicDevice::%s() irr %x isr %x port %lx %lx elcr %x prio %x imr %x\n", __func__, _irr, _isr, msg.port, msg.value & 0xff, _elcr, _prio_lowest, _imr);
-  
+
       if (msg.port == _elcr_base)
 	_elcr = msg.value;
       else if (msg.port == _base)
@@ -333,14 +329,12 @@ class PicDevice : public StaticReceiver<PicDevice>
    */
   bool  receive(MessageIrq &msg)
     {
-      //if (msg.line !=0 && msg.line != 0xff) Logging::printf("PicDevice::%s() irr %x isr %x imr %x %x\n", __func__, _irr, _isr, _imr, msg.line);
-	  
       if (in_range(msg.line, _virq, 8))
 	{
 	  unsigned char irq = 1 << (msg.line - _virq);
 	  if (msg.type == MessageIrq::ASSERT_NOTIFY)
 	      Cpu::atomic_or(&_notify, irq);
-	  
+
 	  if (msg.type == MessageIrq::DEASSERT_IRQ)
 	    {
 	      if ((_irr & irq) && (_elcr & irq))
@@ -352,7 +346,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 	  else if (!(_irr & irq))
 	    {
 	      if (msg.line == 0) COUNTER_INC("pirq0"); else COUNTER_INC("pirqN");
-	      
+
 	      Cpu::atomic_or(&_irr, irq);
 	      propagate_irq();
 	    }
@@ -362,12 +356,12 @@ class PicDevice : public StaticReceiver<PicDevice>
     }
 
 
- PicDevice(DBus<MessageIrq> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageIrqNotify> &bus_notify, 
-	   unsigned short base, unsigned char irq, unsigned short elcr_base, unsigned char virq) : 
+ PicDevice(DBus<MessageIrq> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageIrqNotify> &bus_notify,
+	   unsigned short base, unsigned char irq, unsigned short elcr_base, unsigned char virq) :
   _bus_irq(bus_irq), _bus_pic(bus_pic), _bus_notify(bus_notify), _base(base), _upstream_irq(irq), _elcr_base(elcr_base), _virq(virq), _icw_mode(OCW1)
   {
     _icw[ICW1] = 0;
-    reset_values(); 
+    reset_values();
  }
 };
 

@@ -35,7 +35,7 @@ PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" );
 Motherboard *global_mb;
 class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 {
-  enum { 
+  enum {
     MAXCPUS = 256,
     CPUGSI  = 3,
   };
@@ -47,10 +47,10 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   // data per physical CPU number
   struct {
     unsigned  cap_ec_worker;
-    unsigned  cap_ec_echo; 
-    unsigned  cap_pt_echo; 
+    unsigned  cap_ec_echo;
+    unsigned  cap_pt_echo;
   } _percpu[MAXCPUS];
-  
+
   unsigned  _last_affinity;
 
   // irq+worker synchronisation
@@ -62,14 +62,14 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   // device data
   Motherboard *_mb;
   volatile unsigned _disk_requests_completed;
-  
+
   // module data
   static const unsigned MAXDISKS = 32;
   static const unsigned long MEM_OFFSET = 1 << 31;
   static const unsigned MAXMODULES = 64;
   static const unsigned MAXDISKREQUESTS = DISKS_SIZE; // max number of outstanding disk requests per client
-  struct ModuleInfo 
-  { 
+  struct ModuleInfo
+  {
     Hip *         hip;
     unsigned      mod_nr;
     unsigned      mod_count;
@@ -106,7 +106,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   unsigned long find_free_tag(unsigned short client, unsigned char disknr, unsigned long usertag, unsigned long &tag)
   {
     struct ModuleInfo *module = _modinfo + client;
-	
+
     assert (disknr < module->disk_count);
     for (unsigned i = 0; i < MAXDISKREQUESTS; i++)
       if (!module->tags[i].disk)
@@ -124,12 +124,12 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
    * Returns true on error.
    */
   template<typename T>
-  bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size) 
+  bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size)
   { 
     unsigned long offset = reinterpret_cast<unsigned long>(ptr);
     if (offset < MEM_OFFSET || modinfo->physsize + MEM_OFFSET <= offset || size > modinfo->physsize + MEM_OFFSET - offset)
       return true;
-    ptr = reinterpret_cast<T *>(offset + modinfo->mem - MEM_OFFSET); 
+    ptr = reinterpret_cast<T *>(offset + modinfo->mem - MEM_OFFSET);
     return false;
   }
 
@@ -139,7 +139,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   template <class CONSUMER, class PRODUCER>
   void handle_attach(ModuleInfo *modinfo, PRODUCER &res, Utcb *utcb)
   {
-    //Logging::printf("\t\t%s(%x, %x) pid %x request crd %x\n", __func__, utcb->head.mtr.value(), utcb->msg[1], utcb->head.pid, utcb->head.crd);
     CONSUMER *con = reinterpret_cast<CONSUMER *>(utcb->msg[1]);
     if (convert_client_ptr(modinfo, con, sizeof(CONSUMER)))
       Logging::printf("(%x) consumer %p out of memory %lx\n", utcb->head.pid, con, modinfo->physsize);
@@ -159,7 +158,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   /**
    * Create the needed host devices aka instantiate the drivers.
    */
-  unsigned create_host_devices(Hip *hip) 
+  unsigned create_host_devices(Hip *hip)
   {
 
     // prealloc timeouts for every module
@@ -193,7 +192,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     msg2.ptr += 0x1000;
     _mb->bus_console.send(msg2);
     if (!noswitch) switch_view(_mb, 0);
-    
+
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
     _mb->bus_disk.debug_dump();
@@ -215,7 +214,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 
 
   static void putc(void *data, long value)
-  {   
+  {
     if (data)
       {
 	PutcData *p = reinterpret_cast<PutcData *>(data);
@@ -244,7 +243,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
 	if (~cpu->flags & 1) continue;
 	_cpunr[_numcpus++] = i;
-	
+
 	Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
 	_percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
 	_percpu[i].cap_pt_echo = _cap_free++;
@@ -252,7 +251,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 
 	Utcb *utcb;
 	_percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
-	
+
 	// initialize the receive window
 	utcb->head.crd = (_cap_free++ << Utcb::MINSHIFT) | 3;
       }
@@ -267,7 +266,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     // map vga memory
     Logging::printf("map vga memory\n");
     _vga = map_self(_boot_utcb, 0xa0000, 1<<17);
-    
+
     // keep the boot screen
     memcpy(_vga + 0x1a000, _vga + 0x18000, 0x1000);
 
@@ -303,11 +302,11 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
 	if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
 	// make sure to remove the cmdline
-	if (hmem->type == -2 && hmem->aux)  { 
+	if (hmem->type == -2 && hmem->aux)  {
 	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
 	}
       }
-    
+
     // reserve the very first 1MB
     _free_phys.del(Region(0, 1<<20));
     return 0;
@@ -325,7 +324,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	  Logging::printf("Sigma0: ignore drive %lx during attach!\n", nr);
       }
   }
-  
+
 
   unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned mask)
   {
@@ -381,9 +380,9 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	     * We memset the client memory to make sure we get an
 	     * deterministic run and not leak any information between
 	     * clients.
-	     */ 
+	     */
 	    memset(modinfo->mem, 0, modinfo->physsize);
-				
+
 	    // decode elf
 	    maxptr = 0;
 	    Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
@@ -391,16 +390,16 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    unsigned long mod_end = (modinfo->physsize - slen) & ~0xfff;
 
 	    // XXX fiasco hack to workaround himem and kmem allocator!
-	    if (strstr(cmdline, "sigma0::fiascohack") && (mod_end > 0x4400000)) mod_end -= 0x4000000;  
+	    if (strstr(cmdline, "sigma0::fiascohack") && (mod_end > 0x4400000)) mod_end -= 0x4000000;
 	    memcpy(modinfo->mem + mod_end, cmdline, slen);
 	    attach_drives(cmdline, modinfo);
 
 	    modinfo->hip = reinterpret_cast<Hip *>(modinfo->mem + mod_end - 0x1000);
 	    memcpy(modinfo->hip, _hip, _hip->length);
-	    modinfo->hip->length = modinfo->hip->mem_offs;		
+	    modinfo->hip->length = modinfo->hip->mem_offs;
 	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, modinfo->pmem);
 	    modinfo->hip->append_mem(0, 0, -2, mod_end + MEM_OFFSET);
-		
+
 	    // attach modules
 	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
 	      modinfo->mod_count++;
@@ -414,7 +413,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 5);
 	    check(create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	    check(create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
-	    
 
 	    Logging::printf("create %s on CPU %d\n", vcpus ? "VMM" : "PD", cpunr);
 	    check(create_pd(_cap_free++, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr));
@@ -479,7 +477,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
       //if (res) unmap(res, size);
       size += 0x1000;
       res = map_self(utcb, src, size) + offset;
-      //Logging::printf("%s size %x offset %x %lx -> %p\n", __func__, size, offset, src, res);
     } while (strnlen(res, size - offset) == (size - offset));
     return res;
   }
@@ -559,8 +556,7 @@ public:
 	msg.nr = _timeouts.alloc();
 	return true;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
-	//Logging::printf("request to %x %llx\n", msg.nr, msg.abstime);
-	if (msg.nr!= MessageTimeout::HOST_TIMEOUT)  
+	if (msg.nr!= MessageTimeout::HOST_TIMEOUT)
 	  {
 	    if (!_timeouts.request(msg.nr, msg.abstime))
 	      {
@@ -580,10 +576,8 @@ public:
   {
     if (msg.nr < MAXMODULES)
       {
-	//Logging::printf("> timeout %x\n", msg.nr);
 	TimerItem item(Cpu::rdtsc());
 	_modinfo[msg.nr].prod_timer.produce(item);
-	//Logging::printf("< timeout %x\n", msg.nr);
 	return true;
       }
     if (msg.nr == MessageTimeout::HOST_TIMEOUT)  check_timeouts();
@@ -601,7 +595,6 @@ public:
 	for (unsigned i=1; i < MAXMODULES; i++)
 	  if (_modinfo[i].console == msg.id)
 	    {
-	      //Logging::printf("got key %x for console %x.%x -> module %d\n", msg.keycode, msg.id, msg.view, i);
 	      MessageKeycode item(msg.view, msg.keycode);
 	      _modinfo[i].prod_stdin.produce(item);
 	      return true;
@@ -633,7 +626,7 @@ public:
 	  return true;
 	}
       case MessageConsole::TYPE_DEBUG:
-	if (!msg.id) _mb->dump_counters();	  
+	if (!msg.id) _mb->dump_counters();
 	if (msg.id == 1) check_timeouts();
 	if (msg.id == 2)
 	  {
@@ -704,26 +697,24 @@ public:
 	      msg.cmdline =  map_string(myutcb(), mod->aux);
 	      msg.cmdlen  =  strlen(msg.cmdline) + 1;
 	    }
-	  else 
+	  else
 	    res = false;
-	  
 	}
 	break;
       case MessageHostOp::OP_UNMASK_IRQ:
-      case MessageHostOp::OP_GET_UID:	
+      case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_GUEST_MEM:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
     return res;
   }
-    
-    
+
+
   bool  receive(MessageDiskCommit &msg)
   {
     // user provided write?
     if (msg.usertag) {
-      //Logging::printf("s0: commitbus->write(%lx, %x)\n", msg.usertag, msg.status);
       unsigned client = msg.usertag & 0xffff;
       unsigned short index = msg.usertag >> 16;
       assert(client <  MAXMODULES);
@@ -752,7 +743,7 @@ public:
     unsigned res;
     if ((res = preinit(hip)))              Logging::panic("init() failed with %x\n", res);
     Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
-    
+
     if ((res = init_memmap(_boot_utcb)))   Logging::panic("init memmap failed %x\n", res);
     if ((res = create_host_devices(hip)))  Logging::panic("create host devices failed %x\n", res);
     Logging::printf("start modules\n");
@@ -764,9 +755,7 @@ public:
       start_modules(_boot_utcb, 1<<forcestart);
 
     Logging::printf("INIT done\n");
-    //_free_phys.debug_dump("free phys");
-    //_free_virt.debug_dump("free virt");
-    //_virt_phys.debug_dump("virt->phys");
+
     // unblock the worker and IRQ threads
     _lock.up();
 

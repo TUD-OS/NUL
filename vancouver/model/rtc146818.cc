@@ -44,7 +44,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
   const char *debug_getname() { return "Rtc146818"; };
 
   /**
-   * Timing: 
+   * Timing:
    *   1. seconds are updated at us == 0
    *   2. UIP is set from [FREQ-tBUC-tUC, FREQ-1]
    *   3. the update happens from [FREQ-tUC, FREQ-1]
@@ -102,7 +102,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
     return value - _offset;
   }
 
-  
+
   unsigned get_periodic_tics()
   {
     if (_ram[0xa] & 0xf && (_ram[0xa] & 0x60) != 0x60)
@@ -123,8 +123,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
   {
     unsigned oldvalue = _ram[0xc];
     _ram[0xc] = value;
-    if ((_ram[0xb] & _ram[0xc]) & 0x70) 	_ram[0xc] |= 0x80;
-    //Logging::printf("set_irqflags %x -> %x\n", oldvalue, _ram[0xc]);
+    if ((_ram[0xb] & _ram[0xc]) & 0x70)  _ram[0xc] |= 0x80;
     if (( oldvalue ^ _ram[0xc]) & 0x80)
       {
 	MessageIrq msg((_ram[0xc] & 0x80) ? MessageIrq::ASSERT_NOTIFY : MessageIrq::DEASSERT_IRQ, _irq);
@@ -173,7 +172,6 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 
     // update ended, set flag
     set_irqflags(_ram[0xc] | 0x10);
-    //Logging::printf(" %02d:%02d:%02d %02d.%02d.%2d%02d  %llx\n", ram(4), ram(2), ram(0), ram(7), ram(8), ram(0x32), ram(9), seconds);
   }
 
 
@@ -193,7 +191,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
      * now       - the current time broken down to the period
      */
     static const unsigned   periods[8] = { 86400, 86400, 86400, 86400, 3600, 3600, 60, 1};
-    static const unsigned subranges[8] = {     0,    59, 59*60,  3599,    0,   59,  0, 0}; 
+    static const unsigned subranges[8] = {     0,    59, 59*60,  3599,    0,   59,  0, 0};
     unsigned start = 0;
     unsigned wildcards = 0;
     unsigned p = 1;
@@ -262,7 +260,6 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
       {
 	timevalue last_seconds = get_ram_time();
 	seconds = last_seconds + seconds - (_last / FREQ);
-	//Logging::printf("reset now %llx last %llx\n", now, last_seconds);
 	update_ram(seconds);
 	if (next_alarm(last_seconds) <= seconds)  set_irqflags(_ram[0xc] | 0x20);
       }
@@ -352,7 +349,6 @@ public:
     else
       // Port 0x70 is not readable. See RBL+ICH docu. Tested on ICH10.
       return false;
-    //Logging::printf("\t\tIN 0x%x = %x\n", _index, msg.value);
     return true;
   }
 
@@ -363,7 +359,6 @@ public:
       return false;
     if (msg.port & 1)
       {
-	//Logging::printf("\t\tOUT 0x%x = %x\n", _index, msg.value);
 	timevalue now = get_counter();
 	update_cycle(now);
 	switch (_index)
@@ -378,10 +373,8 @@ public:
 	      if (toggled_reset)
 		{
 		  // switch from reset to non-reset mode, the next update is a half second later...
-		  //Logging::printf("counter %llx offset %llx clock %llx\n", now, _offset, _clock->clock(FREQ));
 		  _offset  = _clock->clock(FREQ) - FREQ/2;
 		  _last    = FREQ/2; // to make sure the periodic updates are right!
-		  //Logging::printf("counter %llx last %llx offset -%llx clock %llx\n", get_counter(), _last, -_offset, _clock->clock(FREQ)<<1);
 		}
 	    }
 	    break;
@@ -420,7 +413,7 @@ public:
     return true;
   }
 
-  
+
   Rtc146818(DBus<MessageTimer> &bus_timer, DBus<MessageIrq> &bus_irqlines, Clock *clock, unsigned timer, unsigned short iobase, unsigned irq)
     : _bus_timer(bus_timer), _bus_irqlines(bus_irqlines), _clock(clock), _timer(timer), _iobase(iobase), _irq(irq)
   {}

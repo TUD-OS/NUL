@@ -48,7 +48,7 @@ class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
       }
     return false;
   }
-  
+
 
   /**
    * The PCI bus transaction function.
@@ -66,7 +66,6 @@ class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
 	  }
 	else
 	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.address, msg.value, 4);
-	//Logging::printf("PCI cfg: type %x offs %x %x\n", msg.type, msg.address, msg.value);
 	return res;
       }
     return false;

@@ -64,7 +64,7 @@ class HwRegisterSet {
   {
     if (index >=0 && index < _reg_count) return _hw_regs[index].mask;
     return 0;
-  } 
+  }
 
   /**
    * Default empty callback function.
@@ -98,7 +98,7 @@ class HwRegisterSet {
    */
   int find_reg(const char *name) const
   {
-    for (unsigned i=0; _hw_regs[i].name; i++) 
+    for (unsigned i=0; _hw_regs[i].name; i++)
       if (!strcmp(name, _hw_regs[i].name)) return i;
     return -1;
   }
@@ -149,13 +149,13 @@ class HwRegisterSet {
    * Read all register that fall in a given address range.
    */
   bool read_all_regs(unsigned address, unsigned &value, unsigned size)
-  {    
+  {
     assert(size <= 4 && !(size & size -1));
     bool res = false;
     unsigned tmp = 0;
     unsigned tmp2;
-    for (int i = 0; i < _reg_count; i++) 
-      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size) && read_reg(i, tmp2)) 
+    for (int i = 0; i < _reg_count; i++)
+      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size) && read_reg(i, tmp2))
 	{
 	  tmp |= tmp2 << (_hw_regs[i].bitoffset & (size*8-1));
 	  res = true;
@@ -169,11 +169,11 @@ class HwRegisterSet {
    * Write all register that fall in a given address range.
    */
   bool write_all_regs(unsigned address, unsigned value, unsigned size, Z *obj = 0)
-  {    
+  {
     assert(size <= 4 && !(size & size -1));
     bool res = false;
-    for (int i = 0; i < _reg_count; i++) 
-      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size)) 
+    for (int i = 0; i < _reg_count; i++)
+      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size))
 	{
 	  write_reg(i, value >> (_hw_regs[i].bitoffset & (size*8-1)), true, obj);
 	  res = true;
@@ -183,16 +183,15 @@ class HwRegisterSet {
 
  protected:
 
-  HwRegisterSet() 
+  HwRegisterSet()
     {
       // count the bytes we need per-object storage for
       int save_index = 0;
       _reg_count = 0;
-      for (unsigned i=0; _hw_regs[i].name; i++) 
+      for (unsigned i=0; _hw_regs[i].name; i++)
 	{
-	  //Logging::printf("\treg %s pos %x-%d value %x mask %x\n",_hw_regs[i].name, _hw_regs[i].bitoffset / 8, _hw_regs[i].bitlen, _hw_regs[i].value, _hw_regs[i].mask);
 	  _reg_count++;
-	  if (_hw_regs[i].mask | _hw_regs[i].rw1s | _hw_regs[i].rw1c) 
+	  if (_hw_regs[i].mask | _hw_regs[i].rw1s | _hw_regs[i].rw1c)
 	    {
 	      assert(_hw_regs[i].bitlen <= sizeof(_hw_regs[i].value)*8);
 	      assert(_hw_regs[i].bitlen == 32 || !(_hw_regs[i].mask >> _hw_regs[i].bitlen));
@@ -203,7 +202,7 @@ class HwRegisterSet {
 	}
       // allocate the backing store
       _regs_data = reinterpret_cast<unsigned *>(malloc(sizeof(*_regs_data) * save_index));
-      
+
       // initialize the backing store from the default values
       for (unsigned i=0; _hw_regs[i].name; i++)
 	reset_reg(i);

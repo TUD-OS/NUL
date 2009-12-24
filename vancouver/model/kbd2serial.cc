@@ -65,9 +65,8 @@ public:
     msg.keycode &= ~KBFLAG_NUM;
     if (msg.keycode & (KBFLAG_RSHIFT | KBFLAG_LSHIFT))
       msg.keycode = msg.keycode & ~(KBFLAG_RSHIFT | KBFLAG_LSHIFT) | KBFLAG_LSHIFT;
-    //Logging::printf("%s - %x\n", __PRETTY_FUNCTION__, msg.keycode);
     const char *s = keycode2ansi(msg.keycode);
-    if (s) 
+    if (s)
       {
 	send_char(0x1b);
 	while (s && *s)  send_char(*s++);

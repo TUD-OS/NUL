@@ -127,15 +127,13 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
       {
 	dst[0] = msg.phys;
 	dst[1] = 0; // support 64bit mode
-	//Logging::printf("translate %p -> %lx\n", ptr, msg.value);
       }
     else
       assert(!"could not resolve phys address");
   }
-    
+
   void set_command(unsigned char command, unsigned long long sector, bool read, unsigned count = 0, bool atapi = false, unsigned pmp = 0, unsigned features=0)
   {
-    //Logging::printf("\t\t%s(%x) %x %llx %x %x\n", __func__, _tag, command, sector, read, count);
     _cl[_tag*CL_DWORDS+0] = (atapi ? 0x20 : 0) | (read ? 0 : 0x40) | 5 | ((pmp & 0xf) << 12);
     _cl[_tag*CL_DWORDS+1] = 0;
 
@@ -162,7 +160,6 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     p[0] = phys;
     p[1] = phys >> 32;
     p[3] = count - 1;
-    //Logging::printf("\t\t%s(%d) p %p phys %llx count %x cl[0] %x cl[2] %x\n", __func__, prd, p, phys, count, _cl[_tag*CL_DWORDS], _cl[_tag*CL_DWORDS+2]);
     return false;
   }
 
@@ -180,7 +177,8 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     p[3] = count-1;
     return false;
   }
-    
+
+
   unsigned start_command(unsigned long usertag)
   {
     unsigned prd = _cl[_tag*CL_DWORDS] >> 16;
@@ -197,7 +195,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
 
   unsigned identify_drive(unsigned short *buffer)
-  {  
+  {
     memset(buffer, 0, 512);
     set_command(0xec, 0, true);
     add_prd(buffer, 512);
@@ -213,7 +211,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   }
 
   unsigned set_features(unsigned features, unsigned count = 0)
-  {  
+  {
     set_command(0xef, 0, false, count, false, 0, features);
     unsigned tag = start_command(0);
 
@@ -230,7 +228,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   /**
    * Initialize the port.
    */
-  unsigned init(unsigned short *buffer) 
+  unsigned init(unsigned short *buffer)
   {
     if (_regs->cmd & 0xc009) {
       // stop processing by clearing ST
@@ -242,7 +240,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
       // wait until no fis is received anymore
       check2(wait_timeout(&_regs->cmd, 1<<14, 0));
     }
-    
+
     // set CL and FIS pointer
     addr2phys(_cl,  &_regs->clb);
     addr2phys(_fis, &_regs->fb);
@@ -288,7 +286,6 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     for (unsigned done = _inprogress & ~_regs->ci, tag; done; done &= ~(1 << tag))
       {
 	tag = Cpu::bsf(done);
-	//Logging::printf("PDXis %x inprogress %x done %x tag %x tfd %x\n", is, _inprogress, done, tag, _regs->tfd);
 	MessageDiskCommit msg2(_disknr, _usertags[tag], MessageDisk::DISK_OK);
 	_bus_commit.send(msg2);
 
@@ -298,18 +295,17 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
 
     if (_regs->tfd & 1)
-      { 
+      {
 	Logging::printf("command failed with %x\n", _regs->tfd);
 	unsigned short buffer[256];
-	init(buffer);	
+	init(buffer);
       }
 
-    //Logging::printf("PDXis %x is %x progress %x ci %x\n", is, _regs->is, _inprogress, _regs->ci);
   }
 
 
   bool  receive(MessageDisk &msg)
-  {    
+  {
     if (msg.disknr != _disknr)  return false;
 
 
@@ -325,7 +321,6 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 	  set_command(command, msg.sector, msg.type != MessageDisk::DISK_WRITE, length >> 9);
 	  for (unsigned i=0; i < msg.dmacount; i++)
 	    {
-	      //Logging::printf("disk request %x cmd %x sector %llx type %x nr %x count %d phys %lx+%lx offs = %lx \n", msg.disknr, command, msg.sector, msg.type, _disknr, msg.dmacount, msg.physoffset, msg.physsize, msg.dma[i].byteoffset + msg.physoffset);
 	      if (msg.dma[i].byteoffset > msg.physsize || msg.dma[i].byteoffset + msg.dma[i].bytecount > msg.physsize || 
 		  add_dma(msg.dma[i].byteoffset + msg.physoffset, msg.dma[i].bytecount)) return false;
 	    }
@@ -377,10 +372,10 @@ class HostAhci : public StaticReceiver<HostAhci>
   {
     unsigned short buffer[256];
     // port implemented and the signature is not 0xffffffff?
-    if ((_regs->pi & (1 << nr)) && ~portreg->sig) 
+    if ((_regs->pi & (1 << nr)) && ~portreg->sig)
       {
 	_ports[nr] = new HostAhciPort(portreg, bus_hostop, bus_commit, clock, bus_disk.count(), ((_regs->cap >> 8) & 0x1f) + 1);
-	if (_ports[nr]->init(buffer)) 
+	if (_ports[nr]->init(buffer))
 	  {
 	    Logging::printf("AHCI: port %x init failed\n", nr);
 	    delete _ports[nr];
@@ -390,12 +385,11 @@ class HostAhci : public StaticReceiver<HostAhci>
 	  bus_disk.add(_ports[nr], &HostAhciPort::receive_static<MessageDisk>, bus_disk.count());
       }
   }
-    
- public:  
+
+ public:
 
   HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long address, unsigned hostirq)
     : _address(address), _hostirq(hostirq), _regs_high(0) {
-    //Logging::printf("cmd: %x bar %x cmd-bridge %x\n", pci.conf_read(_address+4), pci.conf_read(_address+0x24), pci.conf_read((_address & ~0x700)+4));
 
     assert(!(~pci.conf_read(_address+4) & 6) && "we need mem-decode and busmaster dma");
     unsigned long bar = pci.conf_read(_address+0x24);
@@ -407,9 +401,9 @@ class HostAhci : public StaticReceiver<HostAhci>
     else
       Logging::panic("%s could not map the HBA registers", __PRETTY_FUNCTION__);
 
-    
+
     // map the high ports
-    if (_regs->pi >> 30) 
+    if (_regs->pi >> 30)
       {
 	msg.value = bar + 0x1000;
 	if (bus_hostop.send(msg) && msg.ptr)
@@ -426,23 +420,22 @@ class HostAhci : public StaticReceiver<HostAhci>
 
     // create ports
     memset(_ports, 0, sizeof(_ports));
-    for (unsigned i=0; i < 30; i++) 
+    for (unsigned i=0; i < 30; i++)
       create_ahci_port(i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock);
-    for (unsigned i=30; _regs_high && i < 32; i++) 
+    for (unsigned i=30; _regs_high && i < 32; i++)
       create_ahci_port(i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock);
     // clear pending irqs
     _regs->is = _regs->pi;
     // enable IRQs
     _regs->ghc |= 2;
   }
-    
+
 
   bool  receive(MessageIrq &msg)
   {
     if (msg.line != _hostirq || msg.type != MessageIrq::ASSERT_IRQ)  return false;
     unsigned is = _regs->is;
     unsigned oldis = is;
-    //Logging::printf("AHCI irq is %x\n", is);
     while (is)
       {
 	unsigned port = Cpu::bsf(is);
@@ -458,20 +451,20 @@ class HostAhci : public StaticReceiver<HostAhci>
 
 PARAM(hostahci,
       {
-	unsigned irqline; 
+	unsigned irqline;
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
 
 	for (unsigned address, num = 0; address = pci.search_device(0x1, 0x6, num++, irqline, irqpin);) {
-	  if (~argv[0] & (1UL << num)) 
+	  if (~argv[0] & (1UL << num))
 	    {
 	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, address, irqline, irqpin);
 	      continue;
 	    }
-	  // XXX 
+	  // XXX
 	  if (~argv[1]) irqline = argv[1];
 	  // else irqline = 0x13;
-	  
+
 	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), address, irqline);
 	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, address, irqline, irqpin);
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);

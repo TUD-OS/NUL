@@ -49,20 +49,20 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
     MODE_STOPPED  = 1 << 4,
   };
   unsigned char _mode;
- 
-  void debug_dump() {  
+
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf("    ps2port %x hdev %x scset %x mode %x", _ps2port, _hostkeyboard, _scset, _mode);
   };
   const char *debug_getname() { return "PS2Keyboard"; };
 
-  
+
   /**
    * Enqueue a single scancode in the buffer.
    * Please note that the values are translated if SCS1 is used.
    */
   void enqueue(unsigned char value)
-  {    
+  {
     if (_scset == 1)
       {
 	if (value == 0xf0)
@@ -74,7 +74,6 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	_mode &= ~MODE_GOT_BREAK;
 	value = translate_sc2_to_sc1(value);
       }
-    //Logging::printf("%s(%x) %x %x\n", __PRETTY_FUNCTION__, value, _pwrite, _pread); 
     switch ((_pwrite - _pread) % BUFFERSIZE)
       {
       case 0 ... BUFFERSIZE-3:
@@ -169,14 +168,13 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	  }
       }
   }
-  
+
  public:
 
   bool  receive(MessageKeycode &msg)
   {
     if (msg.keyboard != _hostkeyboard)  return false;
 
-    //Logging::printf("%s - (%x, %x) %x\n", __PRETTY_FUNCTION__, msg.keyboard, msg.keycode, _mode);
     if (_mode & (MODE_DISABLED | MODE_STOPPED))
       return false;
 
@@ -214,7 +212,7 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 
 	// the pause key sends make and break together -> simulate another make
 	if (key == 0x62)  enqueue(key);
-	if (msg.keycode & KBFLAG_RELEASE) 
+	if (msg.keycode & KBFLAG_RELEASE)
 	  {
 	    if (_no_breakcode[key >> 3] & (1 << (key & 7)))
 	      return true;
@@ -235,7 +233,6 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 
   bool  receive(MessagePS2 &msg)
   {
-    //Logging::printf("%s - (%x, %x) %x mode %x\n", __PRETTY_FUNCTION__,  msg.type, msg.port, msg.value, _mode);
     if (msg.port != _ps2port) return false;
     if (msg.type == MessagePS2::READ_KEY)
       {
@@ -263,14 +260,11 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	      _pread = (_pread + 1) % BUFFERSIZE;
 	    else
 	      return false;
-	    //Logging::printf("%s(%x, %x) %x %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _pwrite, _pread);
 	  }
 	_last_reply = msg.value;
       }
     else if (msg.type == MessagePS2::SEND_COMMAND)
       {
-
-	//Logging::printf("%s(%x, %x) last %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _last_command);
 	unsigned new_response = 0xfa;
 	unsigned char command = msg.value;
 	unsigned char new_mode = _mode & ~(MODE_STOPPED | MODE_RESET);
@@ -320,7 +314,7 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	    break;
 	  default:
 	    switch (_last_command)
-	      {   
+	      {
 	      case 0xed: // set indicators
 		_indicators = msg.value;
 	      case 0xf3: // set typematic rate/delay
@@ -359,7 +353,6 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 		break;
 	      }
 	    if (command)  new_mode |= MODE_STOPPED;
-	  
 	  }
 	_last_command = command;
 	_mode = new_mode;
@@ -374,7 +367,7 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
     return true;
   }
 
- PS2Keyboard(DBus<MessagePS2>  &bus_ps2, unsigned ps2port, unsigned hostkeyboard) 
+ PS2Keyboard(DBus<MessagePS2>  &bus_ps2, unsigned ps2port, unsigned hostkeyboard)
    : _bus_ps2(bus_ps2), _ps2port(ps2port), _hostkeyboard(hostkeyboard)
   {
     reset();

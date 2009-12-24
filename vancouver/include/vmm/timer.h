@@ -32,7 +32,7 @@ class Clock
   timevalue _source_freq;
  public:
 #ifdef TESTING
-  virtual 
+  virtual
 #endif
   timevalue time() { return Cpu::rdtsc(); }
 
@@ -40,7 +40,7 @@ class Clock
    * Returns the current clock in freq-time.
    */
   timevalue clock(timevalue freq) { return Math::muldiv128(time(), freq, _source_freq); }
-  
+
   /**
    * Returns a timeout in absolute TSC time.
    */
@@ -55,7 +55,7 @@ class Clock
     if (now > theabstime) return 0;
     return Math::muldiv128(theabstime - now, freq, _source_freq);
   }
-  
+
   Clock(timevalue source_freq) : _source_freq(source_freq) { Logging::printf("source freq %lld\n", source_freq); }
 };
 
@@ -97,16 +97,16 @@ public:
   {
     if (!nr || nr >= ENTRIES)  return -1;
     TimeoutEntry *current = _entries+nr;
-    //Logging::printf("cancel %x prev %p next %p\n", nr, current->_prev, current->_next);
     if (current->_next == current) return -2;
     int res = _entries[0]._next != current;
-    
+
     current->_next->_prev =  current->_prev;
     current->_prev->_next =  current->_next;
     current->_next = current->_prev = current;
     return res;
   }
-    
+
+
   /**
    * Request a new timeout.
    */
@@ -115,7 +115,7 @@ public:
     if (!nr || nr > ENTRIES)  return -1;
     TimeoutEntry *current = _entries + nr;
     cancel(nr);
-    
+
     // keep a sorted list here
     TimeoutEntry *t = _entries;
     do { t = t->_next; }  while (t->_timeout < to);
@@ -125,14 +125,13 @@ public:
     current->_prev = t->_prev;
     t->_prev->_next = current;
     t->_prev = current;
-    //Logging::printf("request %x to %llx toh %llx\n", nr, to, timeout());
     return timeout() != to;
   }
 
   /**
    * Get the head of the queue.
    */
-  unsigned  trigger(timevalue now) {  
+  unsigned  trigger(timevalue now) {
     if (now >= timeout())  return (_entries[0]._next - _entries);
     return 0;
   }
@@ -141,11 +140,11 @@ public:
   void init()
   {
     _count = 0;
-    for (unsigned i = 0; i < ENTRIES; i++) 
+    for (unsigned i = 0; i < ENTRIES; i++)
       {
 	_entries[i]._prev = _entries + i;
 	_entries[i]._next = _entries + i;
       }
-    _entries[0]._timeout = ~0ULL; 
+    _entries[0]._timeout = ~0ULL;
   }
 };

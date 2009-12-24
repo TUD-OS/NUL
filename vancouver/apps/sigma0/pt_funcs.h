@@ -14,14 +14,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-PT_FUNC_NORETURN(do_pf, 
-#if 0		
+PT_FUNC_NORETURN(do_pf,
+#if 0
 	_free_phys.debug_dump("free phys");
 	_free_virt.debug_dump("free virt");
 	_virt_phys.debug_dump("virt->phys");
 #endif
 		 Logging::panic("got #PF at %llx eip %x error %llx esi %x edi %x ecx %x\n", utcb->qual[1], utcb->eip, utcb->qual[0], utcb->esi, utcb->edi, utcb->ecx);
-		
 	)
 PT_FUNC(do_map,
 	// make sure we have enough words to reply
@@ -37,7 +36,7 @@ PT_FUNC_NORETURN(do_gsi,
 		 unsigned irq = utcb->msg[0];
 		 { 
 		   SemaphoreGuard s(_lock);
-		   Logging::printf("%s(%x) initial vec %x\n", __func__, irq,  utcb->msg[1]); 
+		   Logging::printf("%s(%x) initial vec %x\n", __func__, irq,  utcb->msg[1]);
 		 }
 		 MessageIrq msg(MessageIrq::ASSERT_IRQ, utcb->msg[1]);
 		 while (!(res = semdown(irq)))
@@ -47,28 +46,27 @@ PT_FUNC_NORETURN(do_gsi,
 		     if (msg.line == 1)
 		       COUNTER_SET("absto", _timeouts.timeout());
 		   }
-		 Logging::panic("%s(%x) request failed with %x\n", __func__, irq, res); 
+		 Logging::panic("%s(%x) request failed with %x\n", __func__, irq, res);
 		 )
 PT_FUNC(do_startup,
 	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
-	ModuleInfo *modinfo = _modinfo + client;	
-	{ 
+	ModuleInfo *modinfo = _modinfo + client;
+	{
 	  SemaphoreGuard s(_lock);
-	  Logging::printf("(%02x) eip %lx hip %p mem %p size %lx\n", 
+	  Logging::printf("(%02x) eip %lx hip %p mem %p size %lx\n",
 			  client, modinfo->rip, modinfo->hip, modinfo->mem, modinfo->physsize);
 	}
-	
+
 	utcb->eip = modinfo->rip;
 	utcb->esp = 0xbffff000;
 	utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
-	
+
 	utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
 	utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, utcb->esp, 0x1c | 1);
 	)
 
 PT_FUNC(do_request,
 	SemaphoreGuard l(_lock);
-	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x msg0 %x utcb %p\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->phys_info, utcb->head.crd, utcb->head.pid, utcb->msg[0], utcb);
 	COUNTER_INC("request");
 	bool write_op = false;
 	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
@@ -135,7 +133,7 @@ PT_FUNC(do_request,
 		  else
 		    {
 		      MessageDisk msg2 = *msg;
-		      
+
 		      if (msg2.disknr >= modinfo->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return; }
 		      switch (msg2.type)
 			{
@@ -170,19 +168,19 @@ PT_FUNC(do_request,
 		{
 		  MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
 		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
-		  {		       
+		  {
 		    MessageConsole msg2 = *msg;
 		    if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW &&
 			 msg2.type != MessageConsole::TYPE_SWITCH_VIEW &&
 			 msg2.type != MessageConsole::TYPE_GET_MODEINFO)
 			||
 			(msg2.type == MessageConsole::TYPE_ALLOC_VIEW &&
-			 (convert_client_ptr(modinfo, msg2.ptr, msg2.size) 
+			 (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
 			  || convert_client_ptr(modinfo, msg2.name, 4096)
 			  || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
 			||
 			(msg2.type == MessageConsole::TYPE_GET_MODEINFO &&
-			 (convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))) 
+			 (convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info))))
 			|| !modinfo->console)
 		      break;
 		    msg2.id = modinfo->console;
@@ -208,12 +206,11 @@ PT_FUNC(do_request,
 			char *cmdline = map_string(utcb, mod->aux);
 			unsigned slen = strlen(cmdline) + 1;
 			// msg destroyed!
-			  
+
 			// align the end of the module to get the cmdline on a new page.
 			unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
 			if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
 
-			//Logging::printf("send module: %x %lx %llx %x mtd %x\n", msg.module, msg.start, mod->addr, mod->aux, utcb->head.mtr.untyped());
 			memcpy(s, map_self(utcb, mod->addr, (mod->size | 0xfff)+1), mod->size);
 			s += msize;
 			char *p = strstr(cmdline, "sigma0::attach");
@@ -264,7 +261,6 @@ PT_FUNC(do_request,
 		  else
 		    if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
 		      {
-			//if (client > 1) Logging::printf("request TO %x\n", client);
 			msg->nr = client;
 			if (_mb->bus_timer.send(*msg))
 			  utcb->msg[0] = 0;
@@ -274,7 +270,7 @@ PT_FUNC(do_request,
 	      case REQUEST_TIME:
 		{
 		  MessageTime msg;
-		  if (_mb->bus_time.send(msg)) 
+		  if (_mb->bus_time.send(msg))
 		    {
 		      // we assume the same mb->clock() source here
 		      *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
@@ -307,8 +303,7 @@ PT_FUNC(do_request,
 	  }
 	else
 	  {
-	   
-	    Logging::printf("(%x) second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);	    
+	    Logging::printf("(%x) second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
 	    if (revoke(Crd(utcb->head.pid, 4), true))
 	      {
 		_lock.up();

@@ -22,7 +22,7 @@ EXCP_FUNC(do_gsi_boot,
 
 EXCP_FUNC(got_exception,
 	  Logging::printf("%s() #%x ",  __func__, utcb->head.pid);
-	  Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp, 
+	  Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
 			  utcb->edx, utcb->eax,
 			  utcb->edi, utcb->esi,
 			  utcb->ecx);
@@ -31,11 +31,11 @@ EXCP_FUNC(got_exception,
 
 EXCP_FUNC(do_gsi,
 	  unsigned res;
-	  Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb); 
+	  Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
 	  while (1)
 	    {
 	      if ((res = semdown(utcb->msg[0])))
-		Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res); 
+		Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
 	      SemaphoreGuard l(_lock);
 	      MessageIrq msg(MessageIrq::ASSERT_IRQ, utcb->msg[1]);
 	      _mb->bus_hostirq.send(msg);
@@ -45,7 +45,7 @@ EXCP_FUNC(do_gsi,
 EXCP_FUNC(do_stdin,
 	  StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
 	  Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
-	 
+
 	  while (1)
 	    {
 	      MessageKeycode *msg = stdinconsumer->get_buffer();
@@ -58,12 +58,9 @@ EXCP_FUNC(do_stdin,
 		  Logging::printf("toggle HLT\n");
 		  break;
 		case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
-		  //_halifaxexecutor->_verbose = true;
-		  //Logging::printf("enable _debug\n");
 		  _debug = true;
 		  _mb->dump_counters();
 		  syscall(254, 0, 0, 0, 0);
-		  //_mb->bus_pic.debug_dump();
 		  break;
 		  // HOME -> reset VM
 		case KBFLAG_EXTEND0 | 0x6c:
@@ -86,11 +83,11 @@ EXCP_FUNC(do_stdin,
 	      stdinconsumer->free_buffer();
 	    }
 	  )
-  
+
 EXCP_FUNC(do_disk,
 	  DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
 	  Sigma0Base::request_disks_attach(diskconsumer, diskconsumer->sm());
-	 
+
 	  while (1)
 	    {
 	      MessageDiskCommit *msg = diskconsumer->get_buffer();
@@ -105,10 +102,8 @@ EXCP_FUNC(do_timer,
 	  Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
 	  while (1)
 	    {
-	     
 	      COUNTER_INC("timer");
 	      TimerItem *item = timerconsumer->get_buffer();
-	      //Logging::printf("got timer irq %llx\n", Cpu::rdtsc() - item.time);
 	      timerconsumer->free_buffer();
 
 	      SemaphoreGuard l(_lock);
@@ -119,12 +114,10 @@ EXCP_FUNC(do_timer,
 EXCP_FUNC(do_network,
 	  NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
 	  Sigma0Base::request_network_attach(network_consumer, network_consumer->sm());
-    
 	  while (1)
 	    {
 	      unsigned char *buf;
-	      unsigned size = network_consumer->get_buffer(buf);	      
-	      //Logging::printf("got network packet %x,%x\n", utcb->msg[0], utcb->msg[1]);
+	      unsigned size = network_consumer->get_buffer(buf);
 
 	      MessageNetwork msg(buf, size, 0);
 	      assert(!_forward_pkt);
@@ -170,26 +163,21 @@ VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	  }
 	)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
-	COUNTER_INC("hlt"); 
+	COUNTER_INC("hlt");
 	skip_instruction(utcb);
-	
+
 	// wait for irq
 	Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_INHLT);
 	if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_IRQ)  _mb->vcpustate(0)->block_sem->down();
 	Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_INHLT);
-	//Logging::printf("guest hlt at %x intr %x act %x efl %x\n", utcb->eip, utcb->intr_state, utcb->actv_state, utcb->efl);	 
 	do_recall(utcb);
-	//if (~utcb->intr_info & 0x80000000)  Logging::printf("guest hlt at %x intr %x act %x efl %x info %x\n", utcb->eip, utcb->intr_state, utcb->actv_state, utcb->efl, utcb->intr_info);
 	)
 
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
 	if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
-	//Logging::printf("ioio reason: %x\n", utcb->qual[0]);
-	
-	
 	if (utcb->qual[0] & 0x10)
 	  {
-	    COUNTER_INC("IOS"); 
+	    COUNTER_INC("IOS");
 	    force_invalid_gueststate_intel(utcb);
 	  }
 	else
@@ -202,24 +190,22 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
 	utcb->head.pid = 31;
-	COUNTER_INC("rdmsr"); 
+	COUNTER_INC("rdmsr");
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
 	)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
 	utcb->head.pid = 32;
-	COUNTER_INC("wrmsr"); 
+	COUNTER_INC("wrmsr");
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
 	)
 
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	{
-	  //_debug |=  utcb->eip > 0xf0000000;
-	  //Logging::printf("execute %s at %x:%x pid %d cr0 %x intr %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid, utcb->cr0, utcb->inj_info);
 	  utcb->efl |= 2;
 	  instruction_emulation(utcb);
-	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL) 
+	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	    {
 	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
 	      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
@@ -241,14 +227,12 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(utcb); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ | MTD_RIP_LEN | MTD_RSP | MTD_CR,
-	//if (utcb->intr_info & 0x80000000)  Logging::printf("recall eip %x %x hz %x\n", utcb->eip, utcb->intr_info, _mb->vcpustate(0)->hazard);
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
 	  vmx_init(utcb);
 	else
 	  {
 	    SemaphoreGuard l(_lock);
-	    //if (_debug) Logging::printf("recall %x\n", utcb->eip);
-	    COUNTER_INC("recall"); 
+	    COUNTER_INC("recall");
 	    COUNTER_SET("rEIP", utcb->eip);
 	    COUNTER_SET("rESP", utcb->esp);
 	    COUNTER_SET("rCR3", utcb->cr3);
@@ -270,7 +254,7 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	{
 	  if (utcb->qual[0] & 0x4)
 	    {
-	      COUNTER_INC("IOS"); 
+	      COUNTER_INC("IOS");
 	      force_invalid_gueststate_amd(utcb);
 	    }
 	  else
@@ -284,17 +268,17 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	)
 VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(utcb); )
 VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(utcb); )
-VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL, 
+VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 	// make sure we do not inject the #PF!
 	utcb->inj_info = ~0x80000000;
 	if (!map_memory_helper(utcb))
 	  svm_invalid(utcb);
 	)
-VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL, 
+VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
 	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
 	instruction_emulation(utcb);
-	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL) 
+	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	  {
 	    COUNTER_INC("ctrl");
 	    Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);

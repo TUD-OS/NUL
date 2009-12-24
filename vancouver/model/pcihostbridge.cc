@@ -52,7 +52,7 @@ class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticR
       res = _devices.send(msg);
     return msg.value;
   }
-  
+
 public:
 
   bool receive(MessageIOIn &msg)
@@ -64,11 +64,10 @@ public:
       msg.value = read_pcicfg(res) >> 8*(msg.port & 0x3);
     else
       return false;
-    //if (res) Logging::printf("%s %x %x\n", __PRETTY_FUNCTION__, _confaddress, msg.value);
     return true;
   }
 
-  
+
   bool receive(MessageIOOut &msg)
   {
     /**
@@ -88,7 +87,6 @@ public:
 	unsigned value = msg.value;
 	unsigned shift = 8*(msg.port & 0x3);
 	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
-	//Logging::printf("type %x port %x shift %x mask %x\n", msg.type, msg.port, shift, mask);
 	bool res;
 	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
 	MessagePciCfg msg2(_confaddress + (msg.port & 0x3), value);
@@ -99,7 +97,6 @@ public:
 	  }
 	else
 	  res = _devices.send(msg2);
-	//	if (res)  Logging::printf("%s %x %x\n", __PRETTY_FUNCTION__, _confaddress, msg.value);
       }
     else
       return false;
@@ -116,7 +113,7 @@ public:
     return true;
   }
   bool __attribute__((always_inline))  receive(MessagePciCfg &msg)  {    return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
-  
+
   PciHostBridge(unsigned busnum, unsigned short iobase) :  _secondarybus(busnum), _subord(busnum), _iobase(iobase), _confaddress(0) {
     MessagePciBridgeAdd msg(0, this, &PciHostBridge::receive_static<MessagePciCfg>);
     receive(msg);

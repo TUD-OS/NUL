@@ -33,14 +33,14 @@ struct IORegion : public StaticReceiver<IORegion>
   void*_func;
   void *_opaque;
   IORegion(int start, int length, int size, void *func, void *opaque) : _start(start), _length(length), _size(size), _func(func), _opaque(opaque) {}
-  bool  receive(MessageIOIn  &msg)  
-  { 
+  bool  receive(MessageIOIn  &msg)
+  {
     if (!in_range(msg.port, _start, _length)) return false;
     if (_size != (1<<msg.type)) return false;
     msg.value = reinterpret_cast<IOPortReadFunc *>(_func)(_opaque, msg.port);
     return true;
   }
-  bool  receive(MessageIOOut &msg)  { 
+  bool  receive(MessageIOOut &msg)  {
     if (!in_range(msg.port, _start, _length)) return false;
     if (_size != (1<<msg.type)) return false;
     reinterpret_cast<IOPortWriteFunc *>(_func)(_opaque, msg.port, msg.value);
@@ -87,8 +87,8 @@ struct QemuDevice : public StaticReceiver<QemuDevice>
   }
 
   void register_client(void *opaque) { _opaque = opaque; }
-  void send(const unsigned char *buf, int size) 
-  {   
+  void send(const unsigned char *buf, int size)
+  {
     MessageNetwork msg(buf, size, 0);
     _lastpacket = buf;
     _mb.bus_network.send(msg);
@@ -98,7 +98,6 @@ struct QemuDevice : public StaticReceiver<QemuDevice>
   bool  receive(MessageNetwork &msg) {
     // avoid loop
     if (msg.buffer == _lastpacket) return false;
-    //Logging::printf("send packet (%p,%x) to %x:%x:%x\n",  msg.buffer, msg.len, reinterpret_cast<const unsigned *>(msg.buffer)[0], reinterpret_cast<const unsigned *>(msg.buffer)[1], reinterpret_cast<const unsigned *>(msg.buffer)[2]);
     network_receive_packet(_opaque, msg.buffer, msg.len);
     return true;
   }
@@ -121,21 +120,21 @@ struct QemuDevice : public StaticReceiver<QemuDevice>
 static QemuDevice *qemudev;
 
 /* REGISTER */
-extern "C" 
-int register_ioport_read(int start, int len, int size, IOPortReadFunc *func, void *opaque) 
-{ 
-  qemudev->bus_ioin.add(new IORegion(start, len, size, reinterpret_cast<void *>(func), opaque), 
+extern "C"
+int register_ioport_read(int start, int len, int size, IOPortReadFunc *func, void *opaque)
+{
+  qemudev->bus_ioin.add(new IORegion(start, len, size, reinterpret_cast<void *>(func), opaque),
 			IORegion::receive_static<MessageIOIn>);
-  return 0; 
+  return 0;
 }
 
 
-extern "C" 
-int register_ioport_write(int start, int len, int size, IOPortWriteFunc *func, void *opaque) 
-{ 
+extern "C"
+int register_ioport_write(int start, int len, int size, IOPortWriteFunc *func, void *opaque)
+{
   qemudev->bus_ioout.add(new IORegion(start, len, size, reinterpret_cast<void *>(func), opaque),
 			 IORegion::receive_static<MessageIOOut>);
-  return 0; 
+  return 0;
 }
 
 

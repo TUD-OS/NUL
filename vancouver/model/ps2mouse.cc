@@ -55,7 +55,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
   } _param;
 
 
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf("    ps2port %x hdev %x", _ps2port, _hostmouse);
   };
@@ -82,12 +82,12 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 	    value >>= 1;
 	    break;
 	  case 3:
-	  case 4:	    
+	  case 4:
 	  case 5:
 	    value = (value - 2)*3;
 	    break;
 	  case -3:
-	  case -4:	    
+	  case -4:
 	  case -5:
 	    value = (value + 2)*3;
 	    break;
@@ -113,9 +113,9 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     bool negy= _posy < 0;
     bool ovx = _posx > 255 || _posx < -256;
     bool ovy = _posy > 255 || _posy < -256;
-    
+
     // correctly report overflows
-    value = (ovy ? 0x8000 : 0) | (ovx ? 0x4000 : 0) | (negy ? 0x2000 : 0) | (negx ? 0x1000 : 0) | ((_status & 0xf) << 8) | 0x3;    
+    value = (ovy ? 0x8000 : 0) | (ovx ? 0x4000 : 0) | (negy ? 0x2000 : 0) | (negx ? 0x1000 : 0) | ((_status & 0xf) << 8) | 0x3;
 
     // upper limit movements
     _posx = ovx ? (negx ? -256 : 255) : _posx;
@@ -124,8 +124,6 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     // calc values
     value |= (_posx & 0xff) << 16;
     value |= (_posy & 0xff) << 24;
-
-    //Logging::printf("%s pos (%x, %x) status %x packet %x\n", __PRETTY_FUNCTION__, _posx, _posy, _status, value);
 
     // the movement counters are reset when getting a packet
     _posx = 0;
@@ -136,7 +134,6 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 
   void set_packet(unsigned long long packet)
   {
-    //Logging::printf("%s(%llx) _packet = %llx\n", __PRETTY_FUNCTION__, packet, _packet);
     _packet = packet;
     MessagePS2 msg2(_ps2port, MessagePS2::NOTIFY, 0);
     _bus_ps2.send(msg2);
@@ -156,11 +153,9 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     if (msg.mouse != _hostmouse)
       return false;
 
-    //Logging::printf("%s(%lx, %lx) packet %llx\n", __PRETTY_FUNCTION__, address, msg.packet, _packet);
-
     // we support only 3 byte packets
     assert((msg.packet & 0xff) == 3);
-    
+
     // we ignore the overflow bit as everybody does
     _posx += ((msg.packet >> 16) & 0xff) - ((msg.packet >> 4) & 0x100);
     _posy += ((msg.packet >> 24) & 0xff) - ((msg.packet >> 5) & 0x100);
@@ -177,7 +172,6 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
     bool res = false;
     if (msg.type == MessagePS2::READ_KEY)
       {
-	//Logging::printf("%s(%x, %x) res %x packet %llx\n", __PRETTY_FUNCTION__, msg.port, msg.value, res, _packet);
 	switch (_packet & 0xff)
 	  {
 	  case 1 ... 3:
@@ -187,12 +181,11 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 	  default:
 	    break;
 	  }
-      } 
+      }
     else if (msg.type == MessagePS2::SEND_COMMAND)
       {
 	res = true;
 	unsigned long long packet = 0;
-	//Logging::printf("%s(%x, %x) state %x param %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _status, _param);
 	switch (_param)
 	  {
 	  case PARAM_SET_RESOLUTION:

@@ -75,10 +75,8 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	  default:
 	    Logging::panic("unsupported rdmsr %x at %x",  msg.cpu->ecx, msg.cpu->eip);
 	  }
-	//Logging::printf("msr %x ->(%x:%x) at %x\n",  msg.cpu->ecx, msg.cpu->edx, msg.cpu->eax, msg.cpu->eip);
 	break;
       case 32: // wrmsr
-	//Logging::printf("msr %x <-(%x:%x) at %x\n",  msg.cpu->ecx, msg.cpu->edx, msg.cpu->eax, msg.cpu->eip);
 	switch (msg.cpu->ecx)
 	  {
 	  case MSR_TSC:
@@ -106,50 +104,6 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
     return true;
   }
 };
-#if 0
-    case 0x17:
-      // XXX generate GP if written
-      s->value(0);
-      break;
-    case 0x1b:
-      // APIC base MSR
-      s->value(0xfee00900);
-      break;
-    case 0x8b: // Intel patch level MSR
-      s->value(0);
-      break;
-    case 0xc0 ... 0xcf: // PerfCntr
-    case 0x180 ... 0x18f: // PerfEvent
-      //s->value(0);
-      break;
-    case 0x1d9:
-      // debug ctrl msr
-      break;
-    case 0x277:
-      if (s->is_wrmsr())
-	shadow.msr_pat = s->value();
-      else
-	s->value(shadow.msr_pat);
-      break;
-    case 0xc0000080:
-	if (s->is_wrmsr())
-	  {
-	    s->efer(s->value() | 0x1000);
-	    shadow.msr_efer = s->value();
-	  }
-	else
-	  s->value(shadow.msr_efer);
-	break;
-      break;
-    case 0xc0010000 ... 0xc0010007:
-      // perf cnt
-      break;
-    case 0xc0010055:
-      // c1e disable
-      break;
-#endif
-
-
 
 PARAM(msr,
       {

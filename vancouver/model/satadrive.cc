@@ -37,7 +37,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   DBus<MessageDisk>     &_bus_disk;
   DBus<MessageMemWrite> &_bus_memwrite;
   DBus<MessageMemRead>  &_bus_memread;
-  unsigned _hostdisk;  
+  unsigned _hostdisk;
   unsigned char _multiple;
   unsigned _regs[4];
   unsigned char _ctrl;
@@ -48,7 +48,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   DiskParameter _params;
   static unsigned const DMA_DESCRIPTORS = 64;
   DmaDescriptor _dma[DMA_DESCRIPTORS];
-  
+
 
   /**
    * Copy to the user.
@@ -92,7 +92,6 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     d2h[4] = _dsf[6];
     // make sure we never reuse this!
     _dsf[6] = 0;
-    //Logging::printf("%s d2h[0] %x d2h[4] %x\n", __func__, d2h[0], d2h[4]);
     _peer->receive_fis(5, d2h);
   }
 
@@ -110,7 +109,6 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     psf[2] = _regs[2];
     psf[3] = _status << 24 | _regs[3] & 0xffff;
     psf[4] = length;
-    //Logging::printf("%s psf[0] %x\n", __func__, psf[0]);
     _peer->receive_fis(5, psf);
   }
 
@@ -121,7 +119,6 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     memset(dsf, 0, sizeof(dsf));
     dsf[0] = 0x800 | (direction ? 0x200 : 0)| 0x41;
     _peer->receive_fis(7, dsf);
-    
   };
 
   /**
@@ -156,7 +153,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 
   /**
    * Push data to the user by doing DMA via the PRDs.
-   * 
+   *
    * Return the number of byte written.
    */
   unsigned push_data(unsigned length, void *data, bool &irq)
@@ -167,8 +164,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     unsigned prd = 0;
     unsigned offset = 0;
     while (offset < length && prd < _dsf[3])
-      {	
-	//Logging::printf("push data prd[%x] = %x %x %x\n", prd, prdptr[prd*4 + 0], prdptr[prd*4 + 1], prdptr[prd*4 + 3]);
+      {
 	unsigned prdvalue[4];
 	copy_in(prdbase + prd*16, prdvalue, 16);
 
@@ -192,7 +188,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
     unsigned long long sector;
     unsigned len;
 
-    if (lba48_ext) 
+    if (lba48_ext)
       {
 	len = (_regs[3] & 0xffff) << 9;
 	if (!len) len = 0x10000 << 9;
@@ -204,7 +200,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	if (!len) len = 0x100 << 9;
 	sector = _regs[1] & 0x0fffffff;
       }
-    
+
     static unsigned debug_cnt;
     if (!(debug_cnt++ & 0xfff)) Logging::printf("%s SECTORS offset %llx len %x prd %x\n", read ? "READ" : "WRITE", sector << 9, len, _dsf[3]);
 
@@ -222,7 +218,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	unsigned transfer = 0;
 	if (lastoffset) prd--;
 	unsigned dmacount = 0;
-	for (; prd < _dsf[3] && dmacount < DMA_DESCRIPTORS && len > transfer; prd++, dmacount++) 
+	for (; prd < _dsf[3] && dmacount < DMA_DESCRIPTORS && len > transfer; prd++, dmacount++)
 	  {
 
 	    unsigned prdvalue[4];
@@ -233,16 +229,15 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 
 	    _dma[dmacount].byteoffset = prdvalue[0] | static_cast<unsigned long long>(prdvalue[1]) << 32 + lastoffset;
 	    _dma[dmacount].bytecount = sublen;
-	    //Logging::printf("user dma: %lx %x\n", _dma[dmacount].byteoffset, _dma[dmacount].bytecount);
 	    transfer += sublen;
 	    lastoffset = 0;
 	  }
-	
+
 	// remove all entries that completly contribute to the even entry and split larger ones
 	while (transfer & 0x1ff)
 	  {
 	    assert(dmacount);
-	    if (_dma[dmacount-1].bytecount > transfer & 0x1ff) 
+	    if (_dma[dmacount-1].bytecount > transfer & 0x1ff)
 	      {
 		lastoffset = _dma[dmacount-1].bytecount - transfer & 0x1ff;
 		transfer &= ~0x1ff;
@@ -253,7 +248,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 		dmacount--;
 	      }
 	  }
-	
+
 	// are there bytes left to transfer, but we do not have enough PRDs?
 	assert(dmacount);
 	if (!dmacount && (len - transfer < 0x200)) return len - transfer;
@@ -264,7 +259,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	 */
 	if (!dmacount)
 	  Logging::panic("single sector transfer unimplemented!");
-	
+
 	_splits[_dsf[6]]++;
 
 	MessageDisk msg(read ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE, _hostdisk, _dsf[6], sector, dmacount, _dma, 0, ~0ul);
@@ -297,7 +292,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       case 0x24: // READ SECTOR EXT
       case 0x25: // READ DMA EXT
       case 0x29: // READ MULTIPLE EXT
-	lba48_command = true;	
+	lba48_command = true;
       case 0x20: // READ SECTOR
       case 0xc4: // READ MULTIPLE
       case 0xc8: // READ DMA
@@ -305,7 +300,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	  send_dma_setup_fis(true);
 	else
 	  send_pio_setup_fis(512);
-	readwrite_sectors(true, lba48_command);	
+	readwrite_sectors(true, lba48_command);
 	break;
       case 0x34: // WRITE SECTOR EXT
       case 0x35: // WRITE DMA EXT
@@ -386,22 +381,21 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   /**
    * Receive a FIS from the controller.
    */
-  void receive_fis(unsigned fislen, unsigned *fis) 
+  void receive_fis(unsigned fislen, unsigned *fis)
   {
-    //Logging::printf("SataDrive %s fis[0] %x  fis[3] %x len %x ctrl %x\n", __func__, fis[0], fis[3], fislen, _ctrl);
     if (fislen >= 2)
-      switch (fis[0] & 0xff) 
+      switch (fis[0] & 0xff)
 	{
 	case 0x27:  // register FIS
 	  assert(fislen ==5);
 
 	  // remain in reset asserted state when receiving a normal command
 	  if (_ctrl & 0x4 && _regs[0] & 0x8000)  { complete_command(); break; }
-	  
-	  // copyin to our registers
-	  memcpy(_regs, fis, sizeof(_regs));	
 
-	  if (_regs[0] & 0x8000)  
+	  // copyin to our registers
+	  memcpy(_regs, fis, sizeof(_regs));
+
+	  if (_regs[0] & 0x8000)
 	    execute_command();
 	  else
 	    {
@@ -427,7 +421,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   };
 
   bool receive(MessageDiskCommit &msg)
-  { 
+  {
     if (msg.disknr != _hostdisk || msg.usertag > 32) return false;
     // we are done
     _status = _status & ~0x8;
@@ -437,12 +431,11 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       {
 	_dsf[6] = msg.usertag;
 	complete_command();
-	//Logging::printf("commit disk request %lx status %x\n", msg.usertag, msg.status);
       }
     return true;
   };
   SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemWrite> &bus_memwrite, DBus<MessageMemRead> &bus_memread, unsigned hostdisk)
-    : _bus_disk(bus_disk), _bus_memwrite(bus_memwrite), _bus_memread(bus_memread), _hostdisk(hostdisk), _multiple(0), _ctrl(0) 
+    : _bus_disk(bus_disk), _bus_memwrite(bus_memwrite), _bus_memread(bus_memread), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
   {
 
     MessageDisk msg(hostdisk, &_params);

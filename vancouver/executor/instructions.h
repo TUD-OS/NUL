@@ -52,14 +52,14 @@ static int helper_SYSEXIT(MessageExecutor &msg)
  * state: stable
  * doc: intel, amd
  */
-static int helper_CLI (MessageExecutor &msg) {  
+static int helper_CLI (MessageExecutor &msg) {
   if (msg.cpu->cpl() <= msg.cpu->iopl())
     msg.cpu->efl &= ~EFL_IF;
   else if (msg.cpu->v86() && (msg.cpu->cr4 & 1) || (!msg.cpu->v86() && msg.cpu->pm() && msg.cpu->cpl() == 3 && (msg.cpu->cr4 & 2)))
     msg.cpu->efl &= ~EFL_VIF;
-  else 
+  else
     GP0;
-  return msg.vcpu->fault;  
+  return msg.vcpu->fault;
 }
 
 /**
@@ -67,20 +67,20 @@ static int helper_CLI (MessageExecutor &msg) {
  * state: stable
  * doc: intel, amd
  */
-static int helper_STI(MessageExecutor &msg) {  
+static int helper_STI(MessageExecutor &msg) {
   if (msg.cpu->cpl() <= msg.cpu->iopl()) {
     // add irq shadow
     if (~msg.cpu->efl & EFL_IF) msg.cpu->actv_state |= 1;
-    msg.cpu->efl |= EFL_IF; 
+    msg.cpu->efl |= EFL_IF;
   }
   else if (msg.cpu->v86() && (msg.cpu->cr4 & 1) || (!msg.cpu->v86() && msg.cpu->pm() && msg.cpu->cpl() == 3 && (msg.cpu->cr4 & 2)))
-    { 
+    {
       if (msg.cpu->efl & EFL_VIP) GP0;
-      msg.cpu->efl |= EFL_VIF; 
+      msg.cpu->efl |= EFL_VIF;
     }
-  else 
+  else
     GP0;
-  return msg.vcpu->fault;  
+  return msg.vcpu->fault;
 }
 
 /**
@@ -107,11 +107,9 @@ static int helper_loadsegment(MessageExecutor &msg, CpuState::Descriptor *desc, 
 {
   void *addr;
   unsigned short sel;
-  //Logging::printf("%s %x\n", __func__, sel);
   if (modrm2mem(msg, entry, addr, 2 + (1 << operand_size), TYPE_R)) return msg.vcpu->fault;
   move<1>(&sel, reinterpret_cast<char *>(addr) + (1 << operand_size));
 
-  //Logging::printf("%s %x\n", __func__, sel);
   if (!set_segment(msg, desc, sel))
     move<operand_size>(get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0), addr);
   return msg.vcpu->fault;

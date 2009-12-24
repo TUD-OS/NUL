@@ -44,7 +44,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     FSQUARE_WAVE            = 1 << 3,
     FCOUNTDOWN              = 1 << 4,
   };
-  
+
   unsigned short _modus;
   unsigned short _latch;
   unsigned short _new_counter;
@@ -80,7 +80,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 
   unsigned short s2bcd(unsigned short value)
   {
-    if (_modus & BCD)  
+    if (_modus & BCD)
       value = (((value / 1000) % 10) << 12) + (((value / 100) % 10) << 8) + (((value / 10) % 10) << 4) +  value % 10;
     return value;
   }
@@ -121,7 +121,6 @@ class PitCounter : public StaticReceiver<PitCounter>
       to = t + Math::mod64(_initial + _start - t, _initial);
     MessageTimer msg(_timer, _clock->abstime(to - t, FREQ));
     _bus_timer->send(msg);
-    //Logging::printf("update_timer start %lld to %lld t %lld abstime %lld now %lld\n", _start, to, t, msg.abstime, _clock->time());
   }
 
 
@@ -130,12 +129,11 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   unsigned short get_counter()
   {
-    //Logging::printf("%s() %x %llx %llx %x %x\n", __func__, _stopped, _start, _clock->clock(FREQ), _new_counter, _initial);
     if (_stopped)  return _latch;
 
     long long res = _start - _clock->clock(FREQ);
     if (_modus & BCD) res = Math::imod64(res, 10000);
-    
+
     // are we still having an old value?
     if (_start - _initial - 1 == _clock->clock(FREQ))
       return _latch;
@@ -156,7 +154,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     load_counter();
     update_timer();
   }
-  
+
  public:
 
   void read_back(unsigned char value)
@@ -205,7 +203,6 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   void set_gate(unsigned char value)
   {
-    //Logging::printf("%s() %x\n", __func__, value);
     if (value == _gate)  return;
     _gate = value;
 
@@ -229,7 +226,6 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   bool get_out()
   {
-    //Logging::printf("%s() %x %llx %llx initial %x mode %x\n", __func__, _stopped, _start, _clock->clock(FREQ), _initial, _modus);
     if (_stopped || _start - _initial -1 == _clock->clock(FREQ))
       return _stopped_out;
 
@@ -293,7 +289,7 @@ class PitCounter : public StaticReceiver<PitCounter>
       }
     else if (_modus & RW_LOW)
       {
-	if (_modus & RW_HIGH) 
+	if (_modus & RW_HIGH)
 	  {
 	    _wrote_low = 1;
 	    if (feature(Features(FSOFTWARE_TRIGGER | FCOUNTDOWN)) && !get_out()) disable_counting();
@@ -321,26 +317,22 @@ class PitCounter : public StaticReceiver<PitCounter>
 	  else
 	    _start = _clock->clock(FREQ) + get_counter();
 	}
-    //Logging::printf("%s() %x %llx %llx %x %x\n", __func__, _stopped, _start, _clock->clock(FREQ), _new_counter, _initial);
-
   }
 
 
   bool  receive(MessageIrqNotify &msg)
   {
-    //Logging::printf("PITC::%s() _notify %llx clock %llx\n", __func__, _start, _clock->clock(FREQ));
     if (msg.baseirq != (_irq >> 3) || !(msg.mask & (1 << (_irq & 7)))) return false;
     if (feature(FPERIODIC))  update_timer();
     return true;
   }
 
-  
+
   bool  receive(MessageTimeout &msg)
   {
     if (msg.nr == _timer)
       {
 	// a timeout has triggerd
-	//Logging::printf("PITC::%s() timeout _start %llx clock %llx\n", __func__, _start, _clock->clock(FREQ));
 	MessageIrq msg1(MessageIrq::ASSERT_NOTIFY, _irq);
 	_bus_irq->send(msg1);
 	return true;
@@ -380,13 +372,13 @@ class PitDevice : public StaticReceiver<PitDevice>
 
   // debug functions
   const char *debug_getname() { return "Pit8254"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %x+2", _base);
   };
 
  public:
-   
+
   bool  receive(MessagePit &msg)
   {
     if (!in_range(msg.pit, _addr, COUNTER)) return false;
@@ -410,7 +402,6 @@ class PitDevice : public StaticReceiver<PitDevice>
    if (!in_range(msg.port, _base, COUNTER) || msg.type != MessageIOIn::TYPE_INB)
      return false;
    msg.value = _c[msg.port - _base].read();
-   //Logging::printf("PIT::read %lx %lx\n", address, value);
    return true;
  }
 
@@ -419,8 +410,6 @@ class PitDevice : public StaticReceiver<PitDevice>
  {
    if (!in_range(msg.port, _base, COUNTER+1) || msg.type != MessageIOOut::TYPE_OUTB)
      return false;
-	
-   //Logging::printf("PIT::write<%x> %lx %lx\n", BUS_IOIO08, address, msg.value);
    if (msg.port == _base + COUNTER)
      {
        if ((msg.value & 0xc0) == 0xc0)
@@ -440,10 +429,10 @@ class PitDevice : public StaticReceiver<PitDevice>
  }
 
 
-  PitDevice(Motherboard &mb, unsigned short base, unsigned irq, unsigned pit) 
+  PitDevice(Motherboard &mb, unsigned short base, unsigned irq, unsigned pit)
     : _base(base), _addr(pit*COUNTER)
-  { 
-    for (unsigned i=0; i < COUNTER; i++) 
+  {
+    for (unsigned i=0; i < COUNTER; i++)
       {
 	_c[i] = PitCounter(&mb.bus_timer, &mb.bus_irqlines, i ? ~0U : irq, mb.clock());
 	if (!i) mb.bus_irqnotify.add(&_c[i], &PitCounter::receive_static<MessageIrqNotify>);

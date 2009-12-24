@@ -20,7 +20,7 @@
 /**
  * A simple BOOTP server.
  *
- * State: unstable 
+ * State: unstable
  * Features: reply with a BOOTP packet.
  * Missing:  UDP checksum, DHCP options, gateway, direct reply, servername
  * Documentation: RFCs 951(BOOTP), 1497(BOOTP-ext), 1542(BOOTP-clarification),
@@ -79,13 +79,13 @@ class SimpleBootp : public StaticReceiver<SimpleBootp>
 public:
   bool  receive(MessageNetwork &msg) {
     const EthernetBootpPacket *request = reinterpret_cast<const EthernetBootpPacket *>(msg.buffer);
-    //Logging::printf("BOOTP %p %x\n", msg.buffer, msg.len);
+
     if (// check for size
 	msg.len < sizeof(EthernetBootpPacket)
 	// ethernet: broadcast MAC?
 	|| request->ethernet.dst[0] != 0xffff
-	|| request->ethernet.dst[1] != 0xffff 
-	|| request->ethernet.dst[2] != 0xffff 
+	|| request->ethernet.dst[1] != 0xffff
+	|| request->ethernet.dst[2] != 0xffff
 	// IPV4?
 	|| request->ethernet.type != 0x8 || request->ip.version_ihl != 0x45
 	// broadcast UDP?
@@ -100,7 +100,7 @@ public:
 	return false;
       // XXX check SNAME and Gateway
       assert(!request->bootp.giaddr);
-	
+
       EthernetBootpPacket *reply = reinterpret_cast<EthernetBootpPacket *>(_replypacket);
       *reply = *request;
 
@@ -115,7 +115,7 @@ public:
       reply->udp.len      = Math::htons(sizeof(reply->bootp));
       reply->udp.checksum = 0;  // no UDP checksum
 
-	
+
       reply->ip.len       = Math::htons(sizeof(reply->bootp) + sizeof(reply->udp));
       reply->ip.src       = Math::htonl(_ip);
       // XXX send to ciaddr if known
@@ -130,22 +130,22 @@ public:
       reply->ethernet.src[1] = _ip >> 0x10;
       reply->ethernet.src[2] = _ip >> 0x00;
 
-      Logging::printf("BOOTP dst %x.%x.%x <- %x.%x.%x len %d IP %d %x:%x <- %x:%x bootp %x client %x\n", 
+      Logging::printf("BOOTP dst %x.%x.%x <- %x.%x.%x len %d IP %d %x:%x <- %x:%x bootp %x client %x\n",
 		      request->ethernet.dst[0], request->ethernet.dst[1], request->ethernet.dst[2],
 		      request->ethernet.src[0], request->ethernet.src[1], request->ethernet.src[2],
 		      msg.len, request->ip.protocol,
 		      request->ip.dst, request->udp.dstport, request->ip.src, request->udp.srcport,
 		      request->bootp.op, reply->bootp.yiaddr);
-    
+
       // send to destination
       MessageNetwork msg2(_replypacket, sizeof(EthernetBootpPacket), ~0u);
       return _bus_network.send(msg2);
     };
-    
-    SimpleBootp(DBus<MessageNetwork> &bus_network, unsigned ip, unsigned mask) 
+
+    SimpleBootp(DBus<MessageNetwork> &bus_network, unsigned ip, unsigned mask)
       : _bus_network(bus_network), _ip(ip), _mask(mask) {}
 };
-  
+
 PARAM(bootp,
       {
 	Device *dev = new SimpleBootp(mb.bus_network, argv[0], (1 << (32 - argv[1])) - 1);

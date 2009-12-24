@@ -49,7 +49,7 @@ class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
 
   /**
    * Translate ansi escape sequences
-   */ 
+   */
   unsigned translate_ansi(unsigned char key)
   {
     _escape_chars[_escape++] = key;
@@ -79,14 +79,12 @@ public:
   {
     if (msg.serial != _serial)   return false;
 
-    //Logging::printf("%s -- %lx -> %x \n", __PRETTY_FUNCTION__, msg.ch, _escape);
     unsigned keycode;
     if (msg.ch == 0x1b || _escape)
       keycode = translate_ansi(msg.ch);
     else
       keycode = translate_ascii(msg.ch);
 
-    //Logging::printf("%s -- %lx -> %x %x \n", __PRETTY_FUNCTION__, msg.ch, _escape, keycode);
     if (keycode)
       {
 	if (keycode & KBFLAG_LSHIFT) send_key(0x12);

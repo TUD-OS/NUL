@@ -101,12 +101,12 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 		  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
 	      }
 	  // skip upper part of 64bit bar
-	  if ((bar & 0x6) == 0x4) 
+	  if ((bar & 0x6) == 0x4)
 	    {
 	      i++;
 	      _masks[i] = 0;
 	    }
-	}      
+	}
     }
 
   /**
@@ -121,11 +121,9 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     for (unsigned i=0; i < count_bars(); i++)
       {
 	unsigned  bar = _cfgspace[4 + i];
-	//if (address > 0x1000) Logging::printf("%s() %x %x %x bar %x mask %x\n", __func__, address, size, iospace, bar, _masks[i]);
 	// XXX prefetch bit
 	if (!_masks[i] || (bar & 1) != iospace || !in_range(address, bar & ~0x3, (~_masks[i] | 3) + 1 - size + 1))
 	  continue;
-	//Logging::printf("found bar[%d]=%x for %x dst %x\n", i, bar, address, _bars[i]);
 	address = address - bar + _bars[i];
 	return true;
       }
@@ -164,14 +162,14 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     if (!(msg.address & ~0xff))
       {
 	bool res;
-	if (msg.type == MessagePciCfg::TYPE_READ) 
+	if (msg.type == MessagePciCfg::TYPE_READ)
 	  {
 	    assert(msg.address <= PCI_CFG_SPACE_MASK);
 	    if (in_range(msg.address, 0x10, BARS * 4))
 	      memcpy(&msg.value, reinterpret_cast<char *>(_cfgspace) + msg.address, 4);
 	    else
 	      msg.value = conf_read(_address + msg.address & ~0x3) >> (8 * (msg.address & 3));
-	    
+
 	    // disable capabilities, thus MSI is not known
 	    if (msg.address == 0x4)   msg.value &= ~0x10;
 	    if (msg.address == 0x34)  msg.value &= ~0xff;
@@ -188,10 +186,10 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    unsigned mask = ~0u;
 	    if (in_range(msg.address, 0x10, BARS * 4))  mask &= _masks[(msg.address - 0x10) >> 2];
 	    _cfgspace[msg.address >> 2] = _cfgspace[msg.address >> 2] & ~mask | msg.value & mask;
-	    
+
 	    // write through if not in the bar-range
 	    if (!in_range(msg.address, 0x10, BARS * 4) && msg.address)
-	      conf_write(_address + msg.address, _cfgspace[msg.address >> 2]);  
+	      conf_write(_address + msg.address, _cfgspace[msg.address >> 2]);
 
 	    Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _address, msg.address, _cfgspace[msg.address >> 2], conf_read(_address + msg.address));
 	  return true;
@@ -212,7 +210,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 
   bool  receive(MessageIrqNotify &msg)
-  { 
+  {
     unsigned irq = _cfgspace[15] & 0xff;
     if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7)))
       {
@@ -225,7 +223,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 
   bool  receive(MessageMemWrite &msg)
-  { 
+  {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
     if (msg.count == 4)  *reinterpret_cast<unsigned *      >(addr) = *reinterpret_cast<unsigned *      >(msg.ptr);
@@ -239,7 +237,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
-    if (msg.count == 4)  *reinterpret_cast<unsigned *      >(msg.ptr) = *reinterpret_cast<unsigned *      >(addr); 
+    if (msg.count == 4)  *reinterpret_cast<unsigned *      >(msg.ptr) = *reinterpret_cast<unsigned *      >(addr);
     if (msg.count == 2)  *reinterpret_cast<unsigned short *>(msg.ptr) = *reinterpret_cast<unsigned short *>(addr);
     else memcpy(msg.ptr,  reinterpret_cast<void *>(addr), msg.count);
     return true;

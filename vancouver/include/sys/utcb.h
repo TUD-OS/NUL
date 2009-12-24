@@ -99,7 +99,6 @@ struct Utcb
     while (size > 0)
       {
 	unsigned minshift = Cpu::minshift(addr | hotspot, size);
-	//Logging::printf("add_mappings(%lx, %lx, %lx) ms %x\n", addr, size, hotspot, minshift);
 	//assert(minshift >= MINSHIFT);
 	unsigned *item = (exception ? items : (msg + head.mtr.untyped())) + head.mtr.typed() * 2;
 	if (reinterpret_cast<Utcb *>(item) >= this+1 || head.mtr.typed() >= 255) return size;

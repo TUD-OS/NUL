@@ -668,7 +668,7 @@ static int helper_lcall(MessageExecutor &msg, void *tmp_src, InstructionCacheEnt
   move<1>(&sel, reinterpret_cast<char *>(addr) + (1 << operand_size));
 
   //Logging::printf("%s eip %x-> %x:%x addr %p flags %x instr %x\n", lcall ? "lcall" :"ljmp", msg.cpu->eip, sel, ofs, addr, entry->flags,
-  //*reinterpret_cast<unsigned *>(entry->data));
+  // * reinterpret_cast<unsigned *>(entry->data));
   unsigned cs_sel = msg.cpu->cs.sel;
   if (lcall && (helper_PUSH<operand_size>(msg, &cs_sel, entry) || helper_PUSH<operand_size>(msg, &msg.cpu->eip, entry))) return msg.vcpu->fault;
   return helper_far_jmp(msg, sel, ofs, msg.cpu->efl);
@@ -686,19 +686,19 @@ static int helper_LCALL(MessageExecutor &msg, void *tmp_src, InstructionCacheEnt
 
 template<unsigned operand_size>
 static int helper_IRET(MessageExecutor &msg, InstructionCacheEntry *entry)
-{ 
+{
   if (msg.cpu->v86())
     {
       if (msg.cpu->iopl() != 3) GP0;
     }
-  else 
+  else
     if (msg.cpu->pm() && msg.cpu->efl & (1<<14)) UNIMPLEMENTED; // task return
 
   // protected mode
   unsigned tmp_eip = 0, tmp_cs = 0, tmp_flag = 0;
   if (helper_POP<operand_size>(msg, entry, &tmp_eip) || helper_POP<operand_size>(msg, entry, &tmp_cs) || helper_POP<operand_size>(msg, entry, &tmp_flag))
     return msg.vcpu->fault;
-  
+
   // RETURN-TO-VIRTUAL-8086-MODE?
   if ((tmp_flag & EFL_VM) && !msg.cpu->cpl())
     {
@@ -721,13 +721,13 @@ static int helper_IRET(MessageExecutor &msg, InstructionCacheEntry *entry)
       set_realmode_segment(&msg.cpu->ss, tmp_ss,  false);
       return msg.vcpu->fault;
     }
-  
+
 
   if (msg.cpu->pm() && !(msg.cpu->v86()))
     {
       //return to PMODE
       Descriptor desc;
-      if (!desc.load_gdt_descriptor(msg, tmp_cs, false)) 
+      if (!desc.load_gdt_descriptor(msg, tmp_cs, false))
 	{
 	  if (tmp_eip > desc.limit())  GP0;
 	  if ((tmp_cs & 3) != msg.cpu->cpl())
@@ -755,9 +755,6 @@ static int helper_IRET(MessageExecutor &msg, InstructionCacheEntry *entry)
 
 static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_code)
 {
-  //if (event != 0x80000020)
-    //Logging::printf("IDT vec %x eip %x idt %x+%x cr0 %x eax %x efl %x oesp %x\n", 
-    //event, msg.cpu->eip, msg.cpu->id.base, msg.cpu->id.limit, msg.cpu->cr0, msg.cpu->eax, msg.cpu->efl);
   assert(event & 0x80000000);
   assert(event != 0x80000b0e || msg.cpu->pm() && msg.cpu->pg());
 
@@ -769,8 +766,8 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
       unsigned idt;
       if (msg.vcpu->instcache->prepare_virtual(msg, msg.cpu->id.base + ofs, 4, MemTlb::TYPE_R, res))  return msg.vcpu->fault;
       move<2>(&idt, res);
-      if (helper_PUSH<1>(msg, &msg.cpu->efl, 0)  
-	  || helper_PUSH<1>(msg, &msg.cpu->cs.sel, 0) 
+      if (helper_PUSH<1>(msg, &msg.cpu->efl, 0)
+	  || helper_PUSH<1>(msg, &msg.cpu->cs.sel, 0)
 	  || helper_PUSH<1>(msg, &msg.cpu->eip, 0)) return msg.vcpu->fault;
       if (msg.cpu->id.limit < (ofs | 3)) GP0;
       msg.cpu->efl &= ~(EFL_AC | EFL_TF | EFL_IF | EFL_RF);
@@ -784,7 +781,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
     {
       if ((idt.ar0 & 0x1f) == 0x05) UNIMPLEMENTED; // task gate
       bool ext = (event & 0x700) <= 0x300;
-      Descriptor desc;     
+      Descriptor desc;
       unsigned old_efl = msg.cpu->efl;
       unsigned newcpl = msg.cpu->cpl();
       switch (idt.ar0 & 0x1f)
@@ -797,12 +794,11 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 	    if (~desc.ar0 & 0x80) NP(idt.base0 | ext);
 
 	    if (desc.ar0 & 0x8)  newcpl = desc.dpl();
-	    //Logging::printf("IDT ar %x dpl %x cpl %x sel %x vec %x eip %x/%x/%x\n", desc.ar0, desc.dpl(), msg.cpu->cpl(), idt.base0, event, 
+	    //Logging::printf("IDT ar %x dpl %x cpl %x sel %x vec %x eip %x/%x/%x\n", desc.ar0, desc.dpl(), msg.cpu->cpl(), idt.base0, event,
 	    //msg.cpu->eip, msg.cpu->cs.sel, old_efl);
-	    
+
 	    if (!msg.cpu->v86())
 	      {
-		
 		Utcb::Descriptor oldss = msg.cpu->ss;
 		unsigned short new_ss;
 		unsigned new_esp;
@@ -833,7 +829,6 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		    return msg.vcpu->fault;
 		  }
 
-		  
 		msg.cpu->efl &= ~(EFL_VM | EFL_TF | EFL_RF | EFL_NT);
 		if ((idt.ar0 & 0x1f) == 0xe)  msg.cpu->efl &= ~EFL_IF;
 		//Logging::printf("IDT %x -> %x\n", msg.cpu->eip, idt.offset());
@@ -854,7 +849,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		msg.cpu->efl &= ~(EFL_VM | EFL_TF | EFL_RF | EFL_NT);
 		move<2>(&new_esp, tss);
 		move<1>(&new_ss,  reinterpret_cast<char *>(tss)+4);
-		
+
 		// XXX 32bit push with 16bit selector
 		msg.cpu->esp = new_esp;
 		unsigned cs_sel = msg.cpu->cs.sel;
@@ -870,8 +865,8 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		    || helper_PUSH<2>(msg, &msg.cpu->eip, 0)
 		    || has_errorcode && helper_PUSH<2>(msg, &error_code, 0)
 		    || set_segment(msg, &msg.cpu->ds, 0)
-		    || set_segment(msg, &msg.cpu->es, 0) 
-		    || set_segment(msg, &msg.cpu->fs, 0) 
+		    || set_segment(msg, &msg.cpu->es, 0)
+		    || set_segment(msg, &msg.cpu->fs, 0)
 		    || set_segment(msg, &msg.cpu->gs, 0)
 		    )
 		  {
@@ -883,7 +878,6 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		  }
 		desc.to_cpustate(&msg.cpu->cs, idt.base0);
 		msg.cpu->eip = idt.offset();
-		//Logging::printf("eip %x esp %x old esp %x dsbase %x oldefl %x oldeip %x\n", msg.cpu->eip, msg.cpu->esp, new_esp, msg.cpu->ds.base, old_efl, msg.vcpu->oeip);
 		break;
 	      }
 	    break;
@@ -913,12 +907,12 @@ static int helper_MOV__DB0__EDX(MessageExecutor &msg, InstructionCacheEntry *ent
     case 0 ... 3: tmp_src = &msg.vcpu->dr[dbreg]; break;
     case 6: tmp_src = &msg.vcpu->dr6; break;
     case 7: tmp_src = &msg.cpu->dr7; break;
-    default: UD0; 
+    default: UD0;
     }
   move<2>(get_gpr(msg, (entry->data[entry->offset_opcode]) & 0x7, 0), tmp_src);
   return msg.vcpu->fault;
 }
-static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *entry) 
+static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *entry)
 {
   unsigned dbreg = (entry->data[entry->offset_opcode] >> 3) & 0x7;
   if ((dbreg == 4 || dbreg == 5) && ~msg.cpu->cr4 & 0x8)
@@ -928,7 +922,7 @@ static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *ent
   switch (dbreg)
     {
     case 0 ... 3: msg.vcpu->dr[dbreg] = value; break;
-    case 6: msg.vcpu->dr6 = (value & ~0x1000) | 0xffff0ff0; break; 
+    case 6: msg.vcpu->dr6 = (value & ~0x1000) | 0xffff0ff0; break;
     case 7: msg.cpu->dr7  = (value & ~0xd800) | 0x400; break;
     default: UD0; 
     }
@@ -947,7 +941,7 @@ static int helper_FXSAVE(MessageExecutor &msg, InstructionCacheEntry *entry)
   if (virt & 0xf) GP0; // could be also AC if enabled
   for (unsigned i=0; i < sizeof(msg.vcpu->fpustate)/sizeof(unsigned); i++)
     {
-      void *addr;							
+      void *addr;
       if (!virt_to_ptr(msg, entry, addr, 4, user_access(msg, TYPE_W), virt + i*sizeof(unsigned)))  return msg.vcpu->fault;
       move<2>(addr, reinterpret_cast<unsigned *>(msg.vcpu->fpustate)+i);
     }

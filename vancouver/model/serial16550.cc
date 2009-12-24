@@ -159,7 +159,6 @@ public:
       default:
 	Logging::panic("SerialDevice::%s() %x", __func__, msg.port);
       }
-    //Logging::printf("SerialDevice::%s() %x %x, tl %x rfc %x\n", __func__, msg.port, msg.value, _triggerlevel, _rfcount);
     return true;
   }
 
@@ -168,7 +167,6 @@ public:
   {
     if (!in_range(msg.port, _base, 8) || msg.type != MessageIOOut::TYPE_OUTB)
       return false;
-    //Logging::printf("SerialDevice::%s() %x %x\n", __func__, msg.port, msg.value);
 
     msg.value &= 0xff;
     unsigned offset = msg.port - _base;
@@ -240,7 +238,7 @@ public:
     return true;
   }
 
-  SerialDevice(DBus<MessageIrq> &bus_irqlines, DBus<MessageSerial> &bus_hostserial, unsigned short base, unsigned char irq, unsigned hostserial) 
+  SerialDevice(DBus<MessageIrq> &bus_irqlines, DBus<MessageSerial> &bus_hostserial, unsigned short base, unsigned char irq, unsigned hostserial)
    : _bus_irqlines(bus_irqlines), _bus_hostserial(bus_hostserial), _base(base), _irq(irq), _hostserial(hostserial), _rfcount(0), _triggerlevel(1), _sendmask(0x1f)
     {
       memset(_regs, 0, sizeof(_regs));

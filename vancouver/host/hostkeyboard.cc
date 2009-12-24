@@ -46,7 +46,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   static unsigned const TIMEOUT = 50;
 
   const char *debug_getname() { return "HostKeyboard"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %4x,%x irq %x,%x", _base, _base+4, _irq, _irqaux);
   };
@@ -65,7 +65,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
   inline bool wait_output_full()  {  return wait_status(0x1, 1); }
   inline bool wait_input_empty()  {  return wait_status(0x2, 0); }
-  inline bool disable_devices()  __attribute__((always_inline)) 
+  inline bool disable_devices()  __attribute__((always_inline))
   {
     if (!wait_input_empty()) return false;
     outb(0xad, _base + 4);
@@ -121,7 +121,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     while (_clock->time() < timeout);
     return false;
   }
-  
+
   inline bool write_keyboard_ack(unsigned char value)
   {
     if (!wait_input_empty()) return false;
@@ -140,10 +140,9 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
   inline void handle_aux(unsigned char data)   __attribute__((always_inline))
   {
-    //Logging::printf("%s(%x) state %x\n", __PRETTY_FUNCTION__, data, _mousestate);
     switch (_mousestate & 0xff)
       {
-      case 0xfe: // wait for reset ack	
+      case 0xfe: // wait for reset ack
 	if (data == 0xaa)
 	  _mousestate++;
 	else
@@ -183,8 +182,6 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
    */
   inline void handle_scancode(unsigned char key)  __attribute__((always_inline))
   {
-    //Logging::printf("%s(%x) flags %x s %x\n", __PRETTY_FUNCTION__, key, _flags, _scset1);
-
     /**
      * There are some bad BIOS around which does not emulate SC2.
      * We have to convert from SC1.
@@ -213,7 +210,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	return;
       case 0x11:	// alt
 	nflag = _flags & KBFLAG_EXTEND0 ? KBFLAG_RALT : KBFLAG_LALT;
-	break;	
+	break;
       case 0x12:	// lshift
       case 0x59:	// rshift
 	if (_flags & KBFLAG_EXTEND0)
@@ -224,7 +221,6 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	  }
 	nflag = key == 0x12  ? KBFLAG_LSHIFT : KBFLAG_RSHIFT;
 	break;
-	  
       case 0x14:	// ctrl
 	nflag = _flags & KBFLAG_EXTEND0 ? KBFLAG_RCTRL : KBFLAG_LCTRL;
 	break;
@@ -270,17 +266,15 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	unsigned char status;
 	while ((status = inb(_base + 4)) & 1)
 	  {
-	    //Logging::printf("%s() status %x data %x\n", __PRETTY_FUNCTION__, status, 0);
 	    unsigned char data = inb(_base);
-	    //Logging::printf("%s() status %x data %x\n", __PRETTY_FUNCTION__, status, data);
 	    if (status & 0x20)
 	      handle_aux(data);
-	    else 
+	    else
 	      handle_scancode(data);
 	  }
 	return true;
       }
-    return false; 
+    return false;
   }
 
 
@@ -288,14 +282,12 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   {
     if (msg.type == MessageLegacy::RESET)
       {
-	//Logging::printf("%s\n", __PRETTY_FUNCTION__);
-
 	unsigned irq = _irq;
 	unsigned irqaux = _irqaux;
 	_irq = ~0u;
 	_irqaux = ~0u;
 
-	unsigned char  cmdbyte = 0;      
+	unsigned char  cmdbyte = 0;
 	#if 0
 	if (!disable_devices())
 	  Logging::printf("%s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
@@ -346,7 +338,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	_irqaux = irqaux;
 	_flags = KBFLAG_NUM;
 	_mousestate = 0xfe;
- 
+
 	// consume pending characters
 	MessageIrq msg1(MessageIrq::ASSERT_IRQ, _irq);
 	receive(msg1);
@@ -356,8 +348,8 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 
   HostKeyboard(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout,
-	       DBus<MessageKeycode> &bus_keycode, DBus<MessageMouse> &bus_mouse, 
-	       Clock *clock, unsigned hostdev, unsigned short base, 
+	       DBus<MessageKeycode> &bus_keycode, DBus<MessageMouse> &bus_mouse,
+	       Clock *clock, unsigned hostdev, unsigned short base,
 	       unsigned irq, unsigned irqaux, unsigned char scset)
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout),
       _bus_keycode(bus_keycode), _bus_mouse(bus_mouse),
@@ -370,7 +362,6 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 PARAM(hostkeyb,
       {
-	
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (argv[1] << 8) |  0);
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((argv[1] + 4) << 8) |  0);
 	if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))

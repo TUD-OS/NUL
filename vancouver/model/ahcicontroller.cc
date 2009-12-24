@@ -35,7 +35,7 @@ class ParentIrqProvider
  * Features: register set, FIS
  * Missing: plenty
  */
-class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver 
+class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
 {
   DBus<MessageMemWrite> *_bus_memwrite;
   DBus<MessageMemRead> *_bus_memread;
@@ -83,8 +83,8 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
   };
 
   void set_parent(ParentIrqProvider *parent, DBus<MessageMemWrite> *bus_memwrite, DBus<MessageMemRead> *bus_memread)
-  { 
-    _parent = parent; 
+  {
+    _parent = parent;
     _bus_memwrite = bus_memwrite;
     _bus_memread = bus_memread;
   }
@@ -99,29 +99,24 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
     unsigned cmd = 0;
 
     HwRegisterSet<AhciPort>::read_reg(_reg_cmd, cmd);
-    
+
     unsigned fisbase = 0;
     HwRegisterSet<AhciPort>::read_reg(HwRegisterSet<AhciPort>::find_reg("PxFBU"), fisbase);
 
-
-    //Logging::printf("AHCIPort %s fis[0] %x cmd %x\n", __func__, fis[0], cmd);
 
     // fis receiving enabled?
     // XXX bug in 2.6.27?
     //if (!_need_initial_fis && ~cmd & 0x10) { Logging::printf("skip FIS %x\n", fis[0]); return; }
 
-
     // update status and error fields
     HwRegisterSet<AhciPort>::modify_reg(_reg_tfd, 0xffff, fis[0] >> 16);
-    
-    switch (fis[0] & 0xff) 
+
+    switch (fis[0] & 0xff)
       {
       case 0x34: // d2h register fis
 	assert(fislen == 5);
 	copy_offset = 0x40;
 
-	//Logging::printf("d2h status field %x\n", fis[0] >> 16);
-	
 	if (_need_initial_fis)
 	  {
 	    // update signature
@@ -135,7 +130,6 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
 	// we finished the current command
 	if (~fis[0] & 0x80000 && fis[4])  {
 	  unsigned mask = 1 << (fis[4] - 1);
-	  //Logging::printf("finished %x, inprogress %x\n", fis[4], _inprogress);
 	  if (mask & ~_inprogress)
 	    Logging::panic("XXX broken %x,%x inprogress %x\n", fis[0], fis[4], _inprogress);
 	  _inprogress &= ~mask;
@@ -158,7 +152,7 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
       default:
 	assert(!"Invalid D2H FIS!");
       }
-	
+
     // copy to user
     unsigned *ptr;
     if (cmd & 0x10)  copy_out(fisbase + copy_offset, fis, fislen * 4);
@@ -171,15 +165,14 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
     if (_drive) return true;
     _drive = drive;
     _drive->set_peer(this);
-    
+
     comreset();
     return false;
   }
 
 
-  void comreset() 
+  void comreset()
   {
-    //Logging::printf("AhciPORT:comreset\n");
     // reset all device registers except CL+FB to default values
     const char *names[] = {"PxIS", "PxIE", "PxCMD", "PxTFD", "PxSIG", "PxSSTS", "PxSCTL", "PxSERR", "PxCI", "PxSNTF", "PxFBS"};
     for (unsigned i = 0; i < sizeof(names)/sizeof(names[0]); i++)
@@ -200,12 +193,12 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
   }
 
 
-  unsigned execute_command(unsigned value) 
+  unsigned execute_command(unsigned value)
   {
     COUNTER_INC("ahci cmd");
       unsigned clbase = 0;
       check2(!HwRegisterSet<AhciPort>::read_reg(HwRegisterSet<AhciPort>::find_reg("PxCLB"), clbase));
-      
+
       // try to execute all active commands
       for (unsigned i = 0; i < 32; i++)
 	{
@@ -218,16 +211,13 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
 	      unsigned status = 0;
 	      if (!HwRegisterSet<AhciPort>::read_reg(_reg_tfd, status) || status & 0x80)  break;
 	      _inprogress |= 1 << slot;
- 
+
 	      unsigned  cl[4];
 	      copy_in(clbase +  slot * 0x20, cl, sizeof(cl));
 	      unsigned clflags  = cl[0];
-	      //Logging::printf("request command %x clbase %x %p flags %x ctbase %x value %x\n", slot, clbase, cl, clflags, cl[2], value);
 
 	      unsigned ct[clflags & 0x1f];
 	      copy_in(cl[2], ct, sizeof(ct));
-	      //if (clflags >> 16 > 1 || value > 1)
-	      //Logging::printf("request command flags %x ct[0] %08x ct[1] %08x ct[3] %08x value %x inprogress %x\n", clflags, ct[0], ct[1], ct[3], value, _inprogress);
 	      assert(~clflags & 0x20 && "ATAPI unimplemented");
 
 	      // send a dma_setup_fis
@@ -235,7 +225,7 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
 	      unsigned dsf[7] = {0x41, cl[2] + 0x80, 0, clflags >> 16, 0, cl[1], slot+1};
 	      _drive->receive_fis(7, dsf);
 
-	      // set BSY 
+	      // set BSY
 	      HwRegisterSet<AhciPort>::modify_reg(_reg_tfd, 0x00, 0x80);
 	      _drive->receive_fis(clflags & 0x1f, ct);
 	    }
@@ -261,7 +251,7 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
       // enable CR
       if (newvalue & 1 && ~oldvalue & 1) { newvalue |= 1 << 15;  _ccs = 32; }
 
-      if (~newvalue & 1 &&  oldvalue & 1) 
+      if (~newvalue & 1 &&  oldvalue & 1)
 	{
 	  // disable CR
 	  newvalue &= ~(1 << 15);
@@ -289,7 +279,7 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
   }
 
   AhciPort() : _drive(0), _parent(0)
-    { 
+    {
       _reg_tfd = HwRegisterSet<AhciPort>::find_reg("PxTFD");
       _reg_cmd = HwRegisterSet<AhciPort>::find_reg("PxCMD");
       _reg_ci  = HwRegisterSet<AhciPort>::find_reg("PxCI");
@@ -320,7 +310,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 
   DBus<MessageIrq> &_bus_irqlines;
   unsigned char _irq;
-  
+
   int _pci_bar_reg;
   int _pci_cmd_reg;
   int _reg_ghc;
@@ -345,7 +335,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   }
 
  public:
- 
+
   void trigger_irq (void * child) {
     unsigned value = 0;
     HwRegisterSet<AhciController>::read_reg(_reg_is, value);
@@ -361,7 +351,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
       }
   };
 
- 
+
   void write_callback(unsigned flags, unsigned oldvalue, unsigned newvalue)
   {
     switch (flags) {
@@ -380,9 +370,9 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
     }
   }
 
-  
+
   bool receive(MessageMemWrite &msg)
-  { 
+  {
     unsigned long addr = msg.phys;
     unsigned cmd_value;
     if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
@@ -393,14 +383,12 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
       return false;
     };
 
-    //Logging::printf("AhciController::%s(w %p) addr %lx\n", __func__, msg.ptr, addr);
-
     bool res = false;
     if (addr < 0x100)
       res = HwRegisterSet<AhciController>::write_all_regs(addr, *reinterpret_cast<unsigned *>(msg.ptr), 4, this);
-    else if (addr < 0x100+MAX_PORTS*0x80)  
+    else if (addr < 0x100+MAX_PORTS*0x80)
 	res = _ports[(addr - 0x100) / 0x80].write_all_regs(addr & 0x7f, *reinterpret_cast<unsigned *>(msg.ptr), 4, &_ports[(addr - 0x100) / 0x80]);
-    else 
+    else
       return false;
 
 
@@ -410,7 +398,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 
 
   bool receive(MessageMemRead &msg)
-  { 
+  {
     unsigned long addr = msg.phys;
     unsigned cmd_value;
     if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
@@ -421,14 +409,13 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
       return false;
     };
 
-    //Logging::printf("AhciController::%s(r %p) addr %lx\n", __func__, msg.ptr, addr);
     bool res;
     unsigned uvalue = 0;
     if (addr < 0x100)
       res = HwRegisterSet<AhciController>::read_all_regs(addr, uvalue, 4);
-    else if (addr < 0x100+MAX_PORTS*0x80) 
+    else if (addr < 0x100+MAX_PORTS*0x80)
       res = _ports[(addr - 0x100) / 0x80].read_all_regs(addr & 0x7f, uvalue, 4);
-    else 
+    else
       return false;
 
     if (res)  *reinterpret_cast<unsigned *>(msg.ptr) = uvalue;
@@ -449,7 +436,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
      */
     unsigned count = 0;
     unsigned value;
-    if (HwRegisterSet<AhciController>::read_reg(HwRegisterSet<AhciController>::find_reg("PI"), value)) 
+    if (HwRegisterSet<AhciController>::read_reg(HwRegisterSet<AhciController>::find_reg("PI"), value))
       {
 	for (;value; value >>= 1) { count += value & 1; }
 	HwRegisterSet<AhciController>::modify_reg(HwRegisterSet<AhciController>::find_reg("CAP"), 0x1f, (count - 1));
@@ -516,7 +503,7 @@ PARAM(ahci,
 	AhciController *dev = new AhciController(mb, argv[1]);
 	mb.bus_memwrite.add(dev, &AhciController::receive_static<MessageMemWrite>);
 	mb.bus_memread.add(dev, &AhciController::receive_static<MessageMemRead>);
-	
+
 	// register PCI device
 	MessagePciBridgeAdd msg(argv[3], dev, &AhciController::receive_static<MessagePciCfg>);
 	if (!mb.bus_pcibridge.send(msg, argv[2] == ~0UL ? 0 : argv[2]))

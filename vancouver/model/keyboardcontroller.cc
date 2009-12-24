@@ -24,7 +24,7 @@
  * State: stable
  * Features: scancode transfer, translation, cmdbytes, A20, reset, pwd
  * Open: transfer NUM-lock state changes upstream
- * Documentation: PS2 hitrc chapter 7 
+ * Documentation: PS2 hitrc chapter 7
  */
 class KeyboardController : public StaticReceiver<KeyboardController>
 {
@@ -71,7 +71,7 @@ class KeyboardController : public StaticReceiver<KeyboardController>
   unsigned _irqaux;
   unsigned _ps2ports;
   unsigned char _ram[32];
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %4x,%x irqs %x,%x ps2ports %x+2 cmd %x", _base, _base+4, _irqkbd, _irqaux, _ps2ports, _ram[RAM_CMDBYTE]);
   };
@@ -80,7 +80,6 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 
   void read_from_device(unsigned char port)
   {
-    //Logging::printf("%s(%x) status %x\n", __PRETTY_FUNCTION__, port, _ram[RAM_STATUS]);
     while (~_ram[RAM_STATUS] & STATUS_OBF)
       {
 	MessagePS2 msg(port, MessagePS2::READ_KEY, 0);
@@ -105,7 +104,6 @@ class KeyboardController : public StaticReceiver<KeyboardController>
   {
     if (~_ram[RAM_STATUS] & STATUS_NO_INHB)
       {
-	//Logging::printf("%s(%x)\n", __PRETTY_FUNCTION__, value);
 	if (value >= 0x80 || value == _ram[RAM_MAKE1] || value == _ram[RAM_MAKE2] || from_aux)
 	  return true;
 	if (value == _ram[RAM_PWD_FIRST + _ram[RAM_PWD_CMP]])
@@ -129,10 +127,8 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 
   void got_data(unsigned char value, bool from_aux)
   {
-    //Logging::printf("%s(%x,%x) cmdbyte %x\n", __PRETTY_FUNCTION__, from_aux, value, _ram[RAM_CMDBYTE]);
-    
     // translate?
-    if (!from_aux && _ram[RAM_CMDBYTE] & CMD_TRANSLATE) 
+    if (!from_aux && _ram[RAM_CMDBYTE] & CMD_TRANSLATE)
       {
 	if (value == 0xf0)
 	  {
@@ -147,7 +143,6 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 
     _ram[RAM_OBF] = value;
     _ram[RAM_STATUS] = _ram[RAM_STATUS] & ~STATUS_AUXOBF | (from_aux ? STATUS_AUXOBF : STATUS_OBF);
-    //Logging::printf("\t\t%s(%x,%x) status %x\n", __PRETTY_FUNCTION__, from_aux, value, _ram[RAM_STATUS]);
 
     if ((_ram[RAM_STATUS] & STATUS_AUXOBF) == STATUS_AUXOBF   && _ram[RAM_CMDBYTE] & CMD_IRQAUX)
       {
@@ -157,12 +152,10 @@ class KeyboardController : public StaticReceiver<KeyboardController>
       }
     else if ((_ram[RAM_STATUS] & STATUS_AUXOBF) == STATUS_OBF && _ram[RAM_CMDBYTE] & CMD_IRQKBD)
       {
-	//Logging::printf("\t\tassert irq %x\n", _irqkbd);
 	_ram[RAM_OUTPORT] |= OUTPORT_IRQKBD;
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irqkbd);
 	_bus_irqlines.send(msg);
       }
-  
   }
 
 
@@ -180,7 +173,6 @@ public:
     if (msg.port == _base)
       {
 	msg.value = _ram[RAM_OBF];
-	//Logging::printf("%s(%x,%x)\n", __PRETTY_FUNCTION__, msg.port, msg.value);
 	_ram[RAM_STATUS] &= ~STATUS_AUXOBF;
 	_ram[RAM_OUTPORT] &= ~(OUTPORT_IRQAUX | OUTPORT_IRQKBD);
 	read_all_devices();
@@ -189,7 +181,6 @@ public:
 	msg.value = _ram[RAM_STATUS] & ~STATUS_SYS | _ram[RAM_CMDBYTE] & CMD_SYS;
     else
       return false;
-    //Logging::printf("IN(%x,%x)\n", msg.port, msg.value);
     return true;
   }
 
@@ -200,7 +191,6 @@ public:
     if (msg.port == _base)
       {
 	if (~_ram[RAM_STATUS] & STATUS_NO_INHB)  return true;
-	//Logging::printf("OUT(%x,%x)\n", msg.port, msg.value);
 	bool handled = false;
 	if (_ram[RAM_STATUS] & STATUS_CMD)
 	  {
@@ -259,7 +249,6 @@ public:
     else if (msg.port == _base+4)
       {
 	if (~_ram[RAM_STATUS] & STATUS_NO_INHB)  return true;
-	//Logging::printf("OUT(%x,%x)\n", msg.port, msg.value);
 	_ram[RAM_LASTCMD] = msg.value;
 	_ram[RAM_STATUS] |= STATUS_CMD;
 	switch (_ram[RAM_LASTCMD])
@@ -275,7 +264,7 @@ public:
 	  case 0xa6: // enable pwd
 	    _ram[RAM_STATUS] &= ~STATUS_NO_INHB;
 	    _ram[RAM_PWD_CMP] = 0;
-	    if (_ram[RAM_SECON]) 
+	    if (_ram[RAM_SECON])
 	      {
 		_ram[RAM_OBF] = _ram[RAM_SECON];
 		_ram[RAM_STATUS] = _ram[RAM_STATUS] & ~STATUS_AUXOBF | STATUS_OBF;
@@ -340,17 +329,16 @@ public:
   {
     if (msg.type == MessageLegacy::RESET)
       {
-	//Logging::printf("%s\n", __PRETTY_FUNCTION__);
 	memset(_ram, 0, sizeof(_ram));
 	_ram[RAM_CMDBYTE] = CMD_IRQKBD |  CMD_TRANSLATE;
 	_ram[RAM_STATUS]  = STATUS_NO_INHB;
 	_ram[RAM_OUTPORT] = OUTPORT_RESET | OUTPORT_A20;
       }
-    return false;    
+    return false;
   }
 
-  
-  KeyboardController(DBus<MessageIrq> &bus_irqlines, DBus<MessagePS2> &bus_ps2, DBus<MessageLegacy> &bus_legacy, 
+
+  KeyboardController(DBus<MessageIrq> &bus_irqlines, DBus<MessagePS2> &bus_ps2, DBus<MessageLegacy> &bus_legacy,
 		     unsigned short base, unsigned irqkbd, unsigned irqaux, unsigned ps2ports)
    : _bus_irqlines(bus_irqlines), _bus_ps2(bus_ps2), _bus_legacy(bus_legacy), _base(base), _irqkbd(irqkbd), _irqaux(irqaux), _ps2ports(ps2ports)
   {}

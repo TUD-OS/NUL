@@ -47,8 +47,7 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
       case 0x80000002: data = "Vancouver VMM pr"; break;
       case 0x80000003: data = "oudly presents t"; break;
       case 0x80000004: data = "his VirtualCPU. "; break;
-      }    
-    //Logging::printf("\tCPUID leaf %x at %x+%x\n", msg.cpu->eax, msg.cpu->eip, msg.cpu->inst_len);
+      }
     assert(data);
     memcpy(&msg.cpu->eax, data+0x0, 4);
     memcpy(&msg.cpu->ebx, data+0x4, 4);

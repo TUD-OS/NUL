@@ -20,13 +20,13 @@
 #include <cassert>
 
 
-struct DmaDescriptor 
+struct DmaDescriptor
 {
   unsigned long byteoffset;
   unsigned bytecount;
 
 
-  static unsigned long sum_length(unsigned char dmacount, DmaDescriptor *dma) 
+  static unsigned long sum_length(unsigned char dmacount, DmaDescriptor *dma)
   {
     unsigned long res = 0;
     for (unsigned i=0; i < dmacount; i++) res += dma[i].bytecount;
@@ -36,8 +36,8 @@ struct DmaDescriptor
   /**
    * Copy data from an internal buffer to an DMA buffer.
    */
-  static bool copy_inout(char *buffer, unsigned len, unsigned long offset, 
-			 unsigned char dmacount, DmaDescriptor *dma, bool copyout, 
+  static bool copy_inout(char *buffer, unsigned len, unsigned long offset,
+			 unsigned char dmacount, DmaDescriptor *dma, bool copyout,
 			 unsigned long physoffset, unsigned long physsize)
   {
     unsigned i;
@@ -47,21 +47,19 @@ struct DmaDescriptor
 	assert(dma[i].bytecount >= offset);
 	unsigned sublen = dma[i].bytecount - offset;
 	if (sublen > len) sublen = len;
-	
+
 	if ((dma[i].byteoffset + offset) > physsize ||  (dma[i].byteoffset + offset + sublen) > physsize) break;
 
-	//Logging::printf("DMA: copy_inout() i %x len %x/%x dst %lx\n", i, sublen, len, dma[i].byteoffset + offset);
 	if (copyout)
 	  memcpy(reinterpret_cast<char *>(dma[i].byteoffset + physoffset) + offset, buffer, sublen);
 	else
 	  memcpy(buffer, reinterpret_cast<char *>(dma[i].byteoffset + physoffset) + offset, sublen);
-	
+
 	buffer += sublen;
 	len -= sublen;
 	i++;
 	offset = 0;
       }
-    
     return len > 0;
   }
 

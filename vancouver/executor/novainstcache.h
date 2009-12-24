@@ -19,7 +19,7 @@
 /**
  * Reverse MTR mapping.
  */
-enum 
+enum
   {
     RMTR_eip = MTD_RIP_LEN,
     RMTR_efl = MTD_RFLAGS,
@@ -87,8 +87,8 @@ enum {
 /**
  * Lookup table for modrm decoding.
  */
-static const unsigned short modrminfo[64] = 
-  { 
+static const unsigned short modrminfo[64] =
+  {
     0x36               , 0x37             ,  0x56             ,  0x57             ,  0x06             ,  0x07             ,         MRM_DISP16,  0x03             ,
     0x36 | MRM_DISP08  , 0x37 | MRM_DISP08,  0x56 | MRM_DISP08,  0x57 | MRM_DISP08,  0x06 | MRM_DISP08,  0x07 | MRM_DISP08,  0x50 | MRM_DISP08,  0x03 | MRM_DISP08,
     0x36 | MRM_DISP16  , 0x37 | MRM_DISP16,  0x56 | MRM_DISP16,  0x57 | MRM_DISP16,  0x06 | MRM_DISP16,  0x07 | MRM_DISP16,  0x50 | MRM_DISP16,  0x03 | MRM_DISP16,
@@ -172,7 +172,7 @@ class InstructionCache : public MemTlb
   unsigned slot(unsigned tag) { return ((tag ^ (tag/SIZE)) % SIZE) * ASSOZ; }
 
 
-  
+
   int event_injection(MessageExecutor &msg)
   {
     if ((msg.cpu->inj_info & 0x80000000) && !idt_traversal(msg, msg.cpu->inj_info, msg.cpu->inj_error))
@@ -191,14 +191,11 @@ class InstructionCache : public MemTlb
   {
     unsigned virt = READ(eip) + entry->inst_len;
     unsigned limit = READ(cs).limit;
-    //Logging::printf("read_code(%x) virt %x limit %x instlen %x value %x\n", msg.cpu->eip, virt, limit, entry->inst_len, *reinterpret_cast<unsigned *>(entry->data));
     if ((~limit && limit < (virt + len - 1)) || ((entry->inst_len + len) > InstructionCacheEntry::MAX_INSTLEN)) GP0;
     virt += READ(cs).base;
 
     read_code(msg, virt, len, entry->data + entry->inst_len);
     entry->inst_len += len;
-    // if (debug)  
-    if (!msg.cpu->eip) Logging::printf("read_code(%x + %x) %x\n", READ(cs).base, msg.cpu->eip, *reinterpret_cast<unsigned *>(entry->data));
     return msg.vcpu->fault;
   }
 
@@ -223,17 +220,14 @@ class InstructionCache : public MemTlb
 	  if (memcmp(tmp.data, _values[i].data, _values[i].inst_len) || cs_ar != _values[i].cs_ar)  continue;
 	  index = i;
 	  //COUNTER_INC("I$ ok");
-	  //Logging::printf("I$ ok %x at %x os %x func %p\n", index, linear, _values[index].operand_size, _values[index].execute);
 	  return true;
 	}
-    // allocate new invalid entry 
+    // allocate new invalid entry
     index = slot(linear) + (_pos++ % ASSOZ);
-    memset(_values + index, 0, sizeof(*_values));    
+    memset(_values + index, 0, sizeof(*_values));
     _values[index].cs_ar =  cs_ar;
     _values[index].prefixes = 0x8300; // default is to use the DS segment
     _tags[index] = linear;
-    
-    //Logging::printf("I$ failed at %x use %x\n", linear, index);
     return false;
   }
 
@@ -246,7 +240,7 @@ class InstructionCache : public MemTlb
     fetch_code(msg, entry, 1);
     unsigned char  modrm = entry->data[entry->inst_len - 1];
     unsigned short info = modrminfo[(entry->address_size == 2) << 5 | (modrm >> 3) & 0x18 | modrm & 0x7];
-    
+
     // sib byte
     if (info & MRM_SIB)
       {
@@ -262,11 +256,11 @@ class InstructionCache : public MemTlb
     // in 16bit addressing mode bp-references are using the stack segment as default
     if ((entry->address_size == 1) && ((entry->prefixes & 0xff00) == 0x8300) && ((info & 0xf0) == 0x50))
       entry->prefixes = (entry->prefixes & ~0xff00) | 0x200;
-    
+
     return msg.vcpu->fault;
   }
 
-  
+
 #include "insthelper.h"
 #include "instructions.h"
 #include "executor/instructions.inc"
@@ -294,13 +288,13 @@ public:
 	    fetch_code(msg, entry, 1) || handle_code_byte(msg, entry, entry->data[entry->inst_len-1], op_mode);
 	  }
 	if (msg.vcpu->fault)
-	  {	    
+	  {
 	    // invalidate entry
 	    entry->inst_len = 0;
 	    Logging::printf("decode fault %x\n", msg.vcpu->fault);
 	    return msg.vcpu->fault;
 	  }
-	
+
 	assert(_values[index].execute);
 	//COUNTER_INC("decoded");
       }
@@ -346,9 +340,9 @@ public:
 	if (info & 0xf || info & MRM_EAX) virt += msg.cpu->gpr[info & 0x7];
 	if (info & 0xf0) virt += msg.cpu->gpr[(info >> 4) & 0x7];
       }
-	  
+
     unsigned disp = ((info >> MRM_DISPSHIFT) & 0x3);
-    switch (disp) 
+    switch (disp)
       {
       case 1:  virt += *reinterpret_cast<char  *>(disp_offset); break;
       case 2:  virt += *reinterpret_cast<short *>(disp_offset); break;
@@ -356,7 +350,7 @@ public:
       default:
 	break;
       }
-    if (entry->flags & IC_BITS)  
+    if (entry->flags & IC_BITS)
       {
 	unsigned bitofs;
 	move<2>(&bitofs, get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0));
@@ -368,7 +362,6 @@ public:
 
   static int virt_to_ptr(MessageExecutor &msg, InstructionCacheEntry *entry, void *&res, unsigned length, Type type, unsigned virt)
   {
-    //Logging::printf("virt2  eip %x esp %x virt %x len %x\n",  msg.cpu->eip, msg.cpu->esp, virt, length);
     InstructionCache::handle_segment(msg, entry, (&msg.cpu->es) + ((entry->prefixes >> 8) & 0x0f), virt, length, type & TYPE_W) 
       || msg.vcpu->instcache->prepare_virtual(msg, virt, length, type, res);
     return msg.vcpu->fault;
@@ -394,29 +387,29 @@ public:
     unsigned tmp_flag;
     unsigned dummy1, dummy2, dummy3;
     switch (entry->flags & (IC_LOADFLAGS | IC_SAVEFLAGS))
-      {	  
+      {
       case IC_SAVEFLAGS:
-	asm volatile ("call *%4; pushf; pop %3" 
-		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "=g"(tmp_flag) 
+	asm volatile ("call *%4; pushf; pop %3"
+		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "=g"(tmp_flag)
 		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
 	msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       case IC_LOADFLAGS:
 	tmp_flag = msg.cpu->efl & 0x8d5;
-	asm volatile ("push %3; popf; call *%4;" 
-		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag) 
+	asm volatile ("push %3; popf; call *%4;"
+		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
 		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
 	break;
       case IC_LOADFLAGS | IC_SAVEFLAGS:
 	tmp_flag = msg.cpu->efl & 0x8d5;
-	asm volatile ("push %3; popf; call *%4; pushf; pop %3" 
-		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag) 
+	asm volatile ("push %3; popf; call *%4; pushf; pop %3"
+		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
 		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
 	msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       default:
-	asm volatile ("call *%3;" 
-		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3) 
+	asm volatile ("call *%3;"
+		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3)
 		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
 	break;
       }
@@ -434,11 +427,11 @@ public:
     bool is_byte = entry->flags & IC_BYTE;
     void *tmp_src = entry->src;
     void *tmp_dst = entry->dst;
-    
-    if (((entry->prefixes & 0xff) == 0xf0) && ((~entry->flags & IC_LOCK) || (entry->modrminfo & MRM_REG)))  
-      { 
+
+    if (((entry->prefixes & 0xff) == 0xf0) && ((~entry->flags & IC_LOCK) || (entry->modrminfo & MRM_REG)))
+      {
 	Logging::panic("LOCK prefix %x at eip %x\n", *reinterpret_cast<unsigned *>(entry->data), msg.cpu->eip);
-	UD0; 
+	UD0;
       }
 
     Type type = TYPE_R;
@@ -461,10 +454,10 @@ public:
 	tmp_dst = tmp;
       }
     if (entry->flags & IC_ASM)
-      call_asm(msg, tmp_src, tmp_dst, entry);      
+      call_asm(msg, tmp_src, tmp_dst, entry);
     else
       entry->execute(msg, tmp_src, tmp_dst);
-    
+
     /**
      * Have we accessed more than we are allowed to?
      * Do a recall with more state.
@@ -485,9 +478,6 @@ public:
    */
   bool commit(MessageExecutor &msg, InstructionCacheEntry *entry)
   {
-    //Logging::printf("fault: %x old %x error %x at eip %x line %d\n", msg.vcpu->fault, msg.cpu->inj_info,
-    //msg.vcpu->error_code, msg.cpu->eip, msg.vcpu->debug_fault_line);
-
     // irq blocking propagation
     if (msg.vcpu->fault)  msg.cpu->actv_state = msg.vcpu->oactv_state;
     if (msg.cpu->actv_state != msg.vcpu->oactv_state)
@@ -502,7 +492,7 @@ public:
 	invalidate(true);
 	msg.cpu->head.pid = 0;
       }
-    else 
+    else
       {
 	invalidate(false);
 	msg.cpu->eip = msg.vcpu->oeip;
@@ -549,7 +539,7 @@ public:
 	    Logging::printf("fault: %x old %x error %x at eip %x line %d %x\n", msg.vcpu->fault, msg.cpu->inj_info,
 			    msg.vcpu->error_code, msg.cpu->eip, msg.vcpu->debug_fault_line, msg.cpu->cr2);
 	    // consolidate two exceptions
-	    
+
 	    // triple fault ?
 	    unsigned old_info = msg.cpu->inj_info & ~INJ_IRQWIN;
 	    if (old_info == 0x80000b08)

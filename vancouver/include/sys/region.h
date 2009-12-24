@@ -27,18 +27,17 @@ struct Region
 };
 
 /**
- * A region allocator.  
- *
+ * A region allocator.
  */
 template <unsigned SIZE>
 class RegionList
 {
 
 private:
-  
+
   unsigned _count;
   Region  _list[SIZE];
-  
+
 public:
   Region *find(unsigned long pos)
   {
@@ -66,7 +65,6 @@ public:
   {
     if (!region.size)  return;
 
-    //Logging::printf("add %lx+%lx\n", region.virt, region.size);
     del(region);
     _count++;
     assert(_count < SIZE);
@@ -78,7 +76,6 @@ public:
    */
   void del(Region value)
   {
-    //Logging::printf("del %lx+%lx\n", value.virt, value.size);
     for (Region *r = _list ; r < _list + _count; r++)
       {
 	if (r->virt >= value.end() || value.virt >= r->end()) continue;
@@ -123,7 +120,6 @@ public:
   {
     assert(align_order < 8*sizeof(unsigned long));
     for (Region *r = _list; r < _list + _count; r++)
-      //for (Region *r = _list + _count; --r >= _list;)
       {
 	unsigned long virt = (r->end() - size) & ~((1ul << align_order) - 1);
 	if (size <= r->size && virt >= r->virt)

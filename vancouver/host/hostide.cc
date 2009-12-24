@@ -59,10 +59,9 @@ class HostIde : public StaticReceiver<HostIde>
       Cpu::pause();
     }
     while ((status & mask) != value && _clock->clock(FREQ) < timeout);
-    //Logging::printf("wait_disk_state count %x & %x ?= %x ms %lld\n", inb(_iobase + 7), mask, value, timeout - _clock->clock(FREQ));
     return (status & mask) != value;
   }
-  
+
   unsigned send_packet(unsigned char *packet)
   {
     unsigned res = wait_disk_state(0x80, 0, 10); // wait 10ms that BSY clears
@@ -88,17 +87,16 @@ class HostIde : public StaticReceiver<HostIde>
 	  {
 	    if (wait_disk_state(0x88, 0x08, 10000)) return ~0x3ffU | inb(_iobase + 7); // wait 10seconds that we got the data
 	    MessageIOIn msg(MessageIOIn::TYPE_INW, _iobase, outlen, output);
-	    if (!_bus_hwioin.send(msg)) 
+	    if (!_bus_hwioin.send(msg))
 	      Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, _iobase);
 	  }
 	else
 	  {
 	    if (wait_disk_state(0x88, 0x08, 100)) return ~0x4ffU | inb(_iobase + 7); // wait 100ms that we can send the data
 	    MessageIOOut msg(MessageIOOut::TYPE_OUTW, _iobase, outlen, output);
-	    if (!_bus_hwioout.send(msg)) 
+	    if (!_bus_hwioout.send(msg))
 	      Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, _iobase);
 	  }
-	// Logging::printf("ATA: cmd done cmd %x err %x\n", res, inb(_iobase + 1));
 	if (wait_disk_state(0x88, 0, 20)) return ~0x5ffU | inb(_iobase + 7); // wait 20ms to let status settle and make sure there is no data left to transfer
       }
     return res;
@@ -141,17 +139,15 @@ class HostIde : public StaticReceiver<HostIde>
     Logging::printf("ATA: identify status %x drive %x\n", inb(_iobase + 7), inb(_iobase + 6));
     unsigned res = ata_command(packet, buffer, 512, true);
 
-    //Logging::printf("ATA: identify err %x\n", res);
     // abort?
-    if (((res & 0x401) == 0x401) && ((res & 0x7f) != 0x7f)) 
-      if (inb(_iobase + 4) == 0x14 && inb(_iobase + 5) == 0xeb) 
+    if (((res & 0x401) == 0x401) && ((res & 0x7f) != 0x7f))
+      if (inb(_iobase + 4) == 0x14 && inb(_iobase + 5) == 0xeb)
 	{
 	  unsigned char atapi_packet[] = { 0xc0, slave ? 0xb0 : 0xa0, 0xa1 };
 	  res = ata_command(atapi_packet, buffer, 512, true);
 	  Logging::printf("ATA: identify packet err %x\n", res);
-	}	    
+	}
     if (!res)  res = params.update_params(buffer, slave);
-    //Logging::printf("ATA: identify err %x\n", res);
     return res;
   }
 
@@ -160,7 +156,7 @@ class HostIde : public StaticReceiver<HostIde>
   unsigned disk_count() { return _disk_count; }
 
   bool  receive(MessageDisk &msg)
-  {    
+  {
     if (!in_range(msg.disknr, _disknr, _disk_count))  return false;
     MessageDisk::Status status = MessageDisk::DISK_OK;
     HostGenericAta &params = _params[msg.disknr - _disknr];
@@ -173,7 +169,6 @@ class HostIde : public StaticReceiver<HostIde>
 	{
 
 	  unsigned long length = DmaDescriptor::sum_length(msg.dmacount, msg.dma);
-	  //Logging::printf("ATA: %s(%lx, %llx, %x) len %lx\n", __func__, msg.usertag, msg.sector, msg.dmacount, length);
 
 	  if (length & 0x1ff) { status = MessageDisk::DISK_STATUS_DMA; break; }
 	  unsigned long offset = 0;
@@ -183,10 +178,10 @@ class HostIde : public StaticReceiver<HostIde>
 	    {
 	      char buffer[512];
 
-	      if (msg.type == MessageDisk::DISK_WRITE && DmaDescriptor::copy_inout(buffer, 512, offset, msg.dmacount, msg.dma, false, msg.physoffset, msg.physsize)) 
-		{ 
-		  status = MessageDisk::DISK_STATUS_DEVICE; 
-		  break; 
+	      if (msg.type == MessageDisk::DISK_WRITE && DmaDescriptor::copy_inout(buffer, 512, offset, msg.dmacount, msg.dma, false, msg.physoffset, msg.physsize))
+		{
+		  status = MessageDisk::DISK_STATUS_DEVICE;
+		  break;
 		}
 
 	      unsigned char command = (params._lba48 ? 0x24 : 0x20);
@@ -200,16 +195,16 @@ class HostIde : public StaticReceiver<HostIde>
 		  break;
 		}
 	      if (params._lba48)  send_packet(packets);
-	      if ((res = ata_command(packets+8, buffer, 512, msg.type != MessageDisk::DISK_WRITE))) 
+	      if ((res = ata_command(packets+8, buffer, 512, msg.type != MessageDisk::DISK_WRITE)))
 		{
 		  Logging::printf("ATA: %s(%lx, %llx, %x) failed with %x\n", __func__, msg.usertag, sector, msg.dmacount, res);
 		  status = MessageDisk::DISK_STATUS_DEVICE;
 		  break;
 		}
 	      if (msg.type == MessageDisk::DISK_READ && DmaDescriptor::copy_inout(buffer, 512, offset, msg.dmacount, msg.dma, true, msg.physoffset, msg.physsize))
-		{ 
-		  status = MessageDisk::DISK_STATUS_DEVICE; 
-		  break; 
+		{
+		  status = MessageDisk::DISK_STATUS_DEVICE;
+		  break;
 		}
 	      offset += 512;
 	      sector++;
@@ -221,7 +216,7 @@ class HostIde : public StaticReceiver<HostIde>
 	  // XXX handle RO media
 	  if (make_sector_packets(params, packets, params._lba48 ? 0xea: 0xe7, 0, 0) && ata_command(packets+8, 0, 0, true))
 	    status = MessageDisk::DISK_STATUS_DEVICE;
-	}  
+	}
 	break;
       case MessageDisk::DISK_GET_PARAMS:
 	params.get_disk_parameter(msg.params);
@@ -236,7 +231,7 @@ class HostIde : public StaticReceiver<HostIde>
 
   HostIde(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageDiskCommit> &bus_commit,
 	  unsigned disknr, unsigned short iobase, unsigned short iobase_ctrl, Clock *clock) :
-     _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_commit(bus_commit), 
+     _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_commit(bus_commit),
      _disknr(disknr), _iobase(iobase), _iobase_ctrl(iobase_ctrl), _clock(clock), _disk_count(0)
   {
     unsigned short buffer[256];
@@ -249,7 +244,7 @@ class HostIde : public StaticReceiver<HostIde>
 
 PARAM(hostide,
       {
-	unsigned irqline; 
+	unsigned irqline;
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
 	for (unsigned address, num = 0; address = pci.search_device(0x1, 0x1, num++, irqline, irqpin);)
@@ -266,8 +261,7 @@ PARAM(hostide,
 	      {
 		unsigned bar1 = pci.conf_read(address+0x10+i*8);
 		unsigned bar2 = pci.conf_read(address+0x10+i*8 + 4);
-		//Logging::printf("bar1 %x bar2 %x\n", bar1, bar2);
-	      
+
 		// try legacy port
 		if (!bar1 && !bar2) { if (!i) { bar1=0x1f1; bar2=0x3f7; } else { bar1=0x171; bar2=0x377; } }
 		// we need both ports
@@ -281,7 +275,6 @@ PARAM(hostide,
 		    Logging::printf("%s could not allocate ioports %x, %x\n", __PRETTY_FUNCTION__, bar1, bar2);
 		    continue;
 		  }
-		
 		// create controller
 		HostIde *dev = new HostIde(mb.bus_hwioin, mb.bus_hwioout, mb.bus_diskcommit,
 					   mb.bus_disk.count(), bar1 & ~0x3, bar2 & ~0x3, mb.clock());

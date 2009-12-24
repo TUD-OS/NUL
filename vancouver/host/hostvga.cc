@@ -24,12 +24,12 @@
  *
  * State: unstable
  * Features: console switching, cursor, refresh, different views per client
- * Missing: direct map to the client  
+ * Missing: direct map to the client
  */
 class HostVga : public StaticReceiver<HostVga>
 {
 public:
-  enum { 
+  enum {
     MAXVIEWS   = 16,
     MAXCLIENTS = 64,
     FREQ       = 25,       // refresh FREQ in HZ
@@ -37,7 +37,7 @@ public:
     TEXTMODE   = 0,
     BACKEND_OFFSET = 0x3000,
     BACKEND_SIZE  = 1 << 15,
-  };  
+  };
 
 private:
   Motherboard &_mb;
@@ -69,7 +69,7 @@ private:
     unsigned short active_view;
     View views[MAXVIEWS];
   } _clients[MAXCLIENTS];
-  
+
   const char *debug_getname() { return "HostVga"; };
 
 
@@ -93,7 +93,7 @@ private:
     _lastswitchtime =  _mb.clock()->clock(FREQ);
     assert (_clients[_active_client].active_view <= _clients[_active_client].num_views);
     _measure = true;
-    if (!_active_mode) 
+    if (!_active_mode)
 	set_vga_reg(0x14, 0xc, 8*3);
 
     // do an immediate refresh
@@ -161,20 +161,20 @@ private:
 
     // F1-F12 switches consoles
     for (unsigned i=0;  i < sizeof(functionkeys)/sizeof(*functionkeys); i++)
-      if (keycode == functionkeys[i]) 
+      if (keycode == functionkeys[i])
 	{
 	  _active_client = i + 1;
 	  return switch_client();
 	}
-    
+
     // numeric keys start new modules
     for (unsigned i=0;  i < sizeof(numkeys)/sizeof(*numkeys); i++)
-      if (keycode == numkeys[i]) 
+      if (keycode == numkeys[i])
 	{
 	  MessageConsole msg1(MessageConsole::TYPE_START, i);
 	  return _mb.bus_console.send(msg1);
 	}
-    
+
     // funckeys together with lctrl to debug
       else if (keycode == (functionkeys[i] | KBFLAG_LCTRL))
 	{
@@ -201,10 +201,10 @@ private:
 	break;
       case 0x76: // ESC -> hypervisor console
 	_active_client = 0;
-	break;	
+	break;
       default:
 	return false;
-      }    
+      }
     return switch_client();
   }
 
@@ -215,7 +215,7 @@ private:
   bool handle_system_keys(MessageKeycode &msg)
   {
     unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_system;
-      
+
     switch(keycode)
       {
       case KBFLAG_EXTEND0 | 0x69: // end
@@ -240,7 +240,7 @@ private:
 	  return true;
 	}
 	COUNTER_INC("vga::copy");
-    
+
 	unsigned short cursor_offset = view->regs->cursor_pos -  view->regs->offset;
 	if (cursor_offset != _last_cursor_pos)
 	  {
@@ -254,7 +254,7 @@ private:
 	    set_vga_reg(0x14, 0xa, view->regs->cursor_style >> 8);
 	    set_vga_reg(0x14, 0xb, view->regs->cursor_style);
 	  }
-    
+
 	unsigned len = 0x1000 - pos;
 	unsigned offset = view->regs->offset << 1;
 	if (offset < view->size)
@@ -307,7 +307,7 @@ public:
 
 	    MessageVesa msg2(mode, &_modeinfo);
 	    MessageVesa msg3(mode);
-	    if (!_mb.bus_vesa.send(msg2) || !_mb.bus_vesa.send(msg3)) 
+	    if (!_mb.bus_vesa.send(msg2) || !_mb.bus_vesa.send(msg3))
 	      {
 		Logging::printf("switch vesa mode %x -> %x failed\n", _active_mode,  mode);
 		return false;
@@ -333,7 +333,7 @@ public:
 	    update_timer();
 	    return true;
 	  }
-	
+
 	return false;
       }
     return false;
@@ -371,11 +371,10 @@ public:
 	    view->direct_map = msg1.value;
 	  else
 	    view->direct_map = 0;
-	  
+
 	  // do an immediate refresh
 	  MessageTimeout msg2(_timer);
 	  receive(msg2);
-	  //Logging::printf("allocated view %x.%x ptr %p\n", msg.id, msg.view, msg.ptr);
 	  return true;
 	}
 
@@ -408,29 +407,27 @@ public:
       case MessageConsole::TYPE_RESET:
       case MessageConsole::TYPE_START:
       case MessageConsole::TYPE_DEBUG:
-      default: 
+      default:
 	break;
       }
     return false;
   }
-  
 
 
 
   bool  receive(MessageKeycode &msg)
-  {    
+  {
     if (msg.keyboard != 0) return false;
-    
     if (handle_system_keys(msg) || handle_console_switching(msg)) return true;
-	
+
     // default is to forward the key to the active console
     MessageConsole msg2(_active_client, _clients[_active_client].active_view, msg.keycode);
     return _mb.bus_console.send(msg2);
   }
 
 
-  HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system) : 
-    _mb(mb), _backend(backend), _modifier_switch(modifier_switch), _modifier_system(modifier_system), 
+  HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system) :
+    _mb(mb), _backend(backend), _modifier_switch(modifier_switch), _modifier_system(modifier_system),
     _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0)
   {
     memset(_clients, 0, sizeof(_clients));
@@ -451,11 +448,9 @@ public:
     _modeinfo.textmode = true;
 
     Logging::printf("%s with refresh FREQ %d\n", __func__, FREQ);
-    
   }
 };
 
-  
 PARAM(hostvga,
       {
 	unsigned modifier_switch = KBFLAG_LWIN;
@@ -464,7 +459,7 @@ PARAM(hostvga,
 	if (~argv[1]) modifier_system = argv[1];
 
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
-	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");	
+	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");
 	HostVga *dev = new HostVga(mb, msg.ptr, modifier_switch, modifier_system);
       },
       "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN> - provide a VGA console.",

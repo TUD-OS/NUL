@@ -68,11 +68,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   static void  NAME(Utcb *utcb) __attribute__((regparm(0)))		\
   {  CODE; }
-  
+
 #define EXCP_FUNC(NAME, CODE)						\
   static void  NAME(Utcb *utcb) __attribute__((regparm(0))) __attribute__((noreturn)) \
   {  CODE;  }
-  
+
   #include "vmx_funcs.h"
 
   static void force_invalid_gueststate_amd(Utcb *utcb)
@@ -109,7 +109,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->parse_args(default_devices);
 
     // create devices from cmdline
-    _mb->parse_args(args);    
+    _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
   }
 
@@ -117,12 +117,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned create_irq_thread(unsigned hostirq, void __attribute__((regparm(0))) (*func)(Utcb *utcb))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
-  
+
     if (hostirq != ~0u) check(Sigma0Base::request_irq(hostirq + _hip->cfg_exc));
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
-    void **stack = reinterpret_cast<void **>(memalign(0x1000, stack_size));    
+    void **stack = reinterpret_cast<void **>(memalign(0x1000, stack_size));
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 
@@ -153,8 +153,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     // create the gsi boot portal
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
 
-
-    
     // create worker
     unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
 
@@ -173,7 +171,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     };
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
       {
-	Logging::printf("create pt %x\n", vm_caps[i].nr);	
+	Logging::printf("create pt %x\n", vm_caps[i].nr);
 	check(create_pt(vm_caps[i].nr, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
       }
     return 0;
@@ -183,26 +181,21 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void instruction_emulation(Utcb *utcb)
   {
     if (_debug)
-      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid, 
+      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid,
 		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard);
     utcb->head.pid = 33;
     do {
-      //COUNTER_SET("iv pid",  utcb->head.pid);
-      //COUNTER_SET("iv eip",  utcb->eip);
-      //Logging::printf("execute: eip %x:%x esp %x:%x+%x eax %x ebx %x ecx %x edx %x edi %x esi %x\n", utcb->cs.sel, utcb->eip, utcb->ss.sel, utcb->esp, utcb->ss.base, utcb->eax, utcb->ebx, utcb->ecx, utcb->edx, utcb->edi, utcb->esi);
-      
       if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
       do_recall(utcb);
     }
     while (utcb->head.pid);
-	
-    //Logging::printf("executed %s at %x:%x pid %d cr3 %x intr %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid, utcb->cr3, utcb->inj_info);
-    if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CRWRITE) 
+
+    if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CRWRITE)
       utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() & ~MTD_CR, 0);
     else
       Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CRWRITE);
-  }	
+  }
 
 
   static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu)
@@ -228,7 +221,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     SemaphoreGuard l(_lock);
     if (is_in)
       {
-	COUNTER_INC("IN"); 
+	COUNTER_INC("IN");
 	if ((utcb->qual[0] >> 16) == 0x40) COUNTER_INC("in(0x40)");
 	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("in(0x21)");
 	MessageIOIn msg(static_cast<MessageIOIn::Type>(order), utcb->qual[0] >> 16);
@@ -238,11 +231,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       }
     else
       {
-	COUNTER_INC("OUT"); 
+	COUNTER_INC("OUT");
 	if ((utcb->qual[0] >> 16) == 0x80) COUNTER_INC("out(0x80)");
 	if ((utcb->qual[0] >> 16) == 0x40) COUNTER_INC("out(0x40)");
 	if ((utcb->qual[0] >> 16) == 0x20) COUNTER_INC("out(0x20)");
-	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("out(0x21)"); 
+	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("out(0x21)");
 	MessageIOOut msg(static_cast<MessageIOOut::Type>(order), utcb->qual[0] >> 16, utcb->eax);
 	_mb->bus_ioout.send(msg);
       }
@@ -252,17 +245,16 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void wakeup_cpu(unsigned i)
   {
-    if (_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_INHLT && _mb->vcpustate(0)->block_sem) 
+    if (_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_INHLT && _mb->vcpustate(0)->block_sem)
       _mb->vcpustate(0)->block_sem->up();
     else
       recall(_mb->vcpustate(i)->cap_vcpu);
   }
 
-  
   static bool map_memory_helper(Utcb *utcb)
   {
     MessageMemMap msg(utcb->qual[1] & ~0xfff, 0, 0);
-    
+
     // do we have not mapped physram yet?
     if (_mb->bus_memmap.send(msg))
       {
@@ -318,7 +310,6 @@ public:
 	      if (~_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_IRQ)
 		{
 		  Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_IRQ);
-		  //Logging::printf("do wakeup hz %x\n", _mb->vcpustate(i)->hazard);
 		  wakeup_cpu(i);
 		}
 	    }
@@ -395,22 +386,21 @@ public:
   }
 
 
-  bool  receive(MessageDisk &msg)    {  
+  bool  receive(MessageDisk &msg)    {
     if (msg.type == MessageDisk::DISK_READ || msg.type == MessageDisk::DISK_WRITE) {
       msg.physsize = _physsize;
       msg.physoffset = _physmem;
     }
-    return Sigma0Base::disk(msg); 
+    return Sigma0Base::disk(msg);
   }
   bool  receive(MessageConsole &msg) {  return Sigma0Base::console(msg); }
   bool  receive(MessageNetwork &msg)
   {
-    //Logging::printf("forward %p\n", msg.buffer);
     if (_forward_pkt == msg.buffer) return false;
     Sigma0Base::network(msg);
     return true;
   }
-  
+
 
   static void timeout_trigger()
   {
@@ -446,13 +436,6 @@ public:
       default:
 	return false;
       }
-#if 0
-    static unsigned c;
-    static timevalue old;
-    unsigned diff = msg.abstime - old;
-    //if (!(c++ & 0x1f))  Logging::printf("%s: res %x abstime %lld diff %d\n", __PRETTY_FUNCTION__, msg.res, msg.abstime, diff / 2666);
-    old = msg.abstime;
-#endif
     if (res == 0)
       {
 	// update timeout in sigma0
@@ -466,8 +449,8 @@ public:
 
 public:
   void __attribute__((always_inline, noreturn)) run(Hip *hip)
-  {    
-    console_init("VMM");    
+  {
+    console_init("VMM");
     assert(hip);
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
@@ -494,7 +477,7 @@ public:
       Logging::panic("init_caps() failed\n");
 
     create_devices(hip, args);
-    
+
     // create backend connections
     create_irq_thread(~0u, do_stdin);
     create_irq_thread(~0u, do_disk);
@@ -526,7 +509,7 @@ public:
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
     msg.view = 0;
     Sigma0Base::console(msg);
-    
+
     Logging::printf("%s(%lx)\n", __func__, status);
   }
 

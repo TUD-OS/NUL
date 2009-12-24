@@ -31,13 +31,13 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 {
   static const unsigned SIZE = 0x8000;
   unsigned short _view;
-  unsigned short _iobase;  
+  unsigned short _iobase;
   unsigned _textbase;
   char    *_ptr;
-  VgaRegs _regs; 
+  VgaRegs _regs;
   unsigned char _crt_index;
-  
-  void debug_dump() {  
+
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf("    iobase %x+32 textbase %x", _iobase, _textbase);
   };
@@ -55,7 +55,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   {
     for (unsigned i=0; msg[i]; i++)  putchar_guest(0x0f00 | msg[i]);
   }
-  
+
 
   bool handle_reset()
   {
@@ -130,14 +130,14 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	switch (cpu->ax)
 	  {
 	  case 0x1130:        // get font information
-	    // fake the pointers?
+	    // XXX fake the pointers?
 	    #if 1
 	    cpu->es.sel      = 0xc000;
 	    cpu->es.base     = 0xc0000;
 	    cpu->bp          = cpu->bx*100;
 	    #endif
 	    cpu->cx = read_bda(0x85) & 0xff;
-	    cpu->dl = read_bda(0x84); 
+	    cpu->dl = read_bda(0x84);
 	    break;
 	  case 0x1a00:        // display combination code
 	    cpu->al = 0x1a;   // function supported
@@ -148,7 +148,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	  case 0x4f00: // vesa information
 	  case 0x4f01: // get modeinfo
 	  case 0x4f15: // vesa supported?
-	    //Logging::printf("INT10 %x\n", cpu->ax);
 	    // unsupported
 	    break;
 	  default:
@@ -171,7 +170,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   }
 
 
-  bool  receive(MessageIOOut &msg) 
+  bool  receive(MessageIOOut &msg)
   {
     bool res = false;
     for (unsigned i = 0; i < (1u << msg.type); i++)
@@ -226,7 +225,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   }
 
 
-  bool  receive(MessageIOIn &msg) 
+  bool  receive(MessageIOIn &msg)
   {
     bool res = false;;
     for (unsigned i = 0; i < (1u << msg.type); i++)
@@ -304,9 +303,9 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
 
 
-  Vga(Motherboard &mb, unsigned short iobase, unsigned long textbase) 
-    : BiosCommon(mb), _iobase(iobase), _textbase(textbase), _crt_index(0) 
-  { 
+  Vga(Motherboard &mb, unsigned short iobase, unsigned long textbase)
+    : BiosCommon(mb), _iobase(iobase), _textbase(textbase), _crt_index(0)
+  {
     // alloc console
     _ptr = reinterpret_cast<char *>(memalign(0x1000, SIZE));
     memset(_ptr, 0, SIZE);
@@ -315,7 +314,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
       Logging::panic("could not alloc a VGA backend");
     _view = msg.view;
     Logging::printf("VGA console %lx %p\n", textbase, _ptr);
-    
+
     // switch to our console
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
     mb.bus_console.send(msg);

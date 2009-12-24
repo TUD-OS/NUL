@@ -67,14 +67,14 @@ public:
     unsigned _len;
     // a pointer in a single linked list to an older entry in the set or ~0u at the end
     unsigned _older;
-    bool is_valid(unsigned long phys1, unsigned long phys2, unsigned len) 
-    { 
+    bool is_valid(unsigned long phys1, unsigned long phys2, unsigned len)
+    {
       return _ptr && phys1 == _phys1 && len == _len && phys2 == _phys2;
     }
   };
-  
+
   bool debug;
-private:  
+private:
   struct {
     CacheEntry _values[ASSOZ];
     unsigned _newest;
@@ -116,13 +116,12 @@ private:
     if (sublen < 0) sublen = 0;
     MessageMemWrite msg2(_buffers[i]._phys1, _buffers[i].data, _buffers[i]._len - sublen);
     _mb.bus_memwrite.send(msg2, true);
-    
+
     if (sublen)
       {
 	MessageMemWrite msg3(_buffers[i]._phys2, _buffers[i].data + _buffers[i]._len - sublen, sublen);
 	_mb.bus_memwrite.send(msg3, true);
       }
-    if (debug) Logging::printf("WRITE(%lx, %x, %x)\n", msg2.phys, *reinterpret_cast<unsigned *>(_buffers[i].data), _buffers[i]._len);
   }
 
 
@@ -161,13 +160,11 @@ public:
    */
   CacheEntry *get(unsigned long phys1, unsigned long phys2, unsigned len, Type type)
   {
-    //debug |= phys1 ;
-    //if (debug) Logging::printf("get %lx %x %x\n", phys1, len, type);
 #if 1
     {
       unsigned s = slot(phys1);
-      search_entry(_sets[s]._values, _sets[s]._newest); 
-      
+      search_entry(_sets[s]._values, _sets[s]._newest);
+
       // try to get a direct memory reference
       void *new_ptr = 0;
       MessageMemAlloc msg1(&new_ptr, phys1 & ~0xffful, phys2 & ~0xffful);
@@ -182,7 +179,7 @@ public:
 	  return_move_to_front(_sets[s]._values, _sets[s]._newest);
 	}
     }
-#endif    
+#endif
 
     // we could not alloc the memory region directly from RAM, thus we use our own buffer instead.
     {
@@ -215,17 +212,15 @@ public:
 	{
 	  int sublen = len - 0x1000 + (phys1 & 0xfff);
 	  if (sublen < 0)  sublen = 0;
-	  
+
 	  MessageMemRead msg2(phys1, _buffers[entry].data, len - sublen);
 	  _mb.bus_memread.send(msg2, true);
-	  
+
 	  if (sublen)
 	    {
 	      MessageMemRead msg3(phys2, _buffers[entry].data +  len - sublen, sublen);
 	      _mb.bus_memread.send(msg3, true);
 	    }
-	  //if (debug) 
-	  //Logging::printf("READ(%lx - %lx, %x, %x)\n", phys1, phys2, *reinterpret_cast<unsigned *>(_buffers[entry].data), len);
 	}
       // init entry
       _buffers[entry]._len   = len;
@@ -241,7 +236,7 @@ public:
    */
   void invalidate(bool writeback)
     {
-      if (writeback) 
+      if (writeback)
 	while (~_oldest_write) invalidate_dirty();
       else
 	_oldest_write = _newest_write = ~0;
@@ -250,7 +245,7 @@ public:
 
 
  MemCache(Motherboard &mb) : _mb(mb), _sets()
-  { 
+  {
     assert(ASSOZ   >= 2);
     assert(BUFFERS >= 2);
 

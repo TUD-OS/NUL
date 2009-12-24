@@ -48,7 +48,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   DiskParameter _disk_params;
 
   const char* debug_getname() { return "VirtualBios"; }
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" base 0x%lx", _base);
   }
@@ -97,16 +97,15 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     cpu->cs.sel  = 0xffff;
     cpu->cs.base = 0xffff0000;
     cpu->eip = 0xffff;
-    
+
     // we have to fix the eflags on the user stack!
     unsigned char oldflags;
     copy_in(cpu->ss.base + cpu->esp + 4, &oldflags, 1);
-    //Logging::printf("fix eflags: %x -> %x\n", oldflags, cpu->efl);
     copy_out(cpu->ss.base + cpu->esp + 4, &cpu->efl, 1);
-    
-    return true; 
+
+    return true;
   }
-  
+
 
   /**
    * called on reset.
@@ -120,13 +119,13 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	copy_out(i*4, &i, 2);
 	copy_out(i*4+2, &segment, 2);
       }
-    
+
 
     // initialize PIT0
     // let counter0 count with minimal freq of 18.2hz
     outb(0x40+3, 0x24);
     outb(0x40+0, 0);
-      
+
     // let counter1 generate 15usec refresh cycles
     outb(0x40+3, 0x56);
     outb(0x40+1, 0x12);
@@ -134,14 +133,14 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 
     // the master PIC
     // ICW1-4+IMR
-    outb(0x20+0, 0x11); 
+    outb(0x20+0, 0x11);
     outb(0x20+1, 0x08); // offset 8
     outb(0x20+1, 0x04); // has slave on 2
     outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
     outb(0x20+1, 0xfc);
 
     // the slave PIC + IMR
-    outb(0xa0+0, 0x11); 
+    outb(0xa0+0, 0x11);
     outb(0xa0+1, 0x70); // offset 0x70
     outb(0xa0+1, 0x02); // is slave on 2
     outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
@@ -155,13 +154,13 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     write_bda(0x1a, 0x1e001e, 4);
     write_bda(0x80, 0x2f001e, 4);
 
-    
-#if 0  
+
+#if 0
     // XXX announce number of serial ports
     // announce port
     write_bios_data_area(mb, serial_count * 2 - 2,      argv[0]);
     write_bios_data_area(mb, serial_count * 2 - 2 + 1,  argv[0] >> 8);
-    
+
     // announce number of serial ports
     write_bios_data_area(mb, 0x11, read_bios_data_area(mb, 0x11) & ~0xf1 | (serial_count*2));
 #endif
@@ -182,13 +181,13 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     copy_out(cpu->ss.base + cpu->esp + 2, &cpu->cs.sel, 2);
     copy_out(cpu->ss.base + cpu->esp + 4, &cpu->efl,    2);
 
-    cpu->edx = 0x80; // booting from first disk    
+    cpu->edx = 0x80; // booting from first disk
     if (!disk_read(cpu, vcpu, 0, 0x7c00, 1) || cpu->ah)
       Logging::panic("VB: could not read MBR from boot disk");
     return true;
   }
 
-  
+
   /**
    * Converts our internal keycode format into the BIOS one.
    */
@@ -222,7 +221,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       { 81 << 8,  KBFLAG_EXTEND0 | 0x7a}, // pgdown
       {110 << 8,   0x76},                 // esc
       {       8,   0x66},                 // backspace
-    };  
+    };
 
     value = value & ~KBFLAG_NUM;
 
@@ -242,7 +241,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   {
     cpu->efl |= 1;
     cpu->ah = errorcode;
-    //Logging::printf("report error %x\n", errorcode);
 
   }
 
@@ -256,7 +254,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     //DEBUG;
     // increment BIOS tick counter
     unsigned ticks = read_bda(0x6c);
-    ticks++;  
+    ticks++;
     // midnight?
     if (ticks >= 0x001800B0)
       {
@@ -264,7 +262,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	write_bda(0x70, read_bda(0x70)+1, 1);
       }
     write_bda(0x6c, ticks, 4);
-    
+
     return jmp_int(cpu, 0x1c);
   }
 
@@ -284,7 +282,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   bool check_drive(CpuState *cpu)
   {
     if (cpu->dl == 0x80) return true;
-    //Logging::printf("unsupported drive %x\n", cpu->dl);
     error(cpu, 0x01); // invalid parameter
     return false;
   }
@@ -297,7 +294,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     DmaDescriptor dma;
     dma.bytecount  = 512*count;
     dma.byteoffset = address;
-    
+
     Logging::printf("%s(%llx) count %x -> %lx\n", __func__, blocknr, count, address);
     MessageDisk msg2(MessageDisk::DISK_READ, cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
@@ -314,7 +311,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	// prog timeout during wait
 	MessageTimer msg3(_timer, _mb.clock()->abstime(DISK_TIMEOUT, FREQ));
 	_mb.bus_timer.send(msg3);
-	
+
 	cpu->cs.base = _base;
 	cpu->eip = WAIT_DISK_VECTOR;
 	return true;
@@ -456,7 +453,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case 0x2400: // disable A20
       case 0x2401: // enable  A20
 	{
-	  
 	  MessageLegacy msg(MessageLegacy::GATE_A20, cpu->al);
 	  if (_mb.bus_legacy.send(msg))
 	    cpu->ax = 0;
@@ -513,7 +509,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case 0x5300 ... 0x53ff: // apm installation check
       case 0x8800 ... 0x88ff: // get extended memory
       case 0xc000 ... 0xc0ff: // get configuration
-      case 0xc100 ... 0xc1ff: // get ebda	
+      case 0xc100 ... 0xc1ff: // get ebda
       case 0xe801:            // get memsize
       case 0xe980:            // get intel speedstep information
       unsupported:
@@ -521,14 +517,14 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	DEBUG;
 	error(cpu, 0x86);
 	break;
-      default: 
+      default:
 	VB_UNIMPLEMENTED;
       }
     return do_iret(cpu);
   }
 
 
-  /** 
+  /**
    * Keyboard INT handler.
    */
   bool handle_int16(CpuState *cpu)
@@ -576,7 +572,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case 0x03: // set typematic
 	// ignored
 	break;
-      default: 
+      default:
 	VB_UNIMPLEMENTED;
       }
     //pDEBUG;
@@ -585,7 +581,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 
   unsigned char tobcd(unsigned char v) { return ((v / 10) << 4) | (v % 10); }
 
-  /** 
+  /**
    * Time INT handler.
    */
   bool handle_int1a(CpuState *cpu)
@@ -663,9 +659,8 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
    * The memory read routine for the last 16byte below 4G and below 1M.
    */
   bool receive(MessageMemRead &msg)
-  { 
+  {
     if (!in_range(msg.phys, 0xfffffff0, 0x10) && !in_range(msg.phys, 0xffff0, 0x10) )  return false;
-    //if (msg.phys != ~0u) Logging::printf("%s ptr %lx value %x %x\n",__PRETTY_FUNCTION__, msg.phys, _resetvector[msg.phys & 0xf], _resetvector[(msg.phys+1) & 0xf]);
     memcpy(msg.ptr, _resetvector + (msg.phys & 0xf), msg.count);
     return true;
   }
@@ -685,7 +680,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	unsigned short start = read_bda(0x80);
 	unsigned short end   = read_bda(0x82);
 
-	//Logging::printf("pkey %x due to %x,%x keycode %x\n", value, first, next, msg.keycode);
 	first += 0x2;
 	if (first >= end)   first = start;
 	if (value && first != next)
@@ -693,10 +687,8 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	    write_bda(read_bda(0x1c), value, 2);
 	    write_bda(0x1c, first, 2);
 	  }
-	//else Logging::printf("drop key %x due to %x,%x keycode %x\n", value, first, next, msg.keycode);
 	return true;
       }
-    
     Logging::printf("%s() ignored %x %x\n", __PRETTY_FUNCTION__, msg.keyboard, msg.keycode);
     return false;
   }
@@ -715,7 +707,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     if (in_range(cpu->cs.base + cpu->eip, _base, MAX_VECTOR))
       {
 	COUNTER_INC("VB");
-	//Logging::printf("%s %x bda %x\n", __PRETTY_FUNCTION__, cpu->cs.base + cpu->eip, read_bda(0x85));
 	unsigned irq =  (cpu->cs.base + cpu->eip) - _base;
 	MessageBios msg2(msg, irq);
 	if (irq != RESET_VECTOR && _mb.bus_bios.send(msg2, true))  return do_iret(cpu);

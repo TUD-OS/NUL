@@ -41,8 +41,8 @@ public:
   void free_buffer()  { _rpos = (_rpos + 1) % SIZE; }
 
 
-  Consumer(unsigned cap_sm) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0) 
-  { 
+  Consumer(unsigned cap_sm) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0)
+  {
     unsigned res;
     if ((res = create_sm(cap_sm)))
       Logging::panic("create Consumer failed with %x\n", res);
@@ -71,9 +71,8 @@ public:
    */
   bool produce(T &value)
   {
-    if (!_consumer || ((_consumer->_wpos + 1) % SIZE == _consumer->_rpos)) 
+    if (!_consumer || ((_consumer->_wpos + 1) % SIZE == _consumer->_rpos))
       {
-	//if (!_dropping) Logging::printf("%s dropping write due to overflow\n", __PRETTY_FUNCTION__);
 	_dropping = true;
 	return false;
       }
@@ -150,14 +149,12 @@ public:
 
     if ((needed >= right) && (needed >= left))
       {
-	//if (!Parent::_dropping) Logging::printf("%s dropping write due to overflow %x<%x>%x \n", __PRETTY_FUNCTION__, left, needed, right);
 	Parent::_dropping = true;
 	return false;
       }
-    //Logging::printf("%s %p %x - pos %x,%x\n", __PRETTY_FUNCTION__, buf, len, _consumer->_wpos, _consumer->_rpos);
     Parent::_dropping = false;
-    
-    unsigned ofs = Parent::_consumer->_wpos; 
+
+    unsigned ofs = Parent::_consumer->_wpos;
     if (right < needed) {
       if (right !=0) Parent::_consumer->_buffer[ofs] = ~0u;
       ofs = 0;

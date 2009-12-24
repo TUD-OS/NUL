@@ -25,7 +25,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
 {
   Motherboard &_mb;
   bool can_inject(CpuState *cpu) {  return !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
-  void inject_extint(CpuState *cpu, unsigned vec) {    
+  void inject_extint(CpuState *cpu, unsigned vec) {
     cpu->actv_state &= ~1;
     cpu->inj_info = vec | 0x80000000;
   }
@@ -42,8 +42,6 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
     if (msg.vcpu->hazard & VirtualCpuState::HAZARD_IRQ)
       {
 	COUNTER_INC("lint0");
-	//if (msg.vcpu->instcache->debug) Logging::printf("check IRQ %lx lint0 %x rip %x %x %x %x mtr %x\n", -1UL, msg.vcpu->hazard, msg.cpu->eip, msg.cpu->inj_info, msg.cpu->actv_state, msg.cpu->efl, msg.cpu->head.mtr.untyped());
-	//Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 	if (((~msg.cpu->head.mtr.untyped() & MTD_INJ) || ~msg.cpu->inj_info & 0x80000000) && can_inject(msg.cpu))
 	  {
 	    Cpu::atomic_and<volatile unsigned>(&msg.vcpu->hazard, ~VirtualCpuState::HAZARD_IRQ);
@@ -51,9 +49,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
 	    if (_mb.bus_apic.send(msg2))
 	      {
 		inject_extint(msg.cpu, msg2.vector);
-		COUNTER_INC("inj"); 
-		//if ((vec & 0xf) == 1 ) Logging::printf("check IRQ %lx lint0 %x rip %lx %lx\n", vec, _lint0, s->rip(), s->rflags());
-		//if ((msg2.vector & 0xf) != 0) Logging::printf("check IRQ %x rip %x %x %x %x mtr %x\n", msg2.vector, msg.cpu->eip, msg.cpu->inj_info, msg.cpu->actv_state, msg.cpu->efl, msg.cpu->head.mtr.untyped());
+		COUNTER_INC("inj");
 	      }
 	    else
 	      Logging::panic("spurious IRQ?");

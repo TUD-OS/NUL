@@ -69,8 +69,6 @@ public:
     COUNTER_SET("HPET isr",  _regs->isr);
     if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
       {
-	//Logging::printf("irq %x %x\n",  msg.line, msg.type);
-
 	COUNTER_INC("HPET irq");
 
 	// reset the irq output
@@ -104,7 +102,7 @@ public:
 	COUNTER_INC("HPET lost");
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
-	
+
       }
     COUNTER_SET("HPET isr", _regs->isr);
     COUNTER_SET("HPET ov", oldvalue);
@@ -114,7 +112,7 @@ public:
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)  
+  HostHpet(DBus<MessageTimeout> &bus_timeout, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
     : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer), _irq(theirq)
   {
     Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
@@ -122,7 +120,7 @@ public:
 
     _freq = 1000000000000000ull;
     Math::div64(_freq, _regs->period);
-    Logging::printf(" freq %lld\n", _freq);    
+    Logging::printf(" freq %lld\n", _freq);
     _mindelta = Math::muldiv128(1, _freq, MAX_FREQUENCY);
 
     unsigned num_timer = ((_regs->cap & 0x1f00) >> 8) + 1;
@@ -180,7 +178,7 @@ PARAM(hosthpet,
 	// alloc MMIO region
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
 	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
-      
+
 	// check whether this looks like an HPET
 	unsigned cap = *reinterpret_cast<volatile unsigned *>(msg1.ptr);
 	if (cap == ~0u || !(cap & 0xff))
