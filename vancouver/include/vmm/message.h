@@ -17,6 +17,7 @@
 
 #pragma once
 #include <cassert>
+#include <cstdint>
 
 /****************************************************/
 /* IOIO messages                                    */
@@ -137,6 +138,24 @@ struct MessagePciCfg
   unsigned value;
   MessagePciCfg(unsigned _address) : type(TYPE_READ), address(_address), value(0xffffffff) {}
   MessagePciCfg(unsigned _address, unsigned _value) : type(TYPE_WRITE), address(_address), value(_value) {}
+};
+
+/**
+ * An extended PCI config space transaction.
+ */
+struct MessageExtPciCfg
+{
+  enum Type {
+    TYPE_READ,
+    TYPE_WRITE
+  } type;
+
+  uint16_t bdf;
+  uint16_t reg;
+  uint32_t value;
+
+  MessageExtPciCfg(uint16_t _bdf, uint16_t _reg) : type(TYPE_READ), bdf(_bdf), reg(_reg), value(~0UL) {}
+  MessageExtPciCfg(uint16_t _bdf, uint16_t _reg, uint32_t _value) : type(TYPE_WRITE), bdf(_bdf), reg(_reg), value(_value) {}
 };
 
 

@@ -66,6 +66,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageMouse>        bus_mouse;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciCfg>       bus_hwpcicfg;
+  DBus<MessageExtPciCfg>    bus_hwextpcicfg;
   DBus<MessagePciBridgeAdd> bus_pcibridge;
   DBus<MessagePic>          bus_pic;
   DBus<MessagePit>          bus_pit;
