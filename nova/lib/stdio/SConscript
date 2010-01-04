@@ -4,9 +4,4 @@ import nul
 
 Import('target_env')
 
-nul.Lib(target_env,
-        'stdio',
-        SOURCES = [ 'printf.c' ],
-        LIBS = [ 'string', 'nova' ])
-
 # EOF
