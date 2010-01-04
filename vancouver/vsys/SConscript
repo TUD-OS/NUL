@@ -2,6 +2,10 @@
 
 import nul
 Import('target_env')
-nul.Lib(target_env, 'vsys', SOURCES = nul.LibEnv(target_env, []).Object(Glob('*.cc')+Glob('*.S')))
+
+nul.Lib(target_env, 'vsys',
+        SOURCES = Glob('*.cc') + Glob('*.S'),
+        LIBS = [ 'string' ]
+        )
 
 # EOF

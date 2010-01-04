@@ -27,7 +27,7 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova'],
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ],
         LINKSCRIPT = None):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS)
@@ -37,7 +37,7 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova'],
                     SOURCES,
                     linkscript = LINKSCRIPT)
 
-def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = ['nova']):
+def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ]):
     env = LibEnv(tenv, INCLUDE + LIBS + [ name ])
     return env.StaticLibrary(output + "/lib/%s" % name,
                              SOURCES)

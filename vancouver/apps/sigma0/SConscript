@@ -6,6 +6,6 @@ Import('target_env')
 nul.App(target_env, 'sigma0',
         SOURCES = [ 'sigma0.cc'],
         INCLUDE = [  ],
-        LIBS    = [ 'hostvesa', 'host', 'vsys'],
+        LIBS    = [ 'hostvesa', 'host', 'vsys', 'string'],
         LINKSCRIPT = 'linker.ld')
 # EOF

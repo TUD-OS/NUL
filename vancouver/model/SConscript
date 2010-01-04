@@ -6,5 +6,13 @@ nul.Lib(target_env, 'model', SOURCES = filter(lambda x: x.name != 'qemu_net.cc',
 
 qemu_env = target_env.Clone()
 qemu_env.Append(CPPPATH = ["../contrib/qemu/src/", "../contrib/qemu/modified/"])
-nul.Lib(target_env, 'qemunet', SOURCES = qemu_env.Object(["qemu_net.cc"] + "../contrib/qemu/modified/qemu.c ../contrib/qemu/src/hw/ne2000.c ../contrib/qemu/src/hw/e1000.c ../contrib/qemu/src/net-checksum.c".split()))
+
+nul.Lib(qemu_env, 'qemunet',
+        SOURCES = ["qemu_net.cc",
+                   "../contrib/qemu/modified/qemu.c",
+                   "../contrib/qemu/src/hw/ne2000.c",
+                   "../contrib/qemu/src/hw/e1000.c",
+                   "../contrib/qemu/src/net-checksum.c"],
+        
+)
 # EOF
