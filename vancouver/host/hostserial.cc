@@ -69,13 +69,10 @@ class HostSerial : public StaticReceiver<HostSerial>
     if (msg.serial != _serialdev + 1)  return false;
     for (unsigned i=0; i < 10000; i++)
       {
-	if (inb(_base+0xf) & 0x20)
-	  {
-	    outb(_base, msg.ch);
-	    break;
-	  }
+	if (inb(_base+5) & 0x20) break;
 	Cpu::pause();
       }
+    outb(msg.ch, _base);
     return true;
   }
 
