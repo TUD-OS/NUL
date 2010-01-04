@@ -287,7 +287,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   /**
    * Init the memory map from the hip.
    */
-  unsigned __attribute__((noinline)) init_memmap(Utcb *utcb)
+  unsigned init_memmap(Utcb *utcb)
   {
     Logging::printf("init memory map\n");
     for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
