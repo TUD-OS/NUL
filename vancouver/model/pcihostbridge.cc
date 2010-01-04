@@ -112,7 +112,8 @@ public:
     _devices.add(msg.dev, msg.func, msg.devfunc);
     return true;
   }
-  bool __attribute__((always_inline))  receive(MessagePciCfg &msg)  {    return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
+
+  bool receive(MessagePciCfg &msg) { return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
 
   PciHostBridge(unsigned busnum, unsigned short iobase) :  _secondarybus(busnum), _subord(busnum), _iobase(iobase), _confaddress(0) {
     MessagePciBridgeAdd msg(0, this, &PciHostBridge::receive_static<MessagePciCfg>);

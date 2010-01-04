@@ -53,7 +53,7 @@ class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
   /**
    * The PCI bus transaction function.
    */
-  bool __attribute__((always_inline))  receive(MessagePciCfg &msg)
+  bool receive(MessagePciCfg &msg)
   {
     // config read/write type0 function 0
     if (!(msg.address & ~0xff))
