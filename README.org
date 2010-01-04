@@ -21,6 +21,17 @@ tree. You will not be disappointed.
   Shift-TAB: Toggle overview.
   C-c C-e l: Export as LaTeX. :-D
 
+* Introduction
+
+  This is the development version of NUL, the NOVA UserLand.  It
+  complements the NOVA microhypervisor with a couple of applications,
+  mainly a virtual machine monitor and a hardware resource
+  multiplexer.
+
+  The code is still experimental and far from feature complete.  Use
+  it on your own risk.  If it breaks, you get to keep both pieces.  If
+  you have feedback, please sent it to =bk@vmmon.org=.
+
 * Prerequisites
 
   - *Binutils* 2.19 or later
@@ -39,15 +50,15 @@ tree. You will not be disappointed.
 
 * Development
 
-This section is aimed at the prospective NUL hacker. Its purpose is to
-boot your knowledge about nul to a point where you can start hacking
-on it.
+  This section is aimed at the prospective NUL hacker. Its purpose is
+  to boot your knowledge about nul to a point where you can start
+  hacking on it.
 
 ** Directory Layout
 
-  The NUL tree consists of several applications and libraries, which
-  are loosely grouped by topic into repositories. Each subdirectory of
-  the top-level directory is a repository.
+   The NUL tree consists of several applications and libraries, which
+   are loosely grouped by topic into repositories. Each subdirectory
+   of the top-level directory is a repository.
 
 *** /nova/
 
@@ -71,8 +82,8 @@ on it.
   To use a customized build configuration, copy the default build
   repository and adapt its SConstruct file.
 
-  There are several variables that can be passed to SCons in order to
-  control the build process:
+  There are some variables that can be passed to SCons in order to
+  control the build process.
 
   |------------------+-----------------------------|
   | *Argument*       | *Description*               |
@@ -154,6 +165,14 @@ on it.
 ** TODO Fix rocknshine regarding bytes-per-scanline.
  * TODO Implement "jump to page" in rocknshine.
  * TODO Write tool that collects sigma0/vancouver command line arguments.
+
+* Third-Party Software
+
+  NUL reuses currently some code from the following projects:
+
+  - QEMU's ne2k model: http://www.qemu.org/
+
+  See the contrib directories for details.
 
 * Footnotes
 
