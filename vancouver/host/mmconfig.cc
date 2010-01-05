@@ -66,7 +66,8 @@ public:
   }
 
   
-  PciMMConfigAccess(uint8_t start_bus, uint8_t end_bus, char *mmconfig) {
+  PciMMConfigAccess(uint8_t start_bus, uint8_t end_bus, char *mmconfig)
+    : _start_bus(start_bus), _end_bus(end_bus), _mmconfig(mmconfig) {
 
   }
 };
