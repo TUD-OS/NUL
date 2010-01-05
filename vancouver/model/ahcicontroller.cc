@@ -154,7 +154,6 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
       }
 
     // copy to user
-    unsigned *ptr;
     if (cmd & 0x10)  copy_out(fisbase + copy_offset, fis, fislen * 4);
     if (fis[0] & 0x4000) _parent->trigger_irq(this);
   };
@@ -445,7 +444,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   }
 
 
-  bool __attribute__((always_inline))  receive(MessagePciCfg &msg)  {  return PciDeviceConfigSpace<AhciController>::receive(msg); };
+  bool receive(MessagePciConfig &msg)  {  return PciDeviceConfigSpace<AhciController>::receive(msg); };
 
 
   AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq)
@@ -505,7 +504,7 @@ PARAM(ahci,
 	mb.bus_memread.add(dev, &AhciController::receive_static<MessageMemRead>);
 
 	// register PCI device
-	MessagePciBridgeAdd msg(argv[3], dev, &AhciController::receive_static<MessagePciCfg>);
+	MessagePciBridgeAdd msg(argv[3], dev, &AhciController::receive_static<MessagePciConfig>);
 	if (!mb.bus_pcibridge.send(msg, argv[2] == ~0UL ? 0 : argv[2]))
 	  Logging::printf("could not add PCI device to %lx:%lx\n", argv[2], argv[3]);
 

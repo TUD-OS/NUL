@@ -42,34 +42,28 @@ class PciMMConfigAccess : public StaticReceiver<PciMMConfigAccess>
 {
   const char *debug_getname() { return "PciMMConfigAccess"; };
 
-  uint8_t _start_bus;
-  uint8_t _end_bus;
-
-  char *_mmconfig;
+  unsigned  _start_bdf;
+  unsigned  _bdf_size;
+  unsigned *_mmconfig;
 
 public:
 
-  bool receive(MessageExtPciCfg &msg) {
-    uint8_t bus = msg.bdf >> 8;
-    if ((bus >= _start_bus) && (bus <= _end_bus)) {
-      uint32_t *field = (uint32_t *)((msg.bdf<<12) + msg.reg + _mmconfig);
+  bool receive(MessagePciConfig &msg) {
+    assert(~msg.offset & 3);
+    if (!in_range(_start_bdf, msg.bdf, _bdf_size) || msg.offset >= 0x1000) return false;
 
-      switch (msg.type) {
-      case MessageExtPciCfg::TYPE_READ:  msg.value = *field; break;
-      case MessageExtPciCfg::TYPE_WRITE: *field = msg.value; break;
-      }
-
-      return true;
-    } else {
-      return false;
+    unsigned *field = _mmconfig + (msg.bdf << 12) + (msg.offset >> 2);
+    
+    switch (msg.type) {
+    case MessagePciConfig::TYPE_READ:  msg.value = *field; break;
+    case MessagePciConfig::TYPE_WRITE: *field = msg.value; break;
     }
+    return true;
   }
 
   
-  PciMMConfigAccess(uint8_t start_bus, uint8_t end_bus, char *mmconfig)
-    : _start_bus(start_bus), _end_bus(end_bus), _mmconfig(mmconfig) {
-
-  }
+  PciMMConfigAccess(unsigned start_bdf, unsigned bdf_size, unsigned *mmconfig) : _start_bdf(start_bdf), _bdf_size(bdf_size), _mmconfig(mmconfig) 
+  {}
 };
 
 PARAM(mmconfig,
@@ -77,33 +71,28 @@ PARAM(mmconfig,
 	MessageAcpi msg("MCFG");
 	if (!mb.bus_acpi.send(msg) || !msg.table) {
 	  Logging::printf("XXX No MCFG table found.\n");
-	} else {
-	  AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
-	  // XXX Compute checksum;
-	  void *mcfg_end = reinterpret_cast<char *>(mcfg) + mcfg->len;
+	  return;
+	}
+	  
+	AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
+	void *mcfg_end = reinterpret_cast<char *>(mcfg) + mcfg->len;
 
-	  for (AcpiMCFG::Entry *entry = mcfg->entries; entry < mcfg_end; entry++) {
-	    Logging::printf("mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
-			    entry->base, entry->pci_seg,
-			    entry->pci_bus_start, entry->pci_bus_end);
+	for (AcpiMCFG::Entry *entry = mcfg->entries; entry < mcfg_end; entry++) {
+	  Logging::printf("mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
+			  entry->base, entry->pci_seg,
+			  entry->pci_bus_start, entry->pci_bus_end);
+	  
+	  uint8_t buses = entry->pci_bus_end - entry->pci_bus_start + 1;
+	  size_t size = buses * 32 * 8 * 4096;
+	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
 
-	    if (entry->pci_seg != 0) {
-	      Logging::printf("mmconfig: Skip. We do not support multiple PCI segments.\n");
-	      continue;
-	    }
-
-	    uint8_t buses = entry->pci_bus_end - entry->pci_bus_start + 1;
-	    size_t size = 8*32*4096*buses;
-	    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
-
-	    if (!mb.bus_hostop.send(msg) || !msg.ptr) {
-	      Logging::printf("%s failed to allocate iomem %llx+%x\n", __PRETTY_FUNCTION__, entry->base, size);
-	      return;
-	    }
-
-	    Device *dev = new PciMMConfigAccess(entry->pci_bus_start, entry->pci_bus_end, msg.ptr);
-	    mb.bus_hwextpcicfg.add(dev, &PciMMConfigAccess::receive_static<MessageExtPciCfg>);
+	  if (!mb.bus_hostop.send(msg) || !msg.ptr) {
+	    Logging::printf("%s failed to allocate iomem %llx+%x\n", __PRETTY_FUNCTION__, entry->base, size);
+	    return;
 	  }
+	  
+	  Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
+	  mb.bus_hwpcicfg.add(dev, &PciMMConfigAccess::receive_static<MessagePciConfig>);
 	}
       },
       "mmconfig - provide HW PCI config space access via mmconfig.");

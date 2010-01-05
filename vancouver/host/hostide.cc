@@ -247,20 +247,20 @@ PARAM(hostide,
 	unsigned irqline;
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
-	for (unsigned address, num = 0; address = pci.search_device(0x1, 0x1, num++, irqline, irqpin);)
+	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++, irqline, irqpin);)
 	  {
-	    if (~argv[0] & (1UL << num) || (~pci.conf_read(address+4) & 1))
+	    if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 4) & 1))
 	      {
-		Logging::printf("Ignore IDE controller #%x at %x irq %x pin %x\n", num, address, irqline, irqpin);
+		Logging::printf("Ignore IDE controller #%x at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 		continue;
 	      }
-	    Logging::printf("DISK controller #%x IDE at %x irq %x pin %x\n", num, address, irqline, irqpin);
+	    Logging::printf("DISK controller #%x IDE at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 
 	    // primary and secondary controller
 	    for (unsigned i=0; i < 2; i++)
 	      {
-		unsigned bar1 = pci.conf_read(address+0x10+i*8);
-		unsigned bar2 = pci.conf_read(address+0x10+i*8 + 4);
+		unsigned bar1 = pci.conf_read(bdf, 0x10+i*8);
+		unsigned bar2 = pci.conf_read(bdf, 0x10+i*8 + 4);
 
 		// try legacy port
 		if (!bar1 && !bar2) { if (!i) { bar1=0x1f1; bar2=0x3f7; } else { bar1=0x171; bar2=0x377; } }

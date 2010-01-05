@@ -52,7 +52,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   };
 
 
-  inline bool wait_status(unsigned char mask, unsigned char value)
+  bool wait_status(unsigned char mask, unsigned char value)
   {
     timevalue timeout = _clock->abstime(TIMEOUT, FREQ);
     unsigned char status;
@@ -63,9 +63,9 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  inline bool wait_output_full()  {  return wait_status(0x1, 1); }
-  inline bool wait_input_empty()  {  return wait_status(0x2, 0); }
-  inline bool disable_devices()  __attribute__((always_inline))
+  bool wait_output_full()  {  return wait_status(0x1, 1); }
+  bool wait_input_empty()  {  return wait_status(0x2, 0); }
+  bool disable_devices()
   {
     if (!wait_input_empty()) return false;
     outb(0xad, _base + 4);
@@ -79,7 +79,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     return true;
   }
 
-  inline bool enable_devices()
+  bool enable_devices()
   {
     if (!wait_input_empty()) return false;
     outb(0xae, _base + 4);
@@ -89,7 +89,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     return true;
   }
 
-  inline bool read_cmd(unsigned char cmd, unsigned char &value)
+  bool read_cmd(unsigned char cmd, unsigned char &value)
   {
     if (!wait_input_empty()) return false;
     outb(cmd, _base + 4);
@@ -99,7 +99,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  inline bool write_cmd(unsigned char cmd, unsigned char value)
+  bool write_cmd(unsigned char cmd, unsigned char value)
   {
     if (!wait_input_empty()) return false;
     outb(cmd, _base + 4);
@@ -108,7 +108,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     return true;
   }
 
-  inline bool wait_ack()
+  bool wait_ack()
   {
     unsigned char status;
     timevalue timeout = _clock->abstime(TIMEOUT, FREQ);
@@ -122,7 +122,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     return false;
   }
 
-  inline bool write_keyboard_ack(unsigned char value)
+  bool write_keyboard_ack(unsigned char value)
   {
     if (!wait_input_empty()) return false;
     outb(value,_base);
@@ -130,7 +130,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  inline bool write_mouse_ack(unsigned char value)   __attribute__((always_inline))
+  bool write_mouse_ack(unsigned char value)
   {
     if (!wait_input_empty()) return false;
     write_cmd(0xd4, value);
@@ -138,7 +138,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  inline void handle_aux(unsigned char data)   __attribute__((always_inline))
+  void handle_aux(unsigned char data)
   {
     switch (_mousestate & 0xff)
       {
@@ -180,7 +180,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   /**
    * Handle a scancode send from the keyboard.
    */
-  inline void handle_scancode(unsigned char key)  __attribute__((always_inline))
+  void handle_scancode(unsigned char key)
   {
     /**
      * There are some bad BIOS around which does not emulate SC2.

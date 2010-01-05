@@ -36,7 +36,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
       PCI_CFG_SPACE_MASK = 0xff,
       PCI_CFG_SPACE_DWORDS = 64,
     };
-  unsigned _address;
+  unsigned _bdf;
   unsigned _hostirq;
   unsigned _cfgspace[PCI_CFG_SPACE_DWORDS];
   unsigned _bars[BARS];
@@ -61,24 +61,24 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   /**
    * Read the bars and the corresponding masks.
    */
-  void __attribute__((always_inline)) read_bars()
+  void read_bars()
     {
 
       // disable device
-      unsigned cmd = conf_read(_address + 0x4);
-      conf_write(_address + 0x4, cmd & ~0x7);
+      unsigned cmd = conf_read(_bdf, 0x4);
+      conf_write(_bdf, 0x4, cmd & ~0x7);
 
       // read bars and masks
       for (unsigned i=0; i < count_bars(); i++)
 	{
-	  unsigned a = _address + 0x10 + i*4;
-	  _bars[i] = conf_read(a);
-	  conf_write(a, ~0U);
-	  _masks[i] = conf_read(a);
-	  conf_write(a, _bars[i]);
+	  unsigned a = 0x10 + i*4;
+	  _bars[i] = conf_read(_bdf, a);
+	  conf_write(_bdf, a, ~0U);
+	  _masks[i] = conf_read(_bdf, a);
+	  conf_write(_bdf, a, _bars[i]);
 	}
       // reenable device
-      conf_write(_address + 0x4, cmd);
+      conf_write(_bdf, 0x4, cmd);
 
 
       for (unsigned i=0; i < count_bars(); i++)
@@ -133,7 +133,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
  public:
 
 
-  bool  receive(MessageIOIn &msg)
+  bool receive(MessageIOIn &msg)
   {
     unsigned old_port = msg.port;
     unsigned new_port = msg.port;
@@ -145,7 +145,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool  receive(MessageIOOut &msg)
+  bool receive(MessageIOOut &msg)
   {
     unsigned old_port = msg.port;
     unsigned new_port = msg.port;
@@ -157,41 +157,40 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool __attribute__((always_inline))  receive(MessagePciCfg &msg)
+  bool receive(MessagePciConfig &msg)
   {
-    if (!(msg.address & ~0xff))
+    if (!msg.bdf)
       {
-	bool res;
-	if (msg.type == MessagePciCfg::TYPE_READ)
+	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    assert(msg.address <= PCI_CFG_SPACE_MASK);
-	    if (in_range(msg.address, 0x10, BARS * 4))
-	      memcpy(&msg.value, reinterpret_cast<char *>(_cfgspace) + msg.address, 4);
+	    assert(msg.offset <= PCI_CFG_SPACE_MASK);
+	    if (in_range(msg.offset, 0x10, BARS * 4))
+	      memcpy(&msg.value, reinterpret_cast<char *>(_cfgspace) + msg.offset, 4);
 	    else
-	      msg.value = conf_read(_address + msg.address & ~0x3) >> (8 * (msg.address & 3));
+	      msg.value = conf_read(_bdf, msg.offset & ~0x3) >> (8 * (msg.offset & 3));
 
 	    // disable capabilities, thus MSI is not known
-	    if (msg.address == 0x4)   msg.value &= ~0x10;
-	    if (msg.address == 0x34)  msg.value &= ~0xff;
+	    if (msg.offset == 0x4)   msg.value &= ~0x10;
+	    if (msg.offset == 0x34)  msg.value &= ~0xff;
 
 	    // disable multi-function devices
-	    if (msg.address == 0xc)   msg.value &= ~0x800000;
-	    Logging::printf("%s:%x -- %x,%x\n", __PRETTY_FUNCTION__, _address, msg.address, msg.value);
+	    if (msg.offset == 0xc)   msg.value &= ~0x800000;
+	    Logging::printf("%s:%x -- %x,%x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
 	    return true;
 	  }
 	else
 	  {
-	    assert(msg.address <= PCI_CFG_SPACE_MASK);
-	    assert(!(msg.address & 3));
+	    assert(msg.offset <= PCI_CFG_SPACE_MASK);
+	    assert(!(msg.offset & 3));
 	    unsigned mask = ~0u;
-	    if (in_range(msg.address, 0x10, BARS * 4))  mask &= _masks[(msg.address - 0x10) >> 2];
-	    _cfgspace[msg.address >> 2] = _cfgspace[msg.address >> 2] & ~mask | msg.value & mask;
+	    if (in_range(msg.offset, 0x10, BARS * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
+	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
 
 	    // write through if not in the bar-range
-	    if (!in_range(msg.address, 0x10, BARS * 4) && msg.address)
-	      conf_write(_address + msg.address, _cfgspace[msg.address >> 2]);
+	    if (!in_range(msg.offset, 0x10, BARS * 4) && msg.offset)
+	      conf_write(_bdf, msg.offset, _cfgspace[msg.offset >> 2]);
 
-	    Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _address, msg.address, _cfgspace[msg.address >> 2], conf_read(_address + msg.address));
+	    Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], conf_read(_bdf, msg.offset));
 	  return true;
 	  }
       }
@@ -199,7 +198,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool  receive(MessageIrq &msg)
+  bool receive(MessageIrq &msg)
   {
     if (msg.line != _hostirq)  return false;
     Logging::printf("Forwarding irq message #%x  %x -> %x\n", msg.type, msg.line, _cfgspace[15] & 0xff);
@@ -209,7 +208,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool  receive(MessageIrqNotify &msg)
+  bool receive(MessageIrqNotify &msg)
   {
     unsigned irq = _cfgspace[15] & 0xff;
     if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7)))
@@ -222,7 +221,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool  receive(MessageMemWrite &msg)
+  bool receive(MessageMemWrite &msg)
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
@@ -233,7 +232,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  bool  receive(MessageMemRead &msg)
+  bool receive(MessageMemRead &msg)
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
@@ -244,29 +243,29 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
-  DirectPciDevice(Motherboard &mb, unsigned address, unsigned hostirq) : HostPci(mb.bus_hwpcicfg), _mb(mb), _address(address), _hostirq(hostirq), _bars(), _masks()
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
     {
-      for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(address | i<<2);
+      for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
       read_bars();
 
       // disable msi
-      unsigned offset = find_cap(address, 0x5);
+      unsigned offset = find_cap(_bdf, 0x5);
       if (offset)
 	{
-	  unsigned ctrl = conf_read(address + offset);
+	  unsigned ctrl = conf_read(_bdf, offset);
 	  Logging::printf("MSI cap @%x ctrl %x  - disabling\n", offset, ctrl);
 	  ctrl &= 0xffff;
-	  conf_write(address + offset, ctrl);
+	  conf_write(_bdf, offset, ctrl);
 	}
       // and msi-x
-      offset = find_cap(address, 0x11);
+      offset = find_cap(_bdf, 0x11);
       if (offset)
 	{
-	  unsigned ctrl = conf_read(address + offset);
+	  unsigned ctrl = conf_read(_bdf, offset);
 	  ctrl &= 0xffff;
-	  conf_write(address + offset, ctrl);
+	  conf_write(_bdf, offset, ctrl);
 	  Logging::printf("MSI-X cap @%x ctrl %x  - disabling\n", offset, ctrl);
-	  conf_write(address + offset, ctrl);
+	  conf_write(_bdf, offset, ctrl);
 	}
     }
 };
@@ -276,17 +275,17 @@ PARAM(dpci,
 	HostPci  pci(mb.bus_hwpcicfg);
 	unsigned irqline = ~0UL;
 	unsigned irqpin;
-	unsigned address = pci.search_device(argv[0], argv[1], argv[2], irqline, irqpin);
-	if (!address)
+	unsigned bdf = pci.search_device(argv[0], argv[1], argv[2], irqline, irqpin);
+	if (!bdf)
 	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
 	else
 	  {
 	    if (argv[5] != ~0UL) irqline = argv[5];
-	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x address %x \n", argv[0], argv[1], argv[2], irqline, address);
-	    DirectPciDevice *dev = new DirectPciDevice(mb, address, irqline);
+	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
+	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
 
 	    // add to PCI bus
-	    MessagePciBridgeAdd msg2(argv[4], dev, &DirectPciDevice::receive_static<MessagePciCfg>);
+	    MessagePciBridgeAdd msg2(argv[4], dev, &DirectPciDevice::receive_static<MessagePciConfig>);
 	    if (!mb.bus_pcibridge.send(msg2, argv[3] == ~0UL ? 0 : argv[3]))
 	      Logging::printf("could not add PCI device to %lx:%lx\n", argv[3], argv[4]);
 

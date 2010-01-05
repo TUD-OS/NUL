@@ -27,7 +27,7 @@ class Elf
   /**
    * Decode an elf32 binary.
    */
-  static unsigned  decode_elf(char *module, char *phys_mem, unsigned long &rip, unsigned long &maxptr, unsigned long mem_size, unsigned long mem_offset) __attribute__((always_inline))
+  static unsigned  decode_elf(char *module, char *phys_mem, unsigned long &rip, unsigned long &maxptr, unsigned long mem_size, unsigned long mem_offset)
   {
     struct eh32 *elf = reinterpret_cast<struct eh32 *>(module);
     rip = elf->e_entry;

@@ -20,7 +20,7 @@
 
 enum {
   PCI_DEVICE_PER_BUS = 32*8,
-  PCI_CFG_SPACE_DWORDS = 64,
+  PCI_CFG_SPACE_DWORDS = 1024,
   PCI_CFG_SPACE_MASK = PCI_CFG_SPACE_DWORDS * 4 - 1,
 };
 
@@ -53,19 +53,19 @@ class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
   /**
    * The PCI bus transaction function.
    */
-  bool receive(MessagePciCfg &msg)
+  bool receive(MessagePciConfig &msg)
   {
     // config read/write type0 function 0
-    if (!(msg.address & ~0xff))
+    if (!msg.bdf)
       {
 	bool res;
-	if (msg.type == MessagePciCfg::TYPE_READ)
+	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
 	    msg.value = 0;
-	    res = HwRegisterSet< PciDeviceConfigSpace<Y> >::read_all_regs(msg.address, msg.value, 4);
+	    res = HwRegisterSet< PciDeviceConfigSpace<Y> >::read_all_regs(msg.offset, msg.value, 4);
 	  }
 	else
-	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.address, msg.value, 4);
+	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.offset, msg.value, 4);
 	return res;
       }
     return false;

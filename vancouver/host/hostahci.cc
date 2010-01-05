@@ -181,8 +181,6 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
   unsigned start_command(unsigned long usertag)
   {
-    unsigned prd = _cl[_tag*CL_DWORDS] >> 16;
-
     // remember work in progress commands
     _inprogress |= 1 << _tag;
     _usertags[_tag] = usertag;
@@ -361,7 +359,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
  */
 class HostAhci : public StaticReceiver<HostAhci>
 {
-  unsigned long _address;
+  unsigned _bdf;
   unsigned _hostirq;
   HostAhciRegister     *_regs;
   HostAhciPortRegister *_regs_high;
@@ -388,11 +386,11 @@ class HostAhci : public StaticReceiver<HostAhci>
 
  public:
 
-  HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long address, unsigned hostirq)
-    : _address(address), _hostirq(hostirq), _regs_high(0) {
+  HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq)
+    : _bdf(bdf), _hostirq(hostirq), _regs_high(0) {
 
-    assert(!(~pci.conf_read(_address+4) & 6) && "we need mem-decode and busmaster dma");
-    unsigned long bar = pci.conf_read(_address+0x24);
+    assert(!(~pci.conf_read(_bdf, 4) & 6) && "we need mem-decode and busmaster dma");
+    unsigned long bar = pci.conf_read(_bdf, 0x24);
     assert(!(bar & 7) && "we need a 32bit memory bar");
 
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar, 0x1000);
@@ -455,18 +453,18 @@ PARAM(hostahci,
 	unsigned irqpin;
 	HostPci pci(mb.bus_hwpcicfg);
 
-	for (unsigned address, num = 0; address = pci.search_device(0x1, 0x6, num++, irqline, irqpin);) {
+	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x6, num++, irqline, irqpin);) {
 	  if (~argv[0] & (1UL << num))
 	    {
-	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, address, irqline, irqpin);
+	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 	      continue;
 	    }
 	  // XXX
 	  if (~argv[1]) irqline = argv[1];
 	  // else irqline = 0x13;
 
-	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), address, irqline);
-	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, address, irqline, irqpin);
+	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline);
+	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
 
 	  MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);

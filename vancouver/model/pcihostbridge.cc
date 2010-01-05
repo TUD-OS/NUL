@@ -28,7 +28,7 @@
  */
 class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
-  DBus<MessagePciCfg> _devices;
+  DBus<MessagePciConfig> _devices;
   unsigned char  _secondarybus;
   unsigned char  _subord;
   unsigned short _iobase;
@@ -42,10 +42,10 @@ class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticR
    */
   unsigned read_pcicfg(bool &res)
   {
-    MessagePciCfg msg(_confaddress);
+    MessagePciConfig msg(_confaddress >> 8, _confaddress & 0xfc);
     if (_secondarybus == ((_confaddress >> 16) & 0xff))
       {
-	msg.address &= 0xfc;
+	msg.bdf = 0;
 	res = _devices.send(msg, true, (_confaddress >> 8) % PCI_DEVICE_PER_BUS);
       }
     else
@@ -89,10 +89,10 @@ public:
 	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
 	bool res;
 	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
-	MessagePciCfg msg2(_confaddress + (msg.port & 0x3), value);
+	MessagePciConfig msg2(_confaddress + (msg.port & 0x3), value);
 	if (_secondarybus == ((_confaddress >> 16) & 0xff))
 	  {
-	    msg2.address &= 0xff;
+	    msg2.bdf = 0;
 	    res = _devices.send(msg2, true, (_confaddress >> 8) % PCI_DEVICE_PER_BUS);
 	  }
 	else
@@ -113,10 +113,10 @@ public:
     return true;
   }
 
-  bool receive(MessagePciCfg &msg) { return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
+  bool receive(MessagePciConfig &msg) { return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
 
   PciHostBridge(unsigned busnum, unsigned short iobase) :  _secondarybus(busnum), _subord(busnum), _iobase(iobase), _confaddress(0) {
-    MessagePciBridgeAdd msg(0, this, &PciHostBridge::receive_static<MessagePciCfg>);
+    MessagePciBridgeAdd msg(0, this, &PciHostBridge::receive_static<MessagePciConfig>);
     receive(msg);
  }
 };

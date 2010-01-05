@@ -128,34 +128,17 @@ struct MessageMemAlloc
 /**
  * A PCI config space transaction.
  */
-struct MessagePciCfg
+struct MessagePciConfig
 {
   enum Type {
     TYPE_READ,
     TYPE_WRITE
   } type;
-  unsigned address;
+  unsigned bdf;
+  unsigned short offset;
   unsigned value;
-  MessagePciCfg(unsigned _address) : type(TYPE_READ), address(_address), value(0xffffffff) {}
-  MessagePciCfg(unsigned _address, unsigned _value) : type(TYPE_WRITE), address(_address), value(_value) {}
-};
-
-/**
- * An extended PCI config space transaction.
- */
-struct MessageExtPciCfg
-{
-  enum Type {
-    TYPE_READ,
-    TYPE_WRITE
-  } type;
-
-  uint16_t bdf;
-  uint16_t reg;
-  uint32_t value;
-
-  MessageExtPciCfg(uint16_t _bdf, uint16_t _reg) : type(TYPE_READ), bdf(_bdf), reg(_reg), value(~0UL) {}
-  MessageExtPciCfg(uint16_t _bdf, uint16_t _reg, uint32_t _value) : type(TYPE_WRITE), bdf(_bdf), reg(_reg), value(_value) {}
+  MessagePciConfig(unsigned _bdf, unsigned short _offset) : type(TYPE_READ), bdf(_bdf), offset(_offset), value(0xffffffff) {}
+  MessagePciConfig(unsigned _bdf, unsigned short _offset, unsigned _value) : type(TYPE_WRITE), bdf(_bdf), offset(_offset), value(_value) {}
 };
 
 
@@ -163,13 +146,13 @@ class Device;
 /**
  * Add a device to a  PCI bridge.
  */
-typedef bool (*PciCfgFunction) (Device *, MessagePciCfg &);
+typedef bool (*PciConfigFunction) (Device *, MessagePciConfig &);
 struct MessagePciBridgeAdd
 {
   unsigned devfunc;
   Device *dev;
-  PciCfgFunction func;
-  MessagePciBridgeAdd(unsigned _devfunc, Device *_dev, PciCfgFunction _func) : devfunc(_devfunc), dev(_dev), func(_func) {}
+  PciConfigFunction func;
+  MessagePciBridgeAdd(unsigned _devfunc, Device *_dev, PciConfigFunction _func) : devfunc(_devfunc), dev(_dev), func(_func) {}
 };
 
 

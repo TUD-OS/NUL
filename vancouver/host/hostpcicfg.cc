@@ -28,33 +28,37 @@ class PciConfigAccess : public StaticReceiver<PciConfigAccess>
   DBus<MessageIOOut> _hwioout;
   const char *debug_getname() { return "PCIAccess"; };
 public:
-  
+
   PciConfigAccess(DBus<MessageIOIn> hwioin, DBus<MessageIOOut> hwioout) : _hwioin(hwioin), _hwioout(hwioout) {};
-  bool  receive(MessagePciCfg &msg)
+  bool  receive(MessagePciConfig &msg)
   {
-    MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, msg.address);
-    if (_hwioout.send(msg1))
+    if (msg.offset < 0x100)
       {
-	if (msg.type == MessagePciCfg::TYPE_READ)
+	MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | msg.offset);
+	if (_hwioout.send(msg1))
 	  {
-	    MessageIOIn msg2(MessageIOIn::TYPE_INL, BASE+4);
-	    bool res = _hwioin.send(msg2);
-	    msg.value = msg2.value;
-	    return res;
-	  }
-	else
-	  {
-	    MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
-	    return _hwioout.send(msg2);
+	    if (msg.type == MessagePciConfig::TYPE_READ)
+	      {
+		MessageIOIn msg2(MessageIOIn::TYPE_INL, BASE+4);
+		bool res = _hwioin.send(msg2);
+		msg.value = msg2.value;
+		return res;
+	      }
+	    else
+	      {
+		MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
+		return _hwioout.send(msg2);
+	      }
 	  }
       }
     return false;
   }
 };
 
+
 PARAM(pcicfg,
       {
 	Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout);
-	mb.bus_hwpcicfg.add(dev, &PciConfigAccess::receive_static<MessagePciCfg>);
+	mb.bus_hwpcicfg.add(dev, &PciConfigAccess::receive_static<MessagePciConfig>);
       },
-      "pcicfg - provide HW PCI config space access.");
+      "pcicfg - provide HW PCI config space access through IO ports 0xcf8/0xcfc.");
