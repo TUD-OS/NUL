@@ -177,7 +177,7 @@ public:
 
   bool  receive(MessageIOIn   &msg) {   return _hostmb.bus_hwioin.send(msg);   }
   bool  receive(MessageIOOut  &msg) {   return _hostmb.bus_hwioout.send(msg);  }
-  bool  receive(MessagePciConfig &msg) {   return _hostmb.bus_hwpcicfg.send(msg); }
+  bool  receive(MessagePciConfig &msg) {   return _hostmb.bus_hwpcicfg.send(msg, true); }
 
 
   bool  receive(MessageVesa   &msg) {   

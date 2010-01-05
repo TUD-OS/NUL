@@ -31,14 +31,14 @@ class HostPci
   unsigned conf_read(unsigned bdf, unsigned short offset)
   {
     MessagePciConfig msg(bdf, offset);
-    _bus_pcicfg.send(msg);
+    _bus_pcicfg.send(msg, true);
     return msg.value;
   }
 
   void conf_write(unsigned bdf, unsigned short offset, unsigned value)
   {
     MessagePciConfig msg(bdf, offset, value);
-    _bus_pcicfg.send(msg);
+    _bus_pcicfg.send(msg, true);
   }
 
   /**
@@ -46,20 +46,20 @@ class HostPci
    */
   unsigned search_device(unsigned theclass, unsigned subclass, unsigned instance, unsigned &irqline, unsigned &irqpin)
   {
-    for (unsigned i=0; i< (1<<13); i++)
+    for (unsigned i=0; i < (1<<13); i++)
       {
 	unsigned char maxfunc = 1;
 	for (unsigned func=0; func < maxfunc; func++)
 	  {
 	    unsigned bdf =  i << 3 | func;
+	    unsigned value = conf_read(bdf, 0x8);
+	    if (value == ~0UL) continue;
 	    if (maxfunc == 1 && conf_read(bdf, 0xc) & 0x800000)
 	      maxfunc = 8;
-	    unsigned value = conf_read(bdf, 0x8);
 	    if ((theclass == ~0UL || ((value >> 24) & 0xff) == theclass)
 		&& (subclass == ~0UL || ((value >> 16) & 0xff) == subclass)
 		&& (instance == ~0UL || !instance--))
 	      {
-
 		unsigned v = conf_read(bdf, 0x3c);
 		irqline = v & 0xff00 ? v & 0xff : ~0UL;
 		irqpin = (v >> 8) & 0xff;
