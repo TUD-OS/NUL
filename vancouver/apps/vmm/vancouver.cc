@@ -448,7 +448,7 @@ public:
   bool  receive(MessageTime &msg) {  return Sigma0Base::time(msg);  }
 
 public:
-  void __attribute__((always_inline, noreturn)) run(Hip *hip)
+  void __attribute__((noreturn)) run(Hip *hip)
   {
     console_init("VMM");
     assert(hip);

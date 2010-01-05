@@ -103,7 +103,7 @@ EXCP_FUNC(do_timer,
 	  while (1)
 	    {
 	      COUNTER_INC("timer");
-	      TimerItem *item = timerconsumer->get_buffer();
+	      timerconsumer->get_buffer();
 	      timerconsumer->free_buffer();
 
 	      SemaphoreGuard l(_lock);

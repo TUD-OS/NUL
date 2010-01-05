@@ -308,7 +308,6 @@ public:
     _ram[0xd] = 0x80; // Valid RAM and Time
 
     timevalue now = Math::muldiv128(time.wallclocktime - time.timestamp, FREQ, MessageTime::FREQUENCY);
-    unsigned mod = now % FREQ;
     update_ram(now / FREQ);
     set_irqflags(0);
     _offset = _clock->clock(FREQ);

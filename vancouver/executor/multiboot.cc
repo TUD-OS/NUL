@@ -157,7 +157,7 @@ private:
     Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, 
 		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
-    unsigned long rip;
+    unsigned long rip = 0xfffffff0;
     unsigned long mbi = 0x10000;
 
     if (!init_mbi(mbi, rip))  return false;

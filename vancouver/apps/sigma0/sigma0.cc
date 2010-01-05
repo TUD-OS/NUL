@@ -337,7 +337,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
 	  {
 	    bool vcpus = strstr(cmdline, "sigma0::vmm");
-	    unsigned affinity;
 	    char *p = strstr(cmdline, "sigma0::cpu");
 	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
 	    assert(_percpu[cpunr].cap_ec_worker);
@@ -738,7 +737,7 @@ public:
   }
 
 
-  void  __attribute__((always_inline, noreturn)) run(Hip *hip)
+  void  __attribute__((noreturn)) run(Hip *hip)
   {
     unsigned res;
     if ((res = preinit(hip)))              Logging::panic("init() failed with %x\n", res);

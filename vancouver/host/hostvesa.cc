@@ -177,7 +177,7 @@ public:
 
   bool  receive(MessageIOIn   &msg) {   return _hostmb.bus_hwioin.send(msg);   }
   bool  receive(MessageIOOut  &msg) {   return _hostmb.bus_hwioout.send(msg);  }
-  bool  receive(MessagePciCfg &msg) {   return _hostmb.bus_hwpcicfg.send(msg); }
+  bool  receive(MessagePciConfig &msg) {   return _hostmb.bus_hwpcicfg.send(msg); }
 
 
   bool  receive(MessageVesa   &msg) {   
@@ -210,7 +210,7 @@ public:
     _mb.bus_timer.   add(this, &receive_static<MessageTimer>);
     _mb.bus_hwioin.  add(this, &receive_static<MessageIOIn>);
     _mb.bus_hwioout. add(this, &receive_static<MessageIOOut>);
-    _mb.bus_hwpcicfg.add(this, &receive_static<MessagePciCfg>);
+    _mb.bus_hwpcicfg.add(this, &receive_static<MessagePciConfig>);
 
 
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0 , 1<<20);
@@ -265,7 +265,7 @@ public:
   
 PARAM(hostvesa,
       {
-	HostVesa *dev = new HostVesa(mb, !argv[0]);
+	new HostVesa(mb, !argv[0]);
 
       },
       "hostvesa:nodebug=1 - provide a VESA console as backend for a VESA model.",

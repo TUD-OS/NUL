@@ -361,7 +361,6 @@ helper_LDT(LGDT, gd)
     //Logging::printf("%s-%x efl %x edi %x ecx %x eip %x prefix %x\n", __func__, feature, msg.cpu->efl, msg.cpu->edi, msg.cpu->ecx, msg.cpu->eip, entry->prefixes);
     while (entry->address_size == 1 && msg.cpu->cx || entry->address_size == 2 && msg.cpu->ecx || !(entry->prefixes & 0xff))
       {
-	unsigned res;
 	void *src = &msg.cpu->eax;
 	void *dst = &msg.cpu->eax;
 	FEATURE(SH_LOAD_ESI, NCHECK(logical_mem<operand_size>(msg, entry, (&msg.cpu->es) + ((entry->prefixes >> 8) & 0xf), msg.cpu->esi, false, src)));
@@ -951,6 +950,6 @@ static int helper_FXSAVE(MessageExecutor &msg, InstructionCacheEntry *entry)
 
 static int helper_FRSTOR(MessageExecutor &msg, InstructionCacheEntry *entry)
 {
-  unsigned virt = modrm2virt(msg, entry);
+  // unsigned virt = modrm2virt(msg, entry);
   UNIMPLEMENTED;
 }
