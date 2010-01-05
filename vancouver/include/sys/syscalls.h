@@ -30,14 +30,17 @@ enum
   NOVA_REVOKE,
   NOVA_RECALL,
   NOVA_SEMCTL,
-  NOVA_PERFCNT,
+  NOVA_ASSIGN_PCI,
+  NOVA_PERFCNT,			/* XXX */
+
   NOVA_FLAG0          = 1 << 8,
   NOVA_FLAG1          = 1 << 9,
   NOVA_FLAG2          = 1 << 10,
   NOVA_IPC_SEND       = NOVA_IPC_CALL | NOVA_FLAG1 | NOVA_FLAG2,
   NOVA_IPC_SEND0      = NOVA_IPC_SEND | NOVA_FLAG0,
-  NOVA_CREATE_PDVM    = NOVA_CREATE_PD| NOVA_FLAG0,
-  NOVA_CREATE_ECWORK  = NOVA_CREATE_EC| NOVA_FLAG0,
+  NOVA_PD_VM          = NOVA_FLAG0,
+  NOVA_PD_DMA         = NOVA_FLAG1,
+  NOVA_CREATE_ECWORK  = NOVA_CREATE_EC | NOVA_FLAG0,
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
   NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0,
@@ -86,9 +89,10 @@ inline unsigned char  idc_send0(unsigned idx_pt, Mtd mtd_send)
 
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(Utcb *utcb);
 
-inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, bool vcpus, unsigned char cpunr)
-{  return syscall(vcpus ? NOVA_CREATE_PDVM : NOVA_CREATE_PD, idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
-
+inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, bool vcpus, unsigned char cpunr,
+				 bool dma = false)
+{  return syscall(NOVA_CREATE_PD | (vcpus ? NOVA_PD_VM : 0) | (dma ? NOVA_PD_DMA : 0),
+		  idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
 
 inline unsigned char  create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker)
 {  return syscall(worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC, idx_ec, reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); }
@@ -119,6 +123,9 @@ inline unsigned char  semup(unsigned idx_sm)
 
 inline unsigned char  semdown(unsigned idx_sm) 
 {  return syscall(NOVA_SEMCTL_DOWN, idx_sm, 0, 0, 0); }
+
+inline unsigned char  assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
+{  return syscall(NOVA_ASSIGN_PCI, pd, pf_rid, vf_rid, 0); }
 
 
 /**
