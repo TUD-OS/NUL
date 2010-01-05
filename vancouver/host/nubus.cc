@@ -13,7 +13,7 @@ public:
 
 class NubusManager {
 protected:
-  DBus<MessageExtPciCfg> &_pci_extcfg;
+  DBus<MessagePciConfig> &_pci_extcfg;
 
   class Device;
 
@@ -29,7 +29,7 @@ protected:
   public:
     uint32_t
     read_cfg(uint8_t df, uint16_t reg) {
-      MessageExtPciCfg msg(_no << 8 | df, reg);
+      MessagePciConfig msg(_no << 8 | df, reg);
 
       if (!_manager._pci_extcfg.send(msg))
 	return ~0UL;
@@ -66,7 +66,7 @@ protected:
 
 public:
 
-  NubusManager(DBus<MessageExtPciCfg> &pci_extcfg)
+  NubusManager(DBus<MessagePciConfig> &pci_extcfg)
     : _pci_extcfg(pci_extcfg),
       _root_bus(*this, 0, NULL)
   {
@@ -77,7 +77,7 @@ public:
 
 PARAM(nubus,
       {
-	new NubusManager(mb.bus_hwextpcicfg);
+	new NubusManager(mb.bus_hwpcicfg);
       },
       "nubus - PCI bus manager");
 
