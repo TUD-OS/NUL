@@ -77,13 +77,13 @@ class HostPci
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
     if (~conf_read(bdf, 4) & 0x100000) return 0;
-    unsigned char cap_offset = conf_read(bdf, 0x34);
+    unsigned char cap_offset = conf_read(bdf, 0x34) & 0xFC;
     while (cap_offset)
       {
-	if (id == (conf_read(bdf, cap_offset) & 0xff))
+	if (id == (conf_read(bdf, cap_offset) & 0xFF))
 	  return cap_offset;
 	else
-	  cap_offset = conf_read(bdf, cap_offset) >> 8;
+	  cap_offset = (conf_read(bdf, cap_offset) >> 8) & 0xFC;
       }
     return 0;
   }
