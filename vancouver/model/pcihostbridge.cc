@@ -89,7 +89,7 @@ public:
 	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
 	bool res;
 	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
-	MessagePciConfig msg2(_confaddress + (msg.port & 0x3), value);
+	MessagePciConfig msg2(_confaddress >> 8, _confaddress & 0xfc, value);
 	if (_secondarybus == ((_confaddress >> 16) & 0xff))
 	  {
 	    msg2.bdf = 0;
