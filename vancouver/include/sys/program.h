@@ -111,7 +111,7 @@ class NovaProgram
     check(hip->calc_checksum());
     _hip = hip;
     _boot_utcb = reinterpret_cast<Utcb *>(hip) - 1;
-    _cap_free = hip->cfg_exc + hip->cfg_gsi;
+    _cap_free = hip->cfg_exc + hip->cfg_gsi + 3;
     create_sm(_cap_block = _cap_free++);
 
     // prepopulate phys+virt memory
