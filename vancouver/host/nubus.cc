@@ -184,6 +184,7 @@ protected:
 
     bool ari_capable();
     
+    // Constructor for the root bus. Only called by the manager itself.
     explicit Bus(NubusManager &manager)
       : _manager(manager), _no(0), _bridge(NULL), _devices(NULL), _buses(NULL) {
       discover_devices();
@@ -195,11 +196,14 @@ protected:
       parent.add_bus(this);
 
       discover_devices();
+
+      // We can only check, if we can enable ARI after devices on this
+      // bus are discovered. They all have to support ARI.
       if (ari_capable()) {
 	Logging::printf("bus[%x] Enabling ARI.\n", _no);
 	assert(ari_enable());
 	
-	// It is important to do enable SR-IOV in ascending order
+	// It is important to enable SR-IOV in ascending order
 	// (regarding functions). The SR-IOV capability of dependent
 	// PFs might otherwise change, when we don't look anymore.
 
