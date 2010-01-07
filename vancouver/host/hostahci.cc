@@ -459,6 +459,12 @@ PARAM(hostahci,
 	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 	      continue;
 	    }
+
+	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
+	  if (mb.bus_hostop.send(msg1))
+	    Logging::panic("%s failed to attach dma %x\n", __PRETTY_FUNCTION__, bdf);
+
+
 	  // XXX
 	  if (~argv[1]) irqline = argv[1];
 	  // else irqline = 0x13;
@@ -467,9 +473,10 @@ PARAM(hostahci,
 	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
 
-	  MessageHostOp msg(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
-	  if (!(msg.value == ~0U || mb.bus_hostop.send(msg)))
+	  MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
+	  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
 	    Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, irqline);
+
 	}
       },
       "hostahci:mask,irq=0x13 - provide a hostdriver for all AHCI controller.",

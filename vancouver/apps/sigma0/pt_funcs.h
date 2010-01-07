@@ -68,7 +68,6 @@ PT_FUNC(do_startup,
 PT_FUNC(do_request,
 	SemaphoreGuard l(_lock);
 	COUNTER_INC("request");
-	bool write_op = false;
 	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
 	ModuleInfo *modinfo = _modinfo + client;
 	if (utcb->head.mtr.untyped() < 0x1000)
@@ -110,8 +109,12 @@ PT_FUNC(do_request,
 	      case REQUEST_IOMEM:
 		if ((utcb->msg[2] & 0x3) == 1)
 		  {
-		    Logging::printf("[%x] iomem %x granted\n", utcb->head.pid, utcb->msg[2]);
+		    unsigned long addr = utcb->msg[2] & ~0xfff;
+		    char *ptr = map_self(utcb, addr, Crd(utcb->msg[2]).size());
+		    utcb->msg[1] = 0;
+		    utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
 		    utcb->head.mtr = Mtd(1, 1);
+		    Logging::printf("[%x] iomem %lx+%x granted from %x\n", utcb->head.pid, addr, Crd(utcb->msg[2]).size(), utcb->msg[2]);
 		  }
 		else
 		  Logging::printf("[%x] iomem request dropped %x\n", utcb->head.pid, utcb->msg[2]);
@@ -241,12 +244,19 @@ PT_FUNC(do_request,
 			utcb->msg[0] = 0;
 		      }
 		      break;
+		    case MessageHostOp::OP_ASSIGN_PCI:
+		      if (modinfo->dma)
+			{
+			  msg->value = assign_pci(modinfo->cap_pd, msg->value, 0);
+			  utcb->msg[0] = 0;
+			  break;
+			}
 		    case MessageHostOp::OP_ALLOC_IOIO_REGION:
 		    case MessageHostOp::OP_ALLOC_IOMEM:
 		    case MessageHostOp::OP_ATTACH_HOSTIRQ:
 		    case MessageHostOp::OP_GUEST_MEM:
 		    case MessageHostOp::OP_VIRT_TO_PHYS:
-		    case MessageHostOp::OP_UNMASK_IRQ:
+		    case MessageHostOp::OP_NOTIFY_IRQ:
 		    default:
 		      // unhandled
 		      Logging::printf("(%x) unknown request (%x,%x,%x) dropped \n", utcb->head.pid, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
@@ -291,6 +301,15 @@ PT_FUNC(do_request,
 		      msg2.client = client;
 		      _mb->bus_network.send(msg2);
 		    }
+		}
+		break;
+	      case REQUEST_PCICFG:
+		{
+		  MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
+		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+		    utcb->msg[0] = ~0x10u;
+		  else
+		    utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
 		}
 		break;
 	      default:

@@ -42,8 +42,8 @@ const void *   _forward_pkt;
 long           _lockcount;
 Semaphore      _lock;
 TimeoutList<32>_timeouts;
-
-unsigned _keyboard_modifier = KBFLAG_RWIN;
+unsigned       _shared_sem[256];
+unsigned       _keyboard_modifier = KBFLAG_RWIN;
 PARAM(kbmodifier,
       _keyboard_modifier = argv[0];
       ,
@@ -103,6 +103,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_time.add(this, &Vancouver::receive_static<MessageTime>);
     _mb->bus_network.add(this, &Vancouver::receive_static<MessageNetwork>);
     _mb->bus_legacy.add(this, &Vancouver::receive_static<MessageLegacy>);
+    _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
 
     // create default devices
     char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax ioio";
@@ -118,7 +119,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
 
-    if (hostirq != ~0u) check(Sigma0Base::request_irq(hostirq + _hip->cfg_exc));
+    if (hostirq != ~0u) check(Sigma0Base::request_irq((hostirq & 0xff)+ _hip->cfg_exc));
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
@@ -126,11 +127,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 
+    check(create_sm(_shared_sem[hostirq & 0xff] = _cap_free++));
+
     unsigned cap_ec =  _cap_free++;
     check(create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
     utcb->head.tls = reinterpret_cast<unsigned>(this);
-    utcb->msg[0] = hostirq + _hip->cfg_exc; // the caps for irq threads start here
+    utcb->msg[0] = (hostirq & 0xff) + _hip->cfg_exc; // the caps for irq threads start here
     utcb->msg[1] = hostirq;
+    utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
     // XXX How many time should an IRQ thread get?
     check(create_sc(_cap_free++, cap_ec, Qpd(2, 10000)));
@@ -359,7 +363,7 @@ public:
 	res = msg.value;
 	break;
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
-	res = create_irq_thread(msg.value & 0xff, do_gsi);
+	res = create_irq_thread(msg.value, do_gsi);
 	break;
       case MessageHostOp::OP_GUEST_MEM:
 	if (msg.value >= _physsize)
@@ -371,13 +375,15 @@ public:
 	    msg.ptr    = &__guestmem + msg.value;
 	  }
 	break;
-      case MessageHostOp::OP_GET_MODULE:
-	res          = Sigma0Base::hostop(msg);
+      case MessageHostOp::OP_NOTIFY_IRQ:
+	semup(_shared_sem[msg.value & 0xff]);
+	res = true;
 	break;
+      case MessageHostOp::OP_GET_MODULE:
+      case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_GET_UID:
 	res = Sigma0Base::hostop(msg);
 	break;
-      case MessageHostOp::OP_UNMASK_IRQ:
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
@@ -400,7 +406,7 @@ public:
     Sigma0Base::network(msg);
     return true;
   }
-
+  bool  receive(MessagePciConfig &msg) {  return Sigma0Base::pcicfg(msg);  }
 
   static void timeout_trigger()
   {

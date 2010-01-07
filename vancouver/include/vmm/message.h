@@ -436,16 +436,17 @@ struct MessageVesa
 /****************************************************/
 
 /**
- * Request to the host, such as unmask irq or request IO region.
+ * Request to the host, such as notify irq or request IO region.
  */
 struct MessageHostOp
 {
   enum Type
     {
-      OP_UNMASK_IRQ,
+      OP_NOTIFY_IRQ,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
       OP_ATTACH_HOSTIRQ,
+      OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
       OP_GET_UID,

@@ -763,7 +763,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
 	// we have all ports and irqs
 	return true;
-      case MessageHostOp::OP_UNMASK_IRQ:
+      case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_GET_MODULE:

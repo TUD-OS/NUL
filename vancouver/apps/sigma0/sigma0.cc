@@ -73,6 +73,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     Hip *         hip;
     unsigned      mod_nr;
     unsigned      mod_count;
+    unsigned      cap_pd;    
     unsigned long rip;
     char          tag[256];
     char *        mem;
@@ -80,6 +81,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     unsigned long physsize;
     unsigned long console;
     bool          log;
+    bool          dma;
     StdinProducer prod_stdin;
     unsigned char disks[MAXDISKS];
     unsigned char disk_count;
@@ -336,7 +338,6 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	char *cmdline = map_string(utcb, mod->aux);
 	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
 	  {
-	    bool vcpus = strstr(cmdline, "sigma0::vmm");
 	    char *p = strstr(cmdline, "sigma0::cpu");
 	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
 	    assert(_percpu[cpunr].cap_ec_worker);
@@ -350,7 +351,9 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    memset(modinfo, 0, sizeof(*modinfo));
 	    modinfo->mod_nr    = i;
 	    modinfo->mod_count = 1;
+	    modinfo->dma  = strstr(cmdline, "sigma0::dma");
 	    modinfo->log = strstr(cmdline, "sigma0::log");
+	    bool vcpus   = strstr(cmdline, "sigma0::vmm");
 	    Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
 
 	    // alloc memory
@@ -413,8 +416,9 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    check(create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	    check(create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
-	    Logging::printf("create %s on CPU %d\n", vcpus ? "VMM" : "PD", cpunr);
-	    check(create_pd(_cap_free++, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr));
+	    Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", cpunr);
+	    modinfo->cap_pd = _cap_free++;
+	    check(create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr, modinfo->dma));
 	  }
       }
     return 0;
@@ -681,6 +685,8 @@ public:
 	  {
 	    msg.phys_len = r->end() - msg.value;
 	    msg.phys     = r->phys  + msg.value - r->virt;
+	    if (_hip->has_dma())  msg.phys = msg.value;
+	    Logging::printf("virt2phys %lx -> %lx+%lx\n", msg.value, msg.phys, msg.phys_len);
 	  }
 	else
 	  res = false;
@@ -700,7 +706,10 @@ public:
 	    res = false;
 	}
 	break;
-      case MessageHostOp::OP_UNMASK_IRQ:
+      case MessageHostOp::OP_ASSIGN_PCI:
+	res = assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, 0);
+	break;
+      case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_GUEST_MEM:
       default:

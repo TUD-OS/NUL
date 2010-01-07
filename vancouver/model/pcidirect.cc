@@ -17,6 +17,7 @@
 
 #include "vmm/motherboard.h"
 #include "host/hostpci.h"
+#include "models/pci.h"
 
 
 /**
@@ -24,7 +25,7 @@
  *
  * State: testing
  * Features: pcicfgspace, ioport operations, memory read/write, host irq
- * Missing: DMA remapping, MSI
+ * Missing: DMA remapping, MSI, mem-alloc
  * Documentation: PCI spec v.2.2
  */
 class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
@@ -33,8 +34,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   enum
     {
       BARS = 6,
-      PCI_CFG_SPACE_MASK = 0xff,
-      PCI_CFG_SPACE_DWORDS = 64,
     };
   unsigned _bdf;
   unsigned _hostirq;
@@ -84,7 +83,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
       for (unsigned i=0; i < count_bars(); i++)
 	{
 
-	  Logging::printf("%s() bar %x mask %x\n", __func__, _bars[i], _masks[i]);
 	  unsigned  bar = _bars[i];
 	  if (bar)
 	    if ((bar & 1) == 1)
@@ -94,12 +92,14 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	      }
 	    else
 	      {
-		MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar & ~0x1f, 1 << Cpu::bsr((~_masks[i] | 0xf) + 1));
+		MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar & ~0x1f, 1 << Cpu::bsr((~_masks[i] | 0xfff) + 1));
 		if (_mb.bus_hostop.send(msg) && msg.ptr)
 		  _bars[i] = reinterpret_cast<unsigned long>(msg.ptr) + (bar & 0x10);
 		else
 		  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
 	      }
+	  Logging::printf("%s() bar %x -> %x mask %x\n", __func__, bar, _bars[i], _masks[i]);
+
 	  // skip upper part of 64bit bar
 	  if ((bar & 0x6) == 0x4)
 	    {
@@ -113,7 +113,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
    * Check whether the guest io address matches and translate to host
    * address.
    */
-  bool match_bars(unsigned address, unsigned size, bool iospace)
+  bool match_bars(unsigned &address, unsigned size, bool iospace)
   {
     // check whether io decode is disabled
     if (iospace && ~_cfgspace[1] & 1 || !iospace && ~_cfgspace[1] & 2)
@@ -161,9 +161,10 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     if (!msg.bdf)
       {
+	assert(msg.offset <= PCI_CFG_SPACE_MASK);
+	assert(!(msg.offset & 3));
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    assert(msg.offset <= PCI_CFG_SPACE_MASK);
 	    if (in_range(msg.offset, 0x10, BARS * 4))
 	      memcpy(&msg.value, reinterpret_cast<char *>(_cfgspace) + msg.offset, 4);
 	    else
@@ -175,13 +176,11 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 	    // disable multi-function devices
 	    if (msg.offset == 0xc)   msg.value &= ~0x800000;
-	    Logging::printf("%s:%x -- %x,%x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
+	    // Logging::printf("%s:%x -- %x,%x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
 	    return true;
 	  }
 	else
 	  {
-	    assert(msg.offset <= PCI_CFG_SPACE_MASK);
-	    assert(!(msg.offset & 3));
 	    unsigned mask = ~0u;
 	    if (in_range(msg.offset, 0x10, BARS * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
 	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
@@ -190,7 +189,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    if (!in_range(msg.offset, 0x10, BARS * 4) && msg.offset)
 	      conf_write(_bdf, msg.offset, _cfgspace[msg.offset >> 2]);
 
-	    Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], conf_read(_bdf, msg.offset));
+	    // Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], conf_read(_bdf, msg.offset));
 	  return true;
 	  }
       }
@@ -201,9 +200,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   bool receive(MessageIrq &msg)
   {
     if (msg.line != _hostirq)  return false;
-    Logging::printf("Forwarding irq message #%x  %x -> %x\n", msg.type, msg.line, _cfgspace[15] & 0xff);
+    //Logging::printf("Forwarding irq message #%x  %x -> %x\n", msg.type, msg.line, _cfgspace[15] & 0xff);
     MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
-    if (msg.type == MessageIrq::ASSERT_IRQ)  msg2.type = MessageIrq::ASSERT_NOTIFY;
     return _mb.bus_irqlines.send(msg2);
   }
 
@@ -213,8 +211,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     unsigned irq = _cfgspace[15] & 0xff;
     if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7)))
       {
-	Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _hostirq);
-	MessageHostOp msg2(MessageHostOp::OP_UNMASK_IRQ, _hostirq);
+	//Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _hostirq);
+	MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _hostirq);
 	return _mb.bus_hostop.send(msg2);
       }
     return false;
@@ -249,8 +247,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
       read_bars();
 
       // disable msi
-      unsigned offset = find_cap(_bdf, 0x5);
-      if (offset)
+      unsigned offset = find_cap(_bdf, 0x5);      if (offset)
 	{
 	  unsigned ctrl = conf_read(_bdf, offset);
 	  Logging::printf("MSI cap @%x ctrl %x  - disabling\n", offset, ctrl);
@@ -280,6 +277,7 @@ PARAM(dpci,
 	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
 	else
 	  {
+	    
 	    if (argv[5] != ~0UL) irqline = argv[5];
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
@@ -297,9 +295,11 @@ PARAM(dpci,
 	      {
 		mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
 		mb.bus_irqnotify.add(dev, &DirectPciDevice::receive_static<MessageIrqNotify>);
-		MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
+		MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline | 0x100);
 		mb.bus_hostop.send(msg3);
 	      }
+	    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
+	    if (!mb.bus_hostop.send(msg4)) Logging::printf("DPCI: could not directly assign %x via iommu\n", bdf);
 	  }
 	Logging::printf("dpci arg done\n");
       },

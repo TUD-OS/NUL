@@ -97,4 +97,5 @@ class Hip
 	bool has_gsi() {  return api_flg &  (1 << 0); } 
 	bool has_vmx() {  return api_flg &  (1 << 1); } 
 	bool has_svm() {  return api_flg &  (1 << 2); } 
+	bool has_dma() {  return api_flg &  (1 << 3); } 
 };

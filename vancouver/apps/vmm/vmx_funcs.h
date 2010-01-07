@@ -31,14 +31,18 @@ EXCP_FUNC(got_exception,
 
 EXCP_FUNC(do_gsi,
 	  unsigned res;
+	  bool shared = utcb->msg[1] >> 8;
 	  Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
 	  while (1)
 	    {
 	      if ((res = semdown(utcb->msg[0])))
 		Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
-	      SemaphoreGuard l(_lock);
-	      MessageIrq msg(MessageIrq::ASSERT_IRQ, utcb->msg[1]);
-	      _mb->bus_hostirq.send(msg);
+	      {
+		SemaphoreGuard l(_lock);
+		MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
+		_mb->bus_hostirq.send(msg);
+	      }
+	      if (shared)  semdown(utcb->msg[2]);
 	    }
 	  )
 

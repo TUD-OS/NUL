@@ -145,9 +145,10 @@ public:
 	// forward to the host
 	return _hostmb.bus_hostop.send(msg);
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
+      case MessageHostOp::OP_ASSIGN_PCI:
 	// we do not need this
 	return false;
-      case MessageHostOp::OP_UNMASK_IRQ:
+      case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_VIRT_TO_PHYS:

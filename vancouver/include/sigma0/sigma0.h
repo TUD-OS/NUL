@@ -43,6 +43,7 @@ class Sigma0Base : public NovaProgram
     REQUEST_IOIO,
     REQUEST_IOMEM,
     REQUEST_IRQ,
+    REQUEST_PCICFG,
   };
  protected:
 
@@ -115,6 +116,9 @@ class Sigma0Base : public NovaProgram
 	if (size < 0x1000)  size = 0x1000;
 	utcb->msg[0] = REQUEST_IOMEM;
       }
+    // align iomem to new size
+    iomem_start = (iomem_start + size - 1) & ~(size-1);
+
     Logging::printf("request_io(%lx, %lx, utcb %p)\n", base, size, utcb);
     utcb->add_mappings(false, base, size, 0, io ? 2 : 1);
     utcb->head.crd = io ? utcb->msg[2] : (iomem_start | (Cpu::bsr(size) << 5) | 1);
@@ -135,6 +139,8 @@ class Sigma0Base : public NovaProgram
   static bool timer(MessageTimer &msg)     { return sigma0_message<MessageTimer,   REQUEST_TIMER>(msg); }
   static bool network(MessageNetwork &msg) { return sigma0_message<MessageNetwork, REQUEST_NETWORK>(msg); }
   static bool time(MessageTime &msg)       { return sigma0_message<MessageTime,    REQUEST_TIME>(msg); }
+  static bool pcicfg(MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
+
 };
 
 
