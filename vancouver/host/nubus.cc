@@ -112,12 +112,19 @@ protected:
       return read_cfg(sriov_cap + 0xC) >> 16;
     }
 
+    uint16_t sriov_device_id() {
+      uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
+      if (sriov_cap == 0) return 0;
+      return read_cfg(sriov_cap + 0x18) >> 16;
+    }
+
     bool sriov_enable(uint16_t vfs_to_enable);
 
     Device(Bus &bus, uint8_t df, Device *pf = NULL)
       : _bus(bus), _df(df), _pf(pf) {
 
-      _vendor = !is_vf() ? read_cfg(0) : this->pf()->vendor();
+      _vendor = !is_vf() ? read_cfg(0) : ((this->pf()->vendor() & 0xFFFF) | 
+					  (this->pf()->sriov_device_id()<<16)) ;
       _dclass = read_cfg(8) >> 16;
       if (is_vf()) assert(_dclass == pf->_dclass);
 
