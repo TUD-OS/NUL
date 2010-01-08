@@ -165,6 +165,10 @@ tree. You will not be disappointed.
 ** TODO Fix rocknshine regarding bytes-per-scanline.
  * TODO Implement "jump to page" in rocknshine.
  * TODO Write tool that collects sigma0/vancouver command line arguments.
+ * USB HID driver
+   - USB keyboard and mice speak a simplified BOOT protocol, normally used by the BIOS
+   - need UHCI/OHCI low level drivers to scan the bus and request keycodes
+   - should allow to get rid of legacy USB support and its SMIs
 
 * Third-Party Software
 
