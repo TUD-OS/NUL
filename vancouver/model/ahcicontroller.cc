@@ -504,9 +504,10 @@ PARAM(ahci,
 	mb.bus_memread.add(dev, &AhciController::receive_static<MessageMemRead>);
 
 	// register PCI device
-	MessagePciBridgeAdd msg(argv[3], dev, &AhciController::receive_static<MessagePciConfig>);
-	if (!mb.bus_pcibridge.send(msg, argv[2] == ~0UL ? 0 : argv[2]))
-	  Logging::printf("could not add PCI device to %lx:%lx\n", argv[2], argv[3]);
+	unsigned dstbdf = argv[2];
+	MessagePciBridgeAdd msg(dstbdf & 0xff, dev, &AhciController::receive_static<MessagePciConfig>);
+	if (!mb.bus_pcibridge.send(msg, dstbdf >> 8))
+	  Logging::printf("could not add PCI device to %x\n", dstbdf);
 
 	// register for AhciSetDrive messages
 	mb.bus_ahcicontroller.add(dev, &AhciController::receive_static<MessageAhciSetDrive>);
@@ -518,7 +519,7 @@ PARAM(ahci,
 	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("ABAR"), argv[0], true);
 	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("INTR"), argv[1], true);
       },
-      "ahci:mem,irq,bus,devicefun - attach an AHCI controller to a PCI bus.",
-      "Example: Use 'ahci:0xe0800000,14,,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
-      "The AHCI controllers are automatically numbered, starting with 0. If bus is ommited the first bus is used."
+      "ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.",
+      "Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
+      "The AHCI controllers are automatically numbered, starting with 0."
       );

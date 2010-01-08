@@ -176,9 +176,9 @@ public:
   }
 
 
-  bool  receive(MessageIOIn   &msg) {   return _hostmb.bus_hwioin.send(msg);   }
-  bool  receive(MessageIOOut  &msg) {   return _hostmb.bus_hwioout.send(msg);  }
-  bool  receive(MessagePciConfig &msg) {   return _hostmb.bus_hwpcicfg.send(msg, true); }
+  bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(msg); }
+  bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(msg); }
+  bool  receive(MessagePciConfig &msg) {  return  _hostmb.bus_hwpcicfg.send(msg, true); }
 
 
   bool  receive(MessageVesa   &msg) {   
@@ -219,7 +219,7 @@ public:
       Logging::panic("%s could not map the first megabyte", __PRETTY_FUNCTION__);
     _mem = msg.ptr;
 
-    char args[] = "mem novahalifax pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0xcf8 dpci:3,0,0,,0x21, dio:0x3c0+0x20 dio:0x3b0+0x10";
+    char args[] = "mem novahalifax pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0xcf8 dpci:3,0,0 dio:0x3c0+0x20 dio:0x3b0+0x10";
     _mb.parse_args(args);
 
     // check for VBE
@@ -256,8 +256,7 @@ public:
     for (unsigned i=0; i < modes; i++)
       {
 	unsigned short mode = vbe_to_ptr<unsigned short *>(p->video_mode)[i];	
-	if (vbe_call(0x4f01, ES_SEG1, mode)) continue;
-	add_mode(mode, ES_SEG1);
+	if (!vbe_call(0x4f01, ES_SEG1, mode))  add_mode(mode, ES_SEG1);
       }
     _hostmb.bus_vesa.add(this, &receive_static<MessageVesa>);
   }
