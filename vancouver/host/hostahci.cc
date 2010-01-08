@@ -86,9 +86,10 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   HostAhciPortRegister volatile *_regs;
   DBus<MessageHostOp> &_bus_hostop;
   DBus<MessageDiskCommit> &_bus_commit;
-  Clock * _clock;
+  Clock *  _clock;
   unsigned _disknr;
   unsigned _max_slots;
+  bool     _dmar;
   unsigned *_cl;
   unsigned *_ct;
   unsigned *_fis;
@@ -123,13 +124,15 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   void addr2phys(void *ptr, volatile unsigned *dst) {
     unsigned long value = reinterpret_cast<unsigned long>(ptr);
     MessageHostOp msg(MessageHostOp::OP_VIRT_TO_PHYS, value);
-    if (_bus_hostop.send(msg) && msg.phys)
+    if (!_dmar)
       {
-	dst[0] = msg.phys;
-	dst[1] = 0; // support 64bit mode
+	if (!_bus_hostop.send(msg) || !msg.phys)
+	  Logging::panic("could not resolve phys address %lx\n", value);
+	value = msg.phys;
       }
-    else
-      assert(!"could not resolve phys address");
+
+    dst[0] = value;
+    dst[1] = 0; // support 64bit mode
   }
 
   void set_command(unsigned char command, unsigned long long sector, bool read, unsigned count = 0, bool atapi = false, unsigned pmp = 0, unsigned features=0)
@@ -339,8 +342,9 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   }
 
 
-  HostAhciPort(HostAhciPortRegister *regs, DBus<MessageHostOp> &bus_hostop, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned disknr, unsigned max_slots) 
-    : _regs(regs), _bus_hostop(bus_hostop), _bus_commit(bus_commit), _clock(clock), _disknr(disknr), _max_slots(max_slots), _tag(0)
+  HostAhciPort(HostAhciPortRegister *regs, DBus<MessageHostOp> &bus_hostop, DBus<MessageDiskCommit> &bus_commit, Clock *clock, 
+	       unsigned disknr, unsigned max_slots, bool dmar) 
+    : _regs(regs), _bus_hostop(bus_hostop), _bus_commit(bus_commit), _clock(clock), _disknr(disknr), _max_slots(max_slots), _dmar(dmar), _tag(0)
   {
     // allocate needed datastructures
     _fis = reinterpret_cast<unsigned *>(memalign(4096, 4096));
@@ -366,13 +370,13 @@ class HostAhci : public StaticReceiver<HostAhci>
   HostAhciPort *_ports[32];
   const char *debug_getname() { return "HostAhci"; }
 
-  void create_ahci_port(unsigned nr, HostAhciPortRegister *portreg, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock)
+  void create_ahci_port(unsigned nr, HostAhciPortRegister *portreg, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, bool dmar)
   {
     unsigned short buffer[256];
     // port implemented and the signature is not 0xffffffff?
     if ((_regs->pi & (1 << nr)) && ~portreg->sig)
       {
-	_ports[nr] = new HostAhciPort(portreg, bus_hostop, bus_commit, clock, bus_disk.count(), ((_regs->cap >> 8) & 0x1f) + 1);
+	_ports[nr] = new HostAhciPort(portreg, bus_hostop, bus_commit, clock, bus_disk.count(), ((_regs->cap >> 8) & 0x1f) + 1, dmar);
 	if (_ports[nr]->init(buffer))
 	  {
 	    Logging::printf("AHCI: port %x init failed\n", nr);
@@ -386,7 +390,7 @@ class HostAhci : public StaticReceiver<HostAhci>
 
  public:
 
-  HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq)
+  HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq, bool dmar)
     : _bdf(bdf), _hostirq(hostirq), _regs_high(0) {
 
     assert(!(~pci.conf_read(_bdf, 4) & 6) && "we need mem-decode and busmaster dma");
@@ -419,9 +423,9 @@ class HostAhci : public StaticReceiver<HostAhci>
     // create ports
     memset(_ports, 0, sizeof(_ports));
     for (unsigned i=0; i < 30; i++)
-      create_ahci_port(i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock);
+      create_ahci_port(i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock, dmar);
     for (unsigned i=30; _regs_high && i < 32; i++)
-      create_ahci_port(i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock);
+      create_ahci_port(i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock, dmar);
     // clear pending irqs
     _regs->is = _regs->pi;
     // enable IRQs
@@ -461,15 +465,13 @@ PARAM(hostahci,
 	    }
 
 	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
-	  if (mb.bus_hostop.send(msg1))
-	    Logging::panic("%s failed to attach dma %x\n", __PRETTY_FUNCTION__, bdf);
-
+	  bool dmar = mb.bus_hostop.send(msg1);
 
 	  // XXX
 	  if (~argv[1]) irqline = argv[1];
 	  // else irqline = 0x13;
 
-	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline);
+	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
 	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
 

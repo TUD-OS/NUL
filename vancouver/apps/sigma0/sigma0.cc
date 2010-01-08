@@ -685,8 +685,7 @@ public:
 	  {
 	    msg.phys_len = r->end() - msg.value;
 	    msg.phys     = r->phys  + msg.value - r->virt;
-	    if (_hip->has_dma())  msg.phys = msg.value;
-	    Logging::printf("virt2phys %lx -> %lx+%lx\n", msg.value, msg.phys, msg.phys_len);
+	    msg.phys     = msg.value;
 	  }
 	else
 	  res = false;
@@ -707,7 +706,7 @@ public:
 	}
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, 0);
+	res = !assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, 0);
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:

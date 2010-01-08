@@ -247,6 +247,7 @@ PT_FUNC(do_request,
 		    case MessageHostOp::OP_ASSIGN_PCI:
 		      if (modinfo->dma)
 			{
+			  Logging::printf("assign_pci() PD %x bdf %lx\n", client, msg->value);
 			  msg->value = assign_pci(modinfo->cap_pd, msg->value, 0);
 			  utcb->msg[0] = 0;
 			  break;
