@@ -176,20 +176,21 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 	    // disable multi-function devices
 	    if (msg.offset == 0xc)   msg.value &= ~0x800000;
-	    // Logging::printf("%s:%x -- %x,%x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
+	    //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
 	    return true;
 	  }
 	else
 	  {
+	    //unsigned old = _cfgspace[msg.offset >> 2];
 	    unsigned mask = ~0u;
 	    if (in_range(msg.offset, 0x10, BARS * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
 	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
 
-	    // write through if not in the bar-range
-	    if (!in_range(msg.offset, 0x10, BARS * 4) && msg.offset)
+	    //write through if not in the bar-range
+	    if (!in_range(msg.offset, 0x10, BARS * 4))
 	      conf_write(_bdf, msg.offset, _cfgspace[msg.offset >> 2]);
 
-	    // Logging::printf("%s:%x -- %x,%x dev %x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], conf_read(_bdf, msg.offset));
+	    //Logging::printf("%s:%x -- %8x,%8x old %8x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], old);
 	  return true;
 	  }
       }
@@ -223,9 +224,20 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
-    if (msg.count == 4)  *reinterpret_cast<unsigned *      >(addr) = *reinterpret_cast<unsigned *      >(msg.ptr);
-    if (msg.count == 2)  *reinterpret_cast<unsigned short *>(addr) = *reinterpret_cast<unsigned short *>(msg.ptr);
-    else memcpy(reinterpret_cast<void *>(addr), msg.ptr, msg.count);
+    switch (msg.count)
+      {
+      case 4: 
+	*reinterpret_cast<unsigned       *>(addr) = *reinterpret_cast<unsigned       *>(msg.ptr);
+	break;
+      case 2:
+	*reinterpret_cast<unsigned short *>(addr) = *reinterpret_cast<unsigned short *>(msg.ptr);
+	break;
+      case 1:
+	*reinterpret_cast<unsigned char  *>(addr) = *reinterpret_cast<unsigned char  *>(msg.ptr);
+	break;
+      default:
+	memcpy(reinterpret_cast<void *>(addr), msg.ptr, msg.count);
+      }
     return true;
   }
 
@@ -234,11 +246,39 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
-    if (msg.count == 4)  *reinterpret_cast<unsigned *      >(msg.ptr) = *reinterpret_cast<unsigned *      >(addr);
-    if (msg.count == 2)  *reinterpret_cast<unsigned short *>(msg.ptr) = *reinterpret_cast<unsigned short *>(addr);
-    else memcpy(msg.ptr,  reinterpret_cast<void *>(addr), msg.count);
+    switch (msg.count)
+      {
+      case 4: 
+	*reinterpret_cast<unsigned       *>(msg.ptr) = *reinterpret_cast<unsigned       *>(addr);
+	break;
+      case 2:
+	*reinterpret_cast<unsigned short *>(msg.ptr) = *reinterpret_cast<unsigned short *>(addr);
+	break;
+      case 1:
+	*reinterpret_cast<unsigned char  *>(msg.ptr) = *reinterpret_cast<unsigned char  *>(addr);
+	break;
+      default:
+	memcpy(msg.ptr, reinterpret_cast<void *>(addr), msg.count);
+      }
     return true;
   }
+
+
+  bool  receive(MessageMemMap &msg)
+  {
+    for (unsigned i=0; i < count_bars(); i++)
+      {
+	unsigned  bar = _cfgspace[4 + i];
+	if (!_masks[i] || (bar & 1) || !in_range(msg.phys, bar & ~0x3, (~_masks[i] | 3) + 1))
+	  continue;
+	msg.ptr  = reinterpret_cast<char *>(_bars[i] & ~0xfff);
+	msg.count = (~_masks[i] | 0xfff) + 1;
+	Logging::printf(" MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
+	return true;
+      }
+    return false;
+  }
+
 
 
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
@@ -246,6 +286,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
       for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
       read_bars();
 
+#if 0
       // disable msi
       unsigned offset = find_cap(_bdf, 0x5);      if (offset)
 	{
@@ -264,6 +305,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	  Logging::printf("MSI-X cap @%x ctrl %x  - disabling\n", offset, ctrl);
 	  conf_write(_bdf, offset, ctrl);
 	}
+#endif    
     }
 };
 
@@ -291,6 +333,7 @@ PARAM(dpci,
 	    mb.bus_ioout.add(dev, &DirectPciDevice::receive_static<MessageIOOut>);
 	    mb.bus_memread.add(dev, &DirectPciDevice::receive_static<MessageMemRead>);
 	    mb.bus_memwrite.add(dev, &DirectPciDevice::receive_static<MessageMemWrite>);
+	    mb.bus_memmap.add(dev, &DirectPciDevice::receive_static<MessageMemMap>);
 	    if (irqline != ~0UL)
 	      {
 		mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
