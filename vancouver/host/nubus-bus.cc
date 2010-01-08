@@ -1,0 +1,127 @@
+// -*- Mode: C++ -*-
+
+#include <host/nubus.h>
+
+PCIBus::PCIBus(NubusManager &manager)
+  : _manager(manager), _no(0), _bridge(NULL), _devices(NULL), _buses(NULL)
+{
+  discover_devices();
+}
+
+PCIBus::PCIBus(PCIDevice &bridge)
+  : _manager(bridge.bus()._manager), _bridge(&bridge), _devices(NULL), _buses(NULL)
+{
+  _no = (_bridge->read_cfg(0x18) >> 8) & 0xFF;
+  bridge.bus().add_bus(this);
+  
+  discover_devices();
+  
+  // We can only check, if we can enable ARI after devices on this
+  // bus are discovered. They all have to support ARI.
+  if (ari_capable()) {
+    Logging::printf("bus[%x] Enabling ARI.\n", _no);
+    assert(ari_enable());
+    
+    // It is important to enable SR-IOV in ascending order
+    // (regarding functions). The SR-IOV capability of dependent
+    // PFs might otherwise change, when we don't look anymore.
+    
+    // The list is changed while we traverse it, because
+    // sriov_enable() adds the VFs. Should be no problem though,
+    // because sriov_enable is a no-op for them.
+    for (PCIDevice *dev = _devices; dev != NULL; dev = dev->next())
+      dev->sriov_enable(dev->sriov_total_vfs());
+
+    // XXX Perhaps enabling ARI brought us some new
+    // devices. Continue device discovery.
+  }
+}
+
+PCIBus *PCIBus::add_bus(PCIBus *bus)
+{
+  if (!_buses) _buses = bus; else _buses->append(bus);
+  return bus;
+}
+
+PCIDevice *PCIBus::add_device(PCIDevice *device)
+{
+  if (!_devices) _devices = device; else _devices->append(device);
+  return device;
+}
+
+uint32_t PCIBus::read_cfg(uint8_t df, uint16_t reg)
+{
+  MessagePciConfig msg(_no << 8 | df, reg);
+  return (!_manager._pcicfg.send(msg)) ? ~0UL : msg.value;
+}
+
+bool PCIBus::write_cfg(uint8_t df, uint16_t reg, uint32_t val)
+{
+  MessagePciConfig msg(_no << 8 | df, reg, val);
+  return _manager._pcicfg.send(msg);
+}
+
+bool PCIBus::ari_enabled()
+{
+  if (!_bridge) return false;
+  uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
+  return express_cap ? ((_bridge->read_cfg(express_cap + 0x28) & (1<<5)) != 0) : false;
+}
+
+bool PCIBus::ari_enable()
+{ 
+  if (!_bridge) return false;
+  if (_bridge->dclass() != CLASS_PCI_TO_PCI_BRIDGE) return false;
+  uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
+  if (express_cap == 0) return false;
+  
+  uint32_t devctrl2 = _bridge->read_cfg(express_cap + 0x28);
+  _bridge->write_cfg(express_cap + 0x28,  devctrl2 | (1<<5));
+  
+  assert(ari_enabled());
+  return true;
+}
+
+void PCIBus::discover_devices()
+{
+  if (ari_enabled()) {
+    Logging::printf("ARI-aware device discovery for bus %u.\n", _no);
+    // ARI-aware discovery
+    uint16_t next = 0;
+    do {
+      if (device_exists(next)) {
+	PCIDevice *dev = add_device(new PCIDevice(*this, next));
+	next = dev->ari_next_function();
+      } else {
+	Logging::printf("ARI-aware discovery b0rken or weird PCI topology.\n");
+	break;
+      }
+    } while (next != 0);
+  } else {
+    // Non-ARI (i.e. normal) discovery
+    for (unsigned df = 0; df < 32*8; df += 8) {
+      if (device_exists(df)) {
+	add_device(new PCIDevice(*this, df));
+	if (_devices->multifunction())
+	  for (unsigned f = 1; f < 8; f++)
+	    if (device_exists(df | f))
+	      add_device(new PCIDevice(*this, df | f));
+      }
+    }
+  }
+}
+
+bool PCIBus::ari_capable()
+{
+  // All devices and the bridge must be ARI capable.
+  if (_bridge && _bridge->ari_capable()) {
+    for (PCIDevice *dev = _devices; dev != NULL; dev = dev->next())
+      if (!dev->is_vf() && !dev->ari_capable())
+	return false;
+    return true;
+  }
+  return false;
+}
+
+
+// EOF
