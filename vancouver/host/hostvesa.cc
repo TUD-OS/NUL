@@ -109,7 +109,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     Vbe::ModeInfoBlock *modeinfo = reinterpret_cast<Vbe::ModeInfoBlock *>(_mem + (seg << 4));
     
     // we only support modes with linear framebuffer
-    if (modeinfo->attr & 1)
+    if (modeinfo->attr & 1 && modeinfo->attr & 0x80)
       {
 	_modelist[_modecount].textmode = ~modeinfo->attr & 0x10;
 	_modelist[_modecount].mode = mode | (modeinfo->attr & 0x80 ? 0xc000 : 0x8000);
