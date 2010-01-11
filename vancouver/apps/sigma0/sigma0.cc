@@ -685,7 +685,6 @@ public:
 	  {
 	    msg.phys_len = r->end() - msg.value;
 	    msg.phys     = r->phys  + msg.value - r->virt;
-	    msg.phys     = msg.value;
 	  }
 	else
 	  res = false;
