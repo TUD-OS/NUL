@@ -53,7 +53,7 @@ PT_FUNC(do_startup,
 	ModuleInfo *modinfo = _modinfo + client;
 	{
 	  SemaphoreGuard s(_lock);
-	  Logging::printf("(%02x) eip %lx hip %p mem %p size %lx\n",
+	  Logging::printf("[%02x] eip %lx hip %p mem %p size %lx\n",
 			  client, modinfo->rip, modinfo->hip, modinfo->mem, modinfo->physsize);
 	}
 
@@ -66,10 +66,13 @@ PT_FUNC(do_startup,
 	)
 
 PT_FUNC(do_request,
-	SemaphoreGuard l(_lock);
-	COUNTER_INC("request");
 	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
 	ModuleInfo *modinfo = _modinfo + client;
+	COUNTER_INC("request");
+
+	// Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
+
+	SemaphoreGuard l(_lock);
 	if (utcb->head.mtr.untyped() < 0x1000)
 	  {
 	    switch (utcb->msg[0])
@@ -79,7 +82,7 @@ PT_FUNC(do_request,
 		  char * buffer = reinterpret_cast<PutsRequest *>(utcb->msg+1)->buffer;
 		  if (convert_client_ptr(modinfo, buffer, 4096)) goto fail;
 		  if (modinfo->log)
-		    Logging::printf("[%x, %lx] %4096s\n",  modinfo - _modinfo, modinfo->console, buffer);
+		    Logging::printf("[%02x, %lx] %4096s\n",  client, modinfo->console, buffer);
 		  utcb->msg[0] = 0;
 		  break;
 		}
@@ -100,11 +103,11 @@ PT_FUNC(do_request,
 		  {
 		    // XXX check permissions
 		    // XXX move to hostops
-		    Logging::printf("[%x] ioports %x granted\n", utcb->head.pid, utcb->msg[2]);
+		    Logging::printf("[%02x] ioports %x granted\n", client, utcb->msg[2]);
 		    utcb->head.mtr = Mtd(1, 1);
 		  }
 		else
-		  Logging::printf("[%x] ioport request dropped %x ports %x\n", utcb->head.pid, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
+		  Logging::printf("[%02x] ioport request dropped %x ports %x\n", client, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
 		break;
 	      case REQUEST_IOMEM:
 		if ((utcb->msg[2] & 0x3) == 1)
@@ -114,19 +117,19 @@ PT_FUNC(do_request,
 		    utcb->msg[1] = 0;
 		    utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
 		    utcb->head.mtr = Mtd(1, 1);
-		    Logging::printf("[%x] iomem %lx+%x granted from %x\n", utcb->head.pid, addr, Crd(utcb->msg[2]).size(), utcb->msg[2]);
+		    Logging::printf("[%02x] iomem %lx+%x granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), utcb->msg[2]);
 		  }
 		else
-		  Logging::printf("[%x] iomem request dropped %x\n", utcb->head.pid, utcb->msg[2]);
+		  Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
 		break;
 	      case REQUEST_IRQ:
 		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= _hip->cfg_exc && (utcb->msg[2] >> Utcb::MINSHIFT) <  _hip->cfg_exc + _hip->cfg_gsi)
 		  {
-		    Logging::printf("[%x] irq %x granted\n", utcb->head.pid, utcb->msg[2]);
+		    Logging::printf("[%02x] irq %x granted\n", client, utcb->msg[2]);
 		    utcb->head.mtr = Mtd(1, 1);
 		  }
 		else
-		  Logging::printf("[%x] irq request dropped %x pre %x nr %x\n", utcb->head.pid, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
+		  Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
 		break;
 	      case REQUEST_DISK:
 		{
@@ -260,7 +263,7 @@ PT_FUNC(do_request,
 		    case MessageHostOp::OP_NOTIFY_IRQ:
 		    default:
 		      // unhandled
-		      Logging::printf("(%x) unknown request (%x,%x,%x) dropped \n", utcb->head.pid, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		      Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    }
 		}
 		break;
@@ -314,7 +317,7 @@ PT_FUNC(do_request,
 		}
 		break;
 	      default:
-		Logging::printf("(%x) unknown request (%x,%x,%x) dropped \n", utcb->head.pid, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 	      }
 	    return;
 	  fail:
@@ -323,8 +326,8 @@ PT_FUNC(do_request,
 	  }
 	else
 	  {
-	    Logging::printf("(%x) second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
-	    if (revoke(Crd(utcb->head.pid, 4), true))
+	    Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
+	    if (revoke(Crd(client, 4), true))
 	      {
 		_lock.up();
 		Logging::panic("kill connection to %x failed", client);
