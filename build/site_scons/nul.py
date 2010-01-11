@@ -12,11 +12,12 @@ output = '#bin'
 def guess_include(name):
     return [ ('#%s/%s/include') % (f, name) for f in ['lib', 'apps']]
 
-def AppEnv(tenv, libs):
+def AppEnv(tenv, libs, memsize):
     """Clone tenv and modify it to make the given libs available."""
     env = tenv.Clone()
     for lib in libs:
         env.Append(CPPPATH = guess_include(lib),
+                   LINKFLAGS = ['--defsym=__memsize=%#x' % memsize],
                    LIBS = [ lib ])
     return env
 
@@ -28,9 +29,9 @@ def LibEnv(tenv, libs):
     return env
 
 def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ],
-        LINKSCRIPT = None):
+        LINKSCRIPT = None, MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
-    env = AppEnv(env,  LIBS)
+    env = AppEnv(env,  LIBS, MEMSIZE)
     if not LINKSCRIPT:
         LINKSCRIPT = "%s.ld" % name
     return env.Link(output + '/apps/%s.nul' % name,
