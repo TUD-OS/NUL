@@ -43,3 +43,11 @@ Logging::printf(const char *format, ...)
   Vprintf::vprintf(_putcf, _data, format, ap);
   va_end(ap);
 }
+
+void
+Logging::vprintf(const char *format, va_list &ap)
+{
+  Vprintf::vprintf(_putcf, _data, format, ap);
+}
+
+// EOF

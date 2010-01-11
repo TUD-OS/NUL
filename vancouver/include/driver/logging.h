@@ -26,5 +26,6 @@ class Logging : public Vprintf
   // debug functions
   static void panic(const char *format, ...) __attribute__((noreturn))  __attribute__ ((format(printf, 1, 2)));
   static void printf(const char *format, ...) __attribute__ ((format(printf, 1, 2)));
+  static void vprintf(const char *format, va_list &ap);
   static void init(void (*putcf)(void *, long int), void *data) { _putcf = putcf; _data = data; }
 };
