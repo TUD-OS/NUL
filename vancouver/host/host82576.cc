@@ -582,6 +582,13 @@ PARAM(host82576, {
       unsigned cfg0 = pci.conf_read(bdf, 0x0);
       if (cfg0 == 0x10c98086) {
 	if (found++ == argv[0]) {
+	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
+	  bool dmar = mb.bus_hostop.send(msg1);
+          if (!dmar) {
+            Logging::printf("Could not assign PCI device. Skipping.\n");
+            continue;
+          }
+
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.bus_network,
 					 mb.clock(), bdf, argv[1]);
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
