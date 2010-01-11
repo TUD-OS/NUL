@@ -17,8 +17,8 @@ def AppEnv(tenv, libs, memsize):
     env = tenv.Clone()
     for lib in libs:
         env.Append(CPPPATH = guess_include(lib),
-                   LINKFLAGS = ['--defsym=__memsize=%#x' % memsize],
                    LIBS = [ lib ])
+    env.Append(LINKFLAGS = ['--defsym=__memsize=%#x' % memsize])
     return env
 
 def LibEnv(tenv, libs):
