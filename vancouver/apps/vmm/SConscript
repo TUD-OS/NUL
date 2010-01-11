@@ -6,5 +6,5 @@ Import('target_env')
 nul.App(target_env, 'vancouver',
         SOURCES = [ 'vancouver.cc'],
         LIBS    = [ 'host', 'executor', 'model', 'qemunet', 'vsys', 'string'],
-        LINKSCRIPT = 'linker.ld')
+        MEMSIZE = 1<<20)
 # EOF

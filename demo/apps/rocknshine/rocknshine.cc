@@ -17,8 +17,7 @@
 #define LINES 1024
 #define ROWS   768
 
-extern char __module_start[];
-extern char __module_end[];
+extern char __freemem[];
 
 struct pheader {
   char           magic[4];
@@ -138,11 +137,11 @@ public:
 
     // Look for module
     {
-      MessageHostOp msg(1, __module_start);
+      MessageHostOp msg(1, __freemem);
       if (!Sigma0Base::hostop(msg))
 	Logging::panic("no module");
 
-      _header = (pheader *)__module_start;
+      _header = (pheader *) __freemem;
       if (memcmp(_header->magic, "PRE0", sizeof(_header->magic)) != 0)
 	Logging::panic("invalid module");
 

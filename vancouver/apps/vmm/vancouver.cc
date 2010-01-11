@@ -370,9 +370,9 @@ public:
 	  msg.value = 0;
 	else
 	  {
-	    extern char __guestmem;
+	    extern char __freemem;
 	    msg.len    = _physsize - msg.value;
-	    msg.ptr    = &__guestmem + msg.value;
+	    msg.ptr    = &__freemem + msg.value;
 	  }
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
@@ -464,8 +464,8 @@ public:
     char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, _boot_utcb, args);
 
-    extern char __guestmem;
-    _physmem = reinterpret_cast<unsigned long>(&__guestmem);
+    extern char __freemem;
+    _physmem = reinterpret_cast<unsigned long>(&__freemem);
     _physsize = 0;
     // get physsize
     for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++)

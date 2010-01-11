@@ -8,6 +8,6 @@ nul.App(target_env, 'cycleburner',
         SOURCES = [ 'cycleburner.cc' ],
         INCLUDE = [ 'sigma0' ],
         LIBS    = [ 'vsys', 'string' ],
-        LINKSCRIPT = 'linker.ld')
+        MEMSIZE = 1<<19)
 
 # EOF

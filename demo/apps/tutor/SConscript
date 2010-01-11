@@ -9,7 +9,7 @@ nul.App(target_env, 'tutor',
         SOURCES = [ 'tutor.cc', 'screen1.cc' ],
         INCLUDE = [ 'sigma0' ],
         LIBS    = [ 'vsys', 'string' ],
-        LINKSCRIPT = 'linker.ld')
+        MEMSIZE = 1<<16)
 
 host_env.Command('screen1.cc', ['screen.py', 'screen1.txt'],
                  '${SOURCES[0]} screen1 < ${SOURCES[1:]} > ${TARGET}')

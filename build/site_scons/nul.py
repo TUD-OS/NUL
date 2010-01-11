@@ -29,11 +29,9 @@ def LibEnv(tenv, libs):
     return env
 
 def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ],
-        LINKSCRIPT = None, MEMSIZE = 1<<23):
+        LINKSCRIPT = "#vsys/linker.ld", MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)
-    if not LINKSCRIPT:
-        LINKSCRIPT = "%s.ld" % name
     return env.Link(output + '/apps/%s.nul' % name,
                     SOURCES,
                     linkscript = LINKSCRIPT)
