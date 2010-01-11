@@ -16,8 +16,7 @@
  */
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
-
-EXTERN(_start)
+EXTERN(__start)
 
 PHDRS
 {
@@ -27,7 +26,7 @@ PHDRS
 
 SECTIONS
 {
-  ENTRY(_start)
+  ENTRY(__start)
    .  =  0x80000000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
@@ -55,7 +54,7 @@ SECTIONS
     *(.bss);
     *(.bss.*);
     __mempoolstart = .;
-    . += 0x800000;
+    . += ABSOLUTE(MEMPOOLSIZE);
     __mempoolend = .;
   }
 
