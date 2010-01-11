@@ -28,6 +28,27 @@ class HostPci
 
  public:
 
+  enum {
+    BAR0 = 0x10,
+    BAR1 = 0x14,
+    
+    MAX_BAR  = 6,
+    BAR_SIZE = 4,
+  };
+
+  enum {
+    BAR_PREFETCH  = 0x4,
+
+    BAR_TYPE_MASK = 0x6,
+    BAR_TYPE_32B  = 0x0,
+    BAR_TYPE_64B  = 0x4,
+    BAR_TYPE_1MB  = 0x2,
+
+    BAR_IO        = 0x1,
+    BAR_IO_MASK   = 0xFFFFFFFCU,
+    BAR_MEM_MASK  = 0xFFFFFFF0U,
+  };
+
   unsigned conf_read(unsigned bdf, unsigned short offset)
   {
     MessagePciConfig msg(bdf, offset);
@@ -39,6 +60,39 @@ class HostPci
   {
     MessagePciConfig msg(bdf, offset, value);
     _bus_pcicfg.send(msg, true);
+  }
+
+  /** Determines BAR size. You should probably disable interrupt
+   * Delivery from this device, while querying BAR sizes.
+   */
+  size_t bar_size(unsigned bdf, unsigned bar)
+  {
+    uint32_t old = conf_read(bdf, bar);
+    size_t  size = 0;
+    
+    if ((old & BAR_IO) == 1) {
+      // I/O BAR
+      conf_write(bdf, bar, 0xFFFFFFFFU);
+      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
+      conf_write(bdf, bar, old);
+    } else {
+      // Memory BAR
+      switch (old & BAR_TYPE_MASK) {
+      case BAR_TYPE_32B:
+	conf_write(bdf, bar, 0xFFFFFFFFU);
+	size = ((conf_read(bdf, bar) & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
+	conf_write(bdf, bar, old);
+	break;
+
+      case BAR_TYPE_64B:
+	// XXX Support 64-bit BARs.
+      case BAR_TYPE_1MB:
+      default:
+	// Not Supported. Return 0.
+	;
+      }
+    }
+    return size;
   }
 
   /**
