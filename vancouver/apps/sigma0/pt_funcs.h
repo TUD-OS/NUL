@@ -229,8 +229,9 @@ PT_FUNC(do_request,
 			memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
 			utcb->head.mtr = Mtd(sizeof(unsigned) + sizeof(*msg), 0);
 			msg->start   = cstart;
+			msg->size    = mod->size;
 			msg->cmdline = cstart + msize;
-			msg->size    = msize + slen;
+			msg->cmdlen  = slen;
 		      }
 		      break;
 		    case MessageHostOp::OP_GET_UID:
