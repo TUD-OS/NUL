@@ -543,7 +543,7 @@ public:
     // Direct Copper link mode (set link mode to 0)
     _hwreg[CTRL_EXT] &= ~CTRL_EXT_LINK_MODE;
 
-    // Enable PHY autonegotiation (4.5.7.2.1
+    // Enable PHY autonegotiation (4.5.7.2.1)
     _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
 
     // XXX Set CTRL.RFCE/CTRL.TFCE
