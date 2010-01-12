@@ -91,7 +91,7 @@ private:
   /**
    * Initialize an MBI from the hip.
    */
-  bool init_mbi(unsigned long mbi,  unsigned long &rip)
+  unsigned long init_mbi(unsigned long &rip)
   {
 
     MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
@@ -99,27 +99,31 @@ private:
     char *physmem = msg1.ptr;
     unsigned long memsize = msg1.len;
     unsigned long offset = 1 << 20;
-    Mbi *m = reinterpret_cast<Mbi*>(physmem + mbi);
-    memset(m, 0, sizeof(*m));
+    unsigned long mbi = 0;
+    Mbi *m = 0;
 
-    bool res = false;
-    for (unsigned modcount = 1; ; modcount++)
+    // get modules from sigma0
+    for (unsigned modcount = 0; ; modcount++)
       {
-	MessageHostOp msg(modcount, physmem + offset);
+	offset = (offset + 0xfff) & ~0xffful;
+	MessageHostOp msg(modcount + 1, physmem + offset);
 	if (!(_mb.bus_hostop.send(msg)) || !msg.size)  break;
-	Logging::printf("\tmodule %x start %p+%lx cmdline %20s\n", modcount, msg.start, msg.size, msg.cmdline);
+	Logging::printf("\tmodule %x start %p+%lx cmdline %40s\n", modcount, msg.start, msg.size, msg.cmdline);
 
 	switch(modcount)
 	  {
-	  case 0:  Logging::panic("invalid module to start");
-	  case 1:
-	    if (Elf::decode_elf(physmem + offset, physmem, rip, offset, memsize, 0)) return res;
-	    offset = (offset + 0xffful) & ~0xffful;
-	    res = true;
-	    m->cmdline = msg.cmdline - physmem;
+	  case 0:
+	    if (Elf::decode_elf(msg.start, physmem, rip, offset, memsize, 0)) return 0;
+	    offset = (offset + 0xfff) & ~0xffful;
+	    mbi = offset;
+	    offset += 0x1000;
+	    m = reinterpret_cast<Mbi*>(physmem + mbi);
+	    if (offset > memsize)  return 0;
+	    memset(m, 0, sizeof(*m));
+	    memmove(physmem + offset, msg.cmdline, msg.cmdlen);
+	    m->cmdline = offset;
+	    offset += msg.cmdlen;
 	    m->flags |= MBI_FLAG_CMDLINE;
-	    // keep space for fiasco and linux
-	    offset += 0x1000000;
 	    break;
 	  default:
 	    {
@@ -130,13 +134,34 @@ private:
 	      mod->mod_start = msg.start - physmem;
 	      mod->mod_end = mod->mod_start + msg.size;
 	      mod->string = msg.cmdline - physmem;
-	      offset += ((msg.size + msg.cmdlen + 0xffful) & ~0xffful);
+	      mod->reserved = msg.cmdlen;
+	      if (offset < mod->mod_end) offset = mod->mod_end;
+	      if (offset < mod->string + msg.cmdlen) offset = mod->string + msg.cmdlen;
 	    }
 	    break;
 	  }
-	// 
-	
       }
+
+    if (!m) return 0;
+
+    // move modules to the end of physical memory
+    unsigned endptr = memsize;
+    for (unsigned i=m->mods_count; i > 0; i--)
+      {
+	Module *mod = reinterpret_cast<Module *>(physmem + m->mods_addr) + i - 1;
+	unsigned modspace = ((mod->mod_end - mod->mod_start + 0xffful) & ~0xffful);
+	unsigned size = modspace + mod->reserved;
+	if (endptr < size || endptr < 0x100000) Logging::panic("not enough space for modules");
+	endptr = (endptr - size) & ~0xffful;
+	memmove(physmem + endptr + modspace, physmem + mod->string, mod->reserved);
+	memmove(physmem + endptr, physmem + mod->mod_start, mod->mod_end - mod->mod_start);
+	mod->mod_end   = endptr + (mod->mod_end - mod->mod_start);
+	mod->mod_start = endptr;
+	mod->string    = endptr + modspace;
+      }
+
+
+    // provide memory map
     MbiMmap mymap[] = {{20, 0, 0xa0000, 0x1},
 		       {20, 1<<20, memsize - (1<<20), 0x1}};
     m->mem_lower = 640;
@@ -145,7 +170,7 @@ private:
     m->mmap_length = sizeof(mymap);
     m->flags |= MBI_FLAG_MMAP | MBI_FLAG_MEM;
     memcpy(physmem + m->mmap_addr, mymap, m->mmap_length);
-    return true;
+    return mbi;
   };
 
 
@@ -158,9 +183,9 @@ private:
 		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     unsigned long rip = 0xfffffff0;
-    unsigned long mbi = 0x10000;
+    unsigned long mbi;
 
-    if (!init_mbi(mbi, rip))  return false;
+    if (!(mbi = init_mbi(rip)))  return false;
     msg.cpu->eip      = rip;
     msg.cpu->eax      = 0x2badb002;
     msg.cpu->ebx      = mbi;
