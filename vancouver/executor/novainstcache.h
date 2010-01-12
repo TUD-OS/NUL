@@ -263,7 +263,7 @@ class InstructionCache : public MemTlb
 
 #include "insthelper.h"
 #include "instructions.h"
-#include "executor/instructions.inc"
+#include "instructions.inc"
 
 public:
   /**
