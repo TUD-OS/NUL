@@ -22,16 +22,16 @@
 /**
  * A Vesa console.
  *
- * State: unstable
- * Features: 
- * Missing:  vesa realmode execution, get modelist
+ * State:    unstable
+ * Features: get linear modes
+ * Missing:  
  */
 class HostVesa : public StaticReceiver<HostVesa>
 {
   enum {
-    SS_SEG  = 0x1000,
-    ES_SEG0 = 0x2000,
-    ES_SEG1 = 0x3000,
+    SS_SEG   = 0x1000,
+    ES_SEG0  = 0x2000,
+    ES_SEG1  = 0x3000,
     TIMER_NR = 2,
   };
 
