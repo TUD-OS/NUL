@@ -6,9 +6,8 @@
 /// This file is part of NUL, the NOVA userland. See LICENSE for
 /// licensing details.
 
-#include <sys/console.h>
 #include <vmm/motherboard.h>
-#include <sigma0/sigma0.h>
+#include <sigma0/console.h>
 
 #include "math.h"
 
@@ -115,8 +114,8 @@ public:
     unsigned t = now >> 25;
 
     // Double ROW to correct aspect ratio.
-    for (int rc = 0; rc < ROW*2; rc += 2)
-      for (int cc = 0; cc < COL; cc++) {
+    for (unsigned rc = 0; rc < ROW*2; rc += 2)
+      for (unsigned cc = 0; cc < COL; cc++) {
 	int8_t v1 = lsin(distance(rc, cc, ROW*2/2, COL/2)*2 + 2*t);
 	int8_t v2 = lsin(distance(rc, cc,
 				  (lsin(t>>5)/2 + 60),
@@ -160,8 +159,8 @@ public:
 
     if (t < 800) {
       // 0-799: Bar in
-      for (int rc = 0; rc < ROW; rc++)
-	for (int cc = 0; cc < COL; cc++) {
+      for (unsigned rc = 0; rc < ROW; rc++)
+	for (unsigned cc = 0; cc < COL; cc++) {
 	  if ((cc <= t/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
 	    uint16_t &ch = this->character(rc, cc);
 	    ch = ch & 0xFF | text_bg_attr;
@@ -169,8 +168,8 @@ public:
 	}
     } else if (t < 5000) {
       // 800-1290 Empty bar
-      for (int rc = 0; rc < ROW; rc++)
-	for (int cc = 0; cc < COL; cc++) {
+      for (unsigned rc = 0; rc < ROW; rc++)
+	for (unsigned cc = 0; cc < COL; cc++) {
 	  if ((rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
 	    uint16_t &ch = this->character(rc, cc);
 	    ch = ch & 0xFF | text_bg_attr;
@@ -205,8 +204,8 @@ public:
       }
     } else {
       // Bar out
-      for (int rc = 0; rc < ROW; rc++)
-	for (int cc = 0; cc < COL; cc++) {
+      for (unsigned rc = 0; rc < ROW; rc++)
+	for (unsigned cc = 0; cc < COL; cc++) {
 	  if ((cc >= (t - 5000)/10) && (rc > (ROW/2 - 2)) && (rc < (ROW/2 + 2))) {
 	    uint16_t &ch = this->character(rc, cc);
 	    ch = ch & 0xFF | text_bg_attr;
@@ -259,15 +258,15 @@ public:
       _start = now;
       _start_init = true;
 
-      for (int rc = 0; rc < ROW; rc++)
-	for (int cc = 0; cc < COL; cc++) {
+      for (unsigned rc = 0; rc < ROW; rc++)
+	for (unsigned cc = 0; cc < COL; cc++) {
 	  uint32_t r = random() % (127 - 32) + 32;
 	  character(rc, cc) = r | 0x0800;
 	}
     } else {
 
-      for (int rc = 0; rc < ROW; rc++)
-	for (int cc = 0; cc < COL; cc++) {
+      for (unsigned rc = 0; rc < ROW; rc++)
+	for (unsigned cc = 0; cc < COL; cc++) {
 	  unsigned target;
 	  uint16_t &chara = character(rc, cc);
 

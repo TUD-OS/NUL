@@ -16,10 +16,8 @@
  */
 
 
-#include "host/screen.h"
 #include "models/keyboard.h"
-#include "sigma0/sigma0.h"
-#include "sys/console.h"
+#include "sigma0/console.h"
 #include "vmm/motherboard.h"
 
 /**

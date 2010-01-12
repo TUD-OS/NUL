@@ -5,12 +5,11 @@
  * All bugs added by Julian Stecklina <jsteckli@os.inf.tu-dresden.de>.
  */
 
-#include "sys/console.h"
 #include "driver/logging.h"
 #include "vmm/message.h"
 #include "vmm/timer.h"
 #include "vmm/math.h"
-#include "sigma0/sigma0.h"
+#include "sigma0/console.h"
 
 #include <tinf.h>
 

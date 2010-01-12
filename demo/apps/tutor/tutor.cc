@@ -6,10 +6,8 @@
 /// This file is part of NUL, the NOVA userland. See LICENSE for
 /// licensing details.
 
-#include <sys/console.h>
 #include <vmm/motherboard.h>
-#include <sigma0/sigma0.h>
-#include <cstdint>
+#include <sigma0/console.h>
 
 void print_screen1(uint16_t *dst);
 
