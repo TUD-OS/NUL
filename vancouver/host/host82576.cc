@@ -502,12 +502,11 @@ public:
 	  if (phys_addr & 0xFFF)
 	    Logging::panic("%s: MMIO window not page-aligned.", __PRETTY_FUNCTION__);
 
-#warning Incomplete! Will be fixed tomorrow.
-	  // MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM_REGION, phys_addr | 17);
-	  // if (bus_hostop.send(iomsg) && iomsg.ptr)
-	  //   _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
-	  // else
-	  //   Logging::panic("%s could not map register window.\n", __PRETTY_FUNCTION__);
+          MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, phys_addr & ~0xFFF, 1<<17);
+	  if (bus_hostop.send(iomsg) && iomsg.ptr)
+            _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
+          else
+            Logging::panic("%s could not map register window.\n", __PRETTY_FUNCTION__);
 
 	  msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
 	}
