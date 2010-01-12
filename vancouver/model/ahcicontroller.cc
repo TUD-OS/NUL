@@ -494,7 +494,8 @@ REGISTERSET(AhciController,
 	    REGISTER   ("GHC",   0x4*8, 32, 0x80000000, 0x3, 0x1, 0, AhciController::CALLBACK_GHC),
 	    REGISTER   ("IS",    0x8*8, 32, 0, 0xffffffff, 0x00000000, 0xffffffff, 0),
 	    REGISTER_PR("PI",    0xc*8, 32, 1),
-	    REGISTER_RO("VS",   0x10*8, 32, 0x00010200));
+	    REGISTER_RO("VS",   0x10*8, 32, 0x00010200),
+	    REGISTER_RO("CAP2", 0x24*8, 32, 0x0));
 
 
 PARAM(ahci,
