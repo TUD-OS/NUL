@@ -8,6 +8,7 @@
 
 #include <vmm/motherboard.h>
 #include <sigma0/console.h>
+#include <cstdint>
 
 void print_screen1(uint16_t *dst);
 

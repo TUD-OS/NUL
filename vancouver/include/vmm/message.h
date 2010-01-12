@@ -16,8 +16,6 @@
  */
 
 #pragma once
-#include <cassert>
-#include <cstdint>
 
 /****************************************************/
 /* IOIO messages                                    */
@@ -217,7 +215,7 @@ struct MessagePic
 {
   unsigned char slave;
   unsigned char vector;
-  MessagePic(unsigned char _slave) :  slave(_slave) { assert(slave < 8); }
+  MessagePic(unsigned char _slave) :  slave(_slave) { }
 };
 
 

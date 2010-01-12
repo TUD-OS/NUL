@@ -12,6 +12,7 @@
 #include <vmm/motherboard.h>
 #include <host/hostgenericata.h>
 #include <host/hostpci.h>
+#include <cstdint>
 
 // lspci -v:
 // 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)

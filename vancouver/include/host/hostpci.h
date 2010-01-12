@@ -67,7 +67,7 @@ class HostPci
    */
   size_t bar_size(unsigned bdf, unsigned bar)
   {
-    uint32_t old = conf_read(bdf, bar);
+    unsigned old = conf_read(bdf, bar);
     size_t  size = 0;
     
     if ((old & BAR_IO) == 1) {
