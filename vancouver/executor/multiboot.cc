@@ -82,6 +82,7 @@ public:
 private:
   Motherboard &_mb;
   unsigned long _base;
+  unsigned long _modaddr;
   const char *debug_getname() { return "MultibootExecutor"; };
   void debug_dump() {  
     Device::debug_dump();
@@ -98,7 +99,7 @@ private:
     if (!(_mb.bus_hostop.send(msg1))) Logging::panic("could not find base address %x\n", 0);
     char *physmem = msg1.ptr;
     unsigned long memsize = msg1.len;
-    unsigned long offset = 1 << 20;
+    unsigned long offset = _modaddr;
     unsigned long mbi = 0;
     Mbi *m = 0;
 
@@ -143,23 +144,6 @@ private:
       }
 
     if (!m) return 0;
-
-    // move modules to the end of physical memory
-    unsigned endptr = memsize;
-    for (unsigned i=m->mods_count; i > 0; i--)
-      {
-	Module *mod = reinterpret_cast<Module *>(physmem + m->mods_addr) + i - 1;
-	unsigned modspace = ((mod->mod_end - mod->mod_start + 0xffful) & ~0xffful);
-	unsigned size = modspace + mod->reserved;
-	if (endptr < size || endptr < 0x100000) Logging::panic("not enough space for modules");
-	endptr = (endptr - size) & ~0xffful;
-	memmove(physmem + endptr + modspace, physmem + mod->string, mod->reserved);
-	memmove(physmem + endptr, physmem + mod->mod_start, mod->mod_end - mod->mod_start);
-	mod->mod_end   = endptr + (mod->mod_end - mod->mod_start);
-	mod->mod_start = endptr;
-	mod->string    = endptr + modspace;
-      }
-
 
     // provide memory map
     MbiMmap mymap[] = {{20, 0, 0xa0000, 0x1},
@@ -206,13 +190,13 @@ private:
     return true;
   }
 
-  MultibootExecutor(Motherboard &mb, unsigned long base) : _mb(mb), _base(base) {}
+  MultibootExecutor(Motherboard &mb, unsigned long base, unsigned long modaddr) : _mb(mb), _base(base), _modaddr(modaddr) {}
 };
 
 PARAM(multiboot,
       {
-	mb.bus_executor.add(new MultibootExecutor(mb, argv[0]),  &MultibootExecutor::receive_static, 33);
+	mb.bus_executor.add(new MultibootExecutor(mb, argv[0], argv[1]!= ~0ul ? argv[1] : 0x1000000),  &MultibootExecutor::receive_static, 33);
       },
-      "multiboot:eip - create a executor that supports multiboot",
+      "multiboot:eip,modaddr=0x1000000 - create a executor that supports multiboot",
       "Example:  'multiboot:0xfffffff0'",
       "If the eip is reached, the CPU is initilizes and the modules are requested from sigma0.");
