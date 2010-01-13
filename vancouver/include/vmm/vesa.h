@@ -38,7 +38,7 @@ struct Vbe
     unsigned int   oem_product;
     unsigned int   oem_product_rev;
     char  scratch[222+256];
-  } __attribute_packet;
+  } __attribute__((packed));
 
   struct ModeInfoBlock
   {
@@ -62,6 +62,6 @@ struct Vbe
     unsigned char  res2;
     unsigned int   _phys_size; // framebuffer size
     unsigned short _vesa_mode; // vesa mode number
-    //unsigned char  res2[189];
-  };
+    //unsigned char  res2[189 - 7];
+  } __attribute__((packed));
 };

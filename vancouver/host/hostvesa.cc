@@ -111,7 +111,7 @@ class HostVesa : public StaticReceiver<HostVesa>
   void add_mode(unsigned short mode, unsigned seg, unsigned min_attributes)
   {
     Vbe::ModeInfoBlock *modeinfo = reinterpret_cast<Vbe::ModeInfoBlock *>(_mem + (seg << 4));
-    if ((modeinfo->attr & min_attributes) != min_attributes)
+    if ((modeinfo->attr & min_attributes) == min_attributes)
       {
 	// keeep vesa modenumber for further reference
 	modeinfo->_vesa_mode = mode;
@@ -123,7 +123,7 @@ class HostVesa : public StaticReceiver<HostVesa>
 
 	memcpy(_modelist + _modecount, modeinfo, sizeof(*_modelist));
 	if (_debug)
-	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "window" : "linear", 
+	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "linear" : "window", 
 			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->phys_base, modeinfo->attr, modeinfo->bytes_per_scanline);
 	_modecount++;
       }
@@ -252,7 +252,8 @@ public:
 
     // get modes
     unsigned modes = 0;
-    while (modes < 32768 && vbe_to_ptr<unsigned short *>(p->video_mode_ptr)[modes] != 0xffff)
+    unsigned short *video_mode_ptr  = vbe_to_ptr<unsigned short *>(p->video_mode_ptr);
+    while (modes < 32768 && video_mode_ptr[modes] != 0xffff)
       modes++;  
     _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
     
