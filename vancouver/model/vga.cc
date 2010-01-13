@@ -72,6 +72,85 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     return true;
   }
 
+  static unsigned vesa_farptr(CpuState *cpu, void *p, void *base)  {  
+    return (cpu->es.sel << 16) |  (cpu->di + reinterpret_cast<char *>(p) - reinterpret_cast<char *>(base)); 
+  }
+public:
+  bool  handle_vesa(CpuState *cpu)
+  {
+    static const char *oemstring = "Vancouver VESA BIOS";
+    switch (cpu->ax)
+      {
+      case 0x4f00: // vesa information
+	{
+	  Vbe::InfoBlock v;
+	  copy_in(cpu->es.base + cpu->di, &v, sizeof(v));
+	  Logging::printf("VESA %x tag %x base %x+%x esi %x\n", cpu->eax, v.tag, cpu->es.base, cpu->di, cpu->esi);
+
+	  v.version = 0x0201;
+
+	  // add ptr to scratch area
+	  char *p = v.scratch;
+	  strcpy(p, oemstring);	 
+	  v.oem_string = vesa_farptr(cpu, p, &v);
+	  p += strlen(p) + 1;
+
+	  v.caps = 0;
+	  unsigned short *modes = reinterpret_cast<unsigned short *>(p);
+	  v.video_mode_ptr = vesa_farptr(cpu, modes, &v);
+
+	  // get all modes
+	  ConsoleModeInfo info;
+	  for (MessageConsole msg2(0, &info); msg2.index < (Vbe::MAX_VESA_MODES - 1) && _mb.bus_console.send(msg2); msg2.index++)
+	    *modes++ = info._vesa_mode;
+	  *modes++ = 0xffff;
+
+	  // report 4M as framebuffer
+	  v.memory = (4<<20) >> 16;
+	  if (v.tag == Vbe::TAG_VBE2)
+	    {
+	      v.oem_revision = 0;
+	      v.oem_vendor = 0;
+	      v.oem_product = 0;
+	      v.oem_product_rev = 0;
+	    }
+	  v.tag = Vbe::TAG_VESA;
+	  copy_out(cpu->es.base + cpu->di, &v, sizeof(v));
+	}
+	break;
+      case 0x4f01: // get modeinfo
+	{
+	  Logging::printf("VESA %x base %x+%x esi %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, sizeof(ConsoleModeInfo));
+	  
+	  // search whether we have the mode
+	  ConsoleModeInfo info;
+	  MessageConsole msg2(0, &info);
+	  while (_mb.bus_console.send(msg2))
+	    {
+	      if (info._vesa_mode == (cpu->eax >> 16))
+		break;
+	      msg2.index++;
+	    }
+
+
+	  if (info._vesa_mode == (cpu->eax >> 16))
+	    {
+	      // XXX physbase
+	      copy_out(cpu->es.base + cpu->di, &info, sizeof(info));
+	      break;
+	    }
+	}
+	return false;
+      case 0x4f02: // set vbemode
+	Logging::printf("VESA %x base %x+%x esi %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi);
+      case 0x4f15: // DCC
+      default:
+	return false;
+      }
+    cpu->ax = 0x004f;
+    return true;
+  }
+
 
   /**
    * Graphic INT.
@@ -145,13 +224,11 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    break;
 	  case 0x2000: // unknown during windows boot
 	    cpu->efl |= 1;
-	  case 0x4f00: // vesa information
-	  case 0x4f01: // get modeinfo
-	  case 0x4f15: // vesa supported?
 	    // unsupported
 	    break;
 	  default:
-	    VB_UNIMPLEMENTED;
+	    if (!handle_vesa(cpu))
+	      VB_UNIMPLEMENTED;
 	  }
       }
     return true;
