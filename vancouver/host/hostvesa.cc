@@ -202,9 +202,11 @@ public:
 	  {
 	    unsigned instructions = _instructions;
 	    timevalue start = _hostmb.clock()->clock(1000000);
-	    if (vbe_call(0x4f02, ES_SEG0, 0, 0, _modelist[msg.index]._vesa_mode))  break;
+	    unsigned mode = _modelist[msg.index]._vesa_mode;
+	    if (_modelist[msg.index].attr & 0x80) mode |= 1 << 14;
+	    if (vbe_call(0x4f02, ES_SEG0, 0, 0, mode))  break;
 	    timevalue end = _hostmb.clock()->clock(1000000);
-	    Logging::printf("switch done (took %lldus, ops %d)\n", end - start, _instructions - instructions);
+	    Logging::printf("switch to %x done (took %lldus, ops %d)\n", mode, end - start, _instructions - instructions);
 	    return true;
 	  }
 	default:
@@ -257,8 +259,19 @@ public:
       modes++;  
     _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
     
-    // add standard vga text mode
-    if (!vbe_call(0x4f01, ES_SEG1, 3))  add_mode(3, ES_SEG1, 1);
+    // add standard vga text mode #3
+    {
+      
+      _modelist[_modecount]._vesa_mode = 3;
+      _modelist[_modecount].attr = 0x1;
+      _modelist[_modecount].resolution[0] = 80;
+      _modelist[_modecount].resolution[1] = 25;
+      _modelist[_modecount].bytes_per_scanline = 80*2;
+      _modelist[_modecount].bpp = 4;
+      _modelist[_modecount].phys_base = 0xb8000;
+      _modelist[_modecount]._phys_size = 0x8000;
+      _modecount++;
+    }
 
     // add modes with linear framebuffer
     for (unsigned i=0; i < modes; i++)
