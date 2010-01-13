@@ -299,7 +299,7 @@ public:
 	    COUNTER_INC("vga::refresh");
 
 	    view = _clients[_active_client].views + _clients[_active_client].active_view;
-	    mode = view->regs ? view->regs->mode : TEXTMODE;
+	    mode = view->regs ? view->regs->mode : (0 + TEXTMODE);
 	  }
 	if (mode != _active_mode)
 	  {
