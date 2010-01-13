@@ -24,7 +24,7 @@ PT_FUNC_NORETURN(do_pf,
 	)
 PT_FUNC(do_map,
 	// make sure we have enough words to reply
-	Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
+	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
 	assert(~utcb->head.mtr.untyped() & 1);
 	utcb->head.mtr = Mtd(0, utcb->head.mtr.untyped()/2);
 	)

@@ -451,7 +451,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
       {
 	utcb->head.mtr = Mtd();
 	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
-	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx\n", physmem, virt, size, offset, s);
+	//Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx\n", physmem, virt, size, offset, s);
 	offset = size - s;
 	unsigned err;
 	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
