@@ -32,6 +32,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   enum { 
     LOW_BASE  = 0xa0000,
     LOW_SIZE  = 1<<17,
+    TEXT_OFFSET = 0x18000 >> 1,
   };
   unsigned short _view;
   unsigned short _iobase;
@@ -51,7 +52,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   void putchar_guest(unsigned short value)
   {
-    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr + 0x18000), _regs.cursor_pos);
+    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, _regs.cursor_pos);
   }
 
 
@@ -63,7 +64,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   bool handle_reset()
   {
-    _regs.offset = 0;
+    _regs.offset = TEXT_OFFSET;
     _regs.mode   = 0;
     _regs.cursor_pos  = 24*80*2;
     _regs.cursor_style = 0x0d0e;
@@ -320,7 +321,7 @@ public:
 		    _regs.cursor_pos = (_regs.cursor_pos & ~0xff) | value;
 		    break;
 		  case 0x0c: // start address high
-		    _regs.offset = (value << 8) | (_regs.offset & 0xff);
+		    _regs.offset = TEXT_OFFSET + ((value << 8) | (_regs.offset & 0xff));
 		    break;
 		  case 0x0d: // start address low
  		    _regs.offset = (_regs.offset & ~0xff) | value;
@@ -369,7 +370,7 @@ public:
 		    value = _regs.cursor_pos;
 		    break;
 		  case 0x0c: // start addres high
-		    value = _regs.offset >> 8;
+		    value = (_regs.offset - TEXT_OFFSET) >> 8;
 		    break;
 		  case 0x0d: // start addres low
 		    value = _regs.offset;
