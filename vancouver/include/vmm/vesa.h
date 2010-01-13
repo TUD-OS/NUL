@@ -52,7 +52,7 @@ struct Vbe
     unsigned char  banks;
     unsigned char  memory_model;
     unsigned char  number_images;
-    unsigned char  res0;
+    unsigned char  vbe1[11];
     // vbe2
     unsigned int   phys_base;
     unsigned short res1[3];
