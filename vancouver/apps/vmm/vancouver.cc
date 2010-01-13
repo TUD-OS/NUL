@@ -63,15 +63,143 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
+#define PT_FUNC(NAME)  static void  NAME(Utcb *utcb) __attribute__((regparm(0)))
+#define EXCP_FUNC(NAME) PT_FUNC(NAME) __attribute__((noreturn))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
-  static void  NAME(Utcb *utcb) __attribute__((regparm(0)))		\
+  PT_FUNC(NAME)								\
   {  CODE; }
-
-#define EXCP_FUNC(NAME, CODE)						\
-  static void  NAME(Utcb *utcb) __attribute__((regparm(0))) __attribute__((noreturn)) \
-  {  CODE;  }
-
   #include "vmx_funcs.h"
+
+  // the portal functions follow
+
+  PT_FUNC(do_gsi_boot)
+  { 
+    utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
+    Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
+  }
+
+  EXCP_FUNC(got_exception)
+  {
+    Logging::printf("%s() #%x ",  __func__, utcb->head.pid);
+    Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
+		    utcb->edx, utcb->eax,
+		    utcb->edi, utcb->esi,
+		    utcb->ecx);
+    reinterpret_cast<Vancouver*>(utcb->head.tls)->block_forever();
+  }
+
+  EXCP_FUNC(do_gsi)
+  {
+    unsigned res;
+    bool shared = utcb->msg[1] >> 8;
+    Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
+    while (1)
+      {
+	if ((res = semdown(utcb->msg[0])))
+	  Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
+	{
+	  SemaphoreGuard l(_lock);
+	  MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
+	  _mb->bus_hostirq.send(msg);
+	}
+	if (shared)  semdown(utcb->msg[2]);
+      }
+  }
+
+
+  EXCP_FUNC(do_stdin)
+  {
+    StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
+
+    while (1)
+      {
+	MessageKeycode *msg = stdinconsumer->get_buffer();
+	switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
+	  {
+	  case KBFLAG_EXTEND0 | 0x7c: // printscr
+	    recall(_mb->vcpustate(0)->cap_vcpu);
+	    break;
+	  case 0x7E: // scroll lock
+	    Logging::printf("toggle HLT\n");
+	    break;
+	  case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
+	    _debug = true;
+	    _mb->dump_counters();
+	    syscall(254, 0, 0, 0, 0);
+	    break;
+	    // HOME -> reset VM
+	  case KBFLAG_EXTEND0 | 0x6c:
+	    {
+	      SemaphoreGuard l(_lock);
+	      MessageLegacy msg2(MessageLegacy::RESET, 0);
+	      _mb->bus_legacy.send_fifo(msg2);
+	    }
+	    break;
+	  case KBFLAG_LCTRL | KBFLAG_RWIN |  KBFLAG_LWIN | 0x5:
+	    Logging::printf("hz %x\n", _mb->vcpustate(0)->hazard);
+	    _mb->dump_counters();
+	    break;
+	  default:
+	    break;
+	  }
+
+	SemaphoreGuard l(_lock);
+	_mb->bus_keycode.send(*msg);
+	stdinconsumer->free_buffer();
+      }
+  }
+
+  EXCP_FUNC(do_disk)
+  {
+    DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    Sigma0Base::request_disks_attach(diskconsumer, diskconsumer->sm());
+
+    while (1)
+      {
+	MessageDiskCommit *msg = diskconsumer->get_buffer();
+	SemaphoreGuard l(_lock);
+	_mb->bus_diskcommit.send(*msg);
+	diskconsumer->free_buffer();
+      }
+  }
+
+  EXCP_FUNC(do_timer)
+  {
+    TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
+    while (1)
+      {
+	COUNTER_INC("timer");
+	timerconsumer->get_buffer();
+	timerconsumer->free_buffer();
+
+	SemaphoreGuard l(_lock);
+	timeout_trigger();
+      }
+  }
+
+  EXCP_FUNC(do_network)
+  {
+    NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    Sigma0Base::request_network_attach(network_consumer, network_consumer->sm());
+    while (1)
+      {
+	unsigned char *buf;
+	unsigned size = network_consumer->get_buffer(buf);
+
+	MessageNetwork msg(buf, size, 0);
+	assert(!_forward_pkt);
+	_forward_pkt = msg.buffer;
+	{
+	  SemaphoreGuard l(_lock);
+	  _mb->bus_network.send(msg);
+	}
+	_forward_pkt = 0;
+	network_consumer->free_buffer();
+      }
+  }
+  
 
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
@@ -167,8 +295,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       void __attribute__((regparm(0))) (*func)(Utcb *);
       unsigned mtd;
     } vm_caps[] = {
-#undef EXCP_FUNC
-#define EXCP_FUNC(NR, CODE)
 #include "vmx_funcs.h"
     };
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
