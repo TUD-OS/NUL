@@ -40,6 +40,7 @@ class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
    */
   unsigned translate_ascii(unsigned char key)
   {
+    unsigned *ascii_map = GenericKeyboard::get_ascii_map();
     unsigned res = 0;
     if (key < 128)
       res = ascii_map[key];
@@ -53,7 +54,8 @@ class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
   unsigned translate_ansi(unsigned char key)
   {
     _escape_chars[_escape++] = key;
-    for (unsigned i=0; i < sizeof(ansi_map) / sizeof(ansi_map[0]); i++)
+    GenericKeyboard::ansi_map *ansi_map = GenericKeyboard::get_ansi_map();
+    for (unsigned i=0; ansi_map[i].keycode; i++)
       {
 	unsigned len = strlen(ansi_map[i].escape);
 	if (len + 1 == _escape && !memcmp(_escape_chars+1, ansi_map[i].escape, len))

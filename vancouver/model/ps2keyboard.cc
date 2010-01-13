@@ -72,7 +72,7 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 	  }
 	if (_mode & MODE_GOT_BREAK) value |= 0x80;
 	_mode &= ~MODE_GOT_BREAK;
-	value = translate_sc2_to_sc1(value);
+	value = GenericKeyboard::translate_sc2_to_sc1(value);
       }
     switch ((_pwrite - _pread) % BUFFERSIZE)
       {
@@ -208,7 +208,7 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
       }
     else // _scset == 3
       {
-	unsigned char key = translate_sc2_to_sc3(msg.keycode);
+	unsigned char key = GenericKeyboard::translate_sc2_to_sc3(msg.keycode);
 
 	// the pause key sends make and break together -> simulate another make
 	if (key == 0x62)  enqueue(key);

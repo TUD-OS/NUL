@@ -327,10 +327,10 @@ struct MessageSerial
 
 struct VgaRegs
 {
-  unsigned short offset;
+  unsigned short mode;
   unsigned short cursor_style;
   unsigned cursor_pos;
-  unsigned short mode;
+  unsigned long offset;
 };
 
 

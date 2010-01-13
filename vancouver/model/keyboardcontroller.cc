@@ -135,7 +135,7 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 	    _ram[RAM_GOT_RELEASE] = true;
 	    return;
 	  }
-	value = translate_sc2_to_sc1(value);
+	value = GenericKeyboard::translate_sc2_to_sc1(value);
 	if (_ram[RAM_GOT_RELEASE]) value |= 0x80;
 	_ram[RAM_GOT_RELEASE] = false;
       }

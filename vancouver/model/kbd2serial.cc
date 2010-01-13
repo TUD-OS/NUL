@@ -35,7 +35,8 @@ class KbdSerialBridge : public StaticReceiver<KbdSerialBridge>
 
   const char *keycode2ansi(unsigned value)
   {
-    for (unsigned i=0; i < sizeof(ansi_map) / sizeof(ansi_map[0]); i++)
+    GenericKeyboard::ansi_map *ansi_map = GenericKeyboard::get_ansi_map();
+    for (unsigned i=0; ansi_map[i].keycode; i++)
       if (ansi_map[i].keycode == value)
 	return ansi_map[i].escape;
     return 0;
@@ -44,6 +45,7 @@ class KbdSerialBridge : public StaticReceiver<KbdSerialBridge>
 
   char keycode2ascii(unsigned value)
   {
+    unsigned *ascii_map = GenericKeyboard::get_ascii_map();
     for (unsigned i=0; i < 128; i++)
       if (ascii_map[i] == value)
 	return i;

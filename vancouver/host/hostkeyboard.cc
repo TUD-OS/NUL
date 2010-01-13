@@ -189,7 +189,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     if (_scset1)
       {
 	if (key & 0x80 && key != 0xe0 && key != 0xe1)  _flags |= KBFLAG_RELEASE;
-	key = translate_sc1_to_sc2(key);
+	key = GenericKeyboard::translate_sc1_to_sc2(key);
       }
     /**
      * we have a small state machine here, as the keyboard runs with

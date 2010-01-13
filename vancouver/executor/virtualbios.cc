@@ -230,6 +230,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     for (unsigned i=0; i < sizeof(bios_key_map) / sizeof(bios_key_map[0]); i++)
       if (bios_key_map[i].keycode == value)
 	return bios_key_map[i].code;
+    unsigned *ascii_map = GenericKeyboard::get_ascii_map();
     for (unsigned i=0; i<128; i++)
       if (ascii_map[i] == value)
 	return (value << 8) | i;
