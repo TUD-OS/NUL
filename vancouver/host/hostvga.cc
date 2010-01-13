@@ -50,7 +50,7 @@ private:
   unsigned _active_mode;
   unsigned short _last_cursor_pos;
   unsigned short _last_cursor_style;
-  VesaModeInfo _modeinfo;
+  Vbe::ModeInfoBlock _modeinfo;
   unsigned _timer;
   unsigned long long _lastswitchtime;
   char *_graphic_ptr;
@@ -299,7 +299,7 @@ public:
 	    COUNTER_INC("vga::refresh");
 
 	    view = _clients[_active_client].views + _clients[_active_client].active_view;
-	    mode = view->regs ? view->regs->mode : (0+TEXTMODE);
+	    mode = view->regs ? view->regs->mode : TEXTMODE;
 	  }
 	if (mode != _active_mode)
 	  {
@@ -314,14 +314,14 @@ public:
 	      }
 
 	    // get the framebuffer mapped
-	    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, _modeinfo.physbase, 1<<22);
+	    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, _modeinfo.phys_base,  _modeinfo._phys_size);
 	    if (!_mb.bus_hostop.send(msg1)) Logging::panic("can not get the framebuffer");
 	    _graphic_ptr = msg1.ptr;
 	    _active_mode = mode;
 	    if (!_active_mode) memcpy(_backend, _saved, BACKEND_SIZE);
 	  }
 
-	if (_modeinfo.textmode)
+	if (~_modeinfo.attr & 0x80)
 	  return refresh_textmode(view);
 	else
 	  {
@@ -379,17 +379,9 @@ public:
 	}
 
       case MessageConsole::TYPE_GET_MODEINFO:
-	{
-	  VesaModeInfo info;
-	  MessageVesa msg2(msg.index, &info);
-	  if (!_mb.bus_vesa.send(msg2)) return false;
-	  msg.info->textmode = info.textmode;
-	  msg.info->vesamode = info.mode;
-	  msg.info->bpp = info.bpp;
-	  msg.info->resolution[0] = info.resolution[0];
-	  msg.info->resolution[1] = info.resolution[1];
-	  msg.info->bytes_per_scanline = info.bytes_per_scanline;
-	  return true;
+	{	  
+	  MessageVesa msg2(msg.index, msg.info);
+	  return _mb.bus_vesa.send(msg2);
 	};
       // switch to another view
       case MessageConsole::TYPE_SWITCH_VIEW:
@@ -444,9 +436,13 @@ public:
     set_vga_reg(0x14, 0xc, 0);
 
     // XXX searching would be better!
-    _active_mode = 0;
-    _modeinfo.textmode = true;
-
+    _active_mode = TEXTMODE;
+    MessageVesa msg1(_active_mode, &_modeinfo);
+    if (!_mb.bus_vesa.send(msg1))
+      {
+	// its a textmode
+	_modeinfo.attr = 1;
+      }
     Logging::printf("%s with refresh FREQ %d\n", __func__, FREQ);
   }
 };

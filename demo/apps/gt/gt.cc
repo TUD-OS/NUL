@@ -65,7 +65,7 @@ public:
       Logging::printf("GT: %x %dx%d-%d sc %x\n", 
 		      msg.index, m.resolution[0], m.resolution[1], m.bpp, m.bytes_per_scanline);
 	// we like to have the 24/32bit mode with 1024
-	if (!m.textmode && m.bpp >= 16 && m.resolution[0] == 1024)
+	if (m.attr & 0x80 && m.bpp >= 16 && m.resolution[0] == 1024)
 	  {
 	    size = m.resolution[1] * m.bytes_per_scanline;
 	    mode = msg.index;

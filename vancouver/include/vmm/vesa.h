@@ -19,20 +19,25 @@
 
 struct Vbe
 {
+  enum {
+    TAG_VBE2 = 0x32454256,
+    TAG_VESA = 0x41534556,
+  };
+
   struct InfoBlock
   {
-    unsigned char  signature[4];
+    unsigned int   tag;
     unsigned short version;
-    unsigned short oem_string[2];
-    unsigned char  caps[4];
-    unsigned short video_mode[2];
+    unsigned int   oem_string;
+    unsigned int   caps;
+    unsigned int   video_mode_ptr;
     unsigned short memory;
     unsigned short oem_revision;
-    unsigned short oem_vendor[2];
-    unsigned short oem_product[2];
-    unsigned short oem_product_rev[2];
-    unsigned char  res[222+256];
-  };
+    unsigned int   oem_vendor;
+    unsigned int   oem_product;
+    unsigned int   oem_product_rev;
+    char  scratch[222+256];
+  } __attribute_packet;
 
   struct ModeInfoBlock
   {
@@ -45,9 +50,17 @@ struct Vbe
     unsigned char  bpp;
     unsigned char  banks;
     unsigned char  memory_model;
-    unsigned char  res[12];
-    unsigned int   physbase;
+    unsigned char  vbe1[12];
+    // vbe2
+    unsigned int   phys_base;
     unsigned short res1[3];
+    // vbe3
     unsigned short bytes_per_scanline;
+    unsigned char  vbe3[14];
+    // own extensions
+    unsigned char  res2;
+    unsigned int   _phys_size; // framebuffer size
+    unsigned short _vesa_mode; // vesa mode number
+    //unsigned char  res2[189];
   };
 };

@@ -23,8 +23,8 @@
  * A Vesa console.
  *
  * State:    unstable
- * Features: get linear modes
- * Missing:  
+ * Features: get linear modes, validate physpointer, set LinBytesPerScanline
+ * Missing:  vesa1.2 support
  */
 class HostVesa : public StaticReceiver<HostVesa>
 {
@@ -41,11 +41,15 @@ class HostVesa : public StaticReceiver<HostVesa>
   unsigned long  _memsize;
   CpuState       _cpu;
   timevalue      _timeout;
-  unsigned short _modecount;
-  VesaModeInfo * _modelist;
-  unsigned       _instructions;
-  bool           _vbe3;
-  bool           _debug;
+
+  unsigned long  _framebuffer_size;
+  unsigned long  _framebuffer_phys;
+
+  unsigned short       _version;
+  unsigned short       _modecount;
+  Vbe::ModeInfoBlock * _modelist;
+  unsigned             _instructions;
+  bool                 _debug;
   
   const char *debug_getname() { return "HostVesa"; };
 
@@ -102,25 +106,25 @@ class HostVesa : public StaticReceiver<HostVesa>
     return true;
   }
 
-  template <typename T> T vbe_to_ptr(unsigned short ptr[2]) {  return reinterpret_cast<T>(_mem + ptr[0] + (ptr[1] << 4)); }
+  template <typename T> T vbe_to_ptr(unsigned ptr) {  return reinterpret_cast<T>(_mem + (ptr & 0xffff) + ((ptr >> 12) & 0xffff0)); }
 
-  void add_mode(unsigned short mode, unsigned seg)
+  void add_mode(unsigned short mode, unsigned seg, unsigned min_attributes)
   {
     Vbe::ModeInfoBlock *modeinfo = reinterpret_cast<Vbe::ModeInfoBlock *>(_mem + (seg << 4));
-    
-    // we only support modes with linear framebuffer
-    if (modeinfo->attr & 1 && modeinfo->attr & 0x80)
+    if ((modeinfo->attr & min_attributes) != min_attributes)
       {
-	_modelist[_modecount].textmode = ~modeinfo->attr & 0x10;
-	_modelist[_modecount].mode = mode | (modeinfo->attr & 0x80 ? 0xc000 : 0x8000);
-	_modelist[_modecount].resolution[0] = modeinfo->resolution[0];
-	_modelist[_modecount].resolution[1] = modeinfo->resolution[1];
-	_modelist[_modecount].bytes_per_scanline = _vbe3 ? modeinfo->bytes_per_scanline : (modeinfo->resolution[0] * modeinfo->bpp/8);
-	_modelist[_modecount].bpp = modeinfo->bpp;
-	_modelist[_modecount].physbase = modeinfo->physbase;
+	// keeep vesa modenumber for further reference
+	modeinfo->_vesa_mode = mode;
+	if (_version < 0x200 || !in_range(modeinfo->phys_base, _framebuffer_phys, _framebuffer_size)) modeinfo->phys_base = _framebuffer_phys;
+	modeinfo->_phys_size = modeinfo->phys_base - _framebuffer_phys + _framebuffer_size;
+
+	// validate bytes_per_scanline
+	if (_version < 0x300) modeinfo->bytes_per_scanline = (modeinfo->resolution[0] * modeinfo->bpp / 8);
+
+	memcpy(_modelist + _modecount, modeinfo, sizeof(*_modelist));
 	if (_debug)
-	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x attr %x bps %x\n", _modecount, mode, _modelist[_modecount].textmode ? "window" : "linear", 
-			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->physbase, modeinfo->attr, _modelist[_modecount].bytes_per_scanline);
+	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "window" : "linear", 
+			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->phys_base, modeinfo->attr, modeinfo->bytes_per_scanline);
 	_modecount++;
       }
   }
@@ -140,8 +144,13 @@ public:
 	    msg.len = _memsize - msg.value;
 	    return true;
 	  }
-      case MessageHostOp::OP_ALLOC_IOIO_REGION:
       case MessageHostOp::OP_ALLOC_IOMEM:
+	if (msg.len > _framebuffer_size)
+	  {
+	    _framebuffer_size = msg.len;
+	    _framebuffer_phys = msg.value;
+	  }
+      case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	// forward to the host
 	return _hostmb.bus_hostop.send(msg);
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
@@ -193,7 +202,7 @@ public:
 	  {
 	    unsigned instructions = _instructions;
 	    timevalue start = _hostmb.clock()->clock(1000000);
-	    if (vbe_call(0x4f02, ES_SEG0, 0, 0, _modelist[msg.index].mode))  break;
+	    if (vbe_call(0x4f02, ES_SEG0, 0, 0, _modelist[msg.index]._vesa_mode))  break;
 	    timevalue end = _hostmb.clock()->clock(1000000);
 	    Logging::printf("switch done (took %lldus, ops %d)\n", end - start, _instructions - instructions);
 	    return true;
@@ -205,7 +214,9 @@ public:
   }
 
 
-  HostVesa(Motherboard &hostmb, bool debug) : _hostmb(hostmb), _mb(hostmb.clock()), _memsize(1<<20), _timeout(~0ull), _modecount(0), _debug(debug)
+  HostVesa(Motherboard &hostmb, bool debug) : _hostmb(hostmb), _mb(hostmb.clock()), _memsize(1<<20), _timeout(~0ull),
+					      _framebuffer_size(0), _framebuffer_phys(0),
+					      _modecount(0), _debug(debug)
   {
     _mb.bus_hostop.  add(this, &receive_static<MessageHostOp>);
     _mb.bus_timer.   add(this, &receive_static<MessageTimer>);
@@ -224,10 +235,12 @@ public:
 
     // check for VBE
     Vbe::InfoBlock *p = reinterpret_cast<Vbe::InfoBlock *>(_mem + (ES_SEG0 << 4));
-    memcpy(p->signature, "VBE2", 4);
+    p->tag = Vbe::TAG_VBE2;
     if (vbe_call(0x4f00, ES_SEG0)) { Logging::printf("No VBE found\n"); return; }
-    _vbe3 = p->version >= 0x300;
+    if (p->version < 0x102)  { Logging::printf("VBE version %x too old\n", p->version); return; }
 
+    // we need only the version from the InfoBlock
+    _version = p->version;
     Logging::printf("VBE version %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n", 
 		    p->version, 
 		    p->memory << 16, 
@@ -239,24 +252,18 @@ public:
 
     // get modes
     unsigned modes = 0;
-    while (modes < 32768 && vbe_to_ptr<unsigned short *>(p->video_mode)[modes] != 0xffff)
+    while (modes < 32768 && vbe_to_ptr<unsigned short *>(p->video_mode_ptr)[modes] != 0xffff)
       modes++;  
-    _modelist = reinterpret_cast<VesaModeInfo *>(malloc((modes + 1) * sizeof(*_modelist)));
-
+    _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
+    
     // add standard vga text mode
-    {
-      _modelist[_modecount].textmode = true;
-      _modelist[_modecount].mode = 3;
-      _modelist[_modecount].resolution[0] = 80;
-      _modelist[_modecount].resolution[1] = 25;
-      _modelist[_modecount].bpp = 4;
-      _modecount++;
-    }
+    if (!vbe_call(0x4f01, ES_SEG1, 3))  add_mode(3, ES_SEG1, 1);
 
+    // add modes with linear framebuffer
     for (unsigned i=0; i < modes; i++)
       {
-	unsigned short mode = vbe_to_ptr<unsigned short *>(p->video_mode)[i];	
-	if (!vbe_call(0x4f01, ES_SEG1, mode))  add_mode(mode, ES_SEG1);
+	unsigned short mode = vbe_to_ptr<unsigned short *>(p->video_mode_ptr)[i];
+	if (!vbe_call(0x4f01, ES_SEG1, mode))  add_mode(mode, ES_SEG1, 0x81);
       }
     _hostmb.bus_vesa.add(this, &receive_static<MessageVesa>);
   }

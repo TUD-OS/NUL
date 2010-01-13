@@ -323,6 +323,8 @@ struct MessageSerial
 /* Console messages                                 */
 /****************************************************/
 
+#include "vmm/vesa.h"
+
 struct VgaRegs
 {
   unsigned short offset;
@@ -331,16 +333,8 @@ struct VgaRegs
   unsigned short mode;
 };
 
-struct ConsoleModeInfo
-{
-  bool           textmode;
-  unsigned short vesamode;
-  unsigned short resolution[2];
-  unsigned short bytes_per_scanline;
-  unsigned char  bpp;
-  ConsoleModeInfo() : textmode(true), resolution(), bpp(0) {}
-};
 
+typedef Vbe::ModeInfoBlock ConsoleModeInfo;
 
 /**
  * VGA Console.
@@ -398,19 +392,6 @@ struct MessageConsole
 /**
  * VESA support.
  */
-
-struct VesaModeInfo
-{
-  bool           textmode;
-  unsigned short mode;
-  unsigned char  bpp;
-  unsigned short resolution[2];
-  unsigned short bytes_per_scanline;
-  unsigned long  physbase;
-  VesaModeInfo() : textmode(false), mode(0xffff), bpp(0), resolution(), physbase(0) {}
-};
-
-
 struct MessageVesa
 {
   enum Type
@@ -423,9 +404,9 @@ struct MessageVesa
   unsigned index;
   union
   {
-    VesaModeInfo *info;
+    Vbe::ModeInfoBlock *info;
   };
-  MessageVesa(unsigned _index, VesaModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
+  MessageVesa(unsigned _index, Vbe::ModeInfoBlock *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
   MessageVesa(unsigned _index) : type(TYPE_SWITCH_MODE), index(_index) {}
 };
 

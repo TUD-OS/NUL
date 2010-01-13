@@ -26,10 +26,6 @@
 class VesaBios : public StaticReceiver<VesaBios>, public  BiosCommon 
 {
   const char* debug_getname() { return "VesaBios"; }
-  enum {
-    TAG_VBE2 = 0x32454256,
-    TAG_VESA = 0x41534556,
-  };
 
   static unsigned vesa_farptr(CpuState *cpu, void *p, void *base)  {  
     return (cpu->es.sel << 16) |  (cpu->di + reinterpret_cast<char *>(p) - reinterpret_cast<char *>(base)); 
@@ -43,19 +39,7 @@ public:
       {
       case 0x4f00: // vesa information
 	{
-	  struct vbe_info {
-	    unsigned tag;
-	    unsigned short version;
-	    unsigned __attribute__((packed)) oem;
-	    unsigned __attribute__((packed)) cap;
-	    unsigned __attribute__((packed)) modes;
-	    unsigned short mem;
-	    unsigned short revnr;
-	    unsigned __attribute__((packed)) vendor;
-	    unsigned __attribute__((packed)) product;
-	    unsigned __attribute__((packed)) revision;
-	    char scratch[224+256];
-	  } v;
+	  Vbe::InfoBlock v;
 	  copy_in(cpu->es.base + cpu->di, &v, sizeof(v));
 	  Logging::printf("VESA %x tag %x base %x+%x esi %x\n", cpu->eax, v.tag, cpu->es.base, cpu->di, cpu->esi);
 
@@ -64,77 +48,52 @@ public:
 	  // add ptr to scratch area
 	  char *p = v.scratch;
 	  strcpy(p, oemstring);	 
-	  v.oem = vesa_farptr(cpu, p, &v);
-	  p+= strlen(p) + 1;
+	  v.oem_string = vesa_farptr(cpu, p, &v);
+	  p += strlen(p) + 1;
 
-	  v.cap = 0;
+	  v.caps = 0;
 	  unsigned short *modes = reinterpret_cast<unsigned short *>(p);
-	  v.modes = vesa_farptr(cpu, modes, &v);
+	  v.video_mode_ptr = vesa_farptr(cpu, modes, &v);
 
 	  // get all modes
 	  ConsoleModeInfo info;
 	  for (MessageConsole msg2(0, &info); _mb.bus_console.send(msg2); msg2.index++)
-	    *modes++ = info.vesamode;
+	    *modes++ = info._vesa_mode;
 	  *modes++ = 0xffff;
-	  v.mem = 0;
-	  if (v.tag == TAG_VBE2)
+
+
+	  // report 4M as framebuffer
+	  v.memory = (4<<20) >> 16;
+	  if (v.tag == Vbe::TAG_VBE2)
 	    {
-	      v.revnr = 0;
-	      v.vendor = 0;
-	      v.product = 0;
-	      v.revision = 0;
+	      v.oem_revision = 0;
+	      v.oem_vendor = 0;
+	      v.oem_product = 0;
+	      v.oem_product_rev = 0;
 	    }
-	  v.tag = TAG_VESA;
+	  v.tag = Vbe::TAG_VESA;
 	  copy_out(cpu->es.base + cpu->di, &v, sizeof(v));
 	}
 	break;
       case 0x4f01: // get modeinfo
 	{
-	  struct vbe_mode_info {
-	    unsigned short attr;
-	    unsigned short res[7];
-	    unsigned short bytes_per_scanline;
-	    unsigned short resolution[2];
-	    unsigned char  res2[3];
-	    unsigned char  bpp;
-	    unsigned char  banks;
-	    unsigned char  memory_mode;
-	    unsigned char  res3[3];
-	    unsigned char  masks[8];
-	    unsigned char  direct_color_info;
-	    // vbe2
-	    unsigned physbase;
-	    unsigned res4;
-	    unsigned short res5;
-	    // vbe3
-	    unsigned char vbe3[16];
-	    char scratch[189];
-	  } __attribute__((packed)) v;
-	  
-	  Logging::printf("VESA %x base %x+%x esi %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, sizeof(v));
+	  Logging::printf("VESA %x base %x+%x esi %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, sizeof(ConsoleModeInfo));
 	  
 	  // search whether we have the mode
 	  ConsoleModeInfo info;
 	  MessageConsole msg2(0, &info);
 	  while (_mb.bus_console.send(msg2))
 	    {
-	      if (info.vesamode == (cpu->eax >> 16))
+	      if (info._vesa_mode == (cpu->eax >> 16))
 		break;
 	      msg2.index++;
 	    }
 
 
-	  if (info.vesamode == (cpu->eax >> 16))
+	  if (info._vesa_mode == (cpu->eax >> 16))
 	    {
-	      memset(&v, 0, sizeof(v));
-	      v.attr = 0x99;
-	      v.bytes_per_scanline = info.bytes_per_scanline;
-	      v.resolution[0] = info.resolution[0];
-	      v.resolution[1] = info.resolution[1];
-	      v.bpp = info.bpp;
-	      v.memory_mode = 6; // direct color
-	      // XXX physbase, masks, modeinfo
-	      copy_out(cpu->es.base + cpu->di, &v, sizeof(v));
+	      // XXX physbase
+	      copy_out(cpu->es.base + cpu->di, &info, sizeof(info));
 	      break;
 	    }
 	}
