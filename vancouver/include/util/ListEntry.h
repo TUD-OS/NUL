@@ -15,13 +15,15 @@ public:
 
   T *first() {
     T *first;
-    for (first = (T *)this; first->_prev; first = first->_prev);
+    for (first = (T *)this; first->_prev; first = first->_prev)
+      ;
     return prev;
   }
 
   T *last() {
     T *last;
-    for (last = (T *)this; last->_next; last = last->_next);
+    for (last = (T *)this; last->_next; last = last->_next)
+      ;
     return last;
   }
 
