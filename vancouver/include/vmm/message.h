@@ -402,10 +402,7 @@ struct MessageVesa
       TYPE_SWITCH_MODE,
     } type;
   unsigned index;
-  union
-  {
-    Vbe::ModeInfoBlock *info;
-  };
+  Vbe::ModeInfoBlock *info;
   MessageVesa(unsigned _index, Vbe::ModeInfoBlock *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
   MessageVesa(unsigned _index) : type(TYPE_SWITCH_MODE), index(_index) {}
 };

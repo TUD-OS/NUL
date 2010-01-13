@@ -23,8 +23,8 @@
  * A VGA compatible device.
  *
  * State: unstable
- * Features: only textmode 80x25 supported, cursor
- * Missing: plenty, e.g: PCI, IRQ,...
+ * Features: textmode 80x25 supported, cursor
+ * Missing: plenty, e.g: PCI, IRQ, VESA framebuffer...
  * Documentation: FreeVGA chipset reference - vga.htm
  */
 class Vga : public StaticReceiver<Vga>, public BiosCommon
@@ -59,9 +59,10 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   bool handle_reset()
   {
+    _regs.offset = 0;
+    _regs.mode   = 0;
     _regs.cursor_pos  = 24*80*2;
     _regs.cursor_style = 0x0d0e;
-    _regs.offset = 0;
 
     // clear screen
     for (unsigned i=0; i < 25; i++) putchar_guest('\n');
@@ -75,6 +76,16 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   static unsigned vesa_farptr(CpuState *cpu, void *p, void *base)  {  
     return (cpu->es.sel << 16) |  (cpu->di + reinterpret_cast<char *>(p) - reinterpret_cast<char *>(base)); 
   }
+
+  unsigned get_vesa_mode(unsigned vesa_mode, ConsoleModeInfo *info)
+  {
+    for (MessageConsole msg2(0, info); msg2.index < (Vbe::MAX_VESA_MODES - 1) && _mb.bus_console.send(msg2); msg2.index++)
+      {
+	if (vesa_mode == info->_vesa_mode) return msg2.index;
+      }
+    return ~0u;
+  }
+
 public:
   bool  handle_vesa(CpuState *cpu)
   {
@@ -87,6 +98,7 @@ public:
 	  copy_in(cpu->es.base + cpu->di, &v, sizeof(v));
 	  Logging::printf("VESA %x tag %x base %x+%x esi %x\n", cpu->eax, v.tag, cpu->es.base, cpu->di, cpu->esi);
 
+	  // we support VBE 2.0
 	  v.version = 0x0201;
 
 	  // add ptr to scratch area
@@ -122,27 +134,28 @@ public:
 	{
 	  Logging::printf("VESA %x base %x+%x esi %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, sizeof(ConsoleModeInfo));
 	  
-	  // search whether we have the mode
-	  ConsoleModeInfo info;
-	  MessageConsole msg2(0, &info);
-	  while (_mb.bus_console.send(msg2))
+	  ConsoleModeInfo info;	 
+	  if (get_vesa_mode((cpu->eax >> 16), &info) != 0ul)
 	    {
-	      if (info._vesa_mode == (cpu->eax >> 16))
-		break;
-	      msg2.index++;
-	    }
-
-
-	  if (info._vesa_mode == (cpu->eax >> 16))
-	    {
-	      // XXX physbase
+	      info.phys_base = 0x100000; // XXX
 	      copy_out(cpu->es.base + cpu->di, &info, sizeof(info));
 	      break;
 	    }
 	}
 	return false;
       case 0x4f02: // set vbemode
-	Logging::printf("VESA %x base %x+%x esi %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi);
+	{
+	  ConsoleModeInfo info;
+	  unsigned index = get_vesa_mode(cpu->ebx & 0x0fff, &info);
+	  if (index != ~0u)
+	    {
+	      // ok, we have the mode -> set it
+	      Logging::printf("VESA %x base %x+%x esi %x mode %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, index);
+	      _regs.mode =  index;
+	      // XXX clear the shadow framebuffer if flag is set
+	      break;
+	    }
+	}
       case 0x4f15: // DCC
       default:
 	return false;
@@ -354,7 +367,7 @@ public:
 
   bool  receive(MessageMemRead &msg)
   {
-    if ((msg.phys < _textbase) || (msg.phys >= _textbase + SIZE - msg.count))  return false;
+    if (!in_range(msg.phys,_textbase, SIZE - msg.count))  return false;
     memcpy(msg.ptr, _ptr + msg.phys - _textbase, msg.count);
     return true;
   }
@@ -362,16 +375,15 @@ public:
 
   bool  receive(MessageMemWrite &msg)
   {
-    if ((msg.phys < _textbase) || (msg.phys >= _textbase + SIZE - msg.count))  return false;
+    if (!in_range(msg.phys,_textbase, SIZE - msg.count))  return false;
     memcpy(_ptr + msg.phys - _textbase, msg.ptr, msg.count);
     return true;
   }
 
 
-
   bool  receive(MessageMemMap &msg)
   {
-    if ((msg.phys < _textbase) || (msg.phys >= _textbase + SIZE))  return false;
+    if (!in_range(msg.phys,_textbase, SIZE))  return false;
     msg.phys = _textbase;
     msg.ptr = _ptr;
     msg.count = SIZE;

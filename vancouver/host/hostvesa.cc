@@ -211,7 +211,7 @@ public:
 	  }
 	default:
 	  break;
-      }
+	}
     return false;
   }
 
@@ -259,6 +259,7 @@ public:
       modes++;  
     _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
     
+
     // add standard vga text mode #3
     {
       
