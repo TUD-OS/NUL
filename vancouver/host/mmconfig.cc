@@ -82,7 +82,7 @@ PARAM(mmconfig,
 			  entry->base, entry->pci_seg,
 			  entry->pci_bus_start, entry->pci_bus_end);
 	  
-	  uint8_t buses = entry->pci_bus_end - entry->pci_bus_start + 1;
+	  unsigned buses = entry->pci_bus_end - entry->pci_bus_start + 1;
 	  size_t size = buses * 32 * 8 * 4096;
 	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
 
