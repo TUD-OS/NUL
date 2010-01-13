@@ -119,7 +119,7 @@ class HostVesa : public StaticReceiver<HostVesa>
 	modeinfo->_phys_size = modeinfo->phys_base - _framebuffer_phys + _framebuffer_size;
 
 	// validate bytes_per_scanline
-	if (_version < 0x300) modeinfo->bytes_per_scanline = (modeinfo->resolution[0] * modeinfo->bpp / 8);
+	if (_version < 0x300 || !modeinfo->bytes_per_scanline) modeinfo->bytes_per_scanline = (modeinfo->resolution[0] * modeinfo->bpp / 8);
 
 	memcpy(_modelist + _modecount, modeinfo, sizeof(*_modelist));
 	if (_debug)

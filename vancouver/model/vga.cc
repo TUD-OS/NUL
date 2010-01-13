@@ -83,13 +83,13 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   unsigned get_vesa_mode(unsigned vesa_mode, ConsoleModeInfo *info)
   {
-    for (MessageConsole msg2(0, info); msg2.index < (Vbe::MAX_VESA_MODES - 1) && _mb.bus_console.send(msg2); msg2.index++)
+    for (MessageConsole msg2(0, info); (msg2.index < (Vbe::MAX_VESA_MODES - 1)) && _mb.bus_console.send(msg2); msg2.index++)
       {
 	if (vesa_mode == info->_vesa_mode) 
 	  {
-	    unsigned long image_size = info->bytes_per_scanline * info->resolution[1];
 	    // fix memory info
-	    if (image_size > _framebuffer_size) 
+	    unsigned long image_size = info->bytes_per_scanline * info->resolution[1];
+	    if (!image_size || image_size > _framebuffer_size)
 	      info->attr &= ~1u;
 	    else
 	      {
@@ -454,13 +454,14 @@ public:
 
 PARAM(vga,
       {
-	unsigned fbsize = argv[1];
+	unsigned long fbsize = argv[1];
 	if (fbsize < (1<<7) || fbsize == ~0ul)
 	  fbsize = 128;
-	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize << 10);
+	fbsize <<= 10;
+	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
 	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0);
 	if (!mb.bus_hostop.send(msg) || !mb.bus_hostop.send(msg2))
-	  Logging::panic("%s failed to alloc %d kb from guest memory\n", __PRETTY_FUNCTION__, fbsize);
+	  Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
 
 	Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
 	mb.bus_ioin.  add(dev, &Vga::receive_static<MessageIOIn>);
