@@ -161,6 +161,7 @@ public:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_VIRT_TO_PHYS:
+      case MessageHostOp::OP_ALLOC_FROM_GUEST:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

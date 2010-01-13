@@ -427,6 +427,7 @@ struct MessageHostOp
       OP_GET_MODULE,
       OP_GET_UID,
       OP_GUEST_MEM,
+      OP_ALLOC_FROM_GUEST,
     } type;  
   unsigned long value;
   union {

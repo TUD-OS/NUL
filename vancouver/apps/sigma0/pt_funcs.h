@@ -260,6 +260,7 @@ PT_FUNC(do_request,
 		    case MessageHostOp::OP_ALLOC_IOMEM:
 		    case MessageHostOp::OP_ATTACH_HOSTIRQ:
 		    case MessageHostOp::OP_GUEST_MEM:
+		    case MessageHostOp::OP_ALLOC_FROM_GUEST:
 		    case MessageHostOp::OP_VIRT_TO_PHYS:
 		    case MessageHostOp::OP_NOTIFY_IRQ:
 		    default:

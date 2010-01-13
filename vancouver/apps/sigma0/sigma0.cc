@@ -710,6 +710,7 @@ public:
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_GUEST_MEM:
+      case MessageHostOp::OP_ALLOC_FROM_GUEST:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

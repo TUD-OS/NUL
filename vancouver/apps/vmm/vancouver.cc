@@ -499,6 +499,15 @@ public:
 	    msg.ptr    = &__freemem + msg.value;
 	  }
 	break;
+      case MessageHostOp::OP_ALLOC_FROM_GUEST:
+	if (msg.value <= _physsize)
+	  {
+	    _physsize -= msg.value;
+	    msg.phys =  _physsize;
+	  }
+	else
+	  res = false;
+	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
 	semup(_shared_sem[msg.value & 0xff]);
 	res = true;

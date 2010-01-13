@@ -29,17 +29,21 @@
  */
 class Vga : public StaticReceiver<Vga>, public BiosCommon
 {
-  static const unsigned SIZE = 0x8000;
+  enum { 
+    LOW_BASE  = 0xa0000,
+    LOW_SIZE  = 1<<17,
+  };
   unsigned short _view;
   unsigned short _iobase;
-  unsigned _textbase;
-  char    *_ptr;
-  VgaRegs _regs;
-  unsigned char _crt_index;
+  char         * _framebuffer_ptr;
+  unsigned long  _framebuffer_phys;
+  unsigned long  _framebuffer_size;
+  VgaRegs        _regs;
+  unsigned char  _crt_index;
 
   void debug_dump() {
     Device::debug_dump();
-    Logging::printf("    iobase %x+32 textbase %x", _iobase, _textbase);
+    Logging::printf("    iobase %x+32 fbphys %lx fbsize %lx", _iobase, _framebuffer_phys, _framebuffer_size);
   };
   const char *debug_getname() { return "VGA"; };
 
@@ -47,7 +51,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   void putchar_guest(unsigned short value)
   {
-    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_ptr), _regs.cursor_pos);
+    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr + 0x18000), _regs.cursor_pos);
   }
 
 
@@ -81,7 +85,22 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   {
     for (MessageConsole msg2(0, info); msg2.index < (Vbe::MAX_VESA_MODES - 1) && _mb.bus_console.send(msg2); msg2.index++)
       {
-	if (vesa_mode == info->_vesa_mode) return msg2.index;
+	if (vesa_mode == info->_vesa_mode) 
+	  {
+	    unsigned long image_size = info->bytes_per_scanline * info->resolution[1];
+	    // fix memory info
+	    if (image_size > _framebuffer_size) 
+	      info->attr &= ~1u;
+	    else
+	      {
+		unsigned image_pages = (_framebuffer_size / image_size) - 1;
+		if (image_pages > 0xff) image_pages = 0xff;
+		info->number_images     = image_pages;
+		info->number_images_bnk = image_pages;
+		info->number_images_lin = image_pages;
+	      }
+	    return msg2.index;
+	  }
       }
     return ~0u;
   }
@@ -117,8 +136,7 @@ public:
 	    *modes++ = info._vesa_mode;
 	  *modes++ = 0xffff;
 
-	  // report 4M as framebuffer
-	  v.memory = (4<<20) >> 16;
+	  v.memory = _framebuffer_size >> 16;
 	  if (v.tag == Vbe::TAG_VBE2)
 	    {
 	      v.oem_revision = 0;
@@ -137,7 +155,7 @@ public:
 	  ConsoleModeInfo info;	 
 	  if (get_vesa_mode((cpu->eax >> 16), &info) != 0ul)
 	    {
-	      info.phys_base = 0x100000; // XXX
+	      info.phys_base = _framebuffer_phys;
 	      copy_out(cpu->es.base + cpu->di, &info, sizeof(info));
 	      break;
 	    }
@@ -147,12 +165,18 @@ public:
 	{
 	  ConsoleModeInfo info;
 	  unsigned index = get_vesa_mode(cpu->ebx & 0x0fff, &info);
-	  if (index != ~0u)
+	  if (index != ~0u && info.attr & 1)
 	    {
 	      // ok, we have the mode -> set it
 	      Logging::printf("VESA %x base %x+%x esi %x mode %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, index);
+
+	      // clear buffer
+	      if (~cpu->ebx & 0x8000)  memset(_framebuffer_ptr, 0, _framebuffer_size);
+
+	      // switch mode
 	      _regs.mode =  index;
-	      // XXX clear the shadow framebuffer if flag is set
+
+	      // XXX handle s
 	      break;
 	    }
 	}
@@ -367,42 +391,59 @@ public:
 
   bool  receive(MessageMemRead &msg)
   {
-    if (!in_range(msg.phys,_textbase, SIZE - msg.count))  return false;
-    memcpy(msg.ptr, _ptr + msg.phys - _textbase, msg.count);
+    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size - msg.count))
+      memcpy(msg.ptr, _framebuffer_ptr + msg.phys - _framebuffer_phys, msg.count);
+    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE - msg.count))
+      memcpy(msg.ptr, _framebuffer_ptr + msg.phys - LOW_BASE, msg.count);
+    else return false;
+
     return true;
   }
 
 
   bool  receive(MessageMemWrite &msg)
   {
-    if (!in_range(msg.phys,_textbase, SIZE - msg.count))  return false;
-    memcpy(_ptr + msg.phys - _textbase, msg.ptr, msg.count);
+    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size - msg.count))
+      memcpy(_framebuffer_ptr + msg.phys - _framebuffer_phys, msg.ptr, msg.count);
+    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE - msg.count))
+      memcpy(_framebuffer_ptr + msg.phys - LOW_BASE, msg.ptr, msg.count);
+    else return false;
+
     return true;
   }
 
 
   bool  receive(MessageMemMap &msg)
   {
-    if (!in_range(msg.phys,_textbase, SIZE))  return false;
-    msg.phys = _textbase;
-    msg.ptr = _ptr;
-    msg.count = SIZE;
+	
+    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size))
+      {
+	msg.phys = _framebuffer_phys;
+	msg.ptr = _framebuffer_ptr;
+	msg.count = _framebuffer_size;
+      }
+    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE))
+      {
+	msg.phys = LOW_BASE;
+	msg.ptr = _framebuffer_ptr;
+	msg.count = LOW_SIZE;
+      }
+    else return false;
+
     return true;
   }
 
 
 
-  Vga(Motherboard &mb, unsigned short iobase, unsigned long textbase)
-    : BiosCommon(mb), _iobase(iobase), _textbase(textbase), _crt_index(0)
+  Vga(Motherboard &mb, unsigned short iobase, char *framebuffer_ptr, unsigned long framebuffer_phys, unsigned long framebuffer_size)
+    : BiosCommon(mb), _iobase(iobase), _framebuffer_ptr(framebuffer_ptr), _framebuffer_phys(framebuffer_phys), _framebuffer_size(framebuffer_size), _crt_index(0)
   {
     // alloc console
-    _ptr = reinterpret_cast<char *>(memalign(0x1000, SIZE));
-    memset(_ptr, 0, SIZE);
-    MessageConsole msg("VM", _ptr, SIZE, &_regs);
-    if (!_ptr || !mb.bus_console.send(msg))
+    MessageConsole msg("VM", _framebuffer_ptr, _framebuffer_size, &_regs);
+    if (!mb.bus_console.send(msg))
       Logging::panic("could not alloc a VGA backend");
     _view = msg.view;
-    Logging::printf("VGA console %lx %p\n", textbase, _ptr);
+    Logging::printf("VGA console %lx+%lx %p\n", _framebuffer_phys, _framebuffer_size, _framebuffer_ptr);
 
     // switch to our console
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
@@ -413,7 +454,15 @@ public:
 
 PARAM(vga,
       {
-	Device *dev = new Vga(mb, argv[0], argv[1]);
+	unsigned fbsize = argv[1];
+	if (fbsize < (1<<7) || fbsize == ~0ul)
+	  fbsize = 128;
+	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize << 10);
+	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0);
+	if (!mb.bus_hostop.send(msg) || !mb.bus_hostop.send(msg2))
+	  Logging::panic("%s failed to alloc %d kb from guest memory\n", __PRETTY_FUNCTION__, fbsize);
+
+	Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
 	mb.bus_ioin.  add(dev, &Vga::receive_static<MessageIOIn>);
 	mb.bus_ioout. add(dev, &Vga::receive_static<MessageIOOut>);
 	mb.bus_bios.  add(dev, &Vga::receive_static<MessageBios>);
@@ -421,6 +470,7 @@ PARAM(vga,
 	mb.bus_memwrite.add(dev, &Vga::receive_static<MessageMemWrite>);
 	mb.bus_memmap.add(dev, &Vga::receive_static<MessageMemMap>);
       },
-      "vga:iobase,memtext - attach a VGA controller in text mode 80x25.",
-      "Example: 'vga:0x3c0,0xb8000'",
-      "This also adds support for VGA graphics bios support");
+      "vga:iobase,fbsize=128 - attach a VGA controller.",
+      "Example: 'vga:0x3c0,4096'",
+      "The framebuffersize is given in kilobyte and the minimum is 128k.",
+      "This also adds support for VGA and VESA graphics bios support.");
