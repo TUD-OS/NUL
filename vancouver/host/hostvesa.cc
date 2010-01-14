@@ -240,7 +240,7 @@ public:
     Vbe::InfoBlock *p = reinterpret_cast<Vbe::InfoBlock *>(_mem + (ES_SEG0 << 4));
     p->tag = Vbe::TAG_VBE2;
     if (vbe_call(0x4f00, ES_SEG0)) { Logging::printf("No VBE found\n"); return; }
-    if (p->version < 0x102)  { Logging::printf("VBE version %x too old\n", p->version); return; }
+    if (p->version < 0x200)  { Logging::printf("VBE version %x too old\n", p->version); return; }
 
     // we need only the version from the InfoBlock
     _version = p->version;
