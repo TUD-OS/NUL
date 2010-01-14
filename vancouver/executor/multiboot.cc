@@ -83,8 +83,9 @@ private:
   Motherboard &_mb;
   unsigned long _base;
   unsigned long _modaddr;
+  unsigned _lowmem;
   const char *debug_getname() { return "MultibootExecutor"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" base 0x%lx", _base);
   }
@@ -146,7 +147,7 @@ private:
     if (!m) return 0;
 
     // provide memory map
-    MbiMmap mymap[] = {{20, 0, 0xa0000, 0x1},
+    MbiMmap mymap[] = {{20, 0, _lowmem, 0x1},
 		       {20, 1<<20, memsize - (1<<20), 0x1}};
     m->mem_lower = 640;
     m->mem_upper = (memsize >> 10) - 1024;
@@ -163,7 +164,7 @@ private:
   {
     assert(msg.cpu->head.pid == 33);
     if (msg.cpu->cs.base + msg.cpu->eip != _base)  return false;
-    Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, 
+    Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
 		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     unsigned long rip = 0xfffffff0;
@@ -190,13 +191,19 @@ private:
     return true;
   }
 
-  MultibootExecutor(Motherboard &mb, unsigned long base, unsigned long modaddr) : _mb(mb), _base(base), _modaddr(modaddr) {}
+  MultibootExecutor(Motherboard &mb, unsigned long base, unsigned long modaddr, unsigned lowmem) : _mb(mb), _base(base), _modaddr(modaddr), _lowmem(lowmem) {}
 };
 
 PARAM(multiboot,
       {
-	mb.bus_executor.add(new MultibootExecutor(mb, argv[0], argv[1]!= ~0ul ? argv[1] : 0x1000000),  &MultibootExecutor::receive_static, 33);
+	mb.bus_executor.add(new MultibootExecutor(mb,
+						  argv[0],
+						  argv[1]!= ~0ul ? argv[1] : 0x1000000,
+						  argv[2]!= ~0ul ? argv[2] : 0xa0000),
+			    &MultibootExecutor::receive_static, 33);
       },
-      "multiboot:eip,modaddr=0x1000000 - create a executor that supports multiboot",
+      "multiboot:eip,modaddr=0x1000000,lowmem=0xa0000 - create a executor that supports multiboot",
       "Example:  'multiboot:0xfffffff0'",
-      "If the eip is reached, the CPU is initilizes and the modules are requested from sigma0.");
+      "If the eip is reached, the CPU is initilizes and the modules are requested from sigma0.",
+      "modaddr defines where the modules are loaded in guest memory.",
+      "lowmem allows to restrict memory below 1M to less than 640k.");
