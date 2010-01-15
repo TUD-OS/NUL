@@ -65,7 +65,7 @@ if target_cxx:
 
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
-target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc -Wall -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum')
+target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -fshort-enums -minline-all-stringops -nostdinc -Wall -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2')
 #target_env.Append(CCFLAGS = (' -march=' + opt_arch))
 
 target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"

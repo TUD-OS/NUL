@@ -65,9 +65,20 @@
     return msg.vcpu->fault;
   }
 
+/**
+ * Move
+ */
+#define MOVE2(operand_size, DST, SRC) {					\
+    if (operand_size == 0)  DST = (DST & ~0xff)   | (SRC & 0xff);	\
+    if (operand_size == 1)  DST = (DST & ~0xffff) | (SRC & 0xffff);	\
+    if (operand_size == 2)  DST = SRC;					\
+  }
+
+
   template<unsigned operand_size>
   static void move(void *tmp_dst, void *tmp_src)
   {
+    // XXX aliasing!
     if (operand_size == 0) *reinterpret_cast<unsigned char *>(tmp_dst) = *reinterpret_cast<unsigned char *>(tmp_src);
     if (operand_size == 1) *reinterpret_cast<unsigned short *>(tmp_dst) = *reinterpret_cast<unsigned short *>(tmp_src);
     if (operand_size == 2) *reinterpret_cast<unsigned int *>(tmp_dst) = *reinterpret_cast<unsigned int *>(tmp_src);
@@ -200,17 +211,17 @@ static int helper_CLTS(MessageExecutor &msg) {  if (msg.cpu->cpl()) GP0; msg.cpu
    */
 #define helper_LOOPS(NAME, X)						\
   template<unsigned operand_size>					\
-    static void __attribute__((regparm(3))) __attribute__((noinline))	\
-    helper_##NAME(MessageExecutor &msg, void *tmp_src, InstructionCacheEntry *entry) \
-    {									\
-    unsigned long ecx = 0;						\
-    move<operand_size>(&ecx, &msg.cpu->ecx);				\
+  static void __attribute__((regparm(3))) __attribute__((noinline))	\
+  helper_##NAME(MessageExecutor &msg, void *tmp_src, InstructionCacheEntry *entry) \
+  {									\
+    unsigned ecx = 0;							\
+    MOVE2(operand_size, ecx, msg.cpu->ecx);				\
     if (X != 3) --ecx;							\
     if ((ecx && (X==0 || (X==1 && msg.cpu->efl & 0x40) || (X==2 && ~msg.cpu->efl & 0x40))) || (!ecx && X == 3)) \
       if (helper_JMP<operand_size>(msg, tmp_src, entry))		\
 	return;								\
-    move<operand_size>(&msg.cpu->ecx, &ecx);				\
-    }
+    MOVE2(operand_size, msg.cpu->ecx, ecx);				\
+  }
 helper_LOOPS(LOOP, 0)
 helper_LOOPS(LOOPE, 1)
 helper_LOOPS(LOOPNE, 2)
@@ -289,7 +300,7 @@ helper_LDT(LGDT, gd)
 	if (msg.cpu->cpl()) mask &= ~0x3200;
 	tmp = READ(efl) & ~mask | tmp & mask;
 	WRITE(efl);
-	move<operand_size>(&msg.cpu->efl, &tmp);
+	MOVE2(operand_size, msg.cpu->efl, tmp);
       }
     return msg.vcpu->fault;
   }
