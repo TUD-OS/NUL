@@ -311,7 +311,13 @@ public:
       }
     return msg.vcpu->fault;
   }
-    /**
+
+  static unsigned *get_reg32(MessageExecutor &msg, unsigned reg)
+  {
+    return msg.cpu->gpr + reg;
+  }
+
+  /**
    * Get a GPR.
    */
   template<bool bytereg>
@@ -354,8 +360,7 @@ public:
       }
     if (entry->flags & IC_BITS)
       {
-	unsigned bitofs;
-	move<2>(&bitofs, get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7));
+	unsigned bitofs = *get_reg32(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	virt += (bitofs >> 3) & ~((1 << entry->operand_size) - 1);
       }
     return virt;

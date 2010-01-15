@@ -397,8 +397,8 @@ helper_LDT(LGDT, gd)
  */
 static int helper_MOV__CR0__EDX(MessageExecutor &msg, InstructionCacheEntry * entry)
 {
-  void *tmp_src;
-  void *tmp_dst = get_reg<0>(msg,  entry->data[entry->offset_opcode] & 0x7);
+  unsigned *tmp_src;
+  unsigned *tmp_dst = get_reg32(msg,  entry->data[entry->offset_opcode] & 0x7);
   switch ((entry->data[entry->offset_opcode] >> 3) & 0x7)
     {
     case 0: tmp_src = &msg.cpu->cr0; break;
@@ -407,7 +407,7 @@ static int helper_MOV__CR0__EDX(MessageExecutor &msg, InstructionCacheEntry * en
     case 4: tmp_src = &msg.cpu->cr4; break;
     default: UD0;
     }
-  move<2>(tmp_dst, tmp_src);
+  *tmp_dst = *tmp_src;
   return msg.vcpu->fault;
 }
 
@@ -417,9 +417,9 @@ static int helper_MOV__CR0__EDX(MessageExecutor &msg, InstructionCacheEntry * en
  */
 static int helper_MOV__EDX__CR0(MessageExecutor &msg, InstructionCacheEntry * entry)
 {
-  void *tmp_src = get_reg<0>(msg, entry->data[entry->offset_opcode] & 0x7);
-  void *tmp_dst;
-  unsigned tmp = *reinterpret_cast<unsigned *>(tmp_src);
+  unsigned *tmp_src = get_reg32(msg, entry->data[entry->offset_opcode] & 0x7);
+  unsigned *tmp_dst;
+  unsigned tmp = *tmp_src;
   switch ((entry->data[entry->offset_opcode] >> 3) & 0x7)
     {
     case 0: if (tmp & 0x1ffaffc0U) GP0;  tmp_dst = &msg.cpu->cr0; break;
@@ -428,7 +428,7 @@ static int helper_MOV__EDX__CR0(MessageExecutor &msg, InstructionCacheEntry * en
     case 4: if (tmp & 0xffff9800U) GP0;  tmp_dst = &msg.cpu->cr4; break;
     default: UD0;
     }
-  move<2>(tmp_dst, tmp_src);
+  *tmp_dst = *tmp_src;
   msg.vcpu->hazard |= VirtualCpuState::HAZARD_CRWRITE;
 
   // update TLB
@@ -902,7 +902,7 @@ static int helper_MOV__DB0__EDX(MessageExecutor &msg, InstructionCacheEntry *ent
   if ((dbreg == 4 || dbreg == 5) && ~msg.cpu->cr4 & 0x8)
     dbreg += 2;
 
-  void *tmp_src;
+  unsigned *tmp_src;
   switch (dbreg)
     {
     case 0 ... 3: tmp_src = &msg.vcpu->dr[dbreg]; break;
@@ -910,7 +910,7 @@ static int helper_MOV__DB0__EDX(MessageExecutor &msg, InstructionCacheEntry *ent
     case 7: tmp_src = &msg.cpu->dr7; break;
     default: UD0;
     }
-  move<2>(get_reg<0>(msg, (entry->data[entry->offset_opcode]) & 0x7), tmp_src);
+  *get_reg32(msg, (entry->data[entry->offset_opcode]) & 0x7) = *tmp_src;
   return msg.vcpu->fault;
 }
 static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *entry)
@@ -918,8 +918,7 @@ static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *ent
   unsigned dbreg = (entry->data[entry->offset_opcode] >> 3) & 0x7;
   if ((dbreg == 4 || dbreg == 5) && ~msg.cpu->cr4 & 0x8)
     dbreg += 2;
-  unsigned value;
-  move<2>(&value, get_reg<0>(msg, (entry->data[entry->offset_opcode]) & 0x7));
+  unsigned value = *get_reg32(msg, (entry->data[entry->offset_opcode]) & 0x7);
   switch (dbreg)
     {
     case 0 ... 3: msg.vcpu->dr[dbreg] = value; break;

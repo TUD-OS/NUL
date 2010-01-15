@@ -672,7 +672,7 @@ static void __attribute__ ((regparm (3))) exec_0fa4_shld_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -685,7 +685,7 @@ static void __attribute__ ((regparm (3))) exec_0fa4_shld_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -698,7 +698,7 @@ static void __attribute__ ((regparm (3))) exec_0fa5_shld_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -711,7 +711,7 @@ static void __attribute__ ((regparm (3))) exec_0fa5_shld_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -756,7 +756,7 @@ static void __attribute__ ((regparm (3))) exec_0fac_shrd_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -769,7 +769,7 @@ static void __attribute__ ((regparm (3))) exec_0fac_shrd_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -782,7 +782,7 @@ static void __attribute__ ((regparm (3))) exec_0fad_shrd_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -795,7 +795,7 @@ static void __attribute__ ((regparm (3))) exec_0fad_shrd_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -809,7 +809,7 @@ static void __attribute__ ((regparm (3))) exec_0faf_imul_1 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
@@ -830,7 +830,7 @@ static void __attribute__ ((regparm (3))) exec_0faf_imul_2 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
@@ -920,21 +920,21 @@ static void __attribute__ ((regparm (3))) exec_0fb5_lgs_2 (MessageExecutor & msg
 static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
@@ -1011,21 +1011,21 @@ static void __attribute__ ((regparm (3))) exec_0fbd_bsr_2 (MessageExecutor & msg
 static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
@@ -1434,7 +1434,7 @@ static void __attribute__ ((regparm (3))) exec_60_pusha_1 (MessageExecutor & msg
 	  if (helper_PUSH < 1 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	    return;
 	}
-      else if (helper_PUSH < 1 > (msg, get_reg < 0 > (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+      else if (helper_PUSH < 1 > (msg, get_reg32 (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	return;
     };
 }
@@ -1448,7 +1448,7 @@ static void __attribute__ ((regparm (3))) exec_60_pusha_2 (MessageExecutor & msg
 	  if (helper_PUSH < 2 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	    return;
 	}
-      else if (helper_PUSH < 2 > (msg, get_reg < 0 > (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+      else if (helper_PUSH < 2 > (msg, get_reg32 (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	return;
     };
 }
@@ -1461,7 +1461,7 @@ static void __attribute__ ((regparm (3))) exec_61_popa_1 (MessageExecutor & msg,
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 1 > (get_reg < 0 > (msg, i), values + i);
+      move < 1 > (get_reg32 (msg, i), values + i);
 }
 
 static void __attribute__ ((regparm (3))) exec_61_popa_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -1472,7 +1472,7 @@ static void __attribute__ ((regparm (3))) exec_61_popa_2 (MessageExecutor & msg,
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 2 > (get_reg < 0 > (msg, i), values + i);
+      move < 2 > (get_reg32 (msg, i), values + i);
 }
 
 static void __attribute__ ((regparm (3))) exec_68_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -1489,7 +1489,7 @@ static void __attribute__ ((regparm (3))) exec_69_imul_1 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1510,7 +1510,7 @@ static void __attribute__ ((regparm (3))) exec_69_imul_2 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1541,7 +1541,7 @@ static void __attribute__ ((regparm (3))) exec_6b_imul_1 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1562,7 +1562,7 @@ static void __attribute__ ((regparm (3))) exec_6b_imul_2 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -2992,7 +2992,7 @@ static void __attribute__ ((regparm (3))) exec_f628_imul_0 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
@@ -3078,7 +3078,7 @@ static void __attribute__ ((regparm (3))) exec_f728_imul_1 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
@@ -3099,7 +3099,7 @@ static void __attribute__ ((regparm (3))) exec_f728_imul_2 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)

@@ -84,8 +84,8 @@ class VirtualCpuState
   unsigned long long pdpt[4];
 
   // debug register
-  unsigned long dr[4];
-  unsigned long dr6;
+  unsigned dr[4];
+  unsigned dr6;
 
   // MSR state
   unsigned long msr_apic;
