@@ -314,13 +314,15 @@ public:
     /**
    * Get a GPR.
    */
-  static void *get_gpr(MessageExecutor &msg, unsigned reg, bool bytereg)
+  template<bool bytereg>
+  static void *get_reg(MessageExecutor &msg, unsigned reg)
   {
     void *res = msg.cpu->gpr + reg;
     if (bytereg && reg >= 4 && reg < 8)
       res = reinterpret_cast<char *>(msg.cpu->gpr+(reg & 0x3)) + ((reg & 0x4) >> 2);
     return res;
   }
+
 
 
   static unsigned modrm2virt(MessageExecutor &msg, InstructionCacheEntry *entry)
@@ -353,7 +355,7 @@ public:
     if (entry->flags & IC_BITS)
       {
 	unsigned bitofs;
-	move<2>(&bitofs, get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0));
+	move<2>(&bitofs, get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7));
 	virt += (bitofs >> 3) & ~((1 << entry->operand_size) - 1);
       }
     return virt;
@@ -375,7 +377,7 @@ public:
   {
     unsigned short info = entry->modrminfo;
     if (info & MRM_REG)
-      res = get_gpr(msg, info & 0x7, length == 1);
+	res = length == 1 ? get_reg<1>(msg, info & 0x7) : get_reg<0>(msg, info & 0x7);
     else
       virt_to_ptr(msg, entry, res, length, type, modrm2virt(msg, entry));
     return msg.vcpu->fault;
@@ -391,26 +393,26 @@ public:
       case IC_SAVEFLAGS:
 	asm volatile ("call *%4; pushf; pop %3"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "=g"(tmp_flag)
-		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
+		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       case IC_LOADFLAGS:
 	tmp_flag = msg.cpu->efl & 0x8d5;
 	asm volatile ("push %3; popf; call *%4;"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
-		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
+		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	break;
       case IC_LOADFLAGS | IC_SAVEFLAGS:
 	tmp_flag = msg.cpu->efl & 0x8d5;
 	asm volatile ("push %3; popf; call *%4; pushf; pop %3"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
-		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
+		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       default:
 	asm volatile ("call *%3;"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3)
-		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst));
+		      : "m"(entry->execute), "0"(&msg), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	break;
       }
   }

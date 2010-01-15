@@ -91,7 +91,7 @@ static int helper_STI(MessageExecutor &msg) {
 template<unsigned operand_size>
 static void __attribute__((regparm(3)))  helper_LEA(MessageExecutor &msg, InstructionCacheEntry *entry)
 {
-  void *tmp_dst = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  void *tmp_dst = get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   unsigned virt = modrm2virt(msg, entry);
   move<operand_size>(tmp_dst, &virt);
 }
@@ -111,6 +111,6 @@ static int helper_loadsegment(MessageExecutor &msg, CpuState::Descriptor *desc, 
   move<1>(&sel, reinterpret_cast<char *>(addr) + (1 << operand_size));
 
   if (!set_segment(msg, desc, sel))
-    move<operand_size>(get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0), addr);
+    move<operand_size>(get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7), addr);
   return msg.vcpu->fault;
 }

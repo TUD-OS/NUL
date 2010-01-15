@@ -672,7 +672,7 @@ static void __attribute__ ((regparm (3))) exec_0fa4_shld_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -685,7 +685,7 @@ static void __attribute__ ((regparm (3))) exec_0fa4_shld_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -698,7 +698,7 @@ static void __attribute__ ((regparm (3))) exec_0fa5_shld_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -711,7 +711,7 @@ static void __attribute__ ((regparm (3))) exec_0fa5_shld_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -756,7 +756,7 @@ static void __attribute__ ((regparm (3))) exec_0fac_shrd_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -769,7 +769,7 @@ static void __attribute__ ((regparm (3))) exec_0fac_shrd_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -782,7 +782,7 @@ static void __attribute__ ((regparm (3))) exec_0fad_shrd_1 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -795,7 +795,7 @@ static void __attribute__ ((regparm (3))) exec_0fad_shrd_2 (MessageExecutor & ms
     count = entry->immediate;
   else
     count = msg.cpu->ecx;
-  tmp_src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
   msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
@@ -809,7 +809,7 @@ static void __attribute__ ((regparm (3))) exec_0faf_imul_1 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
@@ -830,7 +830,7 @@ static void __attribute__ ((regparm (3))) exec_0faf_imul_2 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
@@ -920,21 +920,21 @@ static void __attribute__ ((regparm (3))) exec_0fb5_lgs_2 (MessageExecutor & msg
 static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
@@ -1011,21 +1011,21 @@ static void __attribute__ ((regparm (3))) exec_0fbd_bsr_2 (MessageExecutor & msg
 static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
 static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
@@ -1434,7 +1434,7 @@ static void __attribute__ ((regparm (3))) exec_60_pusha_1 (MessageExecutor & msg
 	  if (helper_PUSH < 1 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	    return;
 	}
-      else if (helper_PUSH < 1 > (msg, get_gpr (msg, i, 0), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+      else if (helper_PUSH < 1 > (msg, get_reg < 0 > (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	return;
     };
 }
@@ -1448,7 +1448,7 @@ static void __attribute__ ((regparm (3))) exec_60_pusha_2 (MessageExecutor & msg
 	  if (helper_PUSH < 2 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	    return;
 	}
-      else if (helper_PUSH < 2 > (msg, get_gpr (msg, i, 0), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+      else if (helper_PUSH < 2 > (msg, get_reg < 0 > (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	return;
     };
 }
@@ -1461,7 +1461,7 @@ static void __attribute__ ((regparm (3))) exec_61_popa_1 (MessageExecutor & msg,
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 1 > (get_gpr (msg, i, 0), values + i);
+      move < 1 > (get_reg < 0 > (msg, i), values + i);
 }
 
 static void __attribute__ ((regparm (3))) exec_61_popa_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -1472,7 +1472,7 @@ static void __attribute__ ((regparm (3))) exec_61_popa_2 (MessageExecutor & msg,
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 2 > (get_gpr (msg, i, 0), values + i);
+      move < 2 > (get_reg < 0 > (msg, i), values + i);
 }
 
 static void __attribute__ ((regparm (3))) exec_68_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -1489,7 +1489,7 @@ static void __attribute__ ((regparm (3))) exec_69_imul_1 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1510,7 +1510,7 @@ static void __attribute__ ((regparm (3))) exec_69_imul_2 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1541,7 +1541,7 @@ static void __attribute__ ((regparm (3))) exec_6b_imul_1 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -1562,7 +1562,7 @@ static void __attribute__ ((regparm (3))) exec_6b_imul_2 (MessageExecutor & msg,
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
@@ -2992,7 +2992,7 @@ static void __attribute__ ((regparm (3))) exec_f628_imul_0 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
@@ -3078,7 +3078,7 @@ static void __attribute__ ((regparm (3))) exec_f728_imul_1 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
@@ -3099,7 +3099,7 @@ static void __attribute__ ((regparm (3))) exec_f728_imul_2 (MessageExecutor & ms
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+  tmp_dst = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
@@ -3290,7 +3290,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'add' ['00'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_00_add_0;
@@ -3301,7 +3301,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'add' ['01'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3317,7 +3317,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'add' ['02'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_02_add_0;
@@ -3328,7 +3328,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'add' ['03'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3406,7 +3406,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'or' ['08'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_08_or_0;
@@ -3417,7 +3417,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'or' ['09'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3433,7 +3433,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'or' ['0a'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_0a_or_0;
@@ -3444,7 +3444,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'or' ['0b'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3513,7 +3513,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'adc' ['10'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_10_adc_0;
@@ -3524,7 +3524,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'adc' ['11'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3540,7 +3540,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'adc' ['12'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_12_adc_0;
@@ -3551,7 +3551,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'adc' ['13'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3629,7 +3629,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sbb' ['18'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_18_sbb_0;
@@ -3640,7 +3640,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sbb' ['19'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3656,7 +3656,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sbb' ['1a'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_1a_sbb_0;
@@ -3667,7 +3667,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sbb' ['1b'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3745,7 +3745,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'and' ['20'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_20_and_0;
@@ -3756,7 +3756,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'and' ['21'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3772,7 +3772,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'and' ['22'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_22_and_0;
@@ -3783,7 +3783,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'and' ['23'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3849,7 +3849,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sub' ['28'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_28_sub_0;
@@ -3860,7 +3860,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sub' ['29'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3876,7 +3876,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sub' ['2a'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_2a_sub_0;
@@ -3887,7 +3887,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'sub' ['2b'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3953,7 +3953,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xor' ['30'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_30_xor_0;
@@ -3964,7 +3964,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xor' ['31'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3980,7 +3980,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xor' ['32'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_32_xor_0;
@@ -3991,7 +3991,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xor' ['33'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -4057,7 +4057,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmp' ['38'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_38_cmp_0;
@@ -4068,7 +4068,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmp' ['39'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -4084,7 +4084,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmp' ['3a'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_3a_cmp_0;
@@ -4095,7 +4095,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmp' ['3b'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -4160,7 +4160,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x40 ... 0x47:
 	    {
 /* instruction2 'inc' ['41'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_LOADFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
@@ -4175,7 +4175,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x48 ... 0x4f:
 	    {
 /* instruction2 'dec' ['49'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_LOADFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
@@ -4190,7 +4190,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x50 ... 0x57:
 	    {
 /* instruction2 'push' ['51'] ['DIRECTION', 'ENTRY', 'IMPL'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -4206,7 +4206,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x58 ... 0x5f:
 	    {
 /* instruction2 'pop' ['59'] ['ENTRY', 'IMPL'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->src = entry;
 	      if (entry->operand_size == 1)
 		{
@@ -4250,7 +4250,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'bound' ['62'] ['MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -4258,7 +4258,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'arpl' ['63'] ['MODRMREG', 'MODRM', 'WORD'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -4313,7 +4313,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'imul' ['69'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'IMMO', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4354,7 +4354,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'imul' ['6b'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'IMM1', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
@@ -5135,7 +5135,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'test' ['84'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_84_test_0;
@@ -5146,7 +5146,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'test' ['85'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -5162,7 +5162,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xchg' ['86'] ['ASM', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_86_xchg_0;
@@ -5173,7 +5173,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xchg' ['87'] ['ASM', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -5189,7 +5189,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov' ['88'] ['ASM', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_88_mov_0;
@@ -5200,7 +5200,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov' ['89'] ['ASM', 'MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -5216,7 +5216,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov' ['8a'] ['ASM', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_8a_mov_0;
@@ -5227,7 +5227,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov' ['8b'] ['ASM', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -5243,7 +5243,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %es,%edx' ['8c'] ['MODRM', 'DROP1', 'ENTRY'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM;
 	      if (entry->operand_size == 1)
@@ -5260,7 +5260,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lea' ['8d'] ['MEMONLY', 'DIRECTION', 'SKIPMODRM', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -5285,7 +5285,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %edx,%es' ['8e'] ['MODRM', 'DROP1', 'ENTRY', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -5327,7 +5327,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x90 ... 0x97:
 	    {
 /* instruction2 'xchg' ['92'] ['ASM', 'RMW', 'EAX', 'IMPL', 'DIRECTION'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->src = &msg.cpu->eax;
 	      entry->flags = IC_ASM | IC_RMW | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -5653,7 +5653,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 1);
+	      entry->dst = get_reg < 1 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_BYTE;
 	      {
 		entry->execute = exec_b2_mov_0;
@@ -5665,7 +5665,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'mov' ['ba'] ['ASM', 'IMMO', 'IMPL'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM;
 	      if (entry->operand_size == 1)
 		{
@@ -5971,7 +5971,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'les' ['c4'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -5996,7 +5996,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lds' ['c5'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7622,7 +7622,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lar' ['0f', '02'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -7630,7 +7630,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lsl' ['0f', '03'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -7670,7 +7670,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'nopl (%eax)' ['0f', '1f'] ['NO_OS', 'SKIPMODRM', 'MODRM', 'DROP1'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      {
 		entry->execute = exec_0f1f_nopl___eax__0;
 	      };
@@ -7680,7 +7680,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %cr0,%edx' ['0f', '20'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7701,7 +7701,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %db0,%edx' ['0f', '21'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7722,7 +7722,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %edx,%cr0' ['0f', '22'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7743,7 +7743,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'mov %edx,%db0' ['0f', '23'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7831,7 +7831,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovo' ['0f', '40'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7843,7 +7843,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovno' ['0f', '41'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7855,7 +7855,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovb' ['0f', '42'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7867,7 +7867,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovae' ['0f', '43'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7879,7 +7879,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmove' ['0f', '44'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7891,7 +7891,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovne' ['0f', '45'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7903,7 +7903,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovbe' ['0f', '46'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7915,7 +7915,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmova' ['0f', '47'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7927,7 +7927,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovs' ['0f', '48'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7939,7 +7939,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovns' ['0f', '49'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7951,7 +7951,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovp' ['0f', '4a'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7963,7 +7963,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovnp' ['0f', '4b'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7975,7 +7975,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovl' ['0f', '4c'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7987,7 +7987,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovge' ['0f', '4d'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7999,7 +7999,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovle' ['0f', '4e'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -8011,7 +8011,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmovg' ['0f', '4f'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -8023,7 +8023,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'vmread' ['0f', '78'] ['MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -8031,7 +8031,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'vmwrite' ['0f', '79'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      UNIMPLEMENTED;
 	      break;
 	    }
@@ -8736,7 +8736,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'bt' ['0f', 'a3'] ['READONLY', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_READONLY | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -8752,7 +8752,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'shld' ['0f', 'a4'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'IMM1', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
@@ -8772,7 +8772,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'shld' ['0f', 'a5'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
@@ -8823,7 +8823,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'bts' ['0f', 'ab'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8839,7 +8839,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'shrd' ['0f', 'ac'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'IMM1', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
@@ -8859,7 +8859,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'shrd' ['0f', 'ad'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
@@ -8896,7 +8896,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'imul' ['0f', 'af'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -8913,7 +8913,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmpxchg' ['0f', 'b0'] ['RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_0fb0_cmpxchg_0;
@@ -8924,7 +8924,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'cmpxchg' ['0f', 'b1'] ['RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8940,7 +8940,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lss' ['0f', 'b2'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -8965,7 +8965,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'btr' ['0f', 'b3'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8981,7 +8981,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lfs' ['0f', 'b4'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -9006,7 +9006,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'lgs' ['0f', 'b5'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -9031,7 +9031,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'movzxb' ['0f', 'b6'] ['BYTE', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
 	      {
@@ -9043,7 +9043,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'movzxw' ['0f', 'b7'] ['ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -9139,7 +9139,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'btc' ['0f', 'bb'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -9155,7 +9155,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'bsf' ['0f', 'bc'] ['ASM', 'SAVEFLAGS', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -9171,7 +9171,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'bsr' ['0f', 'bd'] ['ASM', 'SAVEFLAGS', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -9187,7 +9187,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'movsxb' ['0f', 'be'] ['BYTE', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
 	      {
@@ -9199,7 +9199,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'movsxw' ['0f', 'bf'] ['ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -9216,7 +9216,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xadd' ['0f', 'c0'] ['RMW', 'ASM', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 1);
+	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_ASM | IC_SAVEFLAGS | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_0fc0_xadd_0;
@@ -9227,7 +9227,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    {
 /* instruction2 'xadd' ['0f', 'c1'] ['RMW', 'ASM', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
 	      get_modrm (msg, entry);
-	      entry->src = get_gpr (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0);
+	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_ASM | IC_SAVEFLAGS | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -9271,7 +9271,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xc8 ... 0xcf:
 	    {
 /* instruction2 'bswap' ['0f', 'c9'] ['NO_OS', 'ASM', 'IMPL'] */ ;
-	      entry->dst = get_gpr (msg, entry->data[entry->offset_opcode - 1] & 0x7, 0);
+	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM;
 	      {
 		entry->execute = exec_0fc9_bswap_0;

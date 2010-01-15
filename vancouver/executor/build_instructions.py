@@ -145,7 +145,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
                  ("IMMO",    imm),
                  ("MOFS",    "fetch_code(msg, entry, 1 << entry->address_size); entry->src = &msg.cpu->eax"),
                  ("LONGJMP", "fetch_code(msg, entry, 2 + (1 << entry->operand_size))"),
-                 ("IMPL",    "entry->dst = get_gpr(msg, entry->data[entry->offset_opcode-1] & 0x7, %d)"%("BYTE" in flags)),
+                 ("IMPL",    "entry->dst = get_reg<%d>(msg, entry->data[entry->offset_opcode-1] & 0x7)"%("BYTE" in flags)),
                  ("ECX",     "entry->src = &msg.cpu->ecx"),
                  ("EDX",     "entry->%s = &msg.cpu->edx"%("DIRECTION" in flags and "dst" or "src")),
                  ("ENTRY",   "entry->src = entry"),
@@ -201,7 +201,7 @@ def generate_code(encodings):
                 if "MODRM"  in flags:  
                     l2.append("get_modrm(msg, entry)")
                     if "GRP" not in flags:
-                        l2.append("entry->%s = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, %d)"%("src", "BYTE" in flags))
+                        l2.append("entry->%s = get_reg<%d>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)"%("src", "BYTE" in flags))
                 if l == len(enc)-2:
                     if enc[l] not in p:
                         l2.append("switch (entry->data[entry->offset_opcode] & 0x38) {")
@@ -325,7 +325,7 @@ for i in range(len(ccflags)):
                   'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "ENTRY"], [
             "InstructionCacheEntry *entry = reinterpret_cast<InstructionCacheEntry *>(tmp_dst)",
-            "tmp_dst = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0)",
+            "tmp_dst = get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
             """asm volatile("movl (%%2), %%0; [data16] %s (%%1), %%0; mov %%0, (%%2)" : "+a"(entry), "+d"(tmp_src), "+c"(tmp_dst))"""%x]) 
             for x in ["movzxb", "movzxw", "movsxb", "movsxw"]]
 
@@ -376,14 +376,14 @@ opcodes += [(x, ["DIRECTION"], [
 opcodes += [(x, ["ENTRY", "RMW"], ["unsigned count",
                             "InstructionCacheEntry *entry = [ENTRY]",
                             "if ([IMM]) count = entry->immediate; else count = msg.cpu->ecx",
-                            "tmp_src = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0)",
-                            'asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; [data16] '+ 
+                            "tmp_src = get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
+                            'asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; [data16] '+
                             x+' %%cl, %%edx, (%%eax); pushf; pop %%eax" : "+a"(count), "+d"(tmp_src), "+c"(tmp_dst))',
                             "msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count  & 0x8d5)"])
             for x in ["shrd", "shld"]]
 opcodes += [("imul", ["ENTRY", "DIRECTION"], ["unsigned param, result",
                                  "InstructionCacheEntry *entry = [ENTRY]",
-                                 "tmp_dst = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0)",
+                                 "tmp_dst = get_reg<0>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
                                  "if ([IMM]) param = entry->immediate; else if ([OP1]) param = msg.cpu->eax; else move<[os]>(&param, tmp_dst);",
                                  # 'Logging::printf("IMUL %x * %x\\n", param, *reinterpret_cast<unsigned *>(tmp_src))',
                                  'asm volatile ("imul[bwl] (%%ecx); pushf; pop %%ecx" : "+a"(param), "=d"(result), "+c"(tmp_src))',
@@ -401,10 +401,10 @@ opcodes += [("mov %es,%edx", ["MODRM", "DROP1", "ENTRY"], [
             "set_segment(msg, &msg.cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
             ("pusha", ["ENTRY"], ["for (unsigned i=0; i<8; i++) {", 
                                   "if (i == 4) { if (helper_PUSH<[os]>(msg, &msg.vcpu->oesp, [ENTRY])) return; }"
-                                  "else if (helper_PUSH<[os]>(msg, get_gpr(msg, i, 0), [ENTRY])) return; }"]),
+                                  "else if (helper_PUSH<[os]>(msg, get_reg<0>(msg, i), [ENTRY])) return; }"]),
             ("popa", ["ENTRY"], ["unsigned values[8]",
                                  "for (unsigned i=8; i; i--)  if (helper_POP<[os]>(msg, [ENTRY], values+i-1)) return;", 
-                                 "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(get_gpr(msg, i, 0), values+i)"]),
+                                 "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(get_reg<0>(msg, i), values+i)"]),
             ]
 
 for x in segment_list:
