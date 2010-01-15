@@ -4420,12 +4420,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x70:
 	    {
-/* instruction2 'jo' ['70'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jo' ['70'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_70_jo_1;
@@ -4438,12 +4438,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x71:
 	    {
-/* instruction2 'jno' ['71'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jno' ['71'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_71_jno_1;
@@ -4456,12 +4456,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x72:
 	    {
-/* instruction2 'jb' ['72'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jb' ['72'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_72_jb_1;
@@ -4474,12 +4474,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x73:
 	    {
-/* instruction2 'jae' ['73'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jae' ['73'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_73_jae_1;
@@ -4492,12 +4492,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x74:
 	    {
-/* instruction2 'je' ['74'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'je' ['74'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_74_je_1;
@@ -4510,12 +4510,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x75:
 	    {
-/* instruction2 'jne' ['75'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jne' ['75'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_75_jne_1;
@@ -4528,12 +4528,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x76:
 	    {
-/* instruction2 'jbe' ['76'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jbe' ['76'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_76_jbe_1;
@@ -4546,12 +4546,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x77:
 	    {
-/* instruction2 'ja' ['77'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'ja' ['77'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_77_ja_1;
@@ -4564,12 +4564,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x78:
 	    {
-/* instruction2 'js' ['78'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'js' ['78'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_78_js_1;
@@ -4582,12 +4582,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x79:
 	    {
-/* instruction2 'jns' ['79'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jns' ['79'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_79_jns_1;
@@ -4600,12 +4600,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7a:
 	    {
-/* instruction2 'jp' ['7a'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jp' ['7a'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7a_jp_1;
@@ -4618,12 +4618,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7b:
 	    {
-/* instruction2 'jnp' ['7b'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jnp' ['7b'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7b_jnp_1;
@@ -4636,12 +4636,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7c:
 	    {
-/* instruction2 'jl' ['7c'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jl' ['7c'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7c_jl_1;
@@ -4654,12 +4654,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7d:
 	    {
-/* instruction2 'jge' ['7d'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jge' ['7d'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7d_jge_1;
@@ -4672,12 +4672,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7e:
 	    {
-/* instruction2 'jle' ['7e'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jle' ['7e'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7e_jle_1;
@@ -4690,12 +4690,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7f:
 	    {
-/* instruction2 'jg' ['7f'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jg' ['7f'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7f_jg_1;
@@ -8037,11 +8037,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x80:
 	    {
-/* instruction2 'jo' ['0f', '80'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jo' ['0f', '80'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8058,11 +8058,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x81:
 	    {
-/* instruction2 'jno' ['0f', '81'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jno' ['0f', '81'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8079,11 +8079,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x82:
 	    {
-/* instruction2 'jb' ['0f', '82'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jb' ['0f', '82'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8100,11 +8100,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x83:
 	    {
-/* instruction2 'jae' ['0f', '83'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jae' ['0f', '83'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8121,11 +8121,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x84:
 	    {
-/* instruction2 'je' ['0f', '84'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'je' ['0f', '84'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8142,11 +8142,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x85:
 	    {
-/* instruction2 'jne' ['0f', '85'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jne' ['0f', '85'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8163,11 +8163,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x86:
 	    {
-/* instruction2 'jbe' ['0f', '86'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jbe' ['0f', '86'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8184,11 +8184,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x87:
 	    {
-/* instruction2 'ja' ['0f', '87'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'ja' ['0f', '87'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8205,11 +8205,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x88:
 	    {
-/* instruction2 'js' ['0f', '88'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'js' ['0f', '88'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8226,11 +8226,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x89:
 	    {
-/* instruction2 'jns' ['0f', '89'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jns' ['0f', '89'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8247,11 +8247,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8a:
 	    {
-/* instruction2 'jp' ['0f', '8a'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jp' ['0f', '8a'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8268,11 +8268,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8b:
 	    {
-/* instruction2 'jnp' ['0f', '8b'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jnp' ['0f', '8b'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8289,11 +8289,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8c:
 	    {
-/* instruction2 'jl' ['0f', '8c'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jl' ['0f', '8c'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8310,11 +8310,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8d:
 	    {
-/* instruction2 'jge' ['0f', '8d'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jge' ['0f', '8d'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8331,11 +8331,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8e:
 	    {
-/* instruction2 'jle' ['0f', '8e'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jle' ['0f', '8e'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8352,11 +8352,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8f:
 	    {
-/* instruction2 'jg' ['0f', '8f'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jg' ['0f', '8f'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);

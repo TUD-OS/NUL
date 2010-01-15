@@ -130,7 +130,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
     if not snippet: 
         l2.append("UNIMPLEMENTED")
         return
-    if "ASM" in flags:     snippet = ['asm volatile("'+ ";".join(snippet)+'")']
+    if "ASM" in flags and not "asm volatile" in ";".join(snippet):     snippet = ['asm volatile("'+ ";".join(snippet)+'")']
     if "FPU" in flags:     snippet = ["if (msg.cpu->cr0 & 0xc) EXCEPTION(0x7, 0)",
                                       'asm volatile("fxrstor (%%eax);'+ ";".join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(msg.vcpu->fpustate))']
     # parameter handling
@@ -320,7 +320,7 @@ for i in range(len(ccflags)):
     ccflag = ccflags[i]
     opcodes += [("set" +ccflag, ["BYTE",   "ASM", "LOADFLAGS"], ["set%s (%%ecx)"%ccflag])]
     opcodes += [("cmov"+ccflag, ["NO_OS",  "ASM", "LOADFLAGS",  "OS2"], ["j%s 1f"%(ccflags[i ^ 1]), "mov (%edx), %eax", "mov %eax, (%ecx)", "1:"])]
-    opcodes += [("j"+ccflag,    ["JMP",   "ENTRY", "LOADFLAGS", "DIRECTION"],
+    opcodes += [("j"+ccflag,    ["JMP",   "ASM", "ENTRY", "LOADFLAGS", "DIRECTION"],
                  ['int (*foo)(MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP<[os]>',
                   'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "ENTRY"], [
