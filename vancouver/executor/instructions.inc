@@ -1,4 +1,3 @@
-/* This file is auto-generated. Do not edit. */
 static void __attribute__ ((regparm (3))) exec_00_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock addb %al,(%ecx)");
@@ -353,162 +352,194 @@ static void __attribute__ ((regparm (3))) exec_0f4f_cmovg_0 (MessageExecutor & m
 
 static void __attribute__ ((regparm (3))) exec_0f80_jo_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jno 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f80_jo_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jno 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f81_jno_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jo 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f81_jno_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jo 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f82_jb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jae 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f82_jb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jae 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f83_jae_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jb 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f83_jae_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jb 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f84_je_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jne 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f84_je_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jne 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f85_jne_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("je 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f85_jne_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("je 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f86_jbe_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("ja 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f86_jbe_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("ja 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f87_ja_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jbe 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f87_ja_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jbe 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f88_js_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jns 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f88_js_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jns 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f89_jns_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("js 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f89_jns_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("js 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8a_jp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jnp 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8a_jp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jnp 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8b_jnp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jp 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8b_jnp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jp 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8c_jl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jge 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8c_jl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jge 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8d_jge_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jl 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8d_jge_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jl 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8e_jle_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jg 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8e_jle_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jg 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8f_jg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jle 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f8f_jg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jle 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f9000_seto_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -1580,162 +1611,194 @@ static void __attribute__ ((regparm (3))) exec_6f_outs_2 (MessageExecutor & msg,
 
 static void __attribute__ ((regparm (3))) exec_70_jo_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jno 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_70_jo_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jno 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_71_jno_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jo 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_71_jno_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jo 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_72_jb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jae 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_72_jb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jae 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_73_jae_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jb 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_73_jae_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jb 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_74_je_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jne 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_74_je_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jne 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_75_jne_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("je 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_75_jne_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("je 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_76_jbe_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("ja 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_76_jbe_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("ja 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_77_ja_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jbe 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_77_ja_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jbe 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_78_js_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jns 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_78_js_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jns 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_79_jns_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("js 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_79_jns_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("js 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7a_jp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jnp 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7a_jp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jnp 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7b_jnp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jp 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7b_jnp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jp 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7c_jl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jge 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7c_jl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jge 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7d_jge_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jl 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7d_jge_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jl 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7e_jle_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jg 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7e_jle_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jg 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7f_jg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jle 1f;call _ZN16InstructionCache10helper_JMPILj1EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_7f_jg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
-  asm volatile ("jle 1f;call _ZN16InstructionCache10helper_JMPILj2EEEiR15MessageExecutorPvP21InstructionCacheEntry;1:");
+  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
 static void __attribute__ ((regparm (3))) exec_80c2_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -4357,12 +4420,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x70:
 	    {
-/* instruction2 'jo' ['70'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jo' ['70'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_70_jo_1;
@@ -4375,12 +4438,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x71:
 	    {
-/* instruction2 'jno' ['71'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jno' ['71'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_71_jno_1;
@@ -4393,12 +4456,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x72:
 	    {
-/* instruction2 'jb' ['72'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jb' ['72'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_72_jb_1;
@@ -4411,12 +4474,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x73:
 	    {
-/* instruction2 'jae' ['73'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jae' ['73'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_73_jae_1;
@@ -4429,12 +4492,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x74:
 	    {
-/* instruction2 'je' ['74'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'je' ['74'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_74_je_1;
@@ -4447,12 +4510,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x75:
 	    {
-/* instruction2 'jne' ['75'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jne' ['75'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_75_jne_1;
@@ -4465,12 +4528,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x76:
 	    {
-/* instruction2 'jbe' ['76'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jbe' ['76'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_76_jbe_1;
@@ -4483,12 +4546,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x77:
 	    {
-/* instruction2 'ja' ['77'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'ja' ['77'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_77_ja_1;
@@ -4501,12 +4564,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x78:
 	    {
-/* instruction2 'js' ['78'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'js' ['78'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_78_js_1;
@@ -4519,12 +4582,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x79:
 	    {
-/* instruction2 'jns' ['79'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jns' ['79'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_79_jns_1;
@@ -4537,12 +4600,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7a:
 	    {
-/* instruction2 'jp' ['7a'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jp' ['7a'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7a_jp_1;
@@ -4555,12 +4618,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7b:
 	    {
-/* instruction2 'jnp' ['7b'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jnp' ['7b'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7b_jnp_1;
@@ -4573,12 +4636,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7c:
 	    {
-/* instruction2 'jl' ['7c'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jl' ['7c'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7c_jl_1;
@@ -4591,12 +4654,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7d:
 	    {
-/* instruction2 'jge' ['7d'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jge' ['7d'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7d_jge_1;
@@ -4609,12 +4672,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7e:
 	    {
-/* instruction2 'jle' ['7e'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jle' ['7e'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7e_jle_1;
@@ -4627,12 +4690,12 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x7f:
 	    {
-/* instruction2 'jg' ['7f'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
+/* instruction2 'jg' ['7f'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
 	      fetch_code (msg, entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_7f_jg_1;
@@ -7974,11 +8037,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x80:
 	    {
-/* instruction2 'jo' ['0f', '80'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jo' ['0f', '80'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -7995,11 +8058,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x81:
 	    {
-/* instruction2 'jno' ['0f', '81'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jno' ['0f', '81'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8016,11 +8079,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x82:
 	    {
-/* instruction2 'jb' ['0f', '82'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jb' ['0f', '82'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8037,11 +8100,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x83:
 	    {
-/* instruction2 'jae' ['0f', '83'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jae' ['0f', '83'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8058,11 +8121,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x84:
 	    {
-/* instruction2 'je' ['0f', '84'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'je' ['0f', '84'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8079,11 +8142,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x85:
 	    {
-/* instruction2 'jne' ['0f', '85'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jne' ['0f', '85'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8100,11 +8163,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x86:
 	    {
-/* instruction2 'jbe' ['0f', '86'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jbe' ['0f', '86'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8121,11 +8184,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x87:
 	    {
-/* instruction2 'ja' ['0f', '87'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'ja' ['0f', '87'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8142,11 +8205,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x88:
 	    {
-/* instruction2 'js' ['0f', '88'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'js' ['0f', '88'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8163,11 +8226,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x89:
 	    {
-/* instruction2 'jns' ['0f', '89'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jns' ['0f', '89'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8184,11 +8247,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8a:
 	    {
-/* instruction2 'jp' ['0f', '8a'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jp' ['0f', '8a'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8205,11 +8268,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8b:
 	    {
-/* instruction2 'jnp' ['0f', '8b'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jnp' ['0f', '8b'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8226,11 +8289,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8c:
 	    {
-/* instruction2 'jl' ['0f', '8c'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jl' ['0f', '8c'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8247,11 +8310,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8d:
 	    {
-/* instruction2 'jge' ['0f', '8d'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jge' ['0f', '8d'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8268,11 +8331,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8e:
 	    {
-/* instruction2 'jle' ['0f', '8e'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jle' ['0f', '8e'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);
@@ -8289,11 +8352,11 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8f:
 	    {
-/* instruction2 'jg' ['0f', '8f'] ['JMP', 'ENTRY', 'ASM', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
+/* instruction2 'jg' ['0f', '8f'] ['JMP', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMMO'] */ ;
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
-	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
+	      entry->flags = IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
 		  fetch_code (msg, entry, 2);

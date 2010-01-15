@@ -13,7 +13,7 @@ def compile_and_disassemble(str, file, fdict):
         f = os.popen("as -o %s -- 2> /dev/null"%(tmp.name), "w")
         f.write(str+"\n")
         f.close()
-        if os.path.exists(tmp.name):                
+        if os.path.exists(tmp.name):
             f = os.popen("objdump -w -d -z -M no-aliases,att-mnemonic %s"%tmp.name)
             l = f.readlines()
             line = (filter(lambda x: len(x) > 2 and x[:2]=="0:", map(lambda x: x.strip(), l)) + [""])[0]
@@ -320,8 +320,9 @@ for i in range(len(ccflags)):
     ccflag = ccflags[i]
     opcodes += [("set" +ccflag, ["BYTE",   "ASM", "LOADFLAGS"], ["set%s (%%ecx)"%ccflag])]
     opcodes += [("cmov"+ccflag, ["NO_OS",  "ASM", "LOADFLAGS",  "OS2"], ["j%s 1f"%(ccflags[i ^ 1]), "mov (%edx), %eax", "mov %eax, (%ecx)", "1:"])]
-    opcodes += [("j"+ccflag,    ["JMP",   "ENTRY", "ASM", "LOADFLAGS", "DIRECTION"],
-                 ["j%s 1f"%(ccflags[i ^ 1]), "call _ZN16InstructionCache10helper_JMPILj[os]EEEiR15MessageExecutorPvP21InstructionCacheEntry", "1:"])]
+    opcodes += [("j"+ccflag,    ["JMP",   "ENTRY", "LOADFLAGS", "DIRECTION"],
+                 ['int (*foo)(MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP<[os]>',
+                  'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "ENTRY"], [
             "InstructionCacheEntry *entry = reinterpret_cast<InstructionCacheEntry *>(tmp_dst)",
             "tmp_dst = get_gpr(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7, 0)",

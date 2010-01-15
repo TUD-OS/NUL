@@ -31,18 +31,18 @@
 	if (stack_size == 1) virt &= 0xffff;
       }
     else
-      if (entry->address_size == 1) virt &= 0xffff; 
+      if (entry->address_size == 1) virt &= 0xffff;
     if (!(~desc->limit) && !desc->base && desc->ar == 0xc93) return 0;
-        
+
     // limit check
     bool fault = virt > desc->limit ||  (virt + length - 1) > desc->limit;
 
     // expand down?
     if ((desc->ar & 0xc) == 4) fault = !fault;
-    
+
     // overflow on non-big expand down segment?
     if ((desc->ar & 0x40c) == 4)  fault |= (0xffff - length) < virt;
-    
+
     // rights check: present, readonly and exec-only segment
     fault |= ~desc->ar & 0x80 || !write && ((desc->ar & 0xa) == 0x8) || write && (desc->ar & 0xa) != 0x2;
     if (fault)
@@ -50,7 +50,7 @@
 	Logging::printf("%s() #%x %x+%d desc %x limit %x base %x esp %x\n", __func__, desc - &msg.cpu->es, virt, length, desc->ar, desc->limit, desc->base, msg.cpu->esp);
 	if (desc == &msg.cpu->ss) {  SS0; } else { GP0; }
       }
-    
+
     // add segment base
     virt += desc->base;
     //Logging::printf("handle_segment %x+%d base %x\n", virt, length, desc->base);
@@ -60,7 +60,7 @@
   template<unsigned operand_size>
   static int logical_mem(MessageExecutor &msg, InstructionCacheEntry *entry, CpuState::Descriptor *desc, unsigned virt, bool write, void *&res)
   {
-    handle_segment(msg, entry, desc, virt, 1 << operand_size, write) 
+    handle_segment(msg, entry, desc, virt, 1 << operand_size, write)
       || msg.vcpu->instcache->prepare_virtual(msg, virt, 1 << operand_size, user_access(msg, write ? TYPE_W : TYPE_R) , res);
     return msg.vcpu->fault;
   }
@@ -68,16 +68,16 @@
   template<unsigned operand_size>
   static void move(void *tmp_dst, void *tmp_src)
   {
-    if (operand_size == 0) asm volatile ("movsb" : "+S"(tmp_src), "+D"(tmp_dst) : : "memory");
-    if (operand_size == 1) asm volatile ("movsw" : "+S"(tmp_src), "+D"(tmp_dst) : : "memory");
-    if (operand_size == 2) asm volatile ("movsl" : "+S"(tmp_src), "+D"(tmp_dst) : : "memory");
+    if (operand_size == 0) *reinterpret_cast<unsigned char *>(tmp_dst) = *reinterpret_cast<unsigned char *>(tmp_src);
+    if (operand_size == 1) *reinterpret_cast<unsigned short *>(tmp_dst) = *reinterpret_cast<unsigned short *>(tmp_src);
+    if (operand_size == 2) *reinterpret_cast<unsigned int *>(tmp_dst) = *reinterpret_cast<unsigned int *>(tmp_src);
   }
 
   /**
    * Transfer bytes from src to dst.
    */
   static void move(void *tmp_dst, void *tmp_src, unsigned order)
-  {    
+  {
     switch (order)
       {
       case 0:  move<0>(tmp_dst, tmp_src); break;
@@ -104,13 +104,14 @@
    * Do an unconditional JMP.
    */
   template<unsigned operand_size>
-  static int __attribute__((regparm(3))) __attribute__((noinline)) helper_JMP(MessageExecutor &msg, void *tmp_src, InstructionCacheEntry *entry)
+  static int __attribute__((regparm(3))) helper_JMP(MessageExecutor &msg, void *tmp_src, InstructionCacheEntry *entry)
   {
     unsigned nrip = 0;
     if (entry->flags & IC_MODRM)
       move<operand_size>(&nrip, tmp_src);
     else
       nrip = msg.cpu->eip + *reinterpret_cast<int *>(tmp_src);
+    //Logging::printf("HELPER_JMP eip %x nrip %x entryflags %x src %p entry %p\n", msg.cpu->eip, nrip, entry->flags, tmp_src, entry);
     return helper_JMP_absolute<operand_size>(msg, nrip, entry);
   }
 
@@ -208,7 +209,7 @@ static int helper_CLTS(MessageExecutor &msg) {  if (msg.cpu->cpl()) GP0; msg.cpu
       if (helper_JMP<operand_size>(msg, tmp_src, entry))		\
 	return;								\
     move<operand_size>(&msg.cpu->ecx, &ecx);				\
-    }									
+    }
 helper_LOOPS(LOOP, 0)
 helper_LOOPS(LOOPE, 1)
 helper_LOOPS(LOOPNE, 2)
@@ -217,7 +218,7 @@ helper_LOOPS(JECXZ, 3)
 
   /**
    * Call a function.
-   */ 
+   */
   template<unsigned operand_size>
   static void __attribute__((regparm(3))) __attribute__((noinline)) helper_CALL(MessageExecutor &msg, void *tmp_src, InstructionCacheEntry *entry)
   {
@@ -274,13 +275,13 @@ helper_LDT(LGDT, gd)
   static int __attribute__((regparm(3)))  helper_POPF(MessageExecutor &msg, InstructionCacheEntry *entry)
   {
     unsigned long tmp;
-    if (msg.cpu->v86() && msg.cpu->iopl() < 3) 
+    if (msg.cpu->v86() && msg.cpu->iopl() < 3)
       GP0
     else if (!helper_POP<operand_size>(msg, entry, &tmp))
       {
 	// clear VIP+VIF
 	if (!msg.cpu->v86()) tmp &= ~0x180000;
-	
+
 	// reserved bits and RF+VM are unaffected
 	unsigned mask = 0x3f7fd5L & ~0x30000;
 	// iopl and IF also if not running with CPL==0
@@ -397,13 +398,13 @@ static int helper_MOV__CR0__EDX(MessageExecutor &msg, InstructionCacheEntry * en
 {
   void *tmp_src;
   void *tmp_dst = get_gpr(msg,  entry->data[entry->offset_opcode] & 0x7, 0);
-  switch ((entry->data[entry->offset_opcode] >> 3) & 0x7) 
+  switch ((entry->data[entry->offset_opcode] >> 3) & 0x7)
     {
     case 0: tmp_src = &msg.cpu->cr0; break;
     case 2: tmp_src = &msg.cpu->cr2; break;
     case 3: tmp_src = &msg.cpu->cr3; break;
     case 4: tmp_src = &msg.cpu->cr4; break;
-    default: UD0; 
+    default: UD0;
     }
   move<2>(tmp_dst, tmp_src);
   return msg.vcpu->fault;
@@ -418,13 +419,13 @@ static int helper_MOV__EDX__CR0(MessageExecutor &msg, InstructionCacheEntry * en
   void *tmp_src = get_gpr(msg, entry->data[entry->offset_opcode] & 0x7, 0);
   void *tmp_dst;
   unsigned tmp = *reinterpret_cast<unsigned *>(tmp_src);
-  switch ((entry->data[entry->offset_opcode] >> 3) & 0x7) 
+  switch ((entry->data[entry->offset_opcode] >> 3) & 0x7)
     {
     case 0: if (tmp & 0x1ffaffc0U) GP0;  tmp_dst = &msg.cpu->cr0; break;
     case 2: tmp_dst = &msg.cpu->cr2; break;
     case 3: tmp_dst = &msg.cpu->cr3; break;
     case 4: if (tmp & 0xffff9800U) GP0;  tmp_dst = &msg.cpu->cr4; break;
-    default: UD0; 
+    default: UD0;
     }
   move<2>(tmp_dst, tmp_src);
   msg.vcpu->hazard |= VirtualCpuState::HAZARD_CRWRITE;
@@ -451,8 +452,8 @@ struct Descriptor
 
   unsigned dpl() { return (ar0 >> 5) & 3; }
   unsigned offset() { return (values[1] & 0xffff0000) | (values[0] & ~0xffff0000); }
-  unsigned limit() 
-  { 
+  unsigned limit()
+  {
     unsigned res = limit0 | ((ar1 & 0xf) << 16);
     if (ar1 & 0x80) res = (res << 12) | 0xfff;
     return res;
@@ -477,7 +478,7 @@ struct Descriptor
     base += selector & ~0x7;
     return msg.vcpu->fault;
   }
-  
+
 
   int load_gdt_descriptor(MessageExecutor &msg, unsigned short selector, bool ext)
   {
@@ -489,7 +490,7 @@ struct Descriptor
       memcpy(values, res, 8);
     return msg.vcpu->fault;
   };
- 
+
 
   int load_idt_descriptor(MessageExecutor &msg, unsigned event)
   {
@@ -504,7 +505,7 @@ struct Descriptor
 	memcpy(values, res, 8);
 	// is it a trap, intr or task-gate?
 	if (!(0xce00 & (1<<(ar0 & 0x1f)))) {
-	  Logging::panic("%s event %x %x base %x limit %x cr0 %x\n", __func__, event, ar0, msg.cpu->id.base, msg.cpu->id.limit, msg.cpu->cr0);	
+	  Logging::panic("%s event %x %x base %x limit %x cr0 %x\n", __func__, event, ar0, msg.cpu->id.base, msg.cpu->id.limit, msg.cpu->cr0);
 	  GP(error);
 	}
 	// and present?
@@ -518,7 +519,7 @@ struct Descriptor
   {
     Descriptor desc2 = *this;
     ar0 |= flag;
-    
+
     unsigned long base;
     void *res;
     if (!get_base(msg, selector, base, ext) && !msg.vcpu->instcache->prepare_virtual(msg, base, 8, MemTlb::TYPE_RMW, res))
@@ -534,7 +535,7 @@ struct Descriptor
     desc->base  = base0  | (base1 << 16) | (base2 << 24);
     desc->ar    = ar0 | ((ar1 & 0xf0) << 4);
   }
-  
+
 };
 
 
@@ -546,7 +547,7 @@ static int helper_LTR(MessageExecutor &msg, unsigned short selector)
   selector &= ~0x7;
 
   Descriptor desc;
-  if (!desc.load_gdt_descriptor(msg, selector, false)) 
+  if (!desc.load_gdt_descriptor(msg, selector, false))
     {
       if ((desc.ar0 & 0x1f) != 0x9 && (desc.ar0 & 0x1f) != 0x1) GP(selector);
       if (~desc.ar0 & 0x80)  NP(selector);
@@ -567,7 +568,7 @@ static int helper_LLDT(MessageExecutor &msg, unsigned short selector)
   if (selector)
     {
       Descriptor desc;
-      if (!desc.load_gdt_descriptor(msg, selector, false)) 
+      if (!desc.load_gdt_descriptor(msg, selector, false))
 	{
 	  if ((desc.ar0 & 0x1f) != 0x2) GP(selector);
 	  if (~desc.ar0 & 0x80)  NP(selector);
@@ -592,7 +593,7 @@ static void set_realmode_segment(CpuState::Descriptor *seg, unsigned short sel, 
 static int set_segment(MessageExecutor &msg, CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = true)
 {
   //Logging::printf("set_segment %x sel %x eip %x efl %x\n", seg - &msg.cpu->es, sel, msg.cpu->eip, msg.cpu->efl);
-  if (!msg.cpu->pm() || msg.cpu->v86()) 
+  if (!msg.cpu->pm() || msg.cpu->v86())
     set_realmode_segment(seg, sel, !msg.cpu->v86());
   else
     {
@@ -606,12 +607,12 @@ static int set_segment(MessageExecutor &msg, CpuState::Descriptor *seg, unsigned
 	  return msg.vcpu->fault;
 	}
 
-      if (!desc.load_gdt_descriptor(msg, sel, false)) 
+      if (!desc.load_gdt_descriptor(msg, sel, false))
 	{
 	  if ((is_ss && ((rpl != desc.dpl() || cplcheck && desc.dpl() != msg.cpu->cpl()) || ((desc.ar0 & 0x1a) != 0x12))) 
 	      || !is_ss && ((((desc.ar0 ^ 0x12) & 0x1a) > 2) || (((desc.ar0 & 0xc) != 0xc) && (rpl > desc.dpl() || cplcheck && msg.cpu->cpl() > desc.dpl()))))
 	    {
-	      Logging::printf("set_segment %x sel %x eip %x efl %x ar %x dpl %x rpl %x cpl %x\n", seg - &msg.cpu->es, sel, msg.cpu->eip, msg.cpu->efl, desc.ar0, desc.dpl(), rpl, msg.cpu->cpl()); 
+	      Logging::printf("set_segment %x sel %x eip %x efl %x ar %x dpl %x rpl %x cpl %x\n", seg - &msg.cpu->es, sel, msg.cpu->eip, msg.cpu->efl, desc.ar0, desc.dpl(), rpl, msg.cpu->cpl());
 	      GP(sel);
 	    }
 	  if (~desc.ar0 & 0x80) is_ss ? (SS(sel)) : (NP(sel));
@@ -638,7 +639,7 @@ static int helper_far_jmp(MessageExecutor &msg, unsigned tmp_cs, unsigned tmp_ei
   else
     {
       Descriptor desc;
-      if (!desc.load_gdt_descriptor(msg, tmp_cs, false)) 
+      if (!desc.load_gdt_descriptor(msg, tmp_cs, false))
 	{
 	  if (tmp_eip > desc.limit())  GP0;
 	  desc.set_flag(msg, tmp_cs, 0x1, false);
@@ -703,7 +704,7 @@ static int helper_IRET(MessageExecutor &msg, InstructionCacheEntry *entry)
     {
       assert(operand_size == 2);
       unsigned tmp_ss = 0, tmp_esp = 0;
-      if (helper_POP<operand_size>(msg, entry, &tmp_esp) || helper_POP<operand_size>(msg, entry, &tmp_ss)) 
+      if (helper_POP<operand_size>(msg, entry, &tmp_esp) || helper_POP<operand_size>(msg, entry, &tmp_ss))
 	return msg.vcpu->fault;
       //Logging::printf("iret %x %x %x @%x,%x esp %x\n", tmp_eip, tmp_cs, tmp_flag, msg.vcpu->oesp, msg.vcpu->oeip, tmp_esp);
       unsigned sels[4];
@@ -732,7 +733,7 @@ static int helper_IRET(MessageExecutor &msg, InstructionCacheEntry *entry)
 	  if ((tmp_cs & 3) != msg.cpu->cpl())
 	    {
 	      unsigned tmp_ss = 0, tmp_esp = 0;
-	      if (helper_POP<operand_size>(msg, entry, &tmp_esp) || helper_POP<operand_size>(msg, entry, &tmp_ss)) 
+	      if (helper_POP<operand_size>(msg, entry, &tmp_esp) || helper_POP<operand_size>(msg, entry, &tmp_ss))
 		return msg.vcpu->fault;
 	      msg.cpu->esp = tmp_esp;
 	      //Logging::printf("iret %x %x %x @%x esp %x:%x\n", tmp_eip, tmp_cs, tmp_flag, msg.vcpu->oesp, tmp_ss, tmp_esp);
@@ -793,8 +794,8 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 	    if (~desc.ar0 & 0x80) NP(idt.base0 | ext);
 
 	    if (desc.ar0 & 0x8)  newcpl = desc.dpl();
-	    //Logging::printf("IDT ar %x dpl %x cpl %x sel %x vec %x eip %x/%x/%x\n", desc.ar0, desc.dpl(), msg.cpu->cpl(), idt.base0, event,
-	    //msg.cpu->eip, msg.cpu->cs.sel, old_efl);
+	    Logging::printf("IDT ar %x dpl %x cpl %x sel %x vec %x eip %x/%x/%x\n", desc.ar0, desc.dpl(), msg.cpu->cpl(), idt.base0, event,
+			    msg.cpu->eip, msg.cpu->cs.sel, old_efl);
 
 	    if (!msg.cpu->v86())
 	      {
@@ -810,7 +811,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		    move<2>(&new_esp, tss);
 		    move<1>(&new_ss,  reinterpret_cast<char *>(tss)+4*(newcpl+1));
 		    msg.cpu->esp = new_esp;
-		    if (set_segment(msg, &msg.cpu->ss, new_ss, false) 
+		    if (set_segment(msg, &msg.cpu->ss, new_ss, false)
 			|| helper_PUSH<2>(msg, &oldss, 0)
 			|| helper_PUSH<2>(msg, &msg.vcpu->oesp, 0))
 		      {
@@ -853,7 +854,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 		msg.cpu->esp = new_esp;
 		unsigned cs_sel = msg.cpu->cs.sel;
 		if (set_segment(msg, &msg.cpu->ss, new_ss, false)
-		    || helper_PUSH<2>(msg, &msg.cpu->gs.sel, 0) 
+		    || helper_PUSH<2>(msg, &msg.cpu->gs.sel, 0)
 		    || helper_PUSH<2>(msg, &msg.cpu->fs.sel, 0)
 		    || helper_PUSH<2>(msg, &msg.cpu->ds.sel, 0)
 		    || helper_PUSH<2>(msg, &msg.cpu->es.sel, 0)
@@ -894,7 +895,7 @@ static int idt_traversal(MessageExecutor &msg, unsigned event, unsigned error_co
 static int helper_INT(MessageExecutor &msg, void *tmp_src) { return idt_traversal(msg, 0x80000600 | *reinterpret_cast<unsigned char *>(tmp_src), 0); }
 static int helper_INVLPG(MessageExecutor &msg, InstructionCacheEntry *entry) { return msg.vcpu->fault; }
 static int helper_FWAIT(MessageExecutor &msg)                                { return msg.vcpu->fault; }
-static int helper_MOV__DB0__EDX(MessageExecutor &msg, InstructionCacheEntry *entry) 
+static int helper_MOV__DB0__EDX(MessageExecutor &msg, InstructionCacheEntry *entry)
 {
   unsigned dbreg = (entry->data[entry->offset_opcode] >> 3) & 0x7;
   if ((dbreg == 4 || dbreg == 5) && ~msg.cpu->cr4 & 0x8)
@@ -923,7 +924,7 @@ static int helper_MOV__EDX__DB0(MessageExecutor &msg, InstructionCacheEntry *ent
     case 0 ... 3: msg.vcpu->dr[dbreg] = value; break;
     case 6: msg.vcpu->dr6 = (value & ~0x1000) | 0xffff0ff0; break;
     case 7: msg.cpu->dr7  = (value & ~0xd800) | 0x400; break;
-    default: UD0; 
+    default: UD0;
     }
   return msg.vcpu->fault;
 }
