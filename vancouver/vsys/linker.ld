@@ -28,10 +28,10 @@ SECTIONS
    . +=  SIZEOF_HEADERS;
   .text :
   {
-    *(.text .text.*);
+    *(.text .text.* .gnu.linkonce.t.*);
     . = ALIGN(0x1000);
   } : text
- 
+
   .data :
   {
     __profile_table_start = .;
@@ -40,16 +40,14 @@ SECTIONS
     __param_table_start = .;
     KEEP(*(.param));
     __param_table_end = .;
-    *(.rodata .rodata.*);
-    *(.data);
-    *(.data.*);
-   __image_end = .;
+    *(.rodata .rodata.* .gnu.linkonce.r.*);
+    *(.data   .data.*   .gnu.linkonce.d.*);
+    __image_end = .;
   } : data
   .bss :
   {
-    *(.bss);
-    *(.bss.*);
-    __mempoolstart = .;
+    *(.bss .bss.* .gnu.linkonce.b.*);
+     __mempoolstart = .;
     . += __memsize;
     __mempoolend = .;
   }
