@@ -91,7 +91,7 @@ class VirtualCpuState
   unsigned long msr_apic;
 
   // x87, MMX, SSE2, SSE3
-  unsigned char fpustate[512] __attribute__((aligned(16)));
+  unsigned fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
 
   VirtualCpuState() : msr_apic(0xfee00900u) {}
 };

@@ -4808,7 +4808,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -4979,7 +4979,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5126,7 +5126,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5276,7 +5276,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lea not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("lea not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5319,7 +5320,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5785,7 +5786,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5929,7 +5930,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -5987,7 +5988,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("les not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("les not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6012,7 +6014,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lds not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("lds not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6035,7 +6038,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6066,7 +6069,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6248,7 +6251,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6371,7 +6374,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6466,7 +6469,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6596,7 +6599,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6634,7 +6637,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6663,7 +6666,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6697,7 +6700,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -6726,7 +6729,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7097,7 +7100,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7213,7 +7216,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7290,7 +7293,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7404,14 +7407,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
 	    }
 	  default:
 	    fetch_code (msg, entry, 4);
-	    Logging::printf ("unimplemented case %x at line %d code %x\n", code, __LINE__, *reinterpret_cast < unsigned *>(entry->data));
+	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	    UNIMPLEMENTED;
 	  }
       }
@@ -7478,7 +7481,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7500,8 +7503,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("invlpg not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-					 *reinterpret_cast < unsigned *>(entry->data));;
+			Logging::printf ("invlpg not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+					 entry->data[1], entry->data[2]);;
 			UNIMPLEMENTED;
 		      };
 		    break;
@@ -7536,8 +7539,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("lidt not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-					 *reinterpret_cast < unsigned *>(entry->data));;
+			Logging::printf ("lidt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+					 entry->data[2]);;
 			UNIMPLEMENTED;
 		      };
 		    break;
@@ -7560,8 +7563,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("lgdt not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-					 *reinterpret_cast < unsigned *>(entry->data));;
+			Logging::printf ("lgdt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+					 entry->data[2]);;
 			UNIMPLEMENTED;
 		      };
 		    break;
@@ -7583,8 +7586,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("sidt not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-					 *reinterpret_cast < unsigned *>(entry->data));;
+			Logging::printf ("sidt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+					 entry->data[2]);;
 			UNIMPLEMENTED;
 		      };
 		    break;
@@ -7606,14 +7609,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("sgdt not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-					 *reinterpret_cast < unsigned *>(entry->data));;
+			Logging::printf ("sgdt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+					 entry->data[2]);;
 			UNIMPLEMENTED;
 		      };
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7691,8 +7694,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%cr0,%%edx not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-				   *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("mov %%cr0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+				   entry->data[1], entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7712,8 +7715,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%db0,%%edx not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-				   *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("mov %%db0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+				   entry->data[1], entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7733,8 +7736,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%edx,%%cr0 not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-				   *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("mov %%edx,%%cr0 not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+				   entry->data[1], entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -7754,8 +7757,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%edx,%%db0 not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo,
-				   *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("mov %%edx,%%db0 not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+				   entry->data[1], entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8386,7 +8389,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8406,7 +8409,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8426,7 +8429,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8446,7 +8449,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8466,7 +8469,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8486,7 +8489,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8506,7 +8509,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8526,7 +8529,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8546,7 +8549,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8566,7 +8569,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8586,7 +8589,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8606,7 +8609,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8626,7 +8629,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8646,7 +8649,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8666,7 +8669,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8686,7 +8689,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8887,7 +8890,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8956,7 +8959,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lss not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("lss not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -8997,7 +9001,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lfs not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("lfs not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -9022,7 +9027,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lgs not implemented at %x - %x instr %x\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast < unsigned *>(entry->data));;
+		  Logging::printf ("lgs not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+				   entry->data[2]);;
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -9130,7 +9136,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -9263,7 +9269,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    break;
 		  };
 		default:;
-		  Logging::printf ("unimpl GRP case %x at %d\n", *reinterpret_cast < unsigned *>(entry->data), __LINE__);
+		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
 		  UNIMPLEMENTED;
 		};
 	      break;
@@ -9280,7 +9286,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  default:
 	    fetch_code (msg, entry, 4);
-	    Logging::printf ("unimplemented case %x at line %d code %x\n", code, __LINE__, *reinterpret_cast < unsigned *>(entry->data));
+	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	    UNIMPLEMENTED;
 	  }
       }
@@ -9315,7 +9321,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  default:
 	    fetch_code (msg, entry, 4);
-	    Logging::printf ("unimplemented case %x at line %d code %x\n", code, __LINE__, *reinterpret_cast < unsigned *>(entry->data));
+	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	    UNIMPLEMENTED;
 	  }
       }
@@ -9342,7 +9348,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  default:
 	    fetch_code (msg, entry, 4);
-	    Logging::printf ("unimplemented case %x at line %d code %x\n", code, __LINE__, *reinterpret_cast < unsigned *>(entry->data));
+	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	    UNIMPLEMENTED;
 	  }
       }
@@ -9362,7 +9368,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  default:
 	    fetch_code (msg, entry, 4);
-	    Logging::printf ("unimplemented case %x at line %d code %x\n", code, __LINE__, *reinterpret_cast < unsigned *>(entry->data));
+	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	    UNIMPLEMENTED;
 	  }
       }

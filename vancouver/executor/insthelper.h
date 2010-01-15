@@ -943,7 +943,7 @@ static int helper_FXSAVE(MessageExecutor &msg, InstructionCacheEntry *entry)
     {
       void *addr;
       if (!virt_to_ptr(msg, entry, addr, 4, user_access(msg, TYPE_W), virt + i*sizeof(unsigned)))  return msg.vcpu->fault;
-      move<2>(addr, reinterpret_cast<unsigned *>(msg.vcpu->fpustate)+i);
+      move<2>(addr, msg.vcpu->fpustate+i);
     }
   return msg.vcpu->fault;
 }

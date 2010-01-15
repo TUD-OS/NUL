@@ -178,7 +178,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
     l2.append(s)
     if "MEMONLY" in flags or "REGONLY" in flags: 
         l2.append("} else  { ")
-        l2.append('Logging::printf("%s not implemented at %%x - %%x instr %%x\\n", msg.cpu->eip, entry->modrminfo, *reinterpret_cast<unsigned *>(entry->data)); '%(name.replace("%", "%%")))
+        l2.append('Logging::printf("%s not implemented at %%x - %%x instr %%02x%%02x%%02x\\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1], entry->data[2]); '%(name.replace("%", "%%")))
         l2.append("UNIMPLEMENTED; }")
 
 
@@ -206,7 +206,7 @@ def generate_code(encodings):
                     if enc[l] not in p:
                         l2.append("switch (entry->data[entry->offset_opcode] & 0x38) {")
                         l2.append('default:')
-                        l2.append('Logging::printf("unimpl GRP case %x at %d\\n", *reinterpret_cast<unsigned *>(entry->data), __LINE__)')
+                        l2.append('Logging::printf("unimpl GRP case %02x%02x%02x at %d\\n", entry->data[0], entry->data[1], entry->data[2], __LINE__)')
                         l2.append("UNIMPLEMENTED")
                         l2.append('}')
                         p[enc[l]] = l2
@@ -259,7 +259,7 @@ def print_code(code, functions):
             print "break; }"
         print """default:
               fetch_code(msg, entry, 4);
-              Logging::printf("unimplemented case %x at line %d code %x\\n", code, __LINE__, *reinterpret_cast<unsigned *>(entry->data));
+              Logging::printf("unimplemented case %x at line %d code %02x%02x%02x\\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
               UNIMPLEMENTED;
           }
         }

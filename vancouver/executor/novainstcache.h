@@ -437,7 +437,7 @@ public:
 
     if (((entry->prefixes & 0xff) == 0xf0) && ((~entry->flags & IC_LOCK) || (entry->modrminfo & MRM_REG)))
       {
-	Logging::panic("LOCK prefix %x at eip %x\n", *reinterpret_cast<unsigned *>(entry->data), msg.cpu->eip);
+	Logging::panic("LOCK prefix %02x%02x%02x%02x at eip %x\n", entry->data[0], entry->data[1], entry->data[2], entry->data[3], msg.cpu->eip);
 	UD0;
       }
 
