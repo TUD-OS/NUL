@@ -123,7 +123,7 @@ public:
 
 	  // add ptr to scratch area
 	  char *p = v.scratch;
-	  strcpy(p, oemstring);	 
+	  strcpy(p, oemstring);
 	  v.oem_string = vesa_farptr(cpu, p, &v);
 	  p += strlen(p) + 1;
 
@@ -152,8 +152,8 @@ public:
       case 0x4f01: // get modeinfo
 	{
 	  Logging::printf("VESA %x base %x+%x esi %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->esi, sizeof(ConsoleModeInfo));
-	  
-	  ConsoleModeInfo info;	 
+
+	  ConsoleModeInfo info;
 	  if (get_vesa_mode((cpu->eax >> 16), &info) != 0ul)
 	    {
 	      info.phys_base = _framebuffer_phys;
@@ -416,7 +416,7 @@ public:
 
   bool  receive(MessageMemMap &msg)
   {
-	
+
     if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size))
       {
 	msg.phys = _framebuffer_phys;
@@ -430,7 +430,6 @@ public:
 	msg.count = LOW_SIZE;
       }
     else return false;
-
     return true;
   }
 

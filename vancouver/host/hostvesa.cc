@@ -50,7 +50,7 @@ class HostVesa : public StaticReceiver<HostVesa>
   Vbe::ModeInfoBlock * _modelist;
   unsigned             _instructions;
   bool                 _debug;
-  
+
   const char *debug_getname() { return "HostVesa"; };
 
 
@@ -75,7 +75,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.esp = 0xfff8;
     unsigned short iret_frame[] = {0xffff, SS_SEG, 0x2, 0xf4f4};
     memcpy(_mem + _cpu.ss.base + _cpu.esp, iret_frame, sizeof(iret_frame));
-    
+
     // our buffer resides in the ES segment
     _cpu.es.sel  = es_seg;
     _cpu.es.base = es_seg << 4;
@@ -100,7 +100,7 @@ class HostVesa : public StaticReceiver<HostVesa>
 	if (!_mb.bus_executor.send(msg, true, _cpu.head.pid))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
       }
-    
+
     if ((_cpu.eax & 0xffff) == 0x004f)  return false;
     Logging::printf("VBE call(%x, %x, %x, %x) returned %x\n", eax, ecx, edx, ebx, _cpu.eax);
     return true;
@@ -191,8 +191,8 @@ public:
   bool  receive(MessagePciConfig &msg) {  return  _hostmb.bus_hwpcicfg.send(msg, true); }
 
 
-  bool  receive(MessageVesa   &msg) {   
-
+  bool  receive(MessageVesa   &msg)
+  {
     if (msg.index < _modecount)
       switch (msg.type)
 	{
@@ -245,8 +245,8 @@ public:
     // we need only the version from the InfoBlock
     _version = p->version;
     Logging::printf("VBE version %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n", 
-		    p->version, 
-		    p->memory << 16, 
+		    p->version,
+		    p->memory << 16,
 		    vbe_to_ptr<char *>(p->oem_string),
 		    vbe_to_ptr<char *>(p->oem_vendor),
 		    vbe_to_ptr<char *>(p->oem_product),
@@ -257,13 +257,12 @@ public:
     unsigned modes = 0;
     unsigned short *video_mode_ptr  = vbe_to_ptr<unsigned short *>(p->video_mode_ptr);
     while (modes < 32768 && video_mode_ptr[modes] != 0xffff)
-      modes++;  
+      modes++;
     _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
-    
+
 
     // add standard vga text mode #3
     {
-      
       _modelist[_modecount]._vesa_mode = 3;
       _modelist[_modecount].attr = 0x1;
       _modelist[_modecount].resolution[0] = 80;
@@ -285,7 +284,7 @@ public:
   }
 };
 
-  
+
 PARAM(hostvesa,
       {
 	new HostVesa(mb, !argv[0]);
