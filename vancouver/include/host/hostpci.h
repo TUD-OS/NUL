@@ -49,6 +49,15 @@ class HostPci
     BAR_MEM_MASK  = 0xFFFFFFF0U,
   };
 
+  enum {
+    CAP_MSI                 = 0x05U,
+    CAP_PCI_EXPRESS         = 0x10U,
+    CAP_MSIX                = 0x11U,
+
+    EXTCAP_ARI              = 0x000EU,
+    EXTCAP_SRIOV            = 0x0010U,
+  };
+
   unsigned conf_read(unsigned bdf, unsigned short offset)
   {
     MessagePciConfig msg(bdf, offset);

@@ -10,10 +10,12 @@
 
 enum {
   CLASS_PCI_TO_PCI_BRIDGE = 0x0604,
-  CAP_PCI_EXPRESS         = 0x10,
 
-  EXTCAP_ARI              = 0x000E,
-  EXTCAP_SRIOV            = 0x0010,
+  CAP_MSI                 = 0x05U,
+  CAP_PCI_EXPRESS         = 0x10U,
+  
+  EXTCAP_ARI              = 0x000EU,
+  EXTCAP_SRIOV            = 0x0010U,
 
   SRIOV_REG_CONTROL       = 0x8,
   SRIOV_VF_ENABLE         = 1,

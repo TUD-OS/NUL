@@ -114,6 +114,10 @@ class Host82576 : public StaticReceiver<Host82576>
     RX_QUEUES = 16,
   };
 
+  enum PCI {
+    MSIX_ENABLE = (1UL << 31),
+  };
+  
   enum Register {
     // Spec p.399
 
@@ -221,156 +225,16 @@ class Host82576 : public StaticReceiver<Host82576>
   unsigned _msg_level;
   EthernetAddr _mac;
 
-  class RXQueue {
-    static const unsigned desc_no = 16;
-    Host82576 *_dev;
-    unsigned _no;
+  // MSI-X
+  unsigned _msix_table_size;
 
-    unsigned _last;
+  struct msix_table {
+    volatile uint64_t msg_addr;
+    volatile uint32_t msg_data;
+    volatile uint32_t vector_control;
+  } *_msix_table;
 
-  // Advanced Receive Descriptors (7.1.5)
-    struct RXDesc {
-      union {
-	uint64_t word0;
-	uint64_t packet_buf;
-      };
-      union {
-	uint64_t word1;
-	uint64_t header_buf;
-      };
-
-      bool done() { return (word1 & 1) == 1; }
-      uint8_t type() { return (word0 >> 4) & 0x1FFF; }
-      uint16_t header_length() { return (word0 >> 21) & 0x1FF; }
-      uint16_t packet_length() { return (word1 >> 32) & 0xFFFF; }
-    };
-
-    // Descriptors must be 128-byte aligned. (8.10.5)
-    ALIGN(128) RXDesc desc[desc_no];
-    struct {
-      // Splitting is disabled.
-      //ALIGN(2) char header[1024];
-      ALIGN(2) char packet[2048];
-    } desc_local[desc_no];	// For our personal use
-
-    // Add offset _no*0x40/4
-    enum RX40 {
-      RDBAL  = 0x0C000/4,	// Base Address Low
-      RDBAH  = 0x0C004/4,	// Base Address High
-      RDLEN  = 0x0C008/4,	// Length
-      RDH    = 0x0C010/4,	// Head
-      RDT    = 0x0C018/4,	// Tail
-      RXDCTL = 0x0C028/4,	// Receive Descriptor Control
-      SRRCTL = 0x0C00C/4,	// Split and Replication Receive Control
-      RQDPC  = 0x0C030/4,	// Drop Packet Count
-    };
-
-    // Add offset _no*8/4
-    enum RX8 {
-      RAL    = 0x05400/4,	// Receive Address Low
-      RAH    = 0x05404/4,	// Receive Address High
-    };
-
-    enum RAH {
-      RAH_AV = 1U<<31,		// Address Valid
-    };
-
-    enum Control {
-      RXDCTL_ENABLE = 1<<25,	   // Queue Enable
-      SRRCTL_DROP_ENABLE = 1U<<31, // Drop Enable
-      SRRCTL_DESCTYPE = 7<<25,	   // Descriptor Type
-      SRRCTL_DESCTYPE_ADV_1BUF = 1<<25 // One Buffer, No Splitting
-    };
-
-    volatile uint32_t &_rxreg40(enum RX40 reg) { return _dev->_hwreg[0x10*_no + reg]; }
-    volatile uint32_t &_rxreg8(enum RX8 reg)   { return _dev->_hwreg[   2*_no + reg]; }
-
-  public:
-
-    void init_slot(unsigned i)
-    {
-      // Splitting is disabled.
-      //desc[i].header_buf = _dev->to_phys(desc_local[i].header);
-      desc[i].header_buf = 0;
-      desc[i].packet_buf = _dev->to_phys(desc_local[i].packet);
-    }
-
-    void enable()
-    {
-      _dev->ensure_rx_enabled();
-      _rxreg40(RXDCTL) = RXDCTL_ENABLE;
-
-      for (unsigned i = 0; i < desc_no; i++) {
-	init_slot(i);
-      }
-
-      _last = 0;
-      // Just setting it to 0 does not work. So try it with a small
-      // step first.
-      _rxreg40(RDT) = 1;
-      _rxreg40(RDT) = 0;	// All buffers valid.
-    }
-
-    unsigned dropped() { return _rxreg40(RQDPC); }
-
-    void irq(uint32_t cause)
-    {
-      unsigned processed = 0;
-      
-      // Check that we don't loop forever when someone sends packets to
-      // us like crazy by only running through the queue once.
-      while ((processed++ < desc_no) && desc[_last].done()) {
-	unsigned type = desc[_last].type();
-	_dev->msg(Host82576::RX, "Packet received:%s%s%s%s%s (H:%u, P:%u)\n",
-		  (type & TYPE_L2) ? " L2" : "",
-		  (type & (TYPE_IPV4|TYPE_IPV4E)) ? " IPv4" : "",
-		  (type & (TYPE_IPV6|TYPE_IPV6E)) ? " IPv6" : "",
-		  (type & TYPE_TCP) ? " TCP" : "",
-		  (type & TYPE_UDP) ? " UDP" : "",
-		  desc[_last].header_length(),
-		  desc[_last].packet_length()
-		  );
-
-	// Splitting is disabled, our header is in the packet buffer.
-	//hexdump(desc_local[_last].packet, desc[_last].header_length());
-	MessageNetwork msg((unsigned char *)desc_local[_last].packet, desc[_last].packet_length(), ~0U);
-	if (!_dev->_bus_network.send(msg))
-	  _dev->msg(Host82576::RX, "Packet forward failed.\n");
-
-	init_slot(_last);
-	_last = (_last+1) % desc_no;
-
-	asm volatile ("sfence" ::: "memory");
-	_rxreg40(RDT) = _last;
-      }
-
-      unsigned dropped = _rxreg40(RQDPC);
-      if (dropped > 0) _dev->msg(Host82576::RX, "Dropped %u packets.\n", dropped);
-    }
-
-    RXQueue(Host82576 *dev, unsigned no)
-      : _dev(dev), _no(no)
-    {
-      memset(desc, 0, sizeof(desc)); // Just to be sure.
-
-      uint64_t phys_desc = _dev->to_phys(desc);
-      _rxreg40(RXDCTL) = 0;	// Disable queue.
-      _rxreg40(SRRCTL) = (_rxreg40(SRRCTL) & ~SRRCTL_DESCTYPE) |
-	SRRCTL_DESCTYPE_ADV_1BUF | SRRCTL_DROP_ENABLE;
-
-      _rxreg40(RDBAL) = phys_desc & 0xFFFFFFFFU;
-      _rxreg40(RDBAH) = phys_desc >> 32;
-      _rxreg40(RDLEN) = sizeof(RXDesc)*desc_no;
-
-      // Accept packets for our MAC.
-      _rxreg8(RAL) = _dev->_mac.raw;
-      _rxreg8(RAH) = _dev->_mac.raw >> 32 | RAH_AV;
-
-      _dev->msg(Host82576::RX, "RX queue %u initialized with %u descriptors (%u bytes).\n", no,
-		desc_no, _rxreg40(RDLEN));
-
-    }
-  } *_rx;
+  volatile uint64_t *_msix_pba;
 
   __attribute__ ((format (printf, 3, 4)))
   void msg(unsigned level, const char *msg, ...)
@@ -390,12 +254,6 @@ class Host82576 : public StaticReceiver<Host82576>
       return msg.phys;
     } else Logging::panic("Could not resolve %p's physical address.\n", ptr);
   }
-
-  void ensure_rx_enabled()
-  {
-    _hwreg[RCTL] |= RCTL_RXEN;
-  }
-
 
   void log_device_status()
   {
@@ -448,20 +306,15 @@ public:
     if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
 
     uint32_t irq_cause = _hwreg[ICR];
-    if (irq_cause == 0) return false;
-
     msg(IRQ, "IRQ! ICR = %x\n", irq_cause);
-
-    if (irq_cause & (IRQ_RXDW | IRQ_RXO)) {
-      _rx->irq(irq_cause);
-    }
+    if (irq_cause == 0) return false;
 
     if (irq_cause & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
       if (gone_up) {
 	_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM;
-	_rx->enable();
+	//_rx->enable();
 	msg(RX | IRQ, "RX enabled.\n");
       } else {
 	// Down
@@ -479,11 +332,23 @@ public:
   Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network, 
 	    Clock *clock, unsigned bdf, unsigned hostirq)
     : _clock(clock), _bus_hostop(bus_hostop), _bus_network(bus_network),
-      _bdf(bdf), _hostirq(hostirq), _msg_level(ALL & ~PCI)
+      _bdf(bdf), _hostirq(hostirq), _msg_level(ALL)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
-    // Discover our register windows.
+    // MSI-X preparations
+    unsigned msix_cap = pci.find_cap(bdf, HostPci::CAP_MSIX);
+    assert(msix_cap != 0);
+    unsigned msix_table = pci.conf_read(bdf, msix_cap + 4);
+    unsigned msix_pba   = pci.conf_read(bdf, msix_cap + 8);
+
+    
+    msg(PCI, "MSI-X[0] = %08x\n", pci.conf_read(bdf, msix_cap));
+    _msix_table_size = ((pci.conf_read(bdf, msix_cap)>>16) & ((1<<11)-1))+1;
+    _msix_table = NULL;
+    _msix_pba = NULL;
+
+    // Scan BARs and discover our register windows.
     _hwreg   = 0;
 
     for (unsigned bar_i = 0; bar_i < pci.MAX_BAR; bar_i++) {
@@ -499,23 +364,33 @@ public:
 	// XXX 64-bit bars!
 	uint32_t phys_addr = bar & pci.BAR_MEM_MASK;
 
-	if (size == (1<<17 /* 128K */)) {
-	  if (phys_addr & 0xFFF)
-	    Logging::panic("%s: MMIO window not page-aligned.", __PRETTY_FUNCTION__);
+	
+	MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, phys_addr & ~0xFFF, size);
+	if (bus_hostop.send(iomsg) && iomsg.ptr) {
 
-          MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, phys_addr & ~0xFFF, 1<<17);
-	  if (bus_hostop.send(iomsg) && iomsg.ptr)
-            _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
-          else
-            Logging::panic("%s could not map register window.\n", __PRETTY_FUNCTION__);
+	  if (size == (1<<17 /* 128K */)) {
+	    _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
+	    msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
+	  }
 
-	  msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
-	}
+	  if (bar_i == (msix_table & 7)) {
+	    _msix_table = reinterpret_cast<struct msix_table *>(iomsg.ptr + (msix_table&~0x7));
+	    msg(INFO, "MSI-X Table at %p (phys %x, elements %x).\n", _msix_table, phys_addr, _msix_table_size);
+	  }
+	  
+	  if (bar_i == (msix_pba & 7)) {
+	    _msix_pba = reinterpret_cast<volatile uint64_t *>(iomsg.ptr + (msix_pba&~0x7));
+	    msg(INFO, "MSI-X PBA   at %p (phys %x, elements %x).\n", _msix_pba, phys_addr, _msix_table_size);
+	  }
+
+	  } else {
+	    Logging::panic("%s could not map BAR %u.\n", __PRETTY_FUNCTION__, bar);
+	  }
       }
     }
 
-    if ((_hwreg == 0))
-      Logging::panic("%s could not find its register windows.\n", __PRETTY_FUNCTION__);
+    if ((_hwreg == 0)) Logging::panic("Could not find 82576 register windows.\n");
+    if (!(_msix_table || _msix_pba)) Logging::panic("MSI-X initialization failed.\n");
 
     /// Initialization (4.5)
     msg(INFO, "Perform Global Reset.\n");
@@ -551,19 +426,26 @@ public:
     _mac = ethernet_address();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 
-    // Allocating an RX queue for our personal use.
-
-    _rx = new RXQueue(this, 0);
+    // We would setup RX queues here, if we'd use any.
+    //_rx = new RXQueue(this, 0);
 
     // IRQ
     MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
     if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
       Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
-    msg(IRQ, "Attached to IRQ. Waiting for link to come up.\n");
+    msg(IRQ, "Attached to IRQ %u. Waiting for link to come up.\n", hostirq);
+
+    // Configuring one MSI-X vector
+    pci.conf_write(bdf, msix_cap, pci.conf_read(bdf, msix_cap) | MSIX_ENABLE);
+    _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
+    _msix_table[0].msg_data = hostirq + 0x20;
+    _msix_table[0].vector_control |= 1; // Preserve content as per spec 6.8.2.9
 
     // Wait for Link Up event
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
     _hwreg[IMS] = ~0U;
+
+    _hwreg[ICS] = IRQ_LSC;
 
     // Capabilities
     // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);
