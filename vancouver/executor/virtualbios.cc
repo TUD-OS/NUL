@@ -182,7 +182,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
     copy_out(cpu->ss.base + cpu->esp + 4, &cpu->efl,    2);
 
     cpu->edx = 0x80; // booting from first disk
-    if (!disk_read(cpu, vcpu, 0, 0x7c00, 1) || cpu->ah)
+    if (!disk_op(cpu, vcpu, 0, 0x7c00, 1, false) || cpu->ah)
       Logging::panic("VB: could not read MBR from boot disk");
     return true;
   }
@@ -288,15 +288,15 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   }
 
   /**
-   * Read disk helper.
+   * Read/Write disk helper.
    */
-  bool disk_read(CpuState *cpu, VirtualCpuState *vcpu, unsigned long long blocknr, unsigned long address, unsigned count)
+  bool disk_op(CpuState *cpu, VirtualCpuState *vcpu, unsigned long long blocknr, unsigned long address, unsigned count, bool write)
   {
     DmaDescriptor dma;
     dma.bytecount  = 512*count;
     dma.byteoffset = address;
 
-    Logging::printf("%s(%llx) count %x -> %lx\n", __func__, blocknr, count, address);
+    Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, write ? "write" : "read", blocknr, count, address);
     MessageDisk msg2(MessageDisk::DISK_READ, cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
       {
@@ -343,6 +343,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case 0x00: // reset disk
 	goto reset_disk;
       case 0x02: // read
+      case 0x03: // write
 	if (check_drive(cpu))
 	  {
 	    unsigned cylinders = cpu->ch | (cpu->cl << 2) & 0x300;
@@ -353,7 +354,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	      blocknr = (cylinders * 255 + heads) * 63 + sectors - 1;
 	    else
 	      blocknr = (cylinders * 2 + heads) * 18 + sectors - 1;
-	    return disk_read(cpu, vcpu, blocknr, cpu->es.base + cpu->bx, cpu->al);
+	    return disk_op(cpu, vcpu, blocknr, cpu->es.base + cpu->bx, cpu->al, cpu->ah & 1);
 	  }
 	break;
       case 0x08: // get drive params
@@ -393,10 +394,11 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	if (check_drive(cpu))  cpu->ah = 0x00; // successful
 	break;
       case 0x42: // extended read
+      case 0x43: // extended write
 	if (check_drive(cpu))
 	  {
 	    copy_in(cpu->ds.base + cpu->si, &da, sizeof(da));
-	    return disk_read(cpu, vcpu, da.block, (da.segment << 4) + da.offset, da.count);
+	    return disk_op(cpu, vcpu, da.block, (da.segment << 4) + da.offset, da.count, cpu->ah & 1);
 	  }
 	break;
       case 0x48: // get drive params extended
