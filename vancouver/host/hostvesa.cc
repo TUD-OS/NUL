@@ -90,6 +90,12 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.cs.sel   = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 1];
     _cpu.cs.base  = _cpu.cs.sel << 4;
     MessageExecutor msg(&_cpu, _mb.vcpustate(0));
+
+
+    _cpu.head.pid = MessageExecutor::DO_ENTER;
+    _mb.bus_executor.send(msg, false, _cpu.head.pid);
+    _cpu.head.pid = 0;
+
     while (_cpu.head.pid != 12)
       {
 	_instructions++;
@@ -100,6 +106,10 @@ class HostVesa : public StaticReceiver<HostVesa>
 	if (!_mb.bus_executor.send(msg, true, _cpu.head.pid))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
       }
+    _cpu.head.pid = MessageExecutor::DO_LEAVE;
+    _mb.bus_executor.send(msg, false, _cpu.head.pid);
+    _mb.dump_counters();
+
 
     if ((_cpu.eax & 0xffff) == 0x004f)  return false;
     Logging::printf("VBE call(%x, %x, %x, %x) returned %x\n", eax, ecx, edx, ebx, _cpu.eax);
@@ -204,7 +214,7 @@ public:
 	    unsigned instructions = _instructions;
 	    timevalue start = _hostmb.clock()->clock(1000000);
 	    unsigned mode = _modelist[msg.index]._vesa_mode;
-	    if (_modelist[msg.index].attr & 0x80) mode |= 1 << 14;
+	    if (_modelist[msg.index].attr & 0x80) mode |= 0xc000;
 	    if (vbe_call(0x4f02, ES_SEG0, 0, 0, mode))  break;
 	    timevalue end = _hostmb.clock()->clock(1000000);
 	    Logging::printf("switch to %x done (took %lldus, ops %d)\n", mode, end - start, _instructions - instructions);

@@ -33,14 +33,14 @@ VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
 	//do_recall(utcb);
 	)
 VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
-	COUNTER_INC("irqwin"); 
+	COUNTER_INC("irqwin");
 	do_recall(utcb);
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	if (!handle_special_cpuid(utcb))
 	  {
 	    utcb->head.pid = 10;
-	    COUNTER_INC("cpuid"); 
+	    COUNTER_INC("cpuid");
 	    if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
 	    // XXX call skip instruction for MTD_STATE update

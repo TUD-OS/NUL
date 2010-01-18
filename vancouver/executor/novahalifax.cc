@@ -21,7 +21,7 @@
 /**
  * NovaHalifax: the second implementation of the instruction emulator.
  */
-class NovaHalifax : public StaticReceiver<NovaHalifax> 
+class NovaHalifax : public StaticReceiver<NovaHalifax>
 {
 
   const char *debug_getname() { return "NovaHalifax"; };
@@ -29,14 +29,20 @@ class NovaHalifax : public StaticReceiver<NovaHalifax>
 public:
   bool  receive(MessageExecutor &msg)
   {
-    return msg.vcpu->instcache->step(msg);
+    if (msg.cpu->head.pid == MessageExecutor::DO_SINGLESTEP)  return msg.vcpu->instcache->step(msg);
+    if (msg.cpu->head.pid == MessageExecutor::DO_ENTER)       return msg.vcpu->instcache->enter(msg);
+    if (msg.cpu->head.pid == MessageExecutor::DO_LEAVE)       return msg.vcpu->instcache->leave(msg);
+    assert(0);
   }
 };
 
 PARAM(novahalifax,
       {
 	Logging::printf("create Novahalifax\n");
-	mb.bus_executor.add(new NovaHalifax(),  &NovaHalifax::receive_static, 33);
+	Device *dev = new NovaHalifax();
+	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_SINGLESTEP);
+	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_ENTER);
+	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_LEAVE);
 	mb.vcpustate(0)->instcache = new InstructionCache(mb);
       },
       "novahalifax - create a halifax that emulatates instructions.");

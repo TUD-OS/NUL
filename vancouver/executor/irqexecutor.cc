@@ -62,7 +62,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
       msg.cpu->inj_info &= ~INJ_IRQWIN;
 
     // get back to the inst emulator???
-    msg.cpu->head.pid = 33;
+    msg.cpu->head.pid = MessageExecutor::DO_SINGLESTEP;
     return true;
   }
 

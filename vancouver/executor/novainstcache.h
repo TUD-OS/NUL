@@ -496,12 +496,12 @@ public:
     if (!msg.vcpu->fault || msg.vcpu->fault == FAULT_RETRY)
       {
 	// successfull
-	invalidate(true);
+	//invalidate(true);
 	msg.cpu->head.pid = 0;
       }
     else
       {
-	invalidate(false);
+	// XXX this looks fishy invalidate(false);
 	msg.cpu->eip = msg.vcpu->oeip;
 	msg.cpu->esp = msg.vcpu->oesp;
 	if (msg.vcpu->fault > 0)
@@ -573,7 +573,10 @@ public:
   }
 
 public:
-  bool step(MessageExecutor &msg)
+  bool enter(MessageExecutor &msg) { return init(msg); }
+
+
+ bool step(MessageExecutor &msg)
   {
     InstructionCacheEntry *entry = 0;
     msg.vcpu->fault = 0;
@@ -582,10 +585,15 @@ public:
     msg.vcpu->oactv_state = msg.cpu->actv_state;
     // remove sti+movss blocking
     msg.cpu->actv_state &= ~3;
-    init(msg) || event_injection(msg) || get_instruction(msg, entry) || execute(msg, entry);
+    event_injection(msg) || get_instruction(msg, entry) || execute(msg, entry);
     return commit(msg, entry);
   }
 
+  bool leave(MessageExecutor &)
+  {
+    invalidate(true);
+    return true;
+  }
 
  InstructionCache(Motherboard &mb) : MemTlb(mb), _values() { }
 };

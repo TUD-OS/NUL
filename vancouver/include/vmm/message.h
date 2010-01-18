@@ -537,6 +537,11 @@ class VirtualCpuState;
  */
 struct MessageExecutor
 {
+  enum {
+    DO_SINGLESTEP = 33,
+    DO_ENTER   = 0x100,
+    DO_LEAVE,
+  };
   CpuState *cpu;
   VirtualCpuState *vcpu;
   MessageExecutor(CpuState *_cpu, VirtualCpuState *_vcpu) : cpu(_cpu), vcpu(_vcpu) {}

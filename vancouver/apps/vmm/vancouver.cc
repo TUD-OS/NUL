@@ -311,13 +311,22 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (_debug)
       Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid,
 		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard);
-    utcb->head.pid = 33;
+    // enter singlestep
+    utcb->head.pid = MessageExecutor::DO_ENTER;
+    execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
+
+    utcb->head.pid = MessageExecutor::DO_SINGLESTEP;
     do {
       if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
       do_recall(utcb);
     }
     while (utcb->head.pid);
+
+    // leave singlestep
+    utcb->head.pid = MessageExecutor::DO_LEAVE;
+    execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
+
 
     if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CRWRITE)
       utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() & ~MTD_CR, 0);
@@ -326,11 +335,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu)
+  static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
   {
     SemaphoreGuard l(_lock);
     MessageExecutor msg(cpu, vcpu);
-    return _mb->bus_executor.send(msg, true, cpu->head.pid);
+    return _mb->bus_executor.send(msg, early_out, cpu->head.pid);
   }
 
   static void skip_instruction(Utcb *utcb)
