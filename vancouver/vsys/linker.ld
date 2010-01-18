@@ -42,15 +42,15 @@ SECTIONS
     __param_table_end = .;
     *(.rodata .rodata.* .gnu.linkonce.r.*);
     *(.data   .data.*   .gnu.linkonce.d.*);
-    __image_end = .;
   } : data
   .bss :
   {
     *(.bss .bss.* .gnu.linkonce.b.*);
      __mempoolstart = .;
-    . += __memsize;
+    . += __memsize - (__mempoolstart - __image_start);
     __mempoolend = .;
   }
+  __image_end = .;
   /* the freememory starts here, we align to 4M to allow superpages */
   __freemem = ALIGN(0x400000);
 
