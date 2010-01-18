@@ -74,7 +74,7 @@ class NovaProgram
    * Get the UTCB pointer from the top of the stack. This is a hack, as long we do not have a myself systemcall!
    */
   static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); return *reinterpret_cast<Utcb **>(((esp & ~0x3) | 0xffc)); };
-  
+
   /**
    * Alloc a region of virtual memory to put an EC into
    */
@@ -116,6 +116,7 @@ class NovaProgram
 
     // prepopulate phys+virt memory
     extern char __image_start, __image_end;
+    // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(_boot_utcb) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
     _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, hip->get_mod(0)->addr));
@@ -137,7 +138,7 @@ class TemporarySave
 {
   void *_ptr;
   unsigned long _data[words];
-  
+
  public:
  TemporarySave(void *ptr) : _ptr(ptr) { memcpy(_data, _ptr, words*sizeof(unsigned long)); }
   ~TemporarySave() { memcpy(_ptr, _data, words*sizeof(unsigned long)); }

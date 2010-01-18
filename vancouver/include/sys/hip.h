@@ -75,7 +75,7 @@ class Hip
 	void fix_checksum() { checksum -= calc_checksum(); }
 
 	Hip_mem *get_mod(unsigned nr) {
-	  for (int i=0; i < (length - mem_offs) / mem_size; i++)
+	  for (int i=0; mem_size && i < (length - mem_offs) / mem_size; i++)
 	    {
 	      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(this) + mem_offs + i * mem_size);
 	      if (hmem->type != -2) continue;
@@ -86,7 +86,7 @@ class Hip
 
 	void append_mem(uint64 addr, uint64 size, int type, uint32 aux)
 	{
-	  Hip_mem * mem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(this) + length); 
+	  Hip_mem * mem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(this) + length);
 	  length += mem_size;
 	  mem->addr = addr;
 	  mem->size = size;
@@ -94,7 +94,7 @@ class Hip
 	  mem->aux = aux;
 	}
 
-	bool has_gsi() {  return api_flg &  (1 << 0); } 
-	bool has_vmx() {  return api_flg &  (1 << 1); } 
-	bool has_svm() {  return api_flg &  (1 << 2); } 
+	bool has_gsi() {  return api_flg &  (1 << 0); }
+	bool has_vmx() {  return api_flg &  (1 << 1); }
+	bool has_svm() {  return api_flg &  (1 << 2); }
 };

@@ -58,7 +58,7 @@ PT_FUNC(do_startup,
 	}
 
 	utcb->eip = modinfo->rip;
-	utcb->esp = 0xbffff000;
+	utcb->esp = HIP_ADDRESS;
 	utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 
 	utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);

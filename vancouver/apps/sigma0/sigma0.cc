@@ -38,6 +38,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   enum {
     MAXCPUS = 256,
     CPUGSI  = 3,
+    HIP_ADDRESS = 0xbffff000,
   };
 
   // a mapping from virtual cpus to the physical numbers
@@ -73,7 +74,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     Hip *         hip;
     unsigned      mod_nr;
     unsigned      mod_count;
-    unsigned      cap_pd;    
+    unsigned      cap_pd;
     unsigned long rip;
     char          tag[256];
     char *        mem;
@@ -389,27 +390,24 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    // decode elf
 	    maxptr = 0;
 	    Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
-	    unsigned  slen = strlen(cmdline) + 1;
-	    unsigned long mod_end = (modinfo->physsize - slen) & ~0xfff;
-
-	    // XXX fiasco hack to workaround himem and kmem allocator!
-	    if (strstr(cmdline, "sigma0::fiascohack") && (mod_end > 0x4400000)) mod_end -= 0x4000000;
-	    memcpy(modinfo->mem + mod_end, cmdline, slen);
 	    attach_drives(cmdline, modinfo);
 
-	    modinfo->hip = reinterpret_cast<Hip *>(modinfo->mem + mod_end - 0x1000);
-	    memcpy(modinfo->hip, _hip, _hip->length);
+	    unsigned  slen = strlen(cmdline) + 1;
+	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
+	    modinfo->hip = reinterpret_cast<Hip *>(memalign(0x1000, 0x1000));
+	    memcpy(reinterpret_cast<char *>(modinfo->hip) + 0x1000 - slen, cmdline, slen);
+
+	    memcpy(modinfo->hip, _hip, _hip->mem_offs);
 	    modinfo->hip->length = modinfo->hip->mem_offs;
 	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, modinfo->pmem);
-	    modinfo->hip->append_mem(0, 0, -2, mod_end + MEM_OFFSET);
-
-	    // attach modules
-	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
-	      modinfo->mod_count++;
-	    i--;
+	    modinfo->hip->append_mem(0, 0, -2, HIP_ADDRESS + 0x1000 - slen);
 	    modinfo->hip->fix_checksum();
 	    assert(_hip->length > modinfo->hip->length);
 
+	    // count attached modules
+	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
+	      modinfo->mod_count++;
+	    i--;
 
 
 	    // create special portal for every module, we start at 64k, to have enough space for static fields
