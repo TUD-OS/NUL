@@ -357,7 +357,8 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
 
 	    // alloc memory
-	    modinfo->physsize = 32 << 20;
+	    modinfo->physsize = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
+
 	    p = strstr(cmdline, "sigma0::mem:");
 	    if (p) modinfo->physsize = strtoul(p+12, 0, 0) << 20;
 	    if (!(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22)) || !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
@@ -367,7 +368,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 		_modcount--;
 		return __LINE__;
 	      }
-	    Logging::printf("(%x) using memory: %ld MB at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->pmem);
+	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->physsize, modinfo->pmem);
 
 	    // format the tag
 	    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", cpunr, modinfo->physsize >> 20, cmdline);
