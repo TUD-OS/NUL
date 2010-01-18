@@ -110,16 +110,18 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	  vmx_invalid(utcb);
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(utcb); )
-VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ | MTD_RIP_LEN | MTD_RSP | MTD_CR,
+VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
 	  vmx_init(utcb);
 	else
 	  {
 	    SemaphoreGuard l(_lock);
 	    COUNTER_INC("recall");
+#if 0
 	    COUNTER_SET("rEIP", utcb->eip);
 	    COUNTER_SET("rESP", utcb->esp);
 	    COUNTER_SET("rCR3", utcb->cr3);
+#endif
 	    COUNTER_SET("HZ", _mb->vcpustate(0)->hazard);
 	    unsigned lastpid = utcb->head.pid;
 	    utcb->head.pid = 1;
