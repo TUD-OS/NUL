@@ -113,21 +113,22 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
    * Check whether the guest io address matches and translate to host
    * address.
    */
-  bool match_bars(unsigned &address, unsigned size, bool iospace)
+  unsigned match_bars(unsigned &address, unsigned size, bool iospace)
   {
+    COUNTER_INC("PCIDirect::match");
     // check whether io decode is disabled
-    if (iospace && ~_cfgspace[1] & 1 || !iospace && ~_cfgspace[1] & 2)
-      return false;
+    if (iospace && ~_cfgspace[1] & 1 || !iospace && ~_cfgspace[1] & 2)  return 0;
     for (unsigned i=0; i < count_bars(); i++)
       {
 	unsigned  bar = _cfgspace[4 + i];
-	// XXX prefetch bit
+	// mask prefetch bit
+	if (!iospace) bar &= ~0xc;
 	if (!_masks[i] || (bar & 1) != iospace || !in_range(address, bar & ~0x3, (~_masks[i] | 3) + 1 - size + 1))
 	  continue;
 	address = address - bar + _bars[i];
-	return true;
+	return 4 + i;
       }
-    return false;
+    return 0;
   }
 
  public:
@@ -220,13 +221,28 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
 
+  bool receive(MessageMemAlloc &msg)
+  {
+    COUNTER_INC("PCIDirect::alloc");
+    unsigned addr = msg.phys1 & ~0xfff;
+    unsigned ofs = match_bars(addr, 0x1000, false);
+    if (!ofs || msg.phys2 != ~0xffful)  return false;
+    unsigned bar = _cfgspace[ofs];
+    // prefetchable?
+    if (~bar & 0x8) return false;
+    *msg.ptr = reinterpret_cast<void *>(addr + (msg.phys1 & 0xfff));
+    return true;
+
+  }
+
   bool receive(MessageMemWrite &msg)
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
+    COUNTER_INC("PCIDirect::write");
     switch (msg.count)
       {
-      case 4: 
+      case 4:
 	*reinterpret_cast<unsigned       *>(addr) = *reinterpret_cast<unsigned       *>(msg.ptr);
 	break;
       case 2:
@@ -246,9 +262,10 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     unsigned addr = msg.phys;
     if (!match_bars(addr, msg.count, false))  return false;
+    COUNTER_INC("PCIDirect::read");
     switch (msg.count)
       {
-      case 4: 
+      case 4:
 	*reinterpret_cast<unsigned       *>(msg.ptr) = *reinterpret_cast<unsigned       *>(addr);
 	break;
       case 2:
