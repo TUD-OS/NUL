@@ -64,7 +64,7 @@ tree. You will not be disappointed.
 
    The kernel bindings and a very small example roottask live in this
    repository. =lib/nova/include= contains the relevant header files.
-   
+
 **** TODO Clean up handling of MTDs.
      The current solution makes it very easy to shoot yourself in the foot.
 
@@ -96,7 +96,7 @@ tree. You will not be disappointed.
   To compile nul with an old version of GCC, type:
   =scons target_cc=gcc-4.2.4 target_cxx=g++-4.2.4=
 
-** TODO Booting 
+** TODO Booting
 
 ** Using Git
 
@@ -141,7 +141,7 @@ tree. You will not be disappointed.
     is a good thing!
 
     The workflow would thus be:
-    
+
     - =git remote update= to get the latest changes from the central repository[fn:2]
     - =gitk --all= (for X11 users) or =tig --all= (for those console junkies) to see your local branches as well as the remote branches.
     - =git rebase origin/master= to rebase your local commits on top
