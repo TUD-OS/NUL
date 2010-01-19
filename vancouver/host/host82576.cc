@@ -439,7 +439,7 @@ public:
     pci.conf_write(bdf, msix_cap, pci.conf_read(bdf, msix_cap) | MSIX_ENABLE);
     _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
     _msix_table[0].msg_data = hostirq + 0x20;
-    _msix_table[0].vector_control |= 1; // Preserve content as per spec 6.8.2.9
+    _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
 
     // Wait for Link Up event
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
