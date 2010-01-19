@@ -137,6 +137,7 @@ class Host82576 : public StaticReceiver<Host82576>
     IMC       = 0x0150C/4,	// Interrupt Mask Clear
 
     EIMS      = 0x01528/4,	// Extended Interrupt Mask Clear
+    EICR      = 0x01580/4,
 
     // General
     RCTL      = 0x00100/4,	// RX Control
@@ -313,9 +314,9 @@ public:
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
       if (gone_up) {
-	_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM;
+	//_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM;
 	//_rx->enable();
-	msg(RX | IRQ, "RX enabled.\n");
+	//msg(RX | IRQ, "RX enabled.\n");
       } else {
 	// Down
 	msg(RX | IRQ, "RX disabled.\n");
