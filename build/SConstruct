@@ -1,5 +1,7 @@
 # -*- Mode: Python -*-
 
+CacheDir('build_cache')
+
 # Files are resolved by searching the repositories in the order they
 # are declared. The first match wins. Order repositories from most to
 # least specific!
