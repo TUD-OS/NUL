@@ -3,6 +3,8 @@
 #pragma once
 
 #include <vmm/motherboard.h>
+#include <host/hostpci.h>
+#include <sys/region.h>
 
 #include <util/ListEntry.h>
 #include <cstdint>
@@ -17,8 +19,11 @@ enum {
   EXTCAP_ARI              = 0x000EU,
   EXTCAP_SRIOV            = 0x0010U,
 
+  SRIOV_VF_BAR0           = 0x24U,
+
   SRIOV_REG_CONTROL       = 0x8,
   SRIOV_VF_ENABLE         = 1,
+  SRIOV_MSE_ENABLE        = 1U<<3,  // Memory Space Enable
   SRIOV_ARI               = (1<<4), // Only in function 0.
 };
 
@@ -34,7 +39,9 @@ protected:
   PCIDevice *_devices;
   PCIBus    *_buses;
 
-  bool device_exists(unsigned df) { return read_cfg(df, 0) != ~0UL; };
+  RegionList<32> _memregion;
+
+  bool device_exists(unsigned df) { return conf_read(df, 0) != ~0UL; };
   void discover_devices();
 
 public:
@@ -42,9 +49,17 @@ public:
   NubusManager &manager() const { return _manager; };
   PCIBus       *add_bus(PCIBus *bus);
   PCIDevice    *add_device(PCIDevice *device);
-    
-  uint32_t read_cfg(uint8_t df, uint16_t reg);
-  bool     write_cfg(uint8_t df, uint16_t reg, uint32_t val);
+
+  void add_used_region(uint64_t base, uint64_t size) {
+    Region r(base, size);
+    Logging::printf("bus[%u]: Removing %llx+%llx\n", _no, base, size);
+    _memregion.del(r);
+  }
+
+  uint64_t alloc_mmio_window(uint64_t size) { return _memregion.alloc((unsigned long)size, 12); }
+
+  uint32_t conf_read(uint8_t df, uint16_t reg);
+  bool     conf_write(uint8_t df, uint16_t reg, uint32_t val);
 
   bool ari_enable();
   bool ari_enabled();
@@ -75,8 +90,8 @@ public:
   PCIDevice  *pf() const { return _pf; }
   uint16_t    bdf() const { return (_bus.no()<<8) | _df; }
 
-  uint32_t read_cfg(uint16_t reg) { return _bus.read_cfg(_df, reg); }
-  bool     write_cfg(uint16_t reg, uint32_t val) { return _bus.write_cfg(_df, reg, val); }
+  uint32_t conf_read(uint16_t reg);
+  bool     conf_write(uint16_t reg, uint32_t val);
 
   uint8_t find_cap(uint8_t id);
   uint16_t find_extcap(uint16_t id);
@@ -86,19 +101,19 @@ public:
   uint8_t ari_next_function() {
     uint16_t ari_cap = find_extcap(EXTCAP_ARI);
     if (ari_cap == 0) return 0;
-    return (read_cfg(ari_cap + 4) >> 8) & 0xFF;
+    return (conf_read(ari_cap + 4) >> 8) & 0xFF;
   }
 
   uint16_t sriov_total_vfs() {
     uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
-    return read_cfg(sriov_cap + 0xC) >> 16;
+    return conf_read(sriov_cap + 0xC) >> 16;
   }
 
   uint16_t sriov_device_id() {
     uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
-    return read_cfg(sriov_cap + 0x18) >> 16;
+    return conf_read(sriov_cap + 0x18) >> 16;
   }
 
   bool sriov_enable(uint16_t vfs_to_enable);
@@ -110,13 +125,14 @@ public:
 class NubusManager {
   friend class PCIBus;
 protected:
-  DBus<MessagePciConfig> &_pcicfg;
+  HostPci &_pci;
   Clock *_clock;
   PCIBus _root_bus;
 
 public:
   void spin(unsigned ms);
-  NubusManager(DBus<MessagePciConfig> &pcicfg, Clock *clock);
+  HostPci &pci() const { return _pci; }
+  NubusManager(HostPci pcicfg, Clock *clock);
 };
 
 // EOF

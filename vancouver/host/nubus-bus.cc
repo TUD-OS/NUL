@@ -11,10 +11,22 @@ PCIBus::PCIBus(NubusManager &manager)
 PCIBus::PCIBus(PCIDevice &bridge)
   : _manager(bridge.bus()._manager), _bridge(&bridge), _devices(NULL), _buses(NULL)
 {
-  _no = (_bridge->read_cfg(0x18) >> 8) & 0xFF;
+  _no = (_bridge->conf_read(0x18) >> 8) & 0xFF;
   bridge.bus().add_bus(this);
+
+  {
+    uint32_t memclaim = _bridge->conf_read(0x20);
+    uint32_t limit = ((memclaim >> 20)+1) << 20;
+    uint32_t base = memclaim<<16;
+    Logging::printf("bus[%x] Bridge claims %08x-%08x.\n", _no, base, limit);
+    Region bridge_claim(base, limit - base);
+    _memregion.add(bridge_claim);
+  }
   
   discover_devices();
+
+  if (_no == 1) Logging::printf("bus[%x] Bridge memory:\n", _no);
+  _memregion.debug_dump("bus");
   
   // We can only check, if we can enable ARI after devices on this
   // bus are discovered. They all have to support ARI.
@@ -49,23 +61,22 @@ PCIDevice *PCIBus::add_device(PCIDevice *device)
   return device;
 }
 
-uint32_t PCIBus::read_cfg(uint8_t df, uint16_t reg)
+uint32_t PCIBus::conf_read(uint8_t df, uint16_t reg)
 {
-  MessagePciConfig msg(_no << 8 | df, reg);
-  return (!_manager._pcicfg.send(msg)) ? ~0UL : msg.value;
+  return _manager.pci().conf_read(_no<<8 | df, reg);
 }
 
-bool PCIBus::write_cfg(uint8_t df, uint16_t reg, uint32_t val)
+bool PCIBus::conf_write(uint8_t df, uint16_t reg, uint32_t val)
 {
-  MessagePciConfig msg(_no << 8 | df, reg, val);
-  return _manager._pcicfg.send(msg);
+  _manager.pci().conf_write(_no<<8 | df, reg, val);
+  return true;
 }
 
 bool PCIBus::ari_enabled()
 {
   if (!_bridge) return false;
   uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
-  return express_cap ? ((_bridge->read_cfg(express_cap + 0x28) & (1<<5)) != 0) : false;
+  return express_cap ? ((_bridge->conf_read(express_cap + 0x28) & (1<<5)) != 0) : false;
 }
 
 bool PCIBus::ari_enable()
@@ -75,8 +86,8 @@ bool PCIBus::ari_enable()
   uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
   if (express_cap == 0) return false;
   
-  uint32_t devctrl2 = _bridge->read_cfg(express_cap + 0x28);
-  _bridge->write_cfg(express_cap + 0x28,  devctrl2 | (1<<5));
+  uint32_t devctrl2 = _bridge->conf_read(express_cap + 0x28);
+  _bridge->conf_write(express_cap + 0x28,  devctrl2 | (1<<5));
   
   assert(ari_enabled());
   return true;

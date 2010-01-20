@@ -18,8 +18,8 @@ void NubusManager::spin(unsigned ms)
   }
 }
 
-NubusManager::NubusManager(DBus<MessagePciConfig> &pcicfg, Clock *clock)
-  : _pcicfg(pcicfg), _clock(clock), _root_bus(*this)
+NubusManager::NubusManager(HostPci pcicfg, Clock *clock)
+  : _pci(pcicfg), _clock(clock), _root_bus(*this)
 {
   Logging::printf("Nubus initialized.\n");
 }
@@ -27,7 +27,8 @@ NubusManager::NubusManager(DBus<MessagePciConfig> &pcicfg, Clock *clock)
 
 PARAM(nubus,
       {
-	NubusManager *m = new NubusManager(mb.bus_hwpcicfg, mb.clock());
+	HostPci pci(mb.bus_hwpcicfg);
+	NubusManager *m = new NubusManager(pci, mb.clock());
 	
       },
       "nubus - PCI bus manager");
