@@ -390,7 +390,7 @@ class HostAhci : public StaticReceiver<HostAhci>
 
  public:
 
-  HostAhci(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq, bool dmar)
+  HostAhci(HostPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq, bool dmar)
     : _bdf(bdf), _hostirq(hostirq), _regs_high(0) {
 
     assert(!(~pci.conf_read(_bdf, 4) & 6) && "we need mem-decode and busmaster dma");
