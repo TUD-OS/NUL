@@ -31,7 +31,7 @@ class HostPci
   enum {
     BAR0 = 0x10,
     BAR1 = 0x14,
-    
+
     MAX_BAR  = 6,
     BAR_SIZE = 4,
   };
@@ -78,7 +78,7 @@ class HostPci
   {
     unsigned old = conf_read(bdf, bar);
     size_t  size = 0;
-    
+
     if ((old & BAR_IO) == 1) {
       // I/O BAR
       conf_write(bdf, bar, 0xFFFFFFFFU);
@@ -155,7 +155,7 @@ class HostPci
   {
     if ((!find_cap(bdf, CAP_PCI_EXPRESS)) || (~0UL == conf_read(bdf, 0x100)))
       return 0;
-    
+
     unsigned long header;
     unsigned short offset;
     for (offset = 0x100, header = conf_read(bdf, offset);
