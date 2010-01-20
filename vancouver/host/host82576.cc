@@ -238,7 +238,7 @@ public:
     return true;
   };
 
-  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
+  Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
 	    unsigned bdf, unsigned hostirq)
     : Base82576(ALL, bdf), _clock(clock), _bus_hostop(bus_hostop),
       _hostirq(hostirq)
