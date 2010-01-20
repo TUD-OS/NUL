@@ -104,13 +104,13 @@ public:
     : Base82576(ALL, bdf) {
     msg(INFO, "Hello World!\n");
 
-    {
-      uint32_t pci_cfg[64];
-      for (unsigned i = 0; i < 64; i++)
-	pci_cfg[i] = pci.conf_read(_bdf, i*4);
+    // {
+    //   uint32_t pci_cfg[64];
+    //   for (unsigned i = 0; i < 64; i++)
+    // 	pci_cfg[i] = pci.conf_read(_bdf, i*4);
 
-      hexdump((const char *)pci_cfg, sizeof(pci_cfg));
-    }
+    //   hexdump((const char *)pci_cfg, sizeof(pci_cfg));
+    // }
 
     for (unsigned bar_i = 0; bar_i < 3; bar_i++) {
       uint32_t bar_addr = pci.BAR0 + bar_i*pci.BAR_SIZE;
