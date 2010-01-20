@@ -74,33 +74,43 @@ class HostPci
   /** Determines BAR size. You should probably disable interrupt
    * Delivery from this device, while querying BAR sizes.
    */
-  size_t bar_size(unsigned bdf, unsigned bar)
+  size_t bar_size(unsigned bdf, unsigned bar, bool *is64bit = NULL)
   {
     unsigned old = conf_read(bdf, bar);
     size_t  size = 0;
 
+    if (is64bit) *is64bit = false;
     if ((old & BAR_IO) == 1) {
       // I/O BAR
       conf_write(bdf, bar, 0xFFFFFFFFU);
       size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
-      conf_write(bdf, bar, old);
     } else {
       // Memory BAR
       switch (old & BAR_TYPE_MASK) {
       case BAR_TYPE_32B:
 	conf_write(bdf, bar, 0xFFFFFFFFU);
 	size = ((conf_read(bdf, bar) & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
-	conf_write(bdf, bar, old);
 	break;
-
-      case BAR_TYPE_64B:
-	// XXX Support 64-bit BARs.
+      case BAR_TYPE_64B: {
+	if (is64bit) *is64bit = true;
+	unsigned old_hi = conf_read(bdf, bar + 4);
+	conf_write(bdf, bar, 0xFFFFFFFFU);
+	conf_write(bdf, bar + 4, 0xFFFFFFFFU);
+	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 4))<<32;
+	bar_size |= conf_read(bdf, bar) & ~0xFULL;
+	assert(bar_size < 0x100000000ULL);
+	size = (size_t)bar_size;
+	conf_write(bdf, bar + 4, old_hi);
+	break;
+      }
       case BAR_TYPE_1MB:
       default:
 	// Not Supported. Return 0.
 	;
       }
     }
+
+    conf_write(bdf, bar, old);
     return size;
   }
 
