@@ -71,13 +71,27 @@ class HostPci
     _bus_pcicfg.send(msg, true);
   }
 
+  unsigned long long bar_base(unsigned bdf, unsigned bar)
+  {
+    unsigned val = conf_read(bdf, bar);
+    if ((val & BAR_IO) == BAR_IO) {
+      return val & ~3;		/* XXX Shift? */
+    } else {
+      switch (val & BAR_TYPE_MASK) {
+      case BAR_TYPE_32B: return val & ~0xF;
+      case BAR_TYPE_64B: return ((unsigned long long)conf_read(bdf, bar + 4)<<32) |  (val & ~0xFUL);
+      default: return ~0ULL;
+      }
+    };
+  }
+
   /** Determines BAR size. You should probably disable interrupt
-   * Delivery from this device, while querying BAR sizes.
+   * delivery from this device, while querying BAR sizes.
    */
-  size_t bar_size(unsigned bdf, unsigned bar, bool *is64bit = NULL)
+  unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = NULL)
   {
     unsigned old = conf_read(bdf, bar);
-    size_t  size = 0;
+    unsigned long long size = 0;
 
     if (is64bit) *is64bit = false;
     if ((old & BAR_IO) == 1) {
@@ -97,9 +111,8 @@ class HostPci
 	conf_write(bdf, bar, 0xFFFFFFFFU);
 	conf_write(bdf, bar + 4, 0xFFFFFFFFU);
 	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 4))<<32;
-	bar_size |= conf_read(bdf, bar) & ~0xFULL;
-	assert(bar_size < 0x100000000ULL);
-	size = (size_t)bar_size;
+	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
+	size = bar_size;
 	conf_write(bdf, bar + 4, old_hi);
 	break;
       }
