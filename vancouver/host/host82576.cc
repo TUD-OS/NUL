@@ -95,33 +95,44 @@ void hexdump(const char *data, size_t len)
   }
 }
 
-class Host82576 : public Constants82576, public StaticReceiver<Host82576>
+class VF82576 : public Base82576
 {
 
-  // Messages are tagged with one or more constants from this
-  // bitfield. You can disable certain kinds of messages in the
-  // constructor.
-  enum MessageLevel {
-    INFO  = 1<<0,
-    DEBUG = 1<<1,
-    PCI   = 1<<2,
-    IRQ   = 1<<3,
-    RX    = 1<<4,
-    TX    = 1<<5,
+public:
 
-    ALL   = ~0U,
-  };
+  VF82576(HostPci &pci, uint16_t bdf)
+    : Base82576(ALL, bdf) {
+    msg(INFO, "Hello World!\n");
 
+    {
+      uint32_t pci_cfg[64];
+      for (unsigned i = 0; i < 64; i++)
+	pci_cfg[i] = pci.conf_read(_bdf, i*4);
+
+      hexdump((const char *)pci_cfg, sizeof(pci_cfg));
+    }
+
+    for (unsigned bar_i = 0; bar_i < 3; bar_i++) {
+      uint32_t bar_addr = pci.BAR0 + bar_i*pci.BAR_SIZE;
+      uint32_t bar = pci.conf_read(_bdf, bar_addr);
+      size_t size  = pci.bar_size(_bdf, bar_addr);
+
+      msg(PCI, "BAR %u: %08x (size %08zx)\n", bar_i, bar, size);
+
+    }
+  }
+};
+
+class Host82576 : public Base82576, public StaticReceiver<Host82576>
+{
+private:
   Clock *_clock;
   DBus<MessageHostOp> &_bus_hostop;
-  DBus<MessageNetwork> &_bus_network;
-  unsigned long _bdf;
   volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
 
   unsigned _hostirq;
   const char *debug_getname() { return "Host82576"; }
 
-  unsigned _msg_level;
   EthernetAddr _mac;
 
   // MSI-X
@@ -134,18 +145,6 @@ class Host82576 : public Constants82576, public StaticReceiver<Host82576>
   } *_msix_table;
 
   volatile uint64_t *_msix_pba;
-
-  __attribute__ ((format (printf, 3, 4)))
-  void msg(unsigned level, const char *msg, ...)
-  {
-    if ((level & _msg_level) != 0) {
-      va_list ap;
-      va_start(ap, msg);
-      Logging::printf("82576 %lx: ", _bdf & 0xF);
-      Logging::vprintf(msg, ap);
-      va_end(ap);
-    }
-  }
 
   uintptr_t to_phys(void *ptr) {
     MessageHostOp msg(MessageHostOp::OP_VIRT_TO_PHYS, reinterpret_cast<unsigned long>(ptr));
@@ -186,6 +185,11 @@ class Host82576 : public Constants82576, public StaticReceiver<Host82576>
 	return false;
     }
     return true;
+  }
+
+  unsigned enabled_vfs()
+  {
+    return (_hwreg[STATUS] & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT;
   }
 
 public:
@@ -234,10 +238,10 @@ public:
     return true;
   };
 
-  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network, 
-	    Clock *clock, unsigned bdf, unsigned hostirq)
-    : _clock(clock), _bus_hostop(bus_hostop), _bus_network(bus_network),
-      _bdf(bdf), _hostirq(hostirq), _msg_level(ALL)
+  Host82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
+	    unsigned bdf, unsigned hostirq)
+    : Base82576(ALL, bdf), _clock(clock), _bus_hostop(bus_hostop),
+      _hostirq(hostirq)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -331,7 +335,9 @@ public:
     // VT Setup
     _hwreg[QDE] |= 0xFFFF;	// Enable packet dropping for all 16
 				// queues.
-    // Disable default pool. Uninteresting packets will be dropped.
+    // Disable default pool. Uninteresting packets will be
+    // dropped. Also enable replication to allow VF-to-VF
+    // communication.
     _hwreg[VT_CTL] |= VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
 
 
@@ -367,10 +373,22 @@ public:
     // Issue an interrupt every 256ms
     //_hwreg[TCPTIMER] = 0xFF /* 256ms */ | TCPTIMER_ENABLE | TCPTIMER_KICKSTART ;
 
-    // Capabilities
-    // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);
-    // if (sriov_cap != 0)
-    //   msg(INFO, "It is SR-IOV capable.\n");
+    // VFs
+    unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
+    assert(sriov_cap != 0);
+    
+    unsigned vf_offset = pci.conf_read(bdf, sriov_cap + 0x14);
+    unsigned vf_stride = vf_offset >> 16;
+    vf_offset &= 0xFFFF;
+
+    for (unsigned cur_vf = 0; cur_vf < enabled_vfs(); cur_vf++) {
+      uint16_t vf_bdf = bdf + vf_offset + vf_stride*cur_vf;
+      msg(INFO, "VF %d -> %x:%02x\n", cur_vf, vf_bdf>>8, vf_bdf&0xFF);
+
+      // Try to drive one VF
+      if (cur_vf == 0)
+	new VF82576(pci, vf_bdf);
+    }
 
     // PF Setup complete
     _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
@@ -396,8 +414,7 @@ PARAM(host82576, {
             continue;
           }
 
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.bus_network,
-					 mb.clock(), bdf, argv[1]);
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf, argv[1]);
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }

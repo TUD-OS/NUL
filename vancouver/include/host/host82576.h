@@ -2,7 +2,10 @@
 
 #pragma once
 
-class Constants82576 {
+#include <driver/logging.h>
+#include <cstdint>
+
+class Base82576 {
 protected:
 
   enum Spec {
@@ -147,6 +150,39 @@ protected:
 
   };
 
+  /// Logging
+  unsigned _msg_level;
+  uint16_t _bdf;
+
+  // Messages are tagged with one or more constants from this
+  // bitfield. You can disable certain kinds of messages in the
+  // constructor.
+  enum MessageLevel {
+    INFO  = 1<<0,
+    DEBUG = 1<<1,
+    PCI   = 1<<2,
+    IRQ   = 1<<3,
+    RX    = 1<<4,
+    TX    = 1<<5,
+
+    ALL   = ~0U,
+  };
+
+  __attribute__ ((format (printf, 3, 4)))
+  void msg(unsigned level, const char *msg, ...)
+  {
+    if ((level & _msg_level) != 0) {
+      va_list ap;
+      va_start(ap, msg);
+      Logging::printf("82576 %02x: ", _bdf & 0xFF);
+      Logging::vprintf(msg, ap);
+      va_end(ap);
+    }
+  }
+
+  Base82576(unsigned msg_level, uint16_t bdf)
+    : _msg_level(msg_level), _bdf(bdf)
+  {}
 };
 
 // EOF
