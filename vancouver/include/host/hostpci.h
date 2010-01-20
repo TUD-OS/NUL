@@ -151,5 +151,22 @@ class HostPci
     return 0;
   }
 
+  unsigned find_extended_cap(unsigned bdf, unsigned short id)
+  {
+    if ((!find_cap(bdf, CAP_PCI_EXPRESS)) || (~0UL == conf_read(bdf, 0x100)))
+      return 0;
+    
+    unsigned long header;
+    unsigned short offset;
+    for (offset = 0x100, header = conf_read(bdf, offset);
+	 offset != 0;
+	 offset = header>>20, header = conf_read(bdf, offset)) {
+      if ((header & 0xFFFF) == id)
+	return offset;
+    }
+
+    return 0;
+  }
+
  HostPci(DBus<MessagePciConfig> bus_pcicfg) : _bus_pcicfg(bus_pcicfg) {};
 };
