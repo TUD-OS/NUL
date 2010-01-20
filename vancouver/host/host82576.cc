@@ -106,6 +106,7 @@ class Host82576 : public StaticReceiver<Host82576>
     PCI   = 1<<2,
     IRQ   = 1<<3,
     RX    = 1<<4,
+    TX    = 1<<5,
 
     ALL   = ~0U,
   };
@@ -135,43 +136,72 @@ class Host82576 : public StaticReceiver<Host82576>
     ICS       = 0x01504/4,
     IMS       = 0x01508/4,	// Interrupt Mask Set/Read
     IMC       = 0x0150C/4,	// Interrupt Mask Clear
+    GPIE      = 0x01514/4,	// General Purpose Interrupt Enable
 
     EIMS      = 0x01528/4,	// Extended Interrupt Mask Clear
     EICR      = 0x01580/4,
 
     // General
     RCTL      = 0x00100/4,	// RX Control
+    TCTL      = 0x00400/4,
     RXPBS     = 0x02404/4,	// RX Packet Buffer Size
 
     RAL0      = 0x05400/4,
     RAH0      = 0x05404/4,
 
+    // VT
+    VT_CTL    = 0x0581C/4,	// VMDq control register
+    VFRE      = 0x00C8C/4,	// VF Receive enable  (lower 8 bits)
+    VFTE      = 0x00C90/4,	// VF Transmit enable (lower 8 bits)
+    QDE       = 0x02408/4,	// Queue drop enable (lower 16 bits)
+    DTXSWC    = 0x03500/4,	// DMA Tx Switch Control
+
+    // Misc
+    TCPTIMER  = 0x0104C/4,	// TCP Timer
+    GPRC      = 0x04074/4,	// Good Packets Receive Count
+    GPTC      = 0x04080/4,	// Good Packets Transmitted Count
+  };
+
+  enum TCPTimer {
+    TCPTIMER_KICKSTART = 1U << 8,
+    TCPTIMER_ENABLE    = 1U << 9,
+    TCPTIMER_FINISH    = 1U << 10,
+    TCPTIMER_LOOP      = 1U << 11,
+  };
+
+  enum DTXSWC {
+    DTX_VMDQ_LOOPBACK = 1U << 31,
+  };
+
+  enum VT {
+    VT_CTL_DIS_DEF_POOL = 1U<<29, // Disable default pool
+    VT_CTL_REP_ENABLE   = 1U<<30, // Replication enable
   };
 
   enum Ctrl {
-    CTRL_GIO_MASTER_DISABLE = 1<<2,
-    CTRL_SLU      = 1<<6,	// Set Link Up
-    CTRL_FRCSPD   = 1<<11,	// Force Speed
-    CTRL_FRCDPLX  = 1<<12,	// Force Duplex
-    CTRL_RST      = 1<<26,	// Device Reset
-    CTRL_VME      = 1<<30,	// VLAN Mode Enable
+    CTRL_GIO_MASTER_DISABLE = 1U<<2,
+    CTRL_SLU      = 1U<<6,	// Set Link Up
+    CTRL_FRCSPD   = 1U<<11,	// Force Speed
+    CTRL_FRCDPLX  = 1U<<12,	// Force Duplex
+    CTRL_RST      = 1U<<26,	// Device Reset
+    CTRL_VME      = 1U<<30,	// VLAN Mode Enable
   };
 
   enum CtrlExt {
-    CTRL_EXT_LINK_MODE = 0x3<<22, // Set to 0 for Copper link.
+    CTRL_EXT_LINK_MODE = 0x3U<<22, // Set to 0 for Copper link.
   };
 
   enum Status {
-    STATUS_FD     = 0x1,        // Full duplex (0 = Half Duplex, 1 = Full Duplex)
-    STATUS_LU     = 0x2,        // Link Up
-    STATUS_LAN_ID = 0x3<<2,     // LAN ID (2-bit)
-    STATUS_SPEED  = 0x3<<6,
-    STATUS_SPEED_SHIFT = 6,
+    STATUS_FD     = 0x1U, // Full duplex (0 = Half Duplex, 1 = Full Duplex)
+    STATUS_LU     = 0x2U, // Link Up
+    STATUS_LAN_ID = 0x3U<<2,	// LAN ID (2-bit)
+    STATUS_SPEED  = 0x3U<<6,
+    STATUS_SPEED_SHIFT = 6U,
 
-    STATUS_NUMVF  = 0xF<<14,    // Number of VFs
-    STATUS_NUMVF_SHIFT = 14,
-    STATUS_IOV    = 1<<18,      // Value of VF Enable Bit
-    STATUS_GIO_MASTER_ENABLE = 1<<19,
+    STATUS_NUMVF  = 0xFU<<14,	// Number of VFs
+    STATUS_NUMVF_SHIFT = 14U,
+    STATUS_IOV    = 1<<18U,	// Value of VF Enable Bit
+    STATUS_GIO_MASTER_ENABLE = 1<<19U,
   };
 
   enum StatusSpeed {
@@ -191,6 +221,9 @@ class Host82576 : public StaticReceiver<Host82576>
     IRQ_NFER      = 1<<23,      // Non-Fatal Error
     IRQ_SWD       = 1<<26,      // Software Watchdog expired
     IRQ_INTA      = 1U<<31,     // INTA asserted (not available for MSIs)
+
+    GPIE_MULTIPLE_MSIX = 1U<<4,
+    GPIE_PBA           = 1U<<31,
   };
 
   enum ReceiveControl {
@@ -201,6 +234,11 @@ class Host82576 : public StaticReceiver<Host82576>
     RCTL_LPE      = 1<<5,	// Long Packet Enable
     RCTL_BAM      = 1<<15,	// Broadcast Accept Mode
     RCTL_BSIZE    = 3<<16,	// Buffer Size (default: 0 = 2K)
+  };
+
+  enum TransmitControl {
+    TCTL_TXEN     = 1U<<1,	// Transmit Enable
+    TCTL_PSP      = 1U<<3,	// Pad Short Packets
   };
 
   enum PacketType {
@@ -261,11 +299,13 @@ class Host82576 : public StaticReceiver<Host82576>
     uint32_t status = _hwreg[STATUS];
     const char *up = (status & STATUS_LU ? "UP" : "DOWN");
     const char *speed[] = { "10", "100", "1000", "1000" };
-    msg(INFO, "%s %sBASE-T %cD | %u VFs %s\n", up,
+    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX\n", up,
 	speed[(status & STATUS_SPEED) >> STATUS_SPEED_SHIFT],
 	status & STATUS_FD ? 'F' : 'H',
 	(status & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT,
-	status & STATUS_IOV ? "ON" : "OFF");
+	status & STATUS_IOV ? "ON" : "OFF",
+	_hwreg[GPRC],
+	_hwreg[GPTC]);
   }
 
   void spin(unsigned micros)
@@ -306,21 +346,25 @@ public:
   {
     if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
 
-    uint32_t irq_cause = _hwreg[ICR];
-    msg(IRQ, "IRQ! ICR = %x\n", irq_cause);
-    if (irq_cause == 0) return false;
+    uint32_t icr  = _hwreg[ICR];
+    uint32_t eicr = _hwreg[EICR];
+    msg(IRQ, "IRQ! ICR = %08x EICR = %08x\n", icr, eicr);
+    if ((eicr|icr) == 0) return false;
 
-    if (irq_cause & IRQ_LSC) {
+
+    if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
       if (gone_up) {
-	//_hwreg[RCTL] = RCTL_RXEN | RCTL_BAM;
+	_hwreg[RCTL] |= RCTL_RXEN | RCTL_BAM;
+	_hwreg[TCTL] |= TCTL_TXEN;
 	//_rx->enable();
-	//msg(RX | IRQ, "RX enabled.\n");
+	msg(TX | RX | IRQ, "RX/TX enabled.\n");
       } else {
 	// Down
-	msg(RX | IRQ, "RX disabled.\n");
+	msg(TX | RX | IRQ, "RX/TX disabled.\n");
 	_hwreg[RCTL] &= ~RCTL_RXEN;
+	_hwreg[TCTL] &= ~TCTL_TXEN;
       }
 
       log_device_status();
@@ -424,6 +468,13 @@ public:
 
     // XXX Set CTRL.RFCE/CTRL.TFCE
 
+    // VT Setup
+    _hwreg[QDE] |= 0xFFFF;	// Enable packet dropping for all 16
+				// queues.
+    // Disable default pool. Uninteresting packets will be dropped.
+    _hwreg[VT_CTL] |= VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
+
+
     _mac = ethernet_address();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 
@@ -437,16 +488,24 @@ public:
     msg(IRQ, "Attached to IRQ %u. Waiting for link to come up.\n", hostirq);
 
     // Configuring one MSI-X vector
+    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
+    //_hwreg[GPIE] = (_hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX) | GPIE_PBA;
+    _hwreg[GPIE] = _hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX;
+    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
     pci.conf_write(bdf, msix_cap, pci.conf_read(bdf, msix_cap) | MSIX_ENABLE);
     _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
     _msix_table[0].msg_data = hostirq + 0x20;
     _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
+    msg(IRQ, "MSI-X setup complete.\n");
+    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
 
     // Wait for Link Up event
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
     _hwreg[IMS] = ~0U;
 
-    _hwreg[ICS] = IRQ_LSC;
+    //_hwreg[ICS] |= IRQ_LSC;
+    // Issue an interrupt every 256ms
+    //_hwreg[TCPTIMER] = 0xFF /* 256ms */ | TCPTIMER_ENABLE | TCPTIMER_KICKSTART ;
 
     // Capabilities
     // unsigned long sriov_cap = pci.find_extended_cap(_address, 0x160);

@@ -63,9 +63,9 @@ class RXQueue {
   };
 
   enum Control {
-    RXDCTL_ENABLE = 1<<25,	   // Queue Enable
-    SRRCTL_DROP_ENABLE = 1U<<31, // Drop Enable
-    SRRCTL_DESCTYPE = 7<<25,	   // Descriptor Type
+    RXDCTL_ENABLE = 1<<25,	     // Queue Enable
+    SRRCTL_DROP_ENABLE = 1U<<31,     // Drop Enable
+    SRRCTL_DESCTYPE = 7<<25,	     // Descriptor Type
     SRRCTL_DESCTYPE_ADV_1BUF = 1<<25 // One Buffer, No Splitting
   };
 
