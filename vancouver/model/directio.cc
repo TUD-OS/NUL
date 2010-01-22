@@ -32,14 +32,14 @@ class DirectIODevice : public StaticReceiver<DirectIODevice>
   unsigned _size;
 
   const char *debug_getname() { return "DirectIODevice"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %4x+%x", _base, _size);
   };
  public:
   bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(msg);  return false; }
   bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(msg); return false; }
-  DirectIODevice(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned base, unsigned size) 
+  DirectIODevice(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned base, unsigned size)
   : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _base(base), _size(size) {}
 };
 
@@ -48,7 +48,7 @@ PARAM(dio,
       {
 	unsigned short base = argv[0];
 	unsigned short size;
-	if ( argv[1] == ~0UL) 
+	if ( argv[1] == ~0UL)
 	  size = 1;
 	else
 	  size = Cpu::bsr(argv[1] | 1);
@@ -61,7 +61,7 @@ PARAM(dio,
 	Device *dev = new DirectIODevice(mb.bus_hwioin, mb.bus_hwioout, base, 1 << size);
 	mb.bus_ioin.add(dev, &DirectIODevice::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(dev, &DirectIODevice::receive_static<MessageIOOut>);
-	
+
       },
       "dio:<range> - directly assign ioports to the VM.",
       "Example: 'dio:0x3f8+8'.",
