@@ -306,7 +306,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void instruction_emulation(Utcb *utcb)
+  static void instruction_emulation(Utcb *utcb, bool long_run)
   {
     if (_debug)
       Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid,
@@ -321,7 +321,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
       do_recall(utcb);
     }
-    while (utcb->head.pid);
+    while (long_run && utcb->head.pid);
 
     // leave singlestep
     utcb->head.pid = MessageExecutor::DO_LEAVE;

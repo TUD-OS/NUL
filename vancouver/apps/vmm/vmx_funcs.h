@@ -88,7 +88,7 @@ VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSE
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	{
 	  utcb->efl |= 2;
-	  instruction_emulation(utcb);
+	  instruction_emulation(utcb, true);
 	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	    {
 	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
@@ -99,6 +99,7 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	  do_recall(utcb);
 	})
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
+	COUNTER_INC("MMIO");
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
@@ -106,8 +107,11 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	// make sure we do not inject the #PF!
 	utcb->inj_info = ~0x80000000;
 	if (!map_memory_helper(utcb))
-	  // this is an access to MMIO
-	  vmx_invalid(utcb);
+	  {
+	    // this is an access to MMIO
+	    instruction_emulation(utcb, false);
+	    do_recall(utcb);
+	  }
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(utcb); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
@@ -163,7 +167,7 @@ VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
 	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
-	instruction_emulation(utcb);
+	instruction_emulation(utcb, true);
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	  {
 	    COUNTER_INC("ctrl");
