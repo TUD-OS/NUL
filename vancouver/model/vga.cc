@@ -416,7 +416,6 @@ public:
 
   bool  receive(MessageMemMap &msg)
   {
-
     if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size))
       {
 	msg.phys = _framebuffer_phys;
