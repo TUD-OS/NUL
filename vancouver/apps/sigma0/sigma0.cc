@@ -128,7 +128,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
    */
   template<typename T>
   bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size)
-  { 
+  {
     unsigned long offset = reinterpret_cast<unsigned long>(ptr);
     if (offset < MEM_OFFSET || modinfo->physsize + MEM_OFFSET <= offset || size > modinfo->physsize + MEM_OFFSET - offset)
       return true;
