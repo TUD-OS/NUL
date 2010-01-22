@@ -81,10 +81,10 @@ private:
   };
 
 
-  bool update_timer()
+  void update_timer()
   {
     MessageTimer msg(_timer, _mb.clock()->abstime(1, FREQ));
-    return _mb.bus_timer.send(msg);
+    _mb.bus_timer.send(msg);
   }
 
 
@@ -93,8 +93,7 @@ private:
     _lastswitchtime =  _mb.clock()->clock(FREQ);
     assert (_clients[_active_client].active_view <= _clients[_active_client].num_views);
     _measure = true;
-    if (!_active_mode)
-	set_vga_reg(0x14, 0xc, 8*3);
+    if (!_active_mode)  set_vga_reg(0x14, 0xc, 8*3);
 
     // do an immediate refresh
     MessageTimeout msg(_timer);
@@ -265,8 +264,8 @@ private:
 	      len = view->size - offset;
 	      sublen -= len;
 	    }
-	    memcpy(_backend + BACKEND_OFFSET + pos, reinterpret_cast<char *>(view->ptr) + pos + offset, len);
-	    memcpy(_backend + BACKEND_OFFSET + pos + len, reinterpret_cast<char *>(view->ptr), sublen);
+	    memcpy_fast(_backend + BACKEND_OFFSET + pos, reinterpret_cast<char *>(view->ptr) + pos + offset, len);
+	    memcpy_fast(_backend + BACKEND_OFFSET + pos + len, reinterpret_cast<char *>(view->ptr), sublen);
 	  }
 	else
 	  memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
@@ -275,6 +274,12 @@ private:
     else
       memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
     return true;
+  }
+
+  static void memcpy_fast(char *dst, char *src, long count)
+  {
+    if (count & 3) memcpy(dst, src, count & 3);
+    memcpyl(dst + (count & 3), src + (count & 3), count / 4);
   }
 
   static
@@ -303,7 +308,7 @@ public:
 	  }
 	if (mode != _active_mode)
 	  {
-	    if (!_active_mode) memcpy(_saved, _backend, BACKEND_SIZE);
+	    if (!_active_mode) memcpy_fast(_saved, _backend, BACKEND_SIZE);
 
 	    MessageVesa msg2(mode, &_modeinfo);
 	    MessageVesa msg3(mode);
@@ -318,7 +323,7 @@ public:
 	    if (!_mb.bus_hostop.send(msg1)) Logging::panic("can not get the framebuffer");
 	    _graphic_ptr = msg1.ptr;
 	    _active_mode = mode;
-	    if (!_active_mode) memcpy(_backend, _saved, BACKEND_SIZE);
+	    if (!_active_mode) memcpy_fast(_backend, _saved, BACKEND_SIZE);
 	  }
 
 	if (~_modeinfo.attr & 0x80)
@@ -333,8 +338,6 @@ public:
 	    update_timer();
 	    return true;
 	  }
-
-	return false;
       }
     return false;
   }
@@ -379,7 +382,7 @@ public:
 	}
 
       case MessageConsole::TYPE_GET_MODEINFO:
-	{	  
+	{
 	  MessageVesa msg2(msg.index, msg.info);
 	  return _mb.bus_vesa.send(msg2);
 	};
