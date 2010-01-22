@@ -52,7 +52,7 @@ class Sigma0Base : public NovaProgram
     {
       Utcb *utcb = myutcb();
       TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
-      
+
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
       utcb->head.mtr    = Mtd(3, 0);
@@ -119,10 +119,10 @@ class Sigma0Base : public NovaProgram
     // align iomem to new size
     iomem_start = (iomem_start + size - 1) & ~(size-1);
 
-    Logging::printf("request_io(%lx, %lx, utcb %p)\n", base, size, utcb);
     utcb->add_mappings(false, base, size, 0, io ? 2 : 1);
-    utcb->head.crd = io ? utcb->msg[2] : (iomem_start | (Cpu::bsr(size) << 5) | 1);
-    
+    utcb->head.crd = io ? utcb->msg[2] : Crd(iomem_start >> 12, Cpu::bsr(size) - 12, 1).value();
+    Logging::printf("request_io(%lx, %lx, utcb %p) crd %x\n", base, size, utcb, utcb->head.crd);
+
     unsigned res = idc_call(14, Mtd(3,0));
     if (!res && !io)
       {
