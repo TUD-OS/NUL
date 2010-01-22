@@ -31,7 +31,7 @@ class IRQRouting : public StaticReceiver<IRQRouting>
 
 
   const char* debug_getname() { return "IRQRouting"; }
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" (%x) -> (%x)", _host_irq, _guest_irq);
   };
