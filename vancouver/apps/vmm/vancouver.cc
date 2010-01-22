@@ -393,7 +393,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     MessageMemMap msg(utcb->qual[1] & ~0xfff, 0, 0);
 
     // do we have not mapped physram yet?
-    if (_mb->bus_memmap.send(msg))
+    if (_mb->bus_memmap.send(msg, true))
       {
 	Logging::printf("%s(%llx) phys %lx ptr %p+%x eip %x\n", __func__, utcb->qual[1], msg.phys, msg.ptr, msg.count, utcb->eip);
 	utcb->head.mtr = Mtd();
