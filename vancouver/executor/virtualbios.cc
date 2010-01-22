@@ -612,7 +612,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	  cpu->dh = tobcd(seconds % 60);
 	  cpu->dl = 0;
 	  cpu->efl &= ~1;
-	  Logging::printf("realtime clock %x:%x:%x %d\n", cpu->ch, cpu->cl, cpu->dh, seconds);
+	  //Logging::printf("realtime clock %x:%x:%x %d\n", cpu->ch, cpu->cl, cpu->dh, seconds);
 	  break;
 	}
       default:

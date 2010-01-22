@@ -369,7 +369,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     else
       {
 	COUNTER_INC("OUT");
-	if ((utcb->qual[0] >> 16) == 0x80) COUNTER_INC("out(0x80)");
 	if ((utcb->qual[0] >> 16) == 0x40) COUNTER_INC("out(0x40)");
 	if ((utcb->qual[0] >> 16) == 0x20) COUNTER_INC("out(0x20)");
 	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("out(0x21)");

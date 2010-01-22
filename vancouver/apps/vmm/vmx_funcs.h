@@ -125,8 +125,8 @@ VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	    COUNTER_SET("rEIP", utcb->eip);
 	    COUNTER_SET("rESP", utcb->esp);
 	    COUNTER_SET("rCR3", utcb->cr3);
-#endif
 	    COUNTER_SET("HZ", _mb->vcpustate(0)->hazard);
+#endif
 	    unsigned lastpid = utcb->head.pid;
 	    utcb->head.pid = 1;
 	    MessageExecutor msg(static_cast<CpuState*>(utcb), _mb->vcpustate(0));
