@@ -718,6 +718,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	  case 0x08:  return handle_int08(cpu);
 	  case 0x09:  return handle_int09(cpu);
 	  case 0x0f:  return do_iret(cpu);
+	  case 0x10:  return do_iret(cpu);
 	  case 0x11: // BIOS equipment word
 	    cpu->ax = 0x34; // 80x25, ps2-mouse, no-floppy
 	    return do_iret(cpu);
