@@ -254,7 +254,7 @@ public:
 
     // we need only the version from the InfoBlock
     _version = p->version;
-    Logging::printf("VBE version %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n", 
+    Logging::printf("VBE version %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n",
 		    p->version,
 		    p->memory << 16,
 		    vbe_to_ptr<char *>(p->oem_string),
