@@ -561,11 +561,11 @@ public:
 	MessageTimeout msg(nr);
 	_mb->bus_timeout.send(msg);
       }
-    if (reprogram) {
+    if (reprogram &&  _timeouts.timeout() != ~0ull) {
       // update timeout in sigma0
       MessageTimer msg2(0, _timeouts.timeout());
       Sigma0Base::timer(msg2);
-    } 
+    }
   }
 
 
@@ -584,7 +584,7 @@ public:
       default:
 	return false;
       }
-    if (res == 0)
+    if (res == 0 && _timeouts.timeout() != ~0ull)
       {
 	// update timeout in sigma0
 	MessageTimer msg2(0, _timeouts.timeout());
