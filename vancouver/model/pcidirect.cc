@@ -336,7 +336,6 @@ PARAM(dpci,
 	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
 	else
 	  {
-	    
 	    if (argv[4] != ~0UL) irqline = argv[4];
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);

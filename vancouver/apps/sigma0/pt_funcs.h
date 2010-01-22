@@ -34,7 +34,7 @@ PT_FUNC(do_gsi_boot,
 PT_FUNC_NORETURN(do_gsi,
 		 unsigned char res;
 		 unsigned irq = utcb->msg[0];
-		 { 
+		 {
 		   SemaphoreGuard s(_lock);
 		   Logging::printf("%s(%x) initial vec %x\n", __func__, irq,  utcb->msg[1]);
 		 }

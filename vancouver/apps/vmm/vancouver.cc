@@ -73,7 +73,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   // the portal functions follow
 
   PT_FUNC(do_gsi_boot)
-  { 
+  {
     utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
     Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
   }
@@ -199,7 +199,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	network_consumer->free_buffer();
       }
   }
-  
+
 
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
@@ -438,7 +438,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 public:
 
   bool  receive(MessageIrq &msg)
-  { 
+  {
     if (msg.line == MessageIrq::LINT0)
       {
 	for (unsigned i=0; i < Motherboard::MAX_VCPUS; i++)
