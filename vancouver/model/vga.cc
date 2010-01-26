@@ -52,7 +52,9 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   void putchar_guest(unsigned short value)
   {
-    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, _regs.cursor_pos);
+    unsigned cursor_pos = _regs.cursor_pos - TEXT_OFFSET;
+    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, cursor_pos);
+    _regs.cursor_pos = cursor_pos + TEXT_OFFSET;
   }
 
 
@@ -66,7 +68,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   {
     _regs.offset = TEXT_OFFSET;
     _regs.mode   = 0;
-    _regs.cursor_pos  = 24*80*2;
+    _regs.cursor_pos  = 24*80*2 + TEXT_OFFSET;
     _regs.cursor_style = 0x0d0e;
 
     // clear screen
@@ -207,12 +209,12 @@ public:
 	break;
       case 0x02: // set cursor
 	// we support only a single page
-	_regs.cursor_pos = ((cpu->dx >> 8)*80 + (cpu->dx & 0xff))*2;
+	_regs.cursor_pos = TEXT_OFFSET + ((cpu->dx >> 8)*80 + (cpu->dx & 0xff))*2;
 	break;
       case 0x03: // get cursor
 	cpu->ax = 0;
 	cpu->cx = _regs.cursor_style;
-	cpu->dx = ((_regs.cursor_pos / 160) << 8) + ((_regs.cursor_pos / 2) % 80);
+	cpu->dx = (((_regs.cursor_pos - TEXT_OFFSET) / 160) << 8) + (((_regs.cursor_pos - TEXT_OFFSET) / 2) % 80);
 	break;
       case 0x09: // write char+attr
       case 0x0a: // write char only
@@ -315,7 +317,7 @@ public:
 		    _regs.cursor_style = (_regs.cursor_style & ~0xff) | value;
 		    break;
 		  case 0x0e: // cursor location high
-		    _regs.cursor_pos = (value << 8) | (_regs.cursor_pos & 0xff);
+		    _regs.cursor_pos = TEXT_OFFSET + ((value << 8) | (_regs.cursor_pos & 0xff));
 		    break;
 		  case 0x0f: // cursor location low
 		    _regs.cursor_pos = (_regs.cursor_pos & ~0xff) | value;
@@ -364,7 +366,7 @@ public:
 		    value = _regs.cursor_style;
 		    break;
 		  case 0x0e: // cursor location high
-		    value = _regs.cursor_pos >> 8;
+		    value = (_regs.cursor_pos - TEXT_OFFSET) >> 8;
 		    break;
 		  case 0x0f: // cursor location low
 		    value = _regs.cursor_pos;
