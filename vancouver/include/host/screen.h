@@ -27,34 +27,30 @@ class Screen
   static void vga_putc(long value, unsigned short *base, unsigned &pos)
   {
     bool visible = false;
-    switch (value & 0xff) 
+    switch (value & 0xff)
       {
       case 8: // backspace
-	if (pos) pos -=2;
+	if (pos) pos--;
 	break;
       case '\n':
-	pos += 160 - (pos % 160);
+	pos += 80 - (pos % 80);
 	break;
       case '\r':
-	pos -=  pos % 160;
+	pos -=  pos % 80;
 	break;
       case '\t':
-	pos +=  16 - (pos % 16);
+	pos +=  8 - (pos % 8);
 	break;
       default:
 	visible = true;
       }
     // scroll?
-    if (pos >= 25*80*2)
+    if (pos >= 25*80)
       {
 	memmove(base, base + 80, 24*80*2);
 	memset(base + 24*80, 0, 160);
-	pos = 24*80*2;
+	pos = 24*80;
       }
-    if (visible)
-      {
-	base[pos/2] =  value;
-	pos +=2;
-      }
+    if (visible) base[pos++] =  value;
   }
 };

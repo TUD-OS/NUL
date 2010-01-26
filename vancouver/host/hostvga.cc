@@ -244,8 +244,8 @@ private:
 	if (cursor_offset != _last_cursor_pos)
 	  {
 	    _last_cursor_pos = cursor_offset;
-	    set_vga_reg(0x14, 0xe, 3*8 + (cursor_offset >> 9));
-	    set_vga_reg(0x14, 0xf, cursor_offset >> 1);
+	    set_vga_reg(0x14, 0xe, 3*8 + (cursor_offset >> 8));
+	    set_vga_reg(0x14, 0xf, cursor_offset);
 	  }
 	if (view->regs->cursor_style !=  _last_cursor_style)
 	  {

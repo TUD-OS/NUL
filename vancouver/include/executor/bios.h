@@ -17,9 +17,9 @@
 #pragma once
 
 #define VB_UNIMPLEMENTED    Logging::panic("\t%s():%d eax %x ebx %x edx %x eip %x:%x\n", __func__, __LINE__, cpu->eax, cpu->ebx, cpu->edx, cpu->cs.base, cpu->eip)
-#define DEBUG            Logging::printf("\t%s eax %x ebx %x edx %x eip %x efl %x\n", __func__, cpu->eax, cpu->ebx, cpu->edx, cpu->eip, cpu->efl)
+#define DEBUG            Logging::printf("\t%s eax %x ebx %x ecx %x edx %x eip %x efl %x\n", __func__, cpu->eax, cpu->ebx, cpu->ecx, cpu->edx, cpu->eip, cpu->efl)
 
-class BiosCommon 
+class BiosCommon
 {
 protected:
   Motherboard &_mb;

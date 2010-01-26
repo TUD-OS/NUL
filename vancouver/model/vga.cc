@@ -52,9 +52,9 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
   void putchar_guest(unsigned short value)
   {
-    unsigned cursor_pos = _regs.cursor_pos - TEXT_OFFSET;
-    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, cursor_pos);
-    _regs.cursor_pos = cursor_pos + TEXT_OFFSET;
+    unsigned pos = _regs.cursor_pos - TEXT_OFFSET;
+    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, pos);
+    _regs.cursor_pos = pos + TEXT_OFFSET;
   }
 
 
@@ -68,7 +68,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   {
     _regs.offset = TEXT_OFFSET;
     _regs.mode   = 0;
-    _regs.cursor_pos  = 24*80*2 + TEXT_OFFSET;
+    _regs.cursor_pos  = 24*80 + TEXT_OFFSET;
     _regs.cursor_style = 0x0d0e;
 
     // clear screen
@@ -121,7 +121,7 @@ public:
 	  Logging::printf("VESA %x tag %x base %x+%x esi %x\n", cpu->eax, v.tag, cpu->es.base, cpu->di, cpu->esi);
 
 	  // we support VBE 2.0
-	  v.version = 0x0201;
+	  v.version = 0x0200;
 
 	  // add ptr to scratch area
 	  char *p = v.scratch;
@@ -209,12 +209,12 @@ public:
 	break;
       case 0x02: // set cursor
 	// we support only a single page
-	_regs.cursor_pos = TEXT_OFFSET + ((cpu->dx >> 8)*80 + (cpu->dx & 0xff))*2;
+	_regs.cursor_pos = TEXT_OFFSET + ((cpu->dx >> 8)*80 + (cpu->dx & 0xff));
 	break;
       case 0x03: // get cursor
 	cpu->ax = 0;
 	cpu->cx = _regs.cursor_style;
-	cpu->dx = (((_regs.cursor_pos - TEXT_OFFSET) / 160) << 8) + (((_regs.cursor_pos - TEXT_OFFSET) / 2) % 80);
+	cpu->dx = (((_regs.cursor_pos - TEXT_OFFSET) / 80) << 8) + ((_regs.cursor_pos - TEXT_OFFSET) % 80);
 	break;
       case 0x09: // write char+attr
       case 0x0a: // write char only
@@ -369,7 +369,7 @@ public:
 		    value = (_regs.cursor_pos - TEXT_OFFSET) >> 8;
 		    break;
 		  case 0x0f: // cursor location low
-		    value = _regs.cursor_pos;
+		    value = (_regs.cursor_pos - TEXT_OFFSET);
 		    break;
 		  case 0x0c: // start addres high
 		    value = (_regs.offset - TEXT_OFFSET) >> 8;
