@@ -117,7 +117,7 @@ PT_FUNC(do_request,
 		    utcb->msg[1] = 0;
 		    utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
 		    utcb->head.mtr = Mtd(1, 1);
-		    Logging::printf("[%02x] iomem %lx+%x granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), utcb->msg[2]);
+		    Logging::printf("[%02x] iomem %lx+%x o %d granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), Crd(utcb->msg[2]).order(), utcb->msg[2]);
 		  }
 		else
 		  Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
@@ -153,7 +153,7 @@ PT_FUNC(do_request,
 			  if (msg2.physoffset - MEM_OFFSET > modinfo->physsize) goto fail;
 			  if (msg2.physsize > (modinfo->physsize - msg2.physoffset + MEM_OFFSET))
 			    msg2.physsize = modinfo->physsize - msg2.physoffset + MEM_OFFSET;
-			  msg2.physoffset += modinfo->pmem - MEM_OFFSET;
+			  msg2.physoffset += reinterpret_cast<unsigned long>(modinfo->mem) - MEM_OFFSET;
 
 			  utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
 			  if (utcb->msg[0]) break;

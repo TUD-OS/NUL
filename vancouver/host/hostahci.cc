@@ -152,7 +152,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   }
 
 
-  bool add_dma(unsigned long long phys, unsigned count)
+  bool add_dma(char *ptr, unsigned count)
   {
     if (count & 1 || count >> 22) return true;
 
@@ -160,8 +160,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     if (prd >= MAX_PRD_COUNT) return true;
     _cl[_tag*CL_DWORDS] += 1<<16;
     unsigned *p = _ct + ((_tag*(128 + MAX_PRD_COUNT*16) + 0x80 + prd*16) >> 2);
-    p[0] = phys;
-    p[1] = phys >> 32;
+    addr2phys(ptr, p);
     p[3] = count - 1;
     return false;
   }
@@ -320,10 +319,12 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 	  unsigned char command = _params._lba48 ? 0x25 : 0xc8;
 	  if (msg.type == MessageDisk::DISK_WRITE) command = _params._lba48 ? 0x35 : 0xca;
 	  set_command(command, msg.sector, msg.type != MessageDisk::DISK_WRITE, length >> 9);
+
+
 	  for (unsigned i=0; i < msg.dmacount; i++)
 	    {
-	      if (msg.dma[i].byteoffset > msg.physsize || msg.dma[i].byteoffset + msg.dma[i].bytecount > msg.physsize || 
-		  add_dma(msg.dma[i].byteoffset + msg.physoffset, msg.dma[i].bytecount)) return false;
+	      if (msg.dma[i].byteoffset > msg.physsize || msg.dma[i].byteoffset + msg.dma[i].bytecount > msg.physsize ||
+		  add_dma(reinterpret_cast<char *>(msg.physoffset) + msg.dma[i].byteoffset, msg.dma[i].bytecount)) return false;
 	    }
 	  start_command(msg.usertag);
 	}
@@ -343,7 +344,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
 
   HostAhciPort(HostAhciPortRegister *regs, DBus<MessageHostOp> &bus_hostop, DBus<MessageDiskCommit> &bus_commit, Clock *clock, 
-	       unsigned disknr, unsigned max_slots, bool dmar) 
+	       unsigned disknr, unsigned max_slots, bool dmar)
     : _regs(regs), _bus_hostop(bus_hostop), _bus_commit(bus_commit), _clock(clock), _disknr(disknr), _max_slots(max_slots), _dmar(dmar), _tag(0)
   {
     // allocate needed datastructures
@@ -376,12 +377,11 @@ class HostAhci : public StaticReceiver<HostAhci>
     // port implemented and the signature is not 0xffffffff?
     if ((_regs->pi & (1 << nr)) && ~portreg->sig)
       {
+	Logging::printf("PORT %x sig %x\n", nr, portreg->sig);
 	_ports[nr] = new HostAhciPort(portreg, bus_hostop, bus_commit, clock, bus_disk.count(), ((_regs->cap >> 8) & 0x1f) + 1, dmar);
 	if (_ports[nr]->init(buffer))
 	  {
 	    Logging::printf("AHCI: port %x init failed\n", nr);
-	    delete _ports[nr];
-	    _ports[nr] = 0;
 	  }
 	else
 	  bus_disk.add(_ports[nr], &HostAhciPort::receive_static<MessageDisk>, bus_disk.count());
@@ -469,10 +469,15 @@ PARAM(hostahci,
 
 	  // XXX
 	  if (~argv[1]) irqline = argv[1];
-	  // else irqline = 0x13;
+	  else
+	    switch (pci.conf_read(bdf, 0))
+	      {
+	      case 0x3a228086: irqline = 0x13; break;
+	      case 0x43911002: irqline = 0x16; break;
+	      }
 
 	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
-	  Logging::printf("DISK controller #%x AHCI at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
+	  Logging::printf("DISK controller #%x AHCI %x id %x irq %x pin %x\n", num, bdf, pci.conf_read(bdf, 0), irqline, irqpin);
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
 
 	  MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
