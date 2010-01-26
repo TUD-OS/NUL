@@ -29,7 +29,7 @@
  */
 class Vga : public StaticReceiver<Vga>, public BiosCommon
 {
-  enum { 
+  enum {
     LOW_BASE  = 0xa0000,
     LOW_SIZE  = 1<<17,
     TEXT_OFFSET = 0x18000 >> 1,
@@ -78,15 +78,15 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     return true;
   }
 
-  static unsigned vesa_farptr(CpuState *cpu, void *p, void *base)  {  
-    return (cpu->es.sel << 16) |  (cpu->di + reinterpret_cast<char *>(p) - reinterpret_cast<char *>(base)); 
+  static unsigned vesa_farptr(CpuState *cpu, void *p, void *base)  {
+    return (cpu->es.sel << 16) |  (cpu->di + reinterpret_cast<char *>(p) - reinterpret_cast<char *>(base));
   }
 
   unsigned get_vesa_mode(unsigned vesa_mode, ConsoleModeInfo *info)
   {
     for (MessageConsole msg2(0, info); (msg2.index < (Vbe::MAX_VESA_MODES - 1)) && _mb.bus_console.send(msg2); msg2.index++)
       {
-	if (vesa_mode == info->_vesa_mode) 
+	if (vesa_mode == info->_vesa_mode)
 	  {
 	    // fix memory info
 	    unsigned long image_size = info->bytes_per_scanline * info->resolution[1];
