@@ -26,8 +26,8 @@
 class Device
 {
  public:
-  virtual const char *debug_getname() = 0;
-  virtual void debug_dump() {  Logging::printf("%s",debug_getname()); };
+  virtual const char *debug_getname() { return 0; };
+  virtual void debug_dump() {  Logging::printf("%s",debug_getname()); }
 };
 
 
