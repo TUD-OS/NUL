@@ -273,7 +273,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
    */
   bool handle_int09(CpuState *cpu)
   {
-    //DEBUG;
     MessageIrq msg(MessageIrq::ASSERT_IRQ, 1);
     _hostmb->bus_hostirq.send(msg);
     return do_iret(cpu);
@@ -543,14 +542,17 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       {
       case 0x00:  // get keystroke
 	{
-	  cpu->ax = read_bda(next);
 	  if (first != next)
 	    {
+	      cpu->ax = read_bda(next);
 	      next += 2;
 	      if (next > end)
 		next = start;
 	      write_bda(0x1a, next, 2);
 	    }
+	  else
+	    // we should block here until the next IRQ arives, but we return a zero keycode instead
+	    cpu->ax = 0;
 	}
 	break;
       case 0x01: // check keystroke
@@ -578,7 +580,6 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       default:
 	VB_UNIMPLEMENTED;
       }
-    //pDEBUG;
     return do_iret(cpu);
   }
 
@@ -682,6 +683,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
 	unsigned short first = read_bda(0x1c);
 	unsigned short start = read_bda(0x80);
 	unsigned short end   = read_bda(0x82);
+	//Logging::printf("%s() %x key %x bios %x\n", __PRETTY_FUNCTION__, msg.keyboard, msg.keycode, value);
 
 	first += 0x2;
 	if (first >= end)   first = start;
