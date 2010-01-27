@@ -354,16 +354,20 @@ public:
     msg(IRQ, "Attached to IRQ %u. Waiting for link to come up.\n", hostirq);
 
     // Configuring one MSI-X vector
-    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
+    
+    // XXX Enabling the PBA bit without MULTIPLE_MSIX seems to freeze
+    //     the whole box. The datasheet implies that this is a poor
+    //     choice anyway...
     //_hwreg[GPIE] = (_hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX) | GPIE_PBA;
+
+    // Disable MULTIPLE_MSIX feature. We use just one.
     _hwreg[GPIE] = _hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX;
-    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
+
     pci.conf_write(bdf, msix_cap, pci.conf_read(bdf, msix_cap) | MSIX_ENABLE);
     _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
     _msix_table[0].msg_data = hostirq + 0x20;
     _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
     msg(IRQ, "MSI-X setup complete.\n");
-    msg(IRQ, "GPIE = %08x\n", _hwreg[GPIE]);
 
     // Wait for Link Up event
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
