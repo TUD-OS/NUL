@@ -105,6 +105,10 @@ public:
     : Base82576(clock, ALL, bdf) {
     msg(INFO, "VF: CSR %08llx MSIX %08llx\n", csr_addr, msix_addr);
 
+    // XXX Better do a FLR reset here, but this generates an interrupt
+    // in the PF and I am not sure that it is correctly handled at
+    // this point...
+
     MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, csr_addr & ~0xFFF, 0x4000);
     if (bus_hostop.send(iomsg) && iomsg.ptr) {
       _hwreg = reinterpret_cast<uint32_t *>(iomsg.ptr);
