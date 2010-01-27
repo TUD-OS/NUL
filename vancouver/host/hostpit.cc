@@ -77,4 +77,4 @@ PARAM(hostpit,
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
       },
       "hostpit:period,hostiobase,hostirq - use the host PIT as timer, the period is given in microseconds.",
-      "Example: 'hostpit:10000,0x40,0x20'.");
+      "Example: 'hostpit:4000,0x40,2'.");
