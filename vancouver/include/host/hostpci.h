@@ -56,6 +56,7 @@ class HostPci
 
     EXTCAP_ARI              = 0x000EU,
     EXTCAP_SRIOV            = 0x0010U,
+    SRIOV_VF_BAR0           = 0x24U,
   };
 
   unsigned conf_read(unsigned bdf, unsigned short offset)
@@ -190,6 +191,16 @@ class HostPci
 
     return 0;
   }
+
+  /** Return the base of a VF BAR (inside a SR-IOV capability).
+   */
+  unsigned long long vf_bar_base(unsigned bdf, unsigned no)
+  {
+    unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
+    if (!sriov_cap) return -1;
+    return bar_base(bdf + sriov_cap + SRIOV_VF_BAR0 + no*4);
+  }
+
 
  HostPci(DBus<MessagePciConfig> bus_pcicfg) : _bus_pcicfg(bus_pcicfg) {};
 };
