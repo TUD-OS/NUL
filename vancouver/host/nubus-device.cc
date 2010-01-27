@@ -102,7 +102,7 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
     Logging::printf("base %08llx size %08llx\n", base, size);
 
     if ((base == 0) && (size != 0)) {
-      uint64_t base = _bus.alloc_mmio_window(size);
+      uint64_t base = _bus.alloc_mmio_window(size*vfs_to_enable);
       if (base != 0) {
 	Logging::printf("BAR allocated at %llx.\n", base);
 	uint32_t cmd = conf_read(0x4);
