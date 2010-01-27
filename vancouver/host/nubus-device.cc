@@ -94,14 +94,14 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
   for (unsigned cur_vfbar = 0; cur_vfbar < 6; cur_vfbar++) {
     unsigned vfbar_addr = sriov_cap + SRIOV_VF_BAR0 + cur_vfbar*4;
     uint32_t bar_lo = conf_read(vfbar_addr);
-    Logging::printf("VF BAR%d: %08x ", cur_vfbar, bar_lo);
 
     bool is64bit;
     uint64_t base = _bus.manager().pci().bar_base(bdf(), vfbar_addr);
     uint64_t size = _bus.manager().pci().bar_size(bdf(), vfbar_addr, &is64bit);
 
     if ((base == 0) && (size != 0)) {
-      Logging::printf("base %08llx size %08llx (*%d VFs)\n", base, size, vfs_to_enable);
+      Logging::printf("VF BAR%d: %08x base %08llx size %08llx (*%d VFs)\n",
+		      cur_vfbar, bar_lo, base, size, vfs_to_enable);
       uint64_t base = _bus.alloc_mmio_window(size*vfs_to_enable);
 
       if (base != 0) {
