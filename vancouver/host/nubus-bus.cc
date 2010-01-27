@@ -18,16 +18,12 @@ PCIBus::PCIBus(PCIDevice &bridge)
     uint32_t memclaim = _bridge->conf_read(0x20);
     uint32_t limit = ((memclaim >> 20)+1) << 20;
     uint32_t base = memclaim<<16;
-    Logging::printf("bus[%x] Bridge claims %08x-%08x.\n", _no, base, limit);
     Region bridge_claim(base, limit - base);
     _memregion.add(bridge_claim);
   }
   
   discover_devices();
 
-  if (_no == 1) Logging::printf("bus[%x] Bridge memory:\n", _no);
-  _memregion.debug_dump("bus");
-  
   // We can only check, if we can enable ARI after devices on this
   // bus are discovered. They all have to support ARI.
   if (ari_capable()) {

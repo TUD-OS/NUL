@@ -52,7 +52,6 @@ public:
 
   void add_used_region(uint64_t base, uint64_t size) {
     Region r(base, size);
-    Logging::printf("bus[%u]: Removing %llx+%llx\n", _no, base, size);
     _memregion.del(r);
   }
 
