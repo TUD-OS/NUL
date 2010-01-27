@@ -198,9 +198,17 @@ class HostPci
   {
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
-    return bar_base(bdf + sriov_cap + SRIOV_VF_BAR0 + no*4);
+    return bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4);
   }
 
+  /** Return the size of a VF BAR (inside a SR-IOV capability
+   */
+  unsigned long long vf_bar_size(unsigned bdf, unsigned no, bool *is64bit = NULL)
+  {
+    unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
+    if (!sriov_cap) return -1;
+    return bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
+  }
 
  HostPci(DBus<MessagePciConfig> bus_pcicfg) : _bus_pcicfg(bus_pcicfg) {};
 };
