@@ -97,36 +97,42 @@ void hexdump(const char *data, size_t len)
 
 class VF82576 : public Base82576
 {
+  volatile uint32_t *_hwreg;
 
 public:
 
-  VF82576(HostPci &pci, uint16_t bdf)
-    : Base82576(ALL, bdf) {
-    msg(INFO, "Hello World!\n");
+  VF82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, uint16_t bdf, uint64_t csr_addr, uint64_t msix_addr)
+    : Base82576(clock, ALL, bdf) {
+    msg(INFO, "VF: CSR %08llx MSIX %08llx\n", csr_addr, msix_addr);
 
-    // {
-    //   uint32_t pci_cfg[64];
-    //   for (unsigned i = 0; i < 64; i++)
-    // 	pci_cfg[i] = pci.conf_read(_bdf, i*4);
-
-    //   hexdump((const char *)pci_cfg, sizeof(pci_cfg));
-    // }
-
-    for (unsigned bar_i = 0; bar_i < 3; bar_i++) {
-      uint32_t bar_addr = pci.BAR0 + bar_i*pci.BAR_SIZE;
-      uint32_t bar = pci.conf_read(_bdf, bar_addr);
-      size_t size  = pci.bar_size(_bdf, bar_addr);
-
-      msg(PCI, "BAR %u: %08x (size %08zx)\n", bar_i, bar, size);
-
+    MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, csr_addr & ~0xFFF, 0x4000);
+    if (bus_hostop.send(iomsg) && iomsg.ptr) {
+      _hwreg = reinterpret_cast<uint32_t *>(iomsg.ptr);
+      msg(INFO, "CSR @ %p\n", iomsg.ptr);
+    } else {
+      msg(INFO, "Mapping CSR memory failed.\n");
+      return;
     }
+
+    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
+
+    // XXX Bad CopynPaste coding...
+    msg(INFO, "Trying to reset the VF...\n");
+    _hwreg[CTRL] = _hwreg[CTRL] | CTRL_RST;
+    spin(1000 /* 1ms */);
+    if (!wait(_hwreg[CTRL], CTRL_RST, 0))
+      Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
+    msg(INFO, "... done\n");
+
+    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
+    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
+    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
   }
 };
 
 class Host82576 : public Base82576, public StaticReceiver<Host82576>
 {
 private:
-  Clock *_clock;
   DBus<MessageHostOp> &_bus_hostop;
   volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
 
@@ -165,26 +171,6 @@ private:
 	status & STATUS_IOV ? "ON" : "OFF",
 	_hwreg[GPRC],
 	_hwreg[GPTC]);
-  }
-
-  void spin(unsigned micros)
-  {
-    timevalue done = _clock->abstime(micros, 1000000);
-    while (_clock->time() < done)
-      Cpu::pause();
-  }
-
-  bool wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
-	    unsigned timeout_micros = 1000000 /* 1s */)
-  {
-    timevalue timeout = _clock->abstime(timeout_micros, 1000000);
-
-    while ((reg & mask) != value) {
-      Cpu::pause();
-      if (_clock->time() >= timeout)
-	return false;
-    }
-    return true;
   }
 
   unsigned enabled_vfs()
@@ -240,8 +226,7 @@ public:
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
 	    unsigned bdf, unsigned hostirq)
-    : Base82576(ALL, bdf), _clock(clock), _bus_hostop(bus_hostop),
-      _hostirq(hostirq)
+    : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -387,11 +372,14 @@ public:
 
     for (unsigned cur_vf = 0; cur_vf < enabled_vfs(); cur_vf++) {
       uint16_t vf_bdf = bdf + vf_offset + vf_stride*cur_vf;
-      msg(INFO, "VF %d -> %x:%02x\n", cur_vf, vf_bdf>>8, vf_bdf&0xFF);
+
+      assert(pci.vf_bar_size(bdf, 0) == 0x4000);
+      uint64_t bar0_base = pci.vf_bar_base(bdf, 0) + pci.vf_bar_size(bdf, 0)*cur_vf;
+      uint64_t bar3_base = pci.vf_bar_base(bdf, 3) + pci.vf_bar_size(bdf, 3)*cur_vf;
 
       // Try to drive one VF
       if (cur_vf == 0)
-	new VF82576(pci, vf_bdf);
+	new VF82576(pci, bus_hostop, _clock, vf_bdf, bar0_base, bar3_base);
     }
 
     // PF Setup complete

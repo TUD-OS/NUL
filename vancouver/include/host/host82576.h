@@ -3,6 +3,7 @@
 #pragma once
 
 #include <driver/logging.h>
+#include <vmm/motherboard.h>
 #include <cstdint>
 
 class Base82576 {
@@ -150,6 +151,29 @@ protected:
 
   };
 
+  // Misc
+  Clock *_clock;
+
+  void spin(unsigned micros)
+  {
+    timevalue done = _clock->abstime(micros, 1000000);
+    while (_clock->time() < done)
+      Cpu::pause();
+  }
+
+  bool wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
+	    unsigned timeout_micros = 1000000 /* 1s */)
+  {
+    timevalue timeout = _clock->abstime(timeout_micros, 1000000);
+
+    while ((reg & mask) != value) {
+      Cpu::pause();
+      if (_clock->time() >= timeout)
+	return false;
+    }
+    return true;
+  }
+
   /// Logging
   unsigned _msg_level;
   uint16_t _bdf;
@@ -180,8 +204,8 @@ protected:
     }
   }
 
-  Base82576(unsigned msg_level, uint16_t bdf)
-    : _msg_level(msg_level), _bdf(bdf)
+  Base82576(Clock *clock, unsigned msg_level, uint16_t bdf)
+    : _clock(clock), _msg_level(msg_level), _bdf(bdf)
   {}
 };
 
