@@ -114,7 +114,8 @@ public:
       return;
     }
 
-    assert(_hwreg[VMB] & ... );
+    // XXX assert that PF is done
+    //assert(_hwreg[VMB] & ... );
 
     msg(VF, "Status %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VFRTIMER]);
 
