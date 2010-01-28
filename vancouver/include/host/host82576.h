@@ -16,6 +16,14 @@ protected:
   enum PCI {
     MSIX_ENABLE = (1UL << 31),
   };
+
+  enum VRegister {
+    VCTRL      = 0x0000/4,
+    VSTATUS    = 0x0008/4,
+    VFRTIMER   = 0x1048/4,
+    VMB        = 0x0C40/4, 	// 8.14.3
+    VBMEM      = 0x0800/4,	// 8.14.4
+  };
   
   enum Register {
     // Spec p.399
@@ -49,10 +57,17 @@ protected:
 
     // VT
     VT_CTL    = 0x0581C/4,	// VMDq control register
+    PFMB0     = 0x00C00/4,	// PF Mailbox (+ 4*VFno)
+    PFMBMEM   = 0x00800/4,	// PF Mailbox Memory (+ 0x40*VFno)
+
+    MBVFICR   = 0x00C80/4,	// Mailbox VF Interrupt Causes (R/W1C) (loword -> send msg?, hiword -> acked msg?)
+    MBVFIMR   = 0x00C84/4,	// Mailbox VF Interrupt Mask
+    VFLRE     = 0x00C88/4,	// VF Function Level Reset (R/W1C)
     VFRE      = 0x00C8C/4,	// VF Receive enable  (lower 8 bits)
     VFTE      = 0x00C90/4,	// VF Transmit enable (lower 8 bits)
     QDE       = 0x02408/4,	// Queue drop enable (lower 16 bits)
     DTXSWC    = 0x03500/4,	// DMA Tx Switch Control
+    WVBR      = 0x03554/4, 	// Wrong VM Behaviour (RC)
 
     // Misc
     TCPTIMER  = 0x0104C/4,	// TCP Timer
@@ -188,6 +203,7 @@ protected:
     IRQ   = 1<<3,
     RX    = 1<<4,
     TX    = 1<<5,
+    VF    = 1<<6,
 
     ALL   = ~0U,
   };

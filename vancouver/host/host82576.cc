@@ -105,32 +105,28 @@ public:
     : Base82576(clock, ALL, bdf) {
     msg(INFO, "VF: CSR %08llx MSIX %08llx\n", csr_addr, msix_addr);
 
-    // XXX Better do a FLR reset here, but this generates an interrupt
-    // in the PF and I am not sure that it is correctly handled at
-    // this point...
-
     MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, csr_addr & ~0xFFF, 0x4000);
     if (bus_hostop.send(iomsg) && iomsg.ptr) {
       _hwreg = reinterpret_cast<uint32_t *>(iomsg.ptr);
-      msg(INFO, "CSR @ %p\n", iomsg.ptr);
+      msg(VF, "CSR @ %p\n", iomsg.ptr);
     } else {
-      msg(INFO, "Mapping CSR memory failed.\n");
+      msg(VF, "Mapping CSR memory failed.\n");
       return;
     }
 
-    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
+    assert(_hwreg[VMB] & ... );
+
+    msg(VF, "Status %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VFRTIMER]);
 
     // XXX Bad CopynPaste coding...
-    msg(INFO, "Trying to reset the VF...\n");
-    _hwreg[CTRL] = _hwreg[CTRL] | CTRL_RST;
+    msg(VF, "Trying to reset the VF...\n");
+    _hwreg[VCTRL] = _hwreg[VCTRL] | CTRL_RST;
     spin(1000 /* 1ms */);
-    if (!wait(_hwreg[CTRL], CTRL_RST, 0))
+    if (!wait(_hwreg[VCTRL], CTRL_RST, 0))
       Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
-    msg(INFO, "... done\n");
+    msg(VF, "... done\n");
 
-    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
-    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
-    msg(INFO, "Status %08x Timer %08x\n", _hwreg[STATUS], _hwreg[FRTIMER]);
+    msg(INFO, "Status %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VFRTIMER]);
   }
 };
 
@@ -182,6 +178,21 @@ private:
     return (_hwreg[STATUS] & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT;
   }
 
+  void handle_vf_reset(unsigned vf_no)
+  {
+    msg(VF, "FLR on VF%d.\n", vf_no);
+  }
+
+  void handle_vf_message(unsigned vf_no)
+  {
+    msg(VF, "Message from VF%d.\n", vf_no);
+  }
+
+  void handle_vf_ack(unsigned vf_no)
+  {
+    msg(VF, "Message ACK from VF%d.\n", vf_no);
+  }
+
 public:
 
   EthernetAddr ethernet_address()
@@ -205,7 +216,6 @@ public:
     msg(IRQ, "IRQ! ICR = %08x EICR = %08x\n", icr, eicr);
     if ((eicr|icr) == 0) return false;
 
-
     if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
@@ -222,6 +232,30 @@ public:
       }
 
       log_device_status();
+    }
+
+    if (icr & IRQ_VMMB) {
+      uint32_t vflre  = _hwreg[VFLRE];
+      uint32_t mbvficr = _hwreg[MBVFICR];
+      uint32_t mbvfimr = _hwreg[MBVFIMR];
+      msg(VF, "VMMB: VFLRE %08x MBVFICR %08x MBVFIMR %08x\n", vflre, mbvficr, mbvfimr);
+
+      // Check FLRs
+      for (uint32_t mask = 1, cur = 0; cur < 8; cur++, mask<<=1)
+	if (vflre & mask)
+	  handle_vf_reset(cur);
+
+      // Check incoming
+      for (uint32_t mask = 1, cur = 0; cur < 8; cur++, mask<<=1) {
+	if (mbvficr & mask)
+	  handle_vf_message(cur);
+	if (mbvficr & (mask << 16)) // Check ACKs
+	  handle_vf_ack(cur);
+      }
+
+      // Clear bits
+      _hwreg[VFLRE]  = vflre;
+      _hwreg[MBVFICR] = mbvficr;
     }
 
 
@@ -329,6 +363,12 @@ public:
     // communication.
     _hwreg[VT_CTL] |= VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
 
+    // Disable RX and TX for all VFs.
+    _hwreg[VFRE] = 0;
+    _hwreg[VFTE] = 0;
+
+    // Allow all VFs to send IRQs to us.
+    _hwreg[MBVFIMR] = 0xFF;
 
     _mac = ethernet_address();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
@@ -366,6 +406,10 @@ public:
     // Issue an interrupt every 256ms
     //_hwreg[TCPTIMER] = 0xFF /* 256ms */ | TCPTIMER_ENABLE | TCPTIMER_KICKSTART ;
 
+    // PF Setup complete
+    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
+    msg(INFO, "Initialization complete.\n");
+
     // VFs
     unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
     assert(sriov_cap != 0);
@@ -385,10 +429,6 @@ public:
       if (cur_vf == 0)
 	new VF82576(pci, bus_hostop, _clock, vf_bdf, bar0_base, bar3_base);
     }
-
-    // PF Setup complete
-    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
-    msg(INFO, "Initialization complete.\n");
 
   }
 };
