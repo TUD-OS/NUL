@@ -1,5 +1,5 @@
 /**
- * Directly-assigned an SR-IOV VF device.
+ * Directly-assigned SR-IOV virtual function.
  *
  * Copyright (C) 2007-2009, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
  *
