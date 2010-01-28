@@ -704,7 +704,9 @@ public:
 	}
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, 0);
+	res = !assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0,
+			  msg.value, /* PF BFD */
+			  msg.len);  /* VF BFD (or 0) */
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:
