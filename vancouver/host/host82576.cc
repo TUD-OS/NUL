@@ -117,7 +117,8 @@ public:
     // XXX assert that PF is done
     //assert(_hwreg[VMB] & ... );
 
-    msg(VF, "Status %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VFRTIMER]);
+    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
+    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
 
     // XXX Bad CopynPaste coding...
     msg(VF, "Trying to reset the VF...\n");
@@ -127,7 +128,8 @@ public:
       Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
     msg(VF, "... done\n");
 
-    msg(INFO, "Status %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VFRTIMER]);
+    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
+    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
   }
 };
 
@@ -412,24 +414,24 @@ public:
     msg(INFO, "Initialization complete.\n");
 
     // VFs
-    unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
-    assert(sriov_cap != 0);
+    // unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
+    // assert(sriov_cap != 0);
     
-    unsigned vf_offset = pci.conf_read(bdf, sriov_cap + 0x14);
-    unsigned vf_stride = vf_offset >> 16;
-    vf_offset &= 0xFFFF;
+    // unsigned vf_offset = pci.conf_read(bdf, sriov_cap + 0x14);
+    // unsigned vf_stride = vf_offset >> 16;
+    // vf_offset &= 0xFFFF;
 
-    for (unsigned cur_vf = 0; cur_vf < enabled_vfs(); cur_vf++) {
-      uint16_t vf_bdf = bdf + vf_offset + vf_stride*cur_vf;
+    // for (unsigned cur_vf = 0; cur_vf < enabled_vfs(); cur_vf++) {
+    //   uint16_t vf_bdf = bdf + vf_offset + vf_stride*cur_vf;
 
-      assert(pci.vf_bar_size(bdf, 0) == 0x4000);
-      uint64_t bar0_base = pci.vf_bar_base(bdf, 0) + pci.vf_bar_size(bdf, 0)*cur_vf;
-      uint64_t bar3_base = pci.vf_bar_base(bdf, 3) + pci.vf_bar_size(bdf, 3)*cur_vf;
+    //   assert(pci.vf_bar_size(bdf, 0) == 0x4000);
+    //   uint64_t bar0_base = pci.vf_bar_base(bdf, 0) + pci.vf_bar_size(bdf, 0)*cur_vf;
+    //   uint64_t bar3_base = pci.vf_bar_base(bdf, 3) + pci.vf_bar_size(bdf, 3)*cur_vf;
 
-      // Try to drive one VF
-      if (cur_vf == 0)
-	new VF82576(pci, bus_hostop, _clock, vf_bdf, bar0_base, bar3_base);
-    }
+    //   // Try to drive one VF
+    //   if (cur_vf == 0)
+    // 	new VF82576(pci, bus_hostop, _clock, vf_bdf, bar0_base, bar3_base);
+    // }
 
   }
 };
@@ -449,7 +451,11 @@ PARAM(host82576, {
             continue;
           }
 
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf, argv[1]);
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
+					 // XXX Does not work reliably! (ioapic assertion) 
+					 //pci.get_gsi(bdf, argv[1])
+					 argv[1]
+					 );
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }
