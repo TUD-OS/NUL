@@ -28,7 +28,7 @@ NubusManager::NubusManager(HostPci pcicfg, Clock *clock)
 PARAM(nubus,
       {
 	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	NubusManager *m = new NubusManager(pci, mb.clock());
+	new NubusManager(pci, mb.clock());
       },
       "nubus - PCI bus manager");
 
