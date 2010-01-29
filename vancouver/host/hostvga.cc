@@ -33,7 +33,7 @@ public:
     MAXVIEWS   = 16,
     MAXCLIENTS = 64,
     FREQ       = 25,       // refresh FREQ in HZ
-    TIME_TAG   = 3 * FREQ, // time in FREQ to display the tag
+    TIME_TAG   = 3,       // time in FREQ to display the tag
     TEXTMODE   = 0,
     BACKEND_OFFSET = 0x3000,
     BACKEND_SIZE  = 1 << 15,
@@ -133,7 +133,7 @@ private:
     data.lastchar = ' ';
     data.ptr = _backend + BACKEND_OFFSET;
 
-    if ((_lastswitchtime + TIME_TAG) > _mb.clock()->clock(FREQ))
+    if ((_lastswitchtime + TIME_TAG*FREQ) > _mb.clock()->clock(FREQ))
       {
 	struct View *view = _clients[_active_client].views + _clients[_active_client].active_view;
 	Vprintf::printf(console_putc, &data, "console: %d.%d", _active_client, _clients[_active_client].active_view);

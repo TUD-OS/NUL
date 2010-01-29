@@ -204,6 +204,6 @@ PARAM(multiboot,
       },
       "multiboot:eip,modaddr=0x1000000,lowmem=0xa0000 - create a executor that supports multiboot",
       "Example:  'multiboot:0xfffffff0'",
-      "If the eip is reached, the CPU is initilizes and the modules are requested from sigma0.",
+      "If the eip is reached, the CPU is initilized and the modules are requested from sigma0.",
       "modaddr defines where the modules are loaded in guest memory.",
       "lowmem allows to restrict memory below 1M to less than 640k.");
