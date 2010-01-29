@@ -74,7 +74,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   }
 
   DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no, uint16_t guest_bdf)
-    : HostPci(mb.bus_hwpcicfg), _mb(mb), _parent_bdf(parent_bdf), _guest_bdf(guest_bdf), _vf_no(vf_no)
+    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _parent_bdf(parent_bdf), _guest_bdf(guest_bdf), _vf_no(vf_no)
   {
     msg("Querying parent SR-IOV capability...\n");
 
@@ -119,7 +119,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
 PARAM(vfpci,
       {
-	HostPci  pci(mb.bus_hwpcicfg);
+	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	uint16_t parent_bdf = argv[0];
 	unsigned vf_no      = argv[1];
 	uint16_t guest_bdf   = argv[2];
