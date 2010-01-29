@@ -177,7 +177,7 @@ class HostPci
     // use msi
     unsigned offset = find_cap(bdf, 0x5);
     Logging::printf("find MSI cap %x\n", offset);
-    if (!offset)
+    if (offset)
       {
 	unsigned ctrl = conf_read(bdf, offset);
 	Logging::printf("MSI cap @%x ctrl %x\n", offset, ctrl);
