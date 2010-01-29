@@ -82,7 +82,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
       for (unsigned i=0; i < count_bars(); i++)
 	{
-
 	  unsigned  bar = _bars[i];
 	  if (bar)
 	    if ((bar & 1) == 1)
