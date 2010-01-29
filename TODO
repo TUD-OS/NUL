@@ -1,0 +1,46 @@
+-*- Mode: Outline -*-
+
+* Usability
+
+ - irq routing (ATARE)
+ - command language/shell
+ - improve vmm command line arguments
+ - C-friendly syscall bindings in nova/
+
+* Drivers
+
+** General
+  - Linux driver VMs (ideally without IO-MMUs)
+
+** USB
+  - EHCI/OHCI/UHCI/XHCI
+  - USB passthrough
+
+** USB HID
+  - USB keyboard and mice speak a simplified BOOT protocol, normally used by the BIOS
+  - need UHCI/OHCI low level drivers to scan the bus and request keycodes
+  - should allow to get rid of legacy USB support and its SMIs
+
+** Disk
+
+ - Buffer cache
+ - partition support
+ - volume management?
+ - backing store in filesystem
+ - disk scheduling
+ - SR-IOV AHCI
+ - iSCSI/SBP-2/network block device as backing store
+
+** Network
+
+ - e1000
+ - rtl8139
+ - IP over 1394
+ - TCP/IP stack (uIP6)
+ - optimized software switch (zero copy)
+ 
+* Rocknshine
+
+ - fix handling of bytes-per-scanline
+ - implement "jump to page"
+

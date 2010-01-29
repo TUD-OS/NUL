@@ -155,21 +155,6 @@ tree. You will not be disappointed.
 
 ** TODO Using the Build System
 
-* Tasks
-** TODO Port existing code to C-friendly syscall bindings in nova/
-** TODO Organize 3rd-Party Source Code
-*** TODO Move vancouver/lib/tinf to some kind of contrib/ directory
-    - Note taken on [2009-11-13 Fri 16:12] \\
-      rocknshine including tinf should perhaps move to their own
-      repo. Something like julian-stuff.
-** TODO Fix rocknshine regarding bytes-per-scanline.
- * TODO Implement "jump to page" in rocknshine.
- * TODO Write tool that collects sigma0/vancouver command line arguments.
- * USB HID driver
-   - USB keyboard and mice speak a simplified BOOT protocol, normally used by the BIOS
-   - need UHCI/OHCI low level drivers to scan the bus and request keycodes
-   - should allow to get rid of legacy USB support and its SMIs
-
 * Third-Party Software
 
   NUL reuses currently some code from the following projects:
