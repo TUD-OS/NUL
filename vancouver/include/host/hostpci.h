@@ -35,6 +35,8 @@ class HostPci
 
     MAX_BAR  = 6,
     BAR_SIZE = 4,
+
+    SRIOV_VF_BAR0 = 0x24U,
   };
 
   enum {
@@ -57,7 +59,6 @@ class HostPci
 
     EXTCAP_ARI              = 0x000EU,
     EXTCAP_SRIOV            = 0x0010U,
-    SRIOV_VF_BAR0           = 0x24U,
   };
 
   unsigned conf_read(unsigned bdf, unsigned short offset)
@@ -81,7 +82,7 @@ class HostPci
     } else {
       switch (val & BAR_TYPE_MASK) {
       case BAR_TYPE_32B: return val & ~0xF;
-      case BAR_TYPE_64B: return ((unsigned long long)conf_read(bdf, bar + 4)<<32) |  (val & ~0xFUL);
+      case BAR_TYPE_64B: return ((unsigned long long)conf_read(bdf, bar + 4)<<32) | (val & BAR_MEM_MASK);
       default: return ~0ULL;
       }
     };
