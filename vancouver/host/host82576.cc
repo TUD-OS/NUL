@@ -186,9 +186,43 @@ private:
     msg(VF, "FLR on VF%d.\n", vf_no);
   }
 
+  enum MBX {
+    VF_RESET        = 0x0001U,
+    VF_SET_MAC_ADDR = 0x0002U,
+    PF_CONTROL_MSG  = 0x0100U,
+
+    ACK             = 0x80000000U,
+    NACK            = 0x40000000U,
+    CTS             = 0x20000000U,
+  };
+
   void handle_vf_message(unsigned vf_no)
   {
-    msg(VF, "Message from VF%d.\n", vf_no);
+    unsigned pfmbx    = PFMB0 + vf_no;
+    unsigned pfmbxmem = PFMBMEM + vf_no*0x10;
+    unsigned mem0     = _hwreg[pfmbxmem];
+    
+    msg(VF, "Message from VF%d: PFMBX %08x PFMBXMEM[0] %08x.\n", vf_no,
+	_hwreg[pfmbx], _hwreg[pfmbxmem]);
+
+    switch (mem0) {
+    case VF_RESET: {
+      union {
+	char mac_addr[6];
+	uint32_t raw[2];
+      };
+      raw[2] = 0;
+      // XXX Make this configurable!
+      mac_addr = { 0xa6, 0xd9, 0xed, 0x36, 0x44, vf_no }; 
+      _hwreg[pfmbxmem] = mem0 | ACK;
+      _hwreg[pfmbxmem + 1] = raw[0];
+      _hwreg[pfmbxmem + 2] = raw[1];
+    }
+    default:
+      _hwreg[pfmbxmem] = mem0 | NACK;
+    };
+
+    _hwreg[pfmbx] = Sts | Ack;
   }
 
   void handle_vf_ack(unsigned vf_no)

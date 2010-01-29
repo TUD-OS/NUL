@@ -166,6 +166,14 @@ protected:
 
   };
 
+  enum PFMBX {
+    Sts = 1U << 0,		// Status/Message ready (WO)
+    Ack = 1U << 1,		// VF Message received (WO)
+    VFU = 1U << 2,		// Buffer taken by VF (RO for PF?)
+    PFU = 1U << 3,		// Buffer taken by PF (WO)
+    RVFU = 1U << 4,		// Reset VFU (Clears VFU) (WO)
+  };
+
   // Misc
   Clock *_clock;
 
