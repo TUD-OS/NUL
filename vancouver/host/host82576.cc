@@ -405,10 +405,6 @@ public:
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
     _hwreg[IMS] = ~0U;
 
-    //_hwreg[ICS] |= IRQ_LSC;
-    // Issue an interrupt every 256ms
-    //_hwreg[TCPTIMER] = 0xFF /* 256ms */ | TCPTIMER_ENABLE | TCPTIMER_KICKSTART ;
-
     // PF Setup complete
     _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
     msg(INFO, "Initialization complete.\n");
