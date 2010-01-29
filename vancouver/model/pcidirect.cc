@@ -115,6 +115,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
    */
   unsigned match_bars(unsigned &address, unsigned size, bool iospace)
   {
+    if (iospace && address < 0x100) return false;
+
     COUNTER_INC("PCIDirect::match");
     // check whether io decode is disabled
     if (iospace && ~_cfgspace[1] & 1 || !iospace && ~_cfgspace[1] & 2)  return 0;
