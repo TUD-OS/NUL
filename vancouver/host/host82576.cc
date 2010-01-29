@@ -435,12 +435,10 @@ public:
 };
 
 PARAM(host82576, {
-    unsigned irqline;
-    unsigned irqpin;
-    HostPci pci(mb.bus_hwpcicfg);
+    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     unsigned found = 0;
 
-    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++, irqline, irqpin));) {
+    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
       unsigned cfg0 = pci.conf_read(bdf, 0x0);
       if (cfg0 == 0x10c98086) {
 	if (found++ == argv[0]) {

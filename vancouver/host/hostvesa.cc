@@ -165,6 +165,7 @@ public:
 	return _hostmb.bus_hostop.send(msg);
       case MessageHostOp::OP_ATTACH_HOSTIRQ:
       case MessageHostOp::OP_ASSIGN_PCI:
+      case MessageHostOp::OP_GET_MSIVECTOR:
 	// we do not need this
 	return false;
       case MessageHostOp::OP_NOTIFY_IRQ:

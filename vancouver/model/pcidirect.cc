@@ -280,7 +280,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     return true;
   }
 
-
   bool  receive(MessageMemMap &msg)
   {
     for (unsigned i=0; i < count_bars(); i++)
@@ -298,45 +297,22 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
     {
       for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
       read_bars();
-
-#if 0
-      // disable msi
-      unsigned offset = find_cap(_bdf, 0x5);      if (offset)
-	{
-	  unsigned ctrl = conf_read(_bdf, offset);
-	  Logging::printf("MSI cap @%x ctrl %x  - disabling\n", offset, ctrl);
-	  ctrl &= 0xffff;
-	  conf_write(_bdf, offset, ctrl);
-	}
-      // and msi-x
-      offset = find_cap(_bdf, 0x11);
-      if (offset)
-	{
-	  unsigned ctrl = conf_read(_bdf, offset);
-	  ctrl &= 0xffff;
-	  conf_write(_bdf, offset, ctrl);
-	  Logging::printf("MSI-X cap @%x ctrl %x  - disabling\n", offset, ctrl);
-	  conf_write(_bdf, offset, ctrl);
-	}
-#endif    
     }
 };
 
 PARAM(dpci,
       {
-	HostPci  pci(mb.bus_hwpcicfg);
-	unsigned irqline = ~0UL;
-	unsigned irqpin;
-	unsigned bdf = pci.search_device(argv[0], argv[1], argv[2], irqline, irqpin);
+	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	unsigned bdf = pci.search_device(argv[0], argv[1], argv[2]);
 	if (!bdf)
 	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
 	else
 	  {
-	    if (argv[4] != ~0UL) irqline = argv[4];
+	    unsigned irqline = pci.get_gsi(bdf, argv[4]);
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
 
@@ -353,6 +329,7 @@ PARAM(dpci,
 	    mb.bus_memmap.add(dev, &DirectPciDevice::receive_static<MessageMemMap>);
 	    if (irqline != ~0UL)
 	      {
+		if (!pci.enable_msi(bdf, irqline)) Logging::printf("MSI not enabled vev %x\n", irqline);
 		mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
 		mb.bus_irqnotify.add(dev, &DirectPciDevice::receive_static<MessageIrqNotify>);
 		MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline | 0x100);
@@ -364,6 +341,6 @@ PARAM(dpci,
 	Logging::printf("dpci arg done\n");
       },
       "dpci:class,subclass,instance,bdf,hostirq - makes the specified hostdevice directly accessible to the guest.",
-      "Example: Use 'dpci:2,,0,0x21,0x35' to attach the first network controller to 00:04.1 by forwarding hostirq 0x35.",
+      "Example: Use 'dpci:2,,0,0x21,0x14' to attach the first network controller to 00:04.1 by forwarding hostirq 0x14.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
       "If bdf is ommited the very same bdf as in the host is used. If hostirq is ommited the irqline from the device is used instead.");

@@ -523,6 +523,7 @@ public:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_GET_UID:
+      case MessageHostOp::OP_GET_MSIVECTOR:
 	res = Sigma0Base::hostop(msg);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:

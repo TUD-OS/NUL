@@ -24,7 +24,8 @@
  */
 class HostPci
 {
-  DBus<MessagePciConfig> _bus_pcicfg;
+  DBus<MessagePciConfig> &_bus_pcicfg;
+  DBus<MessageHostOp>    &_bus_hostop;
 
  public:
 
@@ -131,7 +132,7 @@ class HostPci
   /**
    * Searches for a given device and returns the bdf of it.
    */
-  unsigned search_device(unsigned theclass, unsigned subclass, unsigned instance, unsigned &irqline, unsigned &irqpin)
+  unsigned search_device(unsigned theclass, unsigned subclass, unsigned instance)
   {
     for (unsigned i=0; i < (1<<13); i++)
       {
@@ -146,15 +147,69 @@ class HostPci
 	    if ((theclass == ~0UL || ((value >> 24) & 0xff) == theclass)
 		&& (subclass == ~0UL || ((value >> 16) & 0xff) == subclass)
 		&& (instance == ~0UL || !instance--))
-	      {
-		unsigned v = conf_read(bdf, 0x3c);
-		irqline = v & 0xff00 ? v & 0xff : ~0UL;
-		irqpin = (v >> 8) & 0xff;
-		return bdf;
-	      }
+	      return bdf;
 	  }
       }
     return 0;
+  }
+
+
+  unsigned get_gsi(unsigned bdf, unsigned long gsi_override)
+  {
+    if (gsi_override != ~0UL) return gsi_override;
+
+    // MSI?
+    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
+    if (find_cap(bdf, 0x5) && _bus_hostop.send(msg1))   return msg1.value;
+
+    // XXX atare needed
+    switch (conf_read(bdf, 0))
+      {
+      case 0x3a228086: return 0x13;
+      case 0x43911002: return 0x16;
+      }
+    return gsi_override;
+  }
+
+
+  bool enable_msi(unsigned bdf, unsigned char gsi)
+  {
+    // use msi
+    unsigned offset = find_cap(bdf, 0x5);
+    Logging::printf("find MSI cap %x\n", offset);
+    if (!offset)
+      {
+	unsigned ctrl = conf_read(bdf, offset);
+	Logging::printf("MSI cap @%x ctrl %x\n", offset, ctrl);
+	unsigned base = offset + 4;
+	conf_write(bdf, base, 0xfee00000);
+	base += 4;
+	if (ctrl & 0x800000)
+	  {
+	    conf_write(bdf, base, 0);
+	    base += 4;
+	  }
+	// XXX get GSI offset
+	conf_write(bdf, base, 0x20 + gsi);
+
+	// we use only a single message and enable MSIs here
+	conf_write(bdf, offset, (ctrl & ~0x700000) | 0x10000);
+	Logging::printf("MSI %x enabled for bdf %x\n", gsi, bdf);
+	return true;
+      }
+#if 0
+    // or msi-x
+    offset = find_cap(_bdf, 0x11);
+    if (offset)
+      {
+	unsigned ctrl = conf_read(_bdf, offset);
+	ctrl &= 0xffff;
+	conf_write(_bdf, offset, ctrl);
+	Logging::printf("MSI-X cap @%x ctrl %x  - disabling\n", offset, ctrl);
+	conf_write(_bdf, offset, ctrl);
+      }
+#endif
+    return false;
   }
 
 
@@ -210,5 +265,5 @@ class HostPci
     return bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
   }
 
- HostPci(DBus<MessagePciConfig> bus_pcicfg) : _bus_pcicfg(bus_pcicfg) {};
+ HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
 };

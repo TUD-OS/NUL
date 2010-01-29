@@ -244,17 +244,15 @@ class HostIde : public StaticReceiver<HostIde>
 
 PARAM(hostide,
       {
-	unsigned irqline;
-	unsigned irqpin;
-	HostPci pci(mb.bus_hwpcicfg);
-	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++, irqline, irqpin);)
+	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++);)
 	  {
 	    if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 4) & 1))
 	      {
-		Logging::printf("Ignore IDE controller #%x at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
+		Logging::printf("Ignore IDE controller #%x at %x\n", num, bdf);
 		continue;
 	      }
-	    Logging::printf("DISK controller #%x IDE at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
+	    Logging::printf("DISK controller #%x IDE at %x\n", num, bdf);
 
 	    // primary and secondary controller
 	    for (unsigned i=0; i < 2; i++)

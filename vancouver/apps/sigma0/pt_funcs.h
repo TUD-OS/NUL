@@ -256,6 +256,10 @@ PT_FUNC(do_request,
 			  utcb->msg[0] = 0;
 			  break;
 			}
+		    case MessageHostOp::OP_GET_MSIVECTOR:
+		      msg->value = alloc_msivector();
+		      utcb->msg[0] = 0;
+		      break;
 		    case MessageHostOp::OP_ALLOC_IOIO_REGION:
 		    case MessageHostOp::OP_ALLOC_IOMEM:
 		    case MessageHostOp::OP_ATTACH_HOSTIRQ:

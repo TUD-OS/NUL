@@ -421,6 +421,7 @@ struct MessageHostOp
       OP_NOTIFY_IRQ,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
+      OP_GET_MSIVECTOR,
       OP_ATTACH_HOSTIRQ,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
@@ -428,7 +429,7 @@ struct MessageHostOp
       OP_GET_UID,
       OP_GUEST_MEM,
       OP_ALLOC_FROM_GUEST,
-    } type;  
+    } type;
   unsigned long value;
   union {
     struct {
@@ -439,7 +440,7 @@ struct MessageHostOp
       char *ptr;
       unsigned len;
     };
-    struct 
+    struct
     {
       unsigned module;
       char * start;

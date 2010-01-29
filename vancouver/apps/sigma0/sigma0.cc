@@ -57,6 +57,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   // irq+worker synchronisation
   long      _lockcount;
   Semaphore _lock;
+  unsigned  _msivector;
   // vga
   char    * _vga;
   VgaRegs   _vga_regs;
@@ -121,6 +122,8 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	}
     return MessageDisk::DISK_STATUS_BUSY;
   }
+
+  unsigned alloc_msivector() { return _hip->cfg_gsi - ++_msivector; }
 
   /**
    * Converts client ptr to a pointer in our addressspace.
@@ -707,6 +710,9 @@ public:
 	res = !assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0,
 			  msg.value, /* PF BFD */
 			  msg.len);  /* VF BFD (or 0) */
+	break;
+      case MessageHostOp::OP_GET_MSIVECTOR:
+	msg.value = alloc_msivector();
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:

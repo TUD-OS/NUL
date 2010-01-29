@@ -453,32 +453,24 @@ class HostAhci : public StaticReceiver<HostAhci>
 
 PARAM(hostahci,
       {
-	unsigned irqline;
-	unsigned irqpin;
-	HostPci pci(mb.bus_hwpcicfg);
+	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
 
-	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x6, num++, irqline, irqpin);) {
+	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x6, num++);) {
 	  if (~argv[0] & (1UL << num))
 	    {
-	      Logging::printf("Ignore AHCI controller #%x at %x irq %x pin %x\n", num, bdf, irqline, irqpin);
+	      Logging::printf("Ignore AHCI controller #%x at %x\n", num, bdf);
 	      continue;
 	    }
 
 	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
 	  bool dmar = mb.bus_hostop.send(msg1);
-
-	  // XXX
-	  if (~argv[1]) irqline = argv[1];
-	  else
-	    switch (pci.conf_read(bdf, 0))
-	      {
-	      case 0x3a228086: irqline = 0x13; break;
-	      case 0x43911002: irqline = 0x16; break;
-	      }
+	  unsigned irqline = pci.get_gsi(bdf, argv[1]);
 
 	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
-	  Logging::printf("DISK controller #%x AHCI %x id %x irq %x pin %x\n", num, bdf, pci.conf_read(bdf, 0), irqline, irqpin);
+	  Logging::printf("DISK controller #%x AHCI %x id %x\n", num, bdf, pci.conf_read(bdf, 0));
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
+
+	  if (!pci.enable_msi(bdf, irqline)) Logging::printf("MSI not enabled vev %x\n", irqline);
 
 	  MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
 	  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
