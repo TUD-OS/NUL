@@ -211,7 +211,7 @@ private:
 	char mac_addr[6];
 	uint32_t raw[2];
       };
-      raw[2] = 0;
+      raw[1] = 0;		// Don't pass garbage to VF
       // XXX Make this configurable!
       mac_addr = { 0xa6, 0xd9, 0xed, 0x36, 0x44, vf_no }; 
       _hwreg[pfmbxmem] = mem0 | ACK;
