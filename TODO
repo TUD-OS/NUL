@@ -60,4 +60,3 @@
 
  - fix handling of bytes-per-scanline
  - implement "jump to page"
-
