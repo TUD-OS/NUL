@@ -1,11 +1,28 @@
 -*- Mode: Outline -*-
 
+
+* Demos
+  - VM: dope, scout, fbcon, xserver, skype, nova
+  - nethack
+  - tetris
+
 * Usability
 
  - irq routing (ATARE)
  - command language/shell
  - improve vmm command line arguments
  - C-friendly syscall bindings in nova/
+ - move VMM to end of guest memory
+
+* VMM Models
+ - LAPIC
+ - IOAPIC
+ - e1000
+ - PMTimer
+
+* VMM
+ - ACPI in VBIOS
+ - VBIOS for x86emu
 
 * Drivers
 
@@ -38,7 +55,7 @@
  - IP over 1394
  - TCP/IP stack (uIP6)
  - optimized software switch (zero copy)
- 
+
 * Rocknshine
 
  - fix handling of bytes-per-scanline
