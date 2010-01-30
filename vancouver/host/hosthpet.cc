@@ -21,13 +21,12 @@
  * Use the HPET as timer backend.
  *
  * State:    unstable
- * Features: periodic timer, support different timers, one-shot, HPET ACPI table
- * Missing:  MSI
+ * Features: periodic timer, support different timers, one-shot, HPET ACPI table, MSI
  */
 class HostHpet : public StaticReceiver<HostHpet>
 {
   enum {
-    MAX_FREQUENCY = 1000000,
+    MAX_FREQUENCY = 10000,
   };
   DBus<MessageTimeout> &_bus_timeout;
   Clock *_clock;
@@ -112,7 +111,7 @@ public:
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
+  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
     : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer), _irq(theirq)
   {
     Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
@@ -132,17 +131,31 @@ public:
     bool legacy = false;
     if (_irq == ~0u)
       {
-	legacy = _regs->cap & 0x8000 && _timer < 2;
-	if (legacy && _timer == 0) _irq = 2;
-	if (legacy && _timer == 1) _irq = 8;
-	if (!legacy)
+	MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
+
+	// MSI supported?
+	if ((_regs->timer[_timer].config & (1<<15)) &&  bus_hostop.send(msg1))
 	  {
-	    if (!_regs->timer[_timer].int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
-	    _irq = Cpu::bsf(_regs->timer[_timer].int_route);
+	    _irq = msg1.value;
+	    _regs->timer[_timer].msi[0] = MSI_VALUE + _irq;
+	    _regs->timer[_timer].msi[1] = MSI_ADDRESS;
+	    // enable MSI
+	    _regs->timer[_timer].config |= 1<<14;
+	  }
+	else
+	  {
+	    legacy = _regs->cap & 0x8000 && _timer < 2;
+	    if (legacy && _timer == 0) _irq = 2;
+	    if (legacy && _timer == 1) _irq = 8;
+	    if (!legacy)
+	      {
+		if (!_regs->timer[_timer].int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
+		_irq = Cpu::bsf(_regs->timer[_timer].int_route);
+	      }
+	    if (!legacy && ~_regs->timer[_timer].int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
 	  }
       }
 
-    if (!legacy && ~_regs->timer[_timer].int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
@@ -189,7 +202,7 @@ PARAM(hosthpet,
 
 
 	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2], argv[3]);
+	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2], argv[3]);
 	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
 
