@@ -37,7 +37,7 @@ struct MessageIOIn
     void *ptr;
   };
   MessageIOIn(Type _type, unsigned short _port) : type(_type), port(_port), count(0), value(~0u) {}
-  MessageIOIn(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {} 
+  MessageIOIn(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {}
 };
 
 
@@ -57,7 +57,7 @@ struct MessageIOOut {
     void *ptr;
   };
   MessageIOOut(Type _type, unsigned short _port, unsigned _value) : type(_type), port(_port), count(0), value(_value) {}
-  MessageIOOut(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {} 
+  MessageIOOut(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {}
 };
 
 
@@ -80,7 +80,7 @@ struct MessageMem
 /**
  * A memory write operation.
  */
-struct MessageMemWrite    : public MessageMem 
+struct MessageMemWrite    : public MessageMem
 {
   MessageMemWrite(unsigned long _phys, void *_ptr, unsigned _count) : MessageMem(_phys, _ptr, _count) {}
 };
@@ -98,7 +98,7 @@ struct MessageMemRead     : public MessageMem
 /**
  * A mapping directly to the user.
  */
-struct MessageMemMap     : public MessageMem 
+struct MessageMemMap     : public MessageMem
 {
  MessageMemMap(unsigned long _phys, void *_ptr, unsigned _count) : MessageMem(_phys, _ptr, _count) {}
 };
@@ -270,7 +270,7 @@ struct MessagePit
   bool value;
   MessagePit(Type _type, unsigned _pit, bool _value=false) : type(_type), pit(_pit), value(_value) {}
 };
-  
+
 
 /****************************************************/
 /* Keyboard and Serial messages                     */
@@ -298,7 +298,7 @@ struct MessagePS2
 struct MessageKeycode
 {
   unsigned keyboard;
-  unsigned keycode;
+  Unsigned keycode;
   MessageKeycode(unsigned char _keyboard=0, unsigned _keycode=0) : keyboard(_keyboard), keycode(_keycode) {}
 };
 
@@ -309,7 +309,7 @@ struct MessageKeycode
 struct MessageMouse
 {
   unsigned mouse;
-  unsigned packet;  
+  unsigned packet;
   MessageMouse(unsigned char _mouse, unsigned _packet) : mouse(_mouse), packet(_packet) {}
 };
 
@@ -320,7 +320,7 @@ struct MessageMouse
 struct MessageSerial
 {
   unsigned serial;
-  unsigned char ch;  
+  unsigned char ch;
   MessageSerial(unsigned _serial, unsigned char _ch) : serial(_serial), ch(_ch) {}
 };
 
@@ -389,7 +389,7 @@ struct MessageConsole
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
   MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
-  MessageConsole(const char *_name, char * _ptr, unsigned _size, VgaRegs *_regs) 
+  MessageConsole(const char *_name, char * _ptr, unsigned _size, VgaRegs *_regs)
     : type(TYPE_ALLOC_VIEW), id(~0), name(_name), ptr(_ptr), size(_size), regs(_regs) {}
   MessageConsole(unsigned short _id, unsigned short _view, unsigned _keycode) : type(TYPE_KEY), id(_id), view(_view), keycode(_keycode) {}
 };
@@ -514,8 +514,8 @@ struct MessageDisk
     DISK_STATUS_MASK = (1 << DISK_STATUS_SHIFT) -1,
   } error;
   MessageDisk(unsigned _disknr, DiskParameter *_params) : type(DISK_GET_PARAMS), disknr(_disknr), params(_params) {}
-  MessageDisk(Type _type, unsigned _disknr, unsigned long _usertag, unsigned long long _sector, 
-	      unsigned _dmacount, DmaDescriptor *_dma, unsigned long _physoffset, unsigned long _physsize) 
+  MessageDisk(Type _type, unsigned _disknr, unsigned long _usertag, unsigned long long _sector,
+	      unsigned _dmacount, DmaDescriptor *_dma, unsigned long _physoffset, unsigned long _physsize)
     : type(_type), disknr(_disknr), sector(_sector), usertag(_usertag), dmacount(_dmacount), dma(_dma), physoffset(_physoffset), physsize(_physsize) {}
 };
 
