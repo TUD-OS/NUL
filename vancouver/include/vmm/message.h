@@ -298,7 +298,7 @@ struct MessagePS2
 struct MessageKeycode
 {
   unsigned keyboard;
-  Unsigned keycode;
+  unsigned keycode;
   MessageKeycode(unsigned char _keyboard=0, unsigned _keycode=0) : keyboard(_keyboard), keycode(_keycode) {}
 };
 
