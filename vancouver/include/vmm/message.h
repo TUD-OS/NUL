@@ -176,6 +176,12 @@ struct MessageAhciSetDrive
 /* IRQ messages                                     */
 /****************************************************/
 
+enum {
+  MSI_ADDRESS = 0xfee00000,
+  MSI_VALUE   = 0x20,
+};
+
+
 /**
  * Raise an IRQ.
  */

@@ -183,15 +183,10 @@ class HostPci
 	unsigned ctrl = conf_read(bdf, offset);
 	Logging::printf("MSI cap @%x ctrl %x\n", offset, ctrl);
 	unsigned base = offset + 4;
-	conf_write(bdf, base, 0xfee00000);
-	base += 4;
-	if (ctrl & 0x800000)
-	  {
-	    conf_write(bdf, base, 0);
-	    base += 4;
-	  }
-	// XXX get GSI offset
-	conf_write(bdf, base, 0x20 + gsi);
+	conf_write(bdf, base+0, MSI_ADDRESS);
+	conf_write(bdf, base+4, 0);
+	if (ctrl & 0x800000) base += 4;
+	conf_write(bdf, base+4, MSI_VALUE + gsi);
 
 	// we use only a single message and enable MSIs here
 	conf_write(bdf, offset, (ctrl & ~0x700000) | 0x10000);
