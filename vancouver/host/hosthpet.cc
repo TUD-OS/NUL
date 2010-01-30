@@ -131,35 +131,36 @@ public:
     bool legacy = false;
     if (_irq == ~0u)
       {
-	MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-
-	// MSI supported?
-	if ((_regs->timer[_timer].config & (1<<15)) &&  bus_hostop.send(msg1))
+	if (_regs->cap & 0x8000 && _timer < 2)
 	  {
-	    _irq = msg1.value;
-	    _regs->timer[_timer].msi[0] = MSI_VALUE + _irq;
-	    _regs->timer[_timer].msi[1] = MSI_ADDRESS;
-	    // enable MSI
-	    _regs->timer[_timer].config |= 1<<14;
+	    legacy =  true;
+	    if (_timer == 0) _irq = 2;
+	    else             _irq = 8;
 	  }
 	else
 	  {
-	    legacy = _regs->cap & 0x8000 && _timer < 2;
-	    if (legacy && _timer == 0) _irq = 2;
-	    if (legacy && _timer == 1) _irq = 8;
-	    if (!legacy)
+	    // MSI?
+	    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
+	    if ((_regs->timer[_timer].config & (1<<15)) &&  bus_hostop.send(msg1))
+	      {
+		// enable MSI
+		_irq = msg1.value;
+		_regs->timer[_timer].msi[0] = MSI_VALUE + _irq;
+		_regs->timer[_timer].msi[1] = MSI_ADDRESS;
+		_regs->timer[_timer].config |= 1<<14;
+	      }
+	    else
 	      {
 		if (!_regs->timer[_timer].int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
 		_irq = Cpu::bsf(_regs->timer[_timer].int_route);
 	      }
-	    if (!legacy && ~_regs->timer[_timer].int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
 	  }
       }
-
+    else if (~_regs->timer[_timer].int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
-    _regs->timer[_timer].config = (_regs->timer[_timer].config & ~0xa) | (_irq << 9) | 0x104 | (level ? 2 : 0);
+    _regs->timer[_timer].config = (_regs->timer[_timer].config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (level ? 2 : 0);
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
