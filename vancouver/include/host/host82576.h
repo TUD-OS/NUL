@@ -6,6 +6,16 @@
 #include <vmm/motherboard.h>
 #include <cstdint>
 
+struct EthernetAddr {
+  union {
+    uint64_t raw;
+    uint8_t byte[6];
+  };
+};
+
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC_SPLIT(x) (x)->byte[0], (x)->byte[1], (x)->byte[2],(x)->byte[3], (x)->byte[4], (x)->byte[5]
+
 class Base82576 {
 protected:
 

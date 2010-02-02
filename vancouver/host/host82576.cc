@@ -56,18 +56,6 @@
 // 00:1b:21:4d:e2:e8
 // 00:1b:21:4d:e2:e9
 
-#define ALIGN(x) __attribute__((aligned(x)))
-
-struct EthernetAddr {
-  union {
-    uint64_t raw;
-    uint8_t byte[6];
-  };
-};
-
-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
-#define MAC_SPLIT(x) (x)->byte[0], (x)->byte[1], (x)->byte[2],(x)->byte[3], (x)->byte[4], (x)->byte[5]
-
 void hexdump(const char *data, size_t len)
 {
   const unsigned chars_per_row = 16;
