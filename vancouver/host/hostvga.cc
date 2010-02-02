@@ -32,8 +32,7 @@ public:
   enum {
     MAXVIEWS   = 16,
     MAXCLIENTS = 64,
-    FREQ       = 25,       // refresh FREQ in HZ
-    TIME_TAG   = 3,       // time in FREQ to display the tag
+    TIME_TAG   = 3,       // time in HZ to display the tag
     TEXTMODE   = 0,
     BACKEND_OFFSET = 0x3000,
     BACKEND_SIZE  = 1 << 15,
@@ -45,6 +44,7 @@ private:
   char     _saved[BACKEND_SIZE];
   unsigned _modifier_switch;
   unsigned _modifier_system;
+  unsigned _refresh_freq;
   unsigned _count;
   unsigned _active_client;
   unsigned _active_mode;
@@ -83,14 +83,15 @@ private:
 
   void update_timer()
   {
-    MessageTimer msg(_timer, _mb.clock()->abstime(1, FREQ));
+    if (!_refresh_freq) return;
+    MessageTimer msg(_timer, _mb.clock()->abstime(1, _refresh_freq));
     _mb.bus_timer.send(msg);
   }
 
 
   bool switch_client()
   {
-    _lastswitchtime =  _mb.clock()->clock(FREQ);
+    _lastswitchtime =  _mb.clock()->clock(_refresh_freq);
     assert (_clients[_active_client].active_view <= _clients[_active_client].num_views);
     _measure = true;
     if (!_active_mode)  set_vga_reg(0x14, 0xc, 8*3);
@@ -133,7 +134,7 @@ private:
     data.lastchar = ' ';
     data.ptr = _backend + BACKEND_OFFSET;
 
-    if ((_lastswitchtime + TIME_TAG*FREQ) > _mb.clock()->clock(FREQ))
+    if ((_lastswitchtime + TIME_TAG*_refresh_freq) > _mb.clock()->clock(_refresh_freq))
       {
 	struct View *view = _clients[_active_client].views + _clients[_active_client].active_view;
 	Vprintf::printf(console_putc, &data, "console: %d.%d", _active_client, _clients[_active_client].active_view);
@@ -421,8 +422,8 @@ public:
   }
 
 
-  HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system) :
-    _mb(mb), _backend(backend), _modifier_switch(modifier_switch), _modifier_system(modifier_system),
+  HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system, unsigned refresh_freq) :
+    _mb(mb), _backend(backend), _modifier_switch(modifier_switch), _modifier_system(modifier_system), _refresh_freq(refresh_freq),
     _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0)
   {
     memset(_clients, 0, sizeof(_clients));
@@ -446,22 +447,20 @@ public:
 	// its a textmode
 	_modeinfo.attr = 1;
       }
-    Logging::printf("%s with refresh FREQ %d\n", __func__, FREQ);
+    Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
   }
 };
 
 PARAM(hostvga,
       {
-	unsigned modifier_switch = KBFLAG_LWIN;
-	unsigned modifier_system = KBFLAG_RWIN;
-	if (~argv[0]) modifier_switch = argv[0];
-	if (~argv[1]) modifier_system = argv[1];
-
+	unsigned modifier_switch = ~argv[0] ? argv[0] : (0 + KBFLAG_LWIN);
+	unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
+	unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");
-	new HostVga(mb, msg.ptr, modifier_switch, modifier_system);
+	new HostVga(mb, msg.ptr, modifier_switch, modifier_system, refresh_freq);
       },
-      "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN> - provide a VGA console.",
+      "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.",
       "Example: 'hostvga'.",
       "Use 'hostvga:0x10000,0x20000' to use LCTRL and RCTRL as keymodifier."
       "See keyboard.h for definitions.")
