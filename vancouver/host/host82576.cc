@@ -56,33 +56,6 @@
 // 00:1b:21:4d:e2:e8
 // 00:1b:21:4d:e2:e9
 
-void hexdump(const char *data, size_t len)
-{
-  const unsigned chars_per_row = 16;
-  const char *data_end = data + len;
-  size_t cur = 0;
-  while (cur < len) {
-    Logging::printf("%08x:", cur);
-    for (unsigned i = 0; i < chars_per_row; i++)
-      if (data+i < data_end) {
-	Logging::printf(" %02x", ((const unsigned char *)data)[i]);
-      } else {
-	Logging::printf("   ");
-      }
-    Logging::printf(" | ");
-    for (unsigned i = 0; i < chars_per_row; i++) {
-      if (data < data_end) {
-	Logging::printf("%c", ((data[0] >= 32) && (data[0] > 0)) ? data[0] : '.');
-      } else {
-	Logging::printf(" ");
-      }
-      data++;
-    }
-    Logging::printf("\n");
-    cur += chars_per_row;
-  }
-}
-
 class VF82576 : public Base82576
 {
   volatile uint32_t *_hwreg;
