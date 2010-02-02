@@ -86,16 +86,12 @@ class HostIde : public StaticReceiver<HostIde>
 	if (read)
 	  {
 	    if (wait_disk_state(0x88, 0x08, 10000)) return ~0x3ffU | inb(_iobase + 7); // wait 10seconds that we got the data
-	    MessageIOIn msg(MessageIOIn::TYPE_INW, _iobase, outlen, output);
-	    if (!_bus_hwioin.send(msg))
-	      Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, _iobase);
+	    insw(output, outlen, _iobase);
 	  }
 	else
 	  {
 	    if (wait_disk_state(0x88, 0x08, 100)) return ~0x4ffU | inb(_iobase + 7); // wait 100ms that we can send the data
-	    MessageIOOut msg(MessageIOOut::TYPE_OUTW, _iobase, outlen, output);
-	    if (!_bus_hwioout.send(msg))
-	      Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, _iobase);
+	    outsw(output, outlen, _iobase);
 	  }
 	if (wait_disk_state(0x88, 0, 20)) return ~0x5ffU | inb(_iobase + 7); // wait 20ms to let status settle and make sure there is no data left to transfer
       }
