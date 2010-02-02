@@ -54,7 +54,8 @@ protected:
     IMC       = 0x0150C/4,	// Interrupt Mask Clear
     GPIE      = 0x01514/4,	// General Purpose Interrupt Enable
 
-    EIMS      = 0x01528/4,	// Extended Interrupt Mask Clear
+    EIAC      = 0x0152C/4,	// Extended Interrupt Auto Clear
+    EIMS      = 0x01524/4,	// Extended Interrupt Mask Clear
     EICR      = 0x01580/4,
 
     // General
@@ -136,16 +137,18 @@ protected:
   };
 
   enum Interrupt {
-    IRQ_TXDW      = 1<<7,	// Transmit Descriptor Writeback
-    IRQ_LSC       = 1<<2,       // Link Status Change
-    IRQ_RXO       = 1<<6,	// Receiver Overrun
-    IRQ_RXDW      = 1<<7,	// Receive Descriptor Writeback
-    IRQ_VMMB      = 1<<8,	// VM Mailbox/FLR
-    IRQ_FER       = 1<<22,      // Fatal Error
-    IRQ_NFER      = 1<<23,      // Non-Fatal Error
-    IRQ_SWD       = 1<<26,      // Software Watchdog expired
+    IRQ_TXDW      = 1U<<7,	// Transmit Descriptor Writeback
+    IRQ_LSC       = 1U<<2,	// Link Status Change
+    IRQ_RXO       = 1U<<6,	// Receiver Overrun
+    IRQ_RXDW      = 1U<<7,	// Receive Descriptor Writeback
+    IRQ_VMMB      = 1U<<8,	// VM Mailbox/FLR
+    IRQ_FER       = 1U<<22,	// Fatal Error
+    IRQ_NFER      = 1U<<23,	// Non-Fatal Error
+    IRQ_SWD       = 1U<<26,	// Software Watchdog expired
+    IRQ_TIMER     = 1U<<30,
     IRQ_INTA      = 1U<<31,     // INTA asserted (not available for MSIs)
 
+    GPIE_NSICR         = 1U<<0,	// Non-Selective Interrupt Clear
     GPIE_MULTIPLE_MSIX = 1U<<4,
     GPIE_PBA           = 1U<<31,
   };

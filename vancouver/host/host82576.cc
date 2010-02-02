@@ -56,7 +56,7 @@
 // 00:1b:21:4d:e2:e8
 // 00:1b:21:4d:e2:e9
 
-class VF82576 : public Base82576
+class VF82576 : public Base82576, public StaticReceiver<VF82576>
 {
   volatile uint32_t *_hwreg;
 
@@ -78,9 +78,6 @@ public:
     // XXX assert that PF is done
     //assert(_hwreg[VMB] & ... );
 
-    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
-    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
-
     // XXX Bad CopynPaste coding...
     msg(VF, "Trying to reset the VF...\n");
     _hwreg[VCTRL] = _hwreg[VCTRL] | CTRL_RST;
@@ -90,7 +87,8 @@ public:
     msg(VF, "... done\n");
 
     msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
-    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
+
+    
   }
 };
 
@@ -165,6 +163,13 @@ private:
     
     msg(VF, "Message from VF%d: PFMBX %08x PFMBXMEM[0] %08x.\n", vf_no,
 	_hwreg[pfmbx], _hwreg[pfmbxmem]);
+    {
+      uint32_t dt[0x10];
+      for (unsigned i = 0; i < 0x10; i++)
+	dt[i] = _hwreg[pfmbxmem + i];
+      Logging::hexdump(dt, sizeof(dt));
+      Logging::printf("dt[0] = %08x\n", dt[0]);
+    }
 
     switch (mem0) {
     case VF_RESET: {
@@ -178,12 +183,13 @@ private:
       _hwreg[pfmbxmem] = mem0 | ACK;
       _hwreg[pfmbxmem + 1] = raw[0];
       _hwreg[pfmbxmem + 2] = raw[1];
+      _hwreg[pfmbx] = Ack | Sts;
     }
     default:
       _hwreg[pfmbxmem] = mem0 | NACK;
     };
 
-    _hwreg[pfmbx] = Sts | Ack;
+
   }
 
   void handle_vf_ack(unsigned vf_no)
@@ -211,7 +217,11 @@ public:
 
     uint32_t icr  = _hwreg[ICR];
     uint32_t eicr = _hwreg[EICR];
-    msg(IRQ, "IRQ! ICR = %08x EICR = %08x\n", icr, eicr);
+    _hwreg[ICR] = icr;
+    _hwreg[EICR] = eicr;
+
+    msg(IRQ, "IRQ %d! ICR = %08x EICR = %08x\n", irq_msg.line, icr, eicr);
+    msg(IRQ, "        IMS = %08x EIMS = %08x\n", _hwreg[IMS], _hwreg[EIMS]);
     if ((eicr|icr) == 0) return false;
 
     if (icr & IRQ_LSC) {
@@ -305,12 +315,14 @@ public:
 
 	  if (bar_i == (msix_table & 7)) {
 	    _msix_table = reinterpret_cast<struct msix_table *>(iomsg.ptr + (msix_table&~0x7));
-	    msg(INFO, "MSI-X Table at %p (phys %x, elements %x).\n", _msix_table, phys_addr, _msix_table_size);
+	    msg(INFO, "MSI-X Table at %p (phys %x, %d elements).\n", _msix_table,
+		phys_addr + (msix_table&~0x7), _msix_table_size);
 	  }
 	  
 	  if (bar_i == (msix_pba & 7)) {
 	    _msix_pba = reinterpret_cast<volatile uint64_t *>(iomsg.ptr + (msix_pba&~0x7));
-	    msg(INFO, "MSI-X PBA   at %p (phys %x, elements %x).\n", _msix_pba, phys_addr, _msix_table_size);
+	    msg(INFO, "MSI-X PBA   at %p (phys %x, %d elements).\n", _msix_pba,
+		phys_addr + (msix_pba&~0x7), _msix_table_size);
 	  }
 
 	  } else {
@@ -381,28 +393,30 @@ public:
     msg(IRQ, "Attached to IRQ %u. Waiting for link to come up.\n", hostirq);
 
     // Configuring one MSI-X vector
-    
-    // XXX Enabling the PBA bit without MULTIPLE_MSIX seems to freeze
-    //     the whole box. The datasheet implies that this is a poor
-    //     choice anyway...
-    //_hwreg[GPIE] = (_hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX) | GPIE_PBA;
-
     // Disable MULTIPLE_MSIX feature. We use just one.
-    _hwreg[GPIE] = _hwreg[GPIE] & ~GPIE_MULTIPLE_MSIX;
 
-    pci.conf_write(bdf, msix_cap, pci.conf_read(bdf, msix_cap) | MSIX_ENABLE);
-    _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
-    _msix_table[0].msg_data = hostirq + 0x20;
-    _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
-    msg(IRQ, "MSI-X setup complete.\n");
+    // _hwreg[GPIE] = _hwreg[GPIE] | GPIE_PBA;
+    // _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
+    // _msix_table[0].msg_data = hostirq + 0x20;
+    // _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
+    // pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
+    // msg(IRQ, "MSI-X setup complete.\n");
+
+    msg(INFO, "GPIE %08x\n", _hwreg[GPIE]);
+    _hwreg[GPIE] = _hwreg[GPIE] & ~(GPIE_MULTIPLE_MSIX | GPIE_NSICR | GPIE_PBA);
+    msg(INFO, "GPIE %08x\n", _hwreg[GPIE]);
+    assert(pci.enable_msi(bdf, hostirq));
 
     // Wait for Link Up event
     //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
     _hwreg[IMS] = ~0U;
+    _hwreg[EIMS] = ~0U;
 
     // PF Setup complete
     _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
     msg(INFO, "Initialization complete.\n");
+
+    _hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
 
     // VFs
     // unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
