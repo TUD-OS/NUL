@@ -138,8 +138,9 @@ public:
     };
     switch (scancode)
       {
-      case 0xE1:
-      case 0xE0:
+      case 0xff: return 0x00;
+      case 0xe1:
+      case 0xe0:
 	return scancode;
       default:
 	return map[scancode & 0x7f];

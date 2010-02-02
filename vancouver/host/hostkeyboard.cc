@@ -199,6 +199,9 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     unsigned nflag = 0;
     switch (key)
       {
+      case 0x00:        // overrun
+	_flags &= KBFLAG_NUM;
+	return;
       case 0xE0:
 	_flags |= KBFLAG_EXTEND0;
 	return;
