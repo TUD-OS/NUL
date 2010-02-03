@@ -2,6 +2,6 @@
 
 import nul
 Import('target_env')
-nul.Lib(target_env, 'executor', SOURCES = Glob('*.cc'))
+nul.Lib(target_env, 'executor', SOURCES = Glob('#/executor/*.cc'))
 
 # EOF
