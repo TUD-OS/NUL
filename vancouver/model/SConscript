@@ -2,7 +2,7 @@
 
 import nul
 Import('target_env')
-nul.Lib(target_env, 'model', SOURCES = filter(lambda x: x.name != 'qemu_net.cc', Glob('#/model/*.cc')))
+nul.Lib(target_env, 'model', SOURCES = filter(lambda x: x.name != 'qemu_net.cc', Glob('*.cc')))
 
 qemu_env = target_env.Clone()
 qemu_env.Append(CPPPATH = ["../contrib/qemu/src/", "../contrib/qemu/modified/"])

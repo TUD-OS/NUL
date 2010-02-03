@@ -4,7 +4,7 @@ import nul
 Import('target_env')
 
 nul.Lib(target_env, 'host',
-        SOURCES = filter(lambda x: x.name != 'hostvesa.cc',Glob('#/host/*.cc')))
+        SOURCES = filter(lambda x: x.name != 'hostvesa.cc',Glob('*.cc')))
 nul.Lib(target_env, 'hostvesa', SOURCES = ['hostvesa.cc',
                                            '../model/memorycontroller.o',
                                            '../executor/novahalifax.o',
