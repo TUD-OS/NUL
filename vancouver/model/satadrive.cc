@@ -201,9 +201,6 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	sector = _regs[1] & 0x0fffffff;
       }
 
-    static unsigned debug_cnt;
-    if (!(debug_cnt++ & 0xfff)) Logging::printf("%s SECTORS offset %llx len %x prd %x\n", read ? "READ" : "WRITE", sector << 9, len, _dsf[3]);
-
     if (!_dsf[3]) return 0;
     unsigned long prdbase = _dsf[1] | static_cast<unsigned long long>(_dsf[2]) << 32;
 
