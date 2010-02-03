@@ -263,9 +263,24 @@ public:
     if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
 
     uint32_t icr = _hwreg[ICR];
-    if (icr == 0) return false;	// Spurious IRQ
 
-    msg(IRQ, "IRQ! ICR %08x%s\n", icr, (icr & IRQ_TIMER) ? " Ping!" : "");
+    if ((icr & _hwreg[IMS]) == 0) {
+      // Spurious IRQ.
+      msg(INFO, "Spurious IRQ! ICR %08x%s\n", icr, (icr & IRQ_TIMER) ? " Ping!" : "");
+      log_device_status();
+      // msg(INFO, "VTEICR[0] %08x VTIVAR[0] %08x VTIVARMISC[0] %08x\n",
+      // 	  _hwreg[0x10080/4], _hwreg[0x1700/4], _hwreg[0x1720/4]);
+      // for (unsigned i = 0; i < 8; i++) {
+      // 	msg(INFO, "IVAR[%u] = %08x\n", i, _hwreg[IVAR0 + i]);
+      // }
+      // msg(INFO, "IVAR_MISC  = %08x\n", _hwreg[IVAR_MISC]);
+      
+      // for (unsigned i = 0; i < _msix_table_size; i++) {
+      // 	msg(INFO, "MSIX[%u] = %08x %08x %016llx\n", i, _msix_table[i].vector_control,
+      // 	    _msix_table[i].msg_data, _msix_table[i].msg_addr);
+      // }
+      return false;
+    }
 
     if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
