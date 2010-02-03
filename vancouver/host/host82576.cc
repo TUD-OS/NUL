@@ -426,6 +426,8 @@ public:
     // communication.
     _hwreg[VT_CTL] |= VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
 
+    _hwreg[MRQC] = MRQC_MRQE_011; // Filter via MAC, always use default queue of pool
+
     // Disable RX and TX for all VFs.
     _hwreg[VFRE] = 0;
     _hwreg[VFTE] = 0;

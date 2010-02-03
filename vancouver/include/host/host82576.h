@@ -75,6 +75,7 @@ protected:
     // VT
     VT_CTL    = 0x0581C/4,	// VMDq control register
     VMOLR0    = 0x05AD0/4,	// VM Offload Register 0 (0..7)
+    MRQC      = 0x05818/4,	// Multiple Receive Queues Command
     PFMB0     = 0x00C00/4,	// PF Mailbox (+ 4*VFno)
     PFMBMEM   = 0x00800/4,	// PF Mailbox Memory (+ 0x40*VFno)
 
