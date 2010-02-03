@@ -159,37 +159,45 @@ private:
   {
     unsigned pfmbx    = PFMB0 + vf_no;
     unsigned pfmbxmem = PFMBMEM + vf_no*0x10;
-    unsigned mem0     = _hwreg[pfmbxmem];
-    
-    msg(VF, "Message from VF%d: PFMBX %08x PFMBXMEM[0] %08x.\n", vf_no,
-	_hwreg[pfmbx], _hwreg[pfmbxmem]);
-    {
-      uint32_t dt[0x10];
-      for (unsigned i = 0; i < 0x10; i++)
-	dt[i] = _hwreg[pfmbxmem + i];
-      Logging::hexdump(dt, sizeof(dt));
-      Logging::printf("dt[0] = %08x\n", dt[0]);
+    uint32_t mbxmsg[0x10];
+
+    // Message copy-in
+    for (unsigned i = 0; i < 0x10; i++)
+      mbxmsg[i] = _hwreg[pfmbxmem + i];
+
+    // ACK Message and claim buffer
+    _hwreg[pfmbx] = Ack;
+
+    msg(VF, "Message from VF%d: PFMBX %08x.\n", vf_no, _hwreg[pfmbx]);
+    Logging::hexdump(mbxmsg, 12);	// Dump control world plus MAC address (if any)
+
+    _hwreg[pfmbx] = PFU;
+    if ((_hwreg[pfmbx] & PFU) == 0) {
+      msg(VF, "Could not claim mailbox.\n");
+      return;
     }
 
-    switch (mem0) {
+    switch (mbxmsg[0]) {
+    case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
     case VF_RESET: {
+      // XXX Clear relevant registers and stuff (i.e. do a real reset for the VF)
       union {
-	char mac_addr[6];
-	uint32_t raw[2];
+    	char mac_addr[6];
+    	uint32_t raw[2];
       };
       raw[1] = 0;		// Don't pass garbage to VF
       // XXX Make this configurable!
-      mac_addr = { 0xa6, 0xd9, 0xed, 0x36, 0x44, vf_no }; 
-      _hwreg[pfmbxmem] = mem0 | ACK;
+      mac_addr = { 0xa6, 0xca, 0xfe, 0xba, 0xbe, vf_no }; 
+      _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
       _hwreg[pfmbxmem + 1] = raw[0];
       _hwreg[pfmbxmem + 2] = raw[1];
-      _hwreg[pfmbx] = Ack | Sts;
     }
     default:
-      _hwreg[pfmbxmem] = mem0 | NACK;
+      // Send NACK for unrecognized messages.
+      _hwreg[pfmbxmem] = mbxmsg[0] | NACK;
     };
 
-
+    _hwreg[pfmbx] = Sts;	// Send response
   }
 
   void handle_vf_ack(unsigned vf_no)
@@ -215,31 +223,23 @@ public:
   {
     if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
 
-    uint32_t icr  = _hwreg[ICR];
-    uint32_t eicr = _hwreg[EICR];
-    _hwreg[ICR] = icr;
-    _hwreg[EICR] = eicr;
+    uint32_t icr = _hwreg[ICR];
+    if (icr == 0) return false;	// Spurious IRQ
 
-    msg(IRQ, "IRQ %d! ICR = %08x EICR = %08x\n", irq_msg.line, icr, eicr);
-    msg(IRQ, "        IMS = %08x EIMS = %08x\n", _hwreg[IMS], _hwreg[EIMS]);
-    if ((eicr|icr) == 0) return false;
+    msg(IRQ, "IRQ! ICR %08x%s\n", icr, (icr & IRQ_TIMER) ? " Ping!" : "");
+    log_device_status();
 
     if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
-      msg(IRQ, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
+      msg(INFO, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
       if (gone_up) {
 	_hwreg[RCTL] |= RCTL_RXEN | RCTL_BAM;
 	_hwreg[TCTL] |= TCTL_TXEN;
-	//_rx->enable();
-	msg(TX | RX | IRQ, "RX/TX enabled.\n");
       } else {
 	// Down
-	msg(TX | RX | IRQ, "RX/TX disabled.\n");
 	_hwreg[RCTL] &= ~RCTL_RXEN;
 	_hwreg[TCTL] &= ~TCTL_TXEN;
       }
-
-      log_device_status();
     }
 
     if (icr & IRQ_VMMB) {
@@ -272,7 +272,7 @@ public:
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
 	    unsigned bdf, unsigned hostirq)
-    : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -337,8 +337,8 @@ public:
     /// Initialization (4.5)
     msg(INFO, "Perform Global Reset.\n");
     // Disable interrupts
-    _hwreg[IMS] = 0;
-    _hwreg[EIMS] = 0;
+    _hwreg[IMC] = ~0U;
+    _hwreg[EIMC] = ~0U;
 
     // Global Reset (5.2.3.3)
     _hwreg[CTRL] = _hwreg[CTRL] | CTRL_GIO_MASTER_DISABLE;
@@ -351,21 +351,36 @@ public:
       Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
 
     // Disable Interrupts (again)
-    _hwreg[IMS] = 0;
-    _hwreg[EIMS] = 0;
+    _hwreg[IMC] = ~0U;
+    _hwreg[EIMC] = ~0U;
     msg(INFO, "Global Reset successful.\n");
 
-    // XXX Do we need to do anything for flow control?
+    // IRQ
+    MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
+    if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
+      Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
 
-    // Direct Copper link mode (set link mode to 0)
-    _hwreg[CTRL_EXT] &= ~CTRL_EXT_LINK_MODE;
+    // Configuring one MSI-X vector: We have to use Multiple-MSI-X
+    // mode, because SR-IOV is on. Beware, that we can only use one
+    // internal interrupt vector (vector 0). The 82576 has 25, but
+    // each of the 8 VMs needs 3.
+    _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
+    _msix_table[0].msg_data = hostirq + 0x20;
+    _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
+    pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
+    _hwreg[GPIE] = GPIE_EIAME | GPIE_MULTIPLE_MSIX | GPIE_PBA | GPIE_NSICR; // 7.3.2.11
 
-    // Enable PHY autonegotiation (4.5.7.2.1)
-    _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
+    // Disable all RX/TX interrupts.
+    for (unsigned i = 0; i < 8; i++)
+      _hwreg[IVAR0 + i] = 0;
 
-    // XXX Set CTRL.RFCE/CTRL.TFCE
+    // Map the TCP timer and other interrupt cause to internal vector 0.
+    _hwreg[IVAR_MISC] = 0x8080;
 
+    msg(INFO, "Attached to IRQ %u (MSI-X).\n", hostirq);
+    
     // VT Setup
+    msg(INFO, "Configuring VFs...\n");
     _hwreg[QDE] |= 0xFFFF;	// Enable packet dropping for all 16
 				// queues.
     // Disable default pool. Uninteresting packets will be
@@ -380,43 +395,30 @@ public:
     // Allow all VFs to send IRQs to us.
     _hwreg[MBVFIMR] = 0xFF;
 
+    // Wait for Link Up and VM mailbox events.
+    msg(INFO, "Enabling interrupts...\n");
+    _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
+    _hwreg[EIMS] = 1;
+    _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
+
+    // PF Setup complete
+    msg(INFO, "Notifying VFs that PF is done...\n");
+    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
+
+
+    msg(INFO, "Configuring link parameters...\n");
+    // Direct Copper link mode (set link mode to 0)
+    _hwreg[CTRL_EXT] &= ~CTRL_EXT_LINK_MODE;
+    // Enable PHY autonegotiation (4.5.7.2.1)
+    _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
+
     _mac = ethernet_address();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 
-    // We would setup RX queues here, if we'd use any.
-    //_rx = new RXQueue(this, 0);
-
-    // IRQ
-    MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
-    if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
-      Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
-    msg(IRQ, "Attached to IRQ %u. Waiting for link to come up.\n", hostirq);
-
-    // Configuring one MSI-X vector
-    // Disable MULTIPLE_MSIX feature. We use just one.
-
-    // _hwreg[GPIE] = _hwreg[GPIE] | GPIE_PBA;
-    // _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
-    // _msix_table[0].msg_data = hostirq + 0x20;
-    // _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
-    // pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
-    // msg(IRQ, "MSI-X setup complete.\n");
-
-    msg(INFO, "GPIE %08x\n", _hwreg[GPIE]);
-    _hwreg[GPIE] = _hwreg[GPIE] & ~(GPIE_MULTIPLE_MSIX | GPIE_NSICR | GPIE_PBA);
-    msg(INFO, "GPIE %08x\n", _hwreg[GPIE]);
-    assert(pci.enable_msi(bdf, hostirq));
-
-    // Wait for Link Up event
-    //_hwreg[IMS] = IRQ_LSC | IRQ_FER | IRQ_NFER | IRQ_RXDW | IRQ_RXO | IRQ_TXDW;
-    _hwreg[IMS] = ~0U;
-    _hwreg[EIMS] = ~0U;
-
-    // PF Setup complete
-    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
     msg(INFO, "Initialization complete.\n");
 
-    _hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
+    // Starting timer (every 0.25s)
+    //_hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
 
     // VFs
     // unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);

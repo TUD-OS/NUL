@@ -52,11 +52,17 @@ protected:
     ICS       = 0x01504/4,
     IMS       = 0x01508/4,	// Interrupt Mask Set/Read
     IMC       = 0x0150C/4,	// Interrupt Mask Clear
+    IAM       = 0x01510/4,	// Interrupt auto Mask
     GPIE      = 0x01514/4,	// General Purpose Interrupt Enable
 
-    EIAC      = 0x0152C/4,	// Extended Interrupt Auto Clear
-    EIMS      = 0x01524/4,	// Extended Interrupt Mask Clear
+    EICS      = 0x01520/4,	// Extended Interrupt Cause Set
+    EIAC      = 0x0152C/4,	// Extended Interrupt Auto Mask Clear
+    EIMS      = 0x01524/4,	// Extended Interrupt Mask Set
+    EIMC      = 0x01528/4,	// Extended Interrupt Mask Clear
+    EIAM      = 0x01530/4,	// Extended Interrupt Auto Mask Enable
     EICR      = 0x01580/4,
+    IVAR0     = 0x01700/4,	// Interrupt Vector Allocation (0..7)
+    IVAR_MISC = 0x01740/4,
 
     // General
     RCTL      = 0x00100/4,	// RX Control
@@ -148,8 +154,12 @@ protected:
     IRQ_TIMER     = 1U<<30,
     IRQ_INTA      = 1U<<31,     // INTA asserted (not available for MSIs)
 
+    EIRQ_TIMER    = 1U<<30,
+    EIRQ_OTHER    = 1U<<31,
+
     GPIE_NSICR         = 1U<<0,	// Non-Selective Interrupt Clear
     GPIE_MULTIPLE_MSIX = 1U<<4,
+    GPIE_EIAME         = 1U<<30,
     GPIE_PBA           = 1U<<31,
   };
 
