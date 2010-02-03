@@ -284,7 +284,7 @@ public:
     if (icr & IRQ_VMMB) {
       uint32_t vflre  = _hwreg[VFLRE];
       uint32_t mbvficr = _hwreg[MBVFICR];
-      uint32_t mbvfimr = _hwreg[MBVFIMR];
+      //uint32_t mbvfimr = _hwreg[MBVFIMR];
       //msg(VF, "VMMB: VFLRE %08x MBVFICR %08x MBVFIMR %08x\n", vflre, mbvficr, mbvfimr);
 
       // Check FLRs
