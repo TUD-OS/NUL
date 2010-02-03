@@ -74,6 +74,7 @@ protected:
 
     // VT
     VT_CTL    = 0x0581C/4,	// VMDq control register
+    VMOLR0    = 0x05AD0/4,	// VM Offload Register 0 (0..7)
     PFMB0     = 0x00C00/4,	// PF Mailbox (+ 4*VFno)
     PFMBMEM   = 0x00800/4,	// PF Mailbox Memory (+ 0x40*VFno)
 
@@ -106,6 +107,13 @@ protected:
   enum VT {
     VT_CTL_DIS_DEF_POOL = 1U<<29, // Disable default pool
     VT_CTL_REP_ENABLE   = 1U<<30, // Replication enable
+
+    VMOLR_RPML_MASK     = (1U << 14) - 1,
+    VMOLR_LPE           = 1U << 16, // Long Packets Enable
+    VMOLR_AUPE          = 1U << 24, // Accept Untagged Packets Enable
+    VMOLR_BAM           = 1U << 27, // Broadcast Accept
+    VMOLR_STRVLAN       = 1U << 30, // Strip VLAN Tag
+    VMOLR_DEFAULT       = 1U << 31, // Default value. Must always be set.
   };
 
   enum Ctrl {

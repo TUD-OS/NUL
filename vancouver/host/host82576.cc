@@ -146,17 +146,21 @@ private:
   }
 
   enum MBX {
-    VF_RESET        = 0x0001U,
-    VF_SET_MAC_ADDR = 0x0002U,
-    PF_CONTROL_MSG  = 0x0100U,
+    VF_RESET         = 0x0001U,
+    VF_SET_MAC_ADDR  = 0x0002U,
+    VF_SET_MULTICAST = 0x0003U,
+    VF_SET_LPE       = 0x0005U,
 
-    ACK             = 0x80000000U,
-    NACK            = 0x40000000U,
-    CTS             = 0x20000000U,
+    PF_CONTROL_MSG   = 0x0100U,
+
+    ACK              = 0x80000000U,
+    NACK             = 0x40000000U,
+    CTS              = 0x20000000U,
   };
 
   void handle_vf_message(unsigned vf_no)
   {
+    assert(vf_no < 8);
     unsigned pfmbx    = PFMB0 + vf_no;
     unsigned pfmbxmem = PFMBMEM + vf_no*0x10;
     uint32_t mbxmsg[0x10];
@@ -166,21 +170,22 @@ private:
       mbxmsg[i] = _hwreg[pfmbxmem + i];
 
     // ACK Message and claim buffer
-    _hwreg[pfmbx] = Ack;
+    _hwreg[pfmbx] = Ack | PFU;
 
-    msg(VF, "Message from VF%d: PFMBX %08x.\n", vf_no, _hwreg[pfmbx]);
-    Logging::hexdump(mbxmsg, 12);	// Dump control world plus MAC address (if any)
-
-    _hwreg[pfmbx] = PFU;
+    //_hwreg[pfmbx] = PFU;
     if ((_hwreg[pfmbx] & PFU) == 0) {
-      msg(VF, "Could not claim mailbox.\n");
+      msg(VF, "Message from VF%u, but could not claim mailbox for reply.\n", vf_no);
       return;
     }
 
-    switch (mbxmsg[0]) {
-    case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
+    switch (mbxmsg[0] & 0xFFFF) {
     case VF_RESET: {
       // XXX Clear relevant registers and stuff (i.e. do a real reset for the VF)
+      _hwreg[VFRE] |= 1<<vf_no;
+      _hwreg[VFTE] |= 1<<vf_no;
+
+      _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_STRVLAN | VMOLR_BAM;
+
       union {
     	char mac_addr[6];
     	uint32_t raw[2];
@@ -188,11 +193,31 @@ private:
       raw[1] = 0;		// Don't pass garbage to VF
       // XXX Make this configurable!
       mac_addr = { 0xa6, 0xca, 0xfe, 0xba, 0xbe, vf_no }; 
+      msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT((EthernetAddr *)mac_addr));
       _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
       _hwreg[pfmbxmem + 1] = raw[0];
       _hwreg[pfmbxmem + 2] = raw[1];
+      break;
     }
+    case VF_SET_MULTICAST:
+      msg(INFO, "VF%u SET_MULTICAST(%u) -> ignore.\n", vf_no, (mbxmsg[0] >> 16) & 0xFF);
+      // XXX Just ignore multicast for now.
+      _hwreg[pfmbxmem] = VF_SET_MULTICAST | ACK;
+      break;
+    case VF_SET_LPE:
+      msg(INFO, "VF%u SET_LPE(%u).\n", vf_no, mbxmsg[1]);
+      _hwreg[VMOLR0 + vf_no] = (_hwreg[VMOLR0 + vf_no] & ~VMOLR_RPML_MASK) 
+	| (mbxmsg[1] & VMOLR_RPML_MASK) | VMOLR_LPE;
+      // XXX Adjust value for VLAN tag size?
+      _hwreg[pfmbxmem] = VF_SET_LPE | ACK;
+      break;
+    case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
+      msg(INFO, "VF%u SET_MAC_ADDR. Denied!\n", vf_no);
+      _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | NACK;
+      break;
     default:
+      msg(VF, "Unrecognized message %04x.\n", mbxmsg[0] & 0xFFFF);
+      Logging::hexdump(mbxmsg, 16);	// Dump control world plus some data (if any)
       // Send NACK for unrecognized messages.
       _hwreg[pfmbxmem] = mbxmsg[0] | NACK;
     };
@@ -202,7 +227,7 @@ private:
 
   void handle_vf_ack(unsigned vf_no)
   {
-    msg(VF, "Message ACK from VF%d.\n", vf_no);
+    // msg(VF, "Message ACK from VF%d.\n", vf_no);
   }
 
 public:
@@ -227,7 +252,6 @@ public:
     if (icr == 0) return false;	// Spurious IRQ
 
     msg(IRQ, "IRQ! ICR %08x%s\n", icr, (icr & IRQ_TIMER) ? " Ping!" : "");
-    log_device_status();
 
     if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
@@ -240,13 +264,14 @@ public:
 	_hwreg[RCTL] &= ~RCTL_RXEN;
 	_hwreg[TCTL] &= ~TCTL_TXEN;
       }
+      log_device_status();
     }
 
     if (icr & IRQ_VMMB) {
       uint32_t vflre  = _hwreg[VFLRE];
       uint32_t mbvficr = _hwreg[MBVFICR];
       uint32_t mbvfimr = _hwreg[MBVFIMR];
-      msg(VF, "VMMB: VFLRE %08x MBVFICR %08x MBVFIMR %08x\n", vflre, mbvficr, mbvfimr);
+      //msg(VF, "VMMB: VFLRE %08x MBVFICR %08x MBVFIMR %08x\n", vflre, mbvficr, mbvfimr);
 
       // Check FLRs
       for (uint32_t mask = 1, cur = 0; cur < 8; cur++, mask<<=1)
@@ -303,7 +328,6 @@ public:
 	// Memory BAR
 	// XXX 64-bit bars!
 	uint32_t phys_addr = bar & pci.BAR_MEM_MASK;
-
 	
 	MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, phys_addr & ~0xFFF, size);
 	if (bus_hostop.send(iomsg) && iomsg.ptr) {
