@@ -194,6 +194,18 @@ private:
       // XXX Make this configurable!
       mac_addr = { 0xa6, 0xca, 0xfe, 0xba, 0xbe, vf_no }; 
       msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT((EthernetAddr *)mac_addr));
+
+      uint32_t ral = mac_addr[0] | mac_addr[1]<<8 | mac_addr[2]<<16 | mac_addr[3]<<24;
+      uint32_t rah = mac_addr[4] | mac_addr[5] | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
+
+      // XXX Where is this in the spec? (Which queue belongs to which
+      // VM/pool?) Or doesn't it matter which one we use?
+      //_hwreg[0x54E0/4 + (8 - vf_no - 1)*2] = ral; // RAL
+      //_hwreg[0x54E4/4 + (8 - vf_no - 1)*2] = rah; // RAH
+
+      _hwreg[0x54E0/4 + vf_no*2] = ral;
+      _hwreg[0x54E4/4 + vf_no*2] = rah;
+
       _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
       _hwreg[pfmbxmem + 1] = raw[0];
       _hwreg[pfmbxmem + 2] = raw[1];

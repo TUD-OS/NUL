@@ -179,6 +179,11 @@ protected:
     RCTL_LPE      = 1<<5,	// Long Packet Enable
     RCTL_BAM      = 1<<15,	// Broadcast Accept Mode
     RCTL_BSIZE    = 3<<16,	// Buffer Size (default: 0 = 2K)
+
+    RAH_AV        = 1U<<31,
+    RAH_POOLSEL_SHIFT = 18,
+
+    MRQC_MRQE_011 = 3U,		// Filter via MAC, always use default queue of pool
   };
 
   enum TransmitControl {
