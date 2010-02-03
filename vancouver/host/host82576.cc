@@ -240,6 +240,8 @@ private:
   void handle_vf_ack(unsigned vf_no)
   {
     // msg(VF, "Message ACK from VF%d.\n", vf_no);
+    unsigned pfmbx = PFMB0 + vf_no;
+    _hwreg[pfmbx] = 0;		// Clear Ack
   }
 
 public:
