@@ -49,48 +49,9 @@
 // 	Kernel driver in use: igb
 // 	Kernel modules: igb
 
-// TODO Query extended capabilities.
-// TODO MSI support
-
 // Our test NICs:
 // 00:1b:21:4d:e2:e8
 // 00:1b:21:4d:e2:e9
-
-class VF82576 : public Base82576, public StaticReceiver<VF82576>
-{
-  volatile uint32_t *_hwreg;
-
-public:
-
-  VF82576(HostPci &pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, uint16_t bdf, uint64_t csr_addr, uint64_t msix_addr)
-    : Base82576(clock, ALL, bdf) {
-    msg(INFO, "VF: CSR %08llx MSIX %08llx\n", csr_addr, msix_addr);
-
-    MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, csr_addr & ~0xFFF, 0x4000);
-    if (bus_hostop.send(iomsg) && iomsg.ptr) {
-      _hwreg = reinterpret_cast<uint32_t *>(iomsg.ptr);
-      msg(VF, "CSR @ %p\n", iomsg.ptr);
-    } else {
-      msg(VF, "Mapping CSR memory failed.\n");
-      return;
-    }
-
-    // XXX assert that PF is done
-    //assert(_hwreg[VMB] & ... );
-
-    // XXX Bad CopynPaste coding...
-    msg(VF, "Trying to reset the VF...\n");
-    _hwreg[VCTRL] = _hwreg[VCTRL] | CTRL_RST;
-    spin(1000 /* 1ms */);
-    if (!wait(_hwreg[VCTRL], CTRL_RST, 0))
-      Logging::panic("%s: Reset failed.", __PRETTY_FUNCTION__);
-    msg(VF, "... done\n");
-
-    msg(VF, "Status %08x VMB %08x Timer %08x\n", _hwreg[VSTATUS], _hwreg[VMB], _hwreg[VFRTIMER]);
-
-    
-  }
-};
 
 class Host82576 : public Base82576, public StaticReceiver<Host82576>
 {
@@ -468,29 +429,8 @@ public:
 
     msg(INFO, "Initialization complete.\n");
 
-    // Starting timer (every 0.25s)
+    // Starting timer (every 0.256s)
     //_hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
-
-    // VFs
-    // unsigned sriov_cap = pci.find_extended_cap(bdf, HostPci::EXTCAP_SRIOV);
-    // assert(sriov_cap != 0);
-    
-    // unsigned vf_offset = pci.conf_read(bdf, sriov_cap + 0x14);
-    // unsigned vf_stride = vf_offset >> 16;
-    // vf_offset &= 0xFFFF;
-
-    // for (unsigned cur_vf = 0; cur_vf < enabled_vfs(); cur_vf++) {
-    //   uint16_t vf_bdf = bdf + vf_offset + vf_stride*cur_vf;
-
-    //   assert(pci.vf_bar_size(bdf, 0) == 0x4000);
-    //   uint64_t bar0_base = pci.vf_bar_base(bdf, 0) + pci.vf_bar_size(bdf, 0)*cur_vf;
-    //   uint64_t bar3_base = pci.vf_bar_base(bdf, 3) + pci.vf_bar_size(bdf, 3)*cur_vf;
-
-    //   // Try to drive one VF
-    //   if (cur_vf == 0)
-    // 	new VF82576(pci, bus_hostop, _clock, vf_bdf, bar0_base, bar3_base);
-    // }
-
   }
 };
 
