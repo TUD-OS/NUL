@@ -49,6 +49,24 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
   } _bars[MAX_BAR];
 
+  // MSI handling
+
+  unsigned _msi_cap;
+
+  // MSI-X handling
+
+  unsigned _msix_cap;		// Offset of MSI-X capability
+  unsigned _msix_bir;		// Which BAR contains MSI-X registers?
+  unsigned _msix_table_offset;
+  unsigned _msix_pba_offset;
+  uint16_t _msix_table_size;
+
+  struct {
+    uint64_t guest_msg_addr;
+    uint32_t guest_msg_data;
+    uint32_t vector_control;
+  } *_msix_table;
+
   const char *debug_getname() { return "DirectVFDevice"; }
 
 
@@ -89,9 +107,16 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
-      if (msg.offset == 0)
+      if (msg.offset == 0) {
 	msg.value = _device_vendor_id;
-      else if ((bar = in_bar(msg.offset)) < MAX_BAR) {
+      } else if (_msi_cap && (msg.offset == _msi_cap)) {
+	// Disable cap by setting its type to 0xFF, but keep the
+	// linked list intact.
+	// XXX Protect Message Address and Data fields.
+	msg.value = conf_read(_vf_bdf, msg.offset);
+	msg.value |= 0xFF;
+	return true;
+      } else if ((bar = in_bar(msg.offset)) < MAX_BAR) {
 	switch (_bars[bar].type) {
 	case BAR_64BIT_HI: msg.value = _bars[bar-1].base>>32; break;
 	case BAR_32BIT:    msg.value = (uint32_t)_bars[bar].base | HostPci::BAR_TYPE_32B; break;
@@ -127,6 +152,26 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     return true;
   }
 
+  bool receive(MessageIrq &msg)
+  {
+    return false;
+  }
+
+  bool receive(MessageMemMap &msg)
+  {
+    return false;
+  }
+
+  bool receive(MessageMemRead &msg)
+  {
+    return false;
+  }
+
+  bool receive(MessageMemWrite &msg)
+  {
+    return false;
+  }
+
   DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no, uint16_t guest_bdf)
     : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _parent_bdf(parent_bdf), _guest_bdf(guest_bdf), _vf_no(vf_no)
   {
@@ -146,12 +191,50 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       return;
     }
 
+    // Retrieve device and vendor IDs
+    _device_vendor_id = conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000;
+    _device_vendor_id |= conf_read(parent_bdf, 0) & 0xFFFF;
+    msg("Our device ID is %04x.\n", _device_vendor_id);
+
+    // Compute BDF of VF
+    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
+    unsigned vf_stride = vf_offset >> 16;
+    vf_offset &= 0xFFFF;
+    _vf_bdf = parent_bdf + vf_stride*vf_no + vf_offset;
+    msg("VF is at %04x.\n", _vf_bdf);
+
+    // Put device into our address space
+    MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, _vf_bdf);
+    if (!mb.bus_hostop.send(msg_assign)) {
+      msg("Could not assign %04x/%04x via IO/MMU.\n", parent_bdf, _vf_bdf);
+      return;
+    }
+
+    // IRQ handling (only MSI-X for now)
+    _msi_cap = find_cap(_vf_bdf, CAP_MSI);
+    if (_msi_cap) {
+      Logging::printf("XXX MSI capability found. MSI support will be disabled!\n");
+    }
+    
+    _msix_cap = find_cap(_vf_bdf, CAP_MSIX);
+    if (_msix_cap) {
+      // XXX PBA and table must share the same BAR for now.
+      assert((conf_read(_vf_bdf, _msix_cap + 0x4)&3) == (conf_read(_vf_bdf, _msix_cap + 0x8)&3));
+
+      _msix_table_size   = (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
+      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~3;
+      _msix_table_offset = conf_read(_vf_bdf, _msix_cap + 0x4);
+      _msix_bir = _msix_table_offset & 3;
+      _msix_table_offset &= ~3;
+    }
+    
     // Read BARs and masks.
     for (unsigned i = 0; i < MAX_BAR; i++) {
       bool b64;
       _bars[i].base = vf_bar_base(parent_bdf, i);
       _bars[i].size = vf_bar_size(parent_bdf, i, &b64);
 
+      // Don't spill over into 64-bit land.
       assert(((_bars[i].base + _bars[i].size*numvfs) >> 32) == 0);
 
       _bars[i].base += _bars[i].size*vf_no;
@@ -190,32 +273,18 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       if (_bars[i].type != BAR_32BIT) i++;
     }
 
+    // We want to map memory into VM space and intercept some accesses.
+    mb.bus_memmap.add(this, &DirectVFDevice::receive_static<MessageMemMap>);
+    mb.bus_memread.add(this, &DirectVFDevice::receive_static<MessageMemRead>);
+    mb.bus_memwrite.add(this, &DirectVFDevice::receive_static<MessageMemWrite>);
 
-    _device_vendor_id = conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000;
-    _device_vendor_id |= conf_read(parent_bdf, 0) & 0xFFFF;
-    msg("Our device ID is %04x.\n", _device_vendor_id);
 
-    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
-    unsigned vf_stride = vf_offset >> 16;
-    vf_offset &= 0xFFFF;
-    _vf_bdf = parent_bdf + vf_stride*vf_no + vf_offset;
-    msg("VF is at %04x.\n", _vf_bdf);
-
-    // TODO Map VFs memory
-    // TODO Emulate BAR access
-    // TODO IRQs
-
-    MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, _vf_bdf);
-    if (!mb.bus_hostop.send(msg_assign)) {
-      msg("Could not assign %04x/%04x via IO/MMU.\n", parent_bdf, _vf_bdf);
-      return;
-    }
-
-    // Add device to bus
+    // Add device to virtual PCI bus
     MessagePciBridgeAdd msg(guest_bdf & 0xff, this, &DirectVFDevice::receive_static<MessagePciConfig>);
     if (!mb.bus_pcibridge.send(msg, guest_bdf >> 8)) {
       Logging::printf("Could not add PCI device to %x\n", guest_bdf);
     }
+
   }
 };
 
@@ -224,11 +293,11 @@ PARAM(vfpci,
 	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	uint16_t parent_bdf = argv[0];
 	unsigned vf_no      = argv[1];
-	uint16_t guest_bdf   = argv[2];
+	uint16_t guest_bdf  = argv[2];
 
 	Logging::printf("VF %08x\n", pci.conf_read(parent_bdf, 0));
 	new DirectVFDevice(mb, parent_bdf, vf_no, guest_bdf);
-
+	
       },
       "vfpci:parent_bdf,vf_no,guest_bdf");
 
