@@ -64,7 +64,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
   unsigned in_bar(unsigned addr)
   {
-    if (in_range(addr, 0x10, 0x10 + MAX_BAR*4))
+    if (in_range(addr, 0x10, MAX_BAR*4))
       return (addr - 0x10) >> 2;
     else
       return ~0U;
