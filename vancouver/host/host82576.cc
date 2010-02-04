@@ -252,7 +252,7 @@ public:
     // with the MAC address stored in the EEPROM.
     EthernetAddr a = {{ _hwreg[RAL0] | (((uint64_t)_hwreg[RAH0] & 0xFFFF) << 32) }};
 
-    if ((_bdf & 0xF) == 1)
+    if ((_bdf & 0x3) == 1)
       a.byte[5] ^= 1;
 
     return a;
