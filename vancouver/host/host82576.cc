@@ -192,7 +192,7 @@ private:
       };
       raw[1] = 0;		// Don't pass garbage to VF
       // XXX Make this configurable!
-      mac_addr = { 0xa6, 0xca, 0xfe, 0xba, 0xbe, vf_no }; 
+      mac_addr = { 0x00, 0xDE, 0xBA, 0xC1, 0xE0, (_bdf & 0xF)<<4 | vf_no }; 
       msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT((EthernetAddr *)mac_addr));
 
       uint32_t ral = mac_addr[0] | mac_addr[1]<<8 | mac_addr[2]<<16 | mac_addr[3]<<24;
