@@ -169,12 +169,14 @@ class HostPci
       case 0x3a228086: return 0x13;
       case 0x43911002: return 0x16;
       }
-    return gsi_override;
+    return conf_read(bdf, 0x3c) & 0xff;
   }
 
 
   bool enable_msi(unsigned bdf, unsigned char gsi)
   {
+    if (gsi < 24) return false;
+
     // use msi
     unsigned offset = find_cap(bdf, 0x5);
     Logging::printf("find MSI cap %x\n", offset);
