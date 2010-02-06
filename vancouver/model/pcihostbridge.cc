@@ -48,7 +48,6 @@ class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticR
 	unsigned bdf = msg.bdf;
 	msg.bdf = 0;
 	res = _bus_pcicfg.send(msg, true, bdf);
-	Logging::printf("send message %x bdf %x ofs %x = %x %x\n", msg.type, bdf, msg.offset, msg.value, res);
       }
     else if (bus >= _secondary && bus <= _subordinate)
 	res = _bus_pcicfg.send(msg);
