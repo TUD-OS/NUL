@@ -13,5 +13,5 @@ nul.Lib(target_env, 'hostvesa', SOURCES = ['hostvesa.cc',
                                            '../model/pcihostbridge.o',
                                            '../model/pcidirect.o',
                                            '../model/directio.o'])
-nul.Lib(target_env, 'hostkbd', SOURCES = ['hostkeyboard.o'])
+nul.Lib(target_env, 'hostkbd', SOURCES = ['hostkeyboard.o','hostio.o'])
 # EOF

@@ -232,7 +232,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
 
     // create default devices
-    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax";
+    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax ioio";
     _mb->parse_args(default_devices);
 
     // create devices from cmdline
