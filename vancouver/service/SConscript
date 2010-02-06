@@ -1,0 +1,5 @@
+# -*- Mode: Python -*-
+
+import nul
+Import('target_env')
+nul.Lib(target_env, 'service', SOURCES = Glob('*.cc'))
