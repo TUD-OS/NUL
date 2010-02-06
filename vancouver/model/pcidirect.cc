@@ -317,17 +317,15 @@ PARAM(dpci,
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
 
-	    // add to PCI bus
-	    unsigned dstbdf = argv[3] == ~0UL ? bdf : argv[3];
-	    MessagePciBridgeAdd msg2(dstbdf & 0xff, dev, &DirectPciDevice::receive_static<MessagePciConfig>);
-	    if (!mb.bus_pcibridge.send(msg2, dstbdf >> 8))
-	      Logging::printf("could not add PCI device to %x\n", dstbdf);
-
+	    unsigned dstbdf = argv[3] == 0 ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, argv[3]);
+	    mb.bus_pcicfg.add(dev, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
 	    mb.bus_ioin.add(dev, &DirectPciDevice::receive_static<MessageIOIn>);
 	    mb.bus_ioout.add(dev, &DirectPciDevice::receive_static<MessageIOOut>);
 	    mb.bus_memread.add(dev, &DirectPciDevice::receive_static<MessageMemRead>);
 	    mb.bus_memwrite.add(dev, &DirectPciDevice::receive_static<MessageMemWrite>);
 	    mb.bus_memmap.add(dev, &DirectPciDevice::receive_static<MessageMemMap>);
+
+
 	    if (irqline != ~0UL)
 	      {
 		if (!pci.enable_msi(bdf, irqline)) Logging::printf("MSI not enabled vev %x\n", irqline);
@@ -344,4 +342,5 @@ PARAM(dpci,
       "dpci:class,subclass,instance,bdf,hostirq - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21,0x14' to attach the first network controller to 00:04.1 by forwarding hostirq 0x14.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
-      "If bdf is ommited the very same bdf as in the host is used. If hostirq is ommited the irqline from the device is used instead.");
+      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is searched.",
+      "If hostirq is ommited the irqline from the device is used instead.");

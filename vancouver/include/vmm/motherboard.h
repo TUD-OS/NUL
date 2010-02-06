@@ -55,7 +55,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageIOOut>        bus_hwioout;
   DBus<MessageIOOut>        bus_ioout;
   DBus<MessageIrq>          bus_hostirq;
-  DBus<MessageIrq>          bus_irqlines;  
+  DBus<MessageIrq>          bus_irqlines;
   DBus<MessageIrqNotify>    bus_irqnotify;
   DBus<MessageKeycode>      bus_keycode;
   DBus<MessageLegacy>       bus_legacy;
@@ -66,7 +66,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageMouse>        bus_mouse;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciConfig>    bus_hwpcicfg;
-  DBus<MessagePciBridgeAdd> bus_pcibridge;
+  DBus<MessagePciConfig>    bus_pcicfg;
   DBus<MessagePic>          bus_pic;
   DBus<MessagePit>          bus_pit;
   DBus<MessageSerial>       bus_serial;
@@ -94,7 +94,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 	    typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
 	    CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
 	    char **strings = reinterpret_cast<char **>(*p++);
-	  
+
 	    unsigned len = strlen(strings[0]);
 	    if (!memcmp(s, strings[0], len))
 	      {
@@ -105,7 +105,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 
 		// skip prefix and colon
 		s += len;
-		if (s[0] && s[0] != ':') 
+		if (s[0] && s[0] != ':')
 		if (s[0] == ':') s++;
 		unsigned long argv[16];
 		for (unsigned j=0; j < 16; j++)
@@ -148,7 +148,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 	*p++ = v;
       }
   }
-  
+
 
   typedef unsigned size_t;
   void *operator new(size_t size)

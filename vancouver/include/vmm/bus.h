@@ -79,7 +79,7 @@ class DBus
   bool  send(M &msg, bool earlyout = false, unsigned tag = ~0u)
   {
     bool res = false;
-    if (_debug) Logging::printf("%s count %d tag %x\n", __PRETTY_FUNCTION__, _list_count, tag);	
+    if (_debug) Logging::printf("%s count %d tag %x\n", __PRETTY_FUNCTION__, _list_count, tag);
     for (unsigned i = _list_count; i-- && !(earlyout && res);)
       {
 	if (tag == ~0u || _list[i]._tag == tag)
@@ -89,12 +89,12 @@ class DBus
   }
 
   /**
-   * Send message in FIFO order 
+   * Send message in FIFO order
    */
   bool  send_fifo(M &msg)
   {
     bool res = false;
-    if (_debug) Logging::printf("%s count %d\n", __PRETTY_FUNCTION__, _list_count);	
+    if (_debug) Logging::printf("%s count %d\n", __PRETTY_FUNCTION__, _list_count);
     for (unsigned i = 0; i < _list_count; i++)
       res |= _list[i]._func(_list[i]._dev, msg);
     return 0;

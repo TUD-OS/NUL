@@ -33,7 +33,7 @@ class HostSink : public StaticReceiver<HostSink>
   unsigned _cont_char;
   unsigned char *_buffer;
   const char *debug_getname() { return "HostSink"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" hdev %x buffer %x", _hdev, _size);
   };
@@ -76,4 +76,3 @@ PARAM(hostsink,
       },
       "hostsink:hostdevnr,bufferlen,sinkchar,contchar - provide an output for a serial port.",
       "Example: 'hostsink:0x4712,80'.");
-

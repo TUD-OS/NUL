@@ -24,17 +24,36 @@
  *
  * State: unstable
  * Features: ConfigSpace
- * Missing: BusReset, LogicalPCI bus
+ * Missing: BusReset, LogicalPCI bus, MMConfig
  */
 class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
-  DBus<MessagePciConfig> _devices;
-  unsigned char  _secondarybus;
-  unsigned char  _subord;
+  DBus<MessagePciConfig> &_bus_pcicfg;
+  unsigned _secondary;
+  unsigned _subordinate;
   unsigned short _iobase;
   unsigned _confaddress;
 
   const char *debug_getname() { return "PciHostBridge"; };
+
+  /**
+   * Send a message downstream.
+   */
+  bool send_bus(MessagePciConfig &msg)
+  {
+    bool res = false;
+    unsigned bus = msg.bdf >> 8;
+    if (_secondary == bus)
+      {
+	unsigned bdf = msg.bdf;
+	msg.bdf = 0;
+	res = _bus_pcicfg.send(msg, true, bdf);
+	Logging::printf("send message %x bdf %x ofs %x = %x %x\n", msg.type, bdf, msg.offset, msg.value, res);
+      }
+    else if (bus >= _secondary && bus <= _subordinate)
+	res = _bus_pcicfg.send(msg);
+    return res;
+  }
 
 
   /**
@@ -42,14 +61,8 @@ class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticR
    */
   unsigned read_pcicfg(bool &res)
   {
-    MessagePciConfig msg(_confaddress >> 8, _confaddress & 0xfc);
-    if (_secondarybus == ((_confaddress >> 16) & 0xff))
-      {
-	msg.bdf = 0;
-	res = _devices.send(msg, true, (_confaddress >> 8) % PCI_DEVICE_PER_BUS);
-      }
-    else
-      res = _devices.send(msg);
+    MessagePciConfig msg((_confaddress & ~0x80000000) >> 8, _confaddress & 0xfc);
+    res &= send_bus(msg);
     return msg.value;
   }
 
@@ -89,14 +102,8 @@ public:
 	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
 	bool res;
 	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
-	MessagePciConfig msg2(_confaddress >> 8, _confaddress & 0xfc, value);
-	if (_secondarybus == ((_confaddress >> 16) & 0xff))
-	  {
-	    msg2.bdf = 0;
-	    res = _devices.send(msg2, true, (_confaddress >> 8) % PCI_DEVICE_PER_BUS);
-	  }
-	else
-	  res = _devices.send(msg2);
+	MessagePciConfig msg2((_confaddress & ~0x80000000) >> 8, _confaddress & 0xfc, value);
+	res &= send_bus(msg2);
       }
     else
       return false;
@@ -104,21 +111,9 @@ public:
   }
 
 
-  /**
-   * Register a device.
-   */
-  bool receive(MessagePciBridgeAdd &msg)
-  {
-    _devices.add(msg.dev, msg.func, msg.devfunc);
-    return true;
-  }
-
   bool receive(MessagePciConfig &msg) { return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
-
-  PciHostBridge(unsigned busnum, unsigned short iobase) :  _secondarybus(busnum), _subord(busnum), _iobase(iobase), _confaddress(0) {
-    MessagePciBridgeAdd msg(0, this, &PciHostBridge::receive_static<MessagePciConfig>);
-    receive(msg);
- }
+  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, unsigned secondary, unsigned subordinate, unsigned short iobase)
+    : _bus_pcicfg(bus_pcicfg), _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _confaddress(0) {}
 };
 
 
@@ -132,10 +127,10 @@ REGISTERSET(PciDeviceConfigSpace<PciHostBridge>,
 PARAM(pcihostbridge,
       {
 	unsigned busnum = argv[0];
-	PciHostBridge *dev = new PciHostBridge(busnum, argv[1]);
+	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, busnum, argv[1], ~argv[2] ? argv[2] : 0xcf8);
 	mb.bus_ioin.add(dev, &PciHostBridge::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(dev, &PciHostBridge::receive_static<MessageIOOut>);
-	mb.bus_pcibridge.add(dev, &PciHostBridge::receive_static<MessagePciBridgeAdd>, busnum);
+	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);
       },
-      "pcihostbridge:busnr,iobase - attach a pci host bridge to the system.",
-      "Example: 'pcihostbridge:0,0xcf8'");
+      "pcihostbridge:secondary,subordinate,iobase=0xcf8 - attach a pci host bridge to the system.",
+      "Example: 'pcihostbridge:0,0xff'");

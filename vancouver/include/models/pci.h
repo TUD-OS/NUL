@@ -19,9 +19,30 @@
 #include "models/register.h"
 
 enum {
-  PCI_DEVICE_PER_BUS = 32*8,
   PCI_CFG_SPACE_DWORDS = 1024,
   PCI_CFG_SPACE_MASK = PCI_CFG_SPACE_DWORDS * 4 - 1,
+};
+
+
+class PciHelper
+{
+public:
+  static unsigned find_free_bdf(DBus<MessagePciConfig> &bus_pcicfg, unsigned bdf)
+  {
+    if (bdf == ~0ul)
+    {
+      for (unsigned bus = 0; bus < 256; bus++)
+	for (unsigned device = 1; device < 32; device++)
+	  {
+	    MessagePciConfig msg(0, 0);
+	    bdf = (bus << 8) | (device << 3);
+	    bus_pcicfg.send(msg, false, bdf);
+	    if (msg.value == ~0ul)
+	      return bdf;
+	  }
+    }
+    return bdf;
+  }
 };
 
 

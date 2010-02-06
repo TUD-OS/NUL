@@ -140,20 +140,6 @@ struct MessagePciConfig
 };
 
 
-class Device;
-/**
- * Add a device to a  PCI bridge.
- */
-typedef bool (*PciConfigFunction) (Device *, MessagePciConfig &);
-struct MessagePciBridgeAdd
-{
-  unsigned devfunc;
-  Device *dev;
-  PciConfigFunction func;
-  MessagePciBridgeAdd(unsigned _devfunc, Device *_dev, PciConfigFunction _func) : devfunc(_devfunc), dev(_dev), func(_func) {}
-};
-
-
 /****************************************************/
 /* SATA messages                                    */
 /****************************************************/

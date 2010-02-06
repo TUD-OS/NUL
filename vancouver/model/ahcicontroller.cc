@@ -505,10 +505,7 @@ PARAM(ahci,
 	mb.bus_memread.add(dev, &AhciController::receive_static<MessageMemRead>);
 
 	// register PCI device
-	unsigned dstbdf = argv[2];
-	MessagePciBridgeAdd msg(dstbdf & 0xff, dev, &AhciController::receive_static<MessagePciConfig>);
-	if (!mb.bus_pcibridge.send(msg, dstbdf >> 8))
-	  Logging::printf("could not add PCI device to %x\n", dstbdf);
+	mb.bus_pcicfg.add(dev, &AhciController::receive_static<MessagePciConfig>, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
 
 	// register for AhciSetDrive messages
 	mb.bus_ahcicontroller.add(dev, &AhciController::receive_static<MessageAhciSetDrive>);
@@ -522,5 +519,6 @@ PARAM(ahci,
       },
       "ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.",
       "Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
+      "If no bdf is given, the first free one is searched.",
       "The AHCI controllers are automatically numbered, starting with 0."
       );

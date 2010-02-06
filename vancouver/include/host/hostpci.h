@@ -88,6 +88,7 @@ class HostPci
     };
   }
 
+
   /** Determines BAR size. You should probably disable interrupt
    * delivery from this device, while querying BAR sizes.
    */

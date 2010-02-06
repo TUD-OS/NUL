@@ -102,9 +102,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     if (msg.bdf != 0) return false;
     assert(msg.offset <= PCI_CFG_SPACE_MASK);
     assert(!(msg.offset & 3));
-    
+
     unsigned bar;
-    
+
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
       if (msg.offset == 0) {
@@ -124,7 +124,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	}
 	this->msg("BAR %d -> %08x\n", bar, msg.value);
 	return true;
-      } else 
+      } else
 	msg.value = conf_read(_vf_bdf, msg.offset);
       break;
     case MessagePciConfig::TYPE_WRITE:
@@ -136,7 +136,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	  uint64_t himask = 0xFFFFFFFFULL<<32;
 	  uint64_t hi = _bars[bar].base & himask;
 	  uint64_t lomask = _bars[bar].size - 1;
-	  
+
 	  _bars[bar].base = (_bars[bar].base&lomask) | (msg.value&~lomask);
 	  _bars[bar].base = _bars[bar].base&~himask | hi;
 	}
@@ -215,7 +215,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     if (_msi_cap) {
       Logging::printf("XXX MSI capability found. MSI support will be disabled!\n");
     }
-    
+
     _msix_cap = find_cap(_vf_bdf, CAP_MSIX);
     if (_msix_cap) {
       // XXX PBA and table must share the same BAR for now.
@@ -227,7 +227,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       _msix_bir = _msix_table_offset & 3;
       _msix_table_offset &= ~3;
     }
-    
+
     // Read BARs and masks.
     for (unsigned i = 0; i < MAX_BAR; i++) {
       bool b64;
@@ -257,7 +257,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     for (unsigned i = 0; i < MAX_BAR; i++) {
       if (_bars[i].size != 0) {
-	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM, 
+	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM,
 			   _bars[i].base, _bars[i].size);
 	if (_mb.bus_hostop.send(amsg) && amsg.ptr) {
 	  msg("MMIO %08llx -> %p\n", _bars[i].base, amsg.ptr);
@@ -269,7 +269,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	_bars[i].size = 0;
 	}
       }
-      
+
       if (_bars[i].type != BAR_32BIT) i++;
     }
 
@@ -280,11 +280,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
 
     // Add device to virtual PCI bus
-    MessagePciBridgeAdd msg(guest_bdf & 0xff, this, &DirectVFDevice::receive_static<MessagePciConfig>);
-    if (!mb.bus_pcibridge.send(msg, guest_bdf >> 8)) {
-      Logging::printf("Could not add PCI device to %x\n", guest_bdf);
-    }
-
+    mb.bus_pcicfg.add(this, &DirectVFDevice::receive_static<MessagePciConfig>, guest_bdf);
   }
 };
 
@@ -293,12 +289,13 @@ PARAM(vfpci,
 	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	uint16_t parent_bdf = argv[0];
 	unsigned vf_no      = argv[1];
-	uint16_t guest_bdf  = argv[2];
+	uint16_t guest_bdf  = PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]);
 
 	Logging::printf("VF %08x\n", pci.conf_read(parent_bdf, 0));
 	new DirectVFDevice(mb, parent_bdf, vf_no, guest_bdf);
-	
+
       },
-      "vfpci:parent_bdf,vf_no,guest_bdf");
+      "vfpci:parent_bdf,vf_no,guest_bdf",
+      "if no guest_bdf is given, a free one is searched.");
 
 // EOF
