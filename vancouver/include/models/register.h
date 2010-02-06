@@ -30,8 +30,8 @@
 class HwRegister {
  public:
   const char *name;
-  unsigned bitoffset;
-  unsigned char  bitlen;
+  unsigned offset;
+  unsigned char bytes;
   unsigned value;
   unsigned mask;
   unsigned rw1s;
@@ -40,11 +40,11 @@ class HwRegister {
   short saveindex;
 };
 
-#define REGISTER(name, bitoffset, bitlen, value, mask, rw1s, rw1c, callback) { name, bitoffset, bitlen, value, mask, rw1s, rw1c, callback, 0}
-#define REGISTER_RW(name, bitoffset, bitlen, value, mask)    REGISTER(name, bitoffset, bitlen, value, mask, 0, 0, 0)
+#define REGISTER(name, offset, bytes, value, mask, rw1s, rw1c, callback) { name, offset, bytes, value, mask, rw1s, rw1c, callback, 0}
+#define REGISTER_RW(name, offset, bytes, value, mask)    REGISTER(name, offset, bytes, value, mask, 0, 0, 0)
 // a private register, RO to external, but RW to internal callers
-#define REGISTER_PR(name, bitoffset, bitlen, value)          REGISTER(name, bitoffset, bitlen, value,    0, 0, 1, 0)
-#define REGISTER_RO(name, bitoffset, bitlen, value)          REGISTER_RW(name, bitoffset, bitlen, value, 0)
+#define REGISTER_PR(name, offset, bytes, value)          REGISTER(name, offset, bytes, value,    0, 0, 1, 0)
+#define REGISTER_RO(name, offset, bytes, value)          REGISTER_RW(name, offset, bytes, value, 0)
 #define REGISTERSET(name, ...) template <> HwRegister HwRegisterSet< name >::_hw_regs[] = {  __VA_ARGS__ , REGISTER_RO(0, 0, 0, 0) }
 
 
@@ -52,10 +52,10 @@ template <typename Z>
 class HwRegisterSet {
   static HwRegister _hw_regs[];
   unsigned *_regs_data;
+ protected:
   int _reg_count;
 
 
- protected:
 
   /**
    * Return the mask of a register.
@@ -155,12 +155,21 @@ class HwRegisterSet {
     unsigned tmp = 0;
     unsigned tmp2;
     for (int i = 0; i < _reg_count; i++)
-      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size) && read_reg(i, tmp2))
-	{
-	  tmp |= tmp2 << (_hw_regs[i].bitoffset & (size*8-1));
-	  res = true;
-	}
-    if (res)  value = tmp;
+      {
+	if (in_range(address, _hw_regs[i].offset & ~(size-1), size))
+	  {
+	    read_reg(i, tmp2);
+	    tmp |= tmp2 << 8*(_hw_regs[i].offset & (size-1));
+	    res = true;
+	  }
+	else if (in_range(address, _hw_regs[i].offset, _hw_regs[i].bytes))
+	  {
+	    read_reg(i, tmp2);
+	    tmp |= tmp2 >> 8*(address - _hw_regs[i].offset);
+	    res = true;
+	  }
+      }
+    if (res)  value = tmp & (0xffffffff>>((4-size)*8));
     return res;
   }
 
@@ -173,10 +182,18 @@ class HwRegisterSet {
     assert(size <= 4 && !(size & size -1));
     bool res = false;
     for (int i = 0; i < _reg_count; i++)
-      if (in_range(address, (_hw_regs[i].bitoffset / 8) & ~(size-1), size))
+      if (in_range(address, _hw_regs[i].offset & ~(size-1), size))
 	{
-	  write_reg(i, value >> (_hw_regs[i].bitoffset & (size*8-1)), true, obj);
+	  write_reg(i, value >> 8*(_hw_regs[i].offset & (size-1)), true, obj);
 	  res = true;
+	}
+      else if (in_range(address, _hw_regs[i].offset, _hw_regs[i].bytes))
+	{
+	  unsigned tmp;
+	  read_reg(i, tmp);
+	  unsigned mask = (0xffffffff>>((4-size)*8)) << 8*(address - _hw_regs[i].offset);
+	  tmp = (value & mask) | (tmp & ~mask);
+	  write_reg(i, tmp, true, obj);
 	}
     return res;
   }
@@ -193,9 +210,19 @@ class HwRegisterSet {
 	  _reg_count++;
 	  if (_hw_regs[i].mask | _hw_regs[i].rw1s | _hw_regs[i].rw1c)
 	    {
-	      assert(_hw_regs[i].bitlen <= sizeof(_hw_regs[i].value)*8);
-	      assert(_hw_regs[i].bitlen == 32 || !(_hw_regs[i].mask >> _hw_regs[i].bitlen));
-	      _hw_regs[i].saveindex = save_index++;;
+	      assert(_hw_regs[i].bytes <= sizeof(_hw_regs[i].value));
+	      assert(_hw_regs[i].bytes == 4 || !(_hw_regs[i].mask >> 8*_hw_regs[i].bytes));
+	      _hw_regs[i].saveindex = ~0;
+
+	      // alias detection
+	      for (unsigned j=0; j<i; j++)
+		if (!strcmp(_hw_regs[j].name, _hw_regs[i].name))
+		  {
+		    _hw_regs[i].saveindex = _hw_regs[j].saveindex;
+		    break;
+		  }
+	      if (_hw_regs[i].saveindex == ~0)
+		_hw_regs[i].saveindex = save_index++;;
 	    }
 	  else
 	    _hw_regs[i].saveindex = ~0;

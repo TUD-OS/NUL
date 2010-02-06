@@ -117,11 +117,11 @@ public:
 
 
 REGISTERSET(PciDeviceConfigSpace<PciHostBridge>,
-	    REGISTER_RO("ID",  0x0*8, 32, 0x27a08086),
-	    REGISTER_RW("CMD", 0x4*8, 16, 0x0106, 0x0106),
-	    REGISTER_RO("STS", 0x6*8, 16, 0x0090),
-	    REGISTER_RO("CC",  0x9*8, 24, 0x060000),
-	    REGISTER_RO("SS", 0x2c*8, 32, 0x27a08086));
+	    REGISTER_RO("ID",  0x0, 4, 0x27a08086),
+	    REGISTER_RW("CMD", 0x4, 2, 0x0106, 0x0106),
+	    REGISTER_RO("STS", 0x6, 2, 0x0090),
+	    REGISTER_RO("CC",  0x9, 3, 0x060000),
+	    REGISTER_RO("SS", 0x2c, 4, 0x27a08086));
 
 PARAM(pcihostbridge,
       {
