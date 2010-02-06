@@ -310,29 +310,13 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   DBus<MessageIrq> &_bus_irqlines;
   unsigned char _irq;
 
-  int _pci_bar_reg;
   int _pci_cmd_reg;
+  int _pci_bar_reg;
   int _reg_ghc;
   int _reg_is;
   AhciPort _ports[MAX_PORTS];
 
   const char* debug_getname() { return "AHCI"; }
-
-
-  int init(Motherboard &mb)
-  {
-#define ICHECK(X)  { int __res = X; if (__res < 0) return __res; }
-
-    // search for PCI config registers
-    ICHECK(_pci_bar_reg = PciDeviceConfigSpace<AhciController>::find_reg("ABAR"));
-    ICHECK(_pci_cmd_reg = PciDeviceConfigSpace<AhciController>::find_reg("CMD"));
-    // and device register
-    ICHECK(_reg_ghc = HwRegisterSet<AhciController>::find_reg("GHC"));
-    ICHECK(_reg_is = HwRegisterSet<AhciController>::find_reg("IS"));
-    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
-    return 0;
-  }
-
  public:
 
   void trigger_irq (void * child) {
@@ -447,9 +431,13 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   bool receive(MessagePciConfig &msg)  {  return PciDeviceConfigSpace<AhciController>::receive(msg); };
 
 
-  AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq)
+  AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq),
+						       _pci_cmd_reg(PciDeviceConfigSpace<AhciController>::find_reg("CMD")),
+						       _pci_bar_reg(PciDeviceConfigSpace<AhciController>::find_reg("ABAR")),
+						       _reg_ghc(HwRegisterSet<AhciController>::find_reg("GHC")),
+						       _reg_is(HwRegisterSet<AhciController>::find_reg("IS"))
   {
-    init(mb);
+    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
   };
 };
 
