@@ -58,11 +58,8 @@ class Host82576 : public Base82576, public StaticReceiver<Host82576>
 private:
   DBus<MessageHostOp> &_bus_hostop;
   volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
-
   unsigned _hostirq;
-  const char *debug_getname() { return "Host82576"; }
-
-  EthernetAddr _mac;
+  uint64_t _mac;
 
   // MSI-X
   unsigned _msix_table_size;
@@ -74,6 +71,8 @@ private:
   } *_msix_table;
 
   volatile uint64_t *_msix_pba;
+
+  const char *debug_getname() { return "Host82576"; }
 
   uintptr_t to_phys(void *ptr) {
     MessageHostOp msg(MessageHostOp::OP_VIRT_TO_PHYS, reinterpret_cast<unsigned long>(ptr));
@@ -149,11 +148,10 @@ private:
 
       union {
     	char mac_addr[6];
-    	uint32_t raw[2];
+	uint64_t raw;
       };
-      raw[1] = 0;		// Don't pass garbage to VF
       // XXX Make this configurable!
-      mac_addr = { 0x00, 0xDE, 0xBA, 0xC1, 0xE0, (_bdf & 0xF)<<4 | vf_no }; 
+      raw = _mac;
       msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT((EthernetAddr *)mac_addr));
 
       uint32_t ral = mac_addr[0] | mac_addr[1]<<8 | mac_addr[2]<<16 | mac_addr[3]<<24;
@@ -168,8 +166,8 @@ private:
       _hwreg[0x54E4/4 + vf_no*2] = rah;
 
       _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
-      _hwreg[pfmbxmem + 1] = raw[0];
-      _hwreg[pfmbxmem + 2] = raw[1];
+      _hwreg[pfmbxmem + 1] = raw;
+      _hwreg[pfmbxmem + 2] = (raw >> 32) & 0xffff;
       break;
     }
     case VF_SET_MULTICAST:
@@ -282,8 +280,8 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
-	    unsigned bdf, unsigned hostirq)
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
+	    unsigned bdf, unsigned hostirq, uint64_t mac )
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq), _mac(mac)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -424,8 +422,8 @@ public:
     // Enable PHY autonegotiation (4.5.7.2.1)
     _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
 
-    _mac = ethernet_address();
-    msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+    //_mac = ethernet_address();
+    //msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 
     msg(INFO, "Initialization complete.\n");
 
@@ -449,16 +447,21 @@ PARAM(host82576, {
             continue;
           }
 
+	  MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
+	  if (!mb.bus_hostop.send(msg))
+	    Logging::printf("Could not get an UID");
+
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
 					 // XXX Does not work reliably! (ioapic assertion) 
-					 pci.get_gsi(bdf, argv[1])
-					 //argv[1]
+					 pci.get_gsi(bdf, argv[1]),
+					 (static_cast<unsigned long long>(argv[2]) << 16) | msg.value
 					 );
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }
     }
   },
-  "host82576:func,irq - provide driver for Intel 82576 Ethernet controller.");
+  "host82576:instance,irq - provide driver for Intel 82576 Ethernet controller.",
+  "Example: 'host82576:0,,0x0016dead;");
 
 // EOF
