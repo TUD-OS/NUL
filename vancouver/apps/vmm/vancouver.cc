@@ -438,13 +438,14 @@ public:
 
   bool  receive(MessageIrq &msg)
   {
-    if (msg.line == MessageIrq::LINT0)
+    if (msg.line == MessageIrq::LINT0 || msg.line > 0x40)
       {
 	for (unsigned i=0; i < Motherboard::MAX_VCPUS; i++)
 	  if (msg.type == MessageIrq::ASSERT_IRQ)
 	    {
 	      if (~_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_IRQ)
 		{
+		  if (msg.line > 0x40 && msg.line != MessageIrq::LINT0) _mb->vcpustate(i)->lastmsi = msg.line;
 		  Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_IRQ);
 		  wakeup_cpu(i);
 		}

@@ -53,6 +53,7 @@ class InitExecutor : public StaticReceiver<InitExecutor>
     msg.cpu->head.pid = 0;
     // init hazards
     msg.vcpu->hazard = VirtualCpuState::HAZARD_CRWRITE | VirtualCpuState::HAZARD_CTRL | (msg.vcpu->hazard & VirtualCpuState::HAZARD_IRQ);
+    msg.vcpu->lastmsi = 0;
     return true;
   }
 };

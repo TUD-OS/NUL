@@ -42,7 +42,7 @@ class KernelSemaphore;
  *
  * We split these two cases to avoid copy/in-out or extra dereferencing cost.
  */
-class VirtualCpuState 
+class VirtualCpuState
 {
  public:
   enum Hazards
@@ -89,6 +89,8 @@ class VirtualCpuState
 
   // MSR state
   unsigned long msr_apic;
+
+  unsigned lastmsi;
 
   // x87, MMX, SSE2, SSE3
   unsigned fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
