@@ -172,7 +172,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     if (msix_vector == ~0UL)
       return false;
 
-    this->msg("MSI-X IRQ%d!\n", msix_vector);
+    this->msg("MSI-X IRQ%d! Inject %d\n", msix_vector, _msix_table[msix_vector].guest_msg_data & 0xFF);
+    MessageIrq imsg(msg.type, _msix_table[msix_vector].guest_msg_data & 0xFF);
+    _mb.bus_irqlines.send(imsg);
 
     return true;
   }
@@ -435,6 +437,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     mb.bus_memmap.add(this, &DirectVFDevice::receive_static<MessageMemMap>);
     mb.bus_memread.add(this, &DirectVFDevice::receive_static<MessageMemRead>);
     mb.bus_memwrite.add(this, &DirectVFDevice::receive_static<MessageMemWrite>);
+
+    mb.bus_hostirq.add(this, &DirectVFDevice::receive_static<MessageIrq>);
 
     // Add device to virtual PCI bus
     mb.bus_pcicfg.add(this, &DirectVFDevice::receive_static<MessagePciConfig>, guest_bdf);
