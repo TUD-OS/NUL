@@ -33,6 +33,14 @@ malloc(unsigned long size)
   return s;
 }
 
+void *
+calloc(unsigned long n, unsigned long size)
+{
+  void *p = malloc(n*size);
+  memset(p, 0, n*size);
+  return p;
+}
+
 void *memalign(unsigned long align, unsigned long size)
 {
   // need to be a power of two
