@@ -312,6 +312,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   {
     memset(_bars, 0, sizeof(_bars));
 
+    for (unsigned i = 0x100; i < 0x170; i += 8)
+      msg("mmcfg[%04x] %08x %08x\n", i, conf_read(parent_bdf, i), conf_read(parent_bdf, i+4));
+
     msg("Querying parent SR-IOV capability...\n");
 
     unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
