@@ -24,7 +24,7 @@
  * Features: reset, send, irq, receive, overflow-recover
  * Missing:  read counters, configuration of full-duplex modes
  * State:    testing
- * Documentation: DP8390D, rtl8029
+ * Documentation: DP8390D, rtl8029, mx98905b
  */
 class HostNe2k : public StaticReceiver<HostNe2k>
 {
@@ -104,8 +104,16 @@ public:
 	0x7, 0xff,      // clear isr
 	0xf, 0x00,      // set imr
 	0x0, 0x61,      // page1, abort remote DMA, STOP
-	// we do not initialize phys reg+multicast, as we use promiscuous mode later on
+	// we do not initialize phys reg, as we use promiscuous mode later on
 	0x7, PG_START+1,// CURPAGE
+	0x8, 0xff,      // multicast
+	0x9, 0xff,      // multicast
+	0xa, 0xff,      // multicast
+	0xb, 0xff,      // multicast
+	0xc, 0xff,      // multicast
+	0xd, 0xff,      // multicast
+	0xe, 0xff,      // multicast
+	0xf, 0xff,      // multicast
 	0x0, 0x22,      // page0, START
 	0x7, 0xff,      // clear isr
 	0xf, 0x11,      // set imr to get RX and overflow IRQ
