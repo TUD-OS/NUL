@@ -145,7 +145,7 @@ class HostPci
 	    unsigned char maxfunc = 1;
 	    for (unsigned func=0; func < maxfunc; func++)
 	      {
-		unsigned bdf =  (bus << 8) || (dev << 3) | func;
+		unsigned bdf =  (bus << 8) | (dev << 3) | func;
 		unsigned value = conf_read(bdf, 0x8);
 		if (value == ~0UL) continue;
 		if (maxfunc == 1 && conf_read(bdf, 0xc) & 0x800000)
