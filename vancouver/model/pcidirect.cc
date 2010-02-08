@@ -296,8 +296,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     return false;
   }
 
-
-
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
     {
       for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
