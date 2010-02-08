@@ -426,8 +426,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       _host_msix_table = (volatile uint32_t *)(_msix_table_offset + (char *)_bars[_msix_bir].ptr);
       for (unsigned i = 0; i < _msix_table_size; i++) {
 	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
-	_host_msix_table[i*4 + 4] = 0;
-	_host_msix_table[i*4 + 8] = _msix_table[i].host_irq + 0x20;
+	_host_msix_table[i*4 + 1] = 0;
+	_host_msix_table[i*4 + 2] = _msix_table[i].host_irq + 0x20;
       }
     }
 
