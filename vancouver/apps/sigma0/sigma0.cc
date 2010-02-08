@@ -100,6 +100,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   unsigned _modcount;
 
   unsigned long long _gsi;
+  unsigned _uid;
 
   const char *debug_getname() { return "Sigma0"; };
 
@@ -714,8 +715,10 @@ public:
       case MessageHostOp::OP_GET_MSIVECTOR:
 	msg.value = alloc_msivector();
 	break;
-      case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_UID:
+	msg.value = ++_uid;
+	break;
+      case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
       default:
