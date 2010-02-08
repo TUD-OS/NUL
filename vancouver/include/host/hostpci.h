@@ -162,7 +162,8 @@ class HostPci
 
     // MSI?
     MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-    if (find_cap(bdf, 0x5) && _bus_hostop.send(msg1))   return msg1.value;
+    if ((find_cap(bdf, CAP_MSI) || find_cap(bdf, CAP_MSIX))
+	&& _bus_hostop.send(msg1))   return msg1.value;
 
     // XXX atare needed
     switch (conf_read(bdf, 0))
@@ -179,7 +180,7 @@ class HostPci
     if (gsi < 24) return false;
 
     // use msi
-    unsigned offset = find_cap(bdf, 0x5);
+    unsigned offset = find_cap(bdf, CAP_MSI);
     Logging::printf("find MSI cap %x\n", offset);
     if (offset)
       {
