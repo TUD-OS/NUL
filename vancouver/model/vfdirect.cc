@@ -130,14 +130,14 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	case BAR_32BIT:    msg.value = (uint32_t)_bars[bar].base | HostPci::BAR_TYPE_32B; break;
 	case BAR_64BIT_LO: msg.value = (uint32_t)_bars[bar].base | HostPci::BAR_TYPE_64B; break;
 	}
-	this->msg("BAR %d -> %08x\n", bar, msg.value);
+	//this->msg("BAR %d -> %08x\n", bar, msg.value);
 	return true;
       } else
 	msg.value = conf_read(_vf_bdf, msg.offset);
       break;
     case MessagePciConfig::TYPE_WRITE:
       if ((bar = in_bar(msg.offset)) < MAX_BAR) {
-	this->msg("BAR %d <- %08x\n", bar, msg.value);
+	//this->msg("BAR %d <- %08x\n", bar, msg.value);
 	switch (_bars[bar].type) {
 	case BAR_64BIT_LO:
 	case BAR_32BIT: {
@@ -270,7 +270,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     switch (rmsg.count) {
     case 4:
-      msg("WRITE DW MSI-X %x: %x\n", offset, *((uint32_t *)rmsg.ptr));
+      //msg("WRITE DW MSI-X %x: %x\n", offset, *((uint32_t *)rmsg.ptr));
       if ((offset % 4) != 0) {
 	msg(" Unaligned!\n");
 	return false;
