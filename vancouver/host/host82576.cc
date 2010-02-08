@@ -451,8 +451,8 @@ PARAM(host82576, {
 
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
 					 // XXX Does not work reliably! (ioapic assertion) 
-					 //pci.get_gsi(bdf, argv[1])
-					 argv[1]
+					 pci.get_gsi(bdf, argv[1])
+					 //argv[1]
 					 );
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}

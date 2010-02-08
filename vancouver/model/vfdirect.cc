@@ -47,6 +47,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     uint64_t size;
     BarType  type;
 
+    void *ptr;
   } _bars[MAX_BAR];
 
   // MSI handling
@@ -61,11 +62,18 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   unsigned _msix_pba_offset;
   uint16_t _msix_table_size;
 
-  struct {
-    uint64_t guest_msg_addr;
+  struct msix_table_entry {
+    union {
+      uint64_t guest_msg_addr;
+      uint32_t guest_msg_addr_w[2];
+    };
     uint32_t guest_msg_data;
-    uint32_t vector_control;
-  } *_msix_table;
+
+    unsigned host_irq;
+  };
+
+  struct msix_table_entry *_msix_table;
+  volatile uint32_t *_host_msix_table;
 
   const char *debug_getname() { return "DirectVFDevice"; }
 
@@ -154,22 +162,149 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
   bool receive(MessageIrq &msg)
   {
-    return false;
+    // Which MSI-X vector was triggered?
+    unsigned msix_vector = ~0UL;
+    for (unsigned i = 0; i < _msix_table_size; i++)
+      if (_msix_table[i].host_irq == msg.line) {
+	msix_vector = i;
+	break;
+      }
+    if (msix_vector == ~0UL)
+      return false;
+
+    this->msg("MSI-X IRQ%d!\n", msix_vector);
+
+    return true;
   }
 
   bool receive(MessageMemMap &msg)
   {
+    for (unsigned i = 0; i < MAX_BAR; i++) {
+      if ((_bars[i].size == 0) ||
+	  // Don't map MSI-X memory!
+	  (_msix_cap && (i == _msix_bir)) ||
+	  !in_range(msg.phys, _bars[i].base, _bars[i].size))
+	continue;
+
+      // Size and phys are always page-aligned, because of the system
+      // page size setting in the parent's SR-IOV capability.
+      msg.count = _bars[i].size;
+      msg.phys  = _bars[i].base;
+
+      assert((0xFFF & (uintptr_t)msg.ptr) == 0);
+      msg.ptr = _bars[i].ptr;
+
+      this->msg("Map phys %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
+      return true;
+    }
     return false;
   }
 
-  bool receive(MessageMemRead &msg)
+  enum {
+    NO_MATCH = ~0U,
+  };
+
+  unsigned in_msix_bar(uintptr_t ptr)
   {
-    return false;
+    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size))
+      return ptr - _bars[_msix_bir].base;
+    else
+      return NO_MATCH;
   }
 
-  bool receive(MessageMemWrite &msg)
+  bool receive(MessageMemRead &rmsg)
   {
-    return false;
+    unsigned offset;
+    if ((offset = in_msix_bar(rmsg.phys)) == NO_MATCH) return false;
+
+    unsigned entry = offset / 16;
+
+    switch (rmsg.count) {
+    case 4:
+      //msg("READ  DW MSI-X %x: \n", offset);
+      if ((offset % 4) != 0) {
+	msg(" Unaligned!\n");
+	return false;
+      }
+      switch (offset % 16) {
+      case 0:
+	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_addr_w[0]; break;
+      case 4:
+	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_addr_w[1]; break;
+      case 8:
+	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_data; break;
+      case 12:
+	// Vector control reads right through.
+	*((uint32_t *)rmsg.ptr) = _host_msix_table[entry*4 + 3];
+	break;
+      };
+      //msg(" -> %08x\n", *((uint32_t *)rmsg.ptr));
+      break;
+    case 8:
+      msg("READ QW  MSI-X %x: \n", offset);
+      if ((offset % 8) != 0) {
+	msg(" Unaligned!\n");
+	return false;
+      }
+
+      msg("XXX Implement me\n");
+      return false;
+      break;
+    default:
+      msg("XXX Only 32/64-bit reads in MSI-X table allowed! (read %08lx %d)\n",
+	  rmsg.phys, rmsg.count);
+      return false;
+    };
+
+    return true;
+  }
+
+  bool receive(MessageMemWrite &rmsg)
+  {
+    unsigned offset;
+    if ((offset = in_msix_bar(rmsg.phys)) == NO_MATCH) return false;
+
+    unsigned entry = offset / 16;
+
+    switch (rmsg.count) {
+    case 4:
+      msg("WRITE DW MSI-X %x: %x\n", offset, *((uint32_t *)rmsg.ptr));
+      if ((offset % 4) != 0) {
+	msg(" Unaligned!\n");
+	return false;
+      }
+      switch (offset % 16) {
+      case 0:
+	_msix_table[entry].guest_msg_addr_w[0] = *((uint32_t *)rmsg.ptr);
+	break;
+      case 4:
+	_msix_table[entry].guest_msg_addr_w[1] = *((uint32_t *)rmsg.ptr);
+	break;
+      case 8:
+	_msix_table[entry].guest_msg_data = *((uint32_t *)rmsg.ptr);
+	break;
+      case 12:
+	// Vector control writes right through.
+	_host_msix_table[entry*4 + 3] = *((uint32_t *)rmsg.ptr);
+      };
+      break;
+    case 8:
+      msg("WRITE QW MSI-X %x: \n", offset);
+      if ((offset % 8) != 0) {
+	msg(" Unaligned!\n");
+	return false;
+      }
+
+      msg("XXX Implement me\n");
+      return false;
+      break;
+    default:
+      msg("XXX Only 32/64-bit writes in MSI-X table allowed! (read %08lx %d)\n",
+	  rmsg.phys, rmsg.count);
+      return false;
+    };
+
+    return true;;
   }
 
   DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no, uint16_t guest_bdf)
@@ -221,11 +356,22 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       // XXX PBA and table must share the same BAR for now.
       assert((conf_read(_vf_bdf, _msix_cap + 0x4)&3) == (conf_read(_vf_bdf, _msix_cap + 0x8)&3));
 
-      _msix_table_size   = (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
+      _msix_table_size   = 1+ (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
       _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~3;
       _msix_table_offset = conf_read(_vf_bdf, _msix_cap + 0x4);
       _msix_bir = _msix_table_offset & 3;
       _msix_table_offset &= ~3;
+
+      msg("Allocated MSI-X table with %d elements.\n", _msix_table_size);
+      _msix_table = (struct msix_table_entry *)calloc(_msix_table_size, sizeof(struct msix_table_entry));
+
+      for (unsigned i = 0; i < _msix_table_size; i++) {
+	unsigned gsi = get_gsi(_vf_bdf, ~0UL);
+	msg("Host IRQ%d -> MSI-X IRQ%d\n", gsi, i);
+	_msix_table[i].host_irq = gsi;
+	MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
+	mb.bus_hostop.send(imsg);
+      }
     }
 
     // Read BARs and masks.
@@ -261,23 +407,31 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 			   _bars[i].base, _bars[i].size);
 	if (_mb.bus_hostop.send(amsg) && amsg.ptr) {
 	  msg("MMIO %08llx -> %p\n", _bars[i].base, amsg.ptr);
-	  _bars[i].base = (uintptr_t)amsg.ptr;
-	  assert((_bars[i].base & (_bars[i].size-1)) == 0);
+	  _bars[i].ptr = amsg.ptr;
 	} else {
 	  msg("MMIO %08llx -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
-	_bars[i].base = 0;
-	_bars[i].size = 0;
+	  _bars[i].base = 0;
+	  _bars[i].size = 0;
 	}
       }
 
       if (_bars[i].type != BAR_32BIT) i++;
     }
 
+    // Final MSI-X configuration
+    if (_msix_cap) {
+      _host_msix_table = (volatile uint32_t *)(_msix_table_offset + (char *)_bars[_msix_bir].ptr);
+      for (unsigned i = 0; i < _msix_table_size; i++) {
+	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
+	_host_msix_table[i*4 + 4] = 0;
+	_host_msix_table[i*4 + 8] = _msix_table[i].host_irq + 0x20;
+      }
+    }
+
     // We want to map memory into VM space and intercept some accesses.
     mb.bus_memmap.add(this, &DirectVFDevice::receive_static<MessageMemMap>);
     mb.bus_memread.add(this, &DirectVFDevice::receive_static<MessageMemRead>);
     mb.bus_memwrite.add(this, &DirectVFDevice::receive_static<MessageMemWrite>);
-
 
     // Add device to virtual PCI bus
     mb.bus_pcicfg.add(this, &DirectVFDevice::receive_static<MessagePciConfig>, guest_bdf);
