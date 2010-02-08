@@ -143,8 +143,10 @@ private:
       // XXX Clear relevant registers and stuff (i.e. do a real reset for the VF)
       _hwreg[VFRE] |= 1<<vf_no;
       _hwreg[VFTE] |= 1<<vf_no;
+      msg(INFO, "VFRE %08x VFTE %08x\n", _hwreg[VFRE], _hwreg[VFTE]);
 
-      _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_STRVLAN | VMOLR_BAM;
+      _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_ROPE | VMOLR_ROMPE
+	| VMOLR_STRVLAN | VMOLR_BAM;
 
       union {
     	char mac_addr[6];

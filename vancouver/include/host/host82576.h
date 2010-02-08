@@ -112,6 +112,8 @@ protected:
     VMOLR_RPML_MASK     = (1U << 14) - 1,
     VMOLR_LPE           = 1U << 16, // Long Packets Enable
     VMOLR_AUPE          = 1U << 24, // Accept Untagged Packets Enable
+    VMOLR_ROMPE         = 1U << 25, // Accept packets that match the MTA
+    VMOLR_ROPE          = 1U << 26, // Accept packets that match the UTA
     VMOLR_BAM           = 1U << 27, // Broadcast Accept
     VMOLR_STRVLAN       = 1U << 30, // Strip VLAN Tag
     VMOLR_DEFAULT       = 1U << 31, // Default value. Must always be set.
