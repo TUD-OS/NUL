@@ -236,13 +236,16 @@ class HostPci
       return 0;
 
     unsigned long header;
-    unsigned short offset;
-    for (offset = 0x100, header = conf_read(bdf, offset);
-	 offset != 0;
-	 offset = header>>20, header = conf_read(bdf, offset)) {
+    unsigned short offset = 0x100;
+    unsigned max = 0x100;
+
+    do {
+      header = conf_read(bdf, offset);
       if ((header & 0xFFFF) == id)
 	return offset;
-    }
+
+      offset = header >> 20;
+    } while ((max-- > 0) && (offset != 0));
 
     return 0;
   }
