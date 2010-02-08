@@ -136,20 +136,25 @@ class HostPci
    */
   unsigned search_device(unsigned theclass, unsigned subclass, unsigned instance)
   {
-    for (unsigned i=0; i < (1<<13); i++)
+    for (unsigned bus = 0; bus < 256; bus++)
       {
-	unsigned char maxfunc = 1;
-	for (unsigned func=0; func < maxfunc; func++)
+	// skip empty busses
+	if (conf_read(bus << 8, 0) == ~0u) continue;
+	for (unsigned dev=0; dev < 32; dev++)
 	  {
-	    unsigned bdf =  i << 3 | func;
-	    unsigned value = conf_read(bdf, 0x8);
-	    if (value == ~0UL) continue;
-	    if (maxfunc == 1 && conf_read(bdf, 0xc) & 0x800000)
-	      maxfunc = 8;
-	    if ((theclass == ~0UL || ((value >> 24) & 0xff) == theclass)
-		&& (subclass == ~0UL || ((value >> 16) & 0xff) == subclass)
-		&& (instance == ~0UL || !instance--))
-	      return bdf;
+	    unsigned char maxfunc = 1;
+	    for (unsigned func=0; func < maxfunc; func++)
+	      {
+		unsigned bdf =  (bus << 8) || (dev << 3) | func;
+		unsigned value = conf_read(bdf, 0x8);
+		if (value == ~0UL) continue;
+		if (maxfunc == 1 && conf_read(bdf, 0xc) & 0x800000)
+		  maxfunc = 8;
+		if ((theclass == ~0UL || ((value >> 24) & 0xff) == theclass)
+		    && (subclass == ~0UL || ((value >> 16) & 0xff) == subclass)
+		    && (instance == ~0UL || !instance--))
+		  return bdf;
+	      }
 	  }
       }
     return 0;
@@ -219,13 +224,13 @@ class HostPci
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
     if (~conf_read(bdf, 4) & 0x100000) return 0;
-    unsigned char cap_offset = conf_read(bdf, 0x34) & 0xFC;
-    while (cap_offset)
+    unsigned char cap_offset = conf_read(bdf, 0x34);
+    while (cap_offset != 0xff)
       {
-	if (id == (conf_read(bdf, cap_offset) & 0xFF))
-	  return cap_offset;
+	if (id == (conf_read(bdf, cap_offset & 0xfc) & 0xFF))
+	  return cap_offset & 0xfc;
 	else
-	  cap_offset = (conf_read(bdf, cap_offset) >> 8) & 0xFC;
+	  cap_offset = conf_read(bdf, cap_offset) >> 8;
       }
     return 0;
   }
