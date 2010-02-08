@@ -399,8 +399,8 @@ public:
     _hwreg[MRQC] = MRQC_MRQE_011; // Filter via MAC, always use default queue of pool
 
     // Disable RX and TX for all VFs.
-    _hwreg[VFRE] = ~0u;
-    _hwreg[VFTE] = ~0u;
+    _hwreg[VFRE] = 0;
+    _hwreg[VFTE] = 0;
 
     // Allow all VFs to send IRQs to us.
     _hwreg[MBVFIMR] = 0xFF;
