@@ -675,7 +675,7 @@ public:
 	  u->msg[0] =  _hip->cfg_exc + gsi;
 	  u->msg[1] =  msg.value;
 
-	  res = !create_sc(_cap_free++, cap, Qpd(2, 10000));
+	  res = !create_sc(_cap_free++, cap, Qpd(3, 10000));
 	}
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
