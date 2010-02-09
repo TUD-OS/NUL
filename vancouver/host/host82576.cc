@@ -169,7 +169,7 @@ private:
       _hwreg[0x5400/4 + vf_no*2] = ral;
       _hwreg[0x5404/4 + vf_no*2] = rah;
 
-      _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
+      _hwreg[pfmbxmem] = mbxmsg[0] | ACK | CTS;
       _hwreg[pfmbxmem + 1] = vf_mac.raw;
       _hwreg[pfmbxmem + 2] = (vf_mac.raw >> 32) & 0xffff;
       break;
@@ -177,14 +177,14 @@ private:
     case VF_SET_MULTICAST:
       msg(INFO, "VF%u SET_MULTICAST(%u) -> ignore.\n", vf_no, (mbxmsg[0] >> 16) & 0xFF);
       // XXX Just ignore multicast for now.
-      _hwreg[pfmbxmem] = VF_SET_MULTICAST | ACK;
+      _hwreg[pfmbxmem] = VF_SET_MULTICAST | ACK | CTS;
       break;
     case VF_SET_LPE:
       msg(INFO, "VF%u SET_LPE(%u).\n", vf_no, mbxmsg[1]);
       _hwreg[VMOLR0 + vf_no] = (_hwreg[VMOLR0 + vf_no] & ~VMOLR_RPML_MASK) 
 	| (mbxmsg[1] & VMOLR_RPML_MASK) | VMOLR_LPE;
       // XXX Adjust value for VLAN tag size?
-      _hwreg[pfmbxmem] = VF_SET_LPE | ACK;
+      _hwreg[pfmbxmem] = VF_SET_LPE | ACK | CTS;
       break;
     case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
       msg(INFO, "VF%u SET_MAC_ADDR. Denied!\n", vf_no);
