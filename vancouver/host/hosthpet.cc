@@ -25,11 +25,15 @@
  */
 class HostHpet : public StaticReceiver<HostHpet>
 {
-  enum {
-    MAX_FREQUENCY = 10000,
-  };
   DBus<MessageTimeout> &_bus_timeout;
   Clock *_clock;
+  struct HostHpetTimer {
+    volatile unsigned config;
+    volatile unsigned int_route;
+    volatile unsigned comp[2];
+    volatile unsigned msi[2];
+    unsigned res[2];
+  };
   struct HostHpetRegister {
     volatile unsigned cap;
     volatile unsigned period;
@@ -43,18 +47,17 @@ class HostHpet : public StaticReceiver<HostHpet>
       volatile unsigned long long main;
     };
     unsigned res3[2];
-    struct HostHpetTimer {
-      volatile unsigned config;
-      volatile unsigned int_route;
-      volatile unsigned comp[2];
-      volatile unsigned msi[2];
-      unsigned res[2];
-    } timer[24];
+    struct HostHpetTimer timer[24];
   } *_regs;
-  unsigned _timer;
-  unsigned _irq;
+  unsigned  _timer;
+  struct HostHpetTimer *_timerreg;
+  unsigned  _irq;
+  bool      _edge;
   timevalue _freq;
-  unsigned _mindelta;
+
+  // debug
+  timevalue _lasttimeout;
+  unsigned  _lastdelta;
 
   const char *debug_getname() {  return "HostHPET"; }
 public:
@@ -63,15 +66,19 @@ public:
 
   bool  receive(MessageIrq &msg)
   {
-    COUNTER_SET("HPET main", _regs->counter[0]);
-    COUNTER_SET("HPET cmp",  _regs->timer[_timer].comp[0]);
-    COUNTER_SET("HPET isr",  _regs->isr);
+    timevalue now = _clock->time();
     if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
       {
+	if ((now - 1000000) > _lasttimeout) 	COUNTER_INC("HPET lostlong");
+	if ((now > _lasttimeout + 1000000000ULL) && (msg.line == _irq))
+	  {
+	    Logging::printf("HPET halted %lld cycles lastdelta %x %llx\n", now - _lasttimeout, _lastdelta, now);
+	    COUNTER_INC("HPET halt");
+	  }
 	COUNTER_INC("HPET irq");
 
 	// reset the irq output
-	_regs->isr = 1 << _timer;
+	if (!_edge) _regs->isr = 1 << _timer;
 
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
@@ -86,33 +93,36 @@ public:
     if (msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
     if (msg.abstime == ~0ull) return false;
 
+    _lasttimeout = msg.abstime;
     COUNTER_INC("HPET reprogram");
 
-    //_regs->isr = 1 << _timer;
-    timevalue delta = _clock->delta(msg.abstime, _freq);
-    if (delta < _mindelta) delta = _mindelta;
+    unsigned delta = _clock->delta(msg.abstime, _freq);
+    _lastdelta = delta;
     unsigned oldvalue = _regs->counter[0];
-    _regs->timer[_timer].comp[0] = oldvalue + delta;
+    _timerreg->comp[0] = oldvalue + delta;
     // we read them back to avoid PCI posting problems on ATI chipsets
-    _regs->timer[_timer].comp[0];
+    (void) _timerreg->comp[0];
     unsigned newvalue = _regs->counter[0];
-    if (~_regs->isr & (1 << _timer) && (newvalue - oldvalue) >= delta)
+    if (((newvalue - oldvalue) >= delta) || (msg.abstime <= _clock->time()))
       {
 	COUNTER_INC("HPET lost");
+	COUNTER_SET("HPET da2", delta);
+	COUNTER_SET("HPET ov2", oldvalue);
+	COUNTER_SET("HPET nv2", newvalue);
+	unsigned v1 = _regs->counter[0];
+	unsigned v2 = _regs->counter[0];
+	COUNTER_SET("HPET v", v2 - v1);
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
 
       }
-    COUNTER_SET("HPET isr", _regs->isr);
-    COUNTER_SET("HPET ov", oldvalue);
-    COUNTER_SET("HPET da", delta);
-    COUNTER_SET("HPET nv", newvalue);
     return true;
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
-    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer), _irq(theirq)
+  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool edge)
+    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer),
+      _timerreg(_regs->timer + _timer), _irq(theirq), _edge(edge)
   {
     Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
     if (_regs->period > 0x05f5e100 || !_regs->period) Logging::panic("Invalid HPET period");
@@ -120,7 +130,6 @@ public:
     _freq = 1000000000000000ull;
     Math::div64(_freq, _regs->period);
     Logging::printf(" freq %lld\n", _freq);
-    _mindelta = Math::muldiv128(1, _freq, MAX_FREQUENCY);
 
     unsigned num_timer = ((_regs->cap & 0x1f00) >> 8) + 1;
     if (num_timer < _timer)  Logging::panic("Timer %x not supported", _timer);
@@ -141,35 +150,32 @@ public:
 	  {
 	    // MSI?
 	    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-	    if ((_regs->timer[_timer].config & (1<<15)) &&  bus_hostop.send(msg1))
+	    if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1))
 	      {
 		// enable MSI
 		_irq = msg1.value;
-		_regs->timer[_timer].msi[0] = MSI_VALUE + _irq;
-		_regs->timer[_timer].msi[1] = MSI_ADDRESS;
-		_regs->timer[_timer].config |= 1<<14;
-
-		// Force edge mode
-		level = 0;
+		_timerreg->msi[0] = MSI_VALUE + _irq;
+		_timerreg->msi[1] = MSI_ADDRESS;
+		_timerreg->config |= 1<<14;
 	      }
 	    else
 	      {
-		if (!_regs->timer[_timer].int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
-		_irq = Cpu::bsf(_regs->timer[_timer].int_route);
+		if (!_timerreg->int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
+		_irq = Cpu::bsf(_timerreg->int_route);
 	      }
 	  }
       }
-    else if (~_regs->timer[_timer].int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
-    Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
+    else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
+    Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, _edge ? "edge" : "level", legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
-    _regs->timer[_timer].config = (_regs->timer[_timer].config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (level ? 2 : 0);
+    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (_edge ? 0 : 2);
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
 
     // ack interrupts
-    _regs->isr = ~0u;
+    if (!_edge) _regs->isr = ~0u;
   }
 };
 
@@ -218,7 +224,7 @@ PARAM(hosthpet,
 	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
       },
-      "hosthpet:address,timer=0,irq=~0u,level=1 - use the host HPET as timer.",
+      "hosthpet:address,timer=0,irq=~0u,edge=1 - use the host HPET as timer.",
       "If no address is given, the ACPI HPET table is used.",
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
       "Example: 'hosthpet:0xfed00000,1' - for the second timer of the hpet at 0xfed00000.");
