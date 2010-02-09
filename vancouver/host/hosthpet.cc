@@ -148,6 +148,9 @@ public:
 		_regs->timer[_timer].msi[0] = MSI_VALUE + _irq;
 		_regs->timer[_timer].msi[1] = MSI_ADDRESS;
 		_regs->timer[_timer].config |= 1<<14;
+
+		// Force edge mode
+		level = 0;
 	      }
 	    else
 	      {
@@ -164,6 +167,9 @@ public:
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
+
+    // ack interrupts
+    _regs->isr = ~0u;
   }
 };
 
