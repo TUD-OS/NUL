@@ -69,6 +69,9 @@ protected:
     TCTL      = 0x00400/4,
     RXPBS     = 0x02404/4,	// RX Packet Buffer Size
 
+    // RX
+    DTXCTL    = 0x03590/4,	// DMA Tx Control
+
     RAL0      = 0x05400/4,
     RAH0      = 0x05404/4,
 
@@ -92,6 +95,9 @@ protected:
     TCPTIMER  = 0x0104C/4,	// TCP Timer
     GPRC      = 0x04074/4,	// Good Packets Receive Count
     GPTC      = 0x04080/4,	// Good Packets Transmitted Count
+    
+    // Filtering
+    UTA0      = 0x0A000/4,
   };
 
   enum TCPTimer {
@@ -103,6 +109,11 @@ protected:
 
   enum DTXSWC {
     DTX_VMDQ_LOOPBACK = 1U << 31,
+  };
+
+  enum DTXCTL {
+    DTX_MDP_EN        = 1U << 5, // Malicious Driver Protection Enable
+    DTX_SPOOF_INT     = 1U << 6, // Interrupt on Spoof Behaviour Detection
   };
 
   enum VT {

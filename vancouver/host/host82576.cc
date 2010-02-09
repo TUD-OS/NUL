@@ -59,7 +59,8 @@ private:
   DBus<MessageHostOp> &_bus_hostop;
   volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
   unsigned _hostirq;
-  uint64_t _mac;
+
+  EthernetAddr _mac;
 
   // MSI-X
   unsigned _msix_table_size;
@@ -148,28 +149,29 @@ private:
       _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_ROPE | VMOLR_ROMPE
 	| VMOLR_STRVLAN | VMOLR_BAM;
 
-      union {
-    	char mac_addr[6];
-	uint64_t raw;
-      };
-      // XXX Make this configurable!
-      raw = _mac;
-      msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT((EthernetAddr *)mac_addr));
+      EthernetAddr vf_mac = _mac;
 
-      uint32_t ral = mac_addr[0] | mac_addr[1]<<8 | mac_addr[2]<<16 | mac_addr[3]<<24;
-      uint32_t rah = mac_addr[4] | mac_addr[5] | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
+      // XXX Make this configurable!
+      vf_mac.byte[4] ^= vf_no;
+      msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT(&vf_mac));
+
+      uint32_t ral = (uint32_t)vf_mac.raw;
+      uint32_t rah = (vf_mac.raw>>32) | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
 
       // XXX Where is this in the spec? (Which queue belongs to which
       // VM/pool?) Or doesn't it matter which one we use?
       //_hwreg[0x54E0/4 + (8 - vf_no - 1)*2] = ral; // RAL
       //_hwreg[0x54E4/4 + (8 - vf_no - 1)*2] = rah; // RAH
 
-      _hwreg[0x54E0/4 + vf_no*2] = ral;
-      _hwreg[0x54E4/4 + vf_no*2] = rah;
+      msg(INFO,"RAL[%d] = %08x\n", vf_no, ral);
+      msg(INFO,"RAH[%d] = %08x\n", vf_no, rah);
+
+      _hwreg[0x5400/4 + vf_no*2] = ral;
+      _hwreg[0x5404/4 + vf_no*2] = rah;
 
       _hwreg[pfmbxmem] = mbxmsg[0] | ACK;
-      _hwreg[pfmbxmem + 1] = raw;
-      _hwreg[pfmbxmem + 2] = (raw >> 32) & 0xffff;
+      _hwreg[pfmbxmem + 1] = vf_mac.raw;
+      _hwreg[pfmbxmem + 2] = (vf_mac.raw >> 32) & 0xffff;
       break;
     }
     case VF_SET_MULTICAST:
@@ -211,6 +213,8 @@ public:
   {
     // Hardware initializes the Receive Address registers of queue 0
     // with the MAC address stored in the EEPROM.
+    msg(INFO, "RAL0 = %08x\n", _hwreg[RAL0]);
+    msg(INFO, "RAH0 = %08x\n", _hwreg[RAH0]);
     EthernetAddr a = {{ _hwreg[RAL0] | (((uint64_t)_hwreg[RAH0] & 0xFFFF) << 32) }};
     return a;
   }
@@ -282,8 +286,8 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
-	    unsigned bdf, unsigned hostirq, uint64_t mac )
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq), _mac(mac)
+	    unsigned bdf, unsigned hostirq)
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -396,7 +400,7 @@ public:
     // Disable default pool. Uninteresting packets will be
     // dropped. Also enable replication to allow VF-to-VF
     // communication.
-    _hwreg[VT_CTL] |= VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
+    _hwreg[VT_CTL] = VT_CTL_DIS_DEF_POOL | VT_CTL_REP_ENABLE;
 
     _hwreg[MRQC] = MRQC_MRQE_011; // Filter via MAC, always use default queue of pool
 
@@ -407,16 +411,18 @@ public:
     // Allow all VFs to send IRQs to us.
     _hwreg[MBVFIMR] = 0xFF;
 
+    // UTA seems to be useless. So just enable them all.
+    for (unsigned i = 0; i < 128; i++)
+      _hwreg[UTA0 + i] = ~0U;
+
+    // TX
+    _hwreg[DTXCTL] = DTX_MDP_EN | DTX_SPOOF_INT;
+
     // Wait for Link Up and VM mailbox events.
     msg(INFO, "Enabling interrupts...\n");
     _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
     _hwreg[EIMS] = 1;
     _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
-
-    // PF Setup complete
-    msg(INFO, "Notifying VFs that PF is done...\n");
-    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
-
 
     msg(INFO, "Configuring link parameters...\n");
     // Direct Copper link mode (set link mode to 0)
@@ -424,8 +430,12 @@ public:
     // Enable PHY autonegotiation (4.5.7.2.1)
     _hwreg[CTRL] = (_hwreg[CTRL] & ~(CTRL_FRCSPD | CTRL_FRCDPLX)) | CTRL_SLU;
 
-    //_mac = ethernet_address();
-    //msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+    _mac = ethernet_address();
+    msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+
+    // PF Setup complete
+    msg(INFO, "Notifying VFs that PF is done...\n");
+    _hwreg[CTRL_EXT] |= CTRL_EXT_PFRSTD;
 
     msg(INFO, "Initialization complete.\n");
 
@@ -449,14 +459,9 @@ PARAM(host82576, {
             continue;
           }
 
-	  MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
-	  if (!mb.bus_hostop.send(msg))
-	    Logging::printf("Could not get an UID");
-
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
 					 // XXX Does not work reliably! (ioapic assertion) 
-					 pci.get_gsi(bdf, argv[1]),
-					 (static_cast<unsigned long long>(Math::htonl(msg.value)) << 16) | Math::htonl(argv[2])
+					 pci.get_gsi(bdf, argv[1])
 					 );
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
