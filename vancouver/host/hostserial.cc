@@ -35,7 +35,7 @@ class HostSerial : public StaticReceiver<HostSerial>
   unsigned _lcr;
 
   const char *debug_getname() { return "HostSerial"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %4x+8 irq %x speed %x _lcr %x", _base, _irq, _speed, _lcr);
   }
@@ -76,10 +76,10 @@ class HostSerial : public StaticReceiver<HostSerial>
     return true;
   }
 
-  
+
   HostSerial(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageSerial> &bus_serial,
 	     unsigned serialdev, unsigned base, unsigned irq, unsigned speed, unsigned lcr, unsigned ier)
-    : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_serial(bus_serial), 
+    : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_serial(bus_serial),
       _serialdev(serialdev), _base(base), _irq(irq), _speed(speed), _lcr(lcr)
   {
 
@@ -121,7 +121,7 @@ PARAM(hostserial,
 	if (!mb.bus_hostop.send(msg1))
 	  Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
 
-	Device *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial, 
+	Device *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial,
 				     argv[0] == ~0UL ? 0 : argv[0], iobase, argv[2],
 				     argv[3] == ~0UL ? 115200 : argv[3],
 				     argv[4] == ~0UL ? 3 : argv[4], argv[2] != ~0U);
