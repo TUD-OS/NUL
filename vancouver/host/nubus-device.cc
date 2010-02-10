@@ -32,32 +32,12 @@ bool PCIDevice::ari_capable()
 
 uint8_t PCIDevice::find_cap(uint8_t id)
 {
-  if ((conf_read(4) >> 16) & 0x10 /* Capabilities supported? */) {
-    for (unsigned offset = conf_read(0x34) & 0xFC;
-	 offset != 0; offset = (conf_read(offset) >> 8) & 0xFC) {
-      if ((conf_read(offset) & 0xFF) == id)
-	return offset;
-    }
-  }
-
-  return 0;
+  return _bus.manager().pci().find_cap(bdf(), id);
 }
 
 uint16_t PCIDevice::find_extcap(uint16_t id)
 {
-  if (!find_cap(CAP_PCI_EXPRESS)) return 0;
-  if (~0UL == conf_read(0x100)) return 0;
-
-  uint32_t header;
-  uint16_t offset;
-  for (offset = 0x100, header = conf_read(offset);
-       offset != 0;
-       offset = header>>20, header = conf_read(offset)) {
-    if ((header & 0xFFFF) == id)
-      return offset;
-  }
-
-  return 0;
+  return _bus.manager().pci().find_extended_cap(bdf(), id);
 }
 
 bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
@@ -171,7 +151,6 @@ PCIDevice::PCIDevice(PCIBus &bus, uint8_t df, PCIDevice *pf)
       uint64_t base = _bus.manager().pci().bar_base(bdf(), bar_addr);
       uint64_t bar_size = _bus.manager().pci().bar_size(bdf(), bar_addr, &is64bit);
 
-#warning This seems to be bogus.
       if (bar_size != 0) _bus.add_used_region(base, bar_size);
 
       if (is64bit) bar_i++;
