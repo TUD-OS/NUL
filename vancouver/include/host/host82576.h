@@ -216,6 +216,7 @@ protected:
 
   };
 
+  // Hardware interface
   enum PFMBX {
     Sts = 1U << 0,		// Status/Message ready (WO)
     Ack = 1U << 1,		// VF Message received (WO)
@@ -223,6 +224,22 @@ protected:
     PFU = 1U << 3,		// Buffer taken by PF (WO)
     RVFU = 1U << 4,		// Reset VFU (Clears VFU) (WO)
   };
+
+  // Software interface
+  enum MBX {
+    VF_RESET         = 0x0001U,
+    VF_SET_MAC_ADDR  = 0x0002U,
+    VF_SET_MULTICAST = 0x0003U,
+    VF_SET_LPE       = 0x0005U,
+
+    PF_CONTROL_MSG   = 0x0100U,
+
+    CMD_ACK          = 0x80000000U,
+    CMD_NACK         = 0x40000000U,
+    CTS              = 0x20000000U,
+  };
+
+
 
   // Misc
   Clock *_clock;

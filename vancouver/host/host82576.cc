@@ -85,28 +85,10 @@ private:
 	_hwreg[GPTC]);
   }
 
-  unsigned enabled_vfs()
-  {
-    return (_hwreg[STATUS] & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT;
-  }
-
   void handle_vf_reset(unsigned vf_no)
   {
     msg(VF, "FLR on VF%d.\n", vf_no);
   }
-
-  enum MBX {
-    VF_RESET         = 0x0001U,
-    VF_SET_MAC_ADDR  = 0x0002U,
-    VF_SET_MULTICAST = 0x0003U,
-    VF_SET_LPE       = 0x0005U,
-
-    PF_CONTROL_MSG   = 0x0100U,
-
-    ACK              = 0x80000000U,
-    NACK             = 0x40000000U,
-    CTS              = 0x20000000U,
-  };
 
   void vf_set_mac(unsigned vf_no, EthernetAddr mac)
   {
@@ -152,7 +134,7 @@ private:
 
       vf_set_mac(vf_no, vf_mac);
 
-      _hwreg[pfmbxmem] = mbxmsg[0] | ACK | CTS;
+      _hwreg[pfmbxmem] = mbxmsg[0] | CMD_ACK | CTS;
       _hwreg[pfmbxmem + 1] = vf_mac.raw;
       _hwreg[pfmbxmem + 2] = (vf_mac.raw >> 32) & 0xffff;
       break;
@@ -160,14 +142,14 @@ private:
     case VF_SET_MULTICAST:
       msg(VF, "VF%u SET_MULTICAST(%u) -> ignore.\n", vf_no, (mbxmsg[0] >> 16) & 0xFF);
       // XXX Just ignore multicast for now.
-      _hwreg[pfmbxmem] = VF_SET_MULTICAST | ACK | CTS;
+      _hwreg[pfmbxmem] = VF_SET_MULTICAST | CMD_ACK | CTS;
       break;
     case VF_SET_LPE:
       msg(VF, "VF%u SET_LPE(%u).\n", vf_no, mbxmsg[1]);
       _hwreg[VMOLR0 + vf_no] = (_hwreg[VMOLR0 + vf_no] & ~VMOLR_RPML_MASK) 
 	| (mbxmsg[1] & VMOLR_RPML_MASK) | VMOLR_LPE;
       // XXX Adjust value for VLAN tag size?
-      _hwreg[pfmbxmem] = VF_SET_LPE | ACK | CTS;
+      _hwreg[pfmbxmem] = VF_SET_LPE | CMD_ACK | CTS;
       break;
     case VF_SET_MAC_ADDR:
       {
@@ -175,13 +157,13 @@ private:
 	vf_mac.raw = _hwreg[pfmbxmem + 1] | (_hwreg[pfmbxmem + 2] & 0xFFFF);
 	vf_set_mac(vf_no, vf_mac);
       }
-      _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | ACK | CTS;
+      _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | CMD_ACK | CTS;
       break;
     default:
       msg(VF, "Unrecognized message %04x.\n", mbxmsg[0] & 0xFFFF);
       Logging::hexdump(mbxmsg, 16); // Dump control world plus some data (if any)
       // Send NACK for unrecognized messages.
-      _hwreg[pfmbxmem] = mbxmsg[0] | NACK;
+      _hwreg[pfmbxmem] = mbxmsg[0] | CMD_NACK;
     };
 
     _hwreg[pfmbx] = Sts;	// Send response
