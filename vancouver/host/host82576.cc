@@ -119,6 +119,13 @@ private:
     CTS              = 0x20000000U,
   };
 
+  void vf_set_mac(unsigned vf_no, EthernetAddr mac)
+  {
+    msg(VF, "VF%u is now " MAC_FMT "\n", vf_no, MAC_SPLIT(&mac));
+    _hwreg[RAL0 + vf_no*2] = (uint32_t)mac.raw;
+    _hwreg[RAH0 + vf_no*2] = (mac.raw>>32) | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
+  }
+
   void handle_vf_message(unsigned vf_no)
   {
     assert(vf_no < 8);
@@ -144,8 +151,7 @@ private:
       // XXX Clear relevant registers and stuff (i.e. do a real reset for the VF)
       _hwreg[VFRE] |= 1<<vf_no;
       _hwreg[VFTE] |= 1<<vf_no;
-      msg(INFO, "VFRE %08x VFTE %08x\n", _hwreg[VFRE], _hwreg[VFTE]);
-
+      
       _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_ROPE | VMOLR_ROMPE
 	| VMOLR_STRVLAN | VMOLR_BAM;
 
@@ -153,21 +159,9 @@ private:
 
       // XXX Make this configurable!
       vf_mac.byte[4] ^= vf_no;
-      msg(INFO, "VF%u sent RESET. New MAC " MAC_FMT "\n", vf_no, MAC_SPLIT(&vf_mac));
+      msg(VF, "VF%u sent RESET\n");
 
-      uint32_t ral = (uint32_t)vf_mac.raw;
-      uint32_t rah = (vf_mac.raw>>32) | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
-
-      // XXX Where is this in the spec? (Which queue belongs to which
-      // VM/pool?) Or doesn't it matter which one we use?
-      //_hwreg[0x54E0/4 + (8 - vf_no - 1)*2] = ral; // RAL
-      //_hwreg[0x54E4/4 + (8 - vf_no - 1)*2] = rah; // RAH
-
-      msg(INFO,"RAL[%d] = %08x\n", vf_no, ral);
-      msg(INFO,"RAH[%d] = %08x\n", vf_no, rah);
-
-      _hwreg[0x5400/4 + vf_no*2] = ral;
-      _hwreg[0x5404/4 + vf_no*2] = rah;
+      vf_set_mac(vf_no, vf_mac);
 
       _hwreg[pfmbxmem] = mbxmsg[0] | ACK | CTS;
       _hwreg[pfmbxmem + 1] = vf_mac.raw;
@@ -175,24 +169,28 @@ private:
       break;
     }
     case VF_SET_MULTICAST:
-      msg(INFO, "VF%u SET_MULTICAST(%u) -> ignore.\n", vf_no, (mbxmsg[0] >> 16) & 0xFF);
+      msg(VF, "VF%u SET_MULTICAST(%u) -> ignore.\n", vf_no, (mbxmsg[0] >> 16) & 0xFF);
       // XXX Just ignore multicast for now.
       _hwreg[pfmbxmem] = VF_SET_MULTICAST | ACK | CTS;
       break;
     case VF_SET_LPE:
-      msg(INFO, "VF%u SET_LPE(%u).\n", vf_no, mbxmsg[1]);
+      msg(VF, "VF%u SET_LPE(%u).\n", vf_no, mbxmsg[1]);
       _hwreg[VMOLR0 + vf_no] = (_hwreg[VMOLR0 + vf_no] & ~VMOLR_RPML_MASK) 
 	| (mbxmsg[1] & VMOLR_RPML_MASK) | VMOLR_LPE;
       // XXX Adjust value for VLAN tag size?
       _hwreg[pfmbxmem] = VF_SET_LPE | ACK | CTS;
       break;
     case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
-      msg(INFO, "VF%u SET_MAC_ADDR. Denied!\n", vf_no);
-      _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | NACK;
+      {
+	EthernetAddr vf_mac;
+	vf_mac.raw = _hwreg[pfmbxmem + 1] | (_hwreg[pfmbxmem + 2] & 0xFFFF);
+	vf_set_mac(vf_no, vf_mac);
+      }
+      _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | ACK | CTS;
       break;
     default:
       msg(VF, "Unrecognized message %04x.\n", mbxmsg[0] & 0xFFFF);
-      Logging::hexdump(mbxmsg, 16);	// Dump control world plus some data (if any)
+      Logging::hexdump(mbxmsg, 16); // Dump control world plus some data (if any)
       // Send NACK for unrecognized messages.
       _hwreg[pfmbxmem] = mbxmsg[0] | NACK;
     };
