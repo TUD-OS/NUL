@@ -21,15 +21,15 @@
 
 #include <cstdint>
 
+
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
   const static unsigned MAX_BAR = 6;
 
-  Motherboard &_mb;
-
+  // for IRQ injection
+  DBus<MessageIrq> &_bus_irqlines;
   uint16_t _parent_bdf;		// BDF of Physical Function
   uint16_t _vf_bdf;		// BDF of VF on host
-  uint16_t _guest_bdf;		// BDF of VF inside the guest
 
   // Device and Vendor ID as reported by parent's SR-IOV cap.
   uint32_t _device_vendor_id;
@@ -174,7 +174,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     this->msg("MSI-X IRQ%d! Inject %d\n", msix_vector, _msix_table[msix_vector].guest_msg_data & 0xFF);
     MessageIrq imsg(msg.type, _msix_table[msix_vector].guest_msg_data & 0xFF);
-    _mb.bus_irqlines.send(imsg);
+    _bus_irqlines.send(imsg);
 
     return true;
   }
@@ -309,8 +309,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     return true;;
   }
 
-  DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no, uint16_t guest_bdf)
-    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _parent_bdf(parent_bdf), _guest_bdf(guest_bdf), _vf_no(vf_no)
+  DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no)
+    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _bus_irqlines(mb.bus_irqlines), _parent_bdf(parent_bdf), _vf_no(vf_no)
   {
     memset(_bars, 0, sizeof(_bars));
 
@@ -410,7 +410,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       if (_bars[i].size != 0) {
 	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM,
 			   _bars[i].base, _bars[i].size);
-	if (_mb.bus_hostop.send(amsg) && amsg.ptr) {
+	if (mb.bus_hostop.send(amsg) && amsg.ptr) {
 	  msg("MMIO %08llx -> %p\n", _bars[i].base, amsg.ptr);
 	  _bars[i].ptr = amsg.ptr;
 	} else {
@@ -443,7 +443,7 @@ PARAM(vfpci,
 	uint16_t guest_bdf  = PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]);
 
 	Logging::printf("VF %08x\n", pci.conf_read(parent_bdf, 0));
-	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_no, guest_bdf);
+	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_no);
 
 	// We want to map memory into VM space and intercept some accesses.
 	mb.bus_memmap.add(dev, &DirectVFDevice::receive_static<MessageMemMap>);
