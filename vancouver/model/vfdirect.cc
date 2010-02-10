@@ -44,25 +44,17 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     void *ptr;
   } _bars[MAX_BAR];
 
-  // for IRQ injection
+  // XXX Used by hacky IRQ injection as long as there is no APIC.
   DBus<MessageIrq> &_bus_irqlines;
 
   unsigned  _irq_count;
   unsigned *_host_irqs;
 
-
-  // MSI handling
-  unsigned _msi_cap;
-
   // MSI-X handling
   unsigned _msix_cap;		// Offset of MSI-X capability
-  unsigned _msix_bir;		// Which BAR contains MSI-X registers?
-  unsigned _msix_pba_offset;
+  unsigned _msix_table_bir;	// Which BAR contains MSI-X registers?
   struct msix_table_entry {
-    union {
-      uint64_t guest_msg_addr;
-      uint32_t guest_msg_addr_w[2];
-    };
+    uint64_t guest_msg_addr;
     uint32_t guest_msg_data;
     uint32_t guest_vector_control;
   };
@@ -107,7 +99,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       if (msg.offset == 0)
 	msg.value = _didvid;
       else if ((bar = in_bar(msg.offset)) < MAX_BAR)
-	  msg.value = _bars[bar].base;
+	msg.value = _bars[bar].base;
       else
 	msg.value = conf_read(_vf_bdf, msg.offset);
       break;
@@ -130,7 +122,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
 	this->msg("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
 
-	// XXX use FSB delivery to an LAPIC model
+	// XXX Use FSB delivery to an LAPIC model!
 	MessageIrq imsg(msg.type, _msix_table[i].guest_msg_data & 0xFF);
 	_bus_irqlines.send(imsg);
 	return true;
@@ -143,7 +135,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     for (unsigned i = 0; i < MAX_BAR; i++) {
       if ((_bars[i].size == 0) ||
 	  // Don't map MSI-X memory!
-	  (_msix_cap && (i == _msix_bir)) ||
+	  (_msix_cap && (i == _msix_table_bir)) ||
 	  !in_range(msg.phys, _bars[i].base, _bars[i].size))
 	continue;
 
@@ -167,8 +159,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
   unsigned in_msix_bar(uintptr_t ptr, unsigned count)
   {
-    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
-      return ptr - _bars[_msix_bir].base;
+    if (_msix_cap && in_range(ptr, _bars[_msix_table_bir].base, _bars[_msix_table_bir].size - count))
+      return ptr - _bars[_msix_table_bir].base;
     else
       return NO_MATCH;
   }
@@ -190,10 +182,10 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     unsigned old_vector_control = _msix_table[entry].guest_vector_control;
     memcpy(_msix_table + offset, rmsg.ptr, rmsg.count);
 
-    // only the lowest bit is defined
+    // Only the lowest bit is defined.
     _msix_table[entry].guest_vector_control &= 1;
 
-    // write vector control through
+    // Write vector control through.
     if (_msix_table[entry].guest_vector_control != old_vector_control)
       _host_msix_table[entry*4 + 3] = _msix_table[entry].guest_vector_control;
     return true;;
@@ -236,43 +228,34 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     }
 
     // IRQ handling
-    _irq_count = 1;
-    _msi_cap = find_cap(_vf_bdf, CAP_MSI);
+    if (find_cap(_vf_bdf, CAP_MSI)) msg("Warning: VF supports MSI, but we don't.\n");
     _msix_cap = find_cap(_vf_bdf, CAP_MSIX);
-    if (_msix_cap)
-      _irq_count   = 1 + (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
+    _irq_count = !_msix_cap ? 0 : (1 + (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1));
 
-    // get host irqs
+    // Get Host IRQs
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
       unsigned gsi = get_gsi(_vf_bdf, ~0UL);
-	msg("Host IRQ%d -> for VEC %d\n", gsi, i);
-	_host_irqs[i] = gsi;
-	MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
-	mb.bus_hostop.send(imsg);
-      }
+      msg("Host IRQ%d -> MSI-X vector %d\n", gsi, i);
+      _host_irqs[i] = gsi;
+      MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
+      mb.bus_hostop.send(imsg);
+    }
 
+    // Prepare MSI-X handling
     if (_msix_cap) {
-
-      // XXX PBA and table must share the same BAR for now.
-      assert((conf_read(_vf_bdf, _msix_cap + 0x4) & 7) == (conf_read(_vf_bdf, _msix_cap + 0x8) & 7));
-      // XXX MSI table offset must be 0
+      // XXX MSI table offset must be 0 for now.
       assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
 
-      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~0x7;
-      _msix_bir = conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7;
-
-      msg("Allocated MSI-X table with %d elements.\n", _irq_count);
       _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
-
-
-      // init host msix table
-      _host_msix_table = (volatile uint32_t *)((char *)_bars[_msix_bir].ptr);
+      _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
+      _host_msix_table = (volatile uint32_t *)(_bars[_msix_table_bir].ptr);
       for (unsigned i = 0; i < _irq_count; i++) {
 	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
 	_host_msix_table[i*4 + 1] = 0;
 	_host_msix_table[i*4 + 2] = _host_irqs[i] + 0x20;
       }
+      msg("Allocated MSI-X table with %d elements.\n", _irq_count);
     }
   }
 };
@@ -320,7 +303,7 @@ PARAM(vfpci,
 	  return;
 	}
 
-	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_bdf, didvid, vf_no);
+	Device *dev = new DirectVFDevice(mb, parent_bdf, vf_bdf, didvid, vf_no);
 
 	// We want to map memory into VM space and intercept some accesses.
 	mb.bus_memmap.add(dev, &DirectVFDevice::receive_static<MessageMemMap>);
