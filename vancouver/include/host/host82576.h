@@ -227,25 +227,9 @@ protected:
   // Misc
   Clock *_clock;
 
-  void spin(unsigned micros)
-  {
-    timevalue done = _clock->abstime(micros, 1000000);
-    while (_clock->time() < done)
-      Cpu::pause();
-  }
-
+  void spin(unsigned micros);
   bool wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
-	    unsigned timeout_micros = 1000000 /* 1s */)
-  {
-    timevalue timeout = _clock->abstime(timeout_micros, 1000000);
-
-    while ((reg & mask) != value) {
-      Cpu::pause();
-      if (_clock->time() >= timeout)
-	return false;
-    }
-    return true;
-  }
+	    unsigned timeout_micros = 1000000 /* 1s */);
 
   /// Logging
   unsigned _msg_level;
@@ -266,17 +250,7 @@ protected:
     ALL   = ~0U,
   };
 
-  __attribute__ ((format (printf, 3, 4)))
-  void msg(unsigned level, const char *msg, ...)
-  {
-    if ((level & _msg_level) != 0) {
-      va_list ap;
-      va_start(ap, msg);
-      Logging::printf("82576 %02x: ", _bdf & 0xFF);
-      Logging::vprintf(msg, ap);
-      va_end(ap);
-    }
-  }
+  __attribute__ ((format (printf, 3, 4))) void msg(unsigned level, const char *msg, ...);
 
   Base82576(Clock *clock, unsigned msg_level, uint16_t bdf)
     : _clock(clock), _msg_level(msg_level), _bdf(bdf)
