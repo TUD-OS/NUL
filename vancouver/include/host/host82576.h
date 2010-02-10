@@ -28,9 +28,19 @@ protected:
   };
 
   enum VRegister {
-    VCTRL      = 0x0000/4,
-    VSTATUS    = 0x0008/4,
-    VFRTIMER   = 0x1048/4,
+    VTCTRL      = 0x0000/4,
+    VTSTATUS    = 0x0008/4,
+    VTFRTIMER   = 0x1048/4,
+
+    VTEICS      = 0x1520/4,
+    VTEIMS      = 0x1524/4,
+    VTEIMC      = 0x1528/4,
+    VTEIAC      = 0x152C/4,
+    VTEIAM      = 0x1530/4,
+    VTEICR      = 0x1580/4,
+    VTIVAR      = 0x1700/4,
+    VTIVAR_MISC = 0x1740/4,
+
     VMB        = 0x0C40/4, 	// 8.14.3
     VBMEM      = 0x0800/4,	// 8.14.4
   };
