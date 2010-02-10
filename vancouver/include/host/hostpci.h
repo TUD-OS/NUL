@@ -223,34 +223,26 @@ class HostPci
    */
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
-    if (~conf_read(bdf, 4) & 0x100000) return 0;
-    unsigned char cap_offset = conf_read(bdf, 0x34);
-    while (cap_offset != 0xff)
-      {
-	if (id == (conf_read(bdf, cap_offset & 0xfc) & 0xFF))
-	  return cap_offset & 0xfc;
-	else
-	  cap_offset = conf_read(bdf, cap_offset) >> 8;
-      }
+    if ((conf_read(bdf, 4) >> 16) & 0x10 /* Capabilities supported? */)
+      for (unsigned offset = conf_read(bdf, 0x34) & 0xFC;
+	   (offset != 0) && (offset != 0xFC);
+	   offset = (conf_read(bdf, offset) >> 8) & 0xFC)
+	if ((conf_read(bdf, offset) & 0xFF) == id)
+	  return offset;
+
     return 0;
   }
 
   unsigned find_extended_cap(unsigned bdf, unsigned short id)
   {
-    if ((!find_cap(bdf, CAP_PCI_EXPRESS)) || (~0UL == conf_read(bdf, 0x100)))
-      return 0;
+    unsigned long header, offset;
 
-    unsigned long header;
-    unsigned short offset = 0x100;
-    unsigned max = 0x100;
-
-    do {
-      header = conf_read(bdf, offset);
-      if ((header & 0xFFFF) == id)
-	return offset;
-
-      offset = header >> 20;
-    } while ((max-- > 0) && (offset != 0));
+    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x100)))
+      for (offset = 0x100, header = conf_read(bdf, offset);
+	   offset != 0;
+	   offset = header>>20, header = conf_read(bdf, offset))
+	if ((header & 0xFFFF) == id)
+	  return offset;
 
     return 0;
   }
