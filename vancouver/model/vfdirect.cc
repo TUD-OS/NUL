@@ -30,6 +30,8 @@
  */
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
+  const char *debug_getname() { return "DirectVFDevice"; }
+
   const static unsigned MAX_BAR = 6;
 
   uint16_t _parent_bdf;		// BDF of Physical Function
@@ -63,9 +65,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   struct msix_table_entry *_msix_table;
   volatile uint32_t *_host_msix_table;
 
-  const char *debug_getname() { return "DirectVFDevice"; }
-
-
   __attribute__ ((format (printf, 2, 3)))
   void msg(const char *msg, ...)
   {
@@ -82,6 +81,18 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       return (addr - 0x10) >> 2;
     else
       return ~0U;
+  }
+
+  enum {
+    NO_MATCH = ~0U,
+  };
+
+  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
+  {
+    if (_msix_cap && in_range(ptr, _bars[_msix_table_bir].base, _bars[_msix_table_bir].size - count))
+      return ptr - _bars[_msix_table_bir].base;
+    else
+      return NO_MATCH;
   }
 
  public:
@@ -151,18 +162,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       return true;
     }
     return false;
-  }
-
-  enum {
-    NO_MATCH = ~0U,
-  };
-
-  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
-  {
-    if (_msix_cap && in_range(ptr, _bars[_msix_table_bir].base, _bars[_msix_table_bir].size - count))
-      return ptr - _bars[_msix_table_bir].base;
-    else
-      return NO_MATCH;
   }
 
   bool receive(MessageMemRead &rmsg)
