@@ -21,7 +21,13 @@
 
 #include <cstdint>
 
-
+/**
+ * Directly assign a virtual function of an SRIOV device.
+ *
+ * State: unstable
+ * Features: Bars, MSI-X
+ * Missing: MSI-Injection, MSI, PBA
+ */
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
   const static unsigned MAX_BAR = 6;
@@ -100,26 +106,15 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
-      if (msg.offset == 0) {
+      if (msg.offset == 0)
 	msg.value = _didvid;
-      } else if (_msi_cap && (msg.offset == _msi_cap)) {
-	// Disable cap by setting its type to 0xFF, but keep the
-	// linked list intact.
-	// XXX Protect Message Address and Data fields.
-	msg.value = conf_read(_vf_bdf, msg.offset);
-	msg.value |= 0xFF;
-	return true;
-      } else if ((bar = in_bar(msg.offset)) < MAX_BAR)
-	{
-	  msg.value = (uint32_t)_bars[bar].base;
-	  //this->msg("BAR %d -> %08x\n", bar, msg.value);
-	  return true;
-	} else
+      else if ((bar = in_bar(msg.offset)) < MAX_BAR)
+	  msg.value = _bars[bar].base;
+      else
 	msg.value = conf_read(_vf_bdf, msg.offset);
       break;
     case MessagePciConfig::TYPE_WRITE:
       if ((bar = in_bar(msg.offset)) < MAX_BAR)
-	//this->msg("BAR %d <- %08x\n", bar, msg.value);
 	_bars[bar].base = msg.value & ~(_bars[bar].size - 1);
       else
 	conf_write(_vf_bdf, msg.offset, msg.value);
