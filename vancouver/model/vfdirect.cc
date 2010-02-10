@@ -26,7 +26,7 @@
  *
  * State: unstable
  * Features: Bars, MSI-X
- * Missing: MSI-Injection, MSI, PBA
+ * Missing: MSI-Injection, MSI, PBA, MSI-X table offset
  */
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
@@ -41,7 +41,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   struct {
     uint32_t base;
     uint32_t size;
-
     void *ptr;
   } _bars[MAX_BAR];
 
@@ -56,10 +55,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   unsigned _msi_cap;
 
   // MSI-X handling
-
   unsigned _msix_cap;		// Offset of MSI-X capability
   unsigned _msix_bir;		// Which BAR contains MSI-X registers?
-  unsigned _msix_table_offset;
   unsigned _msix_pba_offset;
   struct msix_table_entry {
     union {
@@ -258,19 +255,19 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     if (_msix_cap) {
 
       // XXX PBA and table must share the same BAR for now.
-      assert((conf_read(_vf_bdf, _msix_cap + 0x4)&3) == (conf_read(_vf_bdf, _msix_cap + 0x8)&3));
+      assert((conf_read(_vf_bdf, _msix_cap + 0x4) & 7) == (conf_read(_vf_bdf, _msix_cap + 0x8) & 7));
+      // XXX MSI table offset must be 0
+      assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
 
-      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~3;
-      _msix_table_offset = conf_read(_vf_bdf, _msix_cap + 0x4);
-      _msix_bir = _msix_table_offset & 3;
-      _msix_table_offset &= ~3;
+      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~0x7;
+      _msix_bir = conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7;
 
       msg("Allocated MSI-X table with %d elements.\n", _irq_count);
       _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
 
 
       // init host msix table
-      _host_msix_table = (volatile uint32_t *)(_msix_table_offset + (char *)_bars[_msix_bir].ptr);
+      _host_msix_table = (volatile uint32_t *)((char *)_bars[_msix_bir].ptr);
       for (unsigned i = 0; i < _irq_count; i++) {
 	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
 	_host_msix_table[i*4 + 1] = 0;
