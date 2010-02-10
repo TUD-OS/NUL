@@ -32,7 +32,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
   enum {
     NO_MATCH = ~0U,
-    MAX_BAR = 6,
   };
 
   uint16_t _parent_bdf;		// BDF of Physical Function

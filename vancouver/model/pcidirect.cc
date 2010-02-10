@@ -31,15 +31,11 @@
 class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 {
   Motherboard &_mb;
-  enum
-    {
-      BARS = 6,
-    };
   unsigned _bdf;
   unsigned _hostirq;
   unsigned _cfgspace[PCI_CFG_SPACE_DWORDS];
-  unsigned _bars[BARS];
-  unsigned _masks[BARS];
+  unsigned _bars[MAX_BAR];
+  unsigned _masks[MAX_BAR];
   const char *debug_getname() { return "DirectPciDevice"; }
 
 
@@ -167,7 +163,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	assert(!(msg.offset & 3));
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    if (in_range(msg.offset, 0x10, BARS * 4))
+	    if (in_range(msg.offset, 0x10, MAX_BAR * 4))
 	      memcpy(&msg.value, reinterpret_cast<char *>(_cfgspace) + msg.offset, 4);
 	    else
 	      msg.value = conf_read(_bdf, msg.offset & ~0x3) >> (8 * (msg.offset & 3));
@@ -185,11 +181,11 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	  {
 	    //unsigned old = _cfgspace[msg.offset >> 2];
 	    unsigned mask = ~0u;
-	    if (in_range(msg.offset, 0x10, BARS * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
+	    if (in_range(msg.offset, 0x10, MAX_BAR * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
 	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
 
 	    //write through if not in the bar-range
-	    if (!in_range(msg.offset, 0x10, BARS * 4))
+	    if (!in_range(msg.offset, 0x10, MAX_BAR * 4))
 	      conf_write(_bdf, msg.offset, _cfgspace[msg.offset >> 2]);
 
 	    //Logging::printf("%s:%x -- %8x,%8x old %8x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], old);
