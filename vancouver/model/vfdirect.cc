@@ -162,8 +162,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       msg.count = _bars[i].size;
       msg.phys  = _bars[i].base;
 
-      assert((0xFFF & (uintptr_t)msg.ptr) == 0);
       msg.ptr = _bars[i].ptr;
+      assert((0xFFF & (uintptr_t)msg.ptr) == 0);
 
       this->msg("Map phys %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
       return true;
