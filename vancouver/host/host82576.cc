@@ -336,10 +336,10 @@ public:
     // mode, because SR-IOV is on. Beware, that we can only use one
     // internal interrupt vector (vector 0). The 82576 has 25, but
     // each of the 8 VMs needs 3.
+    pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
     _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
     _msix_table[0].msg_data = hostirq + 0x20;
     _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
-    pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
     _hwreg[GPIE] = GPIE_EIAME | GPIE_MULTIPLE_MSIX | GPIE_PBA | GPIE_NSICR; // 7.3.2.11
 
     // Disable all RX/TX interrupts.
