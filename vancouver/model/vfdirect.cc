@@ -66,10 +66,11 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       uint32_t guest_msg_addr_w[2];
     };
     uint32_t guest_msg_data;
-
-    unsigned host_irq;
+    uint32_t guest_vector_control;
   };
 
+
+  unsigned *_host_irqs;
   struct msix_table_entry *_msix_table;
   volatile uint32_t *_host_msix_table;
 
@@ -128,7 +129,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   {
     // Which MSI-X vector was triggered?
     for (unsigned i = 0; i < _msix_table_size; i++)
-      if (_msix_table[i].host_irq == msg.line) {
+      if (_host_irqs[i] == msg.line) {
 
 	this->msg("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
 
@@ -167,9 +168,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     NO_MATCH = ~0U,
   };
 
-  unsigned in_msix_bar(uintptr_t ptr)
+  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
   {
-    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size))
+    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
       return ptr - _bars[_msix_bir].base;
     else
       return NO_MATCH;
@@ -178,95 +179,26 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageMemRead &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_bar(rmsg.phys)) == NO_MATCH) return false;
-
-    unsigned entry = offset / 16;
-
-    switch (rmsg.count) {
-    case 4:
-      //msg("READ  DW MSI-X %x: \n", offset);
-      if ((offset % 4) != 0) {
-	msg(" Unaligned!\n");
-	return false;
-      }
-      switch (offset % 16) {
-      case 0:
-	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_addr_w[0]; break;
-      case 4:
-	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_addr_w[1]; break;
-      case 8:
-	*((uint32_t *)rmsg.ptr) = _msix_table[entry].guest_msg_data; break;
-      case 12:
-	// Vector control reads right through.
-	*((uint32_t *)rmsg.ptr) = _host_msix_table[entry*4 + 3];
-	break;
-      };
-      //msg(" -> %08x\n", *((uint32_t *)rmsg.ptr));
-      break;
-    case 8:
-      msg("READ QW  MSI-X %x: \n", offset);
-      if ((offset % 8) != 0) {
-	msg(" Unaligned!\n");
-	return false;
-      }
-
-      msg("XXX Implement me\n");
-      return false;
-      break;
-    default:
-      msg("XXX Only 32/64-bit reads in MSI-X table allowed! (read %08lx %d)\n",
-	  rmsg.phys, rmsg.count);
-      return false;
-    };
-
+    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
+    memcpy(rmsg.ptr, _msix_table + offset, rmsg.count);
     return true;
   }
 
   bool receive(MessageMemWrite &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_bar(rmsg.phys)) == NO_MATCH) return false;
-
+    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
     unsigned entry = offset / 16;
 
-    switch (rmsg.count) {
-    case 4:
-      //msg("WRITE DW MSI-X %x: %x\n", offset, *((uint32_t *)rmsg.ptr));
-      if ((offset % 4) != 0) {
-	msg(" Unaligned!\n");
-	return false;
-      }
-      switch (offset % 16) {
-      case 0:
-	_msix_table[entry].guest_msg_addr_w[0] = *((uint32_t *)rmsg.ptr);
-	break;
-      case 4:
-	_msix_table[entry].guest_msg_addr_w[1] = *((uint32_t *)rmsg.ptr);
-	break;
-      case 8:
-	_msix_table[entry].guest_msg_data = *((uint32_t *)rmsg.ptr);
-	break;
-      case 12:
-	// Vector control writes right through.
-	_host_msix_table[entry*4 + 3] = *((uint32_t *)rmsg.ptr);
-      };
-      break;
-    case 8:
-      msg("WRITE QW MSI-X %x: \n", offset);
-      if ((offset % 8) != 0) {
-	msg(" Unaligned!\n");
-	return false;
-      }
+    unsigned old_vector_control = _msix_table[entry].guest_vector_control;
+    memcpy(_msix_table + offset, rmsg.ptr, rmsg.count);
 
-      msg("XXX Implement me\n");
-      return false;
-      break;
-    default:
-      msg("XXX Only 32/64-bit writes in MSI-X table allowed! (read %08lx %d)\n",
-	  rmsg.phys, rmsg.count);
-      return false;
-    };
+    // only the lowest bit is defined
+    _msix_table[entry].guest_vector_control &= 1;
 
+    // write vector control through
+    if (_msix_table[entry].guest_vector_control != old_vector_control)
+      _host_msix_table[entry*4 + 3] = _msix_table[entry].guest_vector_control;
     return true;;
   }
 
@@ -325,11 +257,12 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
       msg("Allocated MSI-X table with %d elements.\n", _msix_table_size);
       _msix_table = (struct msix_table_entry *)calloc(_msix_table_size, sizeof(struct msix_table_entry));
+      _host_irqs = (unsigned *) calloc(_msix_table_size, sizeof(*_host_irqs));
 
       for (unsigned i = 0; i < _msix_table_size; i++) {
 	unsigned gsi = get_gsi(_vf_bdf, ~0UL);
 	msg("Host IRQ%d -> MSI-X IRQ%d\n", gsi, i);
-	_msix_table[i].host_irq = gsi;
+	_host_irqs[i] = gsi;
 	MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
 	mb.bus_hostop.send(imsg);
       }
@@ -339,7 +272,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       for (unsigned i = 0; i < _msix_table_size; i++) {
 	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
 	_host_msix_table[i*4 + 1] = 0;
-	_host_msix_table[i*4 + 2] = _msix_table[i].host_irq + 0x20;
+	_host_msix_table[i*4 + 2] = _host_irqs[i] + 0x20;
       }
     }
   }
