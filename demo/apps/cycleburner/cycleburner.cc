@@ -304,12 +304,6 @@ class Cycleburner : public NovaProgram,
   const char *debug_getname() { return "Cycleburner"; };
 
 public:
-  static void exit(unsigned long status)
-  {
-    Logging::printf("%s(%lx)\n", __func__, status);
-  }
-
-
   void run(Hip *hip)
   {
     console_init("CYC");
@@ -351,6 +345,6 @@ public:
   }
 };
 
-ASMFUNCS(Cycleburner);
+ASMFUNCS(Cycleburner, NovaProgram);
 
 // EOF

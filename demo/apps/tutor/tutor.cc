@@ -18,11 +18,6 @@ class Tutor : public NovaProgram,
   const char *debug_getname() { return "Tutor"; };
 
 public:
-  static void exit(unsigned long status)
-  {
-    Logging::printf("%s(%lx)\n", __func__, status);
-  }
-
   void run(Hip *hip)
   {
     console_init("TUT");
@@ -36,6 +31,6 @@ public:
   }
 };
 
-ASMFUNCS(Tutor);
+ASMFUNCS(Tutor, NovaProgram);
 
 // EOF

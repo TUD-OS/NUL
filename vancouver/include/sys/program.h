@@ -1,5 +1,5 @@
 /*
- * Common code for NOVA programs. 
+ * Common code for NOVA programs.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>
  *
@@ -32,14 +32,14 @@
  * Define the functions needed by asm.s.
  * Unfortunately this can not be a template.
  */
-#define ASMFUNCS(X)				\
+#define ASMFUNCS(X, Y)				\
   extern "C" void start(Hip *hip)		\
   {						\
     (new X())->run(hip);			\
   }						\
   extern "C" void __exit(unsigned long status)	\
   {						\
-    X::exit(status);				\
+    Y::exit(status);				\
     while (1)					\
       asm volatile ("ud2");			\
   }
@@ -127,6 +127,15 @@ class NovaProgram
    * Block ourself.
    */
   void __attribute__((noreturn)) block_forever() { while (1) semdown(_cap_block); };
+
+public:
+  /**
+   * Default exit function.
+   */
+  static void exit(unsigned long status)
+  {
+    Logging::printf("%s(%lx)\n", __func__, status);
+  }
 };
 
 

@@ -20,11 +20,6 @@
 class Hello : public ProgramConsole
 {
 public:
-  static void exit(unsigned long status)
-  {
-    Logging::printf("%s(%lx)\n", __func__, status);
-  }
-
   int run(Hip *hip)
   {
     console_init("Hello");;
@@ -34,4 +29,4 @@ public:
   }
 };
 
-ASMFUNCS(Hello);
+ASMFUNCS(Hello, NovaProgram);

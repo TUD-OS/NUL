@@ -121,11 +121,6 @@ class Rocknshine : public NovaProgram, public ProgramConsole
   };
 
 public:
-  static void exit(unsigned long status)
-  {
-    Logging::printf("%s(%lx)\n", __func__, status);
-  }
-
   int run(Hip *hip)
   {
     console_init("RS");
@@ -186,10 +181,9 @@ public:
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-    
+
     StdinConsumer *stdinconsumer = new StdinConsumer(_cap_free++);
     Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
-	 
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
     msg.view = 1;
     Sigma0Base::console(msg);
@@ -227,4 +221,4 @@ public:
   }
 };
 
-ASMFUNCS(Rocknshine);
+ASMFUNCS(Rocknshine, NovaProgram);

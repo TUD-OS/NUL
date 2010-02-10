@@ -639,7 +639,7 @@ public:
     if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
       Logging::panic("could not create blocking semaphore\n");
     _mb->vcpustate(0)->cap_vcpu = _cap_free++;
-    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false) 
+    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false)
 	|| create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX?");
 
@@ -664,4 +664,4 @@ public:
 
 };
 
-ASMFUNCS(Vancouver);
+ASMFUNCS(Vancouver, Vancouver);
