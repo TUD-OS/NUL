@@ -39,6 +39,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     MAXCPUS = 256,
     CPUGSI  = 3,
     HIP_ADDRESS = 0xbffff000,
+    MAXPCIDIRECT = 64,
   };
 
   // a mapping from virtual cpus to the physical numbers
@@ -54,10 +55,10 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 
   unsigned  _last_affinity;
 
-  // irq+worker synchronisation
+  // synchronisation of gsis+worker
   long      _lockcount;
   Semaphore _lock;
-  unsigned  _msivector;
+
   // vga
   char    * _vga;
   VgaRegs   _vga_regs;
@@ -99,7 +100,11 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   TimeoutList<MAXMODULES+2> _timeouts;
   unsigned _modcount;
 
-  unsigned long long _gsi;
+  // IRQ handling
+  unsigned  _msivector;        // next gsi vector
+  unsigned long long _gsi;     // bitfield per used GSI
+  unsigned _pcidirect[MAXPCIDIRECT];
+
   unsigned _uid;
 
   const char *debug_getname() { return "Sigma0"; };
@@ -487,20 +492,13 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     return res;
   }
 
-
+  /**
+   * Check whether timeouts have fired.
+   */
   void check_timeouts()
   {
     COUNTER_INC("check_to");
     timevalue now = _mb->clock()->time();
-#if 0
-    static timevalue old;
-    unsigned diff = (now - _timeouts.timeout());
-    unsigned diff2 = (now - old);
-    old = now;
-    static unsigned c;
-    if (now > _timeouts.timeout() && !((c++) & 0xf))   Logging::printf("%s now %llx to %llx d1 %d d2 %d\n", __func__, now, _timeouts.timeout(), diff / 2666, diff2 / 2666);
-#endif
-
     unsigned nr;
     bool reprogram = false;
     while ((nr = _timeouts.trigger(now)))
@@ -515,8 +513,34 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	// update timeout upstream
 	MessageTimer msg(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
 	_mb->bus_timer.send(msg);
-      } 
+      }
   }
+
+
+  /**
+   * Assign a PCI device to a PD. It makes sure only the first will
+   * get it.
+   *
+   * Returns 0 on success.
+   */
+  unsigned assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned vfbdf)
+  {
+    for (unsigned i=0; i < MAXPCIDIRECT; i++)
+      {
+	if (!_pcidirect[i])
+	  {
+	    unsigned res = assign_pci(pd_cap, bdf, vfbdf);
+	    if (!res) _pcidirect[i] = vfbdf ? vfbdf : bdf;
+	    return res;
+	  }
+	if ((vfbdf == 0) && (bdf == _pcidirect[i]))
+	  return 1;
+	if (vfbdf != 0 && vfbdf == _pcidirect[i])
+	  return 2;
+      }
+    return 3;
+  }
+
 
 
 #define PT_FUNC_NORETURN(NAME, CODE)					\
@@ -708,9 +732,7 @@ public:
 	}
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !assign_pci(_hip->cfg_exc + _hip->cfg_gsi + 0,
-			  msg.value, /* PF BFD */
-			  msg.len);  /* VF BFD (or 0) */
+	res = !assign_pci_device(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, msg.len);
 	break;
       case MessageHostOp::OP_GET_MSIVECTOR:
 	msg.value = alloc_msivector();
@@ -781,7 +803,7 @@ public:
   }
 
   static void start(Hip *hip) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _numcpus(0), _modcount(0), _gsi(0) {}
+  Sigma0() :  _numcpus(0), _modcount(0), _gsi(0), _pcidirect() {}
 };
 
 

@@ -252,8 +252,7 @@ PT_FUNC(do_request,
 		      if (modinfo->dma)
 			{
 			  Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x\n", client, msg->value, msg->len);
-			  msg->value = assign_pci(modinfo->cap_pd, msg->value, msg->len);
-			  utcb->msg[0] = 0;
+			  utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
 			  break;
 			}
 		    case MessageHostOp::OP_GET_MSIVECTOR:
