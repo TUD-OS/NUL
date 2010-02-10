@@ -48,8 +48,11 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   // for IRQ injection
   DBus<MessageIrq> &_bus_irqlines;
 
-  // MSI handling
+  unsigned  _irq_count;
+  unsigned *_host_irqs;
 
+
+  // MSI handling
   unsigned _msi_cap;
 
   // MSI-X handling
@@ -58,8 +61,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   unsigned _msix_bir;		// Which BAR contains MSI-X registers?
   unsigned _msix_table_offset;
   unsigned _msix_pba_offset;
-  uint16_t _msix_table_size;
-
   struct msix_table_entry {
     union {
       uint64_t guest_msg_addr;
@@ -70,7 +71,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   };
 
 
-  unsigned *_host_irqs;
   struct msix_table_entry *_msix_table;
   volatile uint32_t *_host_msix_table;
 
@@ -128,7 +128,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageIrq &msg)
   {
     // Which MSI-X vector was triggered?
-    for (unsigned i = 0; i < _msix_table_size; i++)
+    for (unsigned i = 0; i < _irq_count; i++)
       if (_host_irqs[i] == msg.line) {
 
 	this->msg("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
@@ -238,38 +238,40 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       }
     }
 
-    // IRQ handling (only MSI-X for now)
+    // IRQ handling
+    _irq_count = 1;
     _msi_cap = find_cap(_vf_bdf, CAP_MSI);
-    if (_msi_cap) {
-      Logging::printf("XXX MSI capability found. MSI support will be disabled!\n");
-    }
-
     _msix_cap = find_cap(_vf_bdf, CAP_MSIX);
-    if (_msix_cap) {
-      // XXX PBA and table must share the same BAR for now.
-      assert((conf_read(_vf_bdf, _msix_cap + 0x4)&3) == (conf_read(_vf_bdf, _msix_cap + 0x8)&3));
+    if (_msix_cap)
+      _irq_count   = 1 + (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
 
-      _msix_table_size   = 1+ (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1);
-      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~3;
-      _msix_table_offset = conf_read(_vf_bdf, _msix_cap + 0x4);
-      _msix_bir = _msix_table_offset & 3;
-      _msix_table_offset &= ~3;
-
-      msg("Allocated MSI-X table with %d elements.\n", _msix_table_size);
-      _msix_table = (struct msix_table_entry *)calloc(_msix_table_size, sizeof(struct msix_table_entry));
-      _host_irqs = (unsigned *) calloc(_msix_table_size, sizeof(*_host_irqs));
-
-      for (unsigned i = 0; i < _msix_table_size; i++) {
-	unsigned gsi = get_gsi(_vf_bdf, ~0UL);
-	msg("Host IRQ%d -> MSI-X IRQ%d\n", gsi, i);
+    // get host irqs
+    _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
+    for (unsigned i = 0; i < _irq_count; i++) {
+      unsigned gsi = get_gsi(_vf_bdf, ~0UL);
+	msg("Host IRQ%d -> for VEC %d\n", gsi, i);
 	_host_irqs[i] = gsi;
 	MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
 	mb.bus_hostop.send(imsg);
       }
 
+    if (_msix_cap) {
+
+      // XXX PBA and table must share the same BAR for now.
+      assert((conf_read(_vf_bdf, _msix_cap + 0x4)&3) == (conf_read(_vf_bdf, _msix_cap + 0x8)&3));
+
+      _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~3;
+      _msix_table_offset = conf_read(_vf_bdf, _msix_cap + 0x4);
+      _msix_bir = _msix_table_offset & 3;
+      _msix_table_offset &= ~3;
+
+      msg("Allocated MSI-X table with %d elements.\n", _irq_count);
+      _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
+
+
       // init host msix table
       _host_msix_table = (volatile uint32_t *)(_msix_table_offset + (char *)_bars[_msix_bir].ptr);
-      for (unsigned i = 0; i < _msix_table_size; i++) {
+      for (unsigned i = 0; i < _irq_count; i++) {
 	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
 	_host_msix_table[i*4 + 1] = 0;
 	_host_msix_table[i*4 + 2] = _host_irqs[i] + 0x20;
