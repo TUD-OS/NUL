@@ -84,13 +84,24 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     va_end(ap);
   }
 
+  enum {
+    NO_MATCH = ~0U,
+  };
+
   unsigned in_bar(unsigned addr)
   {
     if (in_range(addr, 0x10, MAX_BAR*4))
       return (addr - 0x10) >> 2;
-    else
-      return ~0U;
+    return NO_MATCH;
   }
+
+  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
+  {
+    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
+      return ptr - _bars[_msix_bir].base;
+    return NO_MATCH;
+  }
+
 
  public:
 
@@ -159,18 +170,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       return true;
     }
     return false;
-  }
-
-  enum {
-    NO_MATCH = ~0U,
-  };
-
-  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
-  {
-    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
-      return ptr - _bars[_msix_bir].base;
-    else
-      return NO_MATCH;
   }
 
   bool receive(MessageMemRead &rmsg)
