@@ -127,20 +127,17 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageIrq &msg)
   {
     // Which MSI-X vector was triggered?
-    unsigned msix_vector = ~0UL;
     for (unsigned i = 0; i < _msix_table_size; i++)
       if (_msix_table[i].host_irq == msg.line) {
-	msix_vector = i;
-	break;
+
+	this->msg("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
+
+	// XXX use FSB delivery to an LAPIC model
+	MessageIrq imsg(msg.type, _msix_table[i].guest_msg_data & 0xFF);
+	_bus_irqlines.send(imsg);
+	return true;
       }
-    if (msix_vector == ~0UL)
-      return false;
-
-    this->msg("MSI-X IRQ%d! Inject %d\n", msix_vector, _msix_table[msix_vector].guest_msg_data & 0xFF);
-    MessageIrq imsg(msg.type, _msix_table[msix_vector].guest_msg_data & 0xFF);
-    _bus_irqlines.send(imsg);
-
-    return true;
+    return false;
   }
 
   bool receive(MessageMemMap &msg)
