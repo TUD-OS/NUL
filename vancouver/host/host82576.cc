@@ -10,10 +10,8 @@
  */
 
 #include <vmm/motherboard.h>
-#include <host/hostgenericata.h>
 #include <host/hostpci.h>
 #include <host/host82576.h>
-#include <cstdint>
 
 // lspci -v:
 // 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
@@ -159,7 +157,7 @@ private:
 
       // XXX Make this configurable!
       vf_mac.byte[4] ^= vf_no;
-      msg(VF, "VF%u sent RESET\n");
+      msg(VF, "VF%u sent RESET\n", vf_no);
 
       vf_set_mac(vf_no, vf_mac);
 
@@ -180,7 +178,7 @@ private:
       // XXX Adjust value for VLAN tag size?
       _hwreg[pfmbxmem] = VF_SET_LPE | ACK | CTS;
       break;
-    case VF_SET_MAC_ADDR:	// XXX Sends the desired MAC address, but we ignore it.
+    case VF_SET_MAC_ADDR:
       {
 	EthernetAddr vf_mac;
 	vf_mac.raw = _hwreg[pfmbxmem + 1] | (_hwreg[pfmbxmem + 2] & 0xFFFF);
@@ -211,8 +209,6 @@ public:
   {
     // Hardware initializes the Receive Address registers of queue 0
     // with the MAC address stored in the EEPROM.
-    msg(INFO, "RAL0 = %08x\n", _hwreg[RAL0]);
-    msg(INFO, "RAH0 = %08x\n", _hwreg[RAH0]);
     EthernetAddr a = {{ _hwreg[RAL0] | (((uint64_t)_hwreg[RAH0] & 0xFFFF) << 32) }};
     return a;
   }
