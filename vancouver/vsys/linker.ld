@@ -29,8 +29,8 @@ SECTIONS
   .text :
   {
     *(.text .text.* .gnu.linkonce.t.*);
-    . = ALIGN(0x1000);
   } : text
+  . = ALIGN(0x1000);
 
   .data :
   {
