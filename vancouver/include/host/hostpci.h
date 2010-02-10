@@ -265,5 +265,27 @@ class HostPci
     return bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
   }
 
+  /** Compute BDF of a particular VF. */
+  unsigned vf_bdf(unsigned parent_bdf, unsigned vf_no)
+  {
+    unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
+    if (!sriov_cap) return 0;
+
+    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
+    unsigned vf_stride = vf_offset >> 16;
+    vf_offset &= 0xFFFF;
+    return parent_bdf + vf_stride*vf_no + vf_offset;
+  }
+
+  unsigned vf_device_id(unsigned parent_bdf)
+  {
+    unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
+    if (!sriov_cap) return 0;
+
+    return (conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000)
+      | (conf_read(parent_bdf, 0) & 0xFFFF);
+  }
+
+
  HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
 };
