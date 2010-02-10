@@ -161,7 +161,7 @@ class HostPci
   }
 
 
-  unsigned get_gsi(unsigned bdf, unsigned long gsi_override)
+  unsigned get_gsi(unsigned bdf, unsigned long gsi_override = ~0UL)
   {
     if (gsi_override != ~0UL) return gsi_override;
 
