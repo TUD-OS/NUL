@@ -284,15 +284,11 @@ PARAM(vfpci,
 	}
 
 	// Retrieve device and vendor IDs
-	unsigned didvid = pci.conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000;
-	didvid |= pci.conf_read(parent_bdf, 0) & 0xFFFF;
+	unsigned didvid = pci.vf_device_id(parent_bdf);
 	Logging::printf("Our device ID is %04x.\n", didvid);
 
 	// Compute BDF of VF
-	unsigned vf_offset = pci.conf_read(parent_bdf, sriov_cap + 0x14);
-	unsigned vf_stride = vf_offset >> 16;
-	vf_offset &= 0xFFFF;
-	unsigned vf_bdf = parent_bdf + vf_stride*vf_no + vf_offset;
+	unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
 	// Put device into our address space
