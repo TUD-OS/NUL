@@ -12,7 +12,7 @@ private:
   DBus<MessageHostOp> &_bus_hostop;
 
   unsigned _hostirqs[3];
-  volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
+  volatile uint32_t *_hwreg;     // Device MMIO registers (16K)
 
   struct msix_table {
     volatile uint64_t msg_addr;
@@ -26,7 +26,6 @@ public:
 
   bool receive(MessageIrq &irq_msg)
   {
-    //if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
     for (unsigned i = 0; i < 3; i++) {
       if (irq_msg.line == _hostirqs[i]) {
 	msg(IRQ, "IRQ%d (%d)!\n", irq_msg.line, i);
