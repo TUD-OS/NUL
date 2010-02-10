@@ -36,16 +36,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
   unsigned _vf_no;
 
-  enum BarType {
-    BAR_32BIT,
-    BAR_64BIT_LO,
-    BAR_64BIT_HI,
-  };
-
   struct {
-    uint64_t base;
-    uint64_t size;
-    BarType  type;
+    uint32_t base;
+    uint32_t size;
 
     void *ptr;
   } _bars[MAX_BAR];
@@ -96,13 +89,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       return ~0U;
   }
 
-  void read_bars()
-  {
-    for (unsigned i = 0; i < MAX_BAR; i++) {
-
-    }
-  }
-
  public:
 
   bool receive(MessagePciConfig &msg)
@@ -124,35 +110,19 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	msg.value = conf_read(_vf_bdf, msg.offset);
 	msg.value |= 0xFF;
 	return true;
-      } else if ((bar = in_bar(msg.offset)) < MAX_BAR) {
-	switch (_bars[bar].type) {
-	case BAR_64BIT_HI: msg.value = _bars[bar-1].base>>32; break;
-	case BAR_32BIT:    msg.value = (uint32_t)_bars[bar].base | HostPci::BAR_TYPE_32B; break;
-	case BAR_64BIT_LO: msg.value = (uint32_t)_bars[bar].base | HostPci::BAR_TYPE_64B; break;
-	}
-	//this->msg("BAR %d -> %08x\n", bar, msg.value);
-	return true;
-      } else
+      } else if ((bar = in_bar(msg.offset)) < MAX_BAR)
+	{
+	  msg.value = (uint32_t)_bars[bar].base;
+	  //this->msg("BAR %d -> %08x\n", bar, msg.value);
+	  return true;
+	} else
 	msg.value = conf_read(_vf_bdf, msg.offset);
       break;
     case MessagePciConfig::TYPE_WRITE:
-      if ((bar = in_bar(msg.offset)) < MAX_BAR) {
+      if ((bar = in_bar(msg.offset)) < MAX_BAR)
 	//this->msg("BAR %d <- %08x\n", bar, msg.value);
-	switch (_bars[bar].type) {
-	case BAR_64BIT_LO:
-	case BAR_32BIT: {
-	  uint64_t himask = 0xFFFFFFFFULL<<32;
-	  uint64_t hi = _bars[bar].base & himask;
-	  uint64_t lomask = _bars[bar].size - 1;
-
-	  _bars[bar].base = (_bars[bar].base&lomask) | (msg.value&~lomask);
-	  _bars[bar].base = _bars[bar].base&~himask | hi;
-	}
-	  break;
-	  // Assume size < 4GB
-	case BAR_64BIT_HI: _bars[bar-1].base = (_bars[bar-1].base & 0xFFFFFFFFULL) | ((uint64_t)msg.value << 32); break;
-	}
-      } else
+	_bars[bar].base = msg.value & ~(_bars[bar].size - 1);
+      else
 	conf_write(_vf_bdf, msg.offset, msg.value);
       break;
     }
@@ -384,22 +354,13 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       bool b64;
       _bars[i].base = vf_bar_base(parent_bdf, i);
       _bars[i].size = vf_bar_size(parent_bdf, i, &b64);
+      _bars[i].base+= _bars[i].size*vf_no;
 
-      // Don't spill over into 64-bit land.
-      assert(((_bars[i].base + _bars[i].size*numvfs) >> 32) == 0);
+      msg("bar[%d] -> %08x %08x\n", i, _bars[i].base, _bars[i].size);
 
-      _bars[i].base += _bars[i].size*vf_no;
-
-      msg("bar[%d] -> %08llx %08llx\n", i, _bars[i].base, _bars[i].size);
-
-      if (!b64)
-	_bars[i].type = BAR_32BIT;
-      else {
-	_bars[i].type   = BAR_64BIT_LO;
-	_bars[i+1].type = BAR_64BIT_HI;
+      if (b64) {
 	_bars[i+1].base = 0;	// Stored in previous array element.
 	_bars[i+1].size = 0;	// Dito.
-
 	i += 1;
       }
     }
@@ -411,16 +372,14 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM,
 			   _bars[i].base, _bars[i].size);
 	if (mb.bus_hostop.send(amsg) && amsg.ptr) {
-	  msg("MMIO %08llx -> %p\n", _bars[i].base, amsg.ptr);
+	  msg("MMIO %08x -> %p\n", _bars[i].base, amsg.ptr);
 	  _bars[i].ptr = amsg.ptr;
 	} else {
-	  msg("MMIO %08llx -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
+	  msg("MMIO %08x -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
 	  _bars[i].base = 0;
 	  _bars[i].size = 0;
 	}
       }
-
-      if (_bars[i].type != BAR_32BIT) i++;
     }
 
     // Final MSI-X configuration
