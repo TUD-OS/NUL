@@ -1,0 +1,13 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'hello',
+        SOURCES = [ 'hello.cc' ],
+        INCLUDE = [ 'string' ],
+        LIBS    = [ 'vsys' ],
+        MEMSIZE = 1<<14)
+
+# EOF
