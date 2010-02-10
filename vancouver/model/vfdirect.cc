@@ -26,13 +26,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
   const static unsigned MAX_BAR = 6;
 
-  // for IRQ injection
-  DBus<MessageIrq> &_bus_irqlines;
   uint16_t _parent_bdf;		// BDF of Physical Function
   uint16_t _vf_bdf;		// BDF of VF on host
-
-  // Device and Vendor ID as reported by parent's SR-IOV cap.
-  uint32_t _device_vendor_id;
+  uint32_t _didvid;             // Device and Vendor ID as reported by parent's SR-IOV cap.
 
   unsigned _vf_no;
 
@@ -42,6 +38,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     void *ptr;
   } _bars[MAX_BAR];
+
+  // for IRQ injection
+  DBus<MessageIrq> &_bus_irqlines;
 
   // MSI handling
 
@@ -102,7 +101,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
       if (msg.offset == 0) {
-	msg.value = _device_vendor_id;
+	msg.value = _didvid;
       } else if (_msi_cap && (msg.offset == _msi_cap)) {
 	// Disable cap by setting its type to 0xFF, but keep the
 	// linked list intact.
@@ -279,47 +278,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     return true;;
   }
 
-  DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_no)
-    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _bus_irqlines(mb.bus_irqlines), _parent_bdf(parent_bdf), _vf_no(vf_no)
+  DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_bdf, uint32_t didvid, unsigned vf_no)
+    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _parent_bdf(parent_bdf), _vf_bdf(vf_bdf), _didvid(didvid), _vf_no(vf_no), _bars(), _bus_irqlines(mb.bus_irqlines)
   {
-    memset(_bars, 0, sizeof(_bars));
-
-    for (unsigned i = 0x100; i < 0x170; i += 8)
-      msg("mmcfg[%04x] %08x %08x\n", i, conf_read(parent_bdf, i), conf_read(parent_bdf, i+4));
-
-    msg("Querying parent SR-IOV capability...\n");
-
-    unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) {
-      msg("XXX Parent not SR-IOV capable. Configuration error!\n");
-      return;
-    }
-
-    uint16_t numvfs = conf_read(parent_bdf, sriov_cap + 0x10) & 0xFFFF;
-    if (vf_no >= numvfs) {
-      msg("XXX VF%d does not exist.\n", vf_no);
-      return;
-    }
-
-    // Retrieve device and vendor IDs
-    _device_vendor_id = conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000;
-    _device_vendor_id |= conf_read(parent_bdf, 0) & 0xFFFF;
-    msg("Our device ID is %04x.\n", _device_vendor_id);
-
-    // Compute BDF of VF
-    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
-    unsigned vf_stride = vf_offset >> 16;
-    vf_offset &= 0xFFFF;
-    _vf_bdf = parent_bdf + vf_stride*vf_no + vf_offset;
-    msg("VF is at %04x.\n", _vf_bdf);
-
-    // Put device into our address space
-    MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, _vf_bdf);
-    if (!mb.bus_hostop.send(msg_assign)) {
-      msg("Could not assign %04x/%04x via IO/MMU.\n", parent_bdf, _vf_bdf);
-      return;
-    }
-
     // IRQ handling (only MSI-X for now)
     _msi_cap = find_cap(_vf_bdf, CAP_MSI);
     if (_msi_cap) {
@@ -354,7 +315,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       bool b64;
       _bars[i].base = vf_bar_base(parent_bdf, i);
       _bars[i].size = vf_bar_size(parent_bdf, i, &b64);
-      _bars[i].base+= _bars[i].size*vf_no;
+      _bars[i].base += _bars[i].size*vf_no;
 
       msg("bar[%d] -> %08x %08x\n", i, _bars[i].base, _bars[i].size);
 
@@ -402,7 +363,42 @@ PARAM(vfpci,
 	uint16_t guest_bdf  = PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]);
 
 	Logging::printf("VF %08x\n", pci.conf_read(parent_bdf, 0));
-	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_no);
+	for (unsigned i = 0x100; i < 0x170; i += 8)
+	  Logging::printf("mmcfg[%04x] %08x %08x\n", i, pci.conf_read(parent_bdf, i), pci.conf_read(parent_bdf, i+4));
+
+	Logging::printf("Querying parent SR-IOV capability...\n");
+	unsigned sriov_cap = pci.find_extended_cap(parent_bdf, pci.EXTCAP_SRIOV);
+	if (!sriov_cap) {
+	  Logging::printf("XXX Parent not SR-IOV capable. Configuration error!\n");
+	  return;
+	}
+
+	uint16_t numvfs = pci.conf_read(parent_bdf, sriov_cap + 0x10) & 0xFFFF;
+	if (vf_no >= numvfs) {
+	  Logging::printf("XXX VF%d does not exist.\n", vf_no);
+	  return;
+	}
+
+	// Retrieve device and vendor IDs
+	unsigned didvid = pci.conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000;
+	didvid |= pci.conf_read(parent_bdf, 0) & 0xFFFF;
+	Logging::printf("Our device ID is %04x.\n", didvid);
+
+	// Compute BDF of VF
+	unsigned vf_offset = pci.conf_read(parent_bdf, sriov_cap + 0x14);
+	unsigned vf_stride = vf_offset >> 16;
+	vf_offset &= 0xFFFF;
+	unsigned vf_bdf = parent_bdf + vf_stride*vf_no + vf_offset;
+	Logging::printf("VF is at %04x.\n", vf_bdf);
+
+	// Put device into our address space
+	MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, vf_bdf);
+	if (!mb.bus_hostop.send(msg_assign)) {
+	  Logging::printf("Could not assign %04x/%04x via IO/MMU.\n", parent_bdf, vf_bdf);
+	  return;
+	}
+
+	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_bdf, didvid, vf_no);
 
 	// We want to map memory into VM space and intercept some accesses.
 	mb.bus_memmap.add(dev, &DirectVFDevice::receive_static<MessageMemMap>);
