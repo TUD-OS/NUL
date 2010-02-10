@@ -26,18 +26,17 @@
  *
  * State: unstable
  * Features: Bars, MSI-X
- * Missing: MSI-Injection, MSI, PBA, MSIX table offsets, searchDevice
+ * Missing: MSI-Injection, MSI, PBA, MSI-X table offset
  */
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
-  enum {
-    NO_MATCH = ~0U,
-  };
+  const static unsigned MAX_BAR = 6;
 
   uint16_t _parent_bdf;		// BDF of Physical Function
   uint16_t _vf_bdf;		// BDF of VF on host
   uint32_t _didvid;             // Device and Vendor ID as reported by parent's SR-IOV cap.
-  unsigned _vf_no;              // for debugging only
+
+  unsigned _vf_no;
 
   struct {
     uint32_t base;
@@ -45,9 +44,12 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     void *ptr;
   } _bars[MAX_BAR];
 
-  DBus<MessageIrq> &_bus_irqlines; // for IRQ injection
+  // for IRQ injection
+  DBus<MessageIrq> &_bus_irqlines;
+
   unsigned  _irq_count;
   unsigned *_host_irqs;
+
 
   // MSI handling
   unsigned _msi_cap;
@@ -64,13 +66,16 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     uint32_t guest_msg_data;
     uint32_t guest_vector_control;
   };
+
+
   struct msix_table_entry *_msix_table;
   volatile uint32_t *_host_msix_table;
 
-
   const char *debug_getname() { return "DirectVFDevice"; }
 
-  void log(const char *msg, ...) __attribute__ ((format (printf, 2, 3)))
+
+  __attribute__ ((format (printf, 2, 3)))
+  void msg(const char *msg, ...)
   {
     va_list ap;
     va_start(ap, msg);
@@ -83,14 +88,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   {
     if (in_range(addr, 0x10, MAX_BAR*4))
       return (addr - 0x10) >> 2;
-    return NO_MATCH;
-  }
-
-  unsigned in_msix_region(uintptr_t ptr, unsigned count)
-  {
-    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _irq_count*sizeof(struct msix_table_entry) - count))
-      return ptr - _bars[_msix_bir].base;
-    return NO_MATCH;
+    else
+      return ~0U;
   }
 
  public:
@@ -129,7 +128,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     for (unsigned i = 0; i < _irq_count; i++)
       if (_host_irqs[i] == msg.line) {
 
-	log("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
+	this->msg("MSI-X IRQ%d! Inject %d\n", i, _msix_table[i].guest_msg_data & 0xFF);
 
 	// XXX use FSB delivery to an LAPIC model
 	MessageIrq imsg(msg.type, _msix_table[i].guest_msg_data & 0xFF);
@@ -156,16 +155,28 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       msg.ptr = _bars[i].ptr;
       assert((0xFFF & (uintptr_t)msg.ptr) == 0);
 
-      log("Map phys %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
+      this->msg("Map phys %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
       return true;
     }
     return false;
   }
 
+  enum {
+    NO_MATCH = ~0U,
+  };
+
+  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
+  {
+    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
+      return ptr - _bars[_msix_bir].base;
+    else
+      return NO_MATCH;
+  }
+
   bool receive(MessageMemRead &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_region(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
+    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
     memcpy(rmsg.ptr, _msix_table + offset, rmsg.count);
     return true;
   }
@@ -173,11 +184,14 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageMemWrite &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_region(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
+    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
     unsigned entry = offset / 16;
 
     unsigned old_vector_control = _msix_table[entry].guest_vector_control;
     memcpy(_msix_table + offset, rmsg.ptr, rmsg.count);
+
+    // only the lowest bit is defined
+    _msix_table[entry].guest_vector_control &= 1;
 
     // write vector control through
     if (_msix_table[entry].guest_vector_control != old_vector_control)
@@ -191,21 +205,30 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     // Read BARs and masks.
     for (unsigned i = 0; i < MAX_BAR; i++) {
       bool b64;
+      _bars[i].base = vf_bar_base(parent_bdf, i);
       _bars[i].size = vf_bar_size(parent_bdf, i, &b64);
-      _bars[i].base = vf_bar_base(parent_bdf, i) + _bars[i].size*vf_no;
-      log("bar[%d] -> %08x %08x\n", i, _bars[i].base, _bars[i].size);
-      if (b64) i++;
+      _bars[i].base += _bars[i].size*vf_no;
+
+      msg("bar[%d] -> %08x %08x\n", i, _bars[i].base, _bars[i].size);
+
+      if (b64) {
+	_bars[i+1].base = 0;	// Stored in previous array element.
+	_bars[i+1].size = 0;	// Dito.
+	i += 1;
+      }
     }
 
     // Allocate MMIO regions
+
     for (unsigned i = 0; i < MAX_BAR; i++) {
       if (_bars[i].size != 0) {
-	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM, _bars[i].base, _bars[i].size);
+	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM,
+			   _bars[i].base, _bars[i].size);
 	if (mb.bus_hostop.send(amsg) && amsg.ptr) {
-	  log("MMIO %08x -> %p\n", _bars[i].base, amsg.ptr);
+	  msg("MMIO %08x -> %p\n", _bars[i].base, amsg.ptr);
 	  _bars[i].ptr = amsg.ptr;
 	} else {
-	  log("MMIO %08x -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
+	  msg("MMIO %08x -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
 	  _bars[i].base = 0;
 	  _bars[i].size = 0;
 	}
@@ -223,7 +246,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
       unsigned gsi = get_gsi(_vf_bdf, ~0UL);
-	log("Host IRQ%d -> for VEC %d\n", gsi, i);
+	msg("Host IRQ%d -> for VEC %d\n", gsi, i);
 	_host_irqs[i] = gsi;
 	MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
 	mb.bus_hostop.send(imsg);
@@ -239,7 +262,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
       _msix_pba_offset   = conf_read(_vf_bdf, _msix_cap + 0x8) & ~0x7;
       _msix_bir = conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7;
 
-      log("Allocated MSI-X table with %d elements.\n", _irq_count);
+      msg("Allocated MSI-X table with %d elements.\n", _irq_count);
       _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
 
 
