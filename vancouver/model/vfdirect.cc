@@ -26,7 +26,7 @@
  *
  * State: unstable
  * Features: Bars, MSI-X
- * Missing: MSI-Injection, MSI, PBA, MSI-X table offset
+ * Missing: MSI-Injection, MSI, PBA, MSIX table offsets, FSB delivery
  */
 class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 {
@@ -95,9 +95,9 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     return NO_MATCH;
   }
 
-  unsigned in_msix_bar(uintptr_t ptr, unsigned count)
+  unsigned in_msix_region(uintptr_t ptr, unsigned count)
   {
-    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _bars[_msix_bir].size - count))
+    if (_msix_cap && in_range(ptr, _bars[_msix_bir].base, _irq_count*sizeof(struct msix_table_entry) - count))
       return ptr - _bars[_msix_bir].base;
     return NO_MATCH;
   }
@@ -175,7 +175,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageMemRead &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
+    if ((offset = in_msix_region(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
     memcpy(rmsg.ptr, _msix_table + offset, rmsg.count);
     return true;
   }
@@ -183,14 +183,11 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   bool receive(MessageMemWrite &rmsg)
   {
     unsigned offset;
-    if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
+    if ((offset = in_msix_region(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
     unsigned entry = offset / 16;
 
     unsigned old_vector_control = _msix_table[entry].guest_vector_control;
     memcpy(_msix_table + offset, rmsg.ptr, rmsg.count);
-
-    // only the lowest bit is defined
-    _msix_table[entry].guest_vector_control &= 1;
 
     // write vector control through
     if (_msix_table[entry].guest_vector_control != old_vector_control)
