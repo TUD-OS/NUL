@@ -133,7 +133,7 @@ PARAM(host82576vf, {
 
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
   },
-  "host82576vf:parent,vf - provide driver for Intel 82576 Ethernet controller.",
+  "host82576vf:parent,vf - provide driver for Intel 82576 virtual function.",
   "Example: 'host82576vf:0x100,0'");
 
 // EOF
