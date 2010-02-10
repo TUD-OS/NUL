@@ -432,16 +432,6 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 	_host_msix_table[i*4 + 2] = _msix_table[i].host_irq + 0x20;
       }
     }
-
-    // We want to map memory into VM space and intercept some accesses.
-    mb.bus_memmap.add(this, &DirectVFDevice::receive_static<MessageMemMap>);
-    mb.bus_memread.add(this, &DirectVFDevice::receive_static<MessageMemRead>);
-    mb.bus_memwrite.add(this, &DirectVFDevice::receive_static<MessageMemWrite>);
-
-    mb.bus_hostirq.add(this, &DirectVFDevice::receive_static<MessageIrq>);
-
-    // Add device to virtual PCI bus
-    mb.bus_pcicfg.add(this, &DirectVFDevice::receive_static<MessagePciConfig>, guest_bdf);
   }
 };
 
@@ -453,7 +443,16 @@ PARAM(vfpci,
 	uint16_t guest_bdf  = PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]);
 
 	Logging::printf("VF %08x\n", pci.conf_read(parent_bdf, 0));
-	new DirectVFDevice(mb, parent_bdf, vf_no, guest_bdf);
+	Device * dev = new DirectVFDevice(mb, parent_bdf, vf_no, guest_bdf);
+
+	// We want to map memory into VM space and intercept some accesses.
+	mb.bus_memmap.add(dev, &DirectVFDevice::receive_static<MessageMemMap>);
+	mb.bus_memread.add(dev, &DirectVFDevice::receive_static<MessageMemRead>);
+	mb.bus_memwrite.add(dev, &DirectVFDevice::receive_static<MessageMemWrite>);
+	mb.bus_hostirq.add(dev, &DirectVFDevice::receive_static<MessageIrq>);
+
+	// Add device to virtual PCI bus
+	mb.bus_pcicfg.add(dev, &DirectVFDevice::receive_static<MessagePciConfig>, guest_bdf);
 
       },
       "vfpci:parent_bdf,vf_no,guest_bdf",
