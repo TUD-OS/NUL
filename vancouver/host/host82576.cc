@@ -69,16 +69,7 @@ private:
     volatile uint32_t vector_control;
   } *_msix_table;
 
-  volatile uint64_t *_msix_pba;
-
   const char *debug_getname() { return "Host82576"; }
-
-  uintptr_t to_phys(void *ptr) {
-    MessageHostOp msg(MessageHostOp::OP_VIRT_TO_PHYS, reinterpret_cast<unsigned long>(ptr));
-    if (_bus_hostop.send(msg) && msg.phys) {
-      return msg.phys;
-    } else Logging::panic("Could not resolve %p's physical address.\n", ptr);
-  }
 
   void log_device_status()
   {
@@ -289,13 +280,10 @@ public:
     unsigned msix_cap = pci.find_cap(bdf, HostPci::CAP_MSIX);
     assert(msix_cap != 0);
     unsigned msix_table = pci.conf_read(bdf, msix_cap + 4);
-    unsigned msix_pba   = pci.conf_read(bdf, msix_cap + 8);
 
-    
     msg(PCI, "MSI-X[0] = %08x\n", pci.conf_read(bdf, msix_cap));
     _msix_table_size = ((pci.conf_read(bdf, msix_cap)>>16) & ((1<<11)-1))+1;
     _msix_table = NULL;
-    _msix_pba = NULL;
 
     // Scan BARs and discover our register windows.
     _hwreg   = 0;
@@ -327,12 +315,6 @@ public:
 		phys_addr + (msix_table&~0x7), _msix_table_size);
 	  }
 	  
-	  if (bar_i == (msix_pba & 7)) {
-	    _msix_pba = reinterpret_cast<volatile uint64_t *>(iomsg.ptr + (msix_pba&~0x7));
-	    msg(INFO, "MSI-X PBA   at %p (phys %x, %d elements).\n", _msix_pba,
-		phys_addr + (msix_pba&~0x7), _msix_table_size);
-	  }
-
 	  } else {
 	    Logging::panic("%s could not map BAR %u.\n", __PRETTY_FUNCTION__, bar);
 	  }
@@ -340,7 +322,7 @@ public:
     }
 
     if ((_hwreg == 0)) Logging::panic("Could not find 82576 register windows.\n");
-    if (!(_msix_table || _msix_pba)) Logging::panic("MSI-X initialization failed.\n");
+    if (!_msix_table) Logging::panic("MSI-X initialization failed.\n");
 
     /// Initialization (4.5)
     msg(INFO, "Perform Global Reset.\n");
