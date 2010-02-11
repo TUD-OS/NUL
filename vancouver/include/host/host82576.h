@@ -41,6 +41,8 @@ protected:
     VTIVAR      = 0x1700/4,
     VTIVAR_MISC = 0x1740/4,
 
+    RDBAL0      = 0x2800/4,
+    RDBAH0      = 0x2804/4,
     RDLEN0      = 0x2808/4,
     RDH0        = 0x2810/4,
     RDT0        = 0x2818/4,

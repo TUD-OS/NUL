@@ -5,6 +5,13 @@
 #include <host/hostpci.h>
 #include <host/host82576.h>
 
+static const unsigned desc_ring_len = 128;
+
+struct dma_desc {
+  uint64_t lo;
+  uint64_t hi;
+};
+
 class Host82576VF : public Base82576, public StaticReceiver<Host82576VF>
 {
 private:
@@ -24,6 +31,9 @@ private:
   
   bool _up;			// Are we UP?
 
+  dma_desc _rx_ring[desc_ring_len] __attribute__((aligned(128)));
+  dma_desc _tx_ring[desc_ring_len] __attribute__((aligned(128)));
+
 public:
 
   void reset_complete()
@@ -42,7 +52,7 @@ public:
 	unsigned eicr = _hwreg[EICR];
 	_hwreg[EICR] = eicr;
 
-	//msg(IRQ, "IRQ%d (%d) EICR %x\n", irq_msg.line, i, eicr);
+	msg(IRQ, "IRQ%d (%d) EICR %x RDT %04x RDH %04x\n", irq_msg.line, i, eicr, _hwreg[RDT0], _hwreg[RDH0]);
 
 	if (eicr & 1) {
 	  // RX IRQ
@@ -132,7 +142,20 @@ public:
     _hwreg[VMB] = Sts;
 
     // Enable RX
-    //_hwreg[RXDCTL0] |= (1U<<25);
+    _hwreg[RDBAL0] = (uint32_t)(_rx_ring);
+    _hwreg[RDBAH0] = 0;
+    _hwreg[RDLEN0] = sizeof(_rx_ring);
+    msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
+    _hwreg[RXDCTL0] |= (1U<<25);
+    assert(_hwreg[RDT0] == 0);
+    assert(_hwreg[RDH0] == 0);
+
+    // XXX
+    char *m = (char *)malloc(4096);
+    _rx_ring[0].lo = (uint32_t)m;
+    _rx_ring[0].hi = 2048 + (uint32_t)m;
+    _hwreg[RDT0] = 1;
+
   }
 
 };
