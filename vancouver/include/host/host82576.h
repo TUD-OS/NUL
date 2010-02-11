@@ -41,8 +41,13 @@ protected:
     VTIVAR      = 0x1700/4,
     VTIVAR_MISC = 0x1740/4,
 
-    VMB        = 0x0C40/4, 	// 8.14.3
-    VBMEM      = 0x0800/4,	// 8.14.4
+    RDLEN0      = 0x2808/4,
+    RDH0        = 0x2810/4,
+    RDT0        = 0x2818/4,
+    RXDCTL0     = 0x2828/4,
+
+    VMB         = 0x0C40/4, 	// 8.14.3
+    VBMEM       = 0x0800/4,	// 8.14.4
   };
   
   enum Register {
@@ -103,8 +108,10 @@ protected:
 
     // Misc
     TCPTIMER  = 0x0104C/4,	// TCP Timer
+    MPC       = 0x04010/4,	// Missed Packets Count
     GPRC      = 0x04074/4,	// Good Packets Receive Count
     GPTC      = 0x04080/4,	// Good Packets Transmitted Count
+    RNBC      = 0x040A0/4,	// Receive No Buffer Count
     
     // Filtering
     UTA0      = 0x0A000/4,
