@@ -168,7 +168,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   {
     unsigned offset;
     if ((offset = in_msix_bar(rmsg.phys, rmsg.count)) == NO_MATCH) return false;
-    memcpy(rmsg.ptr, _msix_table + offset, rmsg.count);
+    memcpy(rmsg.ptr, (char *)_msix_table + offset, rmsg.count);
     return true;
   }
 
@@ -179,7 +179,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     unsigned entry = offset / 16;
 
     unsigned old_vector_control = _msix_table[entry].guest_vector_control;
-    memcpy(_msix_table + offset, rmsg.ptr, rmsg.count);
+    memcpy((char *)_msix_table + offset, rmsg.ptr, rmsg.count);
 
     // Only the lowest bit is defined.
     _msix_table[entry].guest_vector_control &= 1;
