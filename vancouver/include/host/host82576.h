@@ -66,9 +66,9 @@ protected:
     GPIE      = 0x01514/4,	// General Purpose Interrupt Enable
 
     EICS      = 0x01520/4,	// Extended Interrupt Cause Set
-    EIAC      = 0x0152C/4,	// Extended Interrupt Auto Mask Clear
     EIMS      = 0x01524/4,	// Extended Interrupt Mask Set
     EIMC      = 0x01528/4,	// Extended Interrupt Mask Clear
+    EIAC      = 0x0152C/4,	// Extended Interrupt Auto Mask Clear
     EIAM      = 0x01530/4,	// Extended Interrupt Auto Mask Enable
     EICR      = 0x01580/4,
     IVAR0     = 0x01700/4,	// Interrupt Vector Allocation (0..7)
