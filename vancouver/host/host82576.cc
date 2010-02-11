@@ -213,14 +213,6 @@ public:
     if (icr & IRQ_LSC) {
       bool gone_up = (_hwreg[STATUS] & STATUS_LU) != 0;
       msg(INFO, "Link status changed to %s.\n", gone_up ? "UP" : "DOWN");
-      if (gone_up) {
-	_hwreg[RCTL] |= RCTL_RXEN | RCTL_BAM;
-	_hwreg[TCTL] |= TCTL_TXEN;
-      } else {
-	// Down
-	_hwreg[RCTL] &= ~RCTL_RXEN;
-	_hwreg[TCTL] &= ~TCTL_TXEN;
-      }
       log_device_status();
     }
 
@@ -390,6 +382,11 @@ public:
 
     _mac = ethernet_address();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+
+    // Don't wait for link up to enable RX and TX. We don't have to
+    // synchronize with VFs this way.
+    _hwreg[RCTL] |= RCTL_RXEN | RCTL_BAM;
+    _hwreg[TCTL] |= TCTL_TXEN;
 
     // PF Setup complete
     msg(INFO, "Notifying VFs that PF is done...\n");
