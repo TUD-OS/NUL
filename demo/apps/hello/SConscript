@@ -8,6 +8,6 @@ nul.App(target_env, 'hello',
         SOURCES = [ 'hello.cc' ],
         INCLUDE = [ 'string' ],
         LIBS    = [ 'vsys' ],
-        MEMSIZE = 1<<14)
+        MEMSIZE = 1<<16)
 
 # EOF
