@@ -228,7 +228,7 @@ public:
       _hwreg[MBVFICR] = mbvficr;
     }
 
-
+    _hwreg[EIMS] = 1;
     return true;
   };
 
@@ -360,6 +360,7 @@ public:
     msg(INFO, "Enabling interrupts...\n");
     _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
     _hwreg[EIMS] = 1;
+    _hwreg[EIAM] = 1;
     _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
 
     msg(INFO, "Configuring link parameters...\n");
