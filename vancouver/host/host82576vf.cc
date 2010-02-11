@@ -56,6 +56,7 @@ public:
       _msix_table[i].vector_control &= ~1;
     }
     pci.conf_write(bdf, pci.find_cap(bdf, pci.CAP_MSIX), MSIX_ENABLE);
+    pci.conf_write(bdf, 0x4 /* CMD */, 1U<<2 /* Bus-Master enable */);
 
     // Setup IRQ mapping:
     // Both RX queues get MSI-X vector 0, both TX queues get 1.
