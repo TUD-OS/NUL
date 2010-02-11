@@ -76,13 +76,12 @@ private:
     uint32_t status = _hwreg[STATUS];
     const char *up = (status & STATUS_LU ? "UP" : "DOWN");
     const char *speed[] = { "10", "100", "1000", "1000" };
-    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX\n", up,
+    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX | %4d MB\n", up,
 	speed[(status & STATUS_SPEED) >> STATUS_SPEED_SHIFT],
 	status & STATUS_FD ? 'F' : 'H',
 	(status & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT,
 	status & STATUS_IOV ? "ON" : "OFF",
-	_hwreg[GPRC],
-	_hwreg[GPTC]);
+	_hwreg[GPRC], _hwreg[GPTC], _hwreg[MPC]);
   }
 
   void handle_vf_reset(unsigned vf_no)
@@ -196,17 +195,6 @@ public:
       // Spurious IRQ.
       msg(INFO, "Spurious IRQ! ICR %08x%s\n", icr, (icr & IRQ_TIMER) ? " Ping!" : "");
       log_device_status();
-      // msg(INFO, "VTEICR[0] %08x VTIVAR[0] %08x VTIVARMISC[0] %08x\n",
-      // 	  _hwreg[0x10080/4], _hwreg[0x1700/4], _hwreg[0x1720/4]);
-      // for (unsigned i = 0; i < 8; i++) {
-      // 	msg(INFO, "IVAR[%u] = %08x\n", i, _hwreg[IVAR0 + i]);
-      // }
-      // msg(INFO, "IVAR_MISC  = %08x\n", _hwreg[IVAR_MISC]);
-      
-      // for (unsigned i = 0; i < _msix_table_size; i++) {
-      // 	msg(INFO, "MSIX[%u] = %08x %08x %016llx\n", i, _msix_table[i].vector_control,
-      // 	    _msix_table[i].msg_data, _msix_table[i].msg_addr);
-      // }
       return false;
     }
 
