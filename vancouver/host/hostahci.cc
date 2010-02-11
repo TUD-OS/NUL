@@ -135,7 +135,8 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     dst[1] = 0; // support 64bit mode
   }
 
-  void set_command(unsigned char command, unsigned long long sector, bool read, unsigned count = 0, bool atapi = false, unsigned pmp = 0, unsigned features=0)
+  void set_command(unsigned char command, unsigned long long sector, bool read, unsigned count = 0,
+		   bool atapi = false, unsigned pmp = 0, unsigned features=0)
   {
     _cl[_tag*CL_DWORDS+0] = (atapi ? 0x20 : 0) | (read ? 0 : 0x40) | 5 | ((pmp & 0xf) << 12);
     _cl[_tag*CL_DWORDS+1] = 0;
@@ -143,10 +144,12 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     // link command list and tables
     addr2phys(_ct + _tag*(128+MAX_PRD_COUNT*16)/4, _cl + _tag*CL_DWORDS + 2);
 
-    unsigned char cfis[20] = {0x27, 0x80 | (pmp & 0xf), command,        features,
-			      sector,  sector >> 8, sector >> 16,       0x40,
-			      sector >> 24, sector >> 32, sector >> 40, features >> 8,
-			      count, count >> 8, 0, 0,
+    // XXX Does any one know how to avoid these type casts in C++0x mode?
+    unsigned char cfis[20] = {0x27, (unsigned char)(0x80 | (pmp & 0xf)), command, (unsigned char)features,
+			      (unsigned char)sector,  (unsigned char)(sector >> 8), (unsigned char)(sector >> 16),
+			      0x40, (unsigned char)(sector >> 24), (unsigned char)(sector >> 32),
+			      (unsigned char)(sector >> 40), (unsigned char)(features >> 8),
+			      (unsigned char)count, (unsigned char)(count >> 8), 0, 0,
 			      0, 0, 0, 0};
     memcpy(_ct + _tag*(128 + MAX_PRD_COUNT*16)/4, cfis, sizeof(cfis));
   }
