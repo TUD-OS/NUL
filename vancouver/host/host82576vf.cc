@@ -21,14 +21,69 @@ private:
   } *_msix_table;
 
   EthernetAddr _mac;
+  
+  bool _up;			// Are we UP?
 
 public:
+
+  void reset_complete()
+  {
+    if (_up)
+      msg(INFO, "Another reset?!\n");
+
+    _up = true;
+    _hwreg[RXDCTL0] |= (1<<25);
+  }
 
   bool receive(MessageIrq &irq_msg)
   {
     for (unsigned i = 0; i < 3; i++) {
       if (irq_msg.line == _hostirqs[i]) {
-	msg(IRQ, "IRQ%d (%d)!\n", irq_msg.line, i);
+	unsigned eicr = _hwreg[EICR];
+	_hwreg[EICR] = eicr;
+
+	//msg(IRQ, "IRQ%d (%d) EICR %x\n", irq_msg.line, i, eicr);
+
+	if (eicr & 1) {
+	  // RX IRQ
+	  msg(IRQ, "RX\n");
+	}
+
+	if (eicr & 2) {
+	  // TX IRQ
+	  msg(IRQ, "TX\n");
+	}
+
+	if (eicr & 4) {
+	  // MBX IRQ: Just handle RESET for now. Seems like we don't
+	  // need more right now.
+	  uint32_t vmb = _hwreg[VMB];
+
+	  if (vmb & (1<<4 /* PFSTS */)) {
+	    // Claim message buffer
+	    _hwreg[VMB] = 1<<2 /* VFU */;
+	    if ((_hwreg[VMB] & (1<<2)) == 0) {
+	      msg(INFO, "MBX Could not claim buffer.\n");
+	      goto mbx_done;
+	    }
+	    uint32_t msg0 = _hwreg[VBMEM];
+	    switch (msg0 & (0xFF|CMD_ACK|CMD_NACK)) {
+	    case (VF_RESET | CMD_ACK):
+	      _mac.raw = _hwreg[VBMEM + 1];
+	      _mac.raw |= (((uint64_t)_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
+	      _hwreg[VMB] = 1<<1 /* ACK */;
+	      msg(VF, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+	      reset_complete();
+	      break;
+	    default:
+	      msg(IRQ, "Unrecognized message.\n");
+	      _hwreg[VMB] = 1<<1 /* ACK */;
+	    }
+	  }
+	}
+      mbx_done:
+	
+	_hwreg[EIMS] = eicr;
 	return true;
       }
     }
@@ -40,13 +95,15 @@ public:
 	      void *reg,
 	      void *msix_reg)
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop),
-      _hwreg((volatile uint32_t *)reg), _msix_table((struct msix_table *)msix_reg)
+      _hwreg((volatile uint32_t *)reg), _msix_table((struct msix_table *)msix_reg), _up(false)
   {
     memcpy(_hostirqs, irqs, sizeof(_hostirqs));
 
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
     // Disable IRQs
+    _hwreg[VTEIMC] = ~0U;
+    _hwreg[VTCTRL] |= CTRL_RST;
     _hwreg[VTEIMC] = ~0U;
 
     // Enable MSI-X
@@ -59,21 +116,23 @@ public:
     pci.conf_write(bdf, 0x4 /* CMD */, 1U<<2 /* Bus-Master enable */);
 
     // Setup IRQ mapping:
-    // Both RX queues get MSI-X vector 0, both TX queues get 1.
+    // RX queue 0 get MSI-X vector 0, TX queue 0 gets 1.
     // Mailbox IRQs go to 2.
-    _hwreg[VTIVAR]      = 0x81808180;
+    _hwreg[VTIVAR]      = 0x00008180;
     _hwreg[VTIVAR_MISC] = 0x82;
 
     // Enable IRQs
-    _hwreg[VTEIAC] = 3;		// Autoclear for all IRQs
-    _hwreg[VTEIAM] = 3;
-    _hwreg[VTEIMS] = 3;
+    _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
+    _hwreg[VTEIAM] = 7;
+    _hwreg[VTEIMS] = 7;
 
     // Send RESET message
     _hwreg[VMB] = VFU;
     _hwreg[VBMEM] = VF_RESET;
     _hwreg[VMB] = Sts;
-    
+
+    // Enable RX
+    //_hwreg[RXDCTL0] |= (1U<<25);
   }
 
 };
