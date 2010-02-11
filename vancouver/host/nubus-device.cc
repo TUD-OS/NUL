@@ -129,8 +129,8 @@ PCIDevice::PCIDevice(PCIBus &bus, uint8_t df, PCIDevice *pf)
   _header_type = (conf_read(12) >> 16) & 0xFF;
   uint8_t config_layout = _header_type & 0x3F;
 
-  Logging::printf("dev[%x:%02x.%x] vendor %08x class %04x%s\n", _bus.no(), _df>>3, _df&7,
-		  _vendor, _dclass, is_vf() ? " VF" : "");
+  // Logging::printf("dev[%x:%02x.%x] vendor %08x class %04x%s\n", _bus.no(), _df>>3, _df&7,
+  // 		  _vendor, _dclass, is_vf() ? " VF" : "");
 
   switch (_dclass) {
   case CLASS_PCI_TO_PCI_BRIDGE: {
