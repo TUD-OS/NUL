@@ -42,7 +42,7 @@ public:
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop),
       _hwreg((volatile uint32_t *)reg), _msix_table((struct msix_table *)msix_reg)
   {
-    memcpy(_hostirqs, irqs, sizeof(irqs));
+    memcpy(_hostirqs, irqs, sizeof(_hostirqs));
 
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
