@@ -55,10 +55,6 @@ class HostHpet : public StaticReceiver<HostHpet>
   bool      _edge;
   timevalue _freq;
 
-  // debug
-  timevalue _lasttimeout;
-  unsigned  _lastdelta;
-
   const char *debug_getname() {  return "HostHPET"; }
 public:
   unsigned irq() { return _irq; }
@@ -66,21 +62,11 @@ public:
 
   bool  receive(MessageIrq &msg)
   {
-    timevalue now = _clock->time();
-    COUNTER_SET("last_to", _lasttimeout);
-    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ || (now - 1000000) > _lasttimeout)
+    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
       {
-	if ((now - 1000000) > _lasttimeout) 	COUNTER_INC("HPET lostlong");
-	if ((now > _lasttimeout + 100000000ULL) && (msg.line == _irq))
-	  {
-	    Logging::printf("HPET halted %lld cycles lastdelta %x %llx\n", now - _lasttimeout, _lastdelta, now);
-	    COUNTER_INC("HPET halt");
-	  }
-	COUNTER_INC("HPET irq");
-	_lasttimeout = ~0ull - 100000000ULL;
-
 	// reset the irq output
 	if (!_edge) _regs->isr = 1 << _timer;
+
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
 	return true;
@@ -94,28 +80,18 @@ public:
     if (msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
     if (msg.abstime == ~0ull) return false;
 
-    _lasttimeout = msg.abstime;
-    COUNTER_INC("HPET reprogram");
-
     unsigned delta = _clock->delta(msg.abstime, _freq);
-    _lastdelta = delta;
     unsigned oldvalue = _regs->counter[0];
     _timerreg->comp[0] = oldvalue + delta;
     // we read them back to avoid PCI posting problems on ATI chipsets
     (void) _timerreg->comp[0];
-    unsigned newvalue = _regs->counter[0];
-    if (((newvalue - oldvalue) >= delta) || (msg.abstime <= _clock->time()))
+
+    // check for overflow
+    if ((_regs->counter[0] - oldvalue) >= delta)
       {
 	COUNTER_INC("HPET lost");
-	COUNTER_SET("HPET da2", delta);
-	COUNTER_SET("HPET ov2", oldvalue);
-	COUNTER_SET("HPET nv2", newvalue);
-	unsigned v1 = _regs->counter[0];
-	unsigned v2 = _regs->counter[0];
-	COUNTER_SET("HPET v", v2 - v1);
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
-
       }
     return true;
   }
