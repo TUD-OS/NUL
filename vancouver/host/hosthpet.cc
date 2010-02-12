@@ -16,7 +16,6 @@
  */
 
 #include "vmm/motherboard.h"
-#include "host/mmio.h"
 
 /**
  * Use the HPET as timer backend.
@@ -24,37 +23,34 @@
  * State:    unstable
  * Features: periodic timer, support different timers, one-shot, HPET ACPI table, MSI
  */
-class HostHpet : public MmioHelper, public StaticReceiver<HostHpet>
+class HostHpet : public StaticReceiver<HostHpet>
 {
   DBus<MessageTimeout> &_bus_timeout;
   Clock *_clock;
   struct HostHpetTimer {
-    unsigned config;
-    unsigned int_route;
-    union {
-      unsigned comp32;
-      unsigned long long comp64;
-    };
-    unsigned msi[2];
+    volatile unsigned config;
+    volatile unsigned int_route;
+    volatile unsigned comp[2];
+    volatile unsigned msi[2];
     unsigned res[2];
   };
   struct HostHpetRegister {
-    unsigned cap;
-    unsigned period;
+    volatile unsigned cap;
+    volatile unsigned period;
     unsigned res0[2];
-    unsigned config;
+    volatile unsigned config;
     unsigned res1[3];
-    unsigned isr;
+    volatile unsigned isr;
     unsigned res2[51];
     union {
-      unsigned counter32;
-      unsigned long long counter64;
+      volatile unsigned  counter[2];
+      volatile unsigned long long main;
     };
     unsigned res3[2];
     struct HostHpetTimer timer[24];
   } *_regs;
   unsigned  _timer;
-  struct HostHpetTimer *_regstimer;
+  struct HostHpetTimer *_timerreg;
   unsigned  _irq;
   bool      _edge;
   timevalue _freq;
@@ -71,19 +67,20 @@ public:
   bool  receive(MessageIrq &msg)
   {
     timevalue now = _clock->time();
-    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
+    COUNTER_SET("last_to", _lasttimeout);
+    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ || (now - 1000000) > _lasttimeout)
       {
 	if ((now - 1000000) > _lasttimeout) 	COUNTER_INC("HPET lostlong");
-	if ((now > _lasttimeout + 1000000000ULL) && (msg.line == _irq))
+	if ((now > _lasttimeout + 100000000ULL) && (msg.line == _irq))
 	  {
 	    Logging::printf("HPET halted %lld cycles lastdelta %x %llx\n", now - _lasttimeout, _lastdelta, now);
 	    COUNTER_INC("HPET halt");
 	  }
 	COUNTER_INC("HPET irq");
+	_lasttimeout = ~0ull - 100000000ULL;
 
 	// reset the irq output
-	if (!_edge) writel(1 << _timer, &_regs->isr);
-
+	if (!_edge) _regs->isr = 1 << _timer;
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
 	return true;
@@ -102,23 +99,19 @@ public:
 
     unsigned delta = _clock->delta(msg.abstime, _freq);
     _lastdelta = delta;
-
-    unsigned oldvalue = readl(&_regs->counter32);
-    writel(oldvalue + delta,  &_regstimer->comp32);
+    unsigned oldvalue = _regs->counter[0];
+    _timerreg->comp[0] = oldvalue + delta;
     // we read them back to avoid PCI posting problems on ATI chipsets
-    readl(&_regstimer->comp32);
-    unsigned newvalue = readl(&_regs->counter32);
-
-    // check for overflow
+    (void) _timerreg->comp[0];
+    unsigned newvalue = _regs->counter[0];
     if (((newvalue - oldvalue) >= delta) || (msg.abstime <= _clock->time()))
       {
 	COUNTER_INC("HPET lost");
-	if (((newvalue - oldvalue) >= delta))  COUNTER_INC("HPET lost2");
 	COUNTER_SET("HPET da2", delta);
 	COUNTER_SET("HPET ov2", oldvalue);
 	COUNTER_SET("HPET nv2", newvalue);
-	unsigned v1 = readl(&_regs->counter32);
-	unsigned v2 = readl(&_regs->counter32);
+	unsigned v1 = _regs->counter[0];
+	unsigned v2 = _regs->counter[0];
 	COUNTER_SET("HPET v", v2 - v1);
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
@@ -130,18 +123,16 @@ public:
 
   HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool edge)
     : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer),
-      _regstimer(_regs->timer + _timer), _irq(theirq), _edge(edge)
+      _timerreg(_regs->timer + _timer), _irq(theirq), _edge(edge)
   {
-    unsigned period = readl(&_regs->period);
-    unsigned cap = readl(&_regs->cap);
-    Logging::printf("HostHpet: cap %x config %x period %d ", cap, readl(&_regs->config), period);
-    if (!period || period > 0x05f5e100) Logging::panic("Invalid HPET period");
+    Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
+    if (_regs->period > 0x05f5e100 || !_regs->period) Logging::panic("Invalid HPET period");
 
     _freq = 1000000000000000ull;
-    Math::div64(_freq, period);
+    Math::div64(_freq, _regs->period);
     Logging::printf(" freq %lld\n", _freq);
 
-    unsigned num_timer = ((cap & 0x1f00) >> 8) + 1;
+    unsigned num_timer = ((_regs->cap & 0x1f00) >> 8) + 1;
     if (num_timer < _timer)  Logging::panic("Timer %x not supported", _timer);
     for (unsigned i=0; i < num_timer; i++)
       Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, _regs->timer[i].config, _regs->timer[i].int_route);
@@ -160,33 +151,32 @@ public:
 	  {
 	    // MSI?
 	    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-	    if ((readl(&_regstimer->config) & (1<<15)) &&  bus_hostop.send(msg1))
+	    if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1))
 	      {
 		// enable MSI
 		_irq = msg1.value;
-		writel(MSI_VALUE + _irq, &_regstimer->msi[0]);
-		writel(MSI_ADDRESS,      &_regstimer->msi[1]);
-		writel(readl(&_regstimer->config) | (1<<14), &_regstimer->config);
+		_timerreg->msi[0] = MSI_VALUE + _irq;
+		_timerreg->msi[1] = MSI_ADDRESS;
+		_timerreg->config |= 1<<14;
 	      }
 	    else
 	      {
-		unsigned int_route = readl(&_regstimer->int_route);
-		if (!int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
-		_irq = Cpu::bsf(int_route);
+		if (!_timerreg->int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
+		_irq = Cpu::bsf(_timerreg->int_route);
 	      }
 	  }
       }
-    else if (~_regstimer->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
+    else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, _edge ? "edge" : "level", legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
-    writel((readl(&_regstimer->config) & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (_edge ? 0 : 2), &_regstimer->config);
+    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (_edge ? 0 : 2);
 
     // enable main counter and legacy mode
-    writel(readl(&_regs->config) | (legacy ? 3 : 1), &_regs->config);
+    _regs->config |= legacy ? 3 : 1;
 
     // ack interrupts
-    if (!_edge) writel(~0u, &_regs->isr);
+    if (!_edge) _regs->isr = ~0u;
   }
 };
 
@@ -217,7 +207,7 @@ PARAM(hosthpet,
 	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
 
 	// check whether this looks like an HPET
-	unsigned cap = MmioHelper::readl(msg1.ptr);
+	unsigned cap = *reinterpret_cast<volatile unsigned *>(msg1.ptr);
 	if (cap == ~0u || !(cap & 0xff))
 	  {
 	    Logging::printf("This is not an HPET at %lx value %x\n", address, cap);
@@ -250,11 +240,13 @@ PARAM(quirk_hpet_ich,
 
       MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address & ~0x3fff, 0x4000);
       if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %x+0x4000\n", __PRETTY_FUNCTION__, address);
-      Logging::printf("HPET try enable on ICH addr %x value %x\n", address, MmioHelper::readl(msg1.ptr + 0x3404));
+
+      volatile unsigned *reg = reinterpret_cast<volatile unsigned *>(msg1.ptr + 0x3404);
+      Logging::printf("HPET try enable on ICH addr %x val %x\n", address, *reg);
 
       // enable hpet decode
-      MmioHelper::writel(MmioHelper::readl(msg1.ptr + 0x3404) | 0x80, msg1.ptr + 0x3404);
-      Logging::printf("ICH HPET enabled %x\n", MmioHelper::readl(msg1.ptr + 0x3404));
+      *reg = *reg | 0x80;
+      Logging::printf("ICH HPET force %s %x\n", *reg & 0x80 ? "enabled" : "failed", *reg);
       ,
       "quirk_hpet_ich - force enable the HPET on an ICH chipset.",
       "Pleas bote, that this does not check whether this is done on the right chipset - use it on your own risk!");
