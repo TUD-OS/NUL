@@ -56,6 +56,71 @@ class HostHpet : public StaticReceiver<HostHpet>
 
   const char *debug_getname() {  return "HostHPET"; }
 public:
+
+  /**
+   * Get the HPET address from the ACPI table.
+   */
+  static unsigned long get_hpet_address(DBus<MessageAcpi> &bus_acpi, unsigned long address_overrride)
+  {
+    if (address_overrride != ~0ul) return address_overrride;
+
+    MessageAcpi msg0("HPET");
+    if (bus_acpi.send(msg0) && msg0.table)
+      {
+	struct HpetAcpiTable
+	{
+	  char res[40];
+	  unsigned char gas[4];
+	unsigned long address[2];
+	} *table = reinterpret_cast<HpetAcpiTable *>(msg0.table);
+
+	if (table->gas[0])
+	  Logging::printf("HPET access must be MMIO but is %d", table->gas[0]);
+	else if (table->address[1])
+	  Logging::printf("HPET must be below 4G");
+	else
+	  return table->address[0];
+      }
+
+    Logging::printf("Warning: no HPET ACPI table, trying default value 0xfed00000\n");
+    return 0xfed00000;
+  }
+
+  /**
+   * Check whether some address points to an hpet.
+   */
+  static bool check_hpet_present(void *address, unsigned timer, unsigned irq)
+  {
+    HostHpetRegister *regs = reinterpret_cast<HostHpetRegister *>(address);
+
+    // check whether this looks like an HPET
+    if (regs->cap == ~0u || !(regs->cap & 0xff))
+      Logging::printf("%s: Invalid HPET cap\n", __func__);
+    else {
+      unsigned num_timer = ((regs->cap & 0x1f00) >> 8) + 1;
+      if (timer >= num_timer)
+	Logging::printf("%s: Timer %x not supported\n", __func__, timer);
+
+      // output some debugging
+      Logging::printf("HostHpet: cap %x config %x period %d\n", regs->cap, regs->config, regs->period);
+      for (unsigned i=0; i < num_timer; i++)
+	Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, regs->timer[i].config, regs->timer[i].int_route);
+
+      if (timer >= num_timer)
+	Logging::printf("%s: Timer %x not supported\n", __func__, timer);
+      else if (regs->period > 0x05f5e100 || !regs->period)
+	Logging::printf("%s: Invalid HPET period\n", __func__);
+      else if ((irq != ~0u) && (irq >= 32 || ~regs->timer[timer].int_route & (1 << irq)))
+	Logging::printf("%s: IRQ routing to GSI %x impossible\n", __func__, irq);
+      else if (~regs->timer[timer].config & (1<<15) && !regs->timer[timer].int_route && !(regs->cap & 0x8000 && timer < 2))
+	Logging::printf("%s: No IRQ routing possible\n", __func__);
+      else
+	return false;
+    }
+    return true;
+  }
+
+
   unsigned irq() { return _irq; }
 
 
@@ -98,98 +163,73 @@ public:
 
 
   HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
-    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _isrclear(level ? 1 << timer : 0),
-      _timerreg(_regs->timer + timer), _irq(theirq)
+    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timerreg(_regs->timer + timer), _irq(theirq)
   {
-    Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
-    if (_regs->period > 0x05f5e100 || !_regs->period) Logging::panic("Invalid HPET period");
-
     _freq = 1000000000000000ull;
     Math::div64(_freq, _regs->period);
-    Logging::printf(" freq %lld\n", _freq);
-
-    unsigned num_timer = ((_regs->cap & 0x1f00) >> 8) + 1;
-    if (num_timer < timer)  Logging::panic("Timer %x not supported", timer);
-    for (unsigned i=0; i < num_timer; i++)
-      Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, _regs->timer[i].config, _regs->timer[i].int_route);
 
     // get the IRQ number
     bool legacy = false;
-    if (_irq == ~0u)
-      {
-	if (_regs->cap & 0x8000 && timer < 2)
-	  {
-	    legacy =  true;
-	    if (timer == 0) _irq = 2;
-	    else             _irq = 8;
-	  }
-	else
-	  {
-	    // MSI?
-	    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-	    if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1))
-	      {
-		// enable MSI
-		_irq = msg1.value;
-		_timerreg->msi[0] = MSI_VALUE + _irq;
-		_timerreg->msi[1] = MSI_ADDRESS;
-		_timerreg->config |= 1<<14;
-	      }
-	    else
-	      {
-		if (!_timerreg->int_route)  Logging::panic("No IRQ routing possible for timer %x", timer);
-		_irq = Cpu::bsf(_timerreg->int_route);
-	      }
-	  }
+    if (_irq == ~0u) {
+      // legacy supported -> enable it
+      if (_regs->cap & 0x8000 && timer < 2) {
+	legacy =  true;
+	_irq = timer ? 8 : 2;
       }
-    else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, timer);
-    Logging::printf("HostHpet: using counter %x GSI 0x%02x (edge%s)\n", timer, _irq, legacy ? ", legacy" : "");
+      else {
+	// MSI?
+	MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
+	if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1)) {
+	  _irq = msg1.value;
+	  _timerreg->msi[0] = MSI_VALUE + _irq;
+	  _timerreg->msi[1] = MSI_ADDRESS;
+	  _timerreg->config |= 1<<14;
+	  level = false;
+	}
+	else {
+	  assert(_timerreg->int_route);
+	  _irq = Cpu::bsf(_timerreg->int_route);
+	}
+      }
+    }
+    else
+      assert(_timerreg->int_route & (1 << _irq));
+
+    // the HV assumes that GSI below 16 are edge triggered
+    if (_irq < 16) level = false;
+    _isrclear = level ? (1 << timer) : 0;
 
     // enable timer in non-periodic 32bit mode
     _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (level ? 2 : 0);
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
+
+    // clear pending IRQs
+    _regs->isr = _isrclear;
+
+    Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
   }
 };
 
 PARAM(hosthpet,
       {
-	unsigned long address = argv[0];
+	unsigned timer = ~argv[0] ? argv[0] : 0;
+	unsigned long address = HostHpet::get_hpet_address(mb.bus_acpi, argv[1]);
+	unsigned irq = argv[2];
+	bool level   = argv[3];
 
-	// get address from HPET ACPI table
-	if (address == ~0ul)
-	  {
-	    MessageAcpi msg0("HPET");
-	    if (!mb.bus_acpi.send(msg0) || !msg0.table)  { Logging::printf("Warning: no HPET ACPI table -> no HostHpet\n"); return; }
-
-	    struct HpetAcpiTable
-	    {
-	      char res[40];
-	      unsigned char gas[4];
-	      unsigned long address[2];
-	    };
-	    HpetAcpiTable *table = reinterpret_cast<HpetAcpiTable *>(msg0.table);
-	    if (table->gas[0])     Logging::panic("HPET access must be MMIO but is %d", table->gas[0]);
-	    if (table->address[1]) Logging::panic("HPET must be below 4G");
-	    address = table->address[0];
-	  }
-
-	// alloc MMIO region
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
 	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
 
-	// check whether this looks like an HPET
-	unsigned cap = *reinterpret_cast<volatile unsigned *>(msg1.ptr);
-	if (cap == ~0u || !(cap & 0xff))
-	  {
-	    Logging::printf("This is not an HPET at %lx value %x\n", address, cap);
-	    return;
-	  }
+	if (HostHpet::check_hpet_present(msg1.ptr, timer, irq)) {
+	  Logging::printf("This is not an HPET timer at %lx timer %x\n", address, timer);
+	  return;
+	}
 
 
 	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2], argv[3]);
+	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, level);
 	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
 
@@ -199,10 +239,10 @@ PARAM(hosthpet,
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
 
       },
-      "hosthpet:address,timer=0,irq=~0u,level=1 - use the host HPET as timer.",
-      "If no address is given, the ACPI HPET table is used.",
+      "hosthpet:timer=0,address,irq=~0u,level=1 - use the host HPET as timer.",
+      "If no address is given, the ACPI HPET table or 0xfed00000 is used.",
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
-      "Example: 'hosthpet:0xfed00000,1' - for the second timer of the hpet at 0xfed00000.");
+      "Example: 'hosthpet:1,0xfed00000' - for the second timer of the hpet at 0xfed00000.");
 
 
 #include "host/hostpci.h"
