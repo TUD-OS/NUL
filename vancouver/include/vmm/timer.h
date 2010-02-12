@@ -113,6 +113,7 @@ public:
   int request(unsigned nr, timevalue to)
   {
     if (!nr || nr > ENTRIES)  return -1;
+    timevalue old = timeout();
     TimeoutEntry *current = _entries + nr;
     cancel(nr);
 
@@ -125,7 +126,7 @@ public:
     current->_prev = t->_prev;
     t->_prev->_next = current;
     t->_prev = current;
-    return timeout() != to;
+    return timeout() == old;
   }
 
   /**
