@@ -25,13 +25,13 @@ class MmioHelper
 public:
   static void writel(unsigned value, volatile void *address)
   {
-    asm volatile ("mov %0,%1" : : "r"(value), "m"(address) : "memory");
+    asm volatile ("mov %0,(%1)" : : "r"(value), "r"(address) : "memory");
   }
 
   static unsigned readl(volatile void *address)
   {
-    unsigned res;
-    asm volatile ("mov %1,%0" : "=r"(res) : "m"(address) : "memory");
+    unsigned res = 0;
+    asm volatile ("mov (%1),%0" : "=r"(res) : "r"(address) : "memory");
     return res;
   }
 };
