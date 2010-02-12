@@ -367,14 +367,18 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
 
 	    // alloc memory
-	    modinfo->physsize = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
-
+	    unsigned long psize_needed = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
 	    p = strstr(cmdline, "sigma0::mem:");
-	    if (p) modinfo->physsize = strtoul(p+12, 0, 0) << 20;
-	    if (!(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22)) || !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
+	    if (p)
+	      modinfo->physsize = strtoul(p+12, 0, 0) << 20;
+	    else
+	      modinfo->physsize = psize_needed;
+	    if ((psize_needed > modinfo->physsize)
+		|| !(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22))
+		|| !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
 	      {
 		_free_phys.debug_dump("free phys");
-		Logging::printf("(%x) could not allocate %ld MB physmem\n", _modcount, modinfo->physsize >> 20);
+		Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", _modcount, modinfo->physsize >> 20, psize_needed >> 20);
 		_modcount--;
 		return __LINE__;
 	      }
