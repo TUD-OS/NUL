@@ -586,7 +586,7 @@ public:
 	msg.nr = _timeouts.alloc();
 	return true;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
-	if (msg.nr!= MessageTimeout::HOST_TIMEOUT)
+	if (msg.nr != MessageTimeout::HOST_TIMEOUT)
 	  {
 	    if (!_timeouts.request(msg.nr, msg.abstime))
 	      {
