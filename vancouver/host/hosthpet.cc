@@ -20,7 +20,7 @@
 /**
  * Use the HPET as timer backend.
  *
- * State:    unstable
+ * State:    testing
  * Features: periodic timer, support different timers, one-shot, HPET ACPI table, MSI
  */
 class HostHpet : public StaticReceiver<HostHpet>
@@ -49,7 +49,7 @@ class HostHpet : public StaticReceiver<HostHpet>
     unsigned res3[2];
     struct HostHpetTimer timer[24];
   } *_regs;
-  unsigned  _timer;
+  unsigned  _isrclear;
   struct HostHpetTimer *_timerreg;
   unsigned  _irq;
   timevalue _freq;
@@ -63,6 +63,8 @@ public:
   {
     if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
       {
+	// ack irq
+	if (_isrclear) _regs->isr = _isrclear;
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
 	return true;
@@ -95,9 +97,9 @@ public:
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq)
-    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer),
-      _timerreg(_regs->timer + _timer), _irq(theirq)
+  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
+    : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _isrclear(level ? 1 << timer : 0),
+      _timerreg(_regs->timer + timer), _irq(theirq)
   {
     Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
     if (_regs->period > 0x05f5e100 || !_regs->period) Logging::panic("Invalid HPET period");
@@ -107,7 +109,7 @@ public:
     Logging::printf(" freq %lld\n", _freq);
 
     unsigned num_timer = ((_regs->cap & 0x1f00) >> 8) + 1;
-    if (num_timer < _timer)  Logging::panic("Timer %x not supported", _timer);
+    if (num_timer < timer)  Logging::panic("Timer %x not supported", timer);
     for (unsigned i=0; i < num_timer; i++)
       Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, _regs->timer[i].config, _regs->timer[i].int_route);
 
@@ -115,10 +117,10 @@ public:
     bool legacy = false;
     if (_irq == ~0u)
       {
-	if (_regs->cap & 0x8000 && _timer < 2)
+	if (_regs->cap & 0x8000 && timer < 2)
 	  {
 	    legacy =  true;
-	    if (_timer == 0) _irq = 2;
+	    if (timer == 0) _irq = 2;
 	    else             _irq = 8;
 	  }
 	else
@@ -135,16 +137,16 @@ public:
 	      }
 	    else
 	      {
-		if (!_timerreg->int_route)  Logging::panic("No IRQ routing possible for timer %x", _timer);
+		if (!_timerreg->int_route)  Logging::panic("No IRQ routing possible for timer %x", timer);
 		_irq = Cpu::bsf(_timerreg->int_route);
 	      }
 	  }
       }
-    else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
-    Logging::printf("HostHpet: using counter %x GSI 0x%02x (edge%s)\n", _timer, _irq, legacy ? ", legacy" : "");
+    else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, timer);
+    Logging::printf("HostHpet: using counter %x GSI 0x%02x (edge%s)\n", timer, _irq, legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
-    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104;
+    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (level ? 2 : 0);
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
@@ -187,7 +189,7 @@ PARAM(hosthpet,
 
 
 	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2]);
+	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2], argv[3]);
 	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
 
@@ -197,7 +199,7 @@ PARAM(hosthpet,
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
 
       },
-      "hosthpet:address,timer=0,irq=~0u - use the host HPET as timer.",
+      "hosthpet:address,timer=0,irq=~0u,level=1 - use the host HPET as timer.",
       "If no address is given, the ACPI HPET table is used.",
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
       "Example: 'hosthpet:0xfed00000,1' - for the second timer of the hpet at 0xfed00000.");
