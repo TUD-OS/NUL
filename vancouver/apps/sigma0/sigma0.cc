@@ -236,6 +236,20 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     serial_send(value);
   }
 
+  static void fancy_output(const char *st, unsigned maxchars)
+  {
+    unsigned lastchar = 0;
+    for (unsigned x=0; x < maxchars && st[x]; x++)
+      {
+	unsigned value = st[x];
+	if (value == '\n' || value == '\t' || value == '\r' || value == 0) value = ' ';
+	if (value == ' ' && lastchar == value) continue;
+	Logging::printf("%c", value);
+	lastchar = value;
+      }
+    Logging::printf("'\n");
+  }
+
   /**
    * Init the pager and the console.
    */
@@ -364,7 +378,8 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    modinfo->dma  = strstr(cmdline, "sigma0::dma");
 	    modinfo->log = strstr(cmdline, "sigma0::log");
 	    bool vcpus   = strstr(cmdline, "sigma0::vmm");
-	    Logging::printf("module(%x) '%s'\n", _modcount, cmdline);
+	    Logging::printf("module(%x) '", _modcount);
+	    fancy_output(cmdline, 4096);
 
 	    // alloc memory
 	    unsigned long psize_needed = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
