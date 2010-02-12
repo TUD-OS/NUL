@@ -52,7 +52,6 @@ class HostHpet : public StaticReceiver<HostHpet>
   unsigned  _timer;
   struct HostHpetTimer *_timerreg;
   unsigned  _irq;
-  bool      _edge;
   timevalue _freq;
 
   const char *debug_getname() {  return "HostHPET"; }
@@ -64,9 +63,6 @@ public:
   {
     if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
       {
-	// reset the irq output
-	if (!_edge) _regs->isr = 1 << _timer;
-
 	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
 	_bus_timeout.send(msg2);
 	return true;
@@ -77,12 +73,14 @@ public:
 
   bool  receive(MessageTimer &msg)
   {
-    if (msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
-    if (msg.abstime == ~0ull) return false;
+    if (msg.abstime == ~0ull || msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
 
     unsigned delta = _clock->delta(msg.abstime, _freq);
     unsigned oldvalue = _regs->counter[0];
+
+    // write new comparator value
     _timerreg->comp[0] = oldvalue + delta;
+
     // we read them back to avoid PCI posting problems on ATI chipsets
     (void) _timerreg->comp[0];
 
@@ -97,9 +95,9 @@ public:
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool edge)
+  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq)
     : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timer(timer),
-      _timerreg(_regs->timer + _timer), _irq(theirq), _edge(edge)
+      _timerreg(_regs->timer + _timer), _irq(theirq)
   {
     Logging::printf("HostHpet: cap %x config %x period %d ", _regs->cap, _regs->config, _regs->period);
     if (_regs->period > 0x05f5e100 || !_regs->period) Logging::panic("Invalid HPET period");
@@ -143,16 +141,13 @@ public:
 	  }
       }
     else if (~_timerreg->int_route & (1 << _irq))  Logging::panic("IRQ routing to GSI %x impossible for timer %x", _irq, _timer);
-    Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", _timer, _irq, _edge ? "edge" : "level", legacy ? ", legacy" : "");
+    Logging::printf("HostHpet: using counter %x GSI 0x%02x (edge%s)\n", _timer, _irq, legacy ? ", legacy" : "");
 
     // enable timer in non-periodic 32bit mode
-    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104 | (_edge ? 0 : 2);
+    _timerreg->config = (_timerreg->config & ~0xa) | ((_irq & 0x1f) << 9) | 0x104;
 
     // enable main counter and legacy mode
     _regs->config |= legacy ? 3 : 1;
-
-    // ack interrupts
-    if (!_edge) _regs->isr = ~0u;
   }
 };
 
@@ -192,7 +187,7 @@ PARAM(hosthpet,
 
 
 	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2], argv[3]);
+	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, ~argv[1] ? argv[1] : 0, argv[2]);
 	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
 
@@ -200,8 +195,9 @@ PARAM(hosthpet,
 	MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, dev->irq());
 	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
+
       },
-      "hosthpet:address,timer=0,irq=~0u,edge=1 - use the host HPET as timer.",
+      "hosthpet:address,timer=0,irq=~0u - use the host HPET as timer.",
       "If no address is given, the ACPI HPET table is used.",
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
       "Example: 'hosthpet:0xfed00000,1' - for the second timer of the hpet at 0xfed00000.");
@@ -225,4 +221,4 @@ PARAM(quirk_hpet_ich,
       Logging::printf("ICH HPET force %s %x\n", *reg & 0x80 ? "enabled" : "failed", *reg);
       ,
       "quirk_hpet_ich - force enable the HPET on an ICH chipset.",
-      "Pleas bote, that this does not check whether this is done on the right chipset - use it on your own risk!");
+      "Please note that this does not check whether this is done on the right chipset - use it on your own risk!");
