@@ -307,6 +307,13 @@ PARAM(dpci,
 	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
 	else
 	  {
+	    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
+	    if (!mb.bus_hostop.send(msg4))
+	      {
+		Logging::printf("DPCI: could not directly assign %x via iommu\n", bdf);
+		return;
+	      }
+
 	    unsigned irqline = pci.get_gsi(bdf, argv[4]);
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
@@ -328,10 +335,7 @@ PARAM(dpci,
 		MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline | 0x100);
 		mb.bus_hostop.send(msg3);
 	      }
-	    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
-	    if (!mb.bus_hostop.send(msg4)) Logging::printf("DPCI: could not directly assign %x via iommu\n", bdf);
 	  }
-	Logging::printf("dpci arg done\n");
       },
       "dpci:class,subclass,instance,bdf,hostirq - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21,0x14' to attach the first network controller to 00:04.1 by forwarding hostirq 0x14.",
