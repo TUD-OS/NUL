@@ -240,3 +240,21 @@ PARAM(hosthpet,
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
       "Example: 'hosthpet:0xfed00000,1' - for the second timer of the hpet at 0xfed00000.");
 
+
+#include "host/hostpci.h"
+PARAM(quirk_hpet_ich,
+      HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+      unsigned address = pci.conf_read(0xf8, 0xf0);
+
+      if (!address) return;
+
+      MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address & ~0x3fff, 0x4000);
+      if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %x+0x4000\n", __PRETTY_FUNCTION__, address);
+      Logging::printf("HPET try enable on ICH addr %x value %x\n", address, MmioHelper::readl(msg1.ptr + 0x3404));
+
+      // enable hpet decode
+      MmioHelper::writel(MmioHelper::readl(msg1.ptr + 0x3404) | 0x80, msg1.ptr + 0x3404);
+      Logging::printf("ICH HPET enabled %x\n", MmioHelper::readl(msg1.ptr + 0x3404));
+      ,
+      "quirk_hpet_ich - force enable the HPET on an ICH chipset.",
+      "Pleas bote, that this does not check whether this is done on the right chipset - use it on your own risk!");
