@@ -5108,13 +5108,6 @@ void ficlCompileCore(FICL_SYSTEM *pSys)
     ficlCompileTools(pSys);
 
     /*
-    ** FILE and FILE EXT
-    */
-#if FICL_WANT_FILE
-    ficlCompileFile(pSys);
-#endif
-
-    /*
     ** Ficl extras
     */
 #if FICL_WANT_FLOAT

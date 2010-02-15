@@ -159,7 +159,6 @@ typedef struct
 #endif
 #if (FICL_MINIMAL)
 #define FICL_WANT_SOFTWORDS  0
-#define FICL_WANT_FILE       0
 #define FICL_WANT_FLOAT      0
 #define FICL_WANT_USER       0
 #define FICL_WANT_LOCALS     0
@@ -177,17 +176,6 @@ typedef struct
 */
 #if !defined (FICL_PLATFORM_EXTEND)
 #define FICL_PLATFORM_EXTEND 1
-#endif
-
-
-/*
-** FICL_WANT_FILE
-** Includes the FILE and FILE-EXT wordset and associated code. Turn this off if you do not
-** have a filesystem!
-** Contributed by Larry Hastings
-*/
-#if !defined (FICL_WANT_FILE)
-#define FICL_WANT_FILE 0
 #endif
 
 /*
