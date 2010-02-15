@@ -54,6 +54,7 @@
 #include <sys/types.h>
 
 #include <stddef.h> /* size_t, NULL */
+#include <stdint.h>
 #include <setjmp.h>
 #include <assert.h>
 
@@ -76,20 +77,29 @@
 /*
 ** System dependent data type declarations...
 */
+
+#if !defined INT64
+#define INT64 int64_t
+#endif
+
+#if !defined UNS64
+#define UNS64 uint64_t
+#endif
+
 #if !defined INT32
-#define INT32 long
+#define INT32 int32_t
 #endif
 
 #if !defined UNS32
-#define UNS32 unsigned long
+#define UNS32 uint32_t
 #endif
 
 #if !defined UNS16
-#define UNS16 unsigned short
+#define UNS16 uint16_t
 #endif
 
 #if !defined UNS8
-#define UNS8 unsigned char
+#define UNS8 uint8_t
 #endif
 
 #if !defined NULL
@@ -103,11 +113,19 @@
 ** (11/2000: same for FICL_FLOAT)
 */
 #if !defined FICL_INT
-#define FICL_INT INT32
+#ifdef __i386__
+# define FICL_INT INT32
+#elif __x86_64__
+# define FICL_INT INT64
+# endif
 #endif
 
 #if !defined FICL_UNS
-#define FICL_UNS UNS32
+#ifdef __i386__
+# define FICL_UNS UNS32
+#elif __x86_64__
+# define FICL_UNS UNS64
+# endif
 #endif
 
 #if !defined FICL_FLOAT
@@ -118,7 +136,11 @@
 ** Ficl presently supports values of 32 and 64 for BITS_PER_CELL
 */
 #if !defined BITS_PER_CELL
-#define BITS_PER_CELL 32
+#ifdef __i386__
+# define BITS_PER_CELL 32
+#elif __x86_64__
+# define BITS_PER_CELL 64
+#endif
 #endif
 
 #if ((BITS_PER_CELL != 32) && (BITS_PER_CELL != 64))
@@ -353,7 +375,11 @@ typedef struct
 ** machine. 3 would be appropriate for a 64 bit machine.
 */
 #if !defined FICL_ALIGN
+#ifdef __i386__
 #define FICL_ALIGN 2
+#elif __x86_64__
+#define FICL_ALIGN 3
+#endif
 #define FICL_ALIGN_ADD ((1 << FICL_ALIGN) - 1)
 #endif
 
