@@ -269,13 +269,17 @@ typedef union _cell
 #endif
     void *p;
     void (*fn)(void);
-} CELL;
+} __attribute__((may_alias)) CELL;
 
 /*
 ** LVALUEtoCELL does a little pointer trickery to cast any CELL sized
 ** lvalue (informal definition: an expression whose result has an
 ** address) to CELL. Remember that constants and casts are NOT
 ** themselves lvalues!
+**
+** XXX This only works as long as the strict-aliasing rule is
+** circumvented (see attribute above). Otherwise GCC >4.4 will
+** silently *throw away v and just put garbage into the CELL.
 */
 #define LVALUEtoCELL(v) (*(CELL *)&v)
 
