@@ -1,9 +1,8 @@
 # -*- Mode: Python -*-
 
-e = Environment(CFLAGS=["-g", "-m32", "-O3", "-ffreestanding"],
-                LINKFLAGS=["-m32"],
+e = Environment(CFLAGS=[ "-g", "-Os", "-ffreestanding", "-ffunction-sections"],
+                LINKFLAGS=[ "-Wl,--gc-sections"],
                 CPPPATH=[".", "#i386"],
-                CC="gcc-4.3.4",
                 )
 
 e.Command('softcore.c', ['softwords/softcore.awk',
@@ -34,7 +33,6 @@ e.Program('testmain', ['testmain.c',
                        'i386/sysdep.c',
                        ],
           CPPFLAGS=["-DTESTMAIN", "-D_TESTMAIN",
-                    "-D_DEBUG",
                     ])
 
 # EOF
