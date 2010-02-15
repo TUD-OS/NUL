@@ -222,7 +222,7 @@ typedef struct
 ** included as part of softcore.c)
 */
 #if !defined FICL_EXTENDED_PREFIX
-#define FICL_EXTENDED_PREFIX 0
+#define FICL_EXTENDED_PREFIX 1
 #endif
 
 /*
