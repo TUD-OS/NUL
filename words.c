@@ -46,6 +46,7 @@
 #ifdef TESTMAIN
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <ctype.h>
 #include <fcntl.h>
 #else
