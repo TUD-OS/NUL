@@ -51,8 +51,6 @@
 #if !defined (__SYSDEP_H__)
 #define __SYSDEP_H__ 
 
-#include <sys/types.h>
-
 #include <stddef.h> /* size_t, NULL */
 #include <stdint.h>
 #include <setjmp.h>
