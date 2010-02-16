@@ -282,7 +282,7 @@ void dictAppendUNS(FICL_DICT *pDict, FICL_UNS u)
                         d i c t C e l l s A v a i l
 ** Returns the number of empty cells left in the dictionary
 **************************************************************************/
-int dictCellsAvail(FICL_DICT *pDict)
+unsigned dictCellsAvail(FICL_DICT *pDict)
 {
     return pDict->size - dictCellsUsed(pDict);
 }
@@ -292,7 +292,7 @@ int dictCellsAvail(FICL_DICT *pDict)
                         d i c t C e l l s U s e d
 ** Returns the number of cells consumed in the dicionary
 **************************************************************************/
-int dictCellsUsed(FICL_DICT *pDict)
+unsigned dictCellsUsed(FICL_DICT *pDict)
 {
     return pDict->here - pDict->dict;
 }

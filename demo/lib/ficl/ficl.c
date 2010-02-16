@@ -140,7 +140,9 @@ FICL_SYSTEM *ficlInitSystemEx(FICL_SYSTEM_INFO *fsi)
     */
     ficlCompileCore(pSys);
     ficlCompilePrefix(pSys);
+#if FICL_WANT_FLOAT
     ficlCompileFloat(pSys);
+#endif
 #if FICL_PLATFORM_EXTEND
     ficlCompilePlatform(pSys);
 #endif
