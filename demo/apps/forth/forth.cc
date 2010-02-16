@@ -22,9 +22,21 @@ public:
     // XXX Add new words here.
     FICL_VM *pVM = ficlNewVM(pSys);
 
-    ficlEvaluate(pVM, ".ver .( " __DATE__ " ) cr quit");
+    ficlEvaluate(pVM, ".ver .( " __DATE__ " ) cr cr quit");
+    ficlEvaluate(pVM, ": fib { n } n 2 < if n else n 1 - recurse n 2 - recurse + then ;");
 
-    printf("Forth done.\n");
+    // B0rken :-/
+    //ficlEvaluate(pVM, "see fib");
+
+    // Slow
+    ficlEvaluate(pVM, ".( fib 20 = ) 20 fib . cr");
+    // Slightly faster
+    printf("fib 30 = ");
+    PUSHUNS(30);
+    ficlEvaluate(pVM, "fib ");
+    printf("%u\n", POPUNS());
+
+    printf("\nForth done.\n");
     return 0;
   }
 };
