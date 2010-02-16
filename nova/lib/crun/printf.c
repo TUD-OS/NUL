@@ -47,7 +47,7 @@ put_number(putchar_fn put, void *data, unsigned long long value, const unsigned 
   unsigned char buffer[32];
   int size = 0;
   do {
-      unsigned mod = value % base;
+    unsigned mod = value % base; value /= base;
       if (mod>=10)  mod += 0x27;
       assert(size < 32);
       buffer[size++] = mod+0x30;
