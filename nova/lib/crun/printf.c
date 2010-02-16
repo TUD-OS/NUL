@@ -68,6 +68,7 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
 {
   unsigned l=0;
   int pad = 0;
+  bool alternate = false;
   while (*format) {
     switch (*format) {
     case '0':
@@ -81,9 +82,16 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
       pad = (2*(*format - '0')) + (pad/2)*20 + (pad & 1);
       format++;
       break;
+    case '#':
+      alternate = true; format++;
+      break;
+    case '.':
+      if (*(format+1) == '*')
+	pad = va_arg(*ap, int);
+      format += 2;
+      break;
     case 'l':
-      l++;
-      format++;
+      l++; format++;
       break;
     case 's':
       {
