@@ -44,6 +44,15 @@ memcpy(void *dst, const void *src, size_t count)
   return __builtin_memcpy(dst, src, count);
 }
 
+/** "Fast" memcpy for double-word aligned buffers. */
+STRING_INLINE void *
+memcpyl(void *dst, const void *src, size_t count)
+{
+  asm volatile ("rep movsl" : "+D"(dst), "+S"(src), "+c" (count) : : "memory");
+  return dst;
+}
+
+
 
 STRING_INLINE void *
 memmove(void *dst, const void *src, size_t count)

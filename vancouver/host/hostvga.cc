@@ -283,15 +283,6 @@ private:
     memcpyl(dst + (count & 3), src + (count & 3), count / 4);
   }
 
-  static
-  void
-  memcpyl(void *dst, const void *src, long count)
-  {
-    asm volatile ("rep movsl" : "+D"(dst), "+S"(src), "+c"(count) :  : "memory");
-  }
-
-
-
 public:
   bool  receive(MessageTimeout &msg)
   {
