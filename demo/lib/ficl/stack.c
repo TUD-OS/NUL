@@ -42,11 +42,7 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
 #include <stdlib.h>
-#else
-#include <stand.h>
-#endif
 #include "ficl.h"
 
 #define STKDEPTH(s) ((s)->sp - (s)->base)

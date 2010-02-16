@@ -17,10 +17,7 @@ Command('softcore.c', ['softwords/softcore.awk',
                        ],
         """cat ${SOURCES[1:]} | awk -f $SOURCE -v datestamp="`LC_ALL=C date`" > $TARGET""")
 
-ficlEnv = target_env.Clone()
-ficlEnv.Append(CPPPATH = ["i386"])
-
-nul.Lib(ficlEnv, "ficl",
+nul.Lib(target_env, "ficl",
         SOURCES = ['dict.c',
                    'ficl.c',
                    'float.c',
@@ -33,7 +30,7 @@ nul.Lib(ficlEnv, "ficl",
                    'tools.c',
                    'vm.c',
                    'words.c',
-                   'i386/sysdep.c',
+                   'i386-sysdep.c',
                    ])
 
 # EOF

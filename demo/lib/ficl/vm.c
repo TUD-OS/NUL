@@ -49,13 +49,9 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
 #include <stdlib.h>
 #include <stdio.h>
 #include <ctype.h>
-#else
-#include <stand.h>
-#endif
 #include <stdarg.h>
 #include <string.h>
 #include "ficl.h"
@@ -573,7 +569,7 @@ void vmThrowErr(FICL_VM *pVM, char *fmt, ...)
 {
     va_list va;
     va_start(va, fmt);
-    vsprintf(pVM->pad, fmt, va);
+    vsnprintf(pVM->pad, nPAD, fmt, va);
     vmTextOut(pVM, pVM->pad, 1);
     va_end(va);
     longjmp(*(pVM->pState), VM_ERREXIT);

@@ -287,15 +287,6 @@ typedef struct
 #endif
 
 /*
-** PORTABLE_LONGMULDIV causes ficlLongMul and ficlLongDiv to be
-** defined in C in sysdep.c. Use this if you cannot easily 
-** generate an inline asm definition
-*/ 
-#if !defined (PORTABLE_LONGMULDIV)
-#define PORTABLE_LONGMULDIV 0
-#endif
-
-/*
 ** INLINE_INNER_LOOP causes the inner interpreter to be inline code
 ** instead of a function call. This is mainly because MS VC++ 5
 ** chokes with an internal compiler error on the function version.

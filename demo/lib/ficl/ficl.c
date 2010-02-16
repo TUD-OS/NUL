@@ -57,11 +57,8 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
+
 #include <stdlib.h>
-#else
-#include <stand.h>
-#endif
 #include <string.h>
 #include "ficl.h"
 

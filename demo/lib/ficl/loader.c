@@ -32,11 +32,7 @@
 ** 
 *******************************************************************/
 
-#ifdef TESTMAIN
 #include <stdlib.h>
-#else
-#include <stand.h>
-#endif
 #include <string.h>
 #include "ficl.h"
 
@@ -75,86 +71,6 @@ ficlCcall(FICL_VM *pVM)
 	return;
 }
 
-static void displayCellNoPad(FICL_VM *pVM)
-{
-    CELL c;
-#if FICL_ROBUST > 1
-    vmCheckStack(pVM, 1, 0);
-#endif
-    c = stackPop(pVM->pStack);
-    ltoa((c).i, pVM->pad, pVM->base);
-    vmTextOut(pVM, pVM->pad, 0);
-    return;
-}
-
-/*           key - get a character from stdin
- *
- * key ( -- char )
- */
-static void key(FICL_VM *pVM)
-{
-#if FICL_ROBUST > 1
-    vmCheckStack(pVM, 0, 1);
-#endif
-    stackPushINT(pVM->pStack, getchar());
-    return;
-}
-
-/*           key? - check for a character from stdin (FACILITY)
- *
- * key? ( -- flag )
- */
-static void keyQuestion(FICL_VM *pVM)
-{
-#if FICL_ROBUST > 1
-    vmCheckStack(pVM, 0, 1);
-#endif
-#ifdef TESTMAIN
-    /* XXX Since we don't fiddle with termios, let it always succeed... */
-    stackPushINT(pVM->pStack, FICL_TRUE);
-#else
-    /* But here do the right thing. */
-    stackPushINT(pVM->pStack, ischar()? FICL_TRUE : FICL_FALSE);
-#endif
-    return;
-}
-
-/* seconds - gives number of seconds since beginning of time
- *
- * beginning of time is defined as:
- *
- *	BTX	- number of seconds since midnight
- *	FreeBSD	- number of seconds since Jan 1 1970
- *
- * seconds ( -- u )
- */
-static void pseconds(FICL_VM *pVM)
-{
-#if FICL_ROBUST > 1
-    vmCheckStack(pVM,0,1);
-#endif
-    stackPushUNS(pVM->pStack, (FICL_UNS) time(NULL));
-    return;
-}
-
-/* ms - wait at least that many milliseconds (FACILITY)
- *
- * ms ( u -- )
- *
- */
-static void ms(FICL_VM *pVM)
-{
-#if FICL_ROBUST > 1
-    vmCheckStack(pVM,1,0);
-#endif
-#ifdef TESTMAIN
-    usleep(stackPopUNS(pVM->pStack)*1000);
-#else
-    delay(stackPopUNS(pVM->pStack)*1000);
-#endif
-    return;
-}
-
 /*
 ** Retrieves free space remaining on the dictionary
 */
@@ -187,43 +103,11 @@ void ficlCompilePlatform(FICL_SYSTEM *pSys)
     FICL_DICT *dp = pSys->dp;
     assert (dp);
 
-    dictAppendWord(dp, ".#",        displayCellNoPad,    FW_DEFAULT);
-    dictAppendWord(dp, "key",	    key,	    FW_DEFAULT);
-    dictAppendWord(dp, "key?",	    keyQuestion,    FW_DEFAULT);
-    dictAppendWord(dp, "ms",        ms,             FW_DEFAULT);
-    dictAppendWord(dp, "seconds",   pseconds,       FW_DEFAULT);
     dictAppendWord(dp, "heap?",     freeHeap,       FW_DEFAULT);
     dictAppendWord(dp, "dictthreshold", ficlDictThreshold, FW_DEFAULT);
     dictAppendWord(dp, "dictincrease", ficlDictIncrease, FW_DEFAULT);
 
     dictAppendWord(dp, "ccall",	    ficlCcall,	    FW_DEFAULT);
-#ifndef TESTMAIN
-#ifdef __i386__
-    dictAppendWord(dp, "outb",      ficlOutb,       FW_DEFAULT);
-    dictAppendWord(dp, "inb",       ficlInb,        FW_DEFAULT);
-#endif
-#ifdef HAVE_PNP
-    dictAppendWord(dp, "pnpdevices",ficlPnpdevices, FW_DEFAULT);
-    dictAppendWord(dp, "pnphandlers",ficlPnphandlers, FW_DEFAULT);
-#endif
-#endif
-
-#if defined(PC98)
-    ficlSetEnv(pSys, "arch-pc98",         FICL_TRUE);
-#elif defined(__i386__)
-    ficlSetEnv(pSys, "arch-i386",         FICL_TRUE);
-    ficlSetEnv(pSys, "arch-ia64",         FICL_FALSE);
-    ficlSetEnv(pSys, "arch-powerpc",      FICL_FALSE);
-#elif defined(__ia64__)
-    ficlSetEnv(pSys, "arch-i386",         FICL_FALSE);
-    ficlSetEnv(pSys, "arch-ia64",         FICL_TRUE);
-    ficlSetEnv(pSys, "arch-powerpc",      FICL_FALSE);
-#elif defined(__powerpc__)
-    ficlSetEnv(pSys, "arch-i386",         FICL_FALSE);
-    ficlSetEnv(pSys, "arch-ia64",         FICL_FALSE);
-    ficlSetEnv(pSys, "arch-powerpc",      FICL_TRUE);
-#endif
-
     return;
 }
 

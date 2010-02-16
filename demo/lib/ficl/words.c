@@ -43,15 +43,10 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <ctype.h>
-#include <fcntl.h>
-#else
-#include <stand.h>
-#endif
 #include <string.h>
 #include "ficl.h"
 #include "math64.h"

@@ -9,31 +9,24 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
 #include <stdio.h>
 #include <stdlib.h>
-#else
-#include <stand.h>
-#ifdef __i386__
-#include <machine/cpufunc.h>
-#endif
-#endif
+#include <stdint.h>
 #include "ficl.h"
 
 /*
 *******************  FreeBSD  P O R T   B E G I N S   H E R E ******************** Michael Smith
 */
 
-#if PORTABLE_LONGMULDIV == 0
 DPUNS ficlLongMul(FICL_UNS x, FICL_UNS y)
 {
     DPUNS q;
-    u_int64_t qx;
+    uint64_t qx;
 
-    qx = (u_int64_t)x * (u_int64_t) y;
+    qx = (uint64_t)x * (uint64_t) y;
 
-    q.hi = (u_int32_t)( qx >> 32 );
-    q.lo = (u_int32_t)( qx & 0xFFFFFFFFL);
+    q.hi = (uint32_t)( qx >> 32 );
+    q.lo = (uint32_t)( qx & 0xFFFFFFFFL);
 
     return q;
 }
@@ -41,7 +34,7 @@ DPUNS ficlLongMul(FICL_UNS x, FICL_UNS y)
 UNSQR ficlLongDiv(DPUNS q, FICL_UNS y)
 {
     UNSQR result;
-    u_int64_t qx, qh;
+    uint64_t qx, qh;
 
     qh = q.hi;
     qx = (qh << 32) | q.lo;
@@ -51,7 +44,6 @@ UNSQR ficlLongDiv(DPUNS q, FICL_UNS y)
 
     return result;
 }
-#endif
 
 void  ficlTextOut(FICL_VM *pVM, char *msg, int fNewline)
 {
@@ -79,40 +71,6 @@ void  ficlFree   (void *p)
 {
     free(p);
 }
-
-#ifndef TESTMAIN
-#ifdef __i386__
-/* 
- * outb ( port# c -- )
- * Store a byte to I/O port number port#
- */
-void
-ficlOutb(FICL_VM *pVM)
-{
-	u_char c;
-	u_int32_t port;
-
-	port=stackPopUNS(pVM->pStack);
-	c=(u_char)stackPopINT(pVM->pStack);
-	outb(port,c);
-}
-
-/*
- * inb ( port# -- c )
- * Fetch a byte from I/O port number port#
- */
-void
-ficlInb(FICL_VM *pVM)
-{
-	u_char c;
-	u_int32_t port;
-
-	port=stackPopUNS(pVM->pStack);
-	c=inb(port);
-	stackPushINT(pVM->pStack,c);
-}
-#endif
-#endif
 
 /*
 ** Stub function for dictionary access control - does nothing

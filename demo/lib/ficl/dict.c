@@ -53,12 +53,10 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
+#if FICL_WANT_FLOAT
 #include <stdio.h>
-#include <ctype.h>
-#else
-#include <stand.h>
 #endif
+#include <ctype.h>
 #include <string.h>
 #include "ficl.h"
 

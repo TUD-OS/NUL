@@ -56,13 +56,9 @@
 
 /* $FreeBSD$ */
 
-#ifdef TESTMAIN
 #include <stdlib.h>
 #include <stdio.h>          /* sprintf */
 #include <ctype.h>
-#else
-#include <stand.h>
-#endif
 #include <string.h>
 #include "ficl.h"
 
@@ -187,107 +183,107 @@ static FICL_WORD *findEnclosingWord(FICL_VM *pVM, CELL *cp)
 static void seeColon(FICL_VM *pVM, CELL *pc)
 {
 	char *cp;
-    CELL *param0 = pc;
-    FICL_DICT *pd = vmGetDict(pVM);
+	CELL *param0 = pc;
+	FICL_DICT *pd = vmGetDict(pVM);
 	FICL_WORD *pSemiParen = ficlLookup(pVM->pSys, "(;)");
-    assert(pSemiParen);
+	assert(pSemiParen);
 
-    for (; pc->p != pSemiParen; pc++)
-    {
-        FICL_WORD *pFW = (FICL_WORD *)(pc->p);
+	for (; pc->p != pSemiParen; pc++)
+	{
+		FICL_WORD *pFW = (FICL_WORD *)(pc->p);
 
-        cp = pVM->pad;
+		cp = pVM->pad;
 		if ((void *)pc == (void *)pVM->ip)
 			*cp++ = '>';
 		else
 			*cp++ = ' ';
-        cp += sprintf(cp, "%3d   ", pc-param0);
+		cp += snprintf(cp, nPAD-1, "%3d   ", pc-param0);
         
-        if (isAFiclWord(pd, pFW))
-        {
-            WORDKIND kind = ficlWordClassify(pFW);
-            CELL c;
+		if (isAFiclWord(pd, pFW))
+		{
+			WORDKIND kind = ficlWordClassify(pFW);
+			CELL c;
 
-            switch (kind)
-            {
-            case LITERAL:
-                c = *++pc;
-                if (isAFiclWord(pd, c.p))
-                {
-                    FICL_WORD *pLit = (FICL_WORD *)c.p;
-                    sprintf(cp, "%.*s ( %#lx literal )", 
-                        pLit->nName, pLit->name, c.u);
-                }
-                else
-                    sprintf(cp, "literal %ld (%#lx)", c.i, c.u);
-                break;
-            case STRINGLIT:
-                {
-                    FICL_STRING *sp = (FICL_STRING *)(void *)++pc;
-                    pc = (CELL *)alignPtr(sp->text + sp->count + 1) - 1;
-                    sprintf(cp, "s\" %.*s\"", sp->count, sp->text);
-                }
-                break;
-            case CSTRINGLIT:
-                {
-                    FICL_STRING *sp = (FICL_STRING *)(void *)++pc;
-                    pc = (CELL *)alignPtr(sp->text + sp->count + 1) - 1;
-                    sprintf(cp, "c\" %.*s\"", sp->count, sp->text);
-                }
-                break;
-            case IF:
-                c = *++pc;
-                if (c.i > 0)
-                    sprintf(cp, "if / while (branch %d)", pc+c.i-param0);
-                else
-                    sprintf(cp, "until (branch %d)",      pc+c.i-param0);
-                break;                                                           
-            case BRANCH:
-                c = *++pc;
-                if (c.i == 0)
-                    sprintf(cp, "repeat (branch %d)",     pc+c.i-param0);
-                else if (c.i == 1)
-                    sprintf(cp, "else (branch %d)",       pc+c.i-param0);
-                else
-                    sprintf(cp, "endof (branch %d)",       pc+c.i-param0);
-                break;
+			switch (kind)
+			{
+			case LITERAL:
+				c = *++pc;
+				if (isAFiclWord(pd, c.p))
+				{
+					FICL_WORD *pLit = (FICL_WORD *)c.p;
+					sprintf(cp, "%.*s ( %#lx literal )", 
+						pLit->nName, pLit->name, c.u);
+				}
+				else
+					sprintf(cp, "literal %ld (%#lx)", c.i, c.u);
+				break;
+			case STRINGLIT:
+			{
+				FICL_STRING *sp = (FICL_STRING *)(void *)++pc;
+				pc = (CELL *)alignPtr(sp->text + sp->count + 1) - 1;
+				sprintf(cp, "s\" %.*s\"", sp->count, sp->text);
+			}
+			break;
+			case CSTRINGLIT:
+			{
+				FICL_STRING *sp = (FICL_STRING *)(void *)++pc;
+				pc = (CELL *)alignPtr(sp->text + sp->count + 1) - 1;
+				sprintf(cp, "c\" %.*s\"", sp->count, sp->text);
+			}
+			break;
+			case IF:
+				c = *++pc;
+				if (c.i > 0)
+					sprintf(cp, "if / while (branch %d)", pc+c.i-param0);
+				else
+					sprintf(cp, "until (branch %d)",      pc+c.i-param0);
+				break;                                                           
+			case BRANCH:
+				c = *++pc;
+				if (c.i == 0)
+					sprintf(cp, "repeat (branch %d)",     pc+c.i-param0);
+				else if (c.i == 1)
+					sprintf(cp, "else (branch %d)",       pc+c.i-param0);
+				else
+					sprintf(cp, "endof (branch %d)",       pc+c.i-param0);
+				break;
 
-            case OF:
-                c = *++pc;
-                sprintf(cp, "of (branch %d)",       pc+c.i-param0);
-                break;
+			case OF:
+				c = *++pc;
+				sprintf(cp, "of (branch %d)",       pc+c.i-param0);
+				break;
 
-            case QDO:
-                c = *++pc;
-                sprintf(cp, "?do (leave %d)",  (CELL *)c.p-param0);
-                break;
-            case DO:
-                c = *++pc;
-                sprintf(cp, "do (leave %d)", (CELL *)c.p-param0);
-                break;
-            case LOOP:
-                c = *++pc;
-                sprintf(cp, "loop (branch %d)", pc+c.i-param0);
-                break;
-            case PLOOP:
-                c = *++pc;
-                sprintf(cp, "+loop (branch %d)", pc+c.i-param0);
-                break;
-            default:
-                sprintf(cp, "%.*s", pFW->nName, pFW->name);
-                break;
-            }
+			case QDO:
+				c = *++pc;
+				sprintf(cp, "?do (leave %d)",  (CELL *)c.p-param0);
+				break;
+			case DO:
+				c = *++pc;
+				sprintf(cp, "do (leave %d)", (CELL *)c.p-param0);
+				break;
+			case LOOP:
+				c = *++pc;
+				sprintf(cp, "loop (branch %d)", pc+c.i-param0);
+				break;
+			case PLOOP:
+				c = *++pc;
+				sprintf(cp, "+loop (branch %d)", pc+c.i-param0);
+				break;
+			default:
+				sprintf(cp, "%.*s", pFW->nName, pFW->name);
+				break;
+			}
  
-        }
-        else /* probably not a word - punt and print value */
-        {
-            sprintf(cp, "%ld ( %#lx )", pc->i, pc->u);
-        }
+		}
+		else /* probably not a word - punt and print value */
+		{
+			sprintf(cp, "%ld ( %#lx )", pc->i, pc->u);
+		}
 
 		vmTextOut(pVM, pVM->pad, 1);
-    }
+	}
 
-    vmTextOut(pVM, ";", 1);
+	vmTextOut(pVM, ";", 1);
 }
 
 /*
@@ -511,7 +507,7 @@ void stepBreak(FICL_VM *pVM)
         ** Print the name of the next instruction
         */
         pFW = pVM->pSys->bpStep.origXT;
-        sprintf(pVM->pad, "next: %.*s", pFW->nName, pFW->name);
+        snprintf(pVM->pad, nPAD, "next: %.*s", pFW->nName, pFW->name);
 #if 0
         if (isPrimitive(pFW))
         {
@@ -670,7 +666,7 @@ static void displayRStack(FICL_VM *pVM)
                 if (pFW)
                 {
                     int offset = (CELL *)c.p - &pFW->param[0];
-                    sprintf(pVM->pad, "%s+%d ", pFW->name, offset);
+                    snprintf(pVM->pad, nPAD, "%s+%d ", pFW->name, offset);
                     vmTextOut(pVM, pVM->pad, 0);
                     continue;  /* no need to print the numeric value */
                 }
@@ -753,7 +749,7 @@ static void listWords(FICL_VM *pVM)
                 continue;
 
             cp = wp->name;
-            nChars += sprintf(pPad + nChars, "%s", cp);
+            nChars += snprintf(pPad + nChars, nPAD - nChars, "%s", cp);
 
             if (nChars > 70)
             {
@@ -762,8 +758,8 @@ static void listWords(FICL_VM *pVM)
                 y++;
                 if(y>23) {
                         y=0;
-                        vmTextOut(pVM, "--- Press Enter to continue ---",0);
-                        getchar();
+                        //vmTextOut(pVM, "--- Press Enter to continue ---",0);
+                        //getchar();
                         vmTextOut(pVM,"\r",0);
                 }
                 vmTextOut(pVM, pPad, 1);
@@ -782,8 +778,8 @@ static void listWords(FICL_VM *pVM)
                 y++;
                 if(y>23) {
                         y=0;
-                        vmTextOut(pVM, "--- Press Enter to continue ---",0);
-                        getchar();
+                        //vmTextOut(pVM, "--- Press Enter to continue ---",0);
+                        //getchar();
                         vmTextOut(pVM,"\r",0);
                 }
                 vmTextOut(pVM, pPad, 1);
@@ -798,7 +794,7 @@ static void listWords(FICL_VM *pVM)
         vmTextOut(pVM, pPad, 1);
     }
 
-    sprintf(pVM->pad, "Dictionary: %d words, %ld cells used of %u total", 
+    snprintf(pVM->pad, nPAD, "Dictionary: %d words, %ld cells used of %u total", 
         nWords, (long) (dp->here - dp->dict), dp->size);
     vmTextOut(pVM, pVM->pad, 1);
     return;
@@ -825,7 +821,7 @@ static void listEnv(FICL_VM *pVM)
         }
     }
 
-    sprintf(pVM->pad, "Environment: %d words, %ld cells used of %u total", 
+    snprintf(pVM->pad, nPAD, "Environment: %d words, %ld cells used of %u total", 
         nWords, (long) (dp->here - dp->dict), dp->size);
     vmTextOut(pVM, pVM->pad, 1);
     return;

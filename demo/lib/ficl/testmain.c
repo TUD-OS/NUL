@@ -310,8 +310,8 @@ int main(int argc, char **argv)
 {
     char in[256];
     FICL_VM *pVM;
-	FICL_SYSTEM *pSys;
-
+    FICL_SYSTEM *pSys;
+	
     pSys = ficlInitSystem(10000);
     buildTestInterface(pSys);
     pVM = ficlNewVM(pSys);

@@ -217,7 +217,7 @@
 extern "C" {
 #endif
 
-#include "sysdep.h"
+#include <ficl/sysdep.h>
 #include <limits.h> /* UCHAR_MAX */
 
 /*
