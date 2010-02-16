@@ -32,6 +32,7 @@ puts(const char *s)
 {
   while (*s != 0)
     putchar(*s++);
+  putchar('\n');
   return 1;
 }
 
