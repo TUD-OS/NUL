@@ -43,6 +43,7 @@ SECTIONS
     *(.rodata .rodata.* .gnu.linkonce.r.*);
     *(.data   .data.*   .gnu.linkonce.d.*);
     *(.bss .bss.* .gnu.linkonce.b.*);
+    *(COMMON);
     __mempoolstart = .;
     . += 0x80000;
     __mempoolend = .;
