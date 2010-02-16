@@ -24,6 +24,7 @@ longjmp:
         mov 12(%eax), %esi
         mov 16(%eax), %ebp
         mov 20(%eax), %ecx
+        pop %eax                // Discard old return address
         mov %edx, %eax
         jmp *%ecx
 
