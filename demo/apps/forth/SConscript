@@ -1,0 +1,12 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'forth',
+        SOURCES = [ 'forth.cc' ],
+        LIBS    = [ 'ficl', 'vsys', 'crun' ],
+        MEMSIZE = 1<<20)
+
+# EOF
