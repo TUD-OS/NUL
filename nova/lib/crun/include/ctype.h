@@ -23,8 +23,8 @@ static inline int islower(int c) { return (c >= 'a') && (c <= 'z'); };
 static inline int isalpha(int c) { return isupper(c) || islower(c); };
 static inline int isalnum(int c) { return isalpha(c) || isdigit(c); };
 
-static inline int tolower(int c) { return isupper(c) ? (c |  0x10) : c; }
-static inline int toupper(int c) { return islower(c) ? (c & ~0x10) : c; }
+static inline int tolower(int c) { return isupper(c) ? (c |  0x20) : c; }
+static inline int toupper(int c) { return islower(c) ? (c & ~0x20) : c; }
 
 
 /* EOF */
