@@ -48,9 +48,9 @@ put_number(putchar_fn put, void *data, unsigned long long value, const unsigned 
   int size = 0;
   do {
     unsigned mod = value % base; value /= base;
-      if (mod>=10)  mod += 0x27;
-      assert(size < 32);
-      buffer[size++] = mod+0x30;
+    if (mod>=10)  mod += 0x27;
+    assert(size < 32);
+    buffer[size++] = mod+0x30;
   } while (value);
 
   char ch = pad & 1 ? '0' : ' ';
@@ -148,14 +148,14 @@ vprintf(const char *format, va_list ap)
   void count_putchar(void *data, int c) { total_chars++; putchar(c); }
 
   while (*format) {
-      switch (*format) {
-      case '%':
-	format++;
-	format = handle_formatstring(count_putchar, NULL, format, ap);
-	break;
-      default:
-	count_putchar(NULL, *format++);
-      }
+    switch (*format) {
+    case '%':
+      format++;
+      format = handle_formatstring(count_putchar, NULL, format, ap);
+      break;
+    default:
+      count_putchar(NULL, *format++);
+    }
   }
 
   return total_chars;
@@ -175,14 +175,14 @@ vsnprintf(char *str, size_t size, const char *format, va_list ap)
   }
 
   while (*format) {
-      switch (*format) {
-      case '%':
-	format++;
-	format = handle_formatstring(limit_putchar, NULL, format, ap);
-	break;
-      default:
-	limit_putchar(NULL, *format++);
-      }
+    switch (*format) {
+    case '%':
+      format++;
+      format = handle_formatstring(limit_putchar, NULL, format, ap);
+      break;
+    default:
+      limit_putchar(NULL, *format++);
+    }
   }
 
  done:
