@@ -225,7 +225,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   };
 
 
-  static void putc(void *data, long value)
+  static void putc(void *data, int value)
   {
     if (data)
       {

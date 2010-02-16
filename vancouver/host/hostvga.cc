@@ -113,7 +113,7 @@ private:
   /**
    * The putc on a console, removes multiple whitespaces.
    */
-  static void console_putc(void *data, long value)
+  static void console_putc(void *data, int value)
     {
       putcdata *d = reinterpret_cast<putcdata *>(data);
       if (value == '\n' || value == '\t' || value == '\r' || value == 0) value = ' ';

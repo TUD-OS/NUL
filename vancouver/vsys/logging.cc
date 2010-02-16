@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include "driver/logging.h"
 
-void (*Logging::_putcf)(void *, long int value);
+void (*Logging::_putcf)(void *, int value);
 void *Logging::_data;
 
 void

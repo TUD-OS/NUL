@@ -16,7 +16,7 @@ class ProgramConsole
   };
 
 
-  static void putc(void *data, long value)
+  static void putc(void *data, int value)
   {
     struct console_data *d = reinterpret_cast<struct console_data *>(data);
     if (d->screen_address)  Screen::vga_putc(0xf00 | value, d->screen_address, d->regs->cursor_pos);
