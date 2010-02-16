@@ -5,6 +5,6 @@ import nul
 Import('target_env')
 nul.App(target_env, 'vancouver',
         SOURCES = [ 'vancouver.cc'],
-        LIBS    = [ 'hostkbd', 'executor', 'model', 'service', 'qemunet', 'vsys', 'string'],
+        LIBS    = [ 'hostkbd', 'executor', 'model', 'service', 'qemunet', 'vsys', 'crun' ],
         MEMSIZE = 1<<20)
 # EOF

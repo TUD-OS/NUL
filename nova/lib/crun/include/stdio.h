@@ -18,7 +18,7 @@ int putchar(int c);		/* Not implemented by libstdio */
 int puts(const char *s);
 
 /* Insecure -> Disabled */
-/* int sprintf(char *str, const char *format, ...); */
+int sprintf(char *str, const char *format, ...) __attribute__((deprecated)); 
 /* int vsprintf(char *str, const char *format, va_list ap); */
 
 

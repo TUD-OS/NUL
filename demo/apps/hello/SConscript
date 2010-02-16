@@ -6,8 +6,7 @@ Import('target_env')
 
 nul.App(target_env, 'hello',
         SOURCES = [ 'hello.cc' ],
-        INCLUDE = [ 'string' ],
-        LIBS    = [ 'vsys' ],
+        LIBS    = [ 'vsys', 'crun' ],
         MEMSIZE = 1<<16)
 
 # EOF

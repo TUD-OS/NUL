@@ -28,7 +28,7 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ],
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'crun' ],
         LINKSCRIPT = "#vsys/linker.ld", MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)
@@ -36,7 +36,7 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ],
                     SOURCES,
                     linkscript = LINKSCRIPT)
 
-def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'string' ]):
+def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ 'crun' ]):
     env = LibEnv(tenv, INCLUDE + LIBS + [ name ])
     return env.StaticLibrary(output + "/lib/%s" % name,
                              SOURCES)

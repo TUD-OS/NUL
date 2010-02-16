@@ -186,8 +186,17 @@ STRING_INLINE
 char *
 strcpy(char *dst, const char *src)
 {
-  asm volatile ("1: lodsb; test %%al, %%al; stosb; jnz 1b;  " : "+D"(dst), "+S"(src) : : "eax", "memory", "cc");
+  asm volatile ("1: lodsb; test %%al, %%al; stosb; jnz 1b;  " : "+S"(src) : "D"(dst) : "eax", "memory", "cc");
   return dst;   
+}
+
+STRING_INLINE
+char *
+strncpy(char *dst, const char *src, size_t n)
+{
+  asm volatile ("1: jecxz 2f; dec %%ecx; lodsb; test %%al, %%al; stosb; jnz 1b; 2:"
+		: "+S" (src), "+c" (n) : "D" (dst) : "eax", "memory", "cc");
+  return dst;
 }
 
 STRING_INLINE
@@ -196,3 +205,14 @@ strcmp(const char *dst, const char *src)
 {
 	return memcmp(dst, src, strlen(dst));
 }
+
+STRING_INLINE
+char *
+strcat(char *dst, const char *src)
+{
+  while (*dst != 0) dst++;
+  strcpy(dst, src);
+  return dst;
+}
+
+/* EOF */

@@ -357,4 +357,16 @@ __divdi3(a, b)
         return (neg ? -uq : uq);
 }
 
+/*
+ * Divide two unsigned quads.
+ */
+u_quad_t
+__udivdi3(a, b)
+        u_quad_t a, b;
+{
+
+        return (__qdivrem(a, b, (u_quad_t *)0));
+}
+
+
 /* EOF */

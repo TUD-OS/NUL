@@ -210,4 +210,13 @@ int snprintf(char *str, size_t size, const char *format, ...)
   return res;
 }
 
+int sprintf(char *str, const char *format, ...)
+{
+  va_list ap;
+  va_start(ap, format);
+  int res = vsnprintf(str, ~0UL, format, ap);
+  va_end(ap);
+  return res;
+}
+
 /* EOF */

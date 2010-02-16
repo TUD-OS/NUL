@@ -1,0 +1,15 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.Lib(target_env,
+        "crun",
+        SOURCES = [ 'printf.c',
+                    'string.c',
+                    'qdivrem.c',
+                    'strto.c',
+                    ])
+
+# EOF
