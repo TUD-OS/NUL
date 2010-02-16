@@ -62,16 +62,6 @@ DPUNS   u64Pop(FICL_STACK *pStack);
 INTQR   m64SymmetricDivI(DPINT num, FICL_INT den);
 UNS16   m64UMod(DPUNS *pUD, UNS16 base);
 
-
-#if PORTABLE_LONGMULDIV != 0   /* see sysdep.h */
-DPUNS   m64Add(DPUNS x, DPUNS y);
-DPUNS   m64ASL( DPUNS x );
-DPUNS   m64ASR( DPUNS x );
-int     m64Compare(DPUNS x, DPUNS y);
-DPUNS   m64Or( DPUNS x, DPUNS y );
-DPUNS   m64Sub(DPUNS x, DPUNS y);
-#endif
-
 #define i64Extend(i64) (i64).hi = ((i64).lo < 0) ? -1L : 0 
 #define m64CastIU(i64) (*(DPUNS *)(&(i64)))
 #define m64CastUI(u64) (*(DPINT *)(&(u64)))
