@@ -64,7 +64,7 @@ put_number(putchar_fn put, void *data, unsigned long long value, const unsigned 
 }
 
 const char *
-handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap)
+handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
 {
   unsigned l=0;
   int pad = 0;
@@ -87,7 +87,7 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap)
       break;
     case 's':
       {
-	const char *s = va_arg(ap, const char *);
+	const char *s = va_arg(*ap, const char *);
 	if (!s)
 	  s = "<null>";
 	if (!pad)
@@ -101,17 +101,17 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap)
       put(data, '0'); put(data, 'x');
     case 'x':
       if (l==2)
-	put_number(put, data, va_arg(ap, unsigned long long), 16, pad, false);
+	put_number(put, data, va_arg(*ap, unsigned long long), 16, pad, false);
       else
-	put_number(put, data, va_arg(ap, unsigned long), 16, pad, false);
+	put_number(put, data, va_arg(*ap, unsigned long), 16, pad, false);
       return ++format;
     case 'd':
       {
 	long long a;
 	if (l==2)
-	  a = va_arg(ap, long long);
+	  a = va_arg(*ap, long long);
 	else
-	  a = va_arg(ap, long);
+	  a = va_arg(*ap, long);
 	bool negative = a < 0;
 	if (negative) a=-a;
 	put_number(put, data, a, 10, pad, negative);
@@ -119,12 +119,12 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap)
       }
     case 'u':
       if (l==2)
-	put_number(put, data, va_arg(ap, unsigned long long), 10, pad, false);
+	put_number(put, data, va_arg(*ap, unsigned long long), 10, pad, false);
       else
-	put_number(put, data, va_arg(ap, unsigned long), 10, pad, false);
+	put_number(put, data, va_arg(*ap, unsigned long), 10, pad, false);
       return ++format;
     case 'c':
-      put(data, va_arg(ap, int));
+      put(data, va_arg(*ap, int));
       return ++format;
     case '%':
       put(data, *format);
@@ -151,7 +151,7 @@ vprintf(const char *format, va_list ap)
     switch (*format) {
     case '%':
       format++;
-      format = handle_formatstring(count_putchar, NULL, format, ap);
+      format = handle_formatstring(count_putchar, NULL, format, &ap);
       break;
     default:
       count_putchar(NULL, *format++);
@@ -178,7 +178,7 @@ vsnprintf(char *str, size_t size, const char *format, va_list ap)
     switch (*format) {
     case '%':
       format++;
-      format = handle_formatstring(limit_putchar, NULL, format, ap);
+      format = handle_formatstring(limit_putchar, NULL, format, &ap);
       break;
     default:
       limit_putchar(NULL, *format++);

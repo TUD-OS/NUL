@@ -21,10 +21,9 @@ int puts(const char *s);
 int sprintf(char *str, const char *format, ...) __attribute__((deprecated)); 
 /* int vsprintf(char *str, const char *format, va_list ap); */
 
-
 /* Exposed for vancouver */
 typedef void (*putchar_fn)(void *data, int c);
-const char *handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap);
+const char *handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap);
 
 #ifdef __cplusplus
 }
