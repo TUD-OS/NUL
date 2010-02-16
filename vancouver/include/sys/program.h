@@ -69,11 +69,16 @@ class NovaProgram
   RegionList<512> _free_phys;
   RegionList<512> _virt_phys;
 
+  /* XXX Don't forget to change the initial stack in vsys/asm.S! */
+  static const unsigned stack_size_shift = 12;
+  static const unsigned stack_size = (1U << stack_size_shift);
 
   /**
    * Get the UTCB pointer from the top of the stack. This is a hack, as long we do not have a myself systemcall!
    */
-  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); return *reinterpret_cast<Utcb **>(((esp & ~0x3) | 0xffc)); };
+  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); 
+    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
+  };
 
   /**
    * Alloc a region of virtual memory to put an EC into
@@ -85,11 +90,10 @@ class NovaProgram
    */
   unsigned  __attribute__((noinline))  create_ec_helper(unsigned tls, Utcb **utcb_out=0, bool worker = false, unsigned excbase = 0, unsigned cpunr=~0)
   {
-    const unsigned stack_size = 0x1000;
     const unsigned STACK_FRAME = 2;
 
     Utcb *utcb = alloc_utcb();
-    void **stack = reinterpret_cast<void **>(memalign(0x1000, stack_size));
+    void **stack = reinterpret_cast<void **>(memalign(stack_size, stack_size));
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
