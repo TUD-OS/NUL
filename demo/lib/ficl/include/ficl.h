@@ -1116,23 +1116,7 @@ extern CELL dictIncrease;
 ** Various FreeBSD goodies
 */
 
-#if defined(__i386__) && !defined(TESTMAIN)
-extern void ficlOutb(FICL_VM *pVM);
-extern void ficlInb(FICL_VM *pVM);
-#endif
-
-extern void ficlSetenv(FICL_VM *pVM);
-extern void ficlSetenvq(FICL_VM *pVM);
-extern void ficlGetenv(FICL_VM *pVM);
-extern void ficlUnsetenv(FICL_VM *pVM);
-extern void ficlCopyin(FICL_VM *pVM);
-extern void ficlCopyout(FICL_VM *pVM);
-extern void ficlFindfile(FICL_VM *pVM);
 extern void ficlCcall(FICL_VM *pVM);
-#if !defined(TESTMAIN)
-extern void ficlPnpdevices(FICL_VM *pVM);
-extern void ficlPnphandlers(FICL_VM *pVM);
-#endif
 
 /*
 ** Used with File-Access wordset.
