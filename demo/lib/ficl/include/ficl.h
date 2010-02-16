@@ -237,7 +237,7 @@ typedef struct ficl_system_info FICL_SYSTEM_INFO;
 /* 
 ** the Good Stuff starts here...
 */
-#define FICL_VER        "3.03"
+#define FICL_VER        "3.03 (NOVA)"
 #define FICL_VER_MAJOR  3
 #define FICL_VER_MINOR  3
 #if !defined (FICL_PROMPT)
