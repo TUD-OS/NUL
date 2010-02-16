@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include <stdarg.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 int printf(const char *format, ...) __attribute__ ((format(printf, 1, 2)));;
 int vprintf(const char *format, va_list ap);
 
@@ -17,5 +20,14 @@ int puts(const char *s);
 /* Insecure -> Disabled */
 /* int sprintf(char *str, const char *format, ...); */
 /* int vsprintf(char *str, const char *format, va_list ap); */
+
+
+/* Exposed for vancouver */
+typedef void (*putchar_fn)(void *data, int c);
+const char *handle_formatstring(putchar_fn put, void *data, const char *format, va_list ap);
+
+#ifdef __cplusplus
+}
+#endif
 
 /* EOF */
