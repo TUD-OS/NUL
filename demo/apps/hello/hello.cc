@@ -22,7 +22,7 @@ class Hello : public ProgramConsole
 public:
   int run(Hip *hip)
   {
-    console_init("Hello");;
+    console_init("Hello");
     for (unsigned i=0; ; i++)
       Logging::printf("%8x Hello World!\n", i);
     return 0;

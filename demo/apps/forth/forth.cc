@@ -13,7 +13,7 @@ class Forth : public ProgramConsole
 public:
   int run(Hip *hip)
   {
-    console_init("Forth");;
+    console_init("Forth");
     Logging::printf("Forth booting...\n");
     
     FICL_SYSTEM *pSys = ficlInitSystem(10000);
