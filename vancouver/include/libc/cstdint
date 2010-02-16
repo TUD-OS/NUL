@@ -1,5 +1,7 @@
 // -*- Mode: C -*-
 
+#pragma once
+
 #include <stddef.h>
 
 #ifdef __i386
