@@ -144,7 +144,8 @@ public:
     if ((nmsg.buffer >= (void *)_rx_buf) && (nmsg.buffer < (void *)_rx_buf[desc_ring_len])) return false;
     msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
-    // Lock?
+    // XXX Lock?
+    // XXX Check for ring overflow.
     unsigned tail = _hwreg[TDT0];
     memcpy(_rx_buf[tail], nmsg.buffer, nmsg.len);
     // XXX B0rken
@@ -212,7 +213,7 @@ public:
     _hwreg[RDBAH0] = 0;
     _hwreg[RDLEN0] = sizeof(_rx_ring);
     msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
-    _hwreg[RXDCTL0] |= (1U<<25);
+    _hwreg[RXDCTL0] = (1U<<25);
     assert(_hwreg[RDT0] == 0);
     assert(_hwreg[RDH0] == 0);
 
@@ -221,17 +222,16 @@ public:
     _hwreg[TDBAH0] = 0;
     _hwreg[TDLEN0] = sizeof(_tx_ring);
     msg(INFO, "%08x bytes allocated for TX descriptor ring (%d descriptors).\n", _hwreg[TDLEN0], desc_ring_len);
-    _hwreg[TXDCTL0] |= (1U<<25);
+    _hwreg[TXDCTL0] = (1U<<25);
     assert(_hwreg[TDT0] == 0);
     assert(_hwreg[TDH0] == 0);
 
     // Prepare rings
     last_rx = last_tx = 0;
-    for (unsigned i = 0; i < desc_ring_len; i++) {
+    for (unsigned i = 0; i < desc_ring_len; i++)
       _rx_ring[i] = { (uintptr_t)_rx_buf[i], 0 };
-      _tx_ring[i] = { (uintptr_t)_tx_buf[i], 0 };
-    }
 
+    _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
     // Tell NIC about receive descriptors.
     _hwreg[RDT0] = desc_ring_len-1;
   }
