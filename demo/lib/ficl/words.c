@@ -3479,22 +3479,15 @@ static void type(FICL_VM *pVM)
 {
     FICL_UNS count = stackPopUNS(pVM->pStack);
     char *cp    = stackPopPtr(pVM->pStack);
-    char *pDest = (char *)ficlMalloc(count + 1);
+    char buf[2] = { 0, 0 };
 
-    /* 
-    ** Since we don't have an output primitive for a counted string
-    ** (oops), make sure the string is null terminated. If not, copy
-    ** and terminate it.
-    */
-    if (!pDest)
-	vmThrowErr(pVM, "Error: out of memory");
- 
-    strncpy(pDest, cp, count);
-    pDest[count] = '\0';
- 
-    vmTextOut(pVM, pDest, 0);
- 
-    ficlFree(pDest);
+    /* XXX Could be optimized with a counted string output
+       primitive. */
+    while (count--) {
+      buf[0] = *(cp++);
+      vmTextOut(pVM, buf, 0);
+    }
+
     return;
 }
 
