@@ -12,6 +12,7 @@ putchar(int c)
 
 class Forth : public ProgramConsole
 {
+  unsigned _cap_free;
 public:
   int run(Hip *hip)
   {
@@ -36,7 +37,25 @@ public:
     ficlEvaluate(pVM, "fib ");
     printf("%u\n", POPUNS());
 
-    printf("\nForth done.\n");
+    // Pass our cap allocation int to Forth.
+    _cap_free = hip->cfg_exc + hip->cfg_gsi + 3;
+    PUSHPTR(&_cap_free);
+    ficlEvaluate(pVM, "16 base ! "
+		 "capptr ! ");
+
+    // Try some semaphore fun.
+    ficlEvaluate(pVM,
+		 "variable sem alloccap sem ! "
+		 " : checksys dup 0= if s\" SUCCESS\" type drop else s\" ERROR \" type . then ; "
+		 ".( create sm ) 0 sem @ createsm checksys cr "
+		 ".( up ) sem @ semup checksys cr "
+		 ".( up ) sem @ semup checksys cr "
+		 ".( down ) sem @ semdown checksys cr "
+		 ".( down ) sem @ semdown checksys cr "
+		 ".( down ) sem @ semdown checksys cr "
+		 );
+
+    printf("\nForth done?\n");
     return 0;
   }
 };
