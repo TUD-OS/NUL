@@ -44,9 +44,17 @@ protected:
     RDBAL0      = 0x2800/4,
     RDBAH0      = 0x2804/4,
     RDLEN0      = 0x2808/4,
+    SRRCTL0     = 0x280C/4,
     RDH0        = 0x2810/4,
     RDT0        = 0x2818/4,
     RXDCTL0     = 0x2828/4,
+
+    TDBAL0      = 0x3800/4,
+    TDBAH0      = 0x3804/4,
+    TDLEN0      = 0x3808/4,
+    TDH0        = 0x3810/4,
+    TDT0        = 0x3818/4,
+    TXDCTL0     = 0x3828/4,
 
     VMB         = 0x0C40/4, 	// 8.14.3
     VBMEM       = 0x0800/4,	// 8.14.4
@@ -217,6 +225,10 @@ protected:
     RAH_POOLSEL_SHIFT = 18,
 
     MRQC_MRQE_011 = 3U,		// Filter via MAC, always use default queue of pool
+
+    SRRCTL_DESCTYPE_ADV1B = 1U<<25, // Advanced descriptor mode, 1 buffer (no header split)
+    SRRCTL_DROP_EN  = 1U<<31,	    // Drop Enable
+    
   };
 
   enum TransmitControl {
@@ -257,8 +269,6 @@ protected:
     CMD_NACK         = 0x40000000U,
     CTS              = 0x20000000U,
   };
-
-
 
   // Misc
   Clock *_clock;
