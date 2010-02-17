@@ -143,6 +143,7 @@ FICL_SYSTEM *ficlInitSystemEx(FICL_SYSTEM_INFO *fsi)
 #if FICL_PLATFORM_EXTEND
     ficlCompilePlatform(pSys);
 #endif
+    ficlCompileNova(pSys);
     ficlSetVersionEnv(pSys);
 
     /*

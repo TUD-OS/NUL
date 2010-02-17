@@ -1062,6 +1062,7 @@ int        ficlParseFloatNumber( FICL_VM *pVM, STRINGINFO si ); /* float.c */
 #if FICL_PLATFORM_EXTEND
 void       ficlCompilePlatform(FICL_SYSTEM *pSys);
 #endif
+void       ficlCompileNova(FICL_SYSTEM *pSys);
 int        ficlParsePrefix(FICL_VM *pVM, STRINGINFO si);
 
 /*
