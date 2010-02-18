@@ -84,7 +84,7 @@ public:
   void handle_tx()
   {
     dma_desc *cur;
-    while ((cur = &_tx_ring[last_tx])->hi & 1 /* done? */) {
+    while (((cur = &_tx_ring[last_tx])->hi >> 32) & 1 /* done? */) {
       uint16_t plen = cur->hi >> 32;
       msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
 
@@ -147,17 +147,18 @@ public:
     // XXX Lock?
     // XXX Check for ring overflow.
     unsigned tail = _hwreg[TDT0];
-    memcpy(_rx_buf[tail], nmsg.buffer, nmsg.len);
+    memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
     // XXX B0rken
     #warning fix me
-    _rx_ring[tail] = { (uintptr_t)_rx_buf[tail], 
+    _tx_ring[tail] = { (uintptr_t)_tx_buf[tail], 
 		       (uint64_t)nmsg.len | ((uint64_t)nmsg.len)<<46
-		       | 3U<<20 /* adv descriptor */
+		       | (3U<<20 /* adv descriptor */)
 		       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
-		       | (1U<<27 /* Report Status = IRQ */) };
-    msg(INFO, "TX[%02x] %016llx\n", tail, _rx_ring[tail].hi);
+		       | (1U<<27 /* Report Status = IRQ */)  };
+    msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
+
     asm volatile ("sfence" ::: "memory");
-    _hwreg[TDT0] = tail+1;
+    _hwreg[TDT0] = (tail+1) % desc_ring_len;
 
     return false;
   }
