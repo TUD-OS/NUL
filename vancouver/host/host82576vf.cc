@@ -145,11 +145,12 @@ public:
     msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
     // XXX Lock?
-    // XXX Check for ring overflow.
     unsigned tail = _hwreg[TDT0];
     memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
-    // XXX B0rken
-    #warning fix me
+
+    // If the dma descriptor is not zero, it is still in use.
+    if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
+
     _tx_ring[tail] = { (uintptr_t)_tx_buf[tail], 
 		       (uint64_t)nmsg.len | ((uint64_t)nmsg.len)<<46
 		       | (3U<<20 /* adv descriptor */)
@@ -160,7 +161,7 @@ public:
     asm volatile ("sfence" ::: "memory");
     _hwreg[TDT0] = (tail+1) % desc_ring_len;
 
-    return false;
+    return true;
   }
 
   Host82576VF(HostPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
