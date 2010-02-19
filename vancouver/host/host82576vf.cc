@@ -180,6 +180,7 @@ public:
 
     // Enable MSI-X
     for (unsigned i = 0; i < 3; i++) {
+      msg(INFO, "irq[%d] = 0x%x\n", i, irqs[i]);
       _msix_table[i].msg_addr = 0xFEE00000;
       _msix_table[i].msg_data = irqs[i] + 0x20;
       _msix_table[i].vector_control &= ~1;
