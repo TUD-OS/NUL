@@ -36,13 +36,6 @@ static void semDown(FICL_VM *pVM)
   stackPushUNS(pVM->pStack, semdown(cap));
 }
 
-static void rdtsc(FICL_VM *pVM)
-{
-  uint32_t hi, lo;
-  asm volatile ("rdtsc" : "=a" (lo), "=d" (hi));
-  PUSHUNS(hi); PUSHUNS(lo);
-}
-
 extern "C"
 void ficlCompileNova(FICL_SYSTEM *pSys)
 {
@@ -54,7 +47,4 @@ void ficlCompileNova(FICL_SYSTEM *pSys)
   dictAppendWord(dp, "createsm", createSm,  FW_DEFAULT); // ( init capidx -- success )
   dictAppendWord(dp, "semup",    semUp,     FW_DEFAULT); // ( capidx -- success )
   dictAppendWord(dp, "semdown",  semDown,   FW_DEFAULT); // ( capidx -- success )
-  
-  dictAppendWord(dp, "rdtsc",    rdtsc,     FW_DEFAULT); // ( -- hi lo )
-
 }
