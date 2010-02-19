@@ -80,20 +80,6 @@ static void freeHeap(FICL_VM *pVM)
     stackPushINT(pVM->pStack, dictCellsAvail(ficlGetDict(pVM->pSys)));
 }
 
-
-/******************* Increase dictionary size on-demand ******************/
- 
-static void ficlDictThreshold(FICL_VM *pVM)
-{
-    stackPushPtr(pVM->pStack, &dictThreshold);
-}
- 
-static void ficlDictIncrease(FICL_VM *pVM)
-{
-    stackPushPtr(pVM->pStack, &dictIncrease);
-}
-
-
 /**************************************************************************
                         f i c l C o m p i l e P l a t f o r m
 ** Build FreeBSD platform extensions into the system dictionary
@@ -104,9 +90,6 @@ void ficlCompilePlatform(FICL_SYSTEM *pSys)
     assert (dp);
 
     dictAppendWord(dp, "heap?",     freeHeap,       FW_DEFAULT);
-    dictAppendWord(dp, "dictthreshold", ficlDictThreshold, FW_DEFAULT);
-    dictAppendWord(dp, "dictincrease", ficlDictIncrease, FW_DEFAULT);
-
     dictAppendWord(dp, "ccall",	    ficlCcall,	    FW_DEFAULT);
     return;
 }

@@ -281,15 +281,15 @@ typedef union _cell
 ** circumvented (see attribute above). Otherwise GCC >4.4 will
 ** silently *throw away v and just put garbage into the CELL.
 */
-#define LVALUEtoCELL(v) (*(CELL *)&v)
+#define LVALUEtoCELL(v) (*(CELL *)((char *)(&v)))
+
 
 /*
-** PTRtoCELL is a cast through void * intended to satisfy the
-** most outrageously pedantic compiler... (I won't mention 
-** its name)
+** PTRtoCELL is a cast through char * intended to avoid
+** strict-aliasing requirements.
 */
-#define PTRtoCELL (CELL *)(void *)
-#define PTRtoSTRING (FICL_STRING *)(void *)
+#define PTRtoCELL (CELL *)(char *)
+#define PTRtoSTRING (FICL_STRING *)(char *)
 
 /*
 ** Strings in FICL are stored in Pascal style - with a count
@@ -761,9 +761,10 @@ FICL_WORD  *dictAppendWord2(FICL_DICT *pDict,
                            FICL_CODE pCode, 
                            UNS8 flags);
 void        dictAppendUNS  (FICL_DICT *pDict, FICL_UNS u);
-unsigned    dictCellsAvail (FICL_DICT *pDict);
-unsigned    dictCellsUsed  (FICL_DICT *pDict);
+int         dictCellsAvail (FICL_DICT *pDict);
+int         dictCellsUsed  (FICL_DICT *pDict);
 void        dictCheck      (FICL_DICT *pDict, FICL_VM *pVM, int n);
+void        dictCheckThreshold(FICL_DICT* dp);
 FICL_DICT  *dictCreate(unsigned nCELLS);
 FICL_DICT  *dictCreateHashed(unsigned nCells, unsigned nHash);
 FICL_HASH  *dictCreateWordlist(FICL_DICT *dp, int nBuckets);
@@ -1113,8 +1114,8 @@ WORDKIND   ficlWordClassify(FICL_WORD *pFW);
 /*
 ** Dictionary on-demand resizing
 */
-extern CELL dictThreshold;
-extern CELL dictIncrease;
+extern unsigned dictThreshold;
+extern unsigned dictIncrease;
 
 /*
 ** Various FreeBSD goodies

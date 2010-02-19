@@ -122,8 +122,6 @@ void vmDelete (FICL_VM *pVM)
 #endif
         ficlFree(pVM);
     }
-
-    return;
 }
 
 
@@ -138,7 +136,6 @@ void vmExecute(FICL_VM *pVM, FICL_WORD *pWord)
 {
     pVM->runningWord = pWord;
     pWord->code(pVM);
-    return;
 }
 
 
@@ -236,8 +233,6 @@ void vmInnerLoop(FICL_VM *pVM)
             return;
         }
     }
-
-    return;
 }
 #endif
 

@@ -57,7 +57,7 @@
 #include <assert.h>
 
 #if !defined IGNORE		/* Macro to silence unused param warnings */
-#define IGNORE(x) &x
+#define IGNORE(x)
 #endif
 
 /*
@@ -408,7 +408,7 @@ void *ficlRealloc(void *p, size_t size);
 #if FICL_MULTITHREAD
 int ficlLockDictionary(short fLock);
 #else
-#define ficlLockDictionary(x) 0 /* ignore */
+static inline int ficlLockDictionary(short fLock) { return 0; }
 #endif
 
 /*

@@ -317,7 +317,7 @@ int ficlBuild(FICL_SYSTEM *pSys, char *name, FICL_CODE code, char flags)
     if (err) return err;
 #endif /* FICL_MULTITHREAD */
 
-    assert(dictCellsAvail(pSys->dp) > sizeof (FICL_WORD) / sizeof (CELL));
+    assert((unsigned)dictCellsAvail(pSys->dp) > sizeof (FICL_WORD) / sizeof (CELL));
     dictAppendWord(pSys->dp, name, code, flags);
 
     ficlLockDictionary(FALSE);

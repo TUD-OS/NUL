@@ -87,13 +87,11 @@ static void markBranch(FICL_DICT *dp, FICL_VM *pVM, char *tag)
 {
     PUSHPTR(dp->here);
     PUSHPTR(tag);
-    return;
 }
 
 static void markControlTag(FICL_VM *pVM, char *tag)
 {
     PUSHPTR(tag);
-    return;
 }
 
 static void matchControlTag(FICL_VM *pVM, char *tag)
@@ -110,8 +108,6 @@ static void matchControlTag(FICL_VM *pVM, char *tag)
     {
         vmThrowErr(pVM, "Error -- unmatched control structure \"%s\"", tag);
     }
-
-    return;
 }
 
 /*
@@ -132,8 +128,6 @@ static void resolveBackBranch(FICL_DICT *dp, FICL_VM *pVM, char *tag)
     patchAddr = (CELL *)stackPopPtr(pVM->pStack);
     offset = patchAddr - dp->here;
     dictAppendCell(dp, LVALUEtoCELL(offset));
-
-    return;
 }
 
 
@@ -155,8 +149,6 @@ static void resolveForwardBranch(FICL_DICT *dp, FICL_VM *pVM, char *tag)
     patchAddr = (CELL *)stackPopPtr(pVM->pStack);
     offset = dp->here - patchAddr;
     *patchAddr = LVALUEtoCELL(offset);
-
-    return;
 }
 
 /*
@@ -184,8 +176,6 @@ static void resolveAbsBranch(FICL_DICT *dp, FICL_VM *pVM, char *tag)
 
     patchAddr = (CELL *)stackPopPtr(pVM->pStack);
     *patchAddr = LVALUEtoCELL(dp->here);
-
-    return;
 }
 
 
@@ -281,7 +271,6 @@ static void add(FICL_VM *pVM)
     i = stackPopINT(pVM->pStack);
     i += stackGetTop(pVM->pStack).i;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void sub(FICL_VM *pVM)
@@ -293,7 +282,6 @@ static void sub(FICL_VM *pVM)
     i = stackPopINT(pVM->pStack);
     i = stackGetTop(pVM->pStack).i - i;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void mul(FICL_VM *pVM)
@@ -305,7 +293,6 @@ static void mul(FICL_VM *pVM)
     i = stackPopINT(pVM->pStack);
     i *= stackGetTop(pVM->pStack).i;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void negate(FICL_VM *pVM)
@@ -316,7 +303,6 @@ static void negate(FICL_VM *pVM)
 #endif
     i = -stackPopINT(pVM->pStack);
     PUSHINT(i);
-    return;
 }
 
 static void ficlDiv(FICL_VM *pVM)
@@ -328,7 +314,6 @@ static void ficlDiv(FICL_VM *pVM)
     i = stackPopINT(pVM->pStack);
     i = stackGetTop(pVM->pStack).i / i;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 /*
@@ -356,7 +341,6 @@ static void slashMod(FICL_VM *pVM)
     qr = m64SymmetricDivI(n1, n2);
     PUSHINT(qr.rem);
     PUSHINT(qr.quot);
-    return;
 }
 
 static void onePlus(FICL_VM *pVM)
@@ -368,7 +352,6 @@ static void onePlus(FICL_VM *pVM)
     i = stackGetTop(pVM->pStack).i;
     i += 1;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void oneMinus(FICL_VM *pVM)
@@ -380,7 +363,6 @@ static void oneMinus(FICL_VM *pVM)
     i = stackGetTop(pVM->pStack).i;
     i -= 1;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void twoMul(FICL_VM *pVM)
@@ -392,7 +374,6 @@ static void twoMul(FICL_VM *pVM)
     i = stackGetTop(pVM->pStack).i;
     i *= 2;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void twoDiv(FICL_VM *pVM)
@@ -404,7 +385,6 @@ static void twoDiv(FICL_VM *pVM)
     i = stackGetTop(pVM->pStack).i;
     i >>= 1;
     stackSetTop(pVM->pStack, LVALUEtoCELL(i));
-    return;
 }
 
 static void mulDiv(FICL_VM *pVM)
@@ -422,7 +402,6 @@ static void mulDiv(FICL_VM *pVM)
     x    = m64SymmetricDivI(prod, z).quot;
 
     PUSHINT(x);
-    return;
 }
 
 
@@ -443,7 +422,6 @@ static void mulDivRem(FICL_VM *pVM)
 
     PUSHINT(qr.rem);
     PUSHINT(qr.quot);
-    return;
 }
 
 
@@ -468,7 +446,6 @@ static void colon(FICL_VM *pVM)
 #if FICL_WANT_LOCALS
     pVM->pSys->nLocals = 0;
 #endif
-    return;
 }
 
 
@@ -488,8 +465,6 @@ static void colonParen(FICL_VM *pVM)
 {
     IPTYPE tempIP = (IPTYPE) (pVM->runningWord->param);
     vmPushIP(pVM, tempIP);
-
-    return;
 }
 
 
@@ -504,7 +479,6 @@ static void colonParen(FICL_VM *pVM)
 static void semiParen(FICL_VM *pVM)
 {
     vmPopIP(pVM);
-    return;
 }
 
 
@@ -529,7 +503,6 @@ static void semicolonCoIm(FICL_VM *pVM)
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pSemiParen));
     pVM->state = INTERPRET;
     dictUnsmudge(dp);
-    return;
 }
 
 
@@ -545,7 +518,6 @@ static void semicolonCoIm(FICL_VM *pVM)
 static void exitParen(FICL_VM *pVM)
 {
     vmPopIP(pVM);
-    return;
 }
 
 static void exitCoIm(FICL_VM *pVM)
@@ -561,7 +533,6 @@ static void exitCoIm(FICL_VM *pVM)
     }
 #endif
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pExitParen));
-    return;
 }
 
 
@@ -579,7 +550,6 @@ void constantParen(FICL_VM *pVM)
     vmCheckStack(pVM, 0, 1);
 #endif
     stackPush(pVM->pStack, pFW->param[0]);
-    return;
 }
 
 void twoConstParen(FICL_VM *pVM)
@@ -590,7 +560,6 @@ void twoConstParen(FICL_VM *pVM)
 #endif
     stackPush(pVM->pStack, pFW->param[0]); /* lo */
     stackPush(pVM->pStack, pFW->param[1]); /* hi */
-    return;
 }
 
 
@@ -611,7 +580,6 @@ static void constant(FICL_VM *pVM)
 #endif
     dictAppendWord2(dp, si, constantParen, FW_DEFAULT);
     dictAppendCell(dp, stackPop(pVM->pStack));
-    return;
 }
 
 
@@ -628,7 +596,6 @@ static void twoConstant(FICL_VM *pVM)
     dictAppendWord2(dp, si, twoConstParen, FW_DEFAULT);
     dictAppendCell(dp, stackPop(pVM->pStack));
     dictAppendCell(dp, c);
-    return;
 }
 
 
@@ -648,7 +615,6 @@ static void displayCell(FICL_VM *pVM)
     ltoa((c).i, pVM->pad, pVM->base);
     strcat(pVM->pad, " ");
     vmTextOut(pVM, pVM->pad, 0);
-    return;
 }
 
 static void uDot(FICL_VM *pVM)
@@ -661,7 +627,6 @@ static void uDot(FICL_VM *pVM)
     ultoa(u, pVM->pad, pVM->base);
     strcat(pVM->pad, " ");
     vmTextOut(pVM, pVM->pad, 0);
-    return;
 }
 
 
@@ -675,7 +640,6 @@ static void hexDot(FICL_VM *pVM)
     ultoa(u, pVM->pad, 16);
     strcat(pVM->pad, " ");
     vmTextOut(pVM, pVM->pad, 0);
-    return;
 }
 
 
@@ -688,10 +652,10 @@ static void hexDot(FICL_VM *pVM)
 ** --lch
 **/
 static void ficlStrlen(FICL_VM *ficlVM)
-	{
-	char *address = (char *)stackPopPtr(ficlVM->pStack);
-	stackPushINT(ficlVM->pStack, strlen(address));
-	}
+{
+    char *address = (char *)stackPopPtr(ficlVM->pStack);
+    stackPushINT(ficlVM->pStack, strlen(address));
+}
 
 
 /**************************************************************************
@@ -858,7 +822,6 @@ static void depth(FICL_VM *pVM)
 #endif
     i = stackDepth(pVM->pStack);
     PUSHINT(i);
-    return;
 }
 
 
@@ -868,7 +831,6 @@ static void drop(FICL_VM *pVM)
     vmCheckStack(pVM, 1, 0);
 #endif
     stackDrop(pVM->pStack, 1);
-    return;
 }
 
 
@@ -878,7 +840,6 @@ static void twoDrop(FICL_VM *pVM)
     vmCheckStack(pVM, 2, 0);
 #endif
     stackDrop(pVM->pStack, 2);
-    return;
 }
 
 
@@ -888,7 +849,6 @@ static void dup(FICL_VM *pVM)
     vmCheckStack(pVM, 1, 2);
 #endif
     stackPick(pVM->pStack, 0);
-    return;
 }
 
 
@@ -899,7 +859,6 @@ static void twoDup(FICL_VM *pVM)
 #endif
     stackPick(pVM->pStack, 1);
     stackPick(pVM->pStack, 1);
-    return;
 }
 
 
@@ -909,7 +868,6 @@ static void over(FICL_VM *pVM)
     vmCheckStack(pVM, 2, 3);
 #endif
     stackPick(pVM->pStack, 1);
-    return;
 }
 
 static void twoOver(FICL_VM *pVM)
@@ -919,7 +877,6 @@ static void twoOver(FICL_VM *pVM)
 #endif
     stackPick(pVM->pStack, 3);
     stackPick(pVM->pStack, 3);
-    return;
 }
 
 
@@ -930,7 +887,6 @@ static void pick(FICL_VM *pVM)
     vmCheckStack(pVM, c.i+1, c.i+2);
 #endif
     stackPick(pVM->pStack, c.i);
-    return;
 }
 
 
@@ -944,8 +900,6 @@ static void questionDup(FICL_VM *pVM)
 
     if (c.i != 0)
         stackPick(pVM->pStack, 0);
-
-    return;
 }
 
 
@@ -957,7 +911,6 @@ static void roll(FICL_VM *pVM)
     vmCheckStack(pVM, i+1, i+1);
 #endif
     stackRoll(pVM->pStack, i);
-    return;
 }
 
 
@@ -969,7 +922,6 @@ static void minusRoll(FICL_VM *pVM)
     vmCheckStack(pVM, i+1, i+1);
 #endif
     stackRoll(pVM->pStack, -i);
-    return;
 }
 
 
@@ -979,7 +931,6 @@ static void rot(FICL_VM *pVM)
     vmCheckStack(pVM, 3, 3);
 #endif
     stackRoll(pVM->pStack, 2);
-    return;
 }
 
 
@@ -989,7 +940,6 @@ static void swap(FICL_VM *pVM)
     vmCheckStack(pVM, 2, 2);
 #endif
     stackRoll(pVM->pStack, 1);
-    return;
 }
 
 
@@ -1000,7 +950,6 @@ static void twoSwap(FICL_VM *pVM)
 #endif
     stackRoll(pVM->pStack, 3);
     stackRoll(pVM->pStack, 3);
-    return;
 }
 
 
@@ -1021,14 +970,12 @@ static void emit(FICL_VM *pVM)
     cp[0] = (char)i;
     cp[1] = '\0';
     vmTextOut(pVM, cp, 0);
-    return;
 }
 
 
 static void cr(FICL_VM *pVM)
 {
     vmTextOut(pVM, "", 1);
-    return;
 }
 
 
@@ -1058,7 +1005,6 @@ static void commentLine(FICL_VM *pVM)
     }
 
     vmUpdateTib(pVM, cp);
-    return;
 }
 
 
@@ -1074,7 +1020,6 @@ static void commentLine(FICL_VM *pVM)
 static void commentHang(FICL_VM *pVM)
 {
     vmParseStringEx(pVM, ')', 0);
-    return;
 }
 
 
@@ -1091,7 +1036,6 @@ static void fetch(FICL_VM *pVM)
 #endif
     pCell = (CELL *)stackPopPtr(pVM->pStack);
     stackPush(pVM->pStack, *pCell);
-    return;
 }
 
 /*
@@ -1110,7 +1054,6 @@ static void twoFetch(FICL_VM *pVM)
     stackPush(pVM->pStack, *pCell++);
     stackPush(pVM->pStack, *pCell);
     swap(pVM);
-    return;
 }
 
 /*
@@ -1163,7 +1106,6 @@ static void quadFetch(FICL_VM *pVM)
 #endif
     pw = (UNS32 *)stackPopPtr(pVM->pStack);
     PUSHUNS((FICL_UNS)*pw);
-    return;
 }
 
 static void quadStore(FICL_VM *pVM)
@@ -1184,7 +1126,6 @@ static void wFetch(FICL_VM *pVM)
 #endif
     pw = (UNS16 *)stackPopPtr(pVM->pStack);
     PUSHUNS((FICL_UNS)*pw);
-    return;
 }
 
 static void wStore(FICL_VM *pVM)
@@ -1205,7 +1146,6 @@ static void cFetch(FICL_VM *pVM)
 #endif
     pc = (UNS8 *)stackPopPtr(pVM->pStack);
     PUSHUNS((FICL_UNS)*pc);
-    return;
 }
 
 static void cStore(FICL_VM *pVM)
@@ -1229,7 +1169,6 @@ static void cStore(FICL_VM *pVM)
 static void branchParen(FICL_VM *pVM)
 {
     vmBranchRelative(pVM, (uintptr_t)*(pVM->ip));
-    return;
 }
 
 
@@ -1256,8 +1195,6 @@ static void branch0(FICL_VM *pVM)
     {                           /* take branch (to else/endif/begin) */
         vmBranchRelative(pVM, (uintptr_t)*(pVM->ip));
     }
-
-    return;
 }
 
 
@@ -1278,7 +1215,6 @@ static void ifCoIm(FICL_VM *pVM)
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pBranch0));
     markBranch(dp, pVM, origTag);
     dictAppendUNS(dp, 1);
-    return;
 }
 
 
@@ -1311,8 +1247,6 @@ static void elseCoIm(FICL_VM *pVM)
     dictAppendUNS(dp, 1);                 /* (1) compile patch placeholder */
     offset = dp->here - patchAddr;
     *patchAddr = LVALUEtoCELL(offset);      /* (3) Patch "if" */
-
-    return;
 }
 
 
@@ -1325,7 +1259,6 @@ static void endifCoIm(FICL_VM *pVM)
 {
     FICL_DICT *dp = vmGetDict(pVM);
     resolveForwardBranch(dp, pVM, origTag);
-    return;
 }
 
 
@@ -1347,10 +1280,9 @@ static void caseCoIm(FICL_VM *pVM)
 #if FICL_ROBUST > 1
     vmCheckStack(pVM, 0, 2);
 #endif
-
-	PUSHUNS(0);
-	markControlTag(pVM, caseTag);
-    return;
+    
+    PUSHUNS(0);
+    markControlTag(pVM, caseTag);
 }
 
 
@@ -1398,13 +1330,11 @@ static void endcaseCoIm(FICL_VM *pVM)
 
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pDrop));
 
-	while (fixupCount--)
-	{
-		patchAddr = (CELL *)stackPopPtr(pVM->pStack);
-		offset = dp->here - patchAddr;
-		*patchAddr = LVALUEtoCELL(offset);
-	}
-    return;
+    while (fixupCount--) {
+      patchAddr = (CELL *)stackPopPtr(pVM->pStack);
+      offset = dp->here - patchAddr;
+      *patchAddr = LVALUEtoCELL(offset);
+    }
 }
 
 
@@ -1428,8 +1358,6 @@ static void ofParen(FICL_VM *pVM)
     {                           /* take branch to next of or endswitch */
         vmBranchRelative(pVM, *(int *)(pVM->ip));
     }
-
-    return;
 }
 
 
@@ -1449,27 +1377,22 @@ static void ofCoIm(FICL_VM *pVM)
     vmCheckStack(pVM, 1, 3);
 #endif
 
-	if (stackGetTop(pVM->pStack).p == fallthroughTag)
-	{
-		matchControlTag(pVM, fallthroughTag);
-		fallthroughFixup = POPPTR();
-	}
+    if (stackGetTop(pVM->pStack).p == fallthroughTag) {
+      matchControlTag(pVM, fallthroughTag);
+      fallthroughFixup = POPPTR();
+    }
 
-	matchControlTag(pVM, caseTag);
-
-	markControlTag(pVM, caseTag);
+    matchControlTag(pVM, caseTag);
+    markControlTag(pVM, caseTag);
 
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pOfParen));
     markBranch(dp, pVM, ofTag);
     dictAppendUNS(dp, 2);
 
-	if (fallthroughFixup != NULL)
-	{
-		FICL_INT offset = dp->here - fallthroughFixup;
-		*fallthroughFixup = LVALUEtoCELL(offset);
-	}
-
-    return;
+    if (fallthroughFixup != NULL) {
+      FICL_INT offset = dp->here - fallthroughFixup;
+      *fallthroughFixup = LVALUEtoCELL(offset);
+    }
 }
 
 
@@ -1569,7 +1492,6 @@ static void hash(FICL_VM *pVM)
     SI_SETLEN(si, stackPopUNS(pVM->pStack));
     SI_SETPTR(si, stackPopPtr(pVM->pStack));
     PUSHUNS(hashHashCode(si));
-    return;
 }
 
 
@@ -1735,7 +1657,6 @@ static void lookup(FICL_VM *pVM)
     SI_SETLEN(si, stackPopUNS(pVM->pStack));
     SI_SETPTR(si, stackPopPtr(pVM->pStack));
     stackPushINT(pVM->pStack, ficlParseWord(pVM, si));
-    return;
 }
 
 
@@ -1757,8 +1678,6 @@ void parseStepParen(FICL_VM *pVM)
     SI_SETPTR(si, stackPopPtr(pVM->pStack));
     
     PUSHINT((*pStep)(pVM, si));
-
-    return;
 }
 
 
@@ -1772,7 +1691,6 @@ static void addParseStep(FICL_VM *pVM)
     pStep = (FICL_WORD *)(stackPop(pVM->pStack).p);
     if ((pStep != NULL) && isAFiclWord(pd, pStep))
         ficlAddParseStep(pVM->pSys, pStep);
-    return;
 }
 
 
@@ -1792,7 +1710,6 @@ static void literalParen(FICL_VM *pVM)
 #endif
     PUSHINT(*(FICL_INT *)(pVM->ip));
     vmBranchRelative(pVM, 1);
-    return;
 }
 
 static void twoLitParen(FICL_VM *pVM)
@@ -1803,7 +1720,6 @@ static void twoLitParen(FICL_VM *pVM)
     PUSHINT(*((FICL_INT *)(pVM->ip)+1));
     PUSHINT(*(FICL_INT *)(pVM->ip));
     vmBranchRelative(pVM, 2);
-    return;
 }
 
 
@@ -1822,8 +1738,6 @@ static void literalIm(FICL_VM *pVM)
 
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pLitParen));
     dictAppendCell(dp, stackPop(pVM->pStack));
-
-    return;
 }
 
 
@@ -1835,8 +1749,6 @@ static void twoLiteralIm(FICL_VM *pVM)
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pTwoLitParen));
     dictAppendCell(dp, stackPop(pVM->pStack));
     dictAppendCell(dp, stackPop(pVM->pStack));
-
-    return;
 }
 
 /**************************************************************************
@@ -1852,7 +1764,6 @@ static void zeroEquals(FICL_VM *pVM)
 #endif
     c.i = FICL_BOOL(stackPopINT(pVM->pStack) == 0);
     stackPush(pVM->pStack, c);
-    return;
 }
 
 static void zeroLess(FICL_VM *pVM)
@@ -1863,7 +1774,6 @@ static void zeroLess(FICL_VM *pVM)
 #endif
     c.i = FICL_BOOL(stackPopINT(pVM->pStack) < 0);
     stackPush(pVM->pStack, c);
-    return;
 }
 
 static void zeroGreater(FICL_VM *pVM)
@@ -1874,7 +1784,6 @@ static void zeroGreater(FICL_VM *pVM)
 #endif
     c.i = FICL_BOOL(stackPopINT(pVM->pStack) > 0);
     stackPush(pVM->pStack, c);
-    return;
 }
 
 static void isEqual(FICL_VM *pVM)
@@ -1887,7 +1796,6 @@ static void isEqual(FICL_VM *pVM)
     x = stackPop(pVM->pStack);
     y = stackPop(pVM->pStack);
     PUSHINT(FICL_BOOL(x.i == y.i));
-    return;
 }
 
 static void isLess(FICL_VM *pVM)
@@ -1899,7 +1807,6 @@ static void isLess(FICL_VM *pVM)
     y = stackPop(pVM->pStack);
     x = stackPop(pVM->pStack);
     PUSHINT(FICL_BOOL(x.i < y.i));
-    return;
 }
 
 static void uIsLess(FICL_VM *pVM)
@@ -1911,7 +1818,6 @@ static void uIsLess(FICL_VM *pVM)
     u2 = stackPopUNS(pVM->pStack);
     u1 = stackPopUNS(pVM->pStack);
     PUSHINT(FICL_BOOL(u1 < u2));
-    return;
 }
 
 static void isGreater(FICL_VM *pVM)
@@ -1923,7 +1829,6 @@ static void isGreater(FICL_VM *pVM)
     y = stackPop(pVM->pStack);
     x = stackPop(pVM->pStack);
     PUSHINT(FICL_BOOL(x.i > y.i));
-    return;
 }
 
 static void bitwiseAnd(FICL_VM *pVM)
@@ -1935,7 +1840,6 @@ static void bitwiseAnd(FICL_VM *pVM)
     x = stackPop(pVM->pStack);
     y = stackPop(pVM->pStack);
     PUSHINT(x.i & y.i);
-    return;
 }
 
 static void bitwiseOr(FICL_VM *pVM)
@@ -1947,7 +1851,6 @@ static void bitwiseOr(FICL_VM *pVM)
     x = stackPop(pVM->pStack);
     y = stackPop(pVM->pStack);
     PUSHINT(x.i | y.i);
-    return;
 }
 
 static void bitwiseXor(FICL_VM *pVM)
@@ -1959,7 +1862,6 @@ static void bitwiseXor(FICL_VM *pVM)
     x = stackPop(pVM->pStack);
     y = stackPop(pVM->pStack);
     PUSHINT(x.i ^ y.i);
-    return;
 }
 
 static void bitwiseNot(FICL_VM *pVM)
@@ -1970,7 +1872,6 @@ static void bitwiseNot(FICL_VM *pVM)
 #endif
     x = stackPop(pVM->pStack);
     PUSHINT(~x.i);
-    return;
 }
 
 
@@ -2016,8 +1917,6 @@ static void doCoIm(FICL_VM *pVM)
     ** Mark location of head of loop...
     */
     markBranch(dp, pVM, doTag);
-
-    return;
 }
 
 
@@ -2034,8 +1933,6 @@ static void doParen(FICL_VM *pVM)
     stackPushPtr(pVM->rStack, *(pVM->ip++));
     stackPush(pVM->rStack, limit);
     stackPush(pVM->rStack, index);
-
-    return;
 }
 
 
@@ -2056,8 +1953,6 @@ static void qDoCoIm(FICL_VM *pVM)
     ** Mark location of head of loop...
     */
     markBranch(dp, pVM, doTag);
-
-    return;
 }
 
 
@@ -2082,8 +1977,6 @@ static void qDoParen(FICL_VM *pVM)
         stackPush(pVM->rStack, limit);
         stackPush(pVM->rStack, index);
     }
-
-    return;
 }
 
 
@@ -2098,14 +1991,12 @@ static void leaveCo(FICL_VM *pVM)
     stackDrop(pVM->rStack, 2);
     /* exit */
     vmPopIP(pVM);
-    return;
 }
 
 
 static void unloopCo(FICL_VM *pVM)
 {
     stackDrop(pVM->rStack, 3);
-    return;
 }
 
 
@@ -2118,7 +2009,6 @@ static void loopCoIm(FICL_VM *pVM)
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pLoopParen));
     resolveBackBranch(dp, pVM, doTag);
     resolveAbsBranch(dp, pVM, leaveTag);
-    return;
 }
 
 
@@ -2131,7 +2021,6 @@ static void plusLoopCoIm(FICL_VM *pVM)
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pPLoopParen));
     resolveBackBranch(dp, pVM, doTag);
     resolveAbsBranch(dp, pVM, leaveTag);
-    return;
 }
 
 
@@ -2152,8 +2041,6 @@ static void loopParen(FICL_VM *pVM)
         stackSetTop(pVM->rStack, LVALUEtoCELL(index));
         vmBranchRelative(pVM, (uintptr_t)*(pVM->ip));
     }
-
-    return;
 }
 
 
@@ -2187,8 +2074,6 @@ static void plusLoopParen(FICL_VM *pVM)
         stackSetTop(pVM->rStack, LVALUEtoCELL(index));
         vmBranchRelative(pVM, (uintptr_t)*(pVM->ip));
     }
-
-    return;
 }
 
 
@@ -2196,8 +2081,6 @@ static void loopICo(FICL_VM *pVM)
 {
     CELL index = stackGetTop(pVM->rStack);
     stackPush(pVM->pStack, index);
-
-    return;
 }
 
 
@@ -2205,8 +2088,6 @@ static void loopJCo(FICL_VM *pVM)
 {
     CELL index = stackFetch(pVM->rStack, 3);
     stackPush(pVM->pStack, index);
-
-    return;
 }
 
 
@@ -2214,8 +2095,6 @@ static void loopKCo(FICL_VM *pVM)
 {
     CELL index = stackFetch(pVM->rStack, 6);
     stackPush(pVM->pStack, index);
-
-    return;
 }
 
 
@@ -2258,7 +2137,6 @@ static void twoToR(FICL_VM *pVM)
     stackRoll(pVM->pStack, 1);
     stackPush(pVM->rStack, stackPop(pVM->pStack));
     stackPush(pVM->rStack, stackPop(pVM->pStack));
-    return;
 }
 
 static void twoRFrom(FICL_VM *pVM)
@@ -2269,7 +2147,6 @@ static void twoRFrom(FICL_VM *pVM)
     stackPush(pVM->pStack, stackPop(pVM->rStack));
     stackPush(pVM->pStack, stackPop(pVM->rStack));
     stackRoll(pVM->pStack, 1);
-    return;
 }
 
 static void twoRFetch(FICL_VM *pVM)
@@ -2279,7 +2156,6 @@ static void twoRFetch(FICL_VM *pVM)
 #endif
     stackPush(pVM->pStack, stackFetch(pVM->rStack, 1));
     stackPush(pVM->pStack, stackFetch(pVM->rStack, 0));
-    return;
 }
 
 
@@ -2307,7 +2183,6 @@ static void variable(FICL_VM *pVM)
 
     dictAppendWord2(dp, si, variableParen, FW_DEFAULT);
     dictAllotCells(dp, 1);
-    return;
 }
 
 
@@ -2318,7 +2193,6 @@ static void twoVariable(FICL_VM *pVM)
 
     dictAppendWord2(dp, si, variableParen, FW_DEFAULT);
     dictAllotCells(dp, 2);
-    return;
 }
 
 
@@ -2336,21 +2210,18 @@ static void base(FICL_VM *pVM)
 
     pBase = (CELL *)(&pVM->base);
     stackPush(pVM->pStack, LVALUEtoCELL(pBase));
-    return;
 }
 
 
 static void decimal(FICL_VM *pVM)
 {
     pVM->base = 10;
-    return;
 }
 
 
 static void hex(FICL_VM *pVM)
 {
     pVM->base = 16;
-    return;
 }
 
 
@@ -2375,7 +2246,6 @@ static void allot(FICL_VM *pVM)
 #endif
 
     dictAllot(dp, i);
-    return;
 }
 
 
@@ -2388,7 +2258,6 @@ static void here(FICL_VM *pVM)
 
     dp = vmGetDict(pVM);
     PUSHPTR(dp->here);
-    return;
 }
 
 static void comma(FICL_VM *pVM)
@@ -2402,7 +2271,6 @@ static void comma(FICL_VM *pVM)
     dp = vmGetDict(pVM);
     c = POP();
     dictAppendCell(dp, c);
-    return;
 }
 
 static void cComma(FICL_VM *pVM)
@@ -2416,7 +2284,6 @@ static void cComma(FICL_VM *pVM)
     dp = vmGetDict(pVM);
     c = (char)POPINT();
     dictAppendChar(dp, c);
-    return;
 }
 
 static void cells(FICL_VM *pVM)
@@ -2428,7 +2295,6 @@ static void cells(FICL_VM *pVM)
 
     i = POPINT();
     PUSHINT(i * (FICL_INT)sizeof (CELL));
-    return;
 }
 
 static void cellPlus(FICL_VM *pVM)
@@ -2440,7 +2306,6 @@ static void cellPlus(FICL_VM *pVM)
 
     cp = POPPTR();
     PUSHPTR(cp + sizeof (CELL));
-    return;
 }
 
 
@@ -2467,18 +2332,13 @@ void ficlTick(FICL_VM *pVM)
         vmThrowErr(pVM, "%.*s not found", i, SI_PTR(si));
     }
     PUSHPTR(pFW);
-    return;
 }
-
 
 static void bracketTickCoIm(FICL_VM *pVM)
 {
     ficlTick(pVM);
     literalIm(pVM);
-    
-    return;
 }
-
 
 /**************************************************************************
                         p o s t p o n e
@@ -2505,8 +2365,6 @@ static void postponeCoIm(FICL_VM *pVM)
         literalIm(pVM);
         dictAppendCell(dp, LVALUEtoCELL(pComma));
     }
-    
-    return;
 }
 
 
@@ -2526,8 +2384,6 @@ static void execute(FICL_VM *pVM)
 
     pFW = stackPopPtr(pVM->pStack);
     vmExecute(pVM, pFW);
-
-    return;
 }
 
 
@@ -2542,7 +2398,6 @@ static void immediate(FICL_VM *pVM)
 {
     IGNORE(pVM);
     dictSetImmediate(vmGetDict(pVM));
-    return;
 }
 
 
@@ -2550,7 +2405,6 @@ static void compileOnly(FICL_VM *pVM)
 {
     IGNORE(pVM);
     dictSetFlags(vmGetDict(pVM), FW_COMPILE, 0);
-    return;
 }
 
 
@@ -2558,7 +2412,6 @@ static void setObjectFlag(FICL_VM *pVM)
 {
     IGNORE(pVM);
     dictSetFlags(vmGetDict(pVM), FW_ISOBJECT, 0);
-    return;
 }
 
 static void isObject(FICL_VM *pVM)
@@ -2568,7 +2421,6 @@ static void isObject(FICL_VM *pVM)
     
     flag = ((pFW != NULL) && (pFW->flags & FW_ISOBJECT)) ? FICL_TRUE : FICL_FALSE;
     stackPushINT(pVM->pStack, flag);
-    return;
 }
 
 static void cstringLit(FICL_VM *pVM)
@@ -2581,7 +2433,6 @@ static void cstringLit(FICL_VM *pVM)
     pVM->ip = (IPTYPE)(void *)cp;
 
     stackPushPtr(pVM->pStack, sp);
-    return;
 }
 
 
@@ -2603,8 +2454,6 @@ static void cstringQuoteIm(FICL_VM *pVM)
         dp->here = PTRtoCELL vmGetString(pVM, (FICL_STRING *)dp->here, '\"');
         dictAlign(dp);
     }
-
-    return;
 }
 
 /**************************************************************************
@@ -2646,7 +2495,6 @@ static void dotQuoteCoIm(FICL_VM *pVM)
     dp->here = PTRtoCELL vmGetString(pVM, (FICL_STRING *)dp->here, '\"');
     dictAlign(dp);
     dictAppendCell(dp, LVALUEtoCELL(pType));
-    return;
 }
 
 
@@ -2669,8 +2517,6 @@ static void dotParen(FICL_VM *pVM)
 
     vmTextOut(pVM, pVM->pad, 0);
     vmUpdateTib(pVM, pSrc);
-        
-    return;
 }
 
 
@@ -2710,7 +2556,6 @@ static void sLiteralCoIm(FICL_VM *pVM)
 
     *cpDest++ = 0;
     dp->here = PTRtoCELL alignPtr(cpDest);
-    return;
 }
 
 
@@ -2725,7 +2570,6 @@ static void state(FICL_VM *pVM)
     vmCheckStack(pVM, 0, 1);
 #endif
     PUSHPTR(&pVM->state);
-    return;
 }
 
 
@@ -2746,7 +2590,6 @@ static void createParen(FICL_VM *pVM)
 
     pCell = pVM->runningWord->param;
     PUSHPTR(pCell+1);
-    return;
 }
 
 
@@ -2759,7 +2602,6 @@ static void create(FICL_VM *pVM)
 
     dictAppendWord2(dp, si, createParen, FW_DEFAULT);
     dictAllotCells(dp, 1);
-    return;
 }
 
 
@@ -2775,7 +2617,6 @@ static void doDoes(FICL_VM *pVM)
     tempIP = (IPTYPE)((*pCell).p);
     PUSHPTR(pCell+1);
     vmPushIP(pVM, tempIP);
-    return;
 }
 
 
@@ -2785,7 +2626,6 @@ static void doesParen(FICL_VM *pVM)
     dp->smudge->code = doDoes;
     dp->smudge->param[0] = LVALUEtoCELL(pVM->ip);
     vmPopIP(pVM);
-    return;
 }
 
 
@@ -2806,7 +2646,6 @@ static void doesCoIm(FICL_VM *pVM)
     IGNORE(pVM);
 
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pDoesParen));
-    return;
 }
 
 
@@ -2826,7 +2665,6 @@ static void toBody(FICL_VM *pVM)
 
     pFW = POPPTR();
     PUSHPTR(pFW->param + 1);
-    return;
 }
 
 
@@ -2843,7 +2681,6 @@ static void fromBody(FICL_VM *pVM)
 
     ptr = (char *)POPPTR() - sizeof (FICL_WORD);
     PUSHPTR(ptr);
-    return;
 }
 
 
@@ -2862,7 +2699,6 @@ static void toName(FICL_VM *pVM)
     pFW = POPPTR();
     PUSHPTR(pFW->name);
     PUSHUNS(pFW->nName);
-    return;
 }
 
 
@@ -2872,7 +2708,6 @@ static void getLastWord(FICL_VM *pVM)
     FICL_WORD *wp = pDict->smudge;
     assert(wp);
     vmPush(pVM, LVALUEtoCELL(wp));
-    return;
 }
 
 
@@ -2884,14 +2719,12 @@ static void getLastWord(FICL_VM *pVM)
 static void lbracketCoIm(FICL_VM *pVM)
 {
     pVM->state = INTERPRET;
-    return;
 }
 
 
 static void rbracket(FICL_VM *pVM)
 {
     pVM->state = COMPILE;
-    return;
 }
 
 
@@ -2906,7 +2739,6 @@ static void lessNumberSign(FICL_VM *pVM)
 {
     FICL_STRING *sp = PTRtoSTRING pVM->pad;
     sp->count = 0;
-    return;
 }
 
 /*
@@ -2931,7 +2763,6 @@ static void numberSign(FICL_VM *pVM)
     rem = m64UMod(&u, (UNS16)(pVM->base));
     sp->text[sp->count++] = digit_to_char(rem);
     u64Push(pVM->pStack, u);
-    return;
 }
 
 /*
@@ -2953,7 +2784,6 @@ static void numberSignGreater(FICL_VM *pVM)
     DROP(2);
     PUSHPTR(sp->text);
     PUSHUNS(sp->count);
-    return;
 }
 
 /*
@@ -2983,7 +2813,6 @@ static void numberSignS(FICL_VM *pVM)
     while (u.hi || u.lo);
 
     u64Push(pVM->pStack, u);
-    return;
 }
 
 /*
@@ -3002,7 +2831,6 @@ static void hold(FICL_VM *pVM)
     sp = PTRtoSTRING pVM->pad;
     i = POPINT();
     sp->text[sp->count++] = (char) i;
-    return;
 }
 
 /*
@@ -3023,7 +2851,6 @@ static void sign(FICL_VM *pVM)
     i = POPINT();
     if (i < 0)
         sp->text[sp->count++] = '-';
-    return;
 }
 
 
@@ -3080,8 +2907,6 @@ static void toNumber(FICL_VM *pVM)
     u64Push(pVM->pStack, accum);
     PUSHPTR(cp);
     PUSHUNS(count);
-
-    return;
 }
 
 
@@ -3103,14 +2928,12 @@ static void toNumber(FICL_VM *pVM)
 static void quit(FICL_VM *pVM)
 {
     vmThrow(pVM, VM_QUIT);
-    return;
 }
 
 
 static void ficlAbort(FICL_VM *pVM)
 {
     vmThrow(pVM, VM_ABORT);
-    return;
 }
 
 
@@ -3161,8 +2984,6 @@ static void accept(FICL_VM *pVM)
     pBuf += len;
     vmUpdateTib(pVM, pBuf);
     PUSHINT(len);
-
-    return;
 }
 
 
@@ -3177,7 +2998,6 @@ static void align(FICL_VM *pVM)
     FICL_DICT *dp = vmGetDict(pVM);
     IGNORE(pVM);
     dictAlign(dp);
-    return;
 }
 
 
@@ -3194,7 +3014,6 @@ static void aligned(FICL_VM *pVM)
 
     addr = POPPTR();
     PUSHPTR(alignPtr(addr));
-    return;
 }
 
 
@@ -3211,7 +3030,6 @@ static void beginCoIm(FICL_VM *pVM)
 {
     FICL_DICT *dp = vmGetDict(pVM);
     markBranch(dp, pVM, destTag);
-    return;
 }
 
 static void untilCoIm(FICL_VM *pVM)
@@ -3222,7 +3040,6 @@ static void untilCoIm(FICL_VM *pVM)
 
     dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pBranch0));
     resolveBackBranch(dp, pVM, destTag);
-    return;
 }
 
 static void whileCoIm(FICL_VM *pVM)
@@ -3235,7 +3052,6 @@ static void whileCoIm(FICL_VM *pVM)
     markBranch(dp, pVM, origTag);
     twoSwap(pVM);
     dictAppendUNS(dp, 1);
-    return;
 }
 
 static void repeatCoIm(FICL_VM *pVM)
@@ -3249,7 +3065,6 @@ static void repeatCoIm(FICL_VM *pVM)
     resolveBackBranch(dp, pVM, destTag);
     /* expect "while" branch marker */
     resolveForwardBranch(dp, pVM, origTag);
-    return;
 }
 
 
@@ -3262,7 +3077,6 @@ static void againCoIm(FICL_VM *pVM)
 
     /* expect "begin" branch marker */
     resolveBackBranch(dp, pVM, destTag);
-    return;
 }
 
 
@@ -3289,14 +3103,12 @@ static void ficlChar(FICL_VM *pVM)
 
     si = vmGetWord(pVM);
     PUSHUNS((FICL_UNS)(si.cp[0]));
-    return;
 }
 
 static void charCoIm(FICL_VM *pVM)
 {
     ficlChar(pVM);
     literalIm(pVM);
-    return;
 }
 
 /**************************************************************************
@@ -3313,7 +3125,6 @@ static void charPlus(FICL_VM *pVM)
 
     cp = POPPTR();
     PUSHPTR(cp + 1);
-    return;
 }
 
 /**************************************************************************
@@ -3338,7 +3149,6 @@ static void ficlChars(FICL_VM *pVM)
         PUSHINT(i * sizeof (char));
     }
     /* otherwise no-op! */
-    return;
 }
 #if defined (_M_IX86)
 #pragma warning(default: 4127)
@@ -3363,7 +3173,6 @@ static void count(FICL_VM *pVM)
     sp = POPPTR();
     PUSHPTR(sp->text);
     PUSHUNS(sp->count);
-    return;
 }
 
 /**************************************************************************
@@ -3403,7 +3212,6 @@ static void environmentQ(FICL_VM *pVM)
     {
         PUSHINT(FICL_FALSE);
     }
-    return;
 }
 
 /**************************************************************************
@@ -3436,8 +3244,6 @@ static void evaluate(FICL_VM *pVM)
     pVM->sourceID = id;
     if (result != VM_OUTOFTEXT)
         vmThrow(pVM, result);
-
-    return;
 }
 
 
@@ -3466,8 +3272,6 @@ static void stringQuoteIm(FICL_VM *pVM)
         dp->here = PTRtoCELL vmGetString(pVM, (FICL_STRING *)dp->here, '\"');
         dictAlign(dp);
     }
-
-    return;
 }
 
 
@@ -3487,8 +3291,6 @@ static void type(FICL_VM *pVM)
       buf[0] = *(cp++);
       vmTextOut(pVM, buf, 0);
     }
-
-    return;
 }
 
 /**************************************************************************
@@ -3528,7 +3330,6 @@ static void ficlWord(FICL_VM *pVM)
     strcat(sp->text, " ");
 
     PUSHPTR(sp);
-    return;
 }
 
 
@@ -3549,7 +3350,6 @@ static void parseNoCopy(FICL_VM *pVM)
     si = vmGetWord0(pVM);
     PUSHPTR(SI_PTR(si));
     PUSHUNS(SI_COUNT(si));
-    return;
 }
 
 
@@ -3576,7 +3376,6 @@ static void parse(FICL_VM *pVM)
     si = vmParseStringEx(pVM, delim, 0);
     PUSHPTR(SI_PTR(si));
     PUSHUNS(SI_COUNT(si));
-    return;
 }
 
 
@@ -3603,7 +3402,6 @@ static void fill(FICL_VM *pVM)
         *cp++ = ch;
         u--;
     }
-    return;
 }
 
 
@@ -3632,7 +3430,6 @@ static void do_find(FICL_VM *pVM, STRINGINFO si, void *returnForFailure)
         PUSHPTR(returnForFailure);
         PUSHUNS(0);
     }
-    return;
 }
 
 
@@ -3705,7 +3502,6 @@ static void fmSlashMod(FICL_VM *pVM)
     qr = m64FlooredDivI(d1, n1);
     PUSHINT(qr.rem);
     PUSHINT(qr.quot);
-    return;
 }
 
 
@@ -3731,7 +3527,6 @@ static void smSlashRem(FICL_VM *pVM)
     qr = m64SymmetricDivI(d1, n1);
     PUSHINT(qr.rem);
     PUSHINT(qr.quot);
-    return;
 }
 
 
@@ -3749,7 +3544,6 @@ static void ficlMod(FICL_VM *pVM)
     i64Extend(d1);
     qr = m64SymmetricDivI(d1, n1);
     PUSHINT(qr.rem);
-    return;
 }
 
 
@@ -3772,7 +3566,6 @@ static void umSlashMod(FICL_VM *pVM)
     qr    = ficlLongDiv(ud, u1);
     PUSHUNS(qr.rem);
     PUSHUNS(qr.quot);
-    return;
 }
 
 
@@ -3801,7 +3594,6 @@ static void lshift(FICL_VM *pVM)
     nBits = POPUNS();
     x1 = POPUNS();
     PUSHUNS(x1 << nBits);
-    return;
 }
 
 
@@ -3817,7 +3609,6 @@ static void rshift(FICL_VM *pVM)
     x1 = POPUNS();
 
     PUSHUNS(x1 >> nBits);
-    return;
 }
 
 
@@ -3840,7 +3631,6 @@ static void mStar(FICL_VM *pVM)
 
     d = m64MulI(n1, n2);
     i64Push(pVM->pStack, d);
-    return;
 }
 
 
@@ -3858,7 +3648,6 @@ static void umStar(FICL_VM *pVM)
 
     ud = ficlLongMul(u1, u2);
     u64Push(pVM->pStack, ud);
-    return;
 }
 
 
@@ -3878,7 +3667,6 @@ static void ficlMax(FICL_VM *pVM)
     n1 = POPINT();
 
     PUSHINT((n1 > n2) ? n1 : n2);
-    return;
 }
 
 static void ficlMin(FICL_VM *pVM)
@@ -3893,7 +3681,6 @@ static void ficlMin(FICL_VM *pVM)
     n1 = POPINT();
 
     PUSHINT((n1 < n2) ? n1 : n2);
-    return;
 }
 
 
@@ -3938,8 +3725,6 @@ static void move(FICL_VM *pVM)
         for (; u > 0; u--)
             *addr2-- = *addr1--;
     }
-
-    return;
 }
 
 
@@ -3953,7 +3738,6 @@ static void recurseCoIm(FICL_VM *pVM)
 
     IGNORE(pVM);
     dictAppendCell(pDict, LVALUEtoCELL(pDict->smudge));
-    return;
 }
 
 
@@ -3975,7 +3759,6 @@ static void sToD(FICL_VM *pVM)
     /* sign extend to 64 bits.. */
     PUSHINT(s);
     PUSHINT((s < 0) ? -1 : 0);
-    return;
 }
 
 
@@ -3992,7 +3775,6 @@ static void source(FICL_VM *pVM)
 #endif
     PUSHPTR(pVM->tib.cp);
     PUSHINT(vmGetInBufLen(pVM));
-    return;
 }
 
 
@@ -4003,7 +3785,6 @@ static void source(FICL_VM *pVM)
 static void ficlVersion(FICL_VM *pVM)
 {
     vmTextOut(pVM, "ficl Version " FICL_VER, 1);
-    return;
 }
 
 
@@ -4017,7 +3798,6 @@ static void toIn(FICL_VM *pVM)
     vmCheckStack(pVM,0,1);
 #endif
     PUSHPTR(&pVM->tib.index);
-    return;
 }
 
 
@@ -4040,7 +3820,6 @@ static void colonNoName(FICL_VM *pVM)
     pFW = dictAppendWord2(dp, si, colonParen, FW_DEFAULT | FW_SMUDGE);
     PUSHPTR(pFW);
     markControlTag(pVM, colonTag);
-    return;
 }
 
 
@@ -4065,7 +3844,6 @@ static void userParen(FICL_VM *pVM)
 {
     FICL_INT i = pVM->runningWord->param[0].i;
     PUSHPTR(&pVM->user[i]);
-    return;
 }
 
 
@@ -4083,7 +3861,6 @@ static void userVariable(FICL_VM *pVM)
 
     dictAppendWord2(dp, si, userParen, FW_DEFAULT);
     dictAppendCell(dp, c);
-    return;
 }
 #endif
 
@@ -4139,7 +3916,6 @@ static void toValue(FICL_VM *pVM)
         literalIm(pVM);
         dictAppendCell(dp, LVALUEtoCELL(pVM->pSys->pStore));
     }
-    return;
 }
 
 
@@ -4156,14 +3932,12 @@ static void linkParen(FICL_VM *pVM)
     FICL_INT nLink = *(FICL_INT *)(pVM->ip);
     vmBranchRelative(pVM, 1);
     stackLink(pVM->rStack, nLink);
-    return;
 }
 
 
 static void unlinkParen(FICL_VM *pVM)
 {
     stackUnlink(pVM->rStack);
-    return;
 }
 
 
@@ -4177,7 +3951,6 @@ static void getLocalParen(FICL_VM *pVM)
 {
     FICL_INT nLocal = *(FICL_INT *)(pVM->ip++);
     stackPush(pVM->pStack, pVM->rStack->pFrame[nLocal]);
-    return;
 }
 
 
@@ -4185,35 +3958,30 @@ static void toLocalParen(FICL_VM *pVM)
 {
     FICL_INT nLocal = *(FICL_INT *)(pVM->ip++);
     pVM->rStack->pFrame[nLocal] = stackPop(pVM->pStack);
-    return;
 }
 
 
 static void getLocal0(FICL_VM *pVM)
 {
     stackPush(pVM->pStack, pVM->rStack->pFrame[0]);
-    return;
 }
 
 
 static void toLocal0(FICL_VM *pVM)
 {
     pVM->rStack->pFrame[0] = stackPop(pVM->pStack);
-    return;
 }
 
 
 static void getLocal1(FICL_VM *pVM)
 {
     stackPush(pVM->pStack, pVM->rStack->pFrame[1]);
-    return;
 }
 
 
 static void toLocal1(FICL_VM *pVM)
 {
     pVM->rStack->pFrame[1] = stackPop(pVM->pStack);
-    return;
 }
 
 
@@ -4251,7 +4019,6 @@ static void doLocalIm(FICL_VM *pVM)
             dictAppendCell(pDict, LVALUEtoCELL(nLocal));
         }
     }
-    return;
 }
 
 
@@ -4326,8 +4093,6 @@ static void localParen(FICL_VM *pVM)
     {       /* write nLocals to (link) param area in dictionary */
         *(FICL_INT *)(pVM->pSys->pMarkLocals) = pVM->pSys->nLocals;
     }
-
-    return;
 }
 
 
@@ -4336,7 +4101,6 @@ static void get2LocalParen(FICL_VM *pVM)
     FICL_INT nLocal = *(FICL_INT *)(pVM->ip++);
     stackPush(pVM->pStack, pVM->rStack->pFrame[nLocal]);
     stackPush(pVM->pStack, pVM->rStack->pFrame[nLocal+1]);
-    return;
 }
 
 
@@ -4355,7 +4119,6 @@ static void do2LocalIm(FICL_VM *pVM)
         dictAppendCell(pDict, LVALUEtoCELL(pVM->pSys->pGet2LocalParen));
         dictAppendCell(pDict, LVALUEtoCELL(nLocal));
     }
-    return;
 }
 
 
@@ -4364,7 +4127,6 @@ static void to2LocalParen(FICL_VM *pVM)
     FICL_INT nLocal = *(FICL_INT *)(pVM->ip++);
     pVM->rStack->pFrame[nLocal+1] = stackPop(pVM->pStack);
     pVM->rStack->pFrame[nLocal]   = stackPop(pVM->pStack);
-    return;
 }
 
 
@@ -4403,8 +4165,6 @@ static void twoLocalParen(FICL_VM *pVM)
     {       /* write nLocals to (link) param area in dictionary */
         *(FICL_INT *)(pVM->pSys->pMarkLocals) = pVM->pSys->nLocals;
     }
-
-    return;
 }
 
 
@@ -4457,7 +4217,6 @@ static void compareInternal(FICL_VM *pVM, int caseInsensitive)
         n = 1;
 
     PUSHINT(n);
-    return;
 }
 
 
@@ -4499,7 +4258,6 @@ static void pad(FICL_VM *pVM)
 static void sourceid(FICL_VM *pVM)
 {
     PUSHINT(pVM->sourceID.i);
-    return;
 }
 
 
@@ -4523,7 +4281,6 @@ static void refill(FICL_VM *pVM)
         vmThrow(pVM, VM_RESTART);
 
     PUSHINT(ret);
-    return;
 }
 
 
@@ -4735,24 +4492,9 @@ static void dnegate(FICL_VM *pVM)
     DPINT i = i64Pop(pVM->pStack);
     i = m64Negate(i);
     i64Push(pVM->pStack, i);
-
-    return;
 }
 
 
-#if 0
-/**************************************************************************
-                        
-** 
-**************************************************************************/
-static void funcname(FICL_VM *pVM)
-{
-    IGNORE(pVM);
-    return;
-}
-
-
-#endif
 /**************************************************************************
                         f i c l W o r d C l a s s i f y
 ** This public function helps to classify word types for SEE
@@ -4789,8 +4531,7 @@ WORDKIND ficlWordClassify(FICL_WORD *pFW)
         {VARIABLE, variableParen},
     };
 
-#define nMAP (sizeof(codeMap) / sizeof(CODEtoKIND))
-
+    int nMAP = (sizeof(codeMap) / sizeof(CODEtoKIND));
     FICL_CODE code = pFW->code;
     int i;
 
@@ -5185,7 +4926,5 @@ void ficlCompileCore(FICL_SYSTEM *pSys)
 	pSys->pInterp[2] = (FICL_WORD *)(void *)(-2);
 
     assert(dictCellsAvail(dp) > 0);
-
-    return;
 }
 
