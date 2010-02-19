@@ -122,8 +122,14 @@ private:
       _hwreg[VFRE] |= 1<<vf_no;
       _hwreg[VFTE] |= 1<<vf_no;
       
-      _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT | VMOLR_AUPE | VMOLR_ROPE | VMOLR_ROMPE
-	| VMOLR_STRVLAN | VMOLR_BAM;
+      _hwreg[VMOLR0 + vf_no] = VMOLR_DEFAULT
+	| VMOLR_AUPE 		// Accept packets without VLAN header
+	//| VMOLR_ROPE
+	//| VMOLR_ROMPE
+	//| VMOLR_BAM
+	//| VMOLR_MPE
+	| VMOLR_STRVLAN 	// Strip VLAN header
+	;
 
       EthernetAddr vf_mac = _mac;
 
@@ -355,6 +361,8 @@ public:
 
     // TX
     _hwreg[DTXCTL] = DTX_MDP_EN | DTX_SPOOF_INT;
+    _hwreg[DTXSWC] = DTXSWC_LOOP_EN | 0xFF /* MAC address anti-spoof
+					      for all VFs */;
 
     // Wait for Link Up and VM mailbox events.
     msg(INFO, "Enabling interrupts...\n");

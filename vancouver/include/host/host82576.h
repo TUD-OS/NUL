@@ -234,6 +234,8 @@ protected:
   enum TransmitControl {
     TCTL_TXEN     = 1U<<1,	// Transmit Enable
     TCTL_PSP      = 1U<<3,	// Pad Short Packets
+
+    DTXSWC_LOOP_EN = 1U<<31,	// VMDq Loopback enable (VM-to-VM traffic)
   };
 
   enum PacketType {
