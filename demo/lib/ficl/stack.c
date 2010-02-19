@@ -80,8 +80,6 @@ void vmCheckStack(FICL_VM *pVM, int popCells, int pushCells)
     {
         vmThrowErr(pVM, "Error: stack overflow");
     }
-
-    return;
 }
 
 #if FICL_WANT_FLOAT
@@ -131,9 +129,7 @@ FICL_STACK *stackCreate(unsigned nCells)
 
 void stackDelete(FICL_STACK *pStack)
 {
-    if (pStack)
-        ficlFree(pStack);
-    return;
+    if (pStack) ficlFree(pStack);
 }
 
 
@@ -158,7 +154,6 @@ void stackDrop(FICL_STACK *pStack, int n)
     assert(n > 0);
 #endif
     pStack->sp -= n;
-    return;
 }
 
 
@@ -175,7 +170,6 @@ CELL stackFetch(FICL_STACK *pStack, int n)
 void stackStore(FICL_STACK *pStack, int n, CELL c)
 {
     pStack->sp[-n-1] = c;
-    return;
 }
 
 
@@ -183,11 +177,6 @@ void stackStore(FICL_STACK *pStack, int n, CELL c)
                     s t a c k G e t T o p
 ** 
 *******************************************************************/
-
-CELL stackGetTop(FICL_STACK *pStack)
-{
-    return pStack->sp[-1];
-}
 
 
 /*******************************************************************
@@ -204,7 +193,6 @@ void stackLink(FICL_STACK *pStack, int nCells)
     stackPushPtr(pStack, pStack->pFrame);
     pStack->pFrame = pStack->sp;
     pStack->sp += nCells;
-    return;
 }
 
 
@@ -219,7 +207,6 @@ void stackUnlink(FICL_STACK *pStack)
 {
     pStack->sp = pStack->pFrame;
     pStack->pFrame = stackPopPtr(pStack);
-    return;
 }
 
 
@@ -231,73 +218,8 @@ void stackUnlink(FICL_STACK *pStack)
 void stackPick(FICL_STACK *pStack, int n)
 {
     stackPush(pStack, stackFetch(pStack, n));
-    return;
 }
 
-
-/*******************************************************************
-                    s t a c k P o p
-** 
-*******************************************************************/
-
-CELL stackPop(FICL_STACK *pStack)
-{
-    return *--pStack->sp;
-}
-
-void *stackPopPtr(FICL_STACK *pStack)
-{
-    return (*--pStack->sp).p;
-}
-
-FICL_UNS stackPopUNS(FICL_STACK *pStack)
-{
-    return (*--pStack->sp).u;
-}
-
-FICL_INT stackPopINT(FICL_STACK *pStack)
-{
-    return (*--pStack->sp).i;
-}
-
-#if (FICL_WANT_FLOAT)
-float stackPopFloat(FICL_STACK *pStack)
-{
-    return (*(--pStack->sp)).f;
-}
-#endif
-
-/*******************************************************************
-                    s t a c k P u s h
-** 
-*******************************************************************/
-
-void stackPush(FICL_STACK *pStack, CELL c)
-{
-    *pStack->sp++ = c;
-}
-
-void stackPushPtr(FICL_STACK *pStack, void *ptr)
-{
-    *pStack->sp++ = LVALUEtoCELL(ptr);
-}
-
-void stackPushUNS(FICL_STACK *pStack, FICL_UNS u)
-{
-    *pStack->sp++ = LVALUEtoCELL(u);
-}
-
-void stackPushINT(FICL_STACK *pStack, FICL_INT i)
-{
-    *pStack->sp++ = LVALUEtoCELL(i);
-}
-
-#if (FICL_WANT_FLOAT)
-void stackPushFloat(FICL_STACK *pStack, FICL_FLOAT f)
-{
-    *pStack->sp++ = LVALUEtoCELL(f);
-}
-#endif
 
 /*******************************************************************
                     s t a c k R e s e t
@@ -307,7 +229,6 @@ void stackPushFloat(FICL_STACK *pStack, FICL_FLOAT f)
 void stackReset(FICL_STACK *pStack)
 {
     pStack->sp = pStack->base;
-    return;
 }
 
 
@@ -350,19 +271,6 @@ void stackRoll(FICL_STACK *pStack, int n)
 
         *pCell = c;
     }
-    return;
 }
 
-
-/*******************************************************************
-                    s t a c k S e t T o p
-** 
-*******************************************************************/
-
-void stackSetTop(FICL_STACK *pStack, CELL c)
-{
-    pStack->sp[-1] = c;
-    return;
-}
-
-
+/* EOF */

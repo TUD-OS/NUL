@@ -376,26 +376,29 @@ void        stackDelete   (FICL_STACK *pStack);
 int         stackDepth    (FICL_STACK *pStack);
 void        stackDrop     (FICL_STACK *pStack, int n);
 CELL        stackFetch    (FICL_STACK *pStack, int n);
-CELL        stackGetTop   (FICL_STACK *pStack);
 void        stackLink     (FICL_STACK *pStack, int nCells);
 void        stackPick     (FICL_STACK *pStack, int n);
-CELL        stackPop      (FICL_STACK *pStack);
-void       *stackPopPtr   (FICL_STACK *pStack);
-FICL_UNS    stackPopUNS   (FICL_STACK *pStack);
-FICL_INT    stackPopINT   (FICL_STACK *pStack);
-void        stackPush     (FICL_STACK *pStack, CELL c);
-void        stackPushPtr  (FICL_STACK *pStack, void *ptr);
-void        stackPushUNS  (FICL_STACK *pStack, FICL_UNS u);
-void        stackPushINT  (FICL_STACK *pStack, FICL_INT i);
 void        stackReset    (FICL_STACK *pStack);
 void        stackRoll     (FICL_STACK *pStack, int n);
-void        stackSetTop   (FICL_STACK *pStack, CELL c);
 void        stackStore    (FICL_STACK *pStack, int n, CELL c);
 void        stackUnlink   (FICL_STACK *pStack);
 
+/* Inline versions */
+static inline CELL     stackGetTop(FICL_STACK *pStack) { return pStack->sp[-1];    }
+static inline CELL     stackPop   (FICL_STACK *pStack) { return *--pStack->sp;     }
+static inline void    *stackPopPtr(FICL_STACK *pStack) { return (*--pStack->sp).p; }
+static inline FICL_UNS stackPopUNS(FICL_STACK *pStack) { return (*--pStack->sp).u; }
+static inline FICL_INT stackPopINT(FICL_STACK *pStack) { return (*--pStack->sp).i; }
+
+static inline void stackSetTop (FICL_STACK *pStack, CELL c)     { pStack->sp[-1] = c; }
+static inline void stackPush   (FICL_STACK *pStack, CELL c)     { *pStack->sp++ = c;  }
+static inline void stackPushPtr(FICL_STACK *pStack, void *ptr)  { *pStack->sp++ = LVALUEtoCELL(ptr); }
+static inline void stackPushUNS(FICL_STACK *pStack, FICL_UNS u) { *pStack->sp++ = LVALUEtoCELL(u);   }
+static inline void stackPushINT(FICL_STACK *pStack, FICL_INT i) { *pStack->sp++ = LVALUEtoCELL(i);   }
+
 #if (FICL_WANT_FLOAT)
-float       stackPopFloat (FICL_STACK *pStack);
-void        stackPushFloat(FICL_STACK *pStack, FICL_FLOAT f);
+static inline float stackPopFloat(FICL_STACK *pStack)                { return (*(--pStack->sp)).f; }
+static inline void  stackPushFloat(FICL_STACK *pStack, FICL_FLOAT f) { *pStack->sp++ = LVALUEtoCELL(f); }
 #endif
 
 /*
