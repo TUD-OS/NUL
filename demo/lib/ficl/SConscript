@@ -18,7 +18,9 @@ Command('softcore.c', ['softwords/softcore.awk',
         """cat ${SOURCES[1:]} | awk -f $SOURCE -v datestamp="`LC_ALL=C date`" > $TARGET""")
 
 ficl_env = target_env.Clone()
-#ficl_env.Append(CPPFLAGS = ["-D_DEBUG"])
+# This removes an expensive call from most standard words, but makes
+# even simple errors fatal. Disabled for now.
+# ficl_env.Append(CPPFLAGS = ["-DFICL_ROBUST=0"])
 
 nul.Lib(ficl_env, "ficl",
         SOURCES = ['dict.c',
