@@ -611,9 +611,9 @@ instance-vars >search
 \
 : array-init   ( nobj inst class -- )
     0 dup locals| &init &next class inst |
-    \
+    \ 
     \ bind methods outside the loop to save time
-    \
+    \ 
     class s" init" lookup-method to &init
           s" next" lookup-method to &next
     drop
