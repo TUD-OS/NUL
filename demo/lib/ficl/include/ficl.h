@@ -1123,25 +1123,6 @@ extern unsigned dictIncrease;
 
 extern void ficlCcall(FICL_VM *pVM);
 
-/*
-** Used with File-Access wordset.
-*/
-#define FICL_FAM_READ	1
-#define FICL_FAM_WRITE	2
-#define FICL_FAM_APPEND	4
-#define FICL_FAM_BINARY	8
-
-#define FICL_FAM_OPEN_MODE(fam)	((fam) & (FICL_FAM_READ | FICL_FAM_WRITE | FICL_FAM_APPEND))
-
-
-#if (FICL_WANT_FILE)
-typedef struct ficlFILE
-{
-	FILE *f;
-	char filename[256];
-} ficlFILE;
-#endif
-
 #ifdef __cplusplus
 }
 #endif
