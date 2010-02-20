@@ -1,0 +1,16 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'root4th',
+       SOURCES = [ 'root4th.c',
+                   'start.S',
+                   'longjmp.S',
+                   ],
+       LIBS = [ 'ficl', 'crun' ],
+       LINKSCRIPT = 'root4th.ld')
+
+
+# EOF
