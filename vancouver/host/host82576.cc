@@ -159,7 +159,7 @@ private:
     case VF_SET_MAC_ADDR:
       {
 	EthernetAddr vf_mac;
-	vf_mac.raw = _hwreg[pfmbxmem + 1] | (_hwreg[pfmbxmem + 2] & 0xFFFF);
+	vf_mac.raw = (uint64_t)_hwreg[pfmbxmem + 1] | ((uint64_t)_hwreg[pfmbxmem + 2] & 0xFFFF) << 32;
 	vf_set_mac(vf_no, vf_mac);
       }
       _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | CMD_ACK | CTS;
