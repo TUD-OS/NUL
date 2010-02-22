@@ -23,6 +23,7 @@ ficl_env = target_env.Clone()
 # ficl_env.Append(CPPFLAGS = ["-DFICL_ROBUST=0"])
 
 nul.Lib(ficl_env, "ficl",
+        LIBS = ['longjmp', 'crun', 'string' ],
         SOURCES = ['dict.c',
                    'ficl.c',
                    'float.c',

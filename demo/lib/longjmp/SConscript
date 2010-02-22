@@ -1,0 +1,8 @@
+# -*- Mode: Python -*-
+
+import nul
+Import('target_env')
+
+nul.Lib(target_env, "longjmp", SOURCES = [ 'longjmp.S' ])
+
+# EOF

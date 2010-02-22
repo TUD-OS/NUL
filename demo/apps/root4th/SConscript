@@ -7,9 +7,8 @@ Import('target_env')
 nul.App(target_env, 'root4th',
        SOURCES = [ 'root4th.c',
                    'start.S',
-                   'longjmp.S',
                    ],
-       LIBS = [ 'ficl', 'crun' ],
+       LIBS = [ 'ficl', 'crun', 'longjmp' ],
        LINKSCRIPT = 'root4th.ld')
 
 
