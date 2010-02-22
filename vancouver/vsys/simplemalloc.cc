@@ -42,7 +42,7 @@ void *
 calloc(size_t n, size_t size)
 {
   void *p = malloc(n*size);
-  memset(p, 0, n*size);
+  if (p) memset(p, 0, n*size);
   return p;
 }
 
@@ -62,14 +62,9 @@ void free(void *ptr)
 }
 
 void *
-operator new(unsigned size)
-{
-  void *ptr = malloc(size);
-  if (ptr) memset(ptr, 0, size);
-  return ptr;
-}
+operator new(unsigned size) { return calloc(1, size); }
 
 void
 operator delete(void *ptr) { free(ptr); }
 
-
+// EOF
