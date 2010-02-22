@@ -126,7 +126,7 @@ private:
 	| VMOLR_AUPE 		// Accept packets without VLAN header
 	//| VMOLR_ROPE
 	//| VMOLR_ROMPE
-	//| VMOLR_BAM
+	| VMOLR_BAM
 	//| VMOLR_MPE
 	| VMOLR_STRVLAN 	// Strip VLAN header
 	;
