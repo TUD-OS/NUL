@@ -34,7 +34,6 @@
 #ifndef __CONTIKI_CONF_H__
 #define __CONTIKI_CONF_H__
 
-#include <inttypes.h>
 #include <stdint.h>
 
 #define CC_CONF_REGISTER_ARGS          0 
