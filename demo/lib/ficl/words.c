@@ -4544,29 +4544,6 @@ WORDKIND ficlWordClassify(FICL_WORD *pFW)
     return PRIMITIVE;
 }
 
-
-#ifdef TESTMAIN
-/**************************************************************************
-**                     r a n d o m
-** FICL-specific
-**************************************************************************/
-static void ficlRandom(FICL_VM *pVM)
-{
-    PUSHINT(rand());
-}
-
-
-/**************************************************************************
-**                     s e e d - r a n d o m
-** FICL-specific
-**************************************************************************/
-static void ficlSeedRandom(FICL_VM *pVM)
-{
-    srand(POPINT());
-}
-#endif
-
-
 /**************************************************************************
                         f i c l C o m p i l e C o r e
 ** Builds the primitive wordset and the environment-query namespace.
@@ -4871,10 +4848,6 @@ void ficlCompileCore(FICL_SYSTEM *pSys)
     dictAppendWord(dp, "(user)",    userParen,      FW_DEFAULT);
     dictAppendWord(dp, "user",      userVariable,   FW_DEFAULT);
 #endif
-#ifdef TESTMAIN
-    dictAppendWord(dp, "random",    ficlRandom,     FW_DEFAULT);
-    dictAppendWord(dp, "seed-random",ficlSeedRandom,FW_DEFAULT);
-#endif
 
     /*
     ** internal support words
@@ -4915,15 +4888,15 @@ void ficlCompileCore(FICL_SYSTEM *pSys)
     dictAppendWord(dp, "(constant)",constantParen,  FW_COMPILE);
     dictAppendWord(dp, "(parse-step)", 
                                     parseStepParen, FW_DEFAULT);
-	pSys->pExitInner =
+    pSys->pExitInner =
     dictAppendWord(dp, "exit-inner",ficlExitInner,  FW_DEFAULT);
 
     /*
     ** Set up system's outer interpreter loop - maybe this should be in initSystem?
     */
-	pSys->pInterp[0] = pSys->pInterpret;
-	pSys->pInterp[1] = pSys->pBranchParen;
-	pSys->pInterp[2] = (FICL_WORD *)(void *)(-2);
+    pSys->pInterp[0] = pSys->pInterpret;
+    pSys->pInterp[1] = pSys->pBranchParen;
+    pSys->pInterp[2] = (FICL_WORD *)(void *)(-2);
 
     assert(dictCellsAvail(dp) > 0);
 }
