@@ -74,7 +74,9 @@ public:
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
       
-      *cur = { (uintptr_t)_rx_buf[last_rx], 0 };
+      cur->lo = (uintptr_t)_rx_buf[last_rx];
+      cur->hi = 0;
+
       last_rx = (last_rx+1) % desc_ring_len;
       _hwreg[RDT0] = last_rx;
     }
@@ -88,7 +90,7 @@ public:
       uint16_t plen = cur->hi >> 32;
       msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
 
-      *cur = { 0, 0 };
+      cur->hi = cur->lo = 0;
       last_tx = (last_tx+1) % desc_ring_len;
     }
   }
@@ -151,11 +153,11 @@ public:
     // If the dma descriptor is not zero, it is still in use.
     if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
 
-    _tx_ring[tail] = { (uintptr_t)_tx_buf[tail], 
-		       (uint64_t)nmsg.len | ((uint64_t)nmsg.len)<<46
-		       | (3U<<20 /* adv descriptor */)
-		       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
-		       | (1U<<27 /* Report Status = IRQ */)  };
+    _tx_ring[tail].lo = (uintptr_t)_tx_buf[tail];
+    _tx_ring[tail].hi = (uint64_t)nmsg.len | ((uint64_t)nmsg.len)<<46
+      | (3U<<20 /* adv descriptor */)
+      | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
+      | (1U<<27 /* Report Status = IRQ */);
     msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
 
     asm volatile ("sfence" ::: "memory");
@@ -194,9 +196,9 @@ public:
     _hwreg[VTIVAR]      = 0x00008180;
     _hwreg[VTIVAR_MISC] = 0x82;
 
-    _hostirqs[0] = { irqs[0], &Host82576VF::handle_rx };
-    _hostirqs[1] = { irqs[1], &Host82576VF::handle_tx };
-    _hostirqs[2] = { irqs[2], &Host82576VF::handle_mbx };
+    _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF::handle_rx;
+    _hostirqs[1].vec = irqs[1]; _hostirqs[0].handle = &Host82576VF::handle_tx;
+    _hostirqs[2].vec = irqs[2]; _hostirqs[0].handle = &Host82576VF::handle_mbx;
 
     // Enable IRQs
     _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
@@ -231,8 +233,10 @@ public:
 
     // Prepare rings
     last_rx = last_tx = 0;
-    for (unsigned i = 0; i < desc_ring_len; i++)
-      _rx_ring[i] = { (uintptr_t)_rx_buf[i], 0 };
+    for (unsigned i = 0; i < desc_ring_len; i++) {
+      _rx_ring[i].lo = (uintptr_t)_rx_buf[i];
+      _rx_ring[i].hi = 0;
+    }
 
     _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
     // Tell NIC about receive descriptors.
