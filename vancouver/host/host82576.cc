@@ -139,7 +139,7 @@ private:
 
       vf_set_mac(vf_no, vf_mac);
 
-      _hwreg[pfmbxmem] = mbxmsg[0] | CMD_ACK | CTS;
+      _hwreg[pfmbxmem] = mbxmsg[0] | CMD_ACK;
       _hwreg[pfmbxmem + 1] = vf_mac.raw;
       _hwreg[pfmbxmem + 2] = (vf_mac.raw >> 32) & 0xffff;
       break;
