@@ -76,12 +76,12 @@ private:
     uint32_t status = _hwreg[STATUS];
     const char *up = (status & STATUS_LU ? "UP" : "DOWN");
     const char *speed[] = { "10", "100", "1000", "1000" };
-    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX | %4d MB\n", up,
+    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX\n", up,
 	speed[(status & STATUS_SPEED) >> STATUS_SPEED_SHIFT],
 	status & STATUS_FD ? 'F' : 'H',
 	(status & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT,
 	status & STATUS_IOV ? "ON" : "OFF",
-	_hwreg[GPRC], _hwreg[GPTC], _hwreg[MPC]);
+	_hwreg[GPRC], _hwreg[GPTC]);
   }
 
   void handle_vf_reset(unsigned vf_no)
@@ -339,8 +339,10 @@ public:
     
     // VT Setup
     msg(INFO, "Configuring VFs...\n");
-    _hwreg[QDE] |= 0xFFFF;	// Enable packet dropping for all 16
-				// queues.
+
+    // Enable packet dropping for all 16 queues.
+    _hwreg[QDE] |= 0xFFFF;
+
     // Disable default pool. Uninteresting packets will be
     // dropped. Also enable replication to allow VF-to-VF
     // communication.
@@ -412,9 +414,7 @@ PARAM(host82576, {
           }
 
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
-					 // XXX Does not work reliably! (ioapic assertion) 
-					 pci.get_gsi(bdf, argv[1])
-					 );
+					 pci.get_gsi(bdf, argv[1]));
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }
