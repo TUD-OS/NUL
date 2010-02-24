@@ -220,7 +220,7 @@ class HostPci
     if (gsi == ~0UL && bus_acpi.send(msg3)) gsi = msg3.gsi;
 
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
-    if (gsi != ~0ul && !bus_hostop.send(msg)) return ~0ul;
+    if (bus_hostop.send(msg)) return ~0ul;
     return gsi;
   }
 

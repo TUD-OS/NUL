@@ -365,7 +365,7 @@ public:
 			bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
 	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
 	  Logging::printf("\t  parent %p addr %02x_%x gsi %x\n",
-			  dev->ptr - 1, p->adr, p->line, p->gsi);
+			  dev->ptr - 1, p->adr >> 16, p->line, p->gsi);
       }
   }
 
@@ -375,9 +375,29 @@ public:
     switch (msg.type)
       {
       case MessageAcpi::ACPI_GET_IRQ:
-      case MessageAcpi::ACPI_GET_TABLE:
-	break;
-      }
+	{
+	  unsigned parent_bdf = 0;
+	  if (msg.bdf >> 8) Logging::panic("multiple buses %x unimplemented", msg.bdf);
+
+
+	  // find the device
+	  for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
+	    if (dev->ptr[0] == 0x82 && Atare::get_device_bdf(_head, dev) == parent_bdf) {
+
+	      // look for the right entry
+	      for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
+		if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.line == p->line)) {
+		  Logging::printf("ATARE: found %x for %x_%x\n", p->gsi, msg.bdf, msg.line);
+
+		  msg.gsi = p->gsi;
+		  return true;
+		}
+	    }
+	  Logging::panic("ATARE: search for %x %x failed\n", msg.bdf, msg.line);
+	}
+	case MessageAcpi::ACPI_GET_TABLE:
+	  break;
+	}
     return false;
   }
 
@@ -389,7 +409,7 @@ public:
     if (bus_acpi.send(msg) && msg.table)
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
 
-    // and forom the SSDTs
+    // and from the SSDTs
     msg.name = "SSDT";
     for (; bus_acpi.send(msg) && msg.table; msg.instance++)
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
