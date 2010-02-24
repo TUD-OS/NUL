@@ -27,7 +27,7 @@ PARAM(PC_PS2,
 
 PARAM(S0_DEFAULT,
       {
-	char param [] = "hostacpi ioio hostrtc pcicfg mmconfig";
+	char param [] = "hostacpi ioio hostrtc pcicfg mmconfig atare";
 	mb.parse_args(param);
       },
       "S0_DEFAULT - an alias for the default sigma0 parameters",
