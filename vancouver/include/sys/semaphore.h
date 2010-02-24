@@ -18,7 +18,7 @@
 
 #include "vmm/cpu.h"
 #include "driver/logging.h"
-
+#include <sys/syscalls.h>
 
 /**
  * A kernel semaphore optimized for consumer/producer.
