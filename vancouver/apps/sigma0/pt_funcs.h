@@ -256,7 +256,7 @@ PT_FUNC(do_request,
 			  break;
 			}
 		    case MessageHostOp::OP_ATTACH_MSI:
-		      attach_msi(msg);
+		      attach_msi(msg, modinfo->cpunr);
 		      utcb->msg[0] = 0;
 		      break;
 		    case MessageHostOp::OP_ALLOC_IOIO_REGION:

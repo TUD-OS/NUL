@@ -132,10 +132,10 @@ inline unsigned char  assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
 {  return syscall(NOVA_ASSIGN_PCI, pd, pf_rid, vf_rid, 0); }
 
 
-inline unsigned char  assign_gsi(unsigned idx_sm, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
+inline unsigned char  assign_gsi(unsigned idx_sm, unsigned cpu_nr, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
 {
   unsigned out1;
-  unsigned char res = syscall(NOVA_ASSIGN_GSI, idx_sm, rid, 0, 0, &out1, msi_value);
+  unsigned char res = syscall(NOVA_ASSIGN_GSI, idx_sm, cpu_nr, rid, 0, &out1, msi_value);
   if (msi_address) *msi_address = out1;
   return res;
 }

@@ -77,6 +77,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     unsigned      mod_nr;
     unsigned      mod_count;
     unsigned      cap_pd;
+    unsigned      cpunr;
     unsigned long rip;
     char          tag[256];
     char *        mem;
@@ -141,10 +142,9 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
   }
 
 
-  void attach_msi(MessageHostOp *msg) {
+  void attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
-    Logging::printf("assign_gsi %x %x\n", msg->msi_gsi, msg->value);
-    assign_gsi(_hip->cfg_exc + msg->msi_gsi, msg->value, &msg->msi_address, &msg->msi_value);
+    assign_gsi(_hip->cfg_exc + msg->msi_gsi, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
   }
 
 
@@ -392,6 +392,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 	    memset(modinfo, 0, sizeof(*modinfo));
 	    modinfo->mod_nr    = i;
 	    modinfo->mod_count = 1;
+	    modinfo->cpunr = cpunr;
 	    modinfo->dma  = strstr(cmdline, "sigma0::dma");
 	    modinfo->log = strstr(cmdline, "sigma0::log");
 	    bool vcpus   = strstr(cmdline, "sigma0::vmm");
@@ -717,7 +718,7 @@ public:
     switch (msg.type)
       {
       case MessageHostOp::OP_ATTACH_MSI:
-	attach_msi(&msg);
+	attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
 	res = attach_irq(msg.msi_gsi);
 	break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -725,7 +726,7 @@ public:
 	  unsigned gsi = msg.value;
 	  if (_gsi & (1 << gsi)) return true;
 	  _gsi |=  1 << gsi;
-	  assign_gsi(_hip->cfg_exc + gsi);
+	  assign_gsi(_hip->cfg_exc + gsi, _cpunr[CPUGSI % _numcpus]);
 	  res = attach_irq(gsi);
 	}
 	break;
