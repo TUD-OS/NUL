@@ -215,9 +215,8 @@ class HostPci
 	return msg1.msi_gsi;
       }
 
-    MessageAcpi msg3(bdf);
-
     // normal GSIs
+    MessageAcpi msg3(bdf, conf_read(bdf, 0x3c) & 0xff);
     if (gsi == ~0UL && bus_acpi.send(msg3)) gsi = msg3.gsi;
 
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
