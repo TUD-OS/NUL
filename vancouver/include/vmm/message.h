@@ -460,15 +460,18 @@ struct MessageAcpi
   union {
     struct {
       const char *name;
+      unsigned instance;
       char *table;
+      unsigned len;
     };
     struct {
       unsigned bdf;
+      unsigned char line;
       unsigned gsi;
     };
   };
-  MessageAcpi(const char *_name): type(ACPI_GET_TABLE), name(_name), table(0) {}
-  MessageAcpi(unsigned _bdf): type(ACPI_GET_IRQ), bdf(_bdf), gsi(~0u) {}
+  MessageAcpi(const char *_name): type(ACPI_GET_TABLE), name(_name), instance(0), table(0), len(0) {}
+  MessageAcpi(unsigned _bdf, unsigned char line): type(ACPI_GET_IRQ), bdf(_bdf), gsi(~0u) {}
 };
 
 

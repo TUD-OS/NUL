@@ -1,7 +1,7 @@
 /**
  * HostAcpi driver.
  *
- * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -20,8 +20,8 @@
 /**
  * Provide access to the ACPI tables.
  *
- * Features: RSDT, table search
- * Missing:  XSDT, GSIs per PCI device
+ * Features: RSDT, table search, DSDT
+ * Missing:  XSDT, DSDT_X
  */
 class HostAcpi : public StaticReceiver<HostAcpi>
 {
@@ -76,6 +76,23 @@ class HostAcpi : public StaticReceiver<HostAcpi>
     return 0;
   }
 
+
+  bool check_table(unsigned address, MessageAcpi &msg, const char *name) {
+    char * t = map_self(address, 0x1000);
+    Logging::printf("acpi table at %x %p sig %4s\n", address, t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
+    if (!memcmp(reinterpret_cast<GenericAcpiTable *>(t)->signature, name, 4))
+      {
+	unsigned size = reinterpret_cast<GenericAcpiTable *>(t)->size;
+	if (size > 0x1000)  t = map_self(address, size);
+	if (acpi_checksum(t, size)) return false;
+	msg.table = t;
+	msg.len = size;
+	return true;
+      }
+    return false;
+  }
+
+
   struct GenericAcpiTable
   {
     char signature[4];
@@ -96,9 +113,13 @@ public:
       {
       case MessageAcpi::ACPI_GET_TABLE:
 	{
+	  unsigned instance = msg.instance;
 	  Logging::printf("search ACPI table %s\n", msg.name);
 	  char *table = acpi_get_rsdp();
 	  if (!table) break;
+
+	  bool search_for_dsdt = !memcmp(msg.name, "DSDT", 4);
+	  const char *name = search_for_dsdt ? "FACP" : msg.name;
 
 	  // get rsdt
 	  table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), 0x1000);
@@ -111,21 +132,13 @@ public:
 	  // iterate over rsdt_entries
 	  unsigned *rsdt_entries = reinterpret_cast<unsigned *>(table + sizeof(GenericAcpiTable));
 	  for (unsigned i=0; i < ((rsdt_size - sizeof(GenericAcpiTable)) / 4); i++)
-	    {
-	      char * t = map_self(rsdt_entries[i], 0x1000);
-	      Logging::printf("acpi table[%x] at %x %p sig %4s\n", i, rsdt_entries[i], t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
-	      if (!memcmp(reinterpret_cast<GenericAcpiTable *>(t)->signature, msg.name, 4))
-		{
-		  unsigned size = reinterpret_cast<GenericAcpiTable *>(t)->size;
-		  if (size > 0x1000)  t = map_self(rsdt_entries[i], size);
-		  if (acpi_checksum(t, size)) continue;
-		  msg.table = t;
-		  return true;
-		}
+	    if (check_table(rsdt_entries[i], msg, name) && !instance--) {
+	      if (search_for_dsdt)
+		return check_table(*reinterpret_cast<unsigned *>(msg.table + 40), msg, "DSDT");
+	      return true;
 	    }
 	}
-      default:
-	Logging::printf("unimplemented op %x\n", msg.type);
+      case MessageAcpi::ACPI_GET_IRQ:
 	break;
       }
     return false;
