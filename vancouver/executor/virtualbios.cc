@@ -766,11 +766,11 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       {
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
       case MessageHostOp::OP_ALLOC_IOMEM:
-      case MessageHostOp::OP_ATTACH_HOSTIRQ:
+      case MessageHostOp::OP_ATTACH_IRQ:
 	// we have all ports and irqs
 	return true;
       case MessageHostOp::OP_ASSIGN_PCI:
-      case MessageHostOp::OP_GET_MSIVECTOR:
+      case MessageHostOp::OP_ATTACH_MSI:
 	return false;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_VIRT_TO_PHYS:

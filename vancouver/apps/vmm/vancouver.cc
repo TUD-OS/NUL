@@ -408,7 +408,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     switch (utcb->eax)
       {
       case 0x40000000:
-	syscall(254, utcb->ebx, 0, 0, 0);
+	//syscall(254, utcb->ebx, 0, 0, 0);
 	break;
       case 0x40000001:
 	_mb->dump_counters();
@@ -495,9 +495,6 @@ public:
 	msg.ptr = reinterpret_cast<char *>(Sigma0Base::request_io(msg.value, msg.len, false, _iomem_start));
 	res = msg.value;
 	break;
-      case MessageHostOp::OP_ATTACH_HOSTIRQ:
-	res = create_irq_thread(msg.value, do_gsi);
-	break;
       case MessageHostOp::OP_GUEST_MEM:
 	if (msg.value >= _physsize)
 	  msg.value = 0;
@@ -524,10 +521,14 @@ public:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_GET_UID:
-      case MessageHostOp::OP_GET_MSIVECTOR:
 	res = Sigma0Base::hostop(msg);
 	break;
+      case MessageHostOp::OP_ATTACH_MSI:
+	res  = Sigma0Base::hostop(msg);
+	create_irq_thread(msg.msi_gsi, do_gsi);
+	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
+      case MessageHostOp::OP_ATTACH_IRQ:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

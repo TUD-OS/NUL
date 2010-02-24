@@ -163,9 +163,9 @@ public:
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	// forward to the host
 	return _hostmb.bus_hostop.send(msg);
-      case MessageHostOp::OP_ATTACH_HOSTIRQ:
+      case MessageHostOp::OP_ATTACH_IRQ:
       case MessageHostOp::OP_ASSIGN_PCI:
-      case MessageHostOp::OP_GET_MSIVECTOR:
+      case MessageHostOp::OP_ATTACH_MSI:
 	// we do not need this
 	return false;
       case MessageHostOp::OP_NOTIFY_IRQ:

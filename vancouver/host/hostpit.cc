@@ -30,7 +30,7 @@ class HostPit : public StaticReceiver<HostPit>
   unsigned _iobase;
   unsigned _irq;
   const char *debug_getname() {  return "HostPIT"; }
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" iobase %x period %x irq %x", _iobase, _period, _irq);
   };
@@ -49,7 +49,7 @@ class HostPit : public StaticReceiver<HostPit>
   }
 
 
-  HostPit(DBus<MessageIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, unsigned period, unsigned iobase, unsigned irq) 
+  HostPit(DBus<MessageIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, unsigned period, unsigned iobase, unsigned irq)
     :  _bus_hwioout(bus_hwioout), _bus_timeout(bus_timeout), _period(period), _iobase(iobase), _irq(irq)
   {
     unsigned long long value = FREQ*period;
@@ -72,7 +72,7 @@ PARAM(hostpit,
 	Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, argv[0], argv[1], argv[2]);
 	mb.bus_hostirq.add(dev, &HostPit::receive_static<MessageIrq>);
 
-	MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, argv[2]);
+	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
 	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
       },

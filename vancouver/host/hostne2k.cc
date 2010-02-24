@@ -216,14 +216,10 @@ PARAM(hostne2k,
 	      // must be an ioport
 	      if ((port & 3) != 1 || (port >> 16)) continue;
 	      port &= ~3;
-	      unsigned irq = pci.get_gsi(bdf, argv[0]);
+	      unsigned irq = pci.get_gsi(mb.bus_hostop, bdf, argv[0]);
 	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
 	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
 	      mb.bus_network.add(dev, &HostNe2k::receive_static<MessageNetwork>);
-
-	      MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, irq);
-	      if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
-		Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
 	      mb.bus_hostirq.add(dev, &HostNe2k::receive_static<MessageIrq>);
 	    }
       },

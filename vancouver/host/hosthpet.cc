@@ -176,6 +176,8 @@ public:
 	legacy =  true;
 	_irq = timer ? 8 : 2;
       }
+#if 0
+      XXX reenable MSI again
       else {
 	// MSI?
 	MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
@@ -186,12 +188,12 @@ public:
 	  _timerreg->config |= 1<<14;
 	  level = false;
 	}
+#endif
 	else {
 	  assert(_timerreg->int_route);
 	  _irq = Cpu::bsf(_timerreg->int_route);
 	}
       }
-    }
     else
       assert(_timerreg->int_route & (1 << _irq));
 
@@ -209,6 +211,11 @@ public:
     _regs->isr = _isrclear;
 
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
+
+    MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, _irq);
+    if (!bus_hostop.send(msg2))
+      Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
+
   }
 };
 
@@ -232,11 +239,6 @@ PARAM(hosthpet,
 	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, level);
 	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
-
-	// allocate hostirq
-	MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, dev->irq());
-	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
-	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
 
       },
       "hosthpet:timer=0,address,irq=~0u,level=1 - use the host HPET as timer.",

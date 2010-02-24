@@ -18,6 +18,7 @@
 #pragma once
 #include "sys/syscalls.h"
 #include "sys/semaphore.h"
+#include "driver/profile.h"
 
 
 /**
@@ -147,8 +148,12 @@ public:
 	left = 0;
       }
 
-    if ((needed >= right) && (needed >= left))
+    if ((needed > right) && (needed > left))
       {
+	COUNTER_INC("NET drop");
+	COUNTER_SET("NET rpos", Parent::_consumer->_rpos);
+	COUNTER_SET("NET wpos", Parent::_consumer->_wpos);
+	COUNTER_SET("NET size", len);
 	Parent::_dropping = true;
 	return false;
       }
@@ -161,7 +166,11 @@ public:
     }
     Parent::_consumer->_buffer[ofs] = len;
     memcpy(Parent::_consumer->_buffer + ofs + 1, buf, len);
-    Parent::_consumer->_wpos = ofs + needed;
+    assert(ofs + needed <= SIZE);
+    if (ofs + needed == SIZE)
+      Parent::_consumer->_wpos = 0;
+    else
+      Parent::_consumer->_wpos = ofs + needed;
     Parent::_sem.up();
     return true;
   }

@@ -467,17 +467,11 @@ PARAM(hostahci,
 
 	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
 	  bool dmar = mb.bus_hostop.send(msg1);
-	  unsigned irqline = pci.get_gsi(bdf, argv[1]);
+	  unsigned irqline = pci.get_gsi(mb.bus_hostop, bdf, argv[1]);
 
 	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
 	  Logging::printf("DISK controller #%x AHCI %x id %x\n", num, bdf, pci.conf_read(bdf, 0));
 	  mb.bus_hostirq.add(dev, &HostAhci::receive_static<MessageIrq>);
-
-	  if (!pci.enable_msi(bdf, irqline)) Logging::printf("MSI not enabled vev %x\n", irqline);
-
-	  MessageHostOp msg2(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline);
-	  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
-	    Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, irqline);
 
 	}
       },

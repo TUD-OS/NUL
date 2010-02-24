@@ -31,6 +31,7 @@ enum
   NOVA_RECALL,
   NOVA_SEMCTL,
   NOVA_ASSIGN_PCI,
+  NOVA_ASSIGN_GSI,
   NOVA_PERFCNT,			/* XXX */
 
   NOVA_FLAG0          = 1 << 8,
@@ -60,7 +61,7 @@ enum ERROR
 
 static inline
 unsigned char
-syscall(unsigned w0, unsigned w1, unsigned w2, unsigned w3, unsigned w4)
+syscall(unsigned w0, unsigned w1, unsigned w2, unsigned w3, unsigned w4, unsigned *out1=0, unsigned *out2=0)
 {
   asm volatile ("push %%ebp;"
 		"mov %%ecx, %%ebp;"
@@ -69,9 +70,11 @@ syscall(unsigned w0, unsigned w1, unsigned w2, unsigned w3, unsigned w4)
 		"sysenter;"
 		"1: ;"
 		"pop %%ebp;"
-		: "+a" (w0), "+c"(w4)
-		: "D" (w1), "S" (w2), "b"(w3)
+		: "+a" (w0), "+D" (w1), "+S" (w2), "+c"(w4)
+		:  "b"(w3)
 		: "edx", "memory");
+  if (out1) *out1 = w1;
+  if (out2) *out2 = w2;
   return w0;
 }
 
@@ -109,22 +112,33 @@ inline unsigned char  create_sm(unsigned idx_sm, unsigned initial = 0)
 {  return syscall(NOVA_CREATE_SM, idx_sm, initial, 0, 0); }
 
 
-inline unsigned char  revoke(Crd crd, bool myself) 
+inline unsigned char  revoke(Crd crd, bool myself)
 {  return syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
 
 inline unsigned char  recall(unsigned idx_ec)
 {  return syscall(NOVA_RECALL, idx_ec, 0, 0, 0); }
 
-inline unsigned char  semup(unsigned idx_sm) 
+
+inline unsigned char  semup(unsigned idx_sm)
 {  return syscall(NOVA_SEMCTL_UP, idx_sm, 0, 0, 0); }
 
 
-inline unsigned char  semdown(unsigned idx_sm) 
+inline unsigned char  semdown(unsigned idx_sm)
 {  return syscall(NOVA_SEMCTL_DOWN, idx_sm, 0, 0, 0); }
+
 
 inline unsigned char  assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
 {  return syscall(NOVA_ASSIGN_PCI, pd, pf_rid, vf_rid, 0); }
+
+
+inline unsigned char  assign_gsi(unsigned idx_sm, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
+{
+  unsigned out1;
+  unsigned char res = syscall(NOVA_ASSIGN_GSI, idx_sm, rid, 0, 0, &out1, msi_value);
+  if (msi_address) *msi_address = out1;
+  return res;
+}
 
 
 /**

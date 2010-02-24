@@ -313,11 +313,6 @@ public:
     _hwreg[EIMC] = ~0U;
     msg(INFO, "Global Reset successful.\n");
 
-    // IRQ
-    MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, hostirq);
-    if (!(irq_msg.value == ~0U || bus_hostop.send(irq_msg)))
-      Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, hostirq);
-
     // Configuring one MSI-X vector: We have to use Multiple-MSI-X
     // mode, because SR-IOV is on. Beware, that we can only use one
     // internal interrupt vector (vector 0). The 82576 has 25, but
@@ -414,7 +409,9 @@ PARAM(host82576, {
           }
 
 	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
-					 pci.get_gsi(bdf, argv[1]));
+					 // XXX Does not work reliably! (ioapic assertion)
+					 pci.get_gsi(mb.bus_hostop, bdf, argv[1])
+					 );
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }

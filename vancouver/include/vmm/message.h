@@ -163,8 +163,8 @@ struct MessageAhciSetDrive
 /****************************************************/
 
 enum {
-  MSI_ADDRESS = 0xfee00000,
-  MSI_VALUE   = 0x20,
+  MSI_ADDRESS = 0xfee00018,
+  MSI_VALUE   = 0x0,
 };
 
 
@@ -410,11 +410,11 @@ struct MessageHostOp
 {
   enum Type
     {
+      OP_ATTACH_IRQ,
       OP_NOTIFY_IRQ,
+      OP_ATTACH_MSI,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
-      OP_GET_MSIVECTOR,
-      OP_ATTACH_HOSTIRQ,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
@@ -432,13 +432,17 @@ struct MessageHostOp
       char *ptr;
       unsigned len;
     };
-    struct
-    {
+    struct {
       unsigned module;
       char * start;
       unsigned long size;
       char * cmdline;
       unsigned long cmdlen;
+    };
+    struct {
+      unsigned msi_gsi;
+      unsigned msi_value;
+      unsigned long long msi_address;
     };
   };
   MessageHostOp(unsigned _module, char * _start) : type(OP_GET_MODULE), module(_module), start(_start), size(0), cmdlen(0)  {}

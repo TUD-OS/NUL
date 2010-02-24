@@ -314,7 +314,7 @@ PARAM(dpci,
 		return;
 	      }
 
-	    unsigned irqline = pci.get_gsi(bdf, argv[4]);
+	    unsigned irqline = pci.get_gsi(mb.bus_hostop, bdf, argv[4], true);
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
 
@@ -325,16 +325,8 @@ PARAM(dpci,
 	    mb.bus_memread.add(dev, &DirectPciDevice::receive_static<MessageMemRead>);
 	    mb.bus_memwrite.add(dev, &DirectPciDevice::receive_static<MessageMemWrite>);
 	    mb.bus_memmap.add(dev, &DirectPciDevice::receive_static<MessageMemMap>);
-
-
-	    if (irqline != ~0UL)
-	      {
-		if (!pci.enable_msi(bdf, irqline)) Logging::printf("MSI not enabled vev %x\n", irqline);
-		mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
-		mb.bus_irqnotify.add(dev, &DirectPciDevice::receive_static<MessageIrqNotify>);
-		MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, irqline | 0x100);
-		mb.bus_hostop.send(msg3);
-	      }
+	    mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
+	    mb.bus_irqnotify.add(dev, &DirectPciDevice::receive_static<MessageIrqNotify>);
 	  }
       },
       "dpci:class,subclass,instance,bdf,hostirq - makes the specified hostdevice directly accessible to the guest.",

@@ -161,61 +161,50 @@ class HostPci
   }
 
 
-  unsigned get_gsi(unsigned bdf, unsigned long gsi_override = ~0UL)
-  {
-    if (gsi_override != ~0UL) return gsi_override;
+  /**
+   * Returns the gsi and enables them.
+   */
+  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, unsigned bdf, unsigned long gsi = ~0UL, bool level=false) {
 
-    // MSI?
-    MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
-    if ((find_cap(bdf, CAP_MSI) || find_cap(bdf, CAP_MSIX))
-	&& _bus_hostop.send(msg1))   return msg1.value;
+    // XXX global disable MSI
+    // XXX MSI-X
 
-    // XXX atare needed
-    switch (conf_read(bdf, 0))
+    // MSI
+    unsigned msi_offset = find_cap(bdf, CAP_MSI);
+    if (msi_offset)
       {
-      case 0x3a228086: return 0x13;
-      case 0x43911002: return 0x16;
-      }
-    return conf_read(bdf, 0x3c) & 0xff;
-  }
+	unsigned ctrl = conf_read(bdf, msi_offset);
+	Logging::printf("MSI cap @%x ctrl %x\n", msi_offset, ctrl);
+
+	MessageHostOp msg(MessageHostOp::OP_ATTACH_MSI, bdf);
+	if (!bus_hostop.send(msg)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
 
 
-  bool enable_msi(unsigned bdf, unsigned char gsi)
-  {
-    if (gsi < 24) return false;
-
-    // use msi
-    unsigned offset = find_cap(bdf, CAP_MSI);
-    Logging::printf("find MSI cap %x\n", offset);
-    if (offset)
-      {
-	unsigned ctrl = conf_read(bdf, offset);
-	Logging::printf("MSI cap @%x ctrl %x\n", offset, ctrl);
-	unsigned base = offset + 4;
-	conf_write(bdf, base+0, MSI_ADDRESS);
-	conf_write(bdf, base+4, 0);
+	unsigned base = msi_offset + 4;
+	conf_write(bdf, base+0, msg.msi_address);
+	conf_write(bdf, base+4, msg.msi_address >> 32);
 	if (ctrl & 0x800000) base += 4;
-	conf_write(bdf, base+4, MSI_VALUE + gsi);
+	conf_write(bdf, base+4, msg.msi_value);
 
 	// we use only a single message and enable MSIs here
-	conf_write(bdf, offset, (ctrl & ~0x700000) | 0x10000);
-	Logging::printf("MSI %x enabled for bdf %x\n", gsi, bdf);
-	return true;
+	conf_write(bdf, msi_offset, (ctrl & ~0x700000) | 0x10000);
+	Logging::printf("MSI %x enabled for bdf %x MSI %llx/%x\n", msg.msi_gsi, bdf, msg.msi_address, msg.msi_value);
+	return msg.msi_gsi;
       }
-#if 0
-    // or msi-x
-    offset = find_cap(_bdf, 0x11);
-    if (offset)
-      {
-	unsigned ctrl = conf_read(_bdf, offset);
-	ctrl &= 0xffff;
-	conf_write(_bdf, offset, ctrl);
-	Logging::printf("MSI-X cap @%x ctrl %x  - disabling\n", offset, ctrl);
-	conf_write(_bdf, offset, ctrl);
+
+    // normal GSIs
+    if (gsi != ~0UL) {
+      // XXX plugin atare here
+      switch (conf_read(bdf, 0)) {
+      case 0x3a228086: gsi = 0x13; break;
+      case 0x43911002: gsi = 0x16; break;
       }
-#endif
-    return false;
+    }
+    MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
+    if (!bus_hostop.send(msg)) return ~0u;
+    return gsi;
   }
+
 
 
   /**

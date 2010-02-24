@@ -129,7 +129,24 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
     return MessageDisk::DISK_STATUS_BUSY;
   }
 
-  unsigned alloc_msivector() { return _hip->cfg_gsi - ++_msivector; }
+
+  bool attach_irq(unsigned gsi)
+  {
+    Logging::printf("create ec for gsi %x\n", gsi);
+    Utcb *u;
+    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
+    u->msg[0] =  _hip->cfg_exc + gsi;
+    u->msg[1] =  gsi;
+    return !create_sc(_cap_free++, cap, Qpd(3, 10000));
+  }
+
+
+  void attach_msi(MessageHostOp *msg) {
+    msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
+    Logging::printf("assign_gsi %x %x\n", msg->msi_gsi, msg->value);
+    assign_gsi(_hip->cfg_exc + msg->msi_gsi, msg->value, &msg->msi_address, &msg->msi_value);
+  }
+
 
   /**
    * Converts client ptr to a pointer in our addressspace.
@@ -699,27 +716,20 @@ public:
     bool res = true;
     switch (msg.type)
       {
-      case MessageHostOp::OP_ALLOC_IOIO_REGION:
+      case MessageHostOp::OP_ATTACH_MSI:
+	attach_msi(&msg);
+	res = attach_irq(msg.msi_gsi);
 	break;
-      case MessageHostOp::OP_ATTACH_HOSTIRQ:
+      case MessageHostOp::OP_ATTACH_IRQ:
 	{
 	  unsigned gsi = msg.value;
-
-	  // revert irq0 override
-	  if (!_hip->has_gsi() && gsi == 2) gsi = 0;
-
-	  if (_gsi & (1 << gsi)) break;
+	  if (_gsi & (1 << gsi)) return true;
 	  _gsi |=  1 << gsi;
-
-
-	  Logging::printf("create ec for gsi %lx vec %x\n", msg.value, gsi);
-	  Utcb *u;
-	  unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
-	  u->msg[0] =  _hip->cfg_exc + gsi;
-	  u->msg[1] =  msg.value;
-
-	  res = !create_sc(_cap_free++, cap, Qpd(3, 10000));
+	  assign_gsi(_hip->cfg_exc + gsi);
+	  res = attach_irq(gsi);
 	}
+	break;
+      case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
 	msg.ptr = map_self(myutcb(), msg.value, msg.len);
@@ -752,9 +762,6 @@ public:
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
 	res = !assign_pci_device(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, msg.len);
-	break;
-      case MessageHostOp::OP_GET_MSIVECTOR:
-	msg.value = alloc_msivector();
 	break;
       case MessageHostOp::OP_GET_UID:
 	msg.value = ++_uid;

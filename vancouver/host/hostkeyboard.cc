@@ -374,8 +374,8 @@ PARAM(hostkeyb,
 	mb.bus_hostirq.add(dev, &HostKeyboard::receive_static<MessageIrq>);
 	mb.bus_legacy.add(dev, &HostKeyboard::receive_static<MessageLegacy>);
 
-	MessageHostOp msg3(MessageHostOp::OP_ATTACH_HOSTIRQ, argv[2]);
-	MessageHostOp msg4(MessageHostOp::OP_ATTACH_HOSTIRQ, argv[3]);
+	MessageHostOp msg3(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
+	MessageHostOp msg4(MessageHostOp::OP_ATTACH_IRQ, argv[3]);
 	if (!(msg3.value == ~0U || mb.bus_hostop.send(msg3)) || !(msg4.value == ~0U || mb.bus_hostop.send(msg4)))
 	  Logging::panic("%s failed to attach hostirq %lx, %lx\n", __PRETTY_FUNCTION__, argv[2], argv[3]);
       },

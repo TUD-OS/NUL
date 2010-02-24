@@ -234,10 +234,11 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     // Get Host IRQs
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
-      unsigned gsi = get_gsi(_vf_bdf, ~0UL);
+      unsigned gsi = get_gsi(mb.bus_hostop, _vf_bdf);
       msg("Host IRQ%d -> MSI-X vector %d\n", gsi, i);
       _host_irqs[i] = gsi;
-      MessageHostOp imsg(MessageHostOp::OP_ATTACH_HOSTIRQ, gsi);
+      // XXX MSIX
+      MessageHostOp imsg(MessageHostOp::OP_ATTACH_IRQ, gsi);
       mb.bus_hostop.send(imsg);
     }
 
