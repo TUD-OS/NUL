@@ -419,7 +419,7 @@ public:
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
 
     add_routing(_head);
-    Logging::printf("ATARE done\n");
+    Logging::printf("ATARE initialized\n");
 
   };
 };
