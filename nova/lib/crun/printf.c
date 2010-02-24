@@ -87,7 +87,7 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
       break;
     case '.':
       if (*(format+1) == '*')
-	pad = va_arg(*ap, int);
+	pad = 2 * va_arg(*ap, int);
       format += 2;
       break;
     case 'l':
