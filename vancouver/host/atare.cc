@@ -21,6 +21,10 @@
 /**
  * ATARE - ACPI table IRQ routing extraction.
  *
+ * This extends the ideas from "ATARE: ACPI Tables and Regular
+ * Expressions, Bernhard Kauer, TU Dresden technical report
+ * TUD-FI09-09, Dresden, Germany, August 2009".
+ *
  * State: testing
  * Features: direct PRT, referenced PRTs, exact name resolution, Routing Entries
  * Missing: non-root bus
