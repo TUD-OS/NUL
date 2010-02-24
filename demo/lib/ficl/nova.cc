@@ -26,8 +26,8 @@ static void createSm(FICL_VM *pVM)
 
 static void semUp(FICL_VM *pVM)
 {
-  unsigned cap = stackPopUNS(pVM->pStack);
-  stackPushUNS(pVM->pStack, semup(cap));
+  unsigned cap = POPUNS();
+  PUSHUNS(semup(cap));
 }
 
 static void semDown(FICL_VM *pVM)
