@@ -239,8 +239,8 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
-	    unsigned bdf)
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
+	    unsigned bdf, unsigned hostirq)
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -317,8 +317,6 @@ public:
     // mode, because SR-IOV is on. Beware, that we can only use one
     // internal interrupt vector (vector 0). The 82576 has 25, but
     // each of the 8 VMs needs 3.
-
-    _hostirq = pci.get_gsi(bus_hostop, bdf, 0);
     _hwreg[GPIE] = GPIE_EIAME | GPIE_MULTIPLE_MSIX | GPIE_PBA | GPIE_NSICR; // 7.3.2.11
 
     // Disable all RX/TX interrupts.
@@ -406,7 +404,8 @@ PARAM(host82576, {
             continue;
           }
 
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
+					 pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0));
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }

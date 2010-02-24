@@ -518,6 +518,8 @@ public:
 	semup(_shared_sem[msg.value & 0xff]);
 	res = true;
 	break;
+      case MessageHostOp::OP_ATTACH_IRQ:
+	create_irq_thread(msg.value, do_gsi);
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_GET_UID:
@@ -528,7 +530,6 @@ public:
 	create_irq_thread(msg.msi_gsi, do_gsi);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
-      case MessageHostOp::OP_ATTACH_IRQ:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

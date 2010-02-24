@@ -280,7 +280,7 @@ PARAM(host82576vf, {
     // IRQs
     unsigned irqs[3];
     for (unsigned i = 0; i < 3; i++)
-      irqs[i] = pci.get_gsi(mb.bus_hostop, vf_bdf, i);
+      irqs[i] = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, vf_bdf, i);
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
 				       mb.clock(), vf_bdf,

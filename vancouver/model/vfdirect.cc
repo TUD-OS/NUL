@@ -234,7 +234,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     // Get Host IRQs
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
-      unsigned gsi = get_gsi(mb.bus_hostop, _vf_bdf, i);
+      unsigned gsi = get_gsi(mb.bus_hostop, mb.bus_acpi, _vf_bdf, i);
       msg("Host IRQ%d -> MSI-X vector %d\n", gsi, i);
       _host_irqs[i] = gsi;
     }

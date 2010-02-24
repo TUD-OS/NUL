@@ -19,7 +19,7 @@
 
 /**
  * Provide access to the ACPI tables.
- * 
+ *
  * Features: RSDT, table search
  * Missing:  XSDT, GSIs per PCI device
  */
@@ -75,7 +75,7 @@ class HostAcpi : public StaticReceiver<HostAcpi>
       }
     return 0;
   }
-  
+
   struct GenericAcpiTable
   {
     char signature[4];
@@ -107,7 +107,7 @@ public:
 	  if (rsdt_size > 0x1000) table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), rsdt_size);
 	  if (!table || !rsdt_size) break;
 	  if (acpi_checksum(table, rsdt_size)) { Logging::printf("RSDT checksum invalid\n"); break; }
-	  
+
 	  // iterate over rsdt_entries
 	  unsigned *rsdt_entries = reinterpret_cast<unsigned *>(table + sizeof(GenericAcpiTable));
 	  for (unsigned i=0; i < ((rsdt_size - sizeof(GenericAcpiTable)) / 4); i++)
@@ -125,6 +125,7 @@ public:
 	    }
 	}
       default:
+	Logging::printf("unimplemented op %x\n", msg.type);
 	break;
       }
     return false;
@@ -140,4 +141,3 @@ PARAM(hostacpi,
 	mb.bus_acpi.add(dev, HostAcpi::receive_static<MessageAcpi>);
       },
       "hostacpi - provide ACPI tables to drivers.")
-

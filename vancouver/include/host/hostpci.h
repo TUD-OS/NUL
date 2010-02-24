@@ -164,10 +164,19 @@ class HostPci
   /**
    * Returns the gsi and enables them.
    */
-  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, unsigned bdf, unsigned nr, unsigned long gsi=~0ul, bool level=false) {
+  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, DBus<MessageAcpi> &bus_acpi, unsigned bdf, unsigned nr, unsigned long gsi=~0ul, bool level=false) {
 
     // XXX global disable MSI+MSI-X
     unsigned msix_offset = find_cap(bdf, CAP_MSIX);
+    unsigned msi_offset = find_cap(bdf, CAP_MSI);
+    msi_offset = 0;
+
+    // attach to an MSI
+    MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
+    if ((msi_offset || msix_offset) && !bus_hostop.send(msg1))
+      Logging::panic("could not attach to msi for bdf %x\n", bdf);
+
+
     if (msix_offset)
       {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 0x4);
@@ -177,10 +186,6 @@ class HostPci
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
 	if (!bus_hostop.send(msg2) || !msg2.ptr)
 	  Logging::panic("can not map MSIX bar %lx+%x", msg2.value, msg2.len);
-
-	// attach to an MSI
-	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
-	if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
 
 	volatile unsigned *msix_table = (volatile unsigned *) (msg2.ptr + (base & 0xfff));
 	msix_table[nr*4 + 0]  = msg1.msi_address;
@@ -193,38 +198,30 @@ class HostPci
       }
 
     // MSI
-    unsigned msi_offset = find_cap(bdf, CAP_MSI);
     if (msi_offset)
       {
 	unsigned ctrl = conf_read(bdf, msi_offset);
 	Logging::printf("MSI cap @%x ctrl %x\n", msi_offset, ctrl);
 
-	MessageHostOp msg(MessageHostOp::OP_ATTACH_MSI, bdf);
-	if (!bus_hostop.send(msg)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
-
-
 	unsigned base = msi_offset + 4;
-	conf_write(bdf, base+0, msg.msi_address);
-	conf_write(bdf, base+4, msg.msi_address >> 32);
+	conf_write(bdf, base+0, msg1.msi_address);
+	conf_write(bdf, base+4, msg1.msi_address >> 32);
 	if (ctrl & 0x800000) base += 4;
-	conf_write(bdf, base+4, msg.msi_value);
+	conf_write(bdf, base+4, msg1.msi_value);
 
 	// we use only a single message and enable MSIs here
 	conf_write(bdf, msi_offset, (ctrl & ~0x700000) | 0x10000);
-	Logging::printf("MSI %x enabled for bdf %x MSI %llx/%x\n", msg.msi_gsi, bdf, msg.msi_address, msg.msi_value);
-	return msg.msi_gsi;
+	Logging::printf("MSI %x enabled for bdf %x MSI %llx/%x\n", msg1.msi_gsi, bdf, msg1.msi_address, msg1.msi_value);
+	return msg1.msi_gsi;
       }
 
+    MessageAcpi msg3(bdf);
+
     // normal GSIs
-    if (gsi != ~0UL) {
-      // XXX plugin atare here
-      switch (conf_read(bdf, 0)) {
-      case 0x3a228086: gsi = 0x13; break;
-      case 0x43911002: gsi = 0x16; break;
-      }
-    }
+    if (gsi == ~0UL && bus_acpi.send(msg3)) gsi = msg3.gsi;
+
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
-    if (!bus_hostop.send(msg)) return ~0u;
+    if (gsi != ~0ul && !bus_hostop.send(msg)) return ~0ul;
     return gsi;
   }
 

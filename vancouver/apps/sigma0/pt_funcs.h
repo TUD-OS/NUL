@@ -255,6 +255,11 @@ PT_FUNC(do_request,
 			  Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			  break;
 			}
+		    case MessageHostOp::OP_ATTACH_IRQ:
+		      Logging::printf("assign_gsi PD %x gsi %lx\n", client, msg->value);
+		      assign_gsi(_hip->cfg_exc + (msg->value & 0xff), modinfo->cpunr);
+		      utcb->msg[0] = 0;
+		      break;
 		    case MessageHostOp::OP_ATTACH_MSI:
 		      attach_msi(msg, modinfo->cpunr);
 		      utcb->msg[0] = 0;
@@ -265,7 +270,6 @@ PT_FUNC(do_request,
 		    case MessageHostOp::OP_ALLOC_FROM_GUEST:
 		    case MessageHostOp::OP_VIRT_TO_PHYS:
 		    case MessageHostOp::OP_NOTIFY_IRQ:
-		    case MessageHostOp::OP_ATTACH_IRQ:
 		    default:
 		      // unhandled
 		      Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);

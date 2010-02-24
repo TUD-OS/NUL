@@ -455,10 +455,20 @@ struct MessageAcpi
   enum  Type
     {
       ACPI_GET_TABLE,
+      ACPI_GET_IRQ,
     } type;
-  const char *name;
-  char *table;
+  union {
+    struct {
+      const char *name;
+      char *table;
+    };
+    struct {
+      unsigned bdf;
+      unsigned gsi;
+    };
+  };
   MessageAcpi(const char *_name): type(ACPI_GET_TABLE), name(_name), table(0) {}
+  MessageAcpi(unsigned _bdf): type(ACPI_GET_IRQ), bdf(_bdf), gsi(~0u) {}
 };
 
 

@@ -216,7 +216,7 @@ PARAM(hostne2k,
 	      // must be an ioport
 	      if ((port & 3) != 1 || (port >> 16)) continue;
 	      port &= ~3;
-	      unsigned irq = pci.get_gsi(mb.bus_hostop, bdf, argv[0]);
+	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, argv[0]);
 	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
 	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
 	      mb.bus_network.add(dev, &HostNe2k::receive_static<MessageNetwork>);

@@ -467,7 +467,7 @@ PARAM(hostahci,
 
 	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
 	  bool dmar = mb.bus_hostop.send(msg1);
-	  unsigned irqline = pci.get_gsi(mb.bus_hostop, bdf, argv[1]);
+	  unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, argv[1]);
 
 	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
 	  Logging::printf("DISK controller #%x AHCI %x id %x\n", num, bdf, pci.conf_read(bdf, 0));

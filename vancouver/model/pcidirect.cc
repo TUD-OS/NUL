@@ -24,8 +24,8 @@
  * Directly assign a host PCI device to the guest.
  *
  * State: testing
- * Features: pcicfgspace, ioport operations, memory read/write, host irq
- * Missing: DMA remapping, MSI, mem-alloc
+ * Features: pcicfgspace, ioport operations, memory read/write, host irq, mem-alloc, DMA remapping
+ * Missing: MSI, MSI-X
  * Documentation: PCI spec v.2.2
  */
 class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
@@ -314,7 +314,7 @@ PARAM(dpci,
 		return;
 	      }
 
-	    unsigned irqline = pci.get_gsi(mb.bus_hostop, bdf, argv[4], true);
+	    unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, argv[4], true);
 	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
 	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
 
