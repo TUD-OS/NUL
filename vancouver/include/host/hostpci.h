@@ -166,9 +166,10 @@ class HostPci
    */
   unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, DBus<MessageAcpi> &bus_acpi, unsigned bdf, unsigned nr, unsigned long gsi=~0ul, bool level=false) {
 
-    // XXX global disable MSI+MSI-X
     unsigned msix_offset = find_cap(bdf, CAP_MSIX);
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
+
+    // XXX global disable MSI+MSI-X switch
     msi_offset = 0;
 
     // attach to an MSI
@@ -215,12 +216,16 @@ class HostPci
 	return msg1.msi_gsi;
       }
 
-    // normal GSIs
-    MessageAcpi msg3(bdf, conf_read(bdf, 0x3c) & 0xff);
-    if (gsi == ~0UL && bus_acpi.send(msg3)) gsi = msg3.gsi;
-
+    // normal GSIs -  ask atare
+    unsigned char pin = conf_read(bdf, 0x3c) >> 8;
+    if (!pin) { Logging::printf("No IRQ PINs connected on %x\n", bdf ); return ~0u; }
+    MessageAcpi msg3(bdf, pin - 1);
+    if (gsi == ~0UL && bus_acpi.send(msg3))
+      gsi = msg3.gsi;
+    else
+      Logging::panic("No glue which GSI %x_%x is triggering\n", bdf, pin);
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
-    if (bus_hostop.send(msg)) return ~0ul;
+    if (!bus_hostop.send(msg)) return ~0ul;
     return gsi;
   }
 

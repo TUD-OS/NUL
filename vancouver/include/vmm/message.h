@@ -466,12 +466,12 @@ struct MessageAcpi
     };
     struct {
       unsigned bdf;
-      unsigned char line;
+      unsigned char pin;
       unsigned gsi;
     };
   };
   MessageAcpi(const char *_name): type(ACPI_GET_TABLE), name(_name), instance(0), table(0), len(0) {}
-  MessageAcpi(unsigned _bdf, unsigned char line): type(ACPI_GET_IRQ), bdf(_bdf), gsi(~0u) {}
+  MessageAcpi(unsigned _bdf, unsigned char _pin): type(ACPI_GET_IRQ), bdf(_bdf), pin(_pin), gsi(~0u) {}
 };
 
 

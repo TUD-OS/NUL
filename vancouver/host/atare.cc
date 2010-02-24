@@ -18,12 +18,12 @@
 #include "vmm/motherboard.h"
 
 
-
 /**
  * ATARE - ACPI table IRQ routing extraction.
  *
  * State: testing
  * Features: direct PRT, referenced PRTs, exact name resolution, Routing Entries
+ * Missing: non-root bus
  */
 class Atare : public StaticReceiver<Atare>
 {
@@ -33,9 +33,9 @@ class Atare : public StaticReceiver<Atare>
   struct PciRoutingEntry {
     PciRoutingEntry *  next;
     unsigned      adr;
-    unsigned char line;
+    unsigned char pin;
     unsigned char gsi;
-    PciRoutingEntry(PciRoutingEntry *_next, unsigned _adr, unsigned char _line, unsigned char _gsi) : next(_next), adr(_adr), line(_line), gsi(_gsi) {}
+    PciRoutingEntry(PciRoutingEntry *_next, unsigned _adr, unsigned char _pin, unsigned char _gsi) : next(_next), adr(_adr), pin(_pin), gsi(_gsi) {}
   };
 
 
@@ -365,7 +365,7 @@ public:
 			bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
 	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
 	  Logging::printf("\t  parent %p addr %02x_%x gsi %x\n",
-			  dev->ptr - 1, p->adr >> 16, p->line, p->gsi);
+			  dev->ptr - 1, p->adr >> 16, p->pin, p->gsi);
       }
   }
 
@@ -377,7 +377,7 @@ public:
       case MessageAcpi::ACPI_GET_IRQ:
 	{
 	  unsigned parent_bdf = 0;
-	  if (msg.bdf >> 8) Logging::panic("multiple buses %x unimplemented", msg.bdf);
+	  if (msg.bdf >> 8) Logging::panic("only the root-bus works until now but not %x", msg.bdf);
 
 
 	  // find the device
@@ -386,23 +386,23 @@ public:
 
 	      // look for the right entry
 	      for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
-		if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.line == p->line)) {
-		  Logging::printf("ATARE: found %x for %x_%x\n", p->gsi, msg.bdf, msg.line);
+		if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.pin == p->pin)) {
+		  Logging::printf("ATARE: found %x for %x_%x\n", p->gsi, msg.bdf, msg.pin);
 
 		  msg.gsi = p->gsi;
 		  return true;
 		}
 	    }
-	  Logging::panic("ATARE: search for %x %x failed\n", msg.bdf, msg.line);
 	}
-	case MessageAcpi::ACPI_GET_TABLE:
-	  break;
-	}
+	Logging::printf("ATARE: search for %x %x failed\n", msg.bdf, msg.pin);
+      case MessageAcpi::ACPI_GET_TABLE:
+	break;
+      }
     return false;
   }
 
-  Atare(DBus<MessageAcpi> &bus_acpi) : _head(0) {
 
+  Atare(DBus<MessageAcpi> &bus_acpi) : _head(0) {
 
     // add entries from the SSDT
     MessageAcpi msg("DSDT");

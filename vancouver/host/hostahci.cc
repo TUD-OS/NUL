@@ -436,9 +436,8 @@ class HostAhci : public StaticReceiver<HostAhci>
   }
 
 
-  bool  receive(MessageIrq &msg)
-  {
-    if (msg.line != _hostirq || msg.type != MessageIrq::ASSERT_IRQ)  return false;
+  bool  receive(MessageIrq &msg) {
+    if (msg.line != _hostirq || msg.type == MessageIrq::DEASSERT_IRQ)  return false;
     unsigned is = _regs->is;
     unsigned oldis = is;
     while (is)
@@ -448,7 +447,6 @@ class HostAhci : public StaticReceiver<HostAhci>
 	is &= ~(1 << port);
       }
     _regs->is = oldis;
-
     return true;
   };
 

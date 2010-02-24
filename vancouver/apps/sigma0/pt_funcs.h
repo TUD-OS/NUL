@@ -325,6 +325,16 @@ PT_FUNC(do_request,
 		    utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
 		}
 		break;
+	      case REQUEST_ACPI:
+		{
+		  MessageAcpi *msg = reinterpret_cast<MessageAcpi *>(utcb->msg+1);
+		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+		    utcb->msg[0] = ~0x10u;
+		  else
+		    if (msg->type == MessageAcpi::ACPI_GET_IRQ)
+		      utcb->msg[0] = !_mb->bus_acpi.send(*msg);
+		  break;
+		}
 	      default:
 		Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 	      }

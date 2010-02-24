@@ -230,6 +230,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_network.add(this, &Vancouver::receive_static<MessageNetwork>);
     _mb->bus_legacy.add(this, &Vancouver::receive_static<MessageLegacy>);
     _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
+    _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
     // create default devices
     char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax ioio";
@@ -245,7 +246,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
 
-    if (hostirq != ~0u) check(Sigma0Base::request_irq((hostirq & 0xff)+ _hip->cfg_exc));
+    if (hostirq != ~0u) check(Sigma0Base::request_irq((hostirq & 0xff) + _hip->cfg_exc));
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
@@ -544,14 +545,15 @@ public:
     }
     return Sigma0Base::disk(msg);
   }
-  bool  receive(MessageConsole &msg) {  return Sigma0Base::console(msg); }
   bool  receive(MessageNetwork &msg)
   {
     if (_forward_pkt == msg.buffer) return false;
     Sigma0Base::network(msg);
     return true;
   }
+  bool  receive(MessageConsole &msg)   {  return Sigma0Base::console(msg); }
   bool  receive(MessagePciConfig &msg) {  return Sigma0Base::pcicfg(msg);  }
+  bool  receive(MessageAcpi      &msg) {  return Sigma0Base::acpi(msg);    }
 
   static void timeout_trigger()
   {

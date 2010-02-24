@@ -44,10 +44,11 @@ class Sigma0Base : public NovaProgram
     REQUEST_IOMEM,
     REQUEST_IRQ,
     REQUEST_PCICFG,
+    REQUEST_ACPI,
   };
  protected:
 
-  template <unsigned OP> 
+  template <unsigned OP>
     static unsigned request_attach(void *buffer, unsigned sem_nq)
     {
       Utcb *utcb = myutcb();
@@ -133,13 +134,14 @@ class Sigma0Base : public NovaProgram
     else
       return 0;
   }
-  static bool disk(MessageDisk &msg)       { return sigma0_message<MessageDisk,    REQUEST_DISK>(msg); }
-  static bool console(MessageConsole &msg) { return sigma0_message<MessageConsole, REQUEST_CONSOLE>(msg); }
-  static bool hostop(MessageHostOp &msg)   { return sigma0_message<MessageHostOp,  REQUEST_HOSTOP>(msg); }
-  static bool timer(MessageTimer &msg)     { return sigma0_message<MessageTimer,   REQUEST_TIMER>(msg); }
-  static bool network(MessageNetwork &msg) { return sigma0_message<MessageNetwork, REQUEST_NETWORK>(msg); }
-  static bool time(MessageTime &msg)       { return sigma0_message<MessageTime,    REQUEST_TIME>(msg); }
-  static bool pcicfg(MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
+  static bool disk   (MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
+  static bool console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
+  static bool hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }
+  static bool timer  (MessageTimer &msg)    { return sigma0_message<MessageTimer,     REQUEST_TIMER>(msg); }
+  static bool network(MessageNetwork &msg)  { return sigma0_message<MessageNetwork,   REQUEST_NETWORK>(msg); }
+  static bool time   (MessageTime &msg)     { return sigma0_message<MessageTime,      REQUEST_TIME>(msg); }
+  static bool pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
+  static bool acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI>(msg); }
 
 };
 
