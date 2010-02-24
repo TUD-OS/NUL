@@ -180,14 +180,6 @@ public:
     _hwreg[VTCTRL] |= CTRL_RST;
     _hwreg[VTEIMC] = ~0U;
 
-    // Enable MSI-X
-    for (unsigned i = 0; i < 3; i++) {
-      msg(INFO, "irq[%d] = 0x%x\n", i, irqs[i]);
-      _msix_table[i].msg_addr = 0xFEE00000;
-      _msix_table[i].msg_data = irqs[i] + 0x20;
-      _msix_table[i].vector_control &= ~1;
-    }
-    pci.conf_write(bdf, pci.find_cap(bdf, pci.CAP_MSIX), MSIX_ENABLE);
     pci.conf_write(bdf, 0x4 /* CMD */, 1U<<2 /* Bus-Master enable */);
 
     // Setup IRQ mapping:
@@ -287,13 +279,8 @@ PARAM(host82576vf, {
 
     // IRQs
     unsigned irqs[3];
-
-    for (unsigned i = 0; i < 3; i++) {
-      irqs[i] = pci.get_gsi(vf_bdf);
-      MessageHostOp irq_msg(MessageHostOp::OP_ATTACH_HOSTIRQ, irqs[i]);
-      if (!(irq_msg.value == ~0U || mb.bus_hostop.send(irq_msg)))
-	Logging::panic("%s failed to attach hostirq %x\n", __PRETTY_FUNCTION__, irqs[i]);
-    }
+    for (unsigned i = 0; i < 3; i++)
+      irqs[i] = pci.get_gsi(mb.bus_hostop, vf_bdf, i);
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
 				       mb.clock(), vf_bdf,

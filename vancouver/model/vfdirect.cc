@@ -234,29 +234,18 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     // Get Host IRQs
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
-      unsigned gsi = get_gsi(mb.bus_hostop, _vf_bdf);
+      unsigned gsi = get_gsi(mb.bus_hostop, _vf_bdf, i);
       msg("Host IRQ%d -> MSI-X vector %d\n", gsi, i);
       _host_irqs[i] = gsi;
-      // XXX MSIX
-      MessageHostOp imsg(MessageHostOp::OP_ATTACH_IRQ, gsi);
-      mb.bus_hostop.send(imsg);
     }
 
-    // Prepare MSI-X handling
-    if (_msix_cap) {
-      // XXX MSI table offset must be 0 for now.
-      assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
+    assert(_msix_cap);
 
-      _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
-      _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
-      _host_msix_table = (volatile uint32_t *)(_bars[_msix_table_bir].ptr);
-      for (unsigned i = 0; i < _irq_count; i++) {
-	_host_msix_table[i*4 + 0] = 0xFEE00000; // CPU?
-	_host_msix_table[i*4 + 1] = 0;
-	_host_msix_table[i*4 + 2] = _host_irqs[i] + 0x20;
-      }
-      msg("Allocated MSI-X table with %d elements.\n", _irq_count);
-    }
+    // XXX MSI table offset must be 0 for now.
+    assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
+    _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
+    _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
+    msg("Allocated MSI-X table with %d elements.\n", _irq_count);
   }
 };
 

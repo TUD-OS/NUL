@@ -176,24 +176,22 @@ public:
 	legacy =  true;
 	_irq = timer ? 8 : 2;
       }
-#if 0
-      XXX reenable MSI again
       else {
 	// MSI?
-	MessageHostOp msg1(MessageHostOp::OP_GET_MSIVECTOR, 0);
+	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0);
 	if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1)) {
-	  _irq = msg1.value;
-	  _timerreg->msi[0] = MSI_VALUE + _irq;
-	  _timerreg->msi[1] = MSI_ADDRESS;
+	  _irq = msg1.msi_gsi;
+	  _timerreg->msi[0] = msg1.msi_value;
+	  _timerreg->msi[1] = msg1.msi_address;
 	  _timerreg->config |= 1<<14;
 	  level = false;
 	}
-#endif
 	else {
 	  assert(_timerreg->int_route);
 	  _irq = Cpu::bsf(_timerreg->int_route);
 	}
       }
+    }
     else
       assert(_timerreg->int_route & (1 << _irq));
 

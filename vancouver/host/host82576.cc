@@ -239,8 +239,8 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
-	    unsigned bdf, unsigned hostirq)
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
+	    unsigned bdf)
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
 
@@ -317,10 +317,8 @@ public:
     // mode, because SR-IOV is on. Beware, that we can only use one
     // internal interrupt vector (vector 0). The 82576 has 25, but
     // each of the 8 VMs needs 3.
-    pci.conf_write(bdf, msix_cap, MSIX_ENABLE);
-    _msix_table[0].msg_addr = 0xFEE00000 | 0<<12 /* CPU */ /* DH/RM */;
-    _msix_table[0].msg_data = hostirq + 0x20;
-    _msix_table[0].vector_control &= ~1; // Preserve content as per spec 6.8.2.9
+
+    _hostirq = pci.get_gsi(bus_hostop, bdf, 0);
     _hwreg[GPIE] = GPIE_EIAME | GPIE_MULTIPLE_MSIX | GPIE_PBA | GPIE_NSICR; // 7.3.2.11
 
     // Disable all RX/TX interrupts.
@@ -330,7 +328,7 @@ public:
     // Map the TCP timer and other interrupt cause to internal vector 0.
     _hwreg[IVAR_MISC] = 0x8080;
 
-    msg(INFO, "Attached to IRQ %u (MSI-X).\n", hostirq);
+    msg(INFO, "Attached to IRQ %u (MSI-X).\n", _hostirq);
     
     // VT Setup
     msg(INFO, "Configuring VFs...\n");
@@ -408,10 +406,7 @@ PARAM(host82576, {
             continue;
           }
 
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
-					 // XXX Does not work reliably! (ioapic assertion)
-					 pci.get_gsi(mb.bus_hostop, bdf, argv[1])
-					 );
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }

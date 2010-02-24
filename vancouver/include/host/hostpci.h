@@ -164,10 +164,33 @@ class HostPci
   /**
    * Returns the gsi and enables them.
    */
-  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, unsigned bdf, unsigned long gsi = ~0UL, bool level=false) {
+  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, unsigned bdf, unsigned nr, unsigned long gsi=~0ul, bool level=false) {
 
-    // XXX global disable MSI
-    // XXX MSI-X
+    // XXX global disable MSI+MSI-X
+    unsigned msix_offset = find_cap(bdf, CAP_MSIX);
+    if (msix_offset)
+      {
+	unsigned ctrl1 = conf_read(bdf, msix_offset + 0x4);
+	unsigned long base = bar_base(bdf, ctrl1 & 0x7) + (ctrl1 & ~0x7u);
+
+	// map the MSI-X bar
+	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
+	if (!bus_hostop.send(msg2) || !msg2.ptr)
+	  Logging::panic("can not map MSIX bar %lx+%x", msg2.value, msg2.len);
+
+	// attach to an MSI
+	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
+	if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
+
+	volatile unsigned *msix_table = (volatile unsigned *) (msg2.ptr + (base & 0xfff));
+	msix_table[nr*4 + 0]  = msg1.msi_address;
+	msix_table[nr*4 + 1]  = msg1.msi_address >> 32;
+	msix_table[nr*4 + 2]  = msg1.msi_value;
+	msix_table[nr*4 + 3] &= ~1;
+	conf_write(bdf, msix_offset, 1U << 31);
+	Logging::panic("MSIX cap @%x ctrl %x gsi %x\n", msix_offset, ctrl1, msg1.msi_gsi);
+	return msg1.msi_gsi;
+      }
 
     // MSI
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
