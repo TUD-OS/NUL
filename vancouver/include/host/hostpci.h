@@ -161,6 +161,29 @@ class HostPci
   }
 
 
+  // scan the PCI root bus for bridges
+  unsigned search_bridge(unsigned dst) {
+    unsigned char dstbus = dst >> 8;
+    for (unsigned dev=0; dev < 32; dev++) {
+      unsigned char maxfunc = 1;
+      for (unsigned func=0; func < maxfunc; func++) {
+	unsigned bdf =  (dev << 3) | func;
+	unsigned value = conf_read(bdf, 0x8);
+	if (value == ~0UL) continue;
+	unsigned char header = conf_read(bdf, 0xc) >> 16;
+	if (maxfunc == 1 && header & 0x80)
+	  maxfunc = 8;
+	if ((header & 0x7f) != 1) continue;
+	// we have a bridge
+	unsigned b = conf_read(bdf, 0x18);
+	if ((((b >> 8) & 0xff) <= dstbus) && (((b >> 16) & 0xff) >= dstbus))
+	  return bdf;
+      }
+    }
+    return 0;
+  }
+
+
   /**
    * Returns the gsi and enables them.
    */
@@ -177,7 +200,7 @@ class HostPci
     if ((msi_offset || msix_offset) && !bus_hostop.send(msg1))
       Logging::panic("could not attach to msi for bdf %x\n", bdf);
 
-
+    // MSI-X
     if (msix_offset)
       {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 0x4);
@@ -216,14 +239,18 @@ class HostPci
 	return msg1.msi_gsi;
       }
 
+
     // normal GSIs -  ask atare
     unsigned char pin = conf_read(bdf, 0x3c) >> 8;
     if (!pin) { Logging::printf("No IRQ PINs connected on %x\n", bdf ); return ~0u; }
-    MessageAcpi msg3(bdf, pin - 1);
+    MessageAcpi msg3(search_bridge(bdf), bdf, pin - 1);
     if (gsi == ~0UL && bus_acpi.send(msg3))
       gsi = msg3.gsi;
     else
       Logging::panic("No glue which GSI %x_%x is triggering\n", bdf, pin);
+
+
+    // attach to the IRQ
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, gsi | (level ? 0x100 : 0));
     if (!bus_hostop.send(msg)) return ~0ul;
     return gsi;

@@ -27,7 +27,6 @@
  *
  * State: testing
  * Features: direct PRT, referenced PRTs, exact name resolution, Routing Entries
- * Missing: non-root bus
  */
 class Atare : public StaticReceiver<Atare>
 {
@@ -88,7 +87,7 @@ class Atare : public StaticReceiver<Atare>
   static bool name_seg(const unsigned char *res) {
     for (unsigned i=0; i < 4; i++)
       if (!((res[i] >= 'A' && res[i] <= 'Z') || (res[i] == '_') || (i && res[i] >= '0' && res[i] <= '9')))
-        return false;
+	return false;
     return true;
   }
 
@@ -123,7 +122,7 @@ class Atare : public StaticReceiver<Atare>
     else if (*res == 0x2f) {
       unsigned i;
       for (i=0; i < ((unsigned char) res[1]); i++)
-        if (!name_seg(res + 2 + i*4)) return 0;
+	if (!name_seg(res + 2 + i*4)) return 0;
       if (i)  return  res - table + 2 + 4*i;
     }
     else if (name_seg(res)) return res - table + 4;
@@ -143,7 +142,7 @@ class Atare : public StaticReceiver<Atare>
     if (*name == 0x5c || !parent)
       memcpy(res, name + nameprefixlen, namelen);
     else {
-        int parent_namelen = parent->namelen - skip*4;
+	int parent_namelen = parent->namelen - skip*4;
 	if (parent_namelen < 0) parent_namelen = 0;
 	for (unsigned pre = 0; name[pre] == 0x5e && parent_namelen; pre++)
 	  parent_namelen -=4;
@@ -296,7 +295,7 @@ class Atare : public StaticReceiver<Atare>
     for (const unsigned char *data = table; data < table + len; data++)
       if ((data[0] == 0x5b && data[1] == 0x82) // devices
 	  || (data[0] == 0x08)  // named objects
-          || (data[0] == 0x10)  // scopes
+	  || (data[0] == 0x10)  // scopes
 	  || (data[0] == 0x14)  // methods
 	  ) {
 	if (data[0] == 0x5b) data++;
@@ -380,13 +379,9 @@ public:
       {
       case MessageAcpi::ACPI_GET_IRQ:
 	{
-	  unsigned parent_bdf = 0;
-	  if (msg.bdf >> 8) Logging::panic("only the root-bus works until now but not %x", msg.bdf);
-
-
 	  // find the device
 	  for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
-	    if (dev->ptr[0] == 0x82 && Atare::get_device_bdf(_head, dev) == parent_bdf) {
+	    if (dev->ptr[0] == 0x82 && Atare::get_device_bdf(_head, dev) == msg.parent_bdf) {
 
 	      // look for the right entry
 	      for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)

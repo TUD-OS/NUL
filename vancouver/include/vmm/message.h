@@ -465,13 +465,14 @@ struct MessageAcpi
       unsigned len;
     };
     struct {
+      unsigned parent_bdf;
       unsigned bdf;
       unsigned char pin;
       unsigned gsi;
     };
   };
   MessageAcpi(const char *_name): type(ACPI_GET_TABLE), name(_name), instance(0), table(0), len(0) {}
-  MessageAcpi(unsigned _bdf, unsigned char _pin): type(ACPI_GET_IRQ), bdf(_bdf), pin(_pin), gsi(~0u) {}
+  MessageAcpi(unsigned _parent_bdf, unsigned _bdf, unsigned char _pin): type(ACPI_GET_IRQ), parent_bdf(_parent_bdf), bdf(_bdf), pin(_pin), gsi(~0u) {}
 };
 
 
