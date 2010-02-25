@@ -189,8 +189,8 @@ public:
     _hwreg[VTIVAR_MISC] = 0x82;
 
     _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF::handle_rx;
-    _hostirqs[1].vec = irqs[1]; _hostirqs[0].handle = &Host82576VF::handle_tx;
-    _hostirqs[2].vec = irqs[2]; _hostirqs[0].handle = &Host82576VF::handle_mbx;
+    _hostirqs[1].vec = irqs[1]; _hostirqs[1].handle = &Host82576VF::handle_tx;
+    _hostirqs[2].vec = irqs[2]; _hostirqs[2].handle = &Host82576VF::handle_mbx;
 
     // Enable IRQs
     _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
