@@ -1,8 +1,19 @@
-/* -*- Mode: C++ -*-
+/**
+ * Minimalistic presentation tool.
  *
- * Minimalistic presentation tool. See README.org for details.
+ * Copyright (C) 2009, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  *
- * All bugs added by Julian Stecklina <jsteckli@os.inf.tu-dresden.de>.
+ * This file is part of NUL.
+ *
+ * NUL is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * NUL is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
  */
 
 #include "vmm/message.h"
