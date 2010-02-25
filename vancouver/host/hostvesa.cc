@@ -101,7 +101,7 @@ class HostVesa : public StaticReceiver<HostVesa>
 	_instructions++;
 	if (!_cpu.head.pid) _cpu.head.pid = 33;
 	if (msg.vcpu->instcache->debug)
-	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp, 
+	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
 			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp);
 	if (!_mb.bus_executor.send(msg, true, _cpu.head.pid))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
@@ -133,8 +133,9 @@ class HostVesa : public StaticReceiver<HostVesa>
 
 	memcpy(_modelist + _modecount, modeinfo, sizeof(*_modelist));
 	if (_debug)
-	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "linear" : "window", 
-			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->phys_base, modeinfo->attr, modeinfo->bytes_per_scanline);
+	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x+%8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "linear" : "window",
+			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->phys_base, modeinfo->_phys_size,
+			  modeinfo->attr, modeinfo->bytes_per_scanline);
 	_modecount++;
       }
   }
@@ -161,13 +162,11 @@ public:
 	    _framebuffer_phys = msg.value;
 	  }
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
+      case MessageHostOp::OP_ASSIGN_PCI:
+      case MessageHostOp::OP_ATTACH_IRQ:
+      case MessageHostOp::OP_ATTACH_MSI:
 	// forward to the host
 	return _hostmb.bus_hostop.send(msg);
-      case MessageHostOp::OP_ATTACH_IRQ:
-      case MessageHostOp::OP_ASSIGN_PCI:
-      case MessageHostOp::OP_ATTACH_MSI:
-	// we do not need this
-	return false;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
@@ -292,6 +291,7 @@ public:
 	if (!vbe_call(0x4f01, ES_SEG1, mode))  add_mode(mode, ES_SEG1, 0x81);
       }
     _hostmb.bus_vesa.add(this, &receive_static<MessageVesa>);
+    Logging::printf("framebuffer %lx+%lx\n", _framebuffer_phys, _framebuffer_size);
   }
 };
 

@@ -312,7 +312,7 @@ public:
 
 	    // get the framebuffer mapped
 	    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, _modeinfo.phys_base,  _modeinfo._phys_size);
-	    if (!_mb.bus_hostop.send(msg1)) Logging::panic("can not get the framebuffer");
+	    if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) Logging::panic("can not get the framebuffer");
 	    _graphic_ptr = msg1.ptr;
 	    _active_mode = mode;
 	    if (!_active_mode) memcpy_fast(_backend, _saved, BACKEND_SIZE);
@@ -323,7 +323,8 @@ public:
 	else
 	  {
 	    unsigned long long start = Cpu::rdtsc();
-	    memcpyl(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4);
+	    if (_graphic_ptr)
+	      memcpyl(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4);
 	    unsigned long long end = Cpu::rdtsc();
 	    if (_measure) Logging::printf("memcpy %d bytes took %lld cycles\n", _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4, end - start);
 	    _measure = false;
