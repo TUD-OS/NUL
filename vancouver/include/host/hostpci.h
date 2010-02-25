@@ -193,7 +193,7 @@ class HostPci
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
 
     // XXX global disable MSI+MSI-X switch
-    msi_offset = 0;
+    //msi_offset = 0;
 
     // attach to an MSI
     MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
@@ -225,8 +225,6 @@ class HostPci
     if (msi_offset)
       {
 	unsigned ctrl = conf_read(bdf, msi_offset);
-	Logging::printf("MSI cap @%x ctrl %x\n", msi_offset, ctrl);
-
 	unsigned base = msi_offset + 4;
 	conf_write(bdf, base+0, msg1.msi_address);
 	conf_write(bdf, base+4, msg1.msi_address >> 32);
