@@ -145,9 +145,10 @@ public:
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-
     StdinConsumer *stdinconsumer = new StdinConsumer(_cap_free++);
     Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
+
+    // switch to our view
     msg2.type = MessageConsole::TYPE_SWITCH_VIEW;
     msg2.view = 1;
     Sigma0Base::console(msg2);
@@ -192,7 +193,7 @@ public:
       default:
 	{
 	  unsigned num;
-	  if ((num = is_numeric_key(kmsg->keycode, 0)))  input = input*10 + num;
+	  if ((num = is_numeric_key(kmsg->keycode, 0)))  input = input*10 + (num % 10);
 	}
       }
 
