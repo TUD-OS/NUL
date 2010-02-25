@@ -22,9 +22,6 @@
 #include <tinf.h>
 
 
-#define COLUMNS 1024
-#define ROWS     768
-
 extern char __freemem[];
 
 struct pheader {
@@ -43,7 +40,7 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
   ConsoleModeInfo _modeinfo;
 
   pheader *_header;
-  unsigned _scratch[COLUMNS * ROWS * 3 / 4];
+  unsigned *_scratch;
 
 
   void show_page(unsigned page)
@@ -68,14 +65,14 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
     unsigned long long start_display = Cpu::rdtsc();
     unsigned *cur_vesa = reinterpret_cast<unsigned *>(_vesa_console);
     unsigned *cur_scratch = _scratch;
-    for (unsigned y=0; y < ROWS; y++)
+    for (unsigned y=0; y < _header->height; y++)
       {
 	if (_modeinfo.bpp == 24) {
-	    memcpyl(cur_vesa, cur_scratch, COLUMNS * 3 / 4);
-	    cur_scratch += COLUMNS * 3 / 4;
+	    memcpyl(cur_vesa, cur_scratch,  _header->width * 3 / 4);
+	    cur_scratch +=  _header->width * 3 / 4;
 	}
 	else if (_modeinfo.bpp == 32)
-	  for (unsigned x = 0; x < COLUMNS; x += 4) {
+	  for (unsigned x = 0; x < _header->width; x += 4) {
 
 	    // Load 4 packed pixels in 3 words
 	    unsigned p1 = *cur_scratch++;
@@ -127,14 +124,19 @@ public:
     // we like to have a 24/32bit mode but prefer a 24bit mode
     ConsoleModeInfo m;
     for (MessageConsole msg(0, &m); Sigma0Base::console(msg); msg.index++)
-      if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == COLUMNS && (mode == ~0u || m.bpp < _modeinfo.bpp)) {
-	mode = msg.index;
-	_modeinfo = m;
-      }
+      if (m.attr & 0x80
+	  && m.bpp >= 24
+	  && m.resolution[0] == _header->width
+	  && m.resolution[1] >= _header->height
+	  && ((mode == ~0u) || (_modeinfo.bpp > m.bpp)))
+	{
+	  mode = msg.index;
+	  _modeinfo = m;
+	}
 
     if (mode == ~0u) Logging::panic("have not found any 24/32bit graphic mode");
     unsigned size = _modeinfo.resolution[1] * _modeinfo.bytes_per_scanline;
-
+    _scratch = reinterpret_cast<unsigned  *>(memalign(0x1000, 3 * _header->width * _header->height));
     _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
@@ -156,6 +158,7 @@ public:
     unsigned last_page = 1;     // Force redraw
     unsigned page = 0;
     unsigned input = 0;
+
     while (1) {
       if (last_page != page) show_page(page);
       last_page = page;

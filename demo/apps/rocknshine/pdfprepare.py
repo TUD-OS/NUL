@@ -11,7 +11,7 @@ import struct
 from stat import *
 
 width  = 1024
-height = 768 
+height = 768
 
 pdf = sys.argv[1]
 out = sys.argv[2]
