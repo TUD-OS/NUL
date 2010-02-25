@@ -204,7 +204,7 @@ class HostPci
     if (msix_offset)
       {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 0x4);
-	unsigned long base = bar_base(bdf, ctrl1 & 0x7) + (ctrl1 & ~0x7u);
+	unsigned long base = bar_base(bdf, (ctrl1 & 0x7)*4 + BAR0) + (ctrl1 & ~0x7u);
 
 	// map the MSI-X bar
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
@@ -217,7 +217,6 @@ class HostPci
 	msix_table[nr*4 + 2]  = msg1.msi_value;
 	msix_table[nr*4 + 3] &= ~1;
 	conf_write(bdf, msix_offset, 1U << 31);
-	Logging::panic("MSIX cap @%x ctrl %x gsi %x\n", msix_offset, ctrl1, msg1.msi_gsi);
 	return msg1.msi_gsi;
       }
 
