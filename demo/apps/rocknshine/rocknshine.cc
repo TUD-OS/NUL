@@ -45,6 +45,7 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
   pheader *_header;
   unsigned _scratch[COLUMNS * ROWS * 3 / 4];
 
+
   void show_page(unsigned page)
   {
     unsigned int dest_len = sizeof(_scratch);
@@ -53,7 +54,7 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
     unsigned size = _header->offset[page+1] - _header->offset[page];
 
     Logging::printf("Compressed page %d at %p (offset %x, 0x%x bytes).\n",
-		    page, compressed, _header->offset[page], size);
+		    page + 1, compressed, _header->offset[page], size);
 
     unsigned long long start_decompress = Cpu::rdtsc();
     int tinf_res = tinf_zlib_uncompress(_scratch, &dest_len,
@@ -89,8 +90,8 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
 	cur_vesa += _modeinfo.bytes_per_scanline / 4;
       }
     unsigned long long end_cycles = Cpu::rdtsc();
-    Logging::printf("Decompression: %u cycles\n", (unsigned)(start_display - start_decompress));
-    Logging::printf("Display:       %u cycles\n", (unsigned)(end_cycles - start_display));
+    Logging::printf("Decompression: %10llu cycles\n", start_display - start_decompress);
+    Logging::printf("Display:       %10llu cycles\n", end_cycles - start_display);
   };
 
 public:
@@ -121,25 +122,18 @@ public:
     tinf_init();
     Logging::printf("tinf library initialized.\n");
 
-    unsigned size = 0;
-    unsigned mode = ~0;
+    unsigned mode = ~0u;
+
+    // we like to have a 24/32bit mode but prefer a 24bit mode
     ConsoleModeInfo m;
-    MessageConsole msg(0, &m);
+    for (MessageConsole msg(0, &m); Sigma0Base::console(msg); msg.index++)
+      if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == COLUMNS && (mode == ~0u || m.bpp < _modeinfo.bpp)) {
+	mode = msg.index;
+	_modeinfo = m;
+      }
 
-    while (Sigma0Base::console(msg))      {
-      // we like to have a 24/32bit mode
-      if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == COLUMNS)
-	// and prefer a 24bit mode
-	if (!size || m.bpp < _modeinfo.bpp)
-	  {
-	    size = m.resolution[1] * m.bytes_per_scanline;
-	    mode = msg.index;
-	    _modeinfo = m;
-	  }
-      msg.index++;
-    }
-
-    if (mode == ~0u) Logging::panic("have not found any 32bit graphic mode");
+    if (mode == ~0u) Logging::panic("have not found any 24/32bit graphic mode");
+    unsigned size = _modeinfo.resolution[1] * _modeinfo.bytes_per_scanline;
 
     _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
@@ -154,9 +148,9 @@ public:
 
     StdinConsumer *stdinconsumer = new StdinConsumer(_cap_free++);
     Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
-    msg.type = MessageConsole::TYPE_SWITCH_VIEW;
-    msg.view = 1;
-    Sigma0Base::console(msg);
+    msg2.type = MessageConsole::TYPE_SWITCH_VIEW;
+    msg2.view = 1;
+    Sigma0Base::console(msg2);
 
     unsigned last_page = 1;     // Force redraw
     unsigned page = 0;
