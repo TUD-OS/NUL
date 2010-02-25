@@ -228,23 +228,31 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
     // IRQ handling
     if (find_cap(_vf_bdf, CAP_MSI)) msg("Warning: VF supports MSI, but we don't.\n");
+
     _msix_cap = find_cap(_vf_bdf, CAP_MSIX);
+    assert(_msix_cap);
     _irq_count = !_msix_cap ? 0 : (1 + (conf_read(_vf_bdf, _msix_cap) >> 16) & ((1<<11)-1));
+
+    // Prepare MSI-X handling
+    // XXX MSI table offset must be 0 for now.
+    assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
+
+    _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
+    _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
+    _host_msix_table = (volatile uint32_t *)(_bars[_msix_table_bir].ptr);
 
     // Get Host IRQs
     _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
-      unsigned gsi = get_gsi(mb.bus_hostop, mb.bus_acpi, _vf_bdf, i);
-      msg("Host IRQ%d -> MSI-X vector %d\n", gsi, i);
-      _host_irqs[i] = gsi;
+      MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, vf_bdf);
+      if (!mb.bus_hostop.send(msg1))
+	Logging::panic("could not attach to msi for bdf %x\n", vf_bdf);
+      _host_irqs[i] = msg1.msi_gsi;
+      _host_msix_table[i*4 + 0] = (uint32_t)msg1.msi_address;
+      _host_msix_table[i*4 + 1] = (uint32_t)(msg1.msi_address>>32);
+      _host_msix_table[i*4 + 2] = msg1.msi_value;
     }
 
-    assert(_msix_cap);
-
-    // XXX MSI table offset must be 0 for now.
-    assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
-    _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
-    _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
     msg("Allocated MSI-X table with %d elements.\n", _irq_count);
   }
 };

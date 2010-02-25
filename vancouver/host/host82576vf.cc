@@ -279,8 +279,20 @@ PARAM(host82576vf, {
 
     // IRQs
     unsigned irqs[3];
-    for (unsigned i = 0; i < 3; i++)
-      irqs[i] = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, vf_bdf, i);
+    for (unsigned i = 0; i < 3; i++) {
+      MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, vf_bdf);
+      if (!mb.bus_hostop.send(msg1))
+	Logging::panic("could not attach to msi for bdf %x\n", vf_bdf);
+      
+      irqs[i] = msg1.msi_gsi;
+      // Program MSI-X table
+      volatile uint32_t *msix = (volatile uint32_t *)msix_msg.ptr;
+      msix[i*4 + 0] = (uint32_t)msg1.msi_address;
+      msix[i*4 + 1] = (uint32_t)(msg1.msi_address>>32);
+      msix[i*4 + 2] = (uint32_t)msg1.msi_value;
+      msix[i*4 + 3] &= ~1;
+    }
+    pci.conf_write(vf_bdf, pci.find_cap(vf_bdf, pci.CAP_MSIX), 1U << 31);
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
 				       mb.clock(), vf_bdf,
