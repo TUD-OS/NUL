@@ -60,8 +60,29 @@ class Atare : public StaticReceiver<Atare>
 
 
   NamedRef *_head;
-
   const char *debug_getname() {  return "Atare"; }
+
+
+  void debug_show_items() {
+    Atare::NamedRef *ref = _head;
+    for (unsigned i=0; ref; ref = ref->next, i++)
+      Logging::printf("%3d %p+%04x type %02x %.*s\n", i, ref->ptr, ref->len, ref->ptr[0], ref->namelen, ref->name);
+  }
+
+
+  void debug_show_routing() {
+    if (!Atare::search_ref(_head, 0, "_PIC", false)) Logging::printf("APIC mode unavailable - no _PIC method\n");
+
+    for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
+      if (dev->ptr[0] == 0x82) {
+	unsigned bdf = Atare::get_device_bdf(_head, dev);
+	Logging::printf("%04x:%02x:%02x.%x tag %p name %.*s\n",
+			bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
+	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
+	  Logging::printf("\t  parent %p addr %02x_%x gsi %x\n",
+			  dev->ptr - 1, p->adr >> 16, p->pin, p->gsi);
+      }
+  }
 
 
 
@@ -351,57 +372,34 @@ class Atare : public StaticReceiver<Atare>
 
 
 public:
-  void debug_show_items() {
-    Atare::NamedRef *ref = _head;
-    for (unsigned i=0; ref; ref = ref->next, i++)
-      Logging::printf("%3d %p+%04x type %02x %.*s\n", i, ref->ptr, ref->len, ref->ptr[0], ref->namelen, ref->name);
-  }
-
-
-  void debug_show_routing() {
-    if (!Atare::search_ref(_head, 0, "_PIC", false)) Logging::printf("APIC mode unavailable - no _PIC method\n");
-
-    for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
-      if (dev->ptr[0] == 0x82) {
-	unsigned bdf = Atare::get_device_bdf(_head, dev);
-	Logging::printf("%04x:%02x:%02x.%x tag %p name %.*s\n",
-			bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
-	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
-	  Logging::printf("\t  parent %p addr %02x_%x gsi %x\n",
-			  dev->ptr - 1, p->adr >> 16, p->pin, p->gsi);
-      }
-  }
 
 
   bool  receive(MessageAcpi &msg)
   {
-    switch (msg.type)
-      {
-      case MessageAcpi::ACPI_GET_IRQ:
-	{
-	  // find the device
-	  for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
-	    if (dev->ptr[0] == 0x82 && Atare::get_device_bdf(_head, dev) == msg.parent_bdf) {
+    if (msg.type != MessageAcpi::ACPI_GET_IRQ) return false;
 
-	      // look for the right entry
-	      for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
-		if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.pin == p->pin)) {
-		  Logging::printf("ATARE: found %x for %x_%x\n", p->gsi, msg.bdf, msg.pin);
+    Logging::printf("ATARE: search for %x_%x parent %x\n", msg.bdf, msg.pin, msg.parent_bdf);
 
-		  msg.gsi = p->gsi;
-		  return true;
-		}
-	    }
-	}
-	Logging::printf("ATARE: search for %x %x failed\n", msg.bdf, msg.pin);
-      case MessageAcpi::ACPI_GET_TABLE:
-	break;
+    // find the device
+    for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
+      if (dev->ptr[0] == 0x82 && Atare::get_device_bdf(_head, dev) == msg.parent_bdf) {
+
+	// look for the right entry
+	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
+	  if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.pin == p->pin)) {
+
+	    Logging::printf("ATARE: found %x for %x_%x parent %x\n", p->gsi, msg.bdf, msg.pin, msg.parent_bdf);
+
+	    msg.gsi = p->gsi;
+	    return true;
+	  }
       }
+    Logging::printf("ATARE: search for %x_%x parent %x failed\n", msg.bdf, msg.pin, msg.parent_bdf);
     return false;
   }
 
 
-  Atare(DBus<MessageAcpi> &bus_acpi) : _head(0) {
+  Atare(DBus<MessageAcpi> &bus_acpi, unsigned debug) : _head(0) {
 
     // add entries from the SSDT
     MessageAcpi msg("DSDT");
@@ -414,6 +412,10 @@ public:
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
 
     add_routing(_head);
+
+    if (debug & 1) debug_show_items();
+    if (debug & 2) debug_show_routing();
+
     Logging::printf("ATARE initialized\n");
 
   };
@@ -422,11 +424,7 @@ public:
 
 PARAM(atare,
       {
-	Atare *dev = new Atare(mb.bus_acpi);
+	Atare *dev = new Atare(mb.bus_acpi, ~argv[0] ? argv[0] : 0);
 	mb.bus_acpi.add(dev, Atare::receive_static<MessageAcpi>);
-
-	long debug = argv[0];
-	if (debug >=2) dev->debug_show_items();
-	if (debug >=1) dev->debug_show_routing();
       },
       "atare:debug=0 - provide GSI lookup to PCI drivers.")
