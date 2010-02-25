@@ -24,9 +24,9 @@ print("Directory for (huge) temporary files: " + tmpdir)
 print
 
 print("Converting to raw image data. Go get a coffee. This can take a while.")
-subprocess.check_call(['convert', '-format', 'rgb', '-density', '400',
+subprocess.check_call(['convert', '-format', 'bgr', '-density', '400',
                        pdf, '-resize', '%dx%d!' % (width, height), '-depth', '8',
-                       tmpdir + '/page%d.rgb'])
+                       tmpdir + '/page%d.bgr'])
 
 def numcomp(x, y):
     xnum = int(re.search('(?<=page)[0-9]+', x).group(0))
@@ -34,7 +34,7 @@ def numcomp(x, y):
     return xnum - ynum;
 
 compressed_pages = []
-for page in sorted(glob.glob(tmpdir + '/page*.rgb'), numcomp):
+for page in sorted(glob.glob(tmpdir + '/page*.bgr'), numcomp):
     uncompressed_len = os.stat(page)[ST_SIZE]
     file = open(page, 'rb')
     os.remove(page)

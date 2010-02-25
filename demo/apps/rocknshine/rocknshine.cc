@@ -38,31 +38,19 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
   char *   _scratch;
   unsigned _scratch_size;
 
-  static unsigned bswap(unsigned x)
-  {
-    unsigned out;
-    asm ("bswap %0\n" : "=r" (out) : "0" (x));
-    return out;
-  }
-
-  static unsigned xyz_to_zyx(unsigned x)
-  {
-    return bswap(x) >> 8;
-  }
 
   void show_page(unsigned page)
   {
     unsigned *cur_vesa = reinterpret_cast<unsigned *>(_vesa_console);
     unsigned int dest_len = _scratch_size;
 
-    unsigned long long start_decompress = Cpu::rdtsc();
     unsigned char *compressed = _header->offset[page] + (unsigned char *)_header;
     unsigned size = _header->offset[page+1] - _header->offset[page];
 
     Logging::printf("Compressed page %d at %p (offset %x, 0x%x bytes).\n",
 		    page, compressed, _header->offset[page], size);
-    Logging::printf("CRC32 of compressed page: %d\n", tinf_crc32(compressed, size));
-    memset(_scratch, 0, _scratch_size);
+
+    unsigned long long start_decompress = Cpu::rdtsc();
     int tinf_res = tinf_zlib_uncompress(_scratch, &dest_len,
 					compressed, size);
 
@@ -72,42 +60,23 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
     }
 
     unsigned long long start_display = Cpu::rdtsc();
-
-    Logging::printf("%u bytes -> %u bytes.\n",
-		    size, dest_len);
     switch (_modeinfo.bpp) {
     case 24:                    // 24-bit mode
-      for (unsigned i = 0; i < _scratch_size; i += 3*4) {
-	// Load 4 packed pixels in 3 words
-	unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
-	unsigned p1 = data[0];
-	unsigned p2 = data[1];
-	unsigned p3 = data[2];
-
-	cur_vesa[0] = bswap(p1) >> 8 | ((p2 >> 8) << 24);
-	cur_vesa[1] = (p2 & 0xFF0000FF) | ((p3 & 0xFF) << 16) | ((p1 >> 24) << 8);
-	cur_vesa[2] = bswap(p3) << 8 | ((p2 >> 16) & 0xFF);
-	cur_vesa   += 3;
-      }
-
+      memcpyl(cur_vesa, _scratch, _scratch_size / 4);
       break;
     case 32:                    // 32-bit mode
       for (unsigned i = 0; i < _scratch_size; i += 3*4) {
+
 	// Load 4 packed pixels in 3 words
 	unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
 	unsigned p1 = data[0];
 	unsigned p2 = data[1];
 	unsigned p3 = data[2];
 
-	unsigned u1 = p1 & 0xFFFFFF;
-	unsigned u2 = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
-	unsigned u3 = (p2 >> 16) | ((p3 & 0xFF) << 16);
-	unsigned u4 = p3 >> 8;
-
-	cur_vesa[0] = xyz_to_zyx(u1);
-	cur_vesa[1] = xyz_to_zyx(u2);
-	cur_vesa[2] = xyz_to_zyx(u3);
-	cur_vesa[3] = xyz_to_zyx(u4);
+	cur_vesa[0] = p1 & 0xFFFFFF;
+	cur_vesa[1] = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
+	cur_vesa[2] = (p2 >> 16) | ((p3 & 0xFF) << 16);
+	cur_vesa[3] = p3 >> 8;
 	cur_vesa   += 4;
       }
       break;
@@ -153,17 +122,18 @@ public:
     unsigned mode = ~0;
     ConsoleModeInfo m;
     MessageConsole msg(0, &m);
-    // XXX Scan twice to prefer 4-bytes-per-pixel modes
+
     while (Sigma0Base::console(msg))      {
-      // Logging::printf("rocknshine: %x %dx%d-%d sc %x\n",
-      //   	      msg.index, m.resolution[0], m.resolution[1], m.bpp, m.bytes_per_scanline);
-      // we like to have the 24/32bit mode with 1024
+      // we like to have a 24/32bit mode
       if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == LINES)
-	{
-	  size = m.resolution[1] * m.bytes_per_scanline;
-	  mode = msg.index;
-	  _modeinfo = m;
-	}
+
+	// we prefer a 24bit mode
+	if (!size || m.bpp < _modeinfo.bpp)
+	  {
+	    size = m.resolution[1] * m.bytes_per_scanline;
+	    mode = msg.index;
+	    _modeinfo = m;
+	  }
       msg.index++;
     }
 
