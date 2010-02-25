@@ -10,6 +10,7 @@
 #include "vmm/timer.h"
 #include "vmm/math.h"
 #include "sigma0/console.h"
+#include "models/keyboard.h"
 
 #include <tinf.h>
 
@@ -26,7 +27,7 @@ struct pheader {
   unsigned int   offset[];
 } NOVA_PACKED;
 
-class Rocknshine : public NovaProgram, public ProgramConsole
+class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
 {
 
   char *  _vesa_console;
@@ -59,11 +60,11 @@ class Rocknshine : public NovaProgram, public ProgramConsole
     unsigned size = _header->offset[page+1] - _header->offset[page];
 
     Logging::printf("Compressed page %d at %p (offset %x, 0x%x bytes).\n",
-                    page, compressed, _header->offset[page], size);
+		    page, compressed, _header->offset[page], size);
     Logging::printf("CRC32 of compressed page: %d\n", tinf_crc32(compressed, size));
     memset(_scratch, 0, _scratch_size);
     int tinf_res = tinf_zlib_uncompress(_scratch, &dest_len,
-                                        compressed, size);
+					compressed, size);
 
     if (tinf_res != TINF_OK) {
       Logging::printf("tinf returned %d.\n", tinf_res);
@@ -73,41 +74,41 @@ class Rocknshine : public NovaProgram, public ProgramConsole
     unsigned long long start_display = Cpu::rdtsc();
 
     Logging::printf("%u bytes -> %u bytes.\n",
-                    size, dest_len);
+		    size, dest_len);
     switch (_modeinfo.bpp) {
     case 24:                    // 24-bit mode
       for (unsigned i = 0; i < _scratch_size; i += 3*4) {
 	// Load 4 packed pixels in 3 words
-        unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
-        unsigned p1 = data[0];
-        unsigned p2 = data[1];
-        unsigned p3 = data[2];
+	unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
+	unsigned p1 = data[0];
+	unsigned p2 = data[1];
+	unsigned p3 = data[2];
 
-        cur_vesa[0] = bswap(p1) >> 8 | ((p2 >> 8) << 24);
-        cur_vesa[1] = (p2 & 0xFF0000FF) | ((p3 & 0xFF) << 16) | ((p1 >> 24) << 8);
-        cur_vesa[2] = bswap(p3) << 8 | ((p2 >> 16) & 0xFF);
-        cur_vesa   += 3;
+	cur_vesa[0] = bswap(p1) >> 8 | ((p2 >> 8) << 24);
+	cur_vesa[1] = (p2 & 0xFF0000FF) | ((p3 & 0xFF) << 16) | ((p1 >> 24) << 8);
+	cur_vesa[2] = bswap(p3) << 8 | ((p2 >> 16) & 0xFF);
+	cur_vesa   += 3;
       }
-      
+
       break;
     case 32:                    // 32-bit mode
       for (unsigned i = 0; i < _scratch_size; i += 3*4) {
-        // Load 4 packed pixels in 3 words
-        unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
-        unsigned p1 = data[0];
-        unsigned p2 = data[1];
-        unsigned p3 = data[2];
+	// Load 4 packed pixels in 3 words
+	unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
+	unsigned p1 = data[0];
+	unsigned p2 = data[1];
+	unsigned p3 = data[2];
 
-        unsigned u1 = p1 & 0xFFFFFF;
-        unsigned u2 = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
-        unsigned u3 = (p2 >> 16) | ((p3 & 0xFF) << 16);
-        unsigned u4 = p3 >> 8;
-        
-        cur_vesa[0] = xyz_to_zyx(u1);
-        cur_vesa[1] = xyz_to_zyx(u2);
-        cur_vesa[2] = xyz_to_zyx(u3);
-        cur_vesa[3] = xyz_to_zyx(u4);
-        cur_vesa   += 4;
+	unsigned u1 = p1 & 0xFFFFFF;
+	unsigned u2 = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
+	unsigned u3 = (p2 >> 16) | ((p3 & 0xFF) << 16);
+	unsigned u4 = p3 >> 8;
+
+	cur_vesa[0] = xyz_to_zyx(u1);
+	cur_vesa[1] = xyz_to_zyx(u2);
+	cur_vesa[2] = xyz_to_zyx(u3);
+	cur_vesa[3] = xyz_to_zyx(u4);
+	cur_vesa   += 4;
       }
       break;
     default:
@@ -154,15 +155,15 @@ public:
     MessageConsole msg(0, &m);
     // XXX Scan twice to prefer 4-bytes-per-pixel modes
     while (Sigma0Base::console(msg))      {
-      // Logging::printf("rocknshine: %x %dx%d-%d sc %x\n", 
+      // Logging::printf("rocknshine: %x %dx%d-%d sc %x\n",
       //   	      msg.index, m.resolution[0], m.resolution[1], m.bpp, m.bytes_per_scanline);
       // we like to have the 24/32bit mode with 1024
       if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == LINES)
-        {
-          size = m.resolution[1] * m.bytes_per_scanline;
-          mode = msg.index;
-          _modeinfo = m;
-        }
+	{
+	  size = m.resolution[1] * m.bytes_per_scanline;
+	  mode = msg.index;
+	  _modeinfo = m;
+	}
       msg.index++;
     }
 
@@ -172,7 +173,7 @@ public:
     Logging::printf("RS: _scratch_size = %x\n", _scratch_size);
     _scratch      = reinterpret_cast<char *>(malloc(size));
     _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
-    Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n", 
+    Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("RS2", _vesa_console, size, &_vesaregs);
@@ -190,30 +191,36 @@ public:
 
     unsigned last_page = 1;     // Force redraw
     unsigned page = 0;
+    unsigned input = 0;
     while (1) {
       if (last_page != page)
-        show_page(page);
+	show_page(page);
       last_page = page;
 
       MessageKeycode *kmsg = stdinconsumer->get_buffer();
-      Logging::printf("keycode = %x\n", kmsg->keycode);
-      switch (kmsg->keycode) {
-      case 0x829:               // Space down
-      case 0xa72:               // Arrow Down down
-      case 0xa74:               // Arrow Right down
-        page = (page+1) % _header->pages;
-        break;
-      case 0x866:               // Backspace down
-      case 0xa75:               // Arrow Down down
-      case 0xa6b:               // Arrow Right down
-        page = (page + _header->pages - 1) % _header->pages;
-        break;
-      case 0x816:               // 1 down
-        page = 0;
-        break;
+      switch (kmsg->keycode & ~KBFLAG_NUM) {
+      case KBCODE_SPACE:
+      case KBCODE_DOWN:
+      case KBCODE_RIGHT:
+	page = (page+1) % _header->pages;
+	break;
+      case KBCODE_BSPACE:
+      case KBCODE_UP:
+      case KBCODE_LEFT:
+	page = (page + _header->pages - 1) % _header->pages;
+	break;
+      case KBCODE_ENTER:
+	if (input && input <= _header->pages) page = input - 1;
+      case KBCODE_ESC:
+	input = 0;
+	break;
       default:
-        // Unknown character
-        {}
+	{
+	  unsigned num;
+	  if ((num = is_numeric_key(kmsg->keycode, 0)))  input = input*10 + num;
+
+	  Logging::printf("keycode = %x\n", kmsg->keycode);
+	}
       }
 
       stdinconsumer->free_buffer();

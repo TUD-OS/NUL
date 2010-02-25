@@ -128,8 +128,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	    _mb->dump_counters();
 	    syscall(254, 0, 0, 0, 0);
 	    break;
-	    // HOME -> reset VM
-	  case KBFLAG_EXTEND0 | 0x6c:
+	  case KBCODE_HOME: // reset VM
 	    {
 	      SemaphoreGuard l(_lock);
 	      MessageLegacy msg2(MessageLegacy::RESET, 0);

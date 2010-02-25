@@ -34,6 +34,15 @@ enum KBFLAGS {
   KBFLAG_RCTRL   = 1 << 17,
   KBFLAG_LWIN    = 1 << 18,
   KBFLAG_RWIN    = 1 << 19,
+  KBCODE_RIGHT   = KBFLAG_EXTEND0 | 0x74,
+  KBCODE_LEFT    = KBFLAG_EXTEND0 | 0x6b,
+  KBCODE_UP      = KBFLAG_EXTEND0 | 0x75,
+  KBCODE_DOWN    = KBFLAG_EXTEND0 | 0x72,
+  KBCODE_ESC     = 0x76,
+  KBCODE_ENTER   = 0x5a,
+  KBCODE_HOME    = KBFLAG_EXTEND0 | 0x6c,
+  KBCODE_SPACE   = 0x29,
+  KBCODE_BSPACE  = 0x66,
 };
 
 
@@ -206,4 +215,23 @@ public:
 #undef S
     return ascii_map;
   }
+
+  static unsigned is_numeric_key(unsigned keycode, unsigned modifier_flags, unsigned ignore_flags = KBFLAG_NUM) {
+    keycode = (keycode & ~ignore_flags) ^ modifier_flags;
+    static unsigned numkeys[] = {0x16, 0x1e, 0x26, 0x25, 0x2e, 0x36, 0x3d, 0x3e, 0x46, 0x45};
+    for (unsigned i=0; i < sizeof(numkeys)/sizeof(*numkeys); i++)
+      if (keycode == numkeys[i]) return i + 1;
+    return 0;
+  }
+
+
+  static unsigned is_function_key(unsigned keycode, unsigned modifier_flags, unsigned ignore_flags = KBFLAG_NUM) {
+    keycode = (keycode & ~ignore_flags) ^ modifier_flags;
+    static unsigned functionkeys[] = {0x5, 0x6, 0x4, 0xc, 0x3, 0xb, 0x83, 0xa, 0x1, 0x9, 0x78, 0x7};
+    for (unsigned i=0; i < sizeof(functionkeys)/sizeof(*functionkeys); i++)
+      if (keycode == functionkeys[i]) return i + 1;
+    return 0;
+  }
+
+
 };

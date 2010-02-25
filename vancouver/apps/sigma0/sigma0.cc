@@ -37,7 +37,7 @@ class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
 {
   enum {
     MAXCPUS = 256,
-    CPUGSI  = 3,
+    CPUGSI  = 0,
     HIP_ADDRESS = 0xbffff000,
     MAXPCIDIRECT = 64,
   };

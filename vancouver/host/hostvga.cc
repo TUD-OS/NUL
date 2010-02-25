@@ -154,52 +154,45 @@ private:
    */
   bool handle_console_switching(MessageKeycode &msg)
   {
-    static unsigned functionkeys[] = {0x5, 0x6, 0x4, 0xc, 0x3, 0xb, 0x83, 0xa, 0x1, 0x9, 0x78, 0x7};
-    static unsigned numkeys[] = {0x16, 0x1e, 0x26, 0x25, 0x2e, 0x36, 0x3d, 0x3e, 0x46, 0x45};
-
-    unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_switch;
+    unsigned num;
 
     // F1-F12 switches consoles
-    for (unsigned i=0;  i < sizeof(functionkeys)/sizeof(*functionkeys); i++)
-      if (keycode == functionkeys[i])
-	{
-	  _active_client = i + 1;
-	  return switch_client();
-	}
+    if ((num = GenericKeyboard::is_function_key(msg.keycode, _modifier_switch))) {
+      _active_client = num;
+      return switch_client();
+    }
 
     // numeric keys start new modules
-    for (unsigned i=0;  i < sizeof(numkeys)/sizeof(*numkeys); i++)
-      if (keycode == numkeys[i])
-	{
-	  MessageConsole msg1(MessageConsole::TYPE_START, i);
-	  return _mb.bus_console.send(msg1);
-	}
+    if ((num = GenericKeyboard::is_numeric_key(msg.keycode, _modifier_switch))) {
+      MessageConsole msg1(MessageConsole::TYPE_START, num - 1);
+      return _mb.bus_console.send(msg1);
+    }
 
     // funckeys together with lctrl to debug
-      else if (keycode == (functionkeys[i] | KBFLAG_LCTRL))
-	{
-	  MessageConsole msg1(MessageConsole::TYPE_DEBUG, i);
-	  _mb.bus_console.send(msg1);
-	  return false;
-	}
+    if ((num = GenericKeyboard::is_function_key(msg.keycode, _modifier_switch ^ KBFLAG_LCTRL))) {
+      MessageConsole msg1(MessageConsole::TYPE_DEBUG, num -1);
+      _mb.bus_console.send(msg1);
+      return false;
+    }
 
+    unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_switch;
     switch (keycode)
       {
-      case KBFLAG_EXTEND0 | 0x74:  // right
+      case KBCODE_RIGHT:
 	_active_client = (_active_client + 1) % MAXCLIENTS;
 	break;
-      case KBFLAG_EXTEND0 | 0x6b:  // left
+      case KBCODE_LEFT:
 	_active_client = (_active_client - 1 + MAXCLIENTS) % MAXCLIENTS;
 	break;
-      case KBFLAG_EXTEND0 | 0x75:  // up
+      case KBCODE_UP:
 	if (_clients[_active_client].num_views)
 	  _clients[_active_client].active_view = (_clients[_active_client].active_view + 1) % _clients[_active_client].num_views;
 	break;
-      case KBFLAG_EXTEND0 | 0x72:  // down
+      case KBCODE_DOWN:
 	if (_clients[_active_client].num_views)
 	  _clients[_active_client].active_view = (_clients[_active_client].active_view + _clients[_active_client].num_views - 1) % _clients[_active_client].num_views;
 	break;
-      case 0x76: // ESC -> hypervisor console
+      case KBCODE_ESC: // hypervisor console
 	_active_client = 0;
 	break;
       default:
