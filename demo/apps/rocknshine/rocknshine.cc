@@ -5,14 +5,11 @@
  * All bugs added by Julian Stecklina <jsteckli@os.inf.tu-dresden.de>.
  */
 
-#include "driver/logging.h"
 #include "vmm/message.h"
-#include "vmm/timer.h"
-#include "vmm/math.h"
 #include "sigma0/console.h"
 #include "models/keyboard.h"
-
 #include <tinf.h>
+
 
 #define LINES 1024
 #define ROWS   768
