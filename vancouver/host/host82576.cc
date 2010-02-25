@@ -411,7 +411,7 @@ PARAM(host82576, {
       }
     }
   },
-  "host82576:instance[,irq] - provide driver for Intel 82576 Ethernet controller.",
+  "host82576:instance - provide driver for Intel 82576 Ethernet controller.",
   "Example: 'host82576:0;");
 
 // EOF
