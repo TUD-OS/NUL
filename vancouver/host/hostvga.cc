@@ -94,7 +94,8 @@ private:
     _lastswitchtime =  _mb.clock()->clock(_refresh_freq);
     assert (_clients[_active_client].active_view <= _clients[_active_client].num_views);
     _measure = true;
-    if (!_active_mode)  set_vga_reg(0x14, 0xc, 8*3);
+
+    if (!_active_mode) set_vga_reg(0x14, 0xc, 8*3);
 
     // do an immediate refresh
     MessageTimeout msg(_timer);
@@ -308,7 +309,10 @@ public:
 	    if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) Logging::panic("can not get the framebuffer");
 	    _graphic_ptr = msg1.ptr;
 	    _active_mode = mode;
-	    if (!_active_mode) memcpy_fast(_backend, _saved, BACKEND_SIZE);
+	    if (!_active_mode) {
+	      set_vga_reg(0x14, 0xc, 8*3);
+	      memcpy_fast(_backend, _saved, BACKEND_SIZE);
+	    }
 	  }
 
 	if (~_modeinfo.attr & 0x80)
