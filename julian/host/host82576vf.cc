@@ -64,7 +64,7 @@ public:
     dma_desc *cur;
     while ((cur = &_rx_ring[last_rx])->hi & 1 /* done? */) {
       uint16_t plen = cur->hi >> 32;
-      msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
+      //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
 	msg(INFO, "Too many packets. Exit handle_rx for now.\n");
 	_hwreg[VTEICS] = 1;	// XXX Needed?
@@ -88,7 +88,7 @@ public:
     dma_desc *cur;
     while (((cur = &_tx_ring[last_tx])->hi >> 32) & 1 /* done? */) {
       uint16_t plen = cur->hi >> 32;
-      msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
+      //msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
 
       cur->hi = cur->lo = 0;
       last_tx = (last_tx+1) % desc_ring_len;
@@ -131,8 +131,8 @@ public:
       if (irq_msg.line == _hostirqs[i].vec) {
 	unsigned eicr = _hwreg[VTEICR];
 	_hwreg[VTEICR] = eicr;
-	msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
-	    _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
+	// msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
+	//     _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
 	(this->*(_hostirqs[i].handle))();
 	_hwreg[VTEIMS] = 7;
 	return true;
