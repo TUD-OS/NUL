@@ -28,7 +28,7 @@
     long __res;								\
     asm volatile (".section .data; 1: .string \"" NAME "\";.previous;"	\
 		  ".section .profile; " PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
-		  "incl 2b; mov 2b, %0" : "=r"(__res));			\
+		  "incl 2b; mov 2b, %0" : "=q"(__res));			\
     __res;								\
   })
 
@@ -37,5 +37,5 @@
   {									\
     asm volatile (".section .data; 1: .string \"" NAME "\";.previous;"	\
 		  ".section .profile; "  PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
-		  "mov %0,2b" : : "r"(VALUE));				\
+		  "mov %0,2b" : : "q"(VALUE));				\
   }
