@@ -120,7 +120,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	  case KBFLAG_EXTEND0 | 0x7c: // printscr
 	    recall(_mb->vcpustate(0)->cap_vcpu);
 	    break;
-	  case 0x7E: // scroll lock
+	  case KBCODE_SCROLL: // scroll lock
 	    Logging::printf("toggle HLT\n");
 	    break;
 	  case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break

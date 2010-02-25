@@ -212,7 +212,7 @@ private:
 
     switch(keycode)
       {
-      case KBFLAG_EXTEND0 | 0x69: // end
+      case KBCODE_END:
 	{
 	  MessageConsole msg1(MessageConsole::TYPE_RESET);
 	  return _mb.bus_console.send(msg1);
@@ -220,7 +220,6 @@ private:
       default:
 	return false;
       }
-    return false;
   }
 
 

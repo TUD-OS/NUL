@@ -193,8 +193,7 @@ public:
     unsigned page = 0;
     unsigned input = 0;
     while (1) {
-      if (last_page != page)
-	show_page(page);
+      if (last_page != page) show_page(page);
       last_page = page;
 
       MessageKeycode *kmsg = stdinconsumer->get_buffer();
@@ -209,17 +208,28 @@ public:
       case KBCODE_LEFT:
 	page = (page + _header->pages - 1) % _header->pages;
 	break;
+      case KBCODE_HOME:
+	page = 0;
+	break;
+      case KBCODE_END:
+	page = _header->pages - 1;
+	break;
       case KBCODE_ENTER:
 	if (input && input <= _header->pages) page = input - 1;
       case KBCODE_ESC:
 	input = 0;
 	break;
+      case KBCODE_SCROLL:
+	for (unsigned i=0; i < _header->pages; i++)
+	  {
+	    page = (page + 1) % _header->pages;
+	    show_page(page);
+	  }
+	break;
       default:
 	{
 	  unsigned num;
 	  if ((num = is_numeric_key(kmsg->keycode, 0)))  input = input*10 + num;
-
-	  Logging::printf("keycode = %x\n", kmsg->keycode);
 	}
       }
 
