@@ -22,8 +22,8 @@
 #include <tinf.h>
 
 
-#define LINES 1024
-#define ROWS   768
+#define COLUMNS 1024
+#define ROWS     768
 
 extern char __freemem[];
 
@@ -43,14 +43,11 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
   ConsoleModeInfo _modeinfo;
 
   pheader *_header;
-  char *   _scratch;
-  unsigned _scratch_size;
-
+  unsigned _scratch[COLUMNS * ROWS * 3 / 4];
 
   void show_page(unsigned page)
   {
-    unsigned *cur_vesa = reinterpret_cast<unsigned *>(_vesa_console);
-    unsigned int dest_len = _scratch_size;
+    unsigned int dest_len = sizeof(_scratch);
 
     unsigned char *compressed = _header->offset[page] + (unsigned char *)_header;
     unsigned size = _header->offset[page+1] - _header->offset[page];
@@ -68,31 +65,29 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
     }
 
     unsigned long long start_display = Cpu::rdtsc();
-    switch (_modeinfo.bpp) {
-    case 24:                    // 24-bit mode
-      memcpyl(cur_vesa, _scratch, _scratch_size / 4);
-      break;
-    case 32:                    // 32-bit mode
-      for (unsigned i = 0; i < _scratch_size; i += 3*4) {
+    unsigned *cur_vesa = reinterpret_cast<unsigned *>(_vesa_console);
+    unsigned *cur_scratch = _scratch;
+    for (unsigned y=0; y < ROWS; y++)
+      {
+	if (_modeinfo.bpp == 24) {
+	    memcpyl(cur_vesa, cur_scratch, COLUMNS * 3 / 4);
+	    cur_scratch += COLUMNS * 3 / 4;
+	}
+	else if (_modeinfo.bpp == 32)
+	  for (unsigned x = 0; x < COLUMNS; x += 4) {
 
-	// Load 4 packed pixels in 3 words
-	unsigned *data = reinterpret_cast<unsigned *>(_scratch + i);
-	unsigned p1 = data[0];
-	unsigned p2 = data[1];
-	unsigned p3 = data[2];
+	    // Load 4 packed pixels in 3 words
+	    unsigned p1 = *cur_scratch++;
+	    unsigned p2 = *cur_scratch++;
+	    unsigned p3 = *cur_scratch++;
 
-	cur_vesa[0] = p1 & 0xFFFFFF;
-	cur_vesa[1] = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
-	cur_vesa[2] = (p2 >> 16) | ((p3 & 0xFF) << 16);
-	cur_vesa[3] = p3 >> 8;
-	cur_vesa   += 4;
+	    cur_vesa[x + 0] = p1 & 0xFFFFFF;
+	    cur_vesa[x + 1] = (p1 >> 24) | ((p2 & 0xFFFF) << 8);
+	    cur_vesa[x + 2] = (p2 >> 16) | ((p3 & 0xFF) << 16);
+	    cur_vesa[x + 3] = p3 >> 8;
+	  }
+	cur_vesa += _modeinfo.bytes_per_scanline / 4;
       }
-      break;
-    default:
-      // XXX ?
-      {}
-    };
-
     unsigned long long end_cycles = Cpu::rdtsc();
     Logging::printf("Decompression: %u cycles\n", (unsigned)(start_display - start_decompress));
     Logging::printf("Display:       %u cycles\n", (unsigned)(end_cycles - start_display));
@@ -133,9 +128,8 @@ public:
 
     while (Sigma0Base::console(msg))      {
       // we like to have a 24/32bit mode
-      if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == LINES)
-
-	// we prefer a 24bit mode
+      if (m.attr & 0x80 && m.bpp >= 24 && m.resolution[0] == COLUMNS)
+	// and prefer a 24bit mode
 	if (!size || m.bpp < _modeinfo.bpp)
 	  {
 	    size = m.resolution[1] * m.bytes_per_scanline;
@@ -147,9 +141,6 @@ public:
 
     if (mode == ~0u) Logging::panic("have not found any 32bit graphic mode");
 
-    _scratch_size = size;
-    Logging::printf("RS: _scratch_size = %x\n", _scratch_size);
-    _scratch      = reinterpret_cast<char *>(malloc(size));
     _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
