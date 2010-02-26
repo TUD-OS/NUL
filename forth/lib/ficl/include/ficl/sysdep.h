@@ -48,8 +48,7 @@
 
 /* $FreeBSD$ */
 
-#if !defined (__SYSDEP_H__)
-#define __SYSDEP_H__ 
+#pragma once
 
 #include <stddef.h> /* size_t, NULL */
 #include <stdint.h>
@@ -421,15 +420,4 @@ static inline int ficlLockDictionary(short fLock) { return 0; }
 DPUNS ficlLongMul(FICL_UNS x, FICL_UNS y);
 UNSQR ficlLongDiv(DPUNS    q, FICL_UNS y);
 
-
-/*
-** FICL_HAVE_FTRUNCATE indicates whether the current OS supports
-** the ftruncate() function (available on most UNIXes).  This
-** function is necessary to provide the complete File-Access wordset.
-*/
-#if !defined (FICL_HAVE_FTRUNCATE)
-#define FICL_HAVE_FTRUNCATE 0
-#endif
-
-
-#endif /*__SYSDEP_H__*/
+/* EOF */
