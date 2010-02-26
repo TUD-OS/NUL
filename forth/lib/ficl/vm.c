@@ -54,6 +54,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include <string.h>
+#include <assert.h>
 #include "ficl.h"
 
 static char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";

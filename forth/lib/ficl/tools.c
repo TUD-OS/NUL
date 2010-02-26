@@ -60,6 +60,7 @@
 #include <stdio.h>          /* sprintf */
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 #include "ficl.h"
 
 

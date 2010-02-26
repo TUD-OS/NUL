@@ -4,6 +4,13 @@
 
 #include <stdio.h>
 
+
+extern "C" void *realloc(void *ptr, size_t size)
+{
+  assert(false);
+  return NULL;
+}
+
 extern "C" int
 putchar(int c)
 {

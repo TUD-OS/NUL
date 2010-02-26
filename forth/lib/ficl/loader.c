@@ -34,6 +34,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "ficl.h"
 
 /*		FreeBSD's loader interaction words and extras

@@ -58,6 +58,7 @@
 #endif
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 #include "ficl.h"
 
 /* Dictionary on-demand resizing control variables */

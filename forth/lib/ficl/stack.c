@@ -43,6 +43,7 @@
 /* $FreeBSD$ */
 
 #include <stdlib.h>
+#include <assert.h>
 #include "ficl.h"
 
 #define STKDEPTH(s) ((s)->sp - (s)->base)

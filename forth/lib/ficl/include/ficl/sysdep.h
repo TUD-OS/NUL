@@ -53,7 +53,6 @@
 #include <stddef.h> /* size_t, NULL */
 #include <stdint.h>
 #include <setjmp.h>
-#include <assert.h>
 
 #if !defined IGNORE		/* Macro to silence unused param warnings */
 #define IGNORE(x)

@@ -48,6 +48,7 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 #include "ficl.h"
 #include "math64.h"
 

@@ -65,6 +65,7 @@ BEGIN \
   printf "*/\n";
   printf "\n";
   printf "\n#include \"ficl.h\"\n";
+  printf "\n#include <assert.h>\n";
   printf "\nstatic char softWords[] =\n";
   printf "#if FICL_WANT_SOFTWORDS\n";
 

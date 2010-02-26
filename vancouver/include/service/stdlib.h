@@ -17,7 +17,17 @@
 
 #pragma once
 
-extern "C" void  __exit(unsigned long status) __attribute__((noreturn));
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void  __exit(unsigned long status) __attribute__((noreturn));
 void *malloc(unsigned long size);
 void free(void *ptr);
 void *memalign(unsigned long boundary, unsigned long size);
+
+#ifdef __cplusplus
+}
+#endif
+
+// EOF
