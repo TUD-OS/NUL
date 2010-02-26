@@ -6,6 +6,6 @@ Import('target_env')
 
 nul.App(target_env, 'gt',
         SOURCES = [ 'gt.cc' ],
-        LIBS    = [ 'vsys', 'crun' ])
+        LIBS    = [ 'vsys' ])
 
 # EOF

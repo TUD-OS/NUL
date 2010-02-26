@@ -6,7 +6,8 @@
 /// This file is part of NUL, the NOVA userland. See LICENSE for
 /// licensing details.
 
-#include <nul/motherboard.h>
+#include <nul/program.h>
+#include <nul/timer.h>
 #include <sigma0/console.h>
 
 #include "math.h"

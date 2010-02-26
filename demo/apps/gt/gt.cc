@@ -15,9 +15,10 @@
  * General Public License version 2 for more details.
  */
 
-#include "driver/logging.h"
-#include "vmm/message.h"
-#include "vmm/timer.h"
+#include "service/logging.h"
+#include "nul/message.h"
+#include "nul/program.h"
+#include "nul/timer.h"
 #include "sigma0/console.h"
 
 class Gt : public ProgramConsole
@@ -57,7 +58,7 @@ public:
     ConsoleModeInfo m;
     MessageConsole msg(0, &m);
     while (Sigma0Base::console(msg))      {
-      Logging::printf("GT: %x %dx%d-%d sc %x\n", 
+      Logging::printf("GT: %x %dx%d-%d sc %x\n",
 		      msg.index, m.resolution[0], m.resolution[1], m.bpp, m.bytes_per_scanline);
 	// we like to have the 24/32bit mode with 1024
 	if (m.attr & 0x80 && m.bpp >= 16 && m.resolution[0] == 1024)
@@ -72,7 +73,7 @@ public:
     if (mode == ~0u) Logging::panic("have not found any 32bit graphic mode");
 
     _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
-    Logging::printf("GT: use %x %dx%d-%d %p size %x sc %x\n", 
+    Logging::printf("GT: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("GT2", _vesa_console, size, &_vesaregs);

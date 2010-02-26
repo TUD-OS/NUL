@@ -83,7 +83,7 @@ strnlen(const char *src, unsigned long maxlen)
 
 
 static inline
-long
+unsigned long
 strlen(const char *src)
 {
   return __builtin_strlen(src);

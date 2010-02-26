@@ -16,9 +16,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/message.h"
 #include "sigma0/console.h"
-#include "models/keyboard.h"
+#include "host/keyboard.h"
+#include "nul/program.h"
 #include <tinf.h>
 
 
