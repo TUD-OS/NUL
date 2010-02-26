@@ -277,11 +277,11 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   {
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
-    check(init(hip));
+    check1(1, init(hip));
 
     Logging::printf("create lock\n");
     _lock = Semaphore(&_lockcount, _cap_free++);
-    check(create_sm(_lock.sm()));
+    check1(2, create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");
     for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++)
@@ -293,7 +293,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
 	_percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
 	_percpu[i].cap_pt_echo = _cap_free++;
-	check(create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
+	check1(3, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
 
 	Utcb *utcb;
 	_percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
@@ -304,9 +304,9 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check(create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,        Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,        Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
-    check(create_pt(30, _percpu[gsi].cap_ec_echo, do_gsi_boot_wrapper,  Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
+    check1(5, create_pt(30, _percpu[gsi].cap_ec_echo, do_gsi_boot_wrapper,  Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
 
 
     // map vga memory
@@ -461,12 +461,12 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    // create special portal for every module, we start at 64k, to have enough space for static fields
 	    unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 5);
-	    check(create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-	    check(create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
+	    check1(6, create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+	    check1(7, create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
 	    Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", cpunr);
 	    modinfo->cap_pd = _cap_free++;
-	    check(create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr, modinfo->dma));
+	    check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr, modinfo->dma));
 	  }
       }
     return 0;

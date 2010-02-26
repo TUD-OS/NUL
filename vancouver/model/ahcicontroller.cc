@@ -20,8 +20,6 @@
 #include "model/pci.h"
 
 
-#define check2(X) { unsigned __res = X; if (__res) return __res; }
-
 class ParentIrqProvider
 {
  public:
@@ -195,8 +193,8 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
   unsigned execute_command(unsigned value)
   {
     COUNTER_INC("ahci cmd");
-      unsigned clbase = 0;
-      check2(!HwRegisterSet<AhciPort>::read_reg(HwRegisterSet<AhciPort>::find_reg("PxCLB"), clbase));
+    unsigned clbase = 0;
+    check1(1, !HwRegisterSet<AhciPort>::read_reg(HwRegisterSet<AhciPort>::find_reg("PxCLB"), clbase));
 
       // try to execute all active commands
       for (unsigned i = 0; i < 32; i++)
@@ -361,10 +359,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
     if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
       return false;
 
-    if (msg.count != 4 || (addr & 0x3)) {
-      Logging::printf("%s() - unaligned or non-32bit access at %lx, %x\n", __PRETTY_FUNCTION__, msg.phys, msg.count);
-      return false;
-    };
+    check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
 
     bool res = false;
     if (addr < 0x100)
@@ -373,7 +368,6 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 	res = _ports[(addr - 0x100) / 0x80].write_all_regs(addr & 0x7f, *reinterpret_cast<unsigned *>(msg.ptr), 4, &_ports[(addr - 0x100) / 0x80]);
     else
       return false;
-
 
     if (!res)  Logging::panic("%s(%lx)\n", __func__, addr);
     return true;
@@ -387,10 +381,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
     if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
       return false;
 
-    if (msg.count != 4 || (addr & 0x3)) {
-      Logging::printf("%s() - unaligned or non-32bit access at %lx, %x\n", __PRETTY_FUNCTION__, msg.phys, msg.count);
-      return false;
-    };
+    check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
 
     bool res;
     unsigned uvalue = 0;

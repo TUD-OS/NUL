@@ -259,11 +259,8 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	_splits[_dsf[6]]++;
 
 	MessageDisk msg(read ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE, _hostdisk, _dsf[6], sector, dmacount, _dma, 0, ~0ul);
-	if (!_bus_disk.send(msg))
-	  {
-	    Logging::printf("DISK operation failed\n");
-	    return 1;
-	  }
+	check1(1, !_bus_disk.send(msg), "DISK operation failed");
+
 	sector += transfer >> 9;
 	assert(len >= transfer);
 	len -= transfer;

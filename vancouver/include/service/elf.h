@@ -18,17 +18,14 @@
 #pragma once
 #include "elf32.h"
 
-#define check(X, ...) ({ unsigned __res; if ((__res = X)) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, __res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); return 0xbead; }})
-
-
 class Elf
 {
   static unsigned is_not_elf(struct eh32 *elf)
   {
-    check(!(elf->e_ident[0] == 0x7f && elf->e_ident[1] == 'E' && elf->e_ident[2] == 'L' && elf->e_ident[3] == 'F'));
-    check(!(elf->e_ident[4] == 0x01 && elf->e_ident[5] == 0x01));
-    check(!(elf->e_type==2 && elf->e_machine==0x03 && elf->e_version==1));
-    check(!(sizeof(struct ph32) <= elf->e_phentsize));
+    check1(1, !(elf->e_ident[0] == 0x7f && elf->e_ident[1] == 'E' && elf->e_ident[2] == 'L' && elf->e_ident[3] == 'F'));
+    check1(2, !(elf->e_ident[4] == 0x01 && elf->e_ident[5] == 0x01));
+    check1(3, !(elf->e_type==2 && elf->e_machine==0x03 && elf->e_version==1));
+    check1(4, !(sizeof(struct ph32) <= elf->e_phentsize));
     return 0;
   }
 
@@ -70,7 +67,7 @@ class Elf
       {
 	struct ph32 *ph = reinterpret_cast<struct ph32 *>(module + elf->e_phoff + j*elf->e_phentsize);
 	if (ph->p_type != 1)  continue;
-	check(!(mem_size >= ph->p_paddr + ph->p_memsz - mem_offset), "elf section out of memory %lx vs %x ofs %lx", mem_size, ph->p_paddr + ph->p_memsz, mem_offset);
+	check1(5, !(mem_size >= ph->p_paddr + ph->p_memsz - mem_offset), "elf section out of memory %lx vs %x ofs %lx", mem_size, ph->p_paddr + ph->p_memsz, mem_offset);
 	memcpy(phys_mem + ph->p_paddr - mem_offset, module + ph->p_offset, ph->p_filesz);
 	memset(phys_mem + ph->p_paddr - mem_offset + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
 	if (maxptr < ph->p_memsz + ph->p_paddr - mem_offset)
