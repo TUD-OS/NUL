@@ -44,6 +44,7 @@ class HostPci
     CAP_MSIX      = 0x11U,
   };
 
+
   unsigned conf_read(unsigned bdf, unsigned short offset)
   {
     MessagePciConfig msg(bdf, offset);
@@ -56,6 +57,20 @@ class HostPci
     MessagePciConfig msg(bdf, offset, value);
     _bus_pcicfg.send(msg, true);
   }
+
+
+  /**
+   * Induce the number of the bars from the header-type.
+   */
+  unsigned count_bars(unsigned bdf) {
+
+    switch((conf_read(bdf, 0xc) >> 24) & 0x7f) {
+    case 0: return 6;
+    case 1: return 2;
+    default: return 0;
+    }
+  }
+
 
   unsigned long long bar_base(unsigned bdf, unsigned bar)
   {
@@ -114,6 +129,30 @@ class HostPci
     conf_write(bdf, bar, old);
     return size;
   }
+
+
+  void read_all_bars(unsigned bdf, unsigned long long *base, unsigned long long *size) {
+
+    memset(base, 0, MAX_BAR*sizeof(*base));
+    memset(size, 0, MAX_BAR*sizeof(*size));
+
+    // disable device
+    unsigned cmd = conf_read(bdf, 0x4);
+    conf_write(bdf, 0x4, cmd & ~0x7);
+
+    // read bars
+    for (unsigned i=0; i < count_bars(bdf); i++) {
+      bool is64bit;
+      base[i] = bar_base(bdf, i);
+      size[i] = bar_size(bdf, i, &is64bit);
+      if (is64bit) i++;
+    }
+
+    // reenable device
+    conf_write(bdf, 0x4, cmd);
+  }
+
+
 
   /**
    * Searches for a given device and returns the bdf of it.

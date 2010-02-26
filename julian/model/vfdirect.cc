@@ -41,8 +41,8 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
   unsigned _vf_no;
 
   struct {
-    uint32_t base;
-    uint32_t size;
+    uint64_t base;
+    uint64_t size;
     void *ptr;
   } _bars[MAX_BAR];
 
@@ -196,17 +196,10 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
     // Read BARs and masks.
     for (unsigned i = 0; i < MAX_BAR; i++) {
       bool b64;
-      _bars[i].base = vf_bar_base(parent_bdf, i);
-      _bars[i].size = vf_bar_size(parent_bdf, i, &b64);
-      _bars[i].base += _bars[i].size*vf_no;
+      _bars[i].base = vf_bar_base_size(parent_bdf, vf_no, i, _bars[i].size, &b64);
 
-      msg("bar[%d] -> %08x %08x\n", i, _bars[i].base, _bars[i].size);
-
-      if (b64) {
-	_bars[i+1].base = 0;	// Stored in previous array element.
-	_bars[i+1].size = 0;	// Dito.
-	i += 1;
-      }
+      msg("bar[%d] -> %08llx %08llx\n", i, _bars[i].base, _bars[i].size);
+      if (b64) i++;
     }
 
     // Allocate MMIO regions
@@ -216,10 +209,10 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
 	MessageHostOp amsg(MessageHostOp::OP_ALLOC_IOMEM,
 			   _bars[i].base, _bars[i].size);
 	if (mb.bus_hostop.send(amsg) && amsg.ptr) {
-	  msg("MMIO %08x -> %p\n", _bars[i].base, amsg.ptr);
+	  msg("MMIO %08llx -> %p\n", _bars[i].base, amsg.ptr);
 	  _bars[i].ptr = amsg.ptr;
 	} else {
-	  msg("MMIO %08x -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
+	  msg("MMIO %08llx -> ?!?!? (Disabling BAR%d!)\n", _bars[i].base, i);
 	  _bars[i].base = 0;
 	  _bars[i].size = 0;
 	}
@@ -257,6 +250,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
   }
 };
 
+#if 0
 PARAM(vfpci,
       {
 	HostVfPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
@@ -310,5 +304,5 @@ PARAM(vfpci,
       },
       "vfpci:parent_bdf,vf_no,guest_bdf",
       "if no guest_bdf is given, a free one is searched.");
-
+#endif
 // EOF

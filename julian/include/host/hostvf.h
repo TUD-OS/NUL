@@ -30,23 +30,31 @@ public:
     return 0;
   }
 
-  /** Return the base of a VF BAR (inside a SR-IOV capability).
+  /** 
+   * Return the base and size of a VF BAR (inside a SR-IOV capability).
    */
-  unsigned long long vf_bar_base(unsigned bdf, unsigned no)
-  {
+  unsigned long long vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, unsigned long long &size, bool *is64bit=0) {
+
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
-    return bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4);
+    size =  bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
+    return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4) + vf_no * size;
   }
 
-  /** Return the size of a VF BAR (inside a SR-IOV capability
-   */
-  unsigned long long vf_bar_size(unsigned bdf, unsigned no, bool *is64bit = 0)
-  {
-    unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) return -1;
-    return bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
+
+  void read_all_vf_bars(unsigned bdf, unsigned vf_no, unsigned long long *base, unsigned long long *size) {
+
+    memset(base, 0, MAX_BAR*sizeof(*base));
+    memset(size, 0, MAX_BAR*sizeof(*size));
+
+    // read bars
+    for (unsigned i=0; i < count_bars(bdf); i++) {
+      bool is64bit;
+      base[i] = vf_bar_base_size(bdf, vf_no, i, size[i], &is64bit);
+      if (is64bit) i++;
+    }
   }
+
 
   /** Compute BDF of a particular VF. */
   unsigned vf_bdf(unsigned parent_bdf, unsigned vf_no)

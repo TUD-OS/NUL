@@ -142,7 +142,7 @@ public:
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("RS2", _vesa_console, size, &_vesaregs);
-    check(!Sigma0Base::console(msg2));
+    check1(1, !Sigma0Base::console(msg2));
     _vesaregs.mode = mode;
 
     // Get keyboard

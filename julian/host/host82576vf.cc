@@ -256,13 +256,12 @@ PARAM(host82576vf, {
       return;
     }
 
-    MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM,
-			  pci.vf_bar_base(parent_bdf, 0) + pci.vf_bar_size(parent_bdf, 0)*vf_no,
-			  pci.vf_bar_size(parent_bdf, 0));
-
-    MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM,
-			   pci.vf_bar_base(parent_bdf, 3) + pci.vf_bar_size(parent_bdf, 3)*vf_no,
-			   pci.vf_bar_size(parent_bdf, 3));
+    unsigned long long size; 
+    unsigned long long base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
+    
+    MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
+    base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
+    MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 
     if (!(mb.bus_hostop.send(reg_msg) && mb.bus_hostop.send(msix_msg) &&
 	  reg_msg.ptr && msix_msg.ptr)) {

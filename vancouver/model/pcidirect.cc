@@ -34,75 +34,35 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   unsigned _bdf;
   unsigned _hostirq;
   unsigned _cfgspace[PCI_CFG_SPACE_DWORDS];
-  unsigned _bars[MAX_BAR];
-  unsigned _masks[MAX_BAR];
+  unsigned _bar_count;
+  long long unsigned _bases[MAX_BAR];
+  long long unsigned _sizes[MAX_BAR];
   const char *debug_getname() { return "DirectPciDevice"; }
 
-
   /**
-   * Induce the number of the bars from the header-type.
+   * Map the bars.
    */
-  unsigned count_bars()
-  {
-    switch((_cfgspace[3] >> 24) & 0x7f)
-      {
-      case 0: return 6;
-      case 1: return 2;
-      default: return 0;
+  void map_bars() {
+    for (unsigned i=0; i < _bar_count; i++) {
+
+      unsigned long bar = _bases[i];
+      if (!bar) continue;
+
+      if ((bar & 1) == 1) {
+	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar & BAR_IO_MASK) << 8) |  Cpu::bsr(_sizes[i] | 0x3));
+	_mb.bus_hostop.send(msg);
+      } else {
+
+	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar & ~0x1f, 1 << Cpu::bsr(((_sizes[i] - 1) | 0xfff) + 1));
+	if (_mb.bus_hostop.send(msg) && msg.ptr)
+	  _bases[i] = reinterpret_cast<unsigned long>(msg.ptr) + (bar & 0x10);
+	else
+	  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
+
       }
-  }
-
-
-  /**
-   * Read the bars and the corresponding masks.
-   */
-  void read_bars()
-    {
-
-      // disable device
-      unsigned cmd = conf_read(_bdf, 0x4);
-      conf_write(_bdf, 0x4, cmd & ~0x7);
-
-      // read bars and masks
-      for (unsigned i=0; i < count_bars(); i++)
-	{
-	  unsigned a = 0x10 + i*4;
-	  _bars[i] = conf_read(_bdf, a);
-	  conf_write(_bdf, a, ~0U);
-	  _masks[i] = conf_read(_bdf, a);
-	  conf_write(_bdf, a, _bars[i]);
-	}
-      // reenable device
-      conf_write(_bdf, 0x4, cmd);
-
-
-      for (unsigned i=0; i < count_bars(); i++)
-	{
-	  unsigned  bar = _bars[i];
-	  if (bar)
-	    if ((bar & 1) == 1)
-	      {
-		MessageHostOp msg(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar & ~3) << 8) |  Cpu::bsf((~_masks[i] | 0x3)));
-		_mb.bus_hostop.send(msg);
-	      }
-	    else
-	      {
-		MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar & ~0x1f, 1 << Cpu::bsr((~_masks[i] | 0xfff) + 1));
-		if (_mb.bus_hostop.send(msg) && msg.ptr)
-		  _bars[i] = reinterpret_cast<unsigned long>(msg.ptr) + (bar & 0x10);
-		else
-		  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
-	      }
-	  Logging::printf("%s() bar %x -> %x mask %x\n", __func__, bar, _bars[i], _masks[i]);
-
-	  // skip upper part of 64bit bar
-	  if ((bar & 0x6) == 0x4)
-	    {
-	      i++;
-	      _masks[i] = 0;
-	    }
-	}
+      Logging::printf("%s() bar %lx -> %llx size %llx\n", __func__, bar, _bases[i], _sizes[i]);
     }
+  }
 
   /**
    * Check whether the guest io address matches and translate to host
@@ -115,14 +75,14 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     COUNTER_INC("PCIDirect::match");
     // check whether io decode is disabled
     if (iospace && ~_cfgspace[1] & 1 || !iospace && ~_cfgspace[1] & 2)  return 0;
-    for (unsigned i=0; i < count_bars(); i++)
+    for (unsigned i=0; i < _bar_count; i++)
       {
 	unsigned  bar = _cfgspace[4 + i];
 	// mask prefetch bit
 	if (!iospace) bar &= ~0xc;
-	if (!_masks[i] || (bar & 1) != iospace || !in_range(address, bar & ~0x3, (~_masks[i] | 3) + 1 - size + 1))
+	if (_sizes[i] || (bar & 1) != iospace || !in_range(address, bar & ~0x3, _sizes[i] + 1 - size + 1))
 	  continue;
-	address = address - bar + _bars[i];
+	address = address - bar + _bases[i];
 	return 4 + i;
       }
     return 0;
@@ -181,7 +141,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	  {
 	    //unsigned old = _cfgspace[msg.offset >> 2];
 	    unsigned mask = ~0u;
-	    if (in_range(msg.offset, 0x10, MAX_BAR * 4))  mask &= _masks[(msg.offset - 0x10) >> 2];
+	    if (in_range(msg.offset, 0x10, MAX_BAR * 4))  mask &= _sizes[(msg.offset - 0x10) >> 2] - 1;
 	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
 
 	    //write through if not in the bar-range
@@ -279,26 +239,28 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
   bool  receive(MessageMemMap &msg)
   {
-    for (unsigned i=0; i < count_bars(); i++)
+    for (unsigned i=0; i < _bar_count; i++)
       {
 	unsigned  bar = _cfgspace[4 + i];
-	if (!_masks[i] || (bar & 1) || !in_range(msg.phys, bar & ~0x3, (~_masks[i] | 3) + 1))
+	if (_sizes[i] || (bar & 1) || !in_range(msg.phys, bar & ~0x3, _sizes[i]))
 	  continue;
-	msg.ptr  = reinterpret_cast<char *>(_bars[i] & ~0xfff);
-	msg.count = (~_masks[i] | 0xfff) + 1;
+	msg.ptr  = reinterpret_cast<char *>(_bases[i] & ~0xfff);
+	msg.count = _sizes[i];
 	Logging::printf(" MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
 	return true;
       }
     return false;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned didvid)
-  : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _bars(), _masks()
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned long long *bases, unsigned long long *sizes, unsigned didvid = 0)
+    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _bar_count(count_bars(_bdf))
   {
-    _hostirq = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, true);
+
+    memcpy(_bases, bases, sizeof(_bases));
+    memcpy(_sizes, sizes, sizeof(_sizes));
 
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
-    read_bars();
+    _hostirq = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, true);
 
     dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
@@ -325,7 +287,10 @@ PARAM(dpci,
 	check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
 
 
-	new DirectPciDevice(mb, bdf, argv[3], 0);
+	unsigned long long bases[HostPci::MAX_BAR];
+	unsigned long long sizes[HostPci::MAX_BAR];
+	pci.read_all_bars(bdf, bases, sizes);
+	new DirectPciDevice(mb, bdf, argv[3], bases, sizes);
       },
       "dpci:class,subclass,instance,bdf - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
@@ -354,8 +319,11 @@ PARAM(vfpci,
 	MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, vf_bdf);
 	check0(!mb.bus_hostop.send(msg_assign), "Could not assign %04x/%04x via IO/MMU.", parent_bdf, vf_bdf);
 
-	new DirectPciDevice(mb, vf_bdf, argv[2], didvid);
+	unsigned long long bases[HostPci::MAX_BAR];
+	unsigned long long sizes[HostPci::MAX_BAR];
+	pci.read_all_vf_bars(parent_bdf, vf_no, bases, sizes);
+
+	new DirectPciDevice(mb, vf_bdf, argv[2], bases, sizes, didvid);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is searched.");
-
