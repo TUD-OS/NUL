@@ -1,3 +1,21 @@
+/**
+ * PCI helper functions for virtual functions.
+ *
+ * Copyright (C) 2009-2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Vancouver is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
+
 #pragma once
 #include "host/hostpci.h"
 
@@ -23,7 +41,9 @@ public:
     return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4) + vf_no * size;
   }
 
-
+  /**
+   * Read all vf bars.
+   */
   void read_all_vf_bars(unsigned bdf, unsigned vf_no, unsigned long long *base, unsigned long long *size) {
 
     memset(base, 0, MAX_BAR*sizeof(*base));
