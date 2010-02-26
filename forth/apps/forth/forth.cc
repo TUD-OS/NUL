@@ -1,5 +1,6 @@
 #include <ficl.h>
 #include "sigma0/console.h"
+#include <nul/program.h>
 
 #include <stdio.h>
 

@@ -1,4 +1,6 @@
 # -*- Mode: Python -*-
+import sys, os
+sys.path.append(os.path.abspath("../vancouver/"))
 
 CacheDir('build_cache')
 

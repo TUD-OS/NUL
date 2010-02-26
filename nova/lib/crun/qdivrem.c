@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  */
 
-#include <stdint.h>
+#include <cstdint>
 
 /*
  * Multiprecision divide.  This algorithm is from Knuth vol. 2 (2nd ed),

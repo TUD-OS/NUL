@@ -27,7 +27,6 @@
  * SUCH DAMAGE.
  */
 
-#include <stdlib.h>
 #include <limits.h>
 #include <ctype.h>
 
@@ -127,7 +126,7 @@ noconv:
 		//errno = EINVAL;
 	} else if (neg)
 		acc = -acc;
-	if (endptr != NULL)
+	if (endptr != 0)
 		*endptr = (char *)(any ? s - 1 : nptr);
 	return (acc);
 }

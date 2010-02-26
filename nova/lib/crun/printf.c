@@ -36,6 +36,118 @@ puts(const char *s)
   return 1;
 }
 
+/**
+ * Output a number with base.
+ */
+static void
+put_number(putchar_fn put, void *data, unsigned long long value, const unsigned base, int pad, bool negative)
+{
+  assert(base<=36 && base>=2);
+
+  unsigned char buffer[32];
+  int size = 0;
+  do {
+    unsigned mod = value % base; value /= base;
+    if (mod>=10)  mod += 0x27;
+    assert(size < 32);
+    buffer[size++] = mod+0x30;
+  } while (value);
+
+  char ch = pad & 1 ? '0' : ' ';
+  pad >>= 1;
+  if (negative && pad)  pad --;
+  while (size < pad--)
+    put(data, ch);
+  if (negative) put(data, '-');
+  while (size--)
+    put(data, buffer[size]);
+}
+
+const char *
+handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
+{
+  unsigned l=0;
+  int pad = 0;
+  bool alternate = false;
+  while (*format) {
+    switch (*format) {
+    case '0':
+      if (pad == 0)
+	pad = 1;
+      else
+	pad = (pad/2)*20 | (pad & 1);
+      format++;
+      break;
+    case '1'...'9':
+      pad = (2*(*format - '0')) + (pad/2)*20 + (pad & 1);
+      format++;
+      break;
+    case '#':
+      alternate = true; format++;
+      break;
+    case '.':
+      if (*(format+1) == '*')
+	pad = 2 * va_arg(*ap, int);
+      format += 2;
+      break;
+    case 'l':
+      l++; format++;
+      break;
+    case 's':
+      {
+	const char *s = va_arg(*ap, const char *);
+	if (!s)
+	  s = "<null>";
+	if (!pad)
+	  pad = -1;
+	pad>>=1;
+	while (*s && pad-- ) put(data, *s++);
+	while (pad-- > 0 && pad < 256)  put(data, ' ');
+      }
+      return ++format;
+    case 'p':
+      put(data, '0'); put(data, 'x');
+    case 'x':
+      if (l==2)
+	put_number(put, data, va_arg(*ap, unsigned long long), 16, pad, false);
+      else
+	put_number(put, data, va_arg(*ap, unsigned long), 16, pad, false);
+      return ++format;
+    case 'd':
+      {
+	long long a;
+	if (l==2)
+	  a = va_arg(*ap, long long);
+	else
+	  a = va_arg(*ap, long);
+	bool negative = a < 0;
+	if (negative) a=-a;
+	put_number(put, data, a, 10, pad, negative);
+	return ++format;
+      }
+    case 'u':
+      if (l==2)
+	put_number(put, data, va_arg(*ap, unsigned long long), 10, pad, false);
+      else
+	put_number(put, data, va_arg(*ap, unsigned long), 10, pad, false);
+      return ++format;
+    case 'c':
+      put(data, va_arg(*ap, int));
+      return ++format;
+    case '%':
+      put(data, *format);
+      return ++format;
+    case 'z':		// size_t
+      l = 0; format++; break;
+    case 0:
+      return format;
+    default:
+      put(data, '?'); return ++format;
+    }
+  }
+  return format;
+}
+
 int
 vprintf(const char *format, va_list ap)
 {

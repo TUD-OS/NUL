@@ -6,11 +6,11 @@
 /// This file is part of NUL, the NOVA userland. See LICENSE for
 /// licensing details.
 
-#include <vmm/motherboard.h>
+#include <nul/program.h>
 #include <sigma0/console.h>
-#include <cstdint>
 
-void print_screen1(uint16_t *dst);
+
+void print_screen1(unsigned short *dst);
 
 class Tutor : public NovaProgram,
 	      public ProgramConsole
