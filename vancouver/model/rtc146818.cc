@@ -15,9 +15,8 @@
  * General Public License version 2 for more details.
  */
 
-
-#include "vmm/motherboard.h"
-#include "libc/time.h"
+#include "nul/motherboard.h"
+#include "service/time.h"
 
 /**
  * Device model for the MC146818 realtime clock.

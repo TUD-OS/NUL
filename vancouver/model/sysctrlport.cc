@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 
 /**
@@ -34,7 +34,7 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
   unsigned char _last_porta;
   unsigned char _last_portb;
   const char *debug_getname() { return "SYSCTRL"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" %x, %x", _port_a, _port_b);
   }
@@ -97,12 +97,12 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
   }
 
 
-  SystemControlPort(DBus<MessageLegacy> &bus_legacy, DBus<MessagePit> &bus_pit, unsigned port_a, unsigned port_b) 
+  SystemControlPort(DBus<MessageLegacy> &bus_legacy, DBus<MessagePit> &bus_pit, unsigned port_a, unsigned port_b)
     : _bus_legacy(bus_legacy), _bus_pit(bus_pit), _port_a(port_a), _port_b(port_b), _last_porta(0), _last_portb(0) {}
 };
 
 PARAM(scp,
-      { 
+      {
 	SystemControlPort *scp = new SystemControlPort(mb.bus_legacy, mb.bus_pit, argv[0], argv[1]);
 	mb.bus_ioin.add(scp, &SystemControlPort::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(scp, &SystemControlPort::receive_static<MessageIOOut>);

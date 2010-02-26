@@ -2,8 +2,8 @@
 
 #pragma once
 
-#include <driver/logging.h>
-#include <vmm/motherboard.h>
+#include "service/logging.h"
+#include "nul/motherboard.h"
 #include <cstdint>
 
 struct EthernetAddr {

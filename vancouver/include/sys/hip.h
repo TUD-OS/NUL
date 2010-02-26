@@ -17,59 +17,53 @@
  */
 
 #pragma once
-#include "vmm/cpu.h"
-
-typedef unsigned char  uint8;
-typedef unsigned short uint16;
-typedef unsigned int   uint32;
-typedef unsigned long long uint64;
 
 class Hip_cpu
 {
     public:
-        uint8   flags;
-        uint8   thread;
-        uint8   core;
-        uint8   package;
-	uint32  reserved;
+        unsigned char  flags;
+        unsigned char  thread;
+        unsigned char  core;
+        unsigned char  package;
+	unsigned  reserved;
 };
 
 class Hip_mem
 {
     public:
-        uint64  addr;
-        uint64  size;
+        unsigned long long  addr;
+        unsigned long long  size;
         int     type;
-        uint32  aux;
+        unsigned  aux;
 };
 
 class Hip
 {
     public:
-        uint32  signature;
-        uint16  checksum;       // HIP checksum
-        uint16  length;         // HIP length
-        uint16  cpu_offs;       // Offset of first CPU descriptor
-        uint16  cpu_size;
-        uint16  mem_offs;       // Offset of first MEM descriptor
-        uint16  mem_size;
-        uint32  api_flg;        // API feature flags
-        uint32  api_ver;        // API version
-        uint32  cfg_cap;        // Number of CAPs
-        uint32  cfg_exc;        // Number of Exception portals
-        uint32  cfg_vm;         // Number of VM portals
-        uint32  cfg_gsi;        // Number of GSIs
-        uint32  cfg_page;       // PAGE sizes
-        uint32  cfg_utcb;       // UTCB sizes
-        uint32  freq_tsc;       // TSC freq in khz
-        uint32  freq_bus;       // BUS freq in khz
+        unsigned  signature;
+        unsigned short  checksum;       // HIP checksum
+        unsigned short  length;         // HIP length
+        unsigned short  cpu_offs;       // Offset of first CPU descriptor
+        unsigned short  cpu_size;
+        unsigned short  mem_offs;       // Offset of first MEM descriptor
+        unsigned short  mem_size;
+        unsigned  api_flg;        // API feature flags
+        unsigned  api_ver;        // API version
+        unsigned  cfg_cap;        // Number of CAPs
+        unsigned  cfg_exc;        // Number of Exception portals
+        unsigned  cfg_vm;         // Number of VM portals
+        unsigned  cfg_gsi;        // Number of GSIs
+        unsigned  cfg_page;       // PAGE sizes
+        unsigned  cfg_utcb;       // UTCB sizes
+        unsigned  freq_tsc;       // TSC freq in khz
+        unsigned  freq_bus;       // BUS freq in khz
 
 
-	uint16 calc_checksum()
+	unsigned short calc_checksum()
 	{
-	  uint16 res = 0;
-	  for (unsigned i=0; i < length / sizeof(uint16); i++)
-	    res += reinterpret_cast<uint16 *>(this)[i];
+	  unsigned short res = 0;
+	  for (unsigned i=0; i < length / sizeof(unsigned short); i++)
+	    res += reinterpret_cast<unsigned short *>(this)[i];
 	  return res;
 	}
 	void fix_checksum() { checksum -= calc_checksum(); }
@@ -84,7 +78,7 @@ class Hip
 	  return 0;
 	}
 
-	void append_mem(uint64 addr, uint64 size, int type, uint32 aux)
+	void append_mem(unsigned long long addr, unsigned long long size, int type, unsigned aux)
 	{
 	  Hip_mem * mem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(this) + length);
 	  length += mem_size;

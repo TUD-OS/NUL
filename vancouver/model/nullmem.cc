@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 
 /**
@@ -30,14 +30,14 @@ class NullMemDevice : public StaticReceiver<NullMemDevice>
   unsigned long _size;
 
   const char *debug_getname() { return "NullMemDevice"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf("   %4lx+%lx", _base, _size);
   };
 public:
   NullMemDevice(unsigned long base, unsigned long size) : _base(base), _size(size) {}
-  template <class M> bool  receive(M &msg) 
-  {  
+  template <class M> bool  receive(M &msg)
+  {
     if (!in_range(msg.phys, _base, _size)) return false;
     for (unsigned i=0; i < msg.count; i++)
       reinterpret_cast<char *>(msg.ptr)[i] = 0xff;

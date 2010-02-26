@@ -15,9 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
-#include "vmm/vesa.h"
-#include "../../executor/novainstcache.h"
+#include "nul/motherboard.h"
+#include "host/vesa.h"
+#include "../executor/novainstcache.h"
 
 /**
  * A Vesa console.

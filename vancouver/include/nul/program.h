@@ -15,17 +15,14 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include <cstring>
-#include <cstdlib>
-#include "vmm/cpu.h"
-#include "driver/logging.h"
-#include "driver/vprintf.h"
+#include "service/string.h"
+#include "service/stdlib.h"
+#include "service/cpu.h"
+#include "service/logging.h"
 #include "sys/hip.h"
 #include "sys/syscalls.h"
-#include "sys/region.h"
-
-
-#define check(X, ...) ({ unsigned __res; if ((__res = X)) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, __res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); return 0xbead; }})
+#include "region.h"
+#include "baseprogram.h"
 
 
 /**
@@ -50,7 +47,7 @@
 /**
  * Contains common code for nova programms.
  */
-class NovaProgram
+class NovaProgram : public BaseProgram
 {
 
   enum {
@@ -69,16 +66,6 @@ class NovaProgram
   RegionList<512> _free_phys;
   RegionList<512> _virt_phys;
 
-  /* XXX Don't forget to change the initial stack in vsys/asm.S! */
-  static const unsigned stack_size_shift = 12;
-  static const unsigned stack_size = (1U << stack_size_shift);
-
-  /**
-   * Get the UTCB pointer from the top of the stack. This is a hack, as long we do not have a myself systemcall!
-   */
-  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp)); 
-    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
-  };
 
   /**
    * Alloc a region of virtual memory to put an EC into
@@ -140,19 +127,4 @@ public:
   {
     Logging::printf("%s(%lx)\n", __func__, status);
   }
-};
-
-
-/**
- * A template to simplify saving the utcb.
- */
-template <unsigned words>
-class TemporarySave
-{
-  void *_ptr;
-  unsigned long _data[words];
-
- public:
- TemporarySave(void *ptr) : _ptr(ptr) { memcpy(_data, _ptr, words*sizeof(unsigned long)); }
-  ~TemporarySave() { memcpy(_ptr, _data, words*sizeof(unsigned long)); }
 };

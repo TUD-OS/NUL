@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 
 /**
@@ -31,14 +31,14 @@ class NullIODevice : public StaticReceiver<NullIODevice>
   unsigned _value;
 
   const char *debug_getname() { return "NullIODevice"; };
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf("   %4x+%x", _base, _size);
   };
  public:
   NullIODevice(unsigned base, unsigned size, unsigned value) : _base(base), _size(size), _value(value) {}
   bool  receive(MessageIOOut &msg) { return in_range(msg.port, _base, _size); }
-  bool  receive(MessageIOIn  &msg) { 
+  bool  receive(MessageIOIn  &msg) {
     if (!in_range(msg.port, _base, _size)) return false;
     if (_value != ~0U)  msg.value = _value;
     return true;

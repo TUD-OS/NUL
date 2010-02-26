@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include "vmm/math.h"
+#include "math.h"
 
 /**
  * An appreviated broken down time.
  */
-struct tm_simple { 
+struct tm_simple {
   int sec;
   int min;
   int hour;

@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 /**
  * An implementation of the Intel 8259.
@@ -34,7 +34,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     ICW4,
     OCW1 = 0,
   };
-  enum 
+  enum
   {
     ICW1_IC4  = 0x01,
     ICW1_SNGL = 0x02,
@@ -388,4 +388,3 @@ PARAM(pic,
       "a slave pic.  The irqlines are automatically distributed, such that",
       "the first pic gets 0-7, the second one 8-15,... The optional elcr",
       "parameter specifies the io address of the ELCR register");
-

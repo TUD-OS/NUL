@@ -14,8 +14,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+#include "nul/motherboard.h"
 
-#include "vmm/motherboard.h"
 
 PARAM(PC_PS2,
       {

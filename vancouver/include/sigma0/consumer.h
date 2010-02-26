@@ -16,9 +16,8 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "sys/syscalls.h"
 #include "sys/semaphore.h"
-#include "driver/profile.h"
+#include "service/profile.h"
 
 
 /**

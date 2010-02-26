@@ -14,12 +14,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "driver/logging.h"
-#include "models/keyboard.h"
-#include "sigma0/sigma0.h"
-#include "sys/elf.h"
-#include "vmm/motherboard.h"
+
+#include "nul/motherboard.h"
+#include "host/keyboard.h"
 #include "host/screen.h"
+#include "host/dma.h"
+#include "nul/program.h"
+#include "service/elf.h"
+#include "service/logging.h"
+#include "sigma0/sigma0.h"
 
 bool      startlate;
 bool      noswitch;
@@ -33,7 +36,7 @@ PARAM(repeat,  repeat = argv[0],     "repeat the domain start" );
 PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" );
 
 Motherboard *global_mb;
-class Sigma0 : public Sigma0Base, public StaticReceiver<Sigma0>
+class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
     MAXCPUS = 256,

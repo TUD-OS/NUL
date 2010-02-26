@@ -16,8 +16,8 @@
  */
 #pragma once
 
-#include <cstring>
-#include <cassert>
+#include "service/string.h"
+#include "service/assert.h"
 
 
 struct DmaDescriptor

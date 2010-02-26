@@ -15,9 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
-#include "models/sata.h"
-#include "models/pci.h"
+#include "nul/motherboard.h"
+#include "model/sata.h"
+#include "model/pci.h"
 
 
 #define check2(X) { unsigned __res = X; if (__res) return __res; }

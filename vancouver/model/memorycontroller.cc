@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 class MemoryController : public StaticReceiver<MemoryController>
 {

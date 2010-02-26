@@ -15,10 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-
-#include "vmm/motherboard.h"
-#include "models/dma.h"
-#include "models/sata.h"
+#include "nul/motherboard.h"
+#include "host/dma.h"
+#include "model/sata.h"
 
 
 

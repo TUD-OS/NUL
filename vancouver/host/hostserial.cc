@@ -14,7 +14,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "vmm/motherboard.h"
+
+#include "nul/motherboard.h"
 
 /**
  * A 16550 serial port driver.

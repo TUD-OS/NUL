@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 /**
  * A helper for PCI config space access.
@@ -92,7 +92,7 @@ class HostPci
   /** Determines BAR size. You should probably disable interrupt
    * delivery from this device, while querying BAR sizes.
    */
-  unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = NULL)
+  unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
   {
     unsigned old = conf_read(bdf, bar);
     unsigned long long size = 0;
@@ -295,7 +295,7 @@ class HostPci
 
   /** Return the size of a VF BAR (inside a SR-IOV capability
    */
-  unsigned long long vf_bar_size(unsigned bdf, unsigned no, bool *is64bit = NULL)
+  unsigned long long vf_bar_size(unsigned bdf, unsigned no, bool *is64bit = 0)
   {
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;

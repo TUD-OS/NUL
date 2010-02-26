@@ -29,7 +29,7 @@ class Cpu
   template <typename T> static inline void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
   static inline unsigned cmpxchg(volatile void *var, unsigned oldvalue, unsigned newvalue)
   {
-    asm volatile ("lock; cmpxchg %2, (%0)": "+r"(var), "+a"(oldvalue): "r"(newvalue) : "memory"); 
+    asm volatile ("lock; cmpxchg %2, (%0)": "+r"(var), "+a"(oldvalue): "r"(newvalue) : "memory");
     return oldvalue;
   }
   static inline unsigned long long cmpxchg8b(volatile void *var, unsigned long long oldvalue, unsigned long long newvalue)
@@ -40,11 +40,11 @@ class Cpu
       unsigned nlow;
       unsigned nhigh;
       split64(newvalue, nhigh, nlow);
-      asm volatile ("lock; cmpxchg8b (%0)": "+r"(var), "+d"(ohigh), "+a"(olow): "c"(nhigh), "b"(nlow) : "memory"); 
+      asm volatile ("lock; cmpxchg8b (%0)": "+r"(var), "+d"(ohigh), "+a"(olow): "c"(nhigh), "b"(nlow) : "memory");
       return  union64(ohigh, olow);
   }
   static inline long  atomic_xadd(long *ptr, long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr)); return value; }
-  static unsigned long long rdtsc()    
+  static unsigned long long rdtsc()
   {
     unsigned low, high;
     asm volatile("rdtsc" :  "=a"(low), "=d"(high));
@@ -79,7 +79,7 @@ class Cpu
   /**
    * Return the CPU number.
    */
-  static inline unsigned cpunr() 
+  static inline unsigned cpunr()
   {
     unsigned ebx, ecx, edx;
     cpuid(0x1, ebx, ecx, edx);

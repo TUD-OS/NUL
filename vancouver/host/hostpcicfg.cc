@@ -15,11 +15,14 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 
 /**
  * Provide HW PCI config space access by bridging PCI cfg read/write
  * messages to the HW IO busses.
+ *
+ * State: testing
+ * Documentation: pci3 spec
  */
 class PciConfigAccess : public StaticReceiver<PciConfigAccess>
 {

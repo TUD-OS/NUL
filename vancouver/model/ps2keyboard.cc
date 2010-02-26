@@ -14,8 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "vmm/motherboard.h"
-#include "models/keyboard.h"
+
+#include "nul/motherboard.h"
+#include "host/keyboard.h"
 
 /**
  * A PS2 keyboard gets characters on the hostbus as input and outputs

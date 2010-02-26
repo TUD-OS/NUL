@@ -14,9 +14,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "vmm/motherboard.h"
-#include "vmm/math.h"
-#include "libc/time.h"
+
+#include "nul/motherboard.h"
+#include "service/math.h"
+#include "service/time.h"
 
 /**
  * Readout the current time+date from the RTC.
@@ -37,7 +38,7 @@ class HostRtc : public StaticReceiver<HostRtc>
   timevalue _timestamp;
 
   const char *debug_getname() {  return "HostRTC"; }
-  void debug_dump() {  
+  void debug_dump() {
     Device::debug_dump();
     Logging::printf(" iobase %x", _iobase);
   };
@@ -57,7 +58,7 @@ public:
   {
 
     if (rtc_read(0xb) & 0x80) Logging::panic("RTC does not count (SET==1)!");
-    
+
     /**
      * We wait for an update to happen to get a more accurate timing.
      *
@@ -73,7 +74,7 @@ public:
       flags |= rtc_read(0xc);
     while (now + MS_TIMEOUT >= clock->clock(1000) && ~flags & 0x10);
     if (~flags & 0x10) Logging::printf("no RTC update within %d milliseconds! - patch Qemu/Bochs/Xen...\n", MS_TIMEOUT);
-    
+
     // we keep the time when we read-out the RTC to only read it once
     _timestamp = clock->clock(MessageTime::FREQUENCY);
 
@@ -98,11 +99,11 @@ public:
 
     // convert from BCD to binary
     if (~data[0xb] & 4)
-      for (unsigned i=0; i < sizeof(data) && i < 10; i++) 
+      for (unsigned i=0; i < sizeof(data) && i < 10; i++)
 	Math::from_bcd(data[i]);
 
 
-    // Convert to seconds since 1970. 
+    // Convert to seconds since 1970.
     int year = data[9] + 100*data[6];
     if (year < 1970)  year += 100;
     tm_simple time = tm_simple(year, data[8], data[7], data[4], data[2], data[0]);

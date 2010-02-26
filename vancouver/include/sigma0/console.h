@@ -1,4 +1,4 @@
-#include "vmm/message.h"
+#include "nul/message.h"
 #include "host/screen.h"
 #include "sigma0/sigma0.h"
 

@@ -16,7 +16,7 @@
  */
 
 #pragma once
-#include <cstring>
+#include "service/string.h"
 
 
 /**

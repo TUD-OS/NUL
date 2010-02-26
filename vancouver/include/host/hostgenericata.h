@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include "models/dma.h"
+#include "host/dma.h"
 
 /**
  * Helper class that unifies functions for IDE+SATA disks
@@ -56,7 +56,7 @@ class HostGenericAta
     _atapi = id[0] >> 15;
     _maxsector = 0;
 
-    if (!_atapi) 
+    if (!_atapi)
       {
 	_lba48 = id[86] & (1 << 10);
 	if (~id[49] & (1<<9))
@@ -69,14 +69,14 @@ class HostGenericAta
     ntos_string(_model, reinterpret_cast<char *>(id+27), 40);
     for (unsigned i=40; i>0 && _model[i-1] == ' '; i--)
       _model[i-1] = 0;
-    
+
     Logging::printf("Identify[88] = %x\n", id[88]);
     Logging::printf("Identify[85] = %x\n", id[85]);
 
     return 0;
   }
 
-  
+
   /**
    * Get the disk parameters.
    */
@@ -89,7 +89,7 @@ class HostGenericAta
     return 0;
   };
 
- 
+
   /**
    * Dump an description.
    */
@@ -97,7 +97,7 @@ class HostGenericAta
   {
     Logging::printf(_atapi ? " ATAPI" : " HDD");
     Logging::printf(" %40s", _model);
-    if (!_atapi) 
+    if (!_atapi)
       {
 	Logging::printf("%s", !_maxsector ? "<unsupported>" : (_lba48 ? " LBA48" : " LBA"));
 	Logging::printf(" sectors %llx", _maxsector);

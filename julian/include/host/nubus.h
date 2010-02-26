@@ -5,17 +5,54 @@
 #include <vmm/motherboard.h>
 #include <host/hostpci.h>
 #include <sys/region.h>
-
-#include <util/ListEntry.h>
 #include <cstdint>
 #include <cassert>
+
+
+
+template <class T>
+class ListEntry {
+
+private:
+  T *_prev;
+  T *_next;
+
+public:
+  T *prev() const { return _prev; }
+  T *next() const { return _next; }
+
+  T *first() {
+    T *first;
+    for (first = (T *)this; first->_prev; first = first->_prev)
+      ;
+    return prev;
+  }
+
+  T *last() {
+    T *last;
+    for (last = (T *)this; last->_next; last = last->_next)
+      ;
+    return last;
+  }
+
+  void append(T *i) {
+    T *la = last();
+    la->_next = i;
+    i->_prev = la;
+  }
+
+  explicit ListEntry() : _prev(0), _next(0) {}
+};
+
+
+
 
 enum {
   CLASS_PCI_TO_PCI_BRIDGE = 0x0604,
 
   CAP_MSI                 = 0x05U,
   CAP_PCI_EXPRESS         = 0x10U,
-  
+
   EXTCAP_ARI              = 0x000EU,
   EXTCAP_SRIOV            = 0x0010U,
 
@@ -64,7 +101,7 @@ public:
   bool ari_enabled();
   bool ari_capable();
 
-  PCIBus(PCIDevice &bridge);    
+  PCIBus(PCIDevice &bridge);
   // Constructor for the root bus. Only called by the manager itself.
   explicit PCIBus(NubusManager &manager);
 };

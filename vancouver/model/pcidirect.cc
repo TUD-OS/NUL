@@ -15,9 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
 #include "host/hostpci.h"
-#include "models/pci.h"
+#include "model/pci.h"
 
 
 /**

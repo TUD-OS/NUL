@@ -315,7 +315,7 @@ struct MessageSerial
 /* Console messages                                 */
 /****************************************************/
 
-#include "vmm/vesa.h"
+#include "host/vesa.h"
 
 struct VgaRegs
 {

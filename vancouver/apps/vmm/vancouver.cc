@@ -14,11 +14,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-
-
-#include "models/keyboard.h"
+#include "host/keyboard.h"
 #include "sigma0/console.h"
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
+#include "nul/program.h"
 
 /**
  * Layout of the capability space.

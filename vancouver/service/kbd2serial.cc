@@ -14,8 +14,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "models/keyboard.h"
-#include "vmm/motherboard.h"
+#include "host/keyboard.h"
+#include "nul/motherboard.h"
 
 
 /**

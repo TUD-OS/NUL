@@ -1,5 +1,5 @@
 /**
- * Printf implementation.
+ * Standard include file.
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>
  *
@@ -15,16 +15,14 @@
  * General Public License version 2 for more details.
  */
 
-
 #pragma once
-#include <stdarg.h>
 
-class Vprintf
-{
-  typedef void (*PutcFunction)(void *data, int value);
+#include "stdlib.h"
 
- public:
-  static void vprintf(PutcFunction putc, void *data, const char *format, va_list &ap);
-  static void printf(PutcFunction putc, void *data, const char *format, ...) __attribute__ ((format(printf, 3, 4)));
-  static void snprintf(char *dst, unsigned size, const char *format, ...) __attribute__ ((format(printf, 3, 4)));
-};
+#ifdef NDEBUG
+#define assert(X) do { X; } while (0)
+#else
+#define do_string2(x) do_string(x)
+#define do_string(x) #x
+#define assert(X) do { if (!(X)) __exit((long)("assertion '" #X  "' failed in "  __FILE__  ":" do_string2(__LINE__) )); } while (0)
+#endif

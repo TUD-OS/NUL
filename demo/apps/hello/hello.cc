@@ -16,6 +16,7 @@
  */
 
 #include "sigma0/console.h"
+#include "nul/program.h"
 
 class Hello : public ProgramConsole
 {

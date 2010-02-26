@@ -16,9 +16,9 @@
  */
 #pragma once
 
-#include "driver/logging.h"
-#include <cstdlib>
-#include <cstring>
+#include "service/logging.h"
+#include "service/stdlib.h"
+#include "service/string.h"
 
 /**
  * The generic Device used in generic bus transactions.
@@ -59,7 +59,7 @@ class DBus
     _list = reinterpret_cast<struct Entry *>(n);
     _list_size = new_size;
   };
- public:
+public:
 
  DBus() : _debug(false), _list_count(0), _list_size(0), _list(0) {};
 

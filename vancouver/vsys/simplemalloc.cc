@@ -15,44 +15,28 @@
  * General Public License version 2 for more details.
  */
 
-#include <cassert>
-#include <cstdlib>
-#include <cstring>
-#include <driver/logging.h>
+#include "service/assert.h"
+#include "service/stdlib.h"
+#include "service/string.h"
+#include "service/logging.h"
 
-void *
-malloc(size_t size)
+void *memalign(unsigned long align, unsigned long size)
 {
+  // needs to be a power of two
+  if (align & (align - 1)) return 0;
+
   extern char __mempoolstart, __mempoolend;
   static char *s =  &__mempoolend;
-  s -= size;
+  s = &__mempoolstart + (((s - &__mempoolstart) - size) & ~(align - 1));
   if (s < &__mempoolstart)
-    Logging::panic("malloc(%zx) EOM!\n", size);
+    Logging::panic("malloc(%lx) EOM!\n", size);
+  assert(!(reinterpret_cast<unsigned long>(s) & (align - 1)));
   return s;
-}
-
-void *
-realloc(void *ptr, size_t size)
-{
-  Logging::panic("realloc not implemented\n");
-  //return ptr;
-}
-
-void *
-calloc(size_t n, size_t size)
-{
-  void *p = malloc(n*size);
-  if (p) memset(p, 0, n*size);
-  return p;
-}
-
-void *memalign(size_t align, size_t size)
-{
-  // need to be a power of two
-  if (align & (align - 1)) return 0;
-  malloc((reinterpret_cast<unsigned long>(malloc(0)) - size) & (align-1));
-  return malloc(size);
 };
+
+
+void * malloc(unsigned long size) { return memalign(1, size); }
+
 
 void free(void *ptr)
 {
@@ -61,10 +45,10 @@ void free(void *ptr)
   // simplemalloc is simple, so we leak the memory here
 }
 
-void *
-operator new(unsigned size) { return calloc(1, size); }
 
-void
-operator delete(void *ptr) { free(ptr); }
+void * operator new(unsigned size) { return malloc(size); }
+
+
+void   operator delete(void *ptr)  { free(ptr); }
 
 // EOF

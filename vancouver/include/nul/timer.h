@@ -15,8 +15,8 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "vmm/cpu.h"
-#include "vmm/math.h"
+#include "service/cpu.h"
+#include "service/math.h"
 
 
 typedef unsigned long long timevalue;

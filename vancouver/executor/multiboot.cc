@@ -14,8 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-#include "vmm/motherboard.h"
-#include "sys/elf.h"
+
+#include "nul/motherboard.h"
+#include "service/elf.h"
 
 
 /**

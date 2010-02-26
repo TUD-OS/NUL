@@ -16,9 +16,9 @@
  */
 #pragma once
 
-#include "vmm/cpu.h"
-#include "driver/logging.h"
-#include <sys/syscalls.h>
+#include "service/cpu.h"
+#include "service/logging.h"
+#include "syscalls.h"
 
 /**
  * A kernel semaphore optimized for consumer/producer.
@@ -32,11 +32,11 @@ public:
   {
     unsigned res = semdown(_sm);
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
-  } 
+  }
 
 
   void up()
-  { 
+  {
     unsigned res = semup(_sm);
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
   }
@@ -56,7 +56,7 @@ class Semaphore
   long *_count;
 public:
   Semaphore(long *count = 0, unsigned cap_sm = 0) : _sem(cap_sm), _count(count) { };
-  
+
   void down() {  if (Cpu::atomic_xadd(_count, -1) <= 0)  _sem.down(); }
   void up()   {  if (Cpu::atomic_xadd(_count, +1) <  0)  _sem.up();   }
   unsigned sm() {  return  _sem.sm();  }

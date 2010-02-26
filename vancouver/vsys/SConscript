@@ -5,7 +5,6 @@ Import('target_env')
 
 nul.Lib(target_env, 'vsys',
         SOURCES = Glob('*.cc') + Glob('*.S'),
-        LIBS = [ 'crun' ]
         )
 
 # EOF

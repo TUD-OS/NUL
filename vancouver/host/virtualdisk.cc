@@ -14,9 +14,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
-
-#include "models/dma.h"
-#include "vmm/motherboard.h"
+#include "host/dma.h"
+#include "nul/motherboard.h"
 
 class VirtualDisk : public StaticReceiver<VirtualDisk>
 {

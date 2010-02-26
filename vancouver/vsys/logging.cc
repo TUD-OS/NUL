@@ -16,8 +16,8 @@
  */
 
 #
-#include <cstdlib>
-#include "driver/logging.h"
+#include "service/stdlib.h"
+#include "service/logging.h"
 
 void (*Logging::_putcf)(void *, int value);
 void *Logging::_data;

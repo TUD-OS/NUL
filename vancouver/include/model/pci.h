@@ -16,7 +16,8 @@
  */
 
 #pragma once
-#include "models/register.h"
+
+#include "register.h"
 
 enum {
   PCI_CFG_SPACE_DWORDS = 1024,

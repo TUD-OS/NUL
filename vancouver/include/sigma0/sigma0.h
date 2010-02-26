@@ -16,16 +16,15 @@
  */
 #pragma once
 
-#include "sys/program.h"
-#include "sys/consumer.h"
-#include "models/dma.h"
-#include "vmm/message.h"
+#include "sigma0/consumer.h"
+#include "nul/message.h"
+#include "nul/baseprogram.h"
 
 
 /**
  * This class defines the call interface to sigma0 services.
  */
-class Sigma0Base : public NovaProgram
+class Sigma0Base : public BaseProgram
 {
  public:
   enum {

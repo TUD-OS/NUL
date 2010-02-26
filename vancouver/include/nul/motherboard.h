@@ -16,13 +16,13 @@
  */
 
 #pragma once
-#include "driver/profile.h"
 #include "executor/cpustate.h"
-#include "vmm/bus.h"
-#include "vmm/message.h"
-#include "vmm/params.h"
-#include "vmm/timer.h"
-#include <cstring>
+#include "service/params.h"
+#include "service/profile.h"
+#include "service/string.h"
+#include "bus.h"
+#include "message.h"
+#include "timer.h"
 
 /**
  * A virtual motherboard is a collection of busses.

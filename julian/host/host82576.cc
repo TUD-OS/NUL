@@ -9,9 +9,9 @@
  * any shared resource.
  */
 
-#include <vmm/motherboard.h>
-#include <host/hostpci.h>
-#include <host/host82576.h>
+#include "nul/motherboard.h"
+#include "host/hostpci.h"
+#include "host/host82576.h"
 
 // lspci -v:
 // 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)

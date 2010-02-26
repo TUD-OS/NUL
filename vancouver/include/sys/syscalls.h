@@ -15,8 +15,8 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "sys/hip.h"
-#include "sys/utcb.h"
+#include "hip.h"
+#include "utcb.h"
 
 enum
 {

@@ -15,9 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "driver/vprintf.h"
-#include "models/keyboard.h"
-#include "vmm/motherboard.h"
+#include "nul/motherboard.h"
+#include "service/vprintf.h"
+#include "host/keyboard.h"
 
 /**
  * A VGA console.

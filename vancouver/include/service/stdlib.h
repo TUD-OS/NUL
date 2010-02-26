@@ -1,7 +1,7 @@
 /**
  * Standard include file.
  *
- * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -17,21 +17,7 @@
 
 #pragma once
 
-#include <stddef.h>
-
-#ifndef NULL
-#define NULL ((void *)0)
-#endif
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-void  __exit(unsigned long status) __attribute__((noreturn));
-void *malloc(size_t size);
-void *realloc(void *ptr, size_t size);
-void *calloc(size_t n, size_t size);
+extern "C" void  __exit(unsigned long status) __attribute__((noreturn));
+void *malloc(unsigned long size);
 void free(void *ptr);
-void *memalign(size_t boundary, size_t size);
-#ifdef __cplusplus
-}
-#endif
+void *memalign(unsigned long boundary, unsigned long size);

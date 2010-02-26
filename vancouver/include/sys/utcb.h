@@ -10,11 +10,9 @@
  */
 
 #pragma once
+#include "desc.h"
+#include "service/cpu.h"
 
-#include "sys/hip.h"
-#include "sys/desc.h"
-#include "vmm/cpu.h"
-#include "driver/logging.h"
 struct Utcb
 {
   typedef struct Descriptor
@@ -40,15 +38,15 @@ struct Utcb
 #define GREG(NAME)				\
   union {					\
     struct {					\
-      uint8           NAME##l, NAME##h;		\
+      unsigned char           NAME##l, NAME##h;		\
     };						\
-    uint16          NAME##x;			\
-    uint32           e##NAME##x;		\
+    unsigned short          NAME##x;			\
+    unsigned           e##NAME##x;		\
   };
 #define GREG16(NAME)				\
   union {					\
-    uint16          NAME;			\
-    uint32           e##NAME;			\
+    unsigned short          NAME;			\
+    unsigned           e##NAME;			\
   };
 
   union {
