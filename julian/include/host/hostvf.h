@@ -1,3 +1,5 @@
+#pragma once
+#include "host/hostpci.h"
 
 /**
  * A helper for PCI config space access for virtual functions.
@@ -66,4 +68,5 @@ public:
     return (conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000)
       | (conf_read(parent_bdf, 0) & 0xFFFF);
   }
+ HostVfPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : HostPci(bus_pcicfg, bus_hostop) {}
 };

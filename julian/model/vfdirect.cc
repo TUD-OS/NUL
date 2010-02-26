@@ -15,9 +15,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "vmm/motherboard.h"
-#include "host/hostpci.h"
-#include "models/pci.h"
+#include "nul/motherboard.h"
+#include "host/hostvf.h"
+#include "model/pci.h"
 
 #include <cstdint>
 
@@ -28,7 +28,7 @@
  * Features: Bars, MSI-X
  * Missing: MSI-Injection, MSI, PBA, MSI-X table offset
  */
-class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
+class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
 {
   const char *debug_getname() { return "DirectVFDevice"; }
 
@@ -191,7 +191,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
   }
 
   DirectVFDevice(Motherboard &mb, uint16_t parent_bdf, unsigned vf_bdf, uint32_t didvid, unsigned vf_no)
-    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _parent_bdf(parent_bdf), _vf_bdf(vf_bdf), _didvid(didvid), _vf_no(vf_no), _bars(), _bus_irqlines(mb.bus_irqlines)
+    : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _parent_bdf(parent_bdf), _vf_bdf(vf_bdf), _didvid(didvid), _vf_no(vf_no), _bars(), _bus_irqlines(mb.bus_irqlines)
   {
     // Read BARs and masks.
     for (unsigned i = 0; i < MAX_BAR; i++) {
@@ -237,12 +237,12 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
     // XXX MSI table offset must be 0 for now.
     assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
 
-    _msix_table = (struct msix_table_entry *)calloc(_irq_count, sizeof(struct msix_table_entry));
+    _msix_table = (struct msix_table_entry *)malloc(_irq_count * sizeof(struct msix_table_entry));
     _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
     _host_msix_table = (volatile uint32_t *)(_bars[_msix_table_bir].ptr);
 
     // Get Host IRQs
-    _host_irqs = (unsigned *) calloc(_irq_count, sizeof(*_host_irqs));
+    _host_irqs = (unsigned *) malloc(_irq_count * sizeof(*_host_irqs));
     for (unsigned i = 0; i < _irq_count; i++) {
       MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, vf_bdf);
       if (!mb.bus_hostop.send(msg1))
@@ -259,7 +259,7 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostPci
 
 PARAM(vfpci,
       {
-	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	HostVfPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	uint16_t parent_bdf = argv[0];
 	unsigned vf_no      = argv[1];
 	uint16_t guest_bdf  = PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]);

@@ -10,7 +10,7 @@
  */
 
 #include "nul/motherboard.h"
-#include "host/hostpci.h"
+#include "host/hostvf.h"
 #include "host/host82576.h"
 
 // lspci -v:
@@ -238,7 +238,7 @@ public:
     return true;
   };
 
-  Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
+  Host82576(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
 	    unsigned bdf, unsigned hostirq)
     : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
   {
@@ -390,7 +390,7 @@ public:
 };
 
 PARAM(host82576, {
-    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+    HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     unsigned found = 0;
 
     for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {

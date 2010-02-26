@@ -1,8 +1,8 @@
 // -*- Mode: C++ -*-
 // Host Intel 82576 Virtual Function driver.
 
-#include <vmm/motherboard.h>
-#include <host/hostpci.h>
+#include <nul/motherboard.h>
+#include <host/hostvf.h>
 #include <host/host82576.h>
 
 static const unsigned desc_ring_len = 32;
@@ -166,7 +166,7 @@ public:
     return true;
   }
 
-  Host82576VF(HostPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
+  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
 	      Clock *clock, unsigned bdf, unsigned irqs[3],
 	      void *reg,
 	      void *msix_reg)
@@ -238,7 +238,7 @@ public:
 };
 
 PARAM(host82576vf, {
-    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+    HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     uint16_t parent_bdf = argv[0];
     unsigned vf_no      = argv[1];
     uint16_t vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);

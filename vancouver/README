@@ -1,0 +1,35 @@
+Structure
+
+include/
+	service/
+		general service includes
+		Example: profile, logging, assert, stdlib, string
+		Dependencies: stdarg.h
+	sys/
+	        NOVA syscall bindings
+	        including user semaphores
+		Dependencies: service
+	nul/
+	        NUL environment
+	        the motherboard, bus and message interface
+	        everything what NUL programs need
+	sigma0/
+		the sigma0 interface
+	host/
+		host drivers and shared includes
+	model/
+		model support headers
+	executor/
+		public executor interface
+vsys/
+	basic syscall and service functions
+service/
+	extended service module
+host/
+	host drivers
+model/
+	device models
+executors/
+	cpu model and instruction emulator
+apps/
+	the apps

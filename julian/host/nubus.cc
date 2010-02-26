@@ -1,9 +1,9 @@
 // -*- Mode: C++ -*-
 
-#include <vmm/message.h>
-#include <vmm/motherboard.h>
+#include <nul/message.h>
+#include <nul/motherboard.h>
 #include <cstdint>
-#include <cassert>
+#include <service/assert.h>
 
 #include <host/nubus.h>
 
@@ -18,7 +18,7 @@ void NubusManager::spin(unsigned ms)
   }
 }
 
-NubusManager::NubusManager(HostPci pcicfg, Clock *clock)
+NubusManager::NubusManager(HostVfPci pcicfg, Clock *clock)
   : _pci(pcicfg), _clock(clock), _root_bus(*this)
 {
   Logging::printf("Nubus initialized.\n");
@@ -27,7 +27,7 @@ NubusManager::NubusManager(HostPci pcicfg, Clock *clock)
 
 PARAM(nubus,
       {
-	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	new NubusManager(pci, mb.clock());
       },
       "nubus - PCI bus manager");

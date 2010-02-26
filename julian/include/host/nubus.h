@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include <vmm/motherboard.h>
-#include <host/hostpci.h>
-#include <sys/region.h>
+#include <nul/motherboard.h>
+#include <host/hostvf.h>
+#include <nul/region.h>
 #include <cstdint>
-#include <cassert>
+#include "service/assert.h"
 
 
 
@@ -161,14 +161,14 @@ public:
 class NubusManager {
   friend class PCIBus;
 protected:
-  HostPci &_pci;
+  HostVfPci &_pci;
   Clock *_clock;
   PCIBus _root_bus;
 
 public:
   void spin(unsigned ms);
-  HostPci &pci() const { return _pci; }
-  NubusManager(HostPci pcicfg, Clock *clock);
+  HostVfPci &pci() const { return _pci; }
+  NubusManager(HostVfPci pcicfg, Clock *clock);
 };
 
 // EOF
