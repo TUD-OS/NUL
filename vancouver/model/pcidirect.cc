@@ -292,45 +292,70 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     return false;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned hostirq) : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _hostirq(hostirq), _bars(), _masks()
-    {
-      for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
-      read_bars();
-    }
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned didvid)
+  : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _bars(), _masks()
+  {
+    _hostirq = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, true);
+
+    for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
+    read_bars();
+
+    dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
+    mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
+    mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
+    mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
+    mb.bus_memread.add(this, &DirectPciDevice::receive_static<MessageMemRead>);
+    mb.bus_memwrite.add(this, &DirectPciDevice::receive_static<MessageMemWrite>);
+    mb.bus_memmap.add(this, &DirectPciDevice::receive_static<MessageMemMap>);
+    mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);
+    mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
+  }
 };
+
 
 PARAM(dpci,
       {
 	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	unsigned bdf = pci.search_device(argv[0], argv[1], argv[2]);
-	if (!bdf)
-	  Logging::panic("search_device(%lx,%lx,%lx) failed\n", argv[0], argv[1], argv[2]);
-	else
-	  {
-	    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
-	    if (!mb.bus_hostop.send(msg4))
-	      {
-		Logging::printf("DPCI: could not directly assign %x via iommu\n", bdf);
-		return;
-	      }
 
-	    unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, argv[4], true);
-	    Logging::printf("search_device(%lx,%lx,%lx) hostirq %x bdf %x \n", argv[0], argv[1], argv[2], irqline, bdf);
-	    DirectPciDevice *dev = new DirectPciDevice(mb, bdf, irqline);
+	check0(!bdf, "search_device(%lx,%lx,%lx) failed", argv[0], argv[1], argv[2]);
+	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], bdf);
 
-	    unsigned dstbdf = argv[3] == 0 ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, argv[3]);
-	    mb.bus_pcicfg.add(dev, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
-	    mb.bus_ioin.add(dev, &DirectPciDevice::receive_static<MessageIOIn>);
-	    mb.bus_ioout.add(dev, &DirectPciDevice::receive_static<MessageIOOut>);
-	    mb.bus_memread.add(dev, &DirectPciDevice::receive_static<MessageMemRead>);
-	    mb.bus_memwrite.add(dev, &DirectPciDevice::receive_static<MessageMemWrite>);
-	    mb.bus_memmap.add(dev, &DirectPciDevice::receive_static<MessageMemMap>);
-	    mb.bus_hostirq.add(dev, &DirectPciDevice::receive_static<MessageIrq>);
-	    mb.bus_irqnotify.add(dev, &DirectPciDevice::receive_static<MessageIrqNotify>);
-	  }
+	MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
+	check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
+
+
+	new DirectPciDevice(mb, bdf, argv[3], 0);
       },
-      "dpci:class,subclass,instance,bdf,hostirq - makes the specified hostdevice directly accessible to the guest.",
-      "Example: Use 'dpci:2,,0,0x21,0x14' to attach the first network controller to 00:04.1 by forwarding hostirq 0x14.",
+      "dpci:class,subclass,instance,bdf - makes the specified hostdevice directly accessible to the guest.",
+      "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
-      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is searched.",
-      "If hostirq is ommited the irqline from the device is used instead.");
+      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is searched.");
+
+
+#include "host/hostvf.h"
+
+PARAM(vfpci,
+      {
+	HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	unsigned parent_bdf = argv[0];
+	unsigned vf_no      = argv[1];
+
+	// Compute BDF of VF
+	unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
+	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
+	Logging::printf("VF is at %04x.\n", vf_bdf);
+
+	// Retrieve device and vendor IDs
+	unsigned didvid = pci.vf_device_id(parent_bdf);
+	Logging::printf("Our device ID is %04x.\n", didvid);
+
+	// Put device into our address space
+	MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, vf_bdf);
+	check0(!mb.bus_hostop.send(msg_assign), "Could not assign %04x/%04x via IO/MMU.", parent_bdf, vf_bdf);
+
+	new DirectPciDevice(mb, vf_bdf, argv[2], didvid);
+      },
+      "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
+      "if no guest_bdf is given, a free one is searched.");
+

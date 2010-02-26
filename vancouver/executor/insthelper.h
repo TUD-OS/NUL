@@ -82,13 +82,13 @@
     if (operand_size == 0) *reinterpret_cast<unsigned char *>(tmp_dst) = *reinterpret_cast<unsigned char *>(tmp_src);
     if (operand_size == 1) *reinterpret_cast<unsigned short *>(tmp_dst) = *reinterpret_cast<unsigned short *>(tmp_src);
     if (operand_size == 2) *reinterpret_cast<unsigned int *>(tmp_dst) = *reinterpret_cast<unsigned int *>(tmp_src);
-    asm volatile ("" : : : "memory");
+    //asm volatile ("" : : : "memory");
   }
 
   /**
    * Transfer bytes from src to dst.
    */
-  static void move(void *tmp_dst, void *tmp_src, unsigned order)
+static void move(void * tmp_dst, void *tmp_src, unsigned order)
   {
     switch (order)
       {

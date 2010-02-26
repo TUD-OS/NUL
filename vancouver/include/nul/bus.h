@@ -130,10 +130,3 @@ public:
   template<class M>
     static bool receive_static(Device *o, M& msg) { return static_cast<Y*>(o)->receive(msg); }
 };
-
-
-
-/**
- * Helper function.
- */
-static inline bool in_range(unsigned long address, unsigned long base, unsigned long size) { return (base <= address) && (address <= base + size - 1); }

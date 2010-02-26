@@ -17,9 +17,6 @@
 #pragma once
 
 
-#define check(X, ...) ({ unsigned __res; if ((__res = X)) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, __res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); return 0xbead; }})
-
-
 /**
  * A simple program that allows to get the UTCB pointer from the stack.
  */

@@ -17,9 +17,9 @@
 #pragma once
 
 #include "sigma0/consumer.h"
+#include "nul/helper.h"
 #include "nul/message.h"
 #include "nul/baseprogram.h"
-
 
 /**
  * This class defines the call interface to sigma0 services.
@@ -57,7 +57,7 @@ class Sigma0Base : public BaseProgram
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
       utcb->head.mtr    = Mtd(3, 0);
       utcb->add_mappings(false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 3);
-      check(idc_call(14, utcb->head.mtr));
+      check1(1, idc_call(14, utcb->head.mtr));
       return utcb->msg[0];
     }
 

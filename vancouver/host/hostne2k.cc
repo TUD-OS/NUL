@@ -216,13 +216,12 @@ PARAM(hostne2k,
 	      // must be an ioport
 	      if ((port & 3) != 1 || (port >> 16)) continue;
 	      port &= ~3;
-	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, argv[0]);
+	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
 	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
 	      mb.bus_network.add(dev, &HostNe2k::receive_static<MessageNetwork>);
 	      mb.bus_hostirq.add(dev, &HostNe2k::receive_static<MessageIrq>);
 	    }
       },
-      "hostne2k:<gsi> - provide an ne2k-pci driver",
-      "Example: hostne2k.",
-      "The optional gsi parameter allows to override the GSI of the device.");
+      "hostne2k - provide ne2k-pci drivers.",
+      "Example: hostne2k.");

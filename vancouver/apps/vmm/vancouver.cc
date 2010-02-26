@@ -244,7 +244,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
 
-    if (hostirq != ~0u) check(Sigma0Base::request_irq((hostirq & 0xff) + _hip->cfg_exc));
+    if (hostirq != ~0u) check1(~0u, Sigma0Base::request_irq((hostirq & 0xff) + _hip->cfg_exc));
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
@@ -252,17 +252,17 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 
-    check(create_sm(_shared_sem[hostirq & 0xff] = _cap_free++));
+    check1(~1u, create_sm(_shared_sem[hostirq & 0xff] = _cap_free++));
 
     unsigned cap_ec =  _cap_free++;
-    check(create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
+    check1(~2u, create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
     utcb->head.tls = reinterpret_cast<unsigned>(this);
     utcb->msg[0] = (hostirq & 0xff) + _hip->cfg_exc; // the caps for irq threads start here
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
     // XXX How many time should an IRQ thread get?
-    check(create_sc(_cap_free++, cap_ec, Qpd(2, 10000)));
+    check1(~3u, create_sc(_cap_free++, cap_ec, Qpd(2, 10000)));
     return cap_ec;
   }
 
@@ -270,14 +270,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned init_caps(Hip *hip)
   {
     _lock = Semaphore(&_lockcount, _cap_free++);
-    check(create_sm(_lock.sm()));
+    check1(1, create_sm(_lock.sm()));
 
     // create exception EC
     unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i != 30) check(create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
+      if (i!=14 && i != 30) check1(2, create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
@@ -299,7 +299,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
       {
 	Logging::printf("create pt %x\n", vm_caps[i].nr);
-	check(create_pt(vm_caps[i].nr, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+	check1(3, create_pt(vm_caps[i].nr, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
       }
     return 0;
   }

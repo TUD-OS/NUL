@@ -23,6 +23,7 @@
 #include "sys/syscalls.h"
 #include "region.h"
 #include "baseprogram.h"
+#include "helper.h"
 
 
 /**
@@ -86,7 +87,7 @@ class NovaProgram : public BaseProgram
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n", 
 		    cpunr, _cap_free, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
-    check(create_ec(_cap_free, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
+    check1(0, create_ec(_cap_free, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
     utcb->head.tls = tls;
     if (utcb_out)
       *utcb_out = utcb;
@@ -99,7 +100,7 @@ class NovaProgram : public BaseProgram
    */
   unsigned __attribute__((noinline)) init(Hip *hip)
   {
-    check(hip->calc_checksum());
+    check1(1, hip->calc_checksum());
     _hip = hip;
     _boot_utcb = reinterpret_cast<Utcb *>(hip) - 1;
     _cap_free = hip->cfg_exc + hip->cfg_gsi + 3;

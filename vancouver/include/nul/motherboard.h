@@ -21,6 +21,7 @@
 #include "service/profile.h"
 #include "service/string.h"
 #include "bus.h"
+#include "helper.h"
 #include "message.h"
 #include "timer.h"
 
