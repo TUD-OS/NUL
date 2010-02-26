@@ -274,7 +274,7 @@ class HostPci
     unsigned char pin = conf_read(bdf, 0x3c) >> 8;
     if (!pin) { Logging::printf("No IRQ PINs connected on %x\n", bdf ); return ~0u; }
     MessageAcpi msg3(search_bridge(bdf), bdf, pin - 1);
-    if (!bus_acpi.send(msg3))  Logging::panic("No glue which GSI %x_%x is triggering\n", bdf, pin);
+    if (!bus_acpi.send(msg3, true))  Logging::panic("No glue which GSI %x_%x is triggering\n", bdf, pin);
 
     // attach to the IRQ
     MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, msg3.gsi | (level ? 0x100 : 0));

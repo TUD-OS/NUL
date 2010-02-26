@@ -68,7 +68,7 @@ public:
 PARAM(mmconfig,
       {
 	MessageAcpi msg("MCFG");
-	check0(!mb.bus_acpi.send(msg) || !msg.table, "XXX No MCFG table found.");
+	check0(!mb.bus_acpi.send(msg, true) || !msg.table, "XXX No MCFG table found.");
 
 	AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
 	void *mcfg_end = reinterpret_cast<char *>(mcfg) + mcfg->len;

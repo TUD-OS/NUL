@@ -65,7 +65,7 @@ public:
     if (address_overrride != ~0ul) return address_overrride;
 
     MessageAcpi msg0("HPET");
-    if (bus_acpi.send(msg0) && msg0.table)
+    if (bus_acpi.send(msg0, true) && msg0.table)
       {
 	struct HpetAcpiTable
 	{

@@ -332,7 +332,7 @@ PT_FUNC(do_request,
 		    utcb->msg[0] = ~0x10u;
 		  else
 		    if (msg->type == MessageAcpi::ACPI_GET_IRQ)
-		      utcb->msg[0] = !_mb->bus_acpi.send(*msg);
+		      utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
 		  break;
 		}
 	      default:

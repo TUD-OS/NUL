@@ -403,12 +403,12 @@ public:
 
     // add entries from the SSDT
     MessageAcpi msg("DSDT");
-    if (bus_acpi.send(msg) && msg.table)
+    if (bus_acpi.send(msg, true) && msg.table)
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
 
     // and from the SSDTs
     msg.name = "SSDT";
-    for (; bus_acpi.send(msg) && msg.table; msg.instance++)
+    for (; bus_acpi.send(msg, true) && msg.table; msg.instance++)
       _head = add_refs(reinterpret_cast<unsigned char *>(msg.table), msg.len, _head);
 
     add_routing(_head);
@@ -421,10 +421,30 @@ public:
   };
 };
 
+class GsiOverride : public StaticReceiver<GsiOverride>
+{
+  unsigned _bdf;
+  unsigned _gsi;
+public:
+  bool  receive(MessageAcpi &msg)
+  {
+    if (msg.type != MessageAcpi::ACPI_GET_IRQ) return false;
+    if (msg.bdf != _bdf) return false;
+    msg.gsi = _gsi;
+    return true;
+  }
+
+  GsiOverride(unsigned bdf, unsigned gsi) : _bdf(bdf), _gsi(gsi) {}
+};
 
 PARAM(atare,
-      {
-	Atare *dev = new Atare(mb.bus_acpi, ~argv[0] ? argv[0] : 0);
-	mb.bus_acpi.add(dev, Atare::receive_static<MessageAcpi>);
-      },
+      mb.bus_acpi.add(new Atare(mb.bus_acpi, ~argv[0] ? argv[0] : 0), Atare::receive_static<MessageAcpi>);
+      ,
       "atare:debug=0 - provide GSI lookup to PCI drivers.")
+
+
+PARAM(gsi_override,
+      mb.bus_acpi.add(new GsiOverride(argv[0], argv[1]), GsiOverride::receive_static<MessageAcpi>);
+      ,
+      "gsi_override:bdf,gsi - allow to override GSI interrupts.",
+      "Example: 'gsi_override:0xfa,19' specifies gsi 19 for device 0:1f:2.")
