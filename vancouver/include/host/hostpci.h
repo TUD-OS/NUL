@@ -30,35 +30,18 @@ class HostPci
  public:
 
   enum {
-    BAR0 = 0x10,
-    BAR1 = 0x14,
-
-    MAX_BAR  = 6,
-    BAR_SIZE = 4,
-
-    SRIOV_VF_BAR0 = 0x24U,
-  };
-
-  enum {
-    BAR_PREFETCH  = 0x4,
+    BAR0          = 0x10,
+    MAX_BAR       = 6,
 
     BAR_TYPE_MASK = 0x6,
     BAR_TYPE_32B  = 0x0,
     BAR_TYPE_64B  = 0x4,
-    BAR_TYPE_1MB  = 0x2,
-
     BAR_IO        = 0x1,
     BAR_IO_MASK   = 0xFFFFFFFCU,
     BAR_MEM_MASK  = 0xFFFFFFF0U,
-  };
 
-  enum {
-    CAP_MSI                 = 0x05U,
-    CAP_PCI_EXPRESS         = 0x10U,
-    CAP_MSIX                = 0x11U,
-
-    EXTCAP_ARI              = 0x000EU,
-    EXTCAP_SRIOV            = 0x0010U,
+    CAP_MSI       = 0x05U,
+    CAP_MSIX      = 0x11U,
   };
 
   unsigned conf_read(unsigned bdf, unsigned short offset)
@@ -77,19 +60,18 @@ class HostPci
   unsigned long long bar_base(unsigned bdf, unsigned bar)
   {
     unsigned val = conf_read(bdf, bar);
-    if ((val & BAR_IO) == BAR_IO) {
-      return val & ~3;		/* XXX Shift? */
-    } else {
-      switch (val & BAR_TYPE_MASK) {
-      case BAR_TYPE_32B: return val & ~0xF;
-      case BAR_TYPE_64B: return ((unsigned long long)conf_read(bdf, bar + 4)<<32) | (val & BAR_MEM_MASK);
-      default: return ~0ULL;
-      }
+    if ((val & BAR_IO) == BAR_IO)  return val & BAR_IO_MASK;
+
+    switch (val & BAR_TYPE_MASK) {
+    case BAR_TYPE_32B: return val & BAR_MEM_MASK;
+    case BAR_TYPE_64B: return (static_cast<unsigned long long>(conf_read(bdf, bar + 4))<<32) | (val & BAR_MEM_MASK);
+    default: return ~0ULL;
     };
   }
 
 
-  /** Determines BAR size. You should probably disable interrupt
+  /**
+   * Determines BAR size. You should probably disable interrupt
    * delivery from this device, while querying BAR sizes.
    */
   unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
@@ -99,10 +81,13 @@ class HostPci
 
     if (is64bit) *is64bit = false;
     if ((old & BAR_IO) == 1) {
+
       // I/O BAR
       conf_write(bdf, bar, 0xFFFFFFFFU);
       size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
+
     } else {
+
       // Memory BAR
       switch (old & BAR_TYPE_MASK) {
       case BAR_TYPE_32B:
@@ -120,10 +105,9 @@ class HostPci
 	conf_write(bdf, bar + 4, old_hi);
 	break;
       }
-      case BAR_TYPE_1MB:
       default:
 	// Not Supported. Return 0.
-	;
+	return 0;
       }
     }
 
@@ -161,19 +145,26 @@ class HostPci
   }
 
 
-  // scan the PCI root bus for bridges
+  /**
+   * Scan the PCI root bus for bridges.
+   */
   unsigned search_bridge(unsigned dst) {
+
     unsigned char dstbus = dst >> 8;
-    for (unsigned dev=0; dev < 32; dev++) {
+
+    for (unsigned dev = 0; dev < 32; dev++) {
+
       unsigned char maxfunc = 1;
-      for (unsigned func=0; func < maxfunc; func++) {
+      for (unsigned func = 0; func < maxfunc; func++) {
+
 	unsigned bdf =  (dev << 3) | func;
 	unsigned value = conf_read(bdf, 0x8);
 	if (value == ~0UL) continue;
+
 	unsigned char header = conf_read(bdf, 0xc) >> 16;
-	if (maxfunc == 1 && header & 0x80)
-	  maxfunc = 8;
+	if (maxfunc == 1 && header & 0x80)  maxfunc = 8;
 	if ((header & 0x7f) != 1) continue;
+
 	// we have a bridge
 	unsigned b = conf_read(bdf, 0x18);
 	if ((((b >> 8) & 0xff) <= dstbus) && (((b >> 16) & 0xff) >= dstbus))
@@ -269,60 +260,6 @@ class HostPci
 
     return 0;
   }
-
-  unsigned find_extended_cap(unsigned bdf, unsigned short id)
-  {
-    unsigned long header, offset;
-
-    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x100)))
-      for (offset = 0x100, header = conf_read(bdf, offset);
-	   offset != 0;
-	   offset = header>>20, header = conf_read(bdf, offset))
-	if ((header & 0xFFFF) == id)
-	  return offset;
-
-    return 0;
-  }
-
-  /** Return the base of a VF BAR (inside a SR-IOV capability).
-   */
-  unsigned long long vf_bar_base(unsigned bdf, unsigned no)
-  {
-    unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) return -1;
-    return bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4);
-  }
-
-  /** Return the size of a VF BAR (inside a SR-IOV capability
-   */
-  unsigned long long vf_bar_size(unsigned bdf, unsigned no, bool *is64bit = 0)
-  {
-    unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) return -1;
-    return bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
-  }
-
-  /** Compute BDF of a particular VF. */
-  unsigned vf_bdf(unsigned parent_bdf, unsigned vf_no)
-  {
-    unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) return 0;
-
-    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
-    unsigned vf_stride = vf_offset >> 16;
-    vf_offset &= 0xFFFF;
-    return parent_bdf + vf_stride*vf_no + vf_offset;
-  }
-
-  unsigned vf_device_id(unsigned parent_bdf)
-  {
-    unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
-    if (!sriov_cap) return 0;
-
-    return (conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000)
-      | (conf_read(parent_bdf, 0) & 0xFFFF);
-  }
-
 
  HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
 };
