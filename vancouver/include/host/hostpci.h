@@ -42,8 +42,11 @@ class HostPci
 
     CAP_MSI       = 0x05U,
     CAP_MSIX      = 0x11U,
-  };
 
+    CAP_PCI_EXPRESS         = 0x10U,
+    EXTCAP_ARI              = 0x000EU,
+    EXTCAP_SRIOV            = 0x0010U,
+  };
 
   unsigned conf_read(unsigned bdf, unsigned short offset)
   {
@@ -295,6 +298,24 @@ class HostPci
 
     return 0;
   }
+
+
+  /**
+   * Find an extended CAP.
+   */
+  unsigned find_extended_cap(unsigned bdf, unsigned short id)
+  {
+    unsigned long header, offset;
+
+    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x100)))
+      for (offset = 0x100, header = conf_read(bdf, offset);
+	   offset != 0;
+	   offset = header>>20, header = conf_read(bdf, offset))
+	if ((header & 0xFFFF) == id)
+	  return offset;
+    return 0;
+  }
+
 
  HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
 };

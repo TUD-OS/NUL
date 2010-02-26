@@ -10,27 +10,9 @@ public:
   enum {
     BAR_SIZE                = 4,
     SRIOV_VF_BAR0           = 0x24U,
-    CAP_PCI_EXPRESS         = 0x10U,
-    EXTCAP_ARI              = 0x000EU,
-    EXTCAP_SRIOV            = 0x0010U,
-
   };
 
-  unsigned find_extended_cap(unsigned bdf, unsigned short id)
-  {
-    unsigned long header, offset;
-
-    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x100)))
-      for (offset = 0x100, header = conf_read(bdf, offset);
-	   offset != 0;
-	   offset = header>>20, header = conf_read(bdf, offset))
-	if ((header & 0xFFFF) == id)
-	  return offset;
-
-    return 0;
-  }
-
-  /** 
+  /**
    * Return the base and size of a VF BAR (inside a SR-IOV capability).
    */
   unsigned long long vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, unsigned long long &size, bool *is64bit=0) {
