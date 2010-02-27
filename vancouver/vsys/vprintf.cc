@@ -75,6 +75,13 @@ const char * Vprintf::handle_formatstring(PutcFunction putc, void *data, const c
 	  l++;
 	  format++;
 	  break;
+	case '.':
+	  if (format[1] == '*') {
+	    pad = 2 * va_arg(ap, unsigned);
+	    format++;
+	  }
+	  format++;
+	  break;
 	case 's':
 	  {
 	    const char *s = va_arg(ap, const char *);
