@@ -16,7 +16,7 @@
  */
 
 
-#include "service/assert.h"
+#include "service/helper.h"
 #include "service/string.h"
 #include "service/vprintf.h"
 #include "service/math.h"

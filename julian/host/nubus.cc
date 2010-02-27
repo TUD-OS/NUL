@@ -3,7 +3,6 @@
 #include <nul/message.h>
 #include <nul/motherboard.h>
 #include <cstdint>
-#include <service/assert.h>
 
 #include <host/nubus.h>
 

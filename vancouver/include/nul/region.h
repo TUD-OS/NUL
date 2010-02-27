@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-#include "service/assert.h"
+#include "service/helper.h"
 
 struct Region
 {

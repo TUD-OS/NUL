@@ -17,7 +17,6 @@
 #pragma once
 
 #include "service/logging.h"
-#include "service/stdlib.h"
 #include "service/string.h"
 
 /**

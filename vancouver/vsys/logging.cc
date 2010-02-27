@@ -16,7 +16,7 @@
  */
 
 #
-#include "service/stdlib.h"
+#include "service/helper.h"
 #include "service/logging.h"
 
 void (*Logging::_putcf)(void *, int value);

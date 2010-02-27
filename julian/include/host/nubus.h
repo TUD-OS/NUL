@@ -6,7 +6,6 @@
 #include <host/hostvf.h>
 #include <nul/region.h>
 #include <cstdint>
-#include "service/assert.h"
 
 
 

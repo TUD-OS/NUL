@@ -17,7 +17,7 @@
 #pragma once
 
 #include "sigma0/consumer.h"
-#include "nul/helper.h"
+#include "service/helper.h"
 #include "nul/message.h"
 #include "nul/baseprogram.h"
 

@@ -15,8 +15,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "service/assert.h"
-#include "service/stdlib.h"
+#include "service/helper.h"
 #include "service/string.h"
 #include "service/logging.h"
 
@@ -47,8 +46,6 @@ void free(void *ptr)
 
 
 void * operator new(unsigned size) { return malloc(size); }
-
-
 void   operator delete(void *ptr)  { free(ptr); }
 
 // EOF
