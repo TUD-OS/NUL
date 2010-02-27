@@ -47,5 +47,7 @@ void free(void *ptr)
 
 void * operator new(unsigned size) { return malloc(size); }
 void   operator delete(void *ptr)  { free(ptr); }
+void * operator new[](unsigned size) { return malloc(size); }
+void   operator delete[](void *ptr)  { free(ptr); }
 
 // EOF

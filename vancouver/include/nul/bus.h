@@ -52,10 +52,10 @@ class DBus
 
   void set_size(unsigned new_size)
   {
-    void *n = malloc(new_size * sizeof(*_list));
+    Entry *n = new Entry[new_size];
     memcpy(n, _list, _list_count * sizeof(*_list));
-    if (_list)  free(_list);
-    _list = reinterpret_cast<struct Entry *>(n);
+    if (_list)  delete [] _list;
+    _list = n;
     _list_size = new_size;
   };
 public:
