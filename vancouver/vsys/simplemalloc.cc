@@ -34,7 +34,7 @@ void *memalign(unsigned long align, unsigned long size)
 };
 
 
-void * malloc(unsigned long size) { return memalign(1, size); }
+void * malloc(unsigned long size) { return memalign(sizeof(unsigned long), size); }
 
 
 void free(void *ptr)
