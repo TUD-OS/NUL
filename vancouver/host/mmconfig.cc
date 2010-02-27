@@ -83,7 +83,7 @@ PARAM(mmconfig,
 	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
 
 	  if (!mb.bus_hostop.send(msg) || !msg.ptr) {
-	    Logging::printf("%s failed to allocate iomem %llx+%x\n", __PRETTY_FUNCTION__, entry->base, size);
+	    Logging::printf("%s failed to allocate iomem %llx+%lx\n", __PRETTY_FUNCTION__, entry->base, size);
 	    return;
 	  }
 
