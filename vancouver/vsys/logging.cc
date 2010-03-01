@@ -31,7 +31,7 @@ Logging::panic(const char *format, ...)
   Vprintf::vprintf(_putcf, _data, format, ap);
   va_end(ap);
   Vprintf::printf(_putcf, _data, "\n");
-  __exit(0xdeadbeef);
+  do_exit("PANIC");
 }
 
 

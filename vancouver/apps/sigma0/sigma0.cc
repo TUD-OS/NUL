@@ -845,11 +845,11 @@ void Sigma0::start(Hip *hip)
 
 
 
-extern "C" void  __exit(unsigned long status)
+void  do_exit(const char *msg)
 {
   //Motherboard *mb = global_mb;
   //global_mb = 0;
-  Logging::printf("__exit(%lx)\n", status);
+  Logging::printf("__exit(%s)\n", msg);
   if (global_mb) Sigma0::switch_view(global_mb);
 
   while (1)

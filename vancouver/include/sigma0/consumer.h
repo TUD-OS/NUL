@@ -18,6 +18,7 @@
 #pragma once
 #include "sys/semaphore.h"
 #include "service/profile.h"
+#include "service/helper.h"
 
 
 /**

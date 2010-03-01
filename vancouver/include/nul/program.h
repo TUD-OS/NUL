@@ -33,9 +33,9 @@
   {						\
     (new X())->run(hip);			\
   }						\
-  extern "C" void __exit(unsigned long status)	\
+  void do_exit(const char *msg)			\
   {						\
-    Y::exit(status);				\
+    Y::exit(msg);				\
     while (1)					\
       asm volatile ("ud2");			\
   }
@@ -122,8 +122,8 @@ public:
   /**
    * Default exit function.
    */
-  static void exit(unsigned long status)
+  static void exit(const char *msg)
   {
-    Logging::printf("%s(%lx)\n", __func__, status);
+    Logging::printf("%s() - %s\n", __func__, msg);
   }
 };

@@ -1,5 +1,4 @@
 #pragma once
-#include "service/helper.h"
 
 enum
   {
@@ -50,7 +49,7 @@ class Crd : public Desc
 public:
   unsigned order() { return ((_value >> 7) & 0x1f); }
   unsigned size() { return 1 << (order() + 12); }
-  Crd(unsigned offset, unsigned order, unsigned type = 3) : Desc((offset << 12) | (order << 7) | type) { assert(!(offset >> 22)); assert(!(order >> 7)); }
+  Crd(unsigned offset, unsigned order, unsigned type = 3) : Desc((offset << 12) | (order << 7) | type) { }
   Crd(unsigned v) : Desc(v) {}
 };
 
@@ -61,7 +60,7 @@ class Mtd : public Desc
 {
 public:
   Mtd() : Desc(0) {}
-  Mtd(unsigned _untyped, unsigned _typed) : Desc((_typed << 23) | _untyped) { /* assert(!(_typed >> 9)); assert(!(_untyped >> 23)); */ }
+  Mtd(unsigned _untyped, unsigned _typed) : Desc((_typed << 23) | _untyped) { }
   unsigned typed() { return (_value  >> 23); }
   unsigned untyped() { return _value & ~0xff800000; }
   void add (unsigned v) { _value |= v; };
@@ -75,6 +74,6 @@ public:
 class Qpd : public Desc
 {
 public:
-  Qpd(unsigned prio, unsigned quantum) : Desc((quantum << 12) | prio) { assert(!(prio >> 8)); assert(!(prio >> 20)); }
+  Qpd(unsigned prio, unsigned quantum) : Desc((quantum << 12) | prio) { }
 };
 

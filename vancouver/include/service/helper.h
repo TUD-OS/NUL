@@ -16,9 +16,8 @@
  */
 #pragma once
 
-
-extern "C" void  __exit(unsigned long status) __attribute__((noreturn));
 void * operator new[](unsigned size, unsigned alignment);
+void  do_exit(const char *msg) __attribute__((noreturn));
 
 
 /**
@@ -29,7 +28,7 @@ void * operator new[](unsigned size, unsigned alignment);
 #else
 #define do_string2(x) do_string(x)
 #define do_string(x) #x
-#define assert(X) do { if (!(X)) __exit((long)("assertion '" #X  "' failed in "  __FILE__  ":" do_string2(__LINE__) )); } while (0)
+#define assert(X) do { if (!(X)) do_exit("assertion '" #X  "' failed in "  __FILE__  ":" do_string2(__LINE__) ); } while (0)
 #endif
 
 /**

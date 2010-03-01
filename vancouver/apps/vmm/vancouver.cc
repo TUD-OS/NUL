@@ -653,7 +653,7 @@ public:
   }
 
 
-  static void  exit(unsigned long status)
+  static void  exit(const char *value)
   {
     // switch to our view
     MessageConsole msg;
@@ -661,7 +661,7 @@ public:
     msg.view = 0;
     Sigma0Base::console(msg);
 
-    Logging::printf("%s(%lx)\n", __func__, status);
+    Logging::printf("%s() %s\n", __func__, value);
   }
 
 };

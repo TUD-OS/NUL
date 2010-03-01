@@ -3,6 +3,7 @@
 #include <ficl.h>
 #include <sys/syscalls.h>
 #include <stdio.h>
+#include <assert.h>
 
 static unsigned *free_cap;
 

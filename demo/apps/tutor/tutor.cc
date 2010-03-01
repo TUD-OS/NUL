@@ -12,12 +12,9 @@
 
 void print_screen1(unsigned short *dst);
 
-class Tutor : public NovaProgram,
-	      public ProgramConsole
+struct Tutor : public NovaProgram,
+	       public ProgramConsole
 {
-  const char *debug_getname() { return "Tutor"; };
-
-public:
   void run(Hip *hip)
   {
     console_init("TUT");

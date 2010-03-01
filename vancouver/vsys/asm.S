@@ -23,9 +23,9 @@ __start:
 	// push utcb
 	push	%eax
 	add	$0x1000, %eax
-	push	$__exit
-	jmp	start
-	
+	call	start
+	ud2a
+
 	.section .text.idc_reply_and_wait_fast
 	.global idc_reply_and_wait_fast
 idc_reply_and_wait_fast:
@@ -41,9 +41,10 @@ idc_reply_and_wait_fast:
 	// ecx: stack - it starts from the top
 	pushl 	$idc_reply_and_wait_fast
 	mov	%esp, %ecx
-	// edx: return pointer - in the error case we return on the __exit function
-	mov	$__exit, %edx
+	// edx: return pointer - in the error case we return on the ud2a
+	mov	1f, %edx
 	sysenter
+1:	ud2a
 
 	.section .bss.stack
 	.align 0x1000
