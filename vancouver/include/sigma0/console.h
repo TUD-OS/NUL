@@ -42,7 +42,7 @@ class ProgramConsole
 
   void console_init(const char *name)
   {
-    char *vga_console = reinterpret_cast<char *>(memalign(0x1000, 0x1000));
+    char *vga_console = new (0x1000) char [0x1000];
     _console_data.screen_address = reinterpret_cast<unsigned short *>(vga_console);
     _console_data.regs = &_vga_regs;
     Logging::init(putc, &_console_data);

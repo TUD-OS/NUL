@@ -228,7 +228,7 @@ class HwRegisterSet {
 	    _hw_regs[i].saveindex = ~0;
 	}
       // allocate the backing store
-      _regs_data = reinterpret_cast<unsigned *>(malloc(sizeof(*_regs_data) * save_index));
+      _regs_data = new unsigned[save_index];
 
       // initialize the backing store from the default values
       for (unsigned i=0; _hw_regs[i].name; i++)

@@ -151,13 +151,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   }
 
 
-  typedef unsigned size_t;
-  void *operator new(size_t size)
-  {
-    void *res = memalign(__alignof__(Motherboard), size);
-    return res;
-  }
-
-
+  void *operator new(unsigned size)  { return new(__alignof__(Motherboard)) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock)  {}
 };

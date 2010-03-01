@@ -341,7 +341,7 @@ class Atare : public StaticReceiver<Atare>
 	    break;
 
 	// to get an absolute name
-	char *name = reinterpret_cast<char *>(malloc(name_len + (parent ? parent->namelen : 0)));
+	char *name = new char[name_len + (parent ? parent->namelen : 0)];
 	get_absname(parent, data + 1 + pkgsize_len, name_len, name);
 	res = new NamedRef(res, data, pkgsize, name, name_len);
 

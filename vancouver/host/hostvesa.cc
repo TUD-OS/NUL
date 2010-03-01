@@ -268,7 +268,7 @@ public:
     unsigned short *video_mode_ptr  = vbe_to_ptr<unsigned short *>(p->video_mode_ptr);
     while (modes < 32768 && video_mode_ptr[modes] != 0xffff)
       modes++;
-    _modelist = reinterpret_cast<Vbe::ModeInfoBlock *>(malloc((modes + 1) * sizeof(*_modelist)));
+    _modelist = new Vbe::ModeInfoBlock[modes + 1];
 
 
     // add standard vga text mode #3

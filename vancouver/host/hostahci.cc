@@ -351,9 +351,9 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     : _regs(regs), _bus_hostop(bus_hostop), _bus_commit(bus_commit), _clock(clock), _disknr(disknr), _max_slots(max_slots), _dmar(dmar), _tag(0)
   {
     // allocate needed datastructures
-    _fis = reinterpret_cast<unsigned *>(memalign(4096, 4096));
-    _cl = reinterpret_cast<unsigned *>(memalign(1024, max_slots*CL_DWORDS*4));
-    _ct = reinterpret_cast<unsigned *>(memalign(1024, max_slots*(128+MAX_PRD_COUNT*16)));
+    _fis = new(0x1000) unsigned[1024];
+    _cl =  new(0x400)  unsigned[max_slots*CL_DWORDS];
+    _ct =  new(0x400)  unsigned[max_slots*(32+MAX_PRD_COUNT*4)];
     Logging::printf("_cl (%p,%p) _ct (%p, %p)\n", _cl, _cl + max_slots*CL_DWORDS, _ct, _ct + max_slots*(128+MAX_PRD_COUNT*16)/4);
   }
 };

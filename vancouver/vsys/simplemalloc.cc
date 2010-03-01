@@ -34,6 +34,7 @@ void *memalign(unsigned long align, unsigned long size)
 };
 
 
+extern "C" void *malloc(unsigned long size);
 void * malloc(unsigned long size) { return memalign(sizeof(unsigned long), size); }
 
 
@@ -49,5 +50,6 @@ void * operator new(unsigned size) { return malloc(size); }
 void   operator delete(void *ptr)  { free(ptr); }
 void * operator new[](unsigned size) { return malloc(size); }
 void   operator delete[](void *ptr)  { free(ptr); }
+void * operator new[](unsigned size, unsigned alignment) { return memalign(alignment, size); }
 
 // EOF

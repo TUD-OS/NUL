@@ -17,13 +17,9 @@
 #pragma once
 
 
-extern "C"
-{
-  void  __exit(unsigned long status) __attribute__((noreturn));
-  void *malloc(unsigned long size);
-  void free(void *ptr);
-  void *memalign(unsigned long boundary, unsigned long size);
-}
+extern "C" void  __exit(unsigned long status) __attribute__((noreturn));
+void * operator new[](unsigned size, unsigned alignment);
+
 
 /**
  * Assert.

@@ -79,11 +79,11 @@ class NovaProgram : public BaseProgram
     const unsigned STACK_FRAME = 2;
 
     Utcb *utcb = alloc_utcb();
-    void **stack = reinterpret_cast<void **>(memalign(stack_size, stack_size));
+    void **stack = new(stack_size) void *[stack_size / sizeof(void *)];
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
-    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n", 
+    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n",
 		    cpunr, _cap_free, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
     check1(0, create_ec(_cap_free, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
     utcb->head.tls = tls;

@@ -248,7 +248,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
-    void **stack = reinterpret_cast<void **>(memalign(0x1000, stack_size));
+    void **stack = new(0x1000) void *[stack_size / sizeof(void *)];
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 

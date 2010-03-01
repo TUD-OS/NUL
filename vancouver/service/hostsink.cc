@@ -65,7 +65,7 @@ class HostSink : public StaticReceiver<HostSink>
       size = 1;
     _head_char = (head_char == ~0UL) ? '#' : head_char;
     _cont_char = (cont_char == ~0UL) ? '|' : cont_char;
-    _buffer = static_cast<unsigned char *>(malloc(size));
+    _buffer = new unsigned char[size];
   }
 };
 

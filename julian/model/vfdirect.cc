@@ -230,12 +230,12 @@ class DirectVFDevice : public StaticReceiver<DirectVFDevice>, public HostVfPci
     // XXX MSI table offset must be 0 for now.
     assert (!(conf_read(_vf_bdf, _msix_cap + 0x4) & ~0x7));
 
-    _msix_table = (struct msix_table_entry *)malloc(_irq_count * sizeof(struct msix_table_entry));
+    _msix_table = new struct msix_table_entry[_irq_count];
     _msix_table_bir  = conf_read(_vf_bdf, _msix_cap + 0x4) &  0x7;
     _host_msix_table = (volatile uint32_t *)(_bars[_msix_table_bir].ptr);
 
     // Get Host IRQs
-    _host_irqs = (unsigned *) malloc(_irq_count * sizeof(*_host_irqs));
+    _host_irqs = new unsigned [_irq_count];
     for (unsigned i = 0; i < _irq_count; i++) {
       MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, vf_bdf);
       if (!mb.bus_hostop.send(msg1))

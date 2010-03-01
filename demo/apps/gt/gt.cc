@@ -72,7 +72,7 @@ public:
 
     if (mode == ~0u) Logging::panic("have not found any 32bit graphic mode");
 
-    _vesa_console = reinterpret_cast<char *>(memalign(0x1000, size));
+    _vesa_console = new (0x1000) char [size];
     Logging::printf("GT: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 

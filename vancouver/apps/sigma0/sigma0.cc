@@ -443,7 +443,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    unsigned  slen = strlen(cmdline) + 1;
 	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	    modinfo->hip = reinterpret_cast<Hip *>(memalign(0x1000, 0x1000));
+	    modinfo->hip = reinterpret_cast<Hip *>(new(0x1000) char[0x1000]);
 	    memcpy(reinterpret_cast<char *>(modinfo->hip) + 0x1000 - slen, cmdline, slen);
 
 	    memcpy(modinfo->hip, _hip, _hip->mem_offs);
