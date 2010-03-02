@@ -68,7 +68,7 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
     for (unsigned y=0; y < _header->height; y++)
       {
 	if (_modeinfo.bpp == 24) {
-	    memcpyl(cur_vesa, cur_scratch,  _header->width * 3 / 4);
+	    memcpy(cur_vesa, cur_scratch,  _header->width * 3);
 	    cur_scratch +=  _header->width * 3 / 4;
 	}
 	else if (_modeinfo.bpp == 32)

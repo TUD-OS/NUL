@@ -258,8 +258,8 @@ private:
 	      len = view->size - offset;
 	      sublen -= len;
 	    }
-	    memcpy_fast(_backend + BACKEND_OFFSET + pos, reinterpret_cast<char *>(view->ptr) + pos + offset, len);
-	    memcpy_fast(_backend + BACKEND_OFFSET + pos + len, reinterpret_cast<char *>(view->ptr), sublen);
+	    memcpy(_backend + BACKEND_OFFSET + pos, reinterpret_cast<char *>(view->ptr) + pos + offset, len);
+	    memcpy(_backend + BACKEND_OFFSET + pos + len, reinterpret_cast<char *>(view->ptr), sublen);
 	  }
 	else
 	  memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
@@ -268,12 +268,6 @@ private:
     else
       memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
     return true;
-  }
-
-  static void memcpy_fast(char *dst, char *src, long count)
-  {
-    if (count & 3) memcpy(dst, src, count & 3);
-    memcpyl(dst + (count & 3), src + (count & 3), count / 4);
   }
 
 public:
@@ -293,7 +287,7 @@ public:
 	  }
 	if (mode != _active_mode)
 	  {
-	    if (!_active_mode) memcpy_fast(_saved, _backend, BACKEND_SIZE);
+	    if (!_active_mode) memcpy(_saved, _backend, BACKEND_SIZE);
 
 	    MessageVesa msg2(mode, &_modeinfo);
 	    MessageVesa msg3(mode);
@@ -310,7 +304,7 @@ public:
 	    _active_mode = mode;
 	    if (!_active_mode) {
 	      set_vga_reg(0x14, 0xc, 8*3);
-	      memcpy_fast(_backend, _saved, BACKEND_SIZE);
+	      memcpy(_backend, _saved, BACKEND_SIZE);
 	    }
 	  }
 
@@ -320,7 +314,7 @@ public:
 	  {
 	    unsigned long long start = Cpu::rdtsc();
 	    if (_graphic_ptr)
-	      memcpyl(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4);
+	      memcpy(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline);
 	    unsigned long long end = Cpu::rdtsc();
 	    if (_measure) Logging::printf("memcpy %d bytes took %lld cycles\n", _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4, end - start);
 	    _measure = false;

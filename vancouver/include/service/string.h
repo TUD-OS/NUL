@@ -17,27 +17,34 @@
 
 #pragma once
 
-static inline
-void *
-memcpy(void *dst, const void *src, unsigned long count)
-{
-  return __builtin_memcpy(dst, src, count);
-}
-
-
-/** "Fast" memcpy for double-word aligned buffers. */
 static inline void *
-memcpyl(void *dst, const void *src, unsigned long count)
-{
+memcpy(void *dst, const void *src, unsigned long count) {
+  void *res = dst;
+  if (count & 3) {
+      unsigned long x = count & 3;
+      asm volatile ("1: movsb; loop 1b;" : "+D"(dst), "+S"(src), "+c" (x) : : "memory");
+  }
+  count /= 4;
   asm volatile ("rep movsl" : "+D"(dst), "+S"(src), "+c" (count) : : "memory");
-  return dst;
+  return res;
 }
 
 
-static inline
-void *
-memmove(void *dst, const void *src, long count)
-{
+static inline int
+memcmp(const void *dst, const void *src, long count) {
+  return __builtin_memcmp(dst, src, count);
+}
+
+
+static inline unsigned long
+strlen(const char *src) {
+  return __builtin_strlen(src);
+}
+
+
+static inline void *
+memmove(void *dst, const void *src, long count) {
+
   char *d = reinterpret_cast<char *>(dst);
   const char *s = reinterpret_cast<const char *>(src);
   if (d > s)
@@ -47,33 +54,27 @@ memmove(void *dst, const void *src, long count)
       asm volatile ("std; rep movsb; cld;" : "+D"(d), "+S"(s), "+c"(count) : : "memory");
     }
   else
-    asm volatile ("rep movsb" : "+D"(d), "+S"(s), "+c"(count) :  : "memory");
+    memcpy(d, s, count);
   return dst;
 }
 
 
-static inline
-int
-memcmp(const void *dst, const void *src, long count)
-{
-  return __builtin_memcmp(dst, src, count);
-}
-
-
-static inline
-void *
-memset(void *dst, char n, long count)
-{
+static inline void *
+memset(void *dst, char n, long count) {
   void *res = dst;
-  asm volatile ("rep stosb" : "+D"(dst), "+a"(n), "+c"(count) :  : "memory");
+  if (count & 3)
+    asm volatile ("rep stosb" : "+D"(dst), "+a"(n), "+c"(count) :  : "memory");
+  else {
+    count /= 4;
+    asm volatile ("rep stosl" : "+D"(dst), "+a"(n), "+c"(count) :  : "memory");
+  }
   return res;
 }
 
 
-static inline
-unsigned long
-strnlen(const char *src, unsigned long maxlen)
-{
+static inline unsigned long
+strnlen(const char *src, unsigned long maxlen) {
+
   unsigned long count = maxlen;
   unsigned char ch = 0;
   asm volatile ("repne scasb; setz %0;" : "+a"(ch), "+D"(src), "+c"(count));
@@ -82,18 +83,17 @@ strnlen(const char *src, unsigned long maxlen)
 }
 
 
-static inline
-unsigned long
-strlen(const char *src)
-{
-  return __builtin_strlen(src);
+static inline char *
+strcpy(char *dst, const char *src) {
+  char *res = dst;
+  asm volatile ("1: lodsb; test %%al, %%al; stosb; jnz 1b;  " : "+D"(dst), "+S"(src) : : "eax", "memory", "cc");
+  return res;
 }
 
 
-static inline
-char *
-strstr(char *haystack, const char *needle)
-{
+static inline char *
+strstr(char *haystack, const char *needle) {
+
   int index;
   do {
     for (index=0; needle[index] == haystack[index] && needle[index]; index++)
@@ -107,11 +107,9 @@ strstr(char *haystack, const char *needle)
 }
 
 
+static inline unsigned long
+strtoul(char *nptr, char **endptr, int base) {
 
-static inline
-unsigned long
-strtoul(char *nptr, char **endptr, int base)
-{
   unsigned long res = 0;
   if (*nptr == '0' && *(nptr+1) == 'x')
     {
@@ -138,10 +136,9 @@ strtoul(char *nptr, char **endptr, int base)
 }
 
 
-static inline
-const char *
-strchr(const char *s, int c)
-{
+static inline const char *
+strchr(const char *s, int c) {
+
   while (*s)
     if (c == *s)
       return s;
@@ -150,12 +147,10 @@ strchr(const char *s, int c)
 }
 
 
-static inline
-char *
-strsep(char **stringp, const char *delim)
-{
-  if (!stringp || !*stringp)
-    return 0;
+static inline char *
+strsep(char **stringp, const char *delim) {
+
+  if (!stringp || !*stringp)  return 0;
   char *res = *stringp;
   char *s = res;
   while (*s)
@@ -175,18 +170,7 @@ strsep(char **stringp, const char *delim)
 }
 
 
-static inline
-char *
-strcpy(char *dst, const char *src)
-{
-  asm volatile ("1: lodsb; test %%al, %%al; stosb; jnz 1b;  " : "+D"(dst), "+S"(src) : : "eax", "memory", "cc");
-  return dst;
-}
-
-
-static inline
-int
-strcmp(const char *dst, const char *src)
-{
+static inline int
+strcmp(const char *dst, const char *src) {
   return memcmp(dst, src, strlen(dst));
 }
