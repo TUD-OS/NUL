@@ -30,13 +30,25 @@
  */
 class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 {
+  struct MsiXTableEntry {
+    unsigned long long address;
+    unsigned data;
+    unsigned control;
+  };
+
   Motherboard &_mb;
-  unsigned _bdf;
-  unsigned _hostirq;
-  unsigned _cfgspace[PCI_CFG_SPACE_DWORDS];
-  unsigned _bar_count;
+  unsigned  _bdf;
+  unsigned  _irq_count;
+  unsigned *_host_irqs;
+  MsiXTableEntry *_msix_table;
+  unsigned  _cfgspace[PCI_CFG_SPACE_DWORDS];
+  unsigned  _bar_count;
+  unsigned  _msi_cap;
+  bool      _msi_64bit;
+  unsigned  _msix_cap;
   long long unsigned _bases[MAX_BAR];
   long long unsigned _sizes[MAX_BAR];
+
   const char *debug_getname() { return "DirectPciDevice"; }
 
   /**
@@ -128,10 +140,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    else
 	      msg.value = conf_read(_bdf, msg.offset & ~0x3) >> (8 * (msg.offset & 3));
 
-	    // disable capabilities, thus MSI is not known
-	    if (msg.offset == 0x4)   msg.value &= ~0x10;
-	    if (msg.offset == 0x34)  msg.value &= ~0xff;
-
 	    // disable multi-function devices
 	    if (msg.offset == 0xc)   msg.value &= ~0x800000;
 	    //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, msg.value);
@@ -142,10 +150,15 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    //unsigned old = _cfgspace[msg.offset >> 2];
 	    unsigned mask = ~0u;
 	    if (in_range(msg.offset, 0x10, MAX_BAR * 4))  mask &= _sizes[(msg.offset - 0x10) >> 2] - 1;
+	    else if (_msi_cap) {
+	      if (msg.offset == _msi_cap) mask = 0x710000;
+	      else if (msg.offset == _msi_cap + 4) mask = ~3;
+	      else if (msg.offset == _msi_cap + (_msi_64bit ? 12 : 8)) mask = 0xffff;
+	    }
 	    _cfgspace[msg.offset >> 2] = _cfgspace[msg.offset >> 2] & ~mask | msg.value & mask;
 
-	    //write through if not in the bar-range
-	    if (!in_range(msg.offset, 0x10, MAX_BAR * 4))
+	    //write through if not in the bar or msi range
+	    if (!in_range(msg.offset, 0x10, MAX_BAR * 4) && !(_msi_cap && in_range(msg.offset, _msi_cap, _msi_64bit ? 16 : 12)))
 	      conf_write(_bdf, msg.offset, _cfgspace[msg.offset >> 2]);
 
 	    //Logging::printf("%s:%x -- %8x,%8x old %8x\n", __PRETTY_FUNCTION__, _bdf, msg.offset, _cfgspace[msg.offset >> 2], old);
@@ -158,10 +171,37 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
   bool receive(MessageIrq &msg)
   {
-    if (msg.line != _hostirq)  return false;
-    //Logging::printf("Forwarding irq message #%x  %x -> %x\n", msg.type, msg.line, _cfgspace[15] & 0xff);
-    MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
-    return _mb.bus_irqlines.send(msg2);
+    for (unsigned i = 0; i < _irq_count; i++)
+      if (_host_irqs[i] == msg.line) {
+	unsigned long long msi_address = 0;
+	unsigned           msi_data   = 0;
+
+	// MSI enabled?
+	if (_cfgspace[_msi_cap/4] & 0x10000) {
+	  unsigned idx = _msi_cap/4;
+	  msi_address = _cfgspace[++idx];
+	  if (_cfgspace[_msi_cap/4] & 0x800000)
+	    msi_address |= static_cast<unsigned long long>(_cfgspace[++idx]) << 32;
+	  msi_data = _cfgspace[idx] & 0xffff;
+	  unsigned multiple_msgs = 1 << ((_cfgspace[_msi_cap/4] >> 20) & 0x7);
+	  if (i < multiple_msgs) msi_data |= i;
+	}
+	// MSI-X enabled?
+	else if (_cfgspace[_msix_cap/4] >> 31 && _msix_table) {
+	  msi_address = _msix_table[i].address;
+	  msi_data = _msix_table[i].data;
+	}
+	else if (!i) {
+	  MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
+	  return _mb.bus_irqlines.send(msg2);
+	}
+	if (msi_address) {
+	  // XXX FSB delivery
+	  MessageIrq msg2(msg.type, msi_data & 0xff);
+	  return _mb.bus_irqlines.send(msg2);
+	}
+      }
+    return false;
   }
 
 
@@ -170,8 +210,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     unsigned irq = _cfgspace[15] & 0xff;
     if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7)))
       {
-	//Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _hostirq);
-	MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _hostirq);
+	//Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs);
+	MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
 	return _mb.bus_hostop.send(msg2);
       }
     return false;
@@ -253,14 +293,33 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   }
 
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned long long *bases, unsigned long long *sizes, unsigned didvid = 0)
-    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _bar_count(count_bars(_bdf))
+    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _bar_count(count_bars(_bdf))
   {
 
     memcpy(_bases, bases, sizeof(_bases));
     memcpy(_sizes, sizes, sizeof(_sizes));
 
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
-    _hostirq = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0, true);
+
+
+    _msi_cap  = find_cap(bdf, CAP_MSI);
+    _msix_cap = find_cap(bdf, CAP_MSIX);
+    _msi_64bit = false;
+    _irq_count = 1;
+
+    if (_msi_cap)  {
+      _irq_count = 1 << ((_cfgspace[_msi_cap/4] >> 1) & 0x7);
+      _msi_64bit = _cfgspace[_msi_cap/4] & 0x800000;
+    }
+    if (_msix_cap) {
+      unsigned msix_irqs = 1 + ((_cfgspace[_msix_cap/4] >> 16) & 0x7ff);
+      if (_irq_count < msix_irqs) _irq_count = msix_irqs;
+      _msix_table = new MsiXTableEntry[_irq_count];
+    }
+
+    _host_irqs = new unsigned[_irq_count];
+    for (unsigned i=0; i < _irq_count; i++)
+      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, i, true);
 
     dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);

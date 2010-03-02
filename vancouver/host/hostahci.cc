@@ -346,7 +346,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
   }
 
 
-  HostAhciPort(HostAhciPortRegister *regs, DBus<MessageHostOp> &bus_hostop, DBus<MessageDiskCommit> &bus_commit, Clock *clock, 
+  HostAhciPort(HostAhciPortRegister *regs, DBus<MessageHostOp> &bus_hostop, DBus<MessageDiskCommit> &bus_commit, Clock *clock,
 	       unsigned disknr, unsigned max_slots, bool dmar)
     : _regs(regs), _bus_hostop(bus_hostop), _bus_commit(bus_commit), _clock(clock), _disknr(disknr), _max_slots(max_slots), _dmar(dmar), _tag(0)
   {
