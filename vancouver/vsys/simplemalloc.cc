@@ -38,6 +38,7 @@ extern "C" void *malloc(unsigned long size);
 void * malloc(unsigned long size) { return memalign(sizeof(unsigned long), size); }
 
 
+extern "C" void free(void *ptr);
 void free(void *ptr)
 {
   extern char __mempoolstart, __mempoolend;
