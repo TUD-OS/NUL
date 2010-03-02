@@ -46,6 +46,10 @@ strnlen(const char *src, size_t maxlen)
   return maxlen - count;
 }
 
+size_t
+strlen(const char *src) { return strnlen(src, ~0ul); }
+
+
 char *
 strstr(char *haystack, const char *needle)
 {
@@ -118,6 +122,20 @@ strsep(char **stringp, const char *delim)
   return res;
 }
 
+int
+memcmp(const void *dst, const void *src, size_t count)
+{
+  const char *d = dst;
+  const char *s = src;
+  unsigned i;
+  for (i=0; i < count; i++)
+    if (s[i] > d[i])
+      return 1;
+    else if (s[i] < d[i])
+      return -1;
+  return 0;
+}
+
 char *
 strcpy(char *dst, const char *src)
 {
@@ -144,8 +162,9 @@ strcat(char *dst, const char *src)
   return r;
 }
 
+
 int
-strcmp(const char *dst, const char *src) 
+strcmp(const char *dst, const char *src)
 {
   return memcmp(dst, src, strlen(dst));
 }
