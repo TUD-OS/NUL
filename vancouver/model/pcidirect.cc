@@ -80,7 +80,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	  _barinfo[i].ptr = msg.ptr + (bases[i] & 0x10);
 	else
 	  Logging::panic("can not map IOMEM region %lx+%x %p", msg.value, msg.len, msg.ptr);
-	Logging::printf("%s\n", __func__);
       }
     }
   }
@@ -169,12 +168,13 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
 	    // disable multi-function devices
 	    if (msg.dword == 3)   msg.value &= ~0x800000;
-	    Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, msg.value);
+	    //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, msg.value);
 	    return true;
 	  }
 	else
 	  {
 	    unsigned mask = ~0u;
+	    if (!msg.dword) mask = 0;
 	    if (in_range(msg.dword, 4, MAX_BAR)) mask = ~(_barinfo[msg.dword - 4].size - 1);
 	    if (_msi_cap) {
 	      if (msg.dword == _msi_cap) mask = 0x710000;
@@ -185,11 +185,11 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    if (~mask)
 	      _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
 	    else {
-	      //write through if not in the BAR or MSI range
+	      //write through
 	      conf_write(_bdf, msg.dword, _cfgspace[msg.dword]);
 	      _cfgspace[msg.dword] = conf_read(_bdf, msg.dword);
 	    }
-	    Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
+	    //Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
 	  return true;
 	  }
       }
@@ -201,7 +201,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
     for (unsigned i = 0; i < _irq_count; i++)
       if (_host_irqs[i] == msg.line) {
-	Logging::printf("Irq message #%x  %x\n", msg.line, msg.type);
+	//Logging::printf("Irq message #%x  %x\n", msg.line, msg.type);
 	unsigned long long msi_address = 0;
 	unsigned           msi_data   = 0;
 
@@ -237,10 +237,10 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 
   bool receive(MessageIrqNotify &msg)
   {
-    // XXX
+    // XXX adopt for _msi cases
     unsigned irq = _cfgspace[15] & 0xff;
     if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7))) {
-      Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
+      //Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
       MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
       return _mb.bus_hostop.send(msg2);
     }
@@ -331,6 +331,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
 
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
+    _cfgspace[0] = didvid;
     map_bars(bases, sizes);
 
 
@@ -359,8 +360,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
       _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, i, i ? false : true);
-    for (unsigned i=0; i < _irq_count; i++)
-      Logging::printf("HOST IRQ %x\n", _host_irqs[i]);
     dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
     mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
