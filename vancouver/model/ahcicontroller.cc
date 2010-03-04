@@ -380,9 +380,9 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 
     bool res = false;
     if (addr < 0x100)
-      res = HwRegisterSet<AhciController>::write_all_regs(addr, *reinterpret_cast<unsigned *>(msg.ptr), 4, this);
+      res = HwRegisterSet<AhciController>::write_all_regs(addr, *reinterpret_cast<unsigned *>(msg.ptr), this);
     else if (addr < 0x100+MAX_PORTS*0x80)
-	res = _ports[(addr - 0x100) / 0x80].write_all_regs(addr & 0x7f, *reinterpret_cast<unsigned *>(msg.ptr), 4, &_ports[(addr - 0x100) / 0x80]);
+	res = _ports[(addr - 0x100) / 0x80].write_all_regs(addr & 0x7f, *reinterpret_cast<unsigned *>(msg.ptr), &_ports[(addr - 0x100) / 0x80]);
     else
       return false;
 
@@ -403,9 +403,9 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
     bool res;
     unsigned uvalue = 0;
     if (addr < 0x100)
-      res = HwRegisterSet<AhciController>::read_all_regs(addr, uvalue, 4);
+      res = HwRegisterSet<AhciController>::read_all_regs(addr, uvalue);
     else if (addr < 0x100+MAX_PORTS*0x80)
-      res = _ports[(addr - 0x100) / 0x80].read_all_regs(addr & 0x7f, uvalue, 4);
+      res = _ports[(addr - 0x100) / 0x80].read_all_regs(addr & 0x7f, uvalue);
     else
       return false;
 

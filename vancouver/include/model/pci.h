@@ -83,10 +83,10 @@ class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
 	    msg.value = 0;
-	    res = HwRegisterSet< PciDeviceConfigSpace<Y> >::read_all_regs(msg.dword << 2, msg.value, 4);
+	    res = HwRegisterSet< PciDeviceConfigSpace<Y> >::read_all_regs(msg.dword << 2, msg.value);
 	  }
 	else
-	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.dword << 2, msg.value, 4);
+	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.dword << 2, msg.value);
 	return res;
       }
     return false;

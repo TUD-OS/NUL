@@ -147,28 +147,20 @@ class HwRegisterSet {
   /**
    * Read all register that fall in a given address range.
    */
-  bool read_all_regs(unsigned address, unsigned &value, unsigned size)
+  bool read_all_regs(unsigned address, unsigned &value)
   {
-    assert(size <= 4 && !(size & size -1));
     bool res = false;
     unsigned tmp = 0;
     unsigned tmp2;
-    for (int i = 0; i < _reg_count; i++)
-      {
-	if (in_range(address, _hw_regs[i].offset & ~(size-1), size))
-	  {
-	    read_reg(i, tmp2);
-	    tmp |= tmp2 << 8*(_hw_regs[i].offset & (size-1));
-	    res = true;
-	  }
-	else if (in_range(address, _hw_regs[i].offset, 4))
-	  {
-	    read_reg(i, tmp2);
-	    tmp |= tmp2 >> 8*(address - _hw_regs[i].offset);
-	    res = true;
-	  }
+    for (int i = 0; i < _reg_count; i++) {
+
+      if (_hw_regs[i].offset == address)  {
+	read_reg(i, tmp2);
+	tmp |= tmp2;
+	res = true;
       }
-    if (res)  value = tmp & (0xffffffff>>((4-size)*8));
+    }
+    if (res)  value = tmp;
     return res;
   }
 
@@ -176,24 +168,14 @@ class HwRegisterSet {
   /**
    * Write all register that fall in a given address range.
    */
-  bool write_all_regs(unsigned address, unsigned value, unsigned size, Z *obj = 0)
+  bool write_all_regs(unsigned address, unsigned value, Z *obj = 0)
   {
-    assert(size <= 4 && !(size & size -1));
     bool res = false;
     for (int i = 0; i < _reg_count; i++)
-      if (in_range(address, _hw_regs[i].offset & ~(size-1), size))
-	{
-	  write_reg(i, value >> 8*(_hw_regs[i].offset & (size-1)), true, obj);
-	  res = true;
-	}
-      else if (in_range(address, _hw_regs[i].offset, 4))
-	{
-	  unsigned tmp;
-	  read_reg(i, tmp);
-	  unsigned mask = (0xffffffff>>((4-size)*8)) << 8*(address - _hw_regs[i].offset);
-	  tmp = (value & mask) | (tmp & ~mask);
-	  write_reg(i, tmp, true, obj);
-	}
+      if (_hw_regs[i].offset == address)  {
+	write_reg(i, value, true, obj);
+	res = true;
+      }
     return res;
   }
 
@@ -206,6 +188,7 @@ class HwRegisterSet {
       _reg_count = 0;
       for (unsigned i=0; _hw_regs[i].name; i++)
 	{
+	  assert(!(_hw_regs[i].offset & 3));
 	  _reg_count++;
 	  if (_hw_regs[i].mask | _hw_regs[i].rw1s | _hw_regs[i].rw1c)
 	    {
