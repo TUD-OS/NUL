@@ -62,12 +62,13 @@ memmove(void *dst, const void *src, long count) {
 static inline void *
 memset(void *dst, char n, long count) {
   void *res = dst;
-  if (count & 3)
-    asm volatile ("rep stosb" : "+D"(dst), "+a"(n), "+c"(count) :  : "memory");
-  else {
-    count /= 4;
-    asm volatile ("rep stosl" : "+D"(dst), "+a"(n), "+c"(count) :  : "memory");
-  }
+  unsigned long x = count & 3;
+  if (x) asm volatile ("1: stosb; loop 1b;" : "+D"(dst), "+c" (x) : "a"(n) : "memory");
+
+  unsigned value = n & 0xff;
+  value = (value << 24) | (value << 16) | (value << 8) | value;
+  count /= 4;
+  asm volatile ("rep stosl" : "+D"(dst), "+c"(count) : "a"(value)  : "memory");
   return res;
 }
 

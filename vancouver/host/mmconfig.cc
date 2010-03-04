@@ -59,8 +59,8 @@ public:
   }
 
 
-  PciMMConfigAccess(unsigned start_bdf, unsigned bdf_size, unsigned *mmconfig) : _start_bdf(start_bdf), _bdf_size(bdf_size), _mmconfig(mmconfig)
-  {}
+  PciMMConfigAccess(unsigned start_bdf, unsigned bdf_size, unsigned *mmconfig)
+  : _start_bdf(start_bdf), _bdf_size(bdf_size), _mmconfig(mmconfig) {}
 };
 
 PARAM(mmconfig,

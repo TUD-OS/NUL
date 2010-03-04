@@ -243,7 +243,7 @@ PARAM(hostide,
 	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
 	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++);)
 	  {
-	    if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 4) & 1))
+	    if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 1) & 1))
 	      {
 		Logging::printf("Ignore IDE controller #%x at %x\n", num, bdf);
 		continue;
@@ -253,8 +253,8 @@ PARAM(hostide,
 	    // primary and secondary controller
 	    for (unsigned i=0; i < 2; i++)
 	      {
-		unsigned bar1 = pci.conf_read(bdf, 0x10+i*8);
-		unsigned bar2 = pci.conf_read(bdf, 0x10+i*8 + 4);
+		unsigned bar1 = pci.conf_read(bdf, 4+i*2);
+		unsigned bar2 = pci.conf_read(bdf, 4+i*2 + 1);
 
 		// try legacy port
 		if (!bar1 && !bar2) { if (!i) { bar1=0x1f1; bar2=0x3f7; } else { bar1=0x171; bar2=0x377; } }

@@ -180,7 +180,7 @@ public:
     _hwreg[VTCTRL] |= CTRL_RST;
     _hwreg[VTEIMC] = ~0U;
 
-    pci.conf_write(bdf, 0x4 /* CMD */, 1U<<2 /* Bus-Master enable */);
+    pci.conf_write(bdf, 1 /* CMD */, 1U<<2 /* Bus-Master enable */);
 
     // Setup IRQ mapping:
     // RX queue 0 get MSI-X vector 0, TX queue 0 gets 1.
@@ -250,7 +250,7 @@ PARAM(host82576vf, {
     }
 
     unsigned sriov_cap = pci.find_extended_cap(parent_bdf, pci.EXTCAP_SRIOV);
-    uint16_t numvfs = pci.conf_read(parent_bdf, sriov_cap + 0x10) & 0xFFFF;
+    uint16_t numvfs = pci.conf_read(parent_bdf, sriov_cap + 4) & 0xFFFF;
     if (vf_no >= numvfs) {
       Logging::printf("VF%d does not exist.\n", vf_no);
       return;

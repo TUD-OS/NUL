@@ -151,6 +151,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   }
 
 
-  void *operator new(unsigned size)  { return new(__alignof__(Motherboard)) char[size]; }
+  void *operator new(unsigned size)  { return new(0x1000) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock)  {}
 };

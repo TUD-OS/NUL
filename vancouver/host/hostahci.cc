@@ -396,8 +396,8 @@ class HostAhci : public StaticReceiver<HostAhci>
   HostAhci(HostPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, unsigned long bdf, unsigned hostirq, bool dmar)
     : _bdf(bdf), _hostirq(hostirq), _regs_high(0) {
 
-    assert(!(~pci.conf_read(_bdf, 4) & 6) && "we need mem-decode and busmaster dma");
-    unsigned long bar = pci.conf_read(_bdf, 0x24);
+    assert(!(~pci.conf_read(_bdf, 1) & 6) && "we need mem-decode and busmaster dma");
+    unsigned long bar = pci.conf_read(_bdf, 9);
     assert(!(bar & 7) && "we need a 32bit memory bar");
 
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, bar, 0x1000);

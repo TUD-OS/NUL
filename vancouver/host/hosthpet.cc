@@ -248,7 +248,7 @@ PARAM(hosthpet,
 #include "host/hostpci.h"
 PARAM(quirk_hpet_ich,
       HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-      unsigned address = pci.conf_read(0xf8, 0xf0);
+      unsigned address = pci.conf_read(0xf8, 0x3c);
 
       if (!address) return;
 

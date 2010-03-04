@@ -32,13 +32,14 @@ PT_FUNC(do_gsi_boot,
 	utcb->eip = reinterpret_cast<unsigned long>(&do_gsi_wrapper);
 	)
 PT_FUNC_NORETURN(do_gsi,
+		 bool shared = utcb->msg[1] >> 8;
 		 unsigned char res;
 		 unsigned irq = utcb->msg[0];
 		 {
 		   SemaphoreGuard s(_lock);
 		   Logging::printf("%s(%x) initial vec %x\n", __func__, irq,  utcb->msg[1]);
 		 }
-		 MessageIrq msg(MessageIrq::ASSERT_IRQ, utcb->msg[1]);
+		 MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
 		 while (!(res = semdown(irq)))
 		   {
 		     SemaphoreGuard s(_lock);

@@ -21,7 +21,6 @@
 
 enum {
   PCI_CFG_SPACE_DWORDS = 1024,
-  PCI_CFG_SPACE_MASK = PCI_CFG_SPACE_DWORDS * 4 - 1,
 };
 
 

@@ -139,7 +139,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     Logging::printf("create ec for gsi %x\n", gsi);
     Utcb *u;
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
-    u->msg[0] =  _hip->cfg_exc + gsi;
+    u->msg[0] =  _hip->cfg_exc + (gsi & 0xff);
     u->msg[1] =  gsi;
     return !create_sc(_cap_free++, cap, Qpd(3, 10000));
   }
@@ -726,7 +726,7 @@ public:
 	break;
       case MessageHostOp::OP_ATTACH_IRQ:
 	{
-	  unsigned gsi = msg.value;
+	  unsigned gsi = msg.value & 0xff;
 	  if (_gsi & (1 << gsi)) return true;
 	  _gsi |=  1 << gsi;
 	  assign_gsi(_hip->cfg_exc + gsi, _cpunr[CPUGSI % _numcpus]);

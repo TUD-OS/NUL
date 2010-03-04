@@ -26,8 +26,7 @@ class HostVfPci : public HostPci
 {
 public:
   enum {
-    BAR_SIZE                = 4,
-    SRIOV_VF_BAR0           = 0x24U,
+    SRIOV_VF_BAR0           = 9,
   };
 
   /**
@@ -37,8 +36,8 @@ public:
 
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
-    size =  bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4, is64bit);
-    return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no*4) + vf_no * size;
+    size =  bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no, is64bit);
+    return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no) + vf_no * size;
   }
 
   /**
@@ -64,7 +63,7 @@ public:
     unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return 0;
 
-    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 0x14);
+    unsigned vf_offset = conf_read(parent_bdf, sriov_cap + 5);
     unsigned vf_stride = vf_offset >> 16;
     vf_offset &= 0xFFFF;
     return parent_bdf + vf_stride*vf_no + vf_offset;
@@ -75,7 +74,7 @@ public:
     unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return 0;
 
-    return (conf_read(parent_bdf, sriov_cap + 0x18) & 0xFFFF0000)
+    return (conf_read(parent_bdf, sriov_cap + 6) & 0xFFFF0000)
       | (conf_read(parent_bdf, 0) & 0xFFFF);
   }
  HostVfPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : HostPci(bus_pcicfg, bus_hostop) {}

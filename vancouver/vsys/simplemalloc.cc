@@ -18,18 +18,23 @@
 #include "service/helper.h"
 #include "service/string.h"
 #include "service/logging.h"
+#include "service/profile.h"
 
 void *memalign(unsigned long align, unsigned long size)
 {
   // needs to be a power of two
-  if (align & (align - 1)) return 0;
+  if (align & (align - 1)) { COUNTER_INC("miss-aligned"); COUNTER_SET("MALIGN", align); align = 1;}
 
   extern char __mempoolstart, __mempoolend;
   static char *s =  &__mempoolend;
+  //char *old = s;
   s = &__mempoolstart + (((s - &__mempoolstart) - size) & ~(align - 1));
   if (s < &__mempoolstart)
     Logging::panic("malloc(%lx) EOM!\n", size);
   assert(!(reinterpret_cast<unsigned long>(s) & (align - 1)));
+
+  // XXX we assume here that BSS is cleared
+  //memset(s, 0, size);
   return s;
 };
 

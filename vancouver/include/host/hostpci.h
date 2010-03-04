@@ -30,7 +30,7 @@ class HostPci
  public:
 
   enum {
-    BAR0          = 0x10,
+    BAR0          = 4,
     MAX_BAR       = 6,
 
     BAR_TYPE_MASK = 0x6,
@@ -78,11 +78,11 @@ class HostPci
   unsigned long long bar_base(unsigned bdf, unsigned bar)
   {
     unsigned val = conf_read(bdf, bar);
-    if ((val & BAR_IO) == BAR_IO)  return val & BAR_IO_MASK;
+    if ((val & BAR_IO) == BAR_IO)  return val;
 
     switch (val & BAR_TYPE_MASK) {
     case BAR_TYPE_32B: return val & BAR_MEM_MASK;
-    case BAR_TYPE_64B: return (static_cast<unsigned long long>(conf_read(bdf, bar + 4))<<32) | (val & BAR_MEM_MASK);
+    case BAR_TYPE_64B: return (static_cast<unsigned long long>(conf_read(bdf, bar + 1))<<32) | (val & BAR_MEM_MASK);
     default: return ~0ULL;
     };
   }
@@ -116,7 +116,7 @@ class HostPci
 	if (is64bit) *is64bit = true;
 	unsigned old_hi = conf_read(bdf, bar + 1);
 	conf_write(bdf, bar, 0xFFFFFFFFU);
-	conf_write(bdf, bar + 4, 0xFFFFFFFFU);
+	conf_write(bdf, bar + 1, 0xFFFFFFFFU);
 	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 1))<<32;
 	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
 	size = bar_size;
@@ -146,8 +146,8 @@ class HostPci
     // read bars
     for (unsigned i=0; i < count_bars(bdf); i++) {
       bool is64bit;
-      base[i] = bar_base(bdf, i);
-      size[i] = bar_size(bdf, i, &is64bit);
+      base[i] = bar_base(bdf, BAR0 + i);
+      size[i] = bar_size(bdf, BAR0 + i, &is64bit);
       if (is64bit) i++;
     }
 
@@ -237,7 +237,7 @@ class HostPci
     if (msix_offset)
       {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 1);
-	unsigned long base = bar_base(bdf, (ctrl1 & 0x7)*4 + BAR0) + (ctrl1 & ~0x7u);
+	unsigned long base = bar_base(bdf, BAR0 + (ctrl1 & 0x7)) + (ctrl1 & ~0x7u);
 
 	// map the MSI-X bar
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
@@ -257,10 +257,10 @@ class HostPci
     if (msi_offset)
       {
 	unsigned ctrl = conf_read(bdf, msi_offset);
-	unsigned base = msi_offset + 4;
+	unsigned base = msi_offset + 1;
 	conf_write(bdf, base+0, msg1.msi_address);
 	conf_write(bdf, base+1, msg1.msi_address >> 32);
-	if (ctrl & 0x800000) base += 4;
+	if (ctrl & 0x800000) base += 1;
 	conf_write(bdf, base+1, msg1.msi_value);
 
 	// we use only a single message and enable MSIs here

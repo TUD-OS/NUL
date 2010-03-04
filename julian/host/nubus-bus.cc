@@ -11,11 +11,11 @@ PCIBus::PCIBus(NubusManager &manager)
 PCIBus::PCIBus(PCIDevice &bridge)
   : _manager(bridge.bus()._manager), _bridge(&bridge), _devices(NULL), _buses(NULL)
 {
-  _no = (_bridge->conf_read(0x18) >> 8) & 0xFF;
+  _no = (_bridge->conf_read(6) >> 8) & 0xFF;
   bridge.bus().add_bus(this);
 
   {
-    uint32_t memclaim = _bridge->conf_read(0x20);
+    uint32_t memclaim = _bridge->conf_read(8);
     uint32_t limit = ((memclaim >> 20)+1) << 20;
     uint32_t base = memclaim<<16;
     Region bridge_claim(base, limit - base);
@@ -72,7 +72,7 @@ bool PCIBus::ari_enabled()
 {
   if (!_bridge) return false;
   uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
-  return express_cap ? ((_bridge->conf_read(express_cap + 0x28) & (1<<5)) != 0) : false;
+  return express_cap ? ((_bridge->conf_read(express_cap + 0xa) & (1<<5)) != 0) : false;
 }
 
 bool PCIBus::ari_enable()
@@ -82,8 +82,8 @@ bool PCIBus::ari_enable()
   uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
   if (express_cap == 0) return false;
   
-  uint32_t devctrl2 = _bridge->conf_read(express_cap + 0x28);
-  _bridge->conf_write(express_cap + 0x28,  devctrl2 | (1<<5));
+  uint32_t devctrl2 = _bridge->conf_read(express_cap + 0xa);
+  _bridge->conf_write(express_cap + 0xa,  devctrl2 | (1<<5));
   
   assert(ari_enabled());
   return true;

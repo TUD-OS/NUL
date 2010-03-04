@@ -247,7 +247,7 @@ public:
     // MSI-X preparations
     unsigned msix_cap = pci.find_cap(bdf, HostPci::CAP_MSIX);
     assert(msix_cap != 0);
-    unsigned msix_table = pci.conf_read(bdf, msix_cap + 4);
+    unsigned msix_table = pci.conf_read(bdf, msix_cap + 1);
 
     msg(PCI, "MSI-X[0] = %08x\n", pci.conf_read(bdf, msix_cap));
     _msix_table_size = ((pci.conf_read(bdf, msix_cap)>>16) & ((1<<11)-1))+1;
@@ -257,7 +257,7 @@ public:
     _hwreg   = 0;
 
     for (unsigned bar_i = 0; bar_i < pci.MAX_BAR; bar_i++) {
-      uint32_t bar_addr = pci.BAR0 + bar_i*pci.BAR_SIZE;
+      uint32_t bar_addr = pci.BAR0 + bar_i;
       uint32_t bar = pci.conf_read(_bdf, bar_addr);
       size_t size  = pci.bar_size(_bdf, bar_addr);
 

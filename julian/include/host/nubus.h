@@ -57,7 +57,7 @@ enum {
 
   SRIOV_VF_BAR0           = 0x24U,
 
-  SRIOV_REG_CONTROL       = 0x8,
+  SRIOV_REG_CONTROL       = 0x2,
   SRIOV_VF_ENABLE         = 1,
   SRIOV_MSE_ENABLE        = 1U<<3,  // Memory Space Enable
   SRIOV_ARI               = (1<<4), // Only in function 0.
@@ -136,19 +136,19 @@ public:
   uint8_t ari_next_function() {
     uint16_t ari_cap = find_extcap(EXTCAP_ARI);
     if (ari_cap == 0) return 0;
-    return (conf_read(ari_cap + 4) >> 8) & 0xFF;
+    return (conf_read(ari_cap + 1) >> 8) & 0xFF;
   }
 
   uint16_t sriov_total_vfs() {
     uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
-    return conf_read(sriov_cap + 0xC) >> 16;
+    return conf_read(sriov_cap + 3) >> 16;
   }
 
   uint16_t sriov_device_id() {
     uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
-    return conf_read(sriov_cap + 0x18) >> 16;
+    return conf_read(sriov_cap + 6) >> 16;
   }
 
   bool sriov_enable(uint16_t vfs_to_enable);

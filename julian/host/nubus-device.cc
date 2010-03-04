@@ -22,7 +22,7 @@ bool PCIDevice::ari_capable()
     uint8_t express_cap = find_cap(CAP_PCI_EXPRESS);
     if (express_cap == 0) return false;
 	
-    uint32_t devcap2 = conf_read(express_cap + 0x24);
+    uint32_t devcap2 = conf_read(express_cap + 9);
     return (devcap2 & (1<<5)) != 0;
   } else {
     // Normal devices need an ARI capability to be ARI capable.
@@ -63,7 +63,7 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
   //   Logging::printf("SR-IOV[%02x] %08x\n", off, conf_read(sriov_cap + off));
   // }
 
-  conf_write(sriov_cap + 0x10, (conf_read(sriov_cap + 0x10) & ~0xFFFF) | vfs_to_enable);
+  conf_write(sriov_cap + 4, (conf_read(sriov_cap + 4) & ~0xFFFF) | vfs_to_enable);
   conf_write(sriov_cap + SRIOV_REG_CONTROL, SRIOV_VF_ENABLE | conf_read(sriov_cap + SRIOV_REG_CONTROL));
 
   Logging::printf("dev[%x:%02x.%x] Enabled %u VFs. Wait for them to settle down.\n",
@@ -72,7 +72,7 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
 
   // Scan VF BARs
   for (unsigned cur_vfbar = 0; cur_vfbar < 6; cur_vfbar++) {
-    unsigned vfbar_addr = sriov_cap + SRIOV_VF_BAR0 + cur_vfbar*4;
+    unsigned vfbar_addr = sriov_cap + SRIOV_VF_BAR0 + cur_vfbar;
     uint32_t bar_lo = conf_read(vfbar_addr);
 
     bool is64bit;
@@ -86,11 +86,11 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
 
       if (base != 0) {
 	Logging::printf("BAR allocated at %llx.\n", base);
-	uint32_t cmd = conf_read(0x4);
-	conf_write(0x4, cmd & ~2);
+	uint32_t cmd = conf_read(1);
+	conf_write(1, cmd & ~2);
 	conf_write(vfbar_addr, base);
-	if (is64bit) conf_write(vfbar_addr+4, base>>32);
-	conf_write(0x4, cmd);
+	if (is64bit) conf_write(vfbar_addr+1, base>>32);
+	conf_write(1, cmd);
       }
     }
 
@@ -101,7 +101,7 @@ bool PCIDevice::sriov_enable(uint16_t vfs_to_enable)
   conf_write(sriov_cap + SRIOV_REG_CONTROL, SRIOV_MSE_ENABLE | conf_read(sriov_cap + SRIOV_REG_CONTROL));
   
   // Add VFs to bus.
-  unsigned vf_offset = conf_read(sriov_cap + 0x14);
+  unsigned vf_offset = conf_read(sriov_cap + 5);
   unsigned vf_stride = vf_offset >> 16;
   vf_offset &= 0xFFFF;
 
@@ -123,10 +123,10 @@ PCIDevice::PCIDevice(PCIBus &bus, uint8_t df, PCIDevice *pf)
 {
   _vendor = !is_vf() ? conf_read(0) : ((this->pf()->vendor() & 0xFFFF) | 
 				       (this->pf()->sriov_device_id()<<16)) ;
-  _dclass = conf_read(8) >> 16;
+  _dclass = conf_read(2) >> 16;
   if (is_vf()) assert(_dclass == pf->_dclass);
 
-  _header_type = (conf_read(12) >> 16) & 0xFF;
+  _header_type = (conf_read(3) >> 16) & 0xFF;
   uint8_t config_layout = _header_type & 0x3F;
 
   // Logging::printf("dev[%x:%02x.%x] vendor %08x class %04x%s\n", _bus.no(), _df>>3, _df&7,
@@ -146,7 +146,7 @@ PCIDevice::PCIDevice(PCIBus &bus, uint8_t df, PCIDevice *pf)
     // Not a bridge
     for (unsigned bar_i = 0; bar_i < 6; bar_i++) {
       bool is64bit;
-      unsigned bar_addr = bar_i * 4 + 0x10;
+      unsigned bar_addr = bar_i + HostPci::BAR0;
       if ((conf_read(bar_addr) & 1) == 1) continue; // I/O BAR
       uint64_t base = _bus.manager().pci().bar_base(bdf(), bar_addr);
       uint64_t bar_size = _bus.manager().pci().bar_size(bdf(), bar_addr, &is64bit);

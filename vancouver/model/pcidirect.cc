@@ -63,6 +63,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
    */
   void map_bars(unsigned long long *bases, unsigned long long *sizes) {
     for (unsigned i=0; i < _bar_count; i++) {
+      Logging::printf("%s %llx %llx\n", __func__, bases[i], sizes[i]);
       _barinfo[i].size = sizes[i];
       if (!bases[i]) continue;
       if ((bases[i] & 1) == 1) {
@@ -262,8 +263,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
   {
 
     char *ptr;
-    unsigned ofs = match_bars(msg.phys, msg.count, ptr);
-    if (!ofs)  return false;
+    if (!match_bars(msg.phys, msg.count, ptr))  return false;
     COUNTER_INC("PCIDirect::write");
     switch (msg.count) {
     case 4:
@@ -312,13 +312,12 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     char *ptr;
     unsigned ofs = match_bars(msg.phys & ~0xfff, 0x1000, ptr);
     if (!ofs) return false;
-
     if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_table) && ptr < reinterpret_cast<char *>(_msix_table + _irq_count))
       return false;
 
-    // XXX support large pages
+    // XXX fix _msix clashes
     msg.ptr = ptr;
-    msg.count = 0x1000;
+    msg.count = _barinfo[ofs - 4].size;
     Logging::printf(" MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
     return true;
   }
@@ -327,7 +326,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
 
-    for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i<<2);
+    for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
     map_bars(bases, sizes);
 
 
