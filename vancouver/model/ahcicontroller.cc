@@ -440,7 +440,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 
 
   AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq),
-						       _pci_cmd_reg(PciDeviceConfigSpace<AhciController>::find_reg("CMD")),
+						       _pci_cmd_reg(PciDeviceConfigSpace<AhciController>::find_reg("CMD_STS")),
 						       _pci_bar_reg(PciDeviceConfigSpace<AhciController>::find_reg("ABAR")),
 						       _reg_ghc(HwRegisterSet<AhciController>::find_reg("GHC")),
 						       _reg_is(HwRegisterSet<AhciController>::find_reg("IS")),
@@ -473,18 +473,15 @@ REGISTERSET(AhciPort,
 
 
 REGISTERSET(PciDeviceConfigSpace<AhciController>,
-	    REGISTER_RO("ID",   0x0, 4, 0x275c8086),
-	    REGISTER_RW("CMD",  0x4, 2, 0, 0x0406),
-	    REGISTER_RO("STS",  0x6, 2, 0x10),
-	    REGISTER_RO("RID",  0x8, 1, 0x02),
-	    REGISTER_RO("CC",   0x9, 3, 0x010601),
-	    REGISTER_RW("ABAR",0x24, 4, 0, 0xffffe000),
-	    REGISTER_RO("SS",  0x2c, 4, 0x275c8086),
-	    REGISTER_RO("CAP", 0x34, 1, 0x80),
-	    REGISTER_RW("INTR",0x3c, 2, 0x0100, 0xff),
-	    REGISTER_RO("PID", 0x80, 2, 0x8801),
-	    REGISTER_RO("PC",  0x82, 2, 0x0000),
-	    REGISTER_RO("PMCS",0x84, 2, 0x0000),
+	    REGISTER_RO("ID",       0x0, 4, 0x275c8086),
+	    REGISTER_RW("CMD_STS",  0x4, 4, 0x100000, 0x0406),
+	    REGISTER_RO("RID_CC",   0x8, 4, 0x01060102),
+	    REGISTER_RW("ABAR",    0x24, 4, 0, 0xffffe000),
+	    REGISTER_RO("SS",      0x2c, 4, 0x275c8086),
+	    REGISTER_RO("CAP",     0x34, 4, 0x80),
+	    REGISTER_RW("INTR",    0x3c, 4, 0x0100, 0xff),
+	    REGISTER_RO("PID_PC",  0x80, 4, 0x00008801),
+	    REGISTER_RO("PMCS",    0x84, 4, 0x0000),
 	    REGISTER_RW("MSICTRL", 0x88, 4, 0x00000005, 0x10000),
 	    REGISTER_RW("MSIADDR", 0x8c, 4, 0, 0xffffffff),
 	    REGISTER_RW("MSIDATA", 0x90, 4, 0, 0xffffffff));
@@ -514,7 +511,7 @@ PARAM(ahci,
 
 	// set default state, this is normally done by the BIOS
 	// enable IRQ, busmaster DMA and memory accesses
-	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("CMD"), 0x406, true);
+	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("CMD_STS"), 0x406, true);
 	// set MMIO region and IRQ
 	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("ABAR"), argv[0], true);
 	dev->PciDeviceConfigSpace<AhciController>::write_reg(dev->PciDeviceConfigSpace<AhciController>::find_reg("INTR"), argv[1], true);

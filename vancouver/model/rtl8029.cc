@@ -314,7 +314,7 @@ public:
 
   Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac) :
     _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac),
-    _pci_cmd_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("CMD")),
+    _pci_cmd_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("CMD_STS")),
     _pci_bar_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("BAR"))
   {
     // init memory
@@ -330,13 +330,12 @@ public:
 
 
 REGISTERSET(PciDeviceConfigSpace<Rtl8029>,
-	    REGISTER_RO("ID",   0x0,  4, 0x802910ec),
-	    REGISTER_RW("CMD",  0x4,  2, 0, 0x0003),
-	    REGISTER_RO("STS",  0x6,  2, 0x200),
-	    REGISTER_RO("CC",   0x9,  3, 0x020000),
-	    REGISTER_RW("BAR", 0x10,  4, 1, 0xffffffe0),
-	    REGISTER_RO("SS",  0x2c,  4, 0x802910ec),
-	    REGISTER_RW("INTR",0x3c,  2, 0x0100, 0x0f));
+	    REGISTER_RO("ID",       0x0,  4, 0x802910ec),
+	    REGISTER_RW("CMD_STS",  0x4,  4, 0x02000000, 0x0003),
+	    REGISTER_RO("RID_CC",   0x8,  4, 0x02000000),
+	    REGISTER_RW("BAR",     0x10,  4, 1, 0xffffffe0),
+	    REGISTER_RO("SS",      0x2c,  4, 0x802910ec),
+	    REGISTER_RW("INTR",    0x3c,  4, 0x0100, 0x0f));
 
 
 
@@ -359,7 +358,7 @@ PARAM(rtl8029,
 
 	// set default state, this is normally done by the BIOS
 	// enable IO accesses
-	dev->PciDeviceConfigSpace<Rtl8029>::write_reg(dev->PciDeviceConfigSpace<Rtl8029>::find_reg("CMD"), 0x1, true);
+	dev->PciDeviceConfigSpace<Rtl8029>::write_reg(dev->PciDeviceConfigSpace<Rtl8029>::find_reg("CMD_STS"), 0x1, true);
 
 
       },
