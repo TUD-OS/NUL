@@ -48,16 +48,16 @@ class HostPci
     EXTCAP_SRIOV            = 0x0010U,
   };
 
-  unsigned conf_read(unsigned bdf, unsigned short offset)
+  unsigned conf_read(unsigned bdf, unsigned dword)
   {
-    MessagePciConfig msg(bdf, offset);
+    MessagePciConfig msg(bdf, dword);
     _bus_pcicfg.send(msg, true);
     return msg.value;
   }
 
-  void conf_write(unsigned bdf, unsigned short offset, unsigned value)
+  void conf_write(unsigned bdf, unsigned dword, unsigned value)
   {
-    MessagePciConfig msg(bdf, offset, value);
+    MessagePciConfig msg(bdf, dword, value);
     _bus_pcicfg.send(msg, true);
   }
 
@@ -67,7 +67,7 @@ class HostPci
    */
   unsigned count_bars(unsigned bdf) {
 
-    switch((conf_read(bdf, 0xc) >> 24) & 0x7f) {
+    switch((conf_read(bdf, 0x3) >> 24) & 0x7f) {
     case 0: return 6;
     case 1: return 2;
     default: return 0;
@@ -114,13 +114,13 @@ class HostPci
 	break;
       case BAR_TYPE_64B: {
 	if (is64bit) *is64bit = true;
-	unsigned old_hi = conf_read(bdf, bar + 4);
+	unsigned old_hi = conf_read(bdf, bar + 1);
 	conf_write(bdf, bar, 0xFFFFFFFFU);
 	conf_write(bdf, bar + 4, 0xFFFFFFFFU);
-	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 4))<<32;
+	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 1))<<32;
 	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
 	size = bar_size;
-	conf_write(bdf, bar + 4, old_hi);
+	conf_write(bdf, bar + 1, old_hi);
 	break;
       }
       default:
@@ -140,8 +140,8 @@ class HostPci
     memset(size, 0, MAX_BAR*sizeof(*size));
 
     // disable device
-    unsigned cmd = conf_read(bdf, 0x4);
-    conf_write(bdf, 0x4, cmd & ~0x7);
+    unsigned cmd = conf_read(bdf, 1);
+    conf_write(bdf, 1, cmd & ~0x7);
 
     // read bars
     for (unsigned i=0; i < count_bars(bdf); i++) {
@@ -152,7 +152,7 @@ class HostPci
     }
 
     // reenable device
-    conf_write(bdf, 0x4, cmd);
+    conf_write(bdf, 1, cmd);
   }
 
 
@@ -172,9 +172,9 @@ class HostPci
 	    for (unsigned func=0; func < maxfunc; func++)
 	      {
 		unsigned bdf =  (bus << 8) | (dev << 3) | func;
-		unsigned value = conf_read(bdf, 0x8);
+		unsigned value = conf_read(bdf, 2);
 		if (value == ~0UL) continue;
-		if (maxfunc == 1 && conf_read(bdf, 0xc) & 0x800000)
+		if (maxfunc == 1 && conf_read(bdf, 3) & 0x800000)
 		  maxfunc = 8;
 		if ((theclass == ~0UL || ((value >> 24) & 0xff) == theclass)
 		    && (subclass == ~0UL || ((value >> 16) & 0xff) == subclass)
@@ -200,15 +200,15 @@ class HostPci
       for (unsigned func = 0; func < maxfunc; func++) {
 
 	unsigned bdf =  (dev << 3) | func;
-	unsigned value = conf_read(bdf, 0x8);
+	unsigned value = conf_read(bdf, 2);
 	if (value == ~0UL) continue;
 
-	unsigned char header = conf_read(bdf, 0xc) >> 16;
+	unsigned char header = conf_read(bdf, 3) >> 16;
 	if (maxfunc == 1 && header & 0x80)  maxfunc = 8;
 	if ((header & 0x7f) != 1) continue;
 
 	// we have a bridge
-	unsigned b = conf_read(bdf, 0x18);
+	unsigned b = conf_read(bdf, 6);
 	if ((((b >> 8) & 0xff) <= dstbus) && (((b >> 16) & 0xff) >= dstbus))
 	  return bdf;
       }
@@ -236,7 +236,7 @@ class HostPci
     // MSI-X
     if (msix_offset)
       {
-	unsigned ctrl1 = conf_read(bdf, msix_offset + 0x4);
+	unsigned ctrl1 = conf_read(bdf, msix_offset + 1);
 	unsigned long base = bar_base(bdf, (ctrl1 & 0x7)*4 + BAR0) + (ctrl1 & ~0x7u);
 
 	// map the MSI-X bar
@@ -259,9 +259,9 @@ class HostPci
 	unsigned ctrl = conf_read(bdf, msi_offset);
 	unsigned base = msi_offset + 4;
 	conf_write(bdf, base+0, msg1.msi_address);
-	conf_write(bdf, base+4, msg1.msi_address >> 32);
+	conf_write(bdf, base+1, msg1.msi_address >> 32);
 	if (ctrl & 0x800000) base += 4;
-	conf_write(bdf, base+4, msg1.msi_value);
+	conf_write(bdf, base+1, msg1.msi_value);
 
 	// we use only a single message and enable MSIs here
 	conf_write(bdf, msi_offset, (ctrl & ~0x700000) | 0x10000);
@@ -271,11 +271,11 @@ class HostPci
 
 
     // normal GSIs -  ask atare
-    unsigned char pin = conf_read(bdf, 0x3c) >> 8;
+    unsigned char pin = conf_read(bdf, 0xf) >> 8;
     if (!pin) { Logging::printf("No IRQ PINs connected on %x\n", bdf ); return ~0u; }
     MessageAcpi msg3(search_bridge(bdf), bdf, pin - 1);
     if (!bus_acpi.send(msg3, true)) {
-      msg3.gsi = conf_read(bdf, 0x3c) & 0xff;
+      msg3.gsi = conf_read(bdf, 0xf) & 0xff;
       Logging::printf("No glue which GSI %x_%x is triggering - fall back to PIC irq %x\n", bdf, pin, msg3.gsi);
     }
 
@@ -292,13 +292,12 @@ class HostPci
    */
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
-    if ((conf_read(bdf, 4) >> 16) & 0x10 /* Capabilities supported? */)
-      for (unsigned offset = conf_read(bdf, 0x34) & 0xFC;
-	   (offset != 0) && (offset != 0xFC);
-	   offset = (conf_read(bdf, offset) >> 8) & 0xFC)
-	if ((conf_read(bdf, offset) & 0xFF) == id)
-	  return offset;
-
+    if ((conf_read(bdf, 1) >> 16) & 0x10 /* Capabilities supported? */)
+      for (unsigned offset = conf_read(bdf, 0xd);
+	   (offset != 0) && (~offset & 0x3);
+	   offset = conf_read(bdf, offset >> 2) >> 8)
+	if ((conf_read(bdf, offset >> 2) & 0xFF) == id)
+	  return offset >> 2;
     return 0;
   }
 
@@ -310,12 +309,12 @@ class HostPci
   {
     unsigned long header, offset;
 
-    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x100)))
-      for (offset = 0x100, header = conf_read(bdf, offset);
+    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x40)))
+      for (offset = 0x100, header = conf_read(bdf, offset >> 2);
 	   offset != 0;
-	   offset = header>>20, header = conf_read(bdf, offset))
+	   offset = header >> 20, header = conf_read(bdf, offset >> 2))
 	if ((header & 0xFFFF) == id)
-	  return offset;
+	  return offset >> 2;
     return 0;
   }
 

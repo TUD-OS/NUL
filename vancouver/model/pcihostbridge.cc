@@ -60,7 +60,7 @@ class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticR
    */
   unsigned read_pcicfg(bool &res)
   {
-    MessagePciConfig msg((_confaddress & ~0x80000000) >> 8, _confaddress & 0xfc);
+    MessagePciConfig msg((_confaddress & ~0x80000000) >> 8, (_confaddress & 0xff) >> 2);
     res &= send_bus(msg);
     return msg.value;
   }
@@ -101,7 +101,7 @@ public:
 	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
 	bool res;
 	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
-	MessagePciConfig msg2((_confaddress & ~0x80000000) >> 8, _confaddress & 0xfc, value);
+	MessagePciConfig msg2((_confaddress & ~0x80000000) >> 8, (_confaddress & 0xff) >> 2, value);
 	res &= send_bus(msg2);
       }
     else

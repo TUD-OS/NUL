@@ -48,15 +48,13 @@ class PciMMConfigAccess : public StaticReceiver<PciMMConfigAccess>
 public:
 
   bool receive(MessagePciConfig &msg) {
-    assert(~msg.offset & 3);
-    if (!in_range(msg.bdf, _start_bdf, _bdf_size) || msg.offset >= 0x1000)  return false;
+    if (!in_range(msg.bdf, _start_bdf, _bdf_size) || msg.dword >= 0x400)  return false;
 
-    unsigned *field = _mmconfig + (msg.bdf << 10) + (msg.offset >> 2);
+    unsigned *field = _mmconfig + (msg.bdf << 10) + msg.dword;
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:  msg.value = *field; break;
     case MessagePciConfig::TYPE_WRITE: *field = msg.value; break;
     }
-
     return true;
   }
 

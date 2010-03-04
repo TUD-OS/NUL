@@ -133,10 +133,10 @@ struct MessagePciConfig
     TYPE_WRITE
   } type;
   unsigned bdf;
-  unsigned short offset;
+  unsigned dword;
   unsigned value;
-  MessagePciConfig(unsigned _bdf, unsigned short _offset) : type(TYPE_READ), bdf(_bdf), offset(_offset), value(0xffffffff) {}
-  MessagePciConfig(unsigned _bdf, unsigned short _offset, unsigned _value) : type(TYPE_WRITE), bdf(_bdf), offset(_offset), value(_value) {}
+  MessagePciConfig(unsigned _bdf, unsigned _dword) : type(TYPE_READ), bdf(_bdf), dword(_dword), value(0xffffffff) {}
+  MessagePciConfig(unsigned _bdf, unsigned _dword, unsigned _value) : type(TYPE_WRITE), bdf(_bdf), dword(_dword), value(_value) {}
 };
 
 
