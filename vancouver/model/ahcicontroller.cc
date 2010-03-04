@@ -291,6 +291,7 @@ class AhciPort : public HwRegisterSet<AhciPort>, public FisReceiver
  *
  * State: unstable
  * Features: PCI cfg space, AHCI register set
+ * Missing: MSI delivery
  */
 class AhciController : public PciDeviceConfigSpace<AhciController>,
 		       public HwRegisterSet<AhciController>,
@@ -312,6 +313,9 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   int _pci_bar_reg;
   int _reg_ghc;
   int _reg_is;
+  int _reg_msi_ctrl;
+  int _reg_msi_addr;
+  int _reg_msi_data;
   AhciPort _ports[MAX_PORTS];
 
   const char* debug_getname() { return "AHCI"; }
@@ -326,7 +330,20 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 	HwRegisterSet<AhciController>::modify_reg(_reg_is, 0, 1 << index);
 	if (HwRegisterSet<AhciController>::read_reg(_reg_ghc, value) && value & 0x2)
 	  {
-	    MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+	    unsigned irq = _irq;
+	    unsigned msi_ctrl;
+	    if (PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_ctrl, msi_ctrl) && msi_ctrl & 0x10000) {
+	      unsigned addr=0, data=0;
+	      if (!PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_addr, addr) || !PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_data, data))
+		Logging::panic("read msi reg failed");
+	      Logging::printf("MSI %x %x\n", addr, data);
+	      // XXX FSB delivery
+	      irq = data & 0xff;
+	    }
+
+	    MessageIrq msg(MessageIrq::ASSERT_IRQ, irq);
+
+
 	    _bus_irqlines.send(msg);
 	  }
       }
@@ -426,7 +443,10 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 						       _pci_cmd_reg(PciDeviceConfigSpace<AhciController>::find_reg("CMD")),
 						       _pci_bar_reg(PciDeviceConfigSpace<AhciController>::find_reg("ABAR")),
 						       _reg_ghc(HwRegisterSet<AhciController>::find_reg("GHC")),
-						       _reg_is(HwRegisterSet<AhciController>::find_reg("IS"))
+						       _reg_is(HwRegisterSet<AhciController>::find_reg("IS")),
+						       _reg_msi_ctrl(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSICTRL")),
+						       _reg_msi_addr(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSIADDR")),
+						       _reg_msi_data(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSIDATA"))
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
   };
@@ -462,9 +482,12 @@ REGISTERSET(PciDeviceConfigSpace<AhciController>,
 	    REGISTER_RO("SS",  0x2c, 4, 0x275c8086),
 	    REGISTER_RO("CAP", 0x34, 1, 0x80),
 	    REGISTER_RW("INTR",0x3c, 2, 0x0100, 0xff),
-	    REGISTER_RO("PID", 0x80, 2, 0x0001),
+	    REGISTER_RO("PID", 0x80, 2, 0x8801),
 	    REGISTER_RO("PC",  0x82, 2, 0x0000),
-	    REGISTER_RO("PMCS",0x84, 2, 0x0000));
+	    REGISTER_RO("PMCS",0x84, 2, 0x0000),
+	    REGISTER_RW("MSICTRL", 0x88, 4, 0x00000005, 0x10000),
+	    REGISTER_RW("MSIADDR", 0x8c, 4, 0, 0xffffffff),
+	    REGISTER_RW("MSIDATA", 0x90, 4, 0, 0xffffffff));
 
 
 
