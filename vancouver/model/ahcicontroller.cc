@@ -309,13 +309,13 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   DBus<MessageIrq> &_bus_irqlines;
   unsigned char _irq;
 
-  int _pci_cmd_reg;
+  unsigned const * _pci_cmd;
   int _pci_bar_reg;
   int _reg_ghc;
   int _reg_is;
-  int _reg_msi_ctrl;
-  int _reg_msi_addr;
-  int _reg_msi_data;
+  unsigned const * _msi_ctrl;
+  unsigned const * _msi_addr;
+  unsigned const * _msi_data;
   AhciPort _ports[MAX_PORTS];
 
   const char* debug_getname() { return "AHCI"; }
@@ -331,14 +331,10 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 	if (HwRegisterSet<AhciController>::read_reg(_reg_ghc, value) && value & 0x2)
 	  {
 	    unsigned irq = _irq;
-	    unsigned msi_ctrl;
-	    if (PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_ctrl, msi_ctrl) && msi_ctrl & 0x10000) {
-	      unsigned addr=0, data=0;
-	      if (!PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_addr, addr) || !PciDeviceConfigSpace<AhciController>::read_reg(_reg_msi_data, data))
-		Logging::panic("read msi reg failed");
-	      Logging::printf("MSI %x %x\n", addr, data);
+	    if (*_msi_ctrl & 0x10000) {
+	      Logging::printf("MSI %x %x\n", *_msi_addr, *_msi_data);
 	      // XXX FSB delivery
-	      irq = data & 0xff;
+	      irq = *_msi_data & 0xff;
 	    }
 
 	    MessageIrq msg(MessageIrq::ASSERT_IRQ, irq);
@@ -372,8 +368,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   bool receive(MessageMemWrite &msg)
   {
     unsigned long addr = msg.phys;
-    unsigned cmd_value;
-    if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
+    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x2))
       return false;
 
     check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
@@ -394,8 +389,7 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
   bool receive(MessageMemRead &msg)
   {
     unsigned long addr = msg.phys;
-    unsigned cmd_value;
-    if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<AhciController>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x2))
+    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x2))
       return false;
 
     check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
@@ -440,13 +434,13 @@ class AhciController : public PciDeviceConfigSpace<AhciController>,
 
 
   AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq),
-						       _pci_cmd_reg(PciDeviceConfigSpace<AhciController>::find_reg("CMD_STS")),
+						       _pci_cmd(PciDeviceConfigSpace<AhciController>::get_reg_ro("CMD_STS")),
 						       _pci_bar_reg(PciDeviceConfigSpace<AhciController>::find_reg("ABAR")),
 						       _reg_ghc(HwRegisterSet<AhciController>::find_reg("GHC")),
 						       _reg_is(HwRegisterSet<AhciController>::find_reg("IS")),
-						       _reg_msi_ctrl(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSICTRL")),
-						       _reg_msi_addr(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSIADDR")),
-						       _reg_msi_data(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::find_reg("MSIDATA"))
+						       _msi_ctrl(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::get_reg_ro("MSICTRL")),
+						       _msi_addr(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::get_reg_ro("MSIADDR")),
+						       _msi_data(HwRegisterSet<PciDeviceConfigSpace<AhciController> >::get_reg_ro("MSIDATA"))
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
   };

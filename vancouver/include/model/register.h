@@ -103,19 +103,30 @@ class HwRegisterSet {
   }
 
 
+  unsigned const *get_reg_ro(const char *name) const
+  {
+    for (unsigned i=0; _hw_regs[i].name; i++)
+      if (!strcmp(name, _hw_regs[i].name)) {
+	if (~_hw_regs[i].saveindex)
+	  return _regs_data + _hw_regs[i].saveindex;
+	else
+	  return &_hw_regs[i].value;
+      }
+    Logging::panic("%s did not found reg %s\n", __PRETTY_FUNCTION__, name);
+  }
+
   /**
    * Read a register.
    */
   bool read_reg(int index, unsigned &value)
   {
-    if (index >=0 && index < _reg_count)
-      {
-	if (~_hw_regs[index].saveindex)
-	  value = _regs_data[_hw_regs[index].saveindex];
-	else
-	  value = _hw_regs[index].value;
-	return true;
-      }
+    if (index >=0 && index < _reg_count) {
+      if (~_hw_regs[index].saveindex)
+	value = _regs_data[_hw_regs[index].saveindex];
+      else
+	value = _hw_regs[index].value;
+      return true;
+    }
     return false;
   }
 

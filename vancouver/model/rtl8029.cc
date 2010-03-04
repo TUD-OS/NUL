@@ -32,7 +32,7 @@ class Rtl8029: public PciDeviceConfigSpace<Rtl8029>,
   DBus<MessageIrq>     &_bus_irqlines;
   unsigned char _irq;
   unsigned long long _mac;
-  int _pci_cmd_reg;
+  unsigned const * _pci_cmd;
   int _pci_bar_reg;
 
   struct {
@@ -282,8 +282,7 @@ public:
   bool receive(MessageIOIn &msg)
   {
     unsigned long addr = msg.port;
-    unsigned cmd_value;
-    if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<Rtl8029>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x1))
+    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x1))
       return false;
 
     // for every byte
@@ -299,8 +298,7 @@ public:
   bool receive(MessageIOOut &msg)
   {
     unsigned long addr = msg.port;
-    unsigned cmd_value;
-    if (!match_bar(_pci_bar_reg, addr) || !(PciDeviceConfigSpace<Rtl8029>::read_reg(_pci_cmd_reg, cmd_value) && cmd_value & 0x1))
+    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x1))
       return false;
 
     //Logging::printf("%s port %x value %x imr %x isr %x cr %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _regs.imr, _regs.isr, _regs.cr);
@@ -314,7 +312,7 @@ public:
 
   Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac) :
     _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac),
-    _pci_cmd_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("CMD_STS")),
+    _pci_cmd(PciDeviceConfigSpace<Rtl8029>::get_reg_ro("CMD_STS")),
     _pci_bar_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("BAR"))
   {
     // init memory
