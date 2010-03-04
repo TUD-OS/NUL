@@ -293,8 +293,8 @@ class HostPci
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
     if ((conf_read(bdf, 1) >> 16) & 0x10 /* Capabilities supported? */)
-      for (unsigned offset = conf_read(bdf, 0xd);
-	   (offset != 0) && (~offset & 0x3);
+      for (unsigned char offset = conf_read(bdf, 0xd);
+	   (offset != 0) && !(offset & 0x3);
 	   offset = conf_read(bdf, offset >> 2) >> 8)
 	if ((conf_read(bdf, offset >> 2) & 0xFF) == id)
 	  return offset >> 2;

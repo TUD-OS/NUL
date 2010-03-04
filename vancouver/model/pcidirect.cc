@@ -116,7 +116,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     for (unsigned i=0; i < _bar_count; i++) {
 
       // we assume that accesses with a size larger than the bar will never happen
-      if (_barinfo[i].size < size || _barinfo[i].io || !in_range(address, _cfgspace[4 + i] & BAR_MEM_MASK, _barinfo[i].size - size))
+      if (_barinfo[i].size < size || _barinfo[i].io || !in_range(address, _cfgspace[4 + i] & BAR_MEM_MASK, _barinfo[i].size - size + 1))
 	continue;
       ptr = _barinfo[i].ptr + address - (_cfgspace[4 + i] & BAR_MEM_MASK);
       if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_host_table) && ptr < reinterpret_cast<char *>(_msix_host_table + _irq_count))
@@ -178,17 +178,18 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 	    if (in_range(msg.dword, 4, MAX_BAR)) mask = ~(_barinfo[msg.dword - 4].size - 1);
 	    if (_msi_cap) {
 	      if (msg.dword == _msi_cap) mask = 0x710000;
-	      else if (msg.dword == _msi_cap + 1) mask = ~3u;
-	      else if (msg.dword == _msi_cap + (_msi_64bit ? 3 : 2)) mask = 0xffff;
+	      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
+	      if (msg.dword == (_msi_cap + 2)) mask = ~0u;
+	      if (msg.dword == (_msi_cap + (_msi_64bit ? 3 : 2))) mask = 0xffff;
 	    }
 	    if (~mask)
-	      _cfgspace[msg.dword ] = _cfgspace[msg.dword] & ~mask | msg.value & mask;
+	      _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
 	    else {
 	      //write through if not in the BAR or MSI range
 	      conf_write(_bdf, msg.dword, _cfgspace[msg.dword]);
 	      _cfgspace[msg.dword] = conf_read(_bdf, msg.dword);
 	    }
-	    Logging::printf("%s:%x -- %8x,%8x old %8x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], 0);
+	    Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
 	  return true;
 	  }
       }
