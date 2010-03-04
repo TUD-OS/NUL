@@ -102,7 +102,7 @@ class HostPci
 
       // I/O BAR
       conf_write(bdf, bar, 0xFFFFFFFFU);
-      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
+      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFU) + 1;
 
     } else {
 
