@@ -51,6 +51,10 @@ host_env = Environment()
 # binaries.
 target_env = Environment()
 
+
+if ARGUMENTS.get('VERBOSE') != "1":
+    target_env.Append(CCCOMSTR  = "\tCC  $TARGET", CXXCOMSTR  = "\tCXX $TARGET", LINKCOMSTR = "\tLNK $TARGET")
+
 if target_cc:
     print("Target CC forced to '%s'." % target_cc)
     if not target_cxx:
