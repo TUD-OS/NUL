@@ -31,7 +31,6 @@ class HwRegister {
  public:
   const char *name;
   unsigned offset;
-  unsigned char bytes;
   unsigned value;
   unsigned mask;
   unsigned rw1s;
@@ -40,12 +39,12 @@ class HwRegister {
   short saveindex;
 };
 
-#define REGISTER(name, offset, bytes, value, mask, rw1s, rw1c, callback) { name, offset, bytes, value, mask, rw1s, rw1c, callback, 0}
-#define REGISTER_RW(name, offset, bytes, value, mask)    REGISTER(name, offset, bytes, value, mask, 0, 0, 0)
+#define REGISTER(name, offset, value, mask, rw1s, rw1c, callback) { name, offset, value, mask, rw1s, rw1c, callback, 0}
+#define REGISTER_RW(name, offset, value, mask)    REGISTER(name, offset, value, mask, 0, 0, 0)
 // a private register, RO to external, but RW to internal callers
-#define REGISTER_PR(name, offset, bytes, value)          REGISTER(name, offset, bytes, value,    0, 0, 1, 0)
-#define REGISTER_RO(name, offset, bytes, value)          REGISTER_RW(name, offset, bytes, value, 0)
-#define REGISTERSET(name, ...) template <> HwRegister HwRegisterSet< name >::_hw_regs[] = {  __VA_ARGS__ , REGISTER_RO(0, 0, 0, 0) }
+#define REGISTER_PR(name, offset, value)          REGISTER(name, offset, value,    0, 0, 1, 0)
+#define REGISTER_RO(name, offset, value)          REGISTER_RW(name, offset, value, 0)
+#define REGISTERSET(name, ...) template <> HwRegister HwRegisterSet< name >::_hw_regs[] = {  __VA_ARGS__ , REGISTER_RO(0, 0, 0) }
 
 
 template <typename Z>
@@ -162,7 +161,7 @@ class HwRegisterSet {
 	    tmp |= tmp2 << 8*(_hw_regs[i].offset & (size-1));
 	    res = true;
 	  }
-	else if (in_range(address, _hw_regs[i].offset, _hw_regs[i].bytes))
+	else if (in_range(address, _hw_regs[i].offset, 4))
 	  {
 	    read_reg(i, tmp2);
 	    tmp |= tmp2 >> 8*(address - _hw_regs[i].offset);
@@ -187,7 +186,7 @@ class HwRegisterSet {
 	  write_reg(i, value >> 8*(_hw_regs[i].offset & (size-1)), true, obj);
 	  res = true;
 	}
-      else if (in_range(address, _hw_regs[i].offset, _hw_regs[i].bytes))
+      else if (in_range(address, _hw_regs[i].offset, 4))
 	{
 	  unsigned tmp;
 	  read_reg(i, tmp);
@@ -210,8 +209,6 @@ class HwRegisterSet {
 	  _reg_count++;
 	  if (_hw_regs[i].mask | _hw_regs[i].rw1s | _hw_regs[i].rw1c)
 	    {
-	      assert(_hw_regs[i].bytes <= sizeof(_hw_regs[i].value));
-	      assert(_hw_regs[i].bytes == 4 || !(_hw_regs[i].mask >> 8*_hw_regs[i].bytes));
 	      _hw_regs[i].saveindex = ~0;
 
 	      // alias detection

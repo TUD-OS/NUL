@@ -330,12 +330,12 @@ public:
 
 
 REGISTERSET(PciDeviceConfigSpace<Rtl8029>,
-	    REGISTER_RO("ID",       0x0,  4, 0x802910ec),
-	    REGISTER_RW("CMD_STS",  0x4,  4, 0x02000000, 0x0003),
-	    REGISTER_RO("RID_CC",   0x8,  4, 0x02000000),
-	    REGISTER_RW("BAR",     0x10,  4, 1, 0xffffffe0),
-	    REGISTER_RO("SS",      0x2c,  4, 0x802910ec),
-	    REGISTER_RW("INTR",    0x3c,  4, 0x0100, 0x0f));
+	    REGISTER_RO("ID",       0x0, 0x802910ec),
+	    REGISTER_RW("CMD_STS",  0x4, 0x02000000, 0x0003),
+	    REGISTER_RO("RID_CC",   0x8, 0x02000000),
+	    REGISTER_RW("BAR",     0x10, 1, 0xffffffe0),
+	    REGISTER_RO("SS",      0x2c, 0x802910ec),
+	    REGISTER_RW("INTR",    0x3c, 0x0100, 0x0f));
 
 
 
