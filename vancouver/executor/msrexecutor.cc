@@ -91,7 +91,7 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	    Logging::printf("wrmsr[%x] = %llx\n", msg.cpu->ecx, get_value(msg.cpu));
 	    break;
 	  case 0x1b: // APIC base MSR
-	    msg.vcpu->msr_apic = get_value(msg.cpu);
+	    msg.vcpu->msr_apic = get_value(msg.cpu) & ((1ull << Config::PHYS_ADDR_SIZE) - 1) & ~0x6ffull;
 	    break;
 	  default:
 	    Logging::panic("unsupported wrmsr %x <-(%x:%x) at %x",  msg.cpu->ecx, msg.cpu->edx, msg.cpu->eax, msg.cpu->eip);

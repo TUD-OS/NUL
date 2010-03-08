@@ -439,7 +439,7 @@ public:
   {
     if (msg.line == MessageIrq::LINT0 || msg.line > 0x40)
       {
-	for (unsigned i=0; i < Motherboard::MAX_VCPUS; i++)
+	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
 	  if (msg.type == MessageIrq::ASSERT_IRQ)
 	    {
 	      if (msg.line > 0x40 && msg.line != MessageIrq::LINT0) _mb->vcpustate(i)->lastmsi = msg.line;
@@ -462,7 +462,7 @@ public:
     if (msg.type == MessageLegacy::RESET || msg.type == MessageLegacy::INIT)
       {
 	Logging::printf("try to RESET the machine (%x, %x)\n", msg.type, msg.value);
-	for (unsigned i=0; i < Motherboard::MAX_VCPUS; i++)
+	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
 	  {
 	    Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_INIT);
 	    wakeup_cpu(i);

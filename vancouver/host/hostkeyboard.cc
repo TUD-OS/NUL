@@ -358,8 +358,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
       _bus_keycode(bus_keycode), _bus_mouse(bus_mouse),
       _clock(clock), _hostdev(hostdev), _base(base),
       _irq(irq), _irqaux(irqaux), _scset1(scset == 1)
-    {
-    }
+    {}
 
 };
 

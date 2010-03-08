@@ -23,7 +23,7 @@
 class CpuState : public Utcb
 {
  public:
-  unsigned cpl()   { return (ss.ar >> 5) & 3; } 
+  unsigned cpl()   { return (ss.ar >> 5) & 3; }
   unsigned iopl()  { return (efl >> 12) & 3; }
   unsigned pm()    { return cr0 & 0x1; }
   unsigned pg()    { return cr0 & 0x80000000; }
@@ -57,7 +57,7 @@ class VirtualCpuState
   };
 
   volatile unsigned hazard;
-  unsigned efer;
+  unsigned long cpunr;
 
   // block+recall
   unsigned         cap_vcpu;
@@ -88,6 +88,7 @@ class VirtualCpuState
   unsigned dr6;
 
   // MSR state
+  unsigned long msr_efer;
   unsigned long msr_apic;
 
   unsigned lastmsi;
@@ -95,5 +96,8 @@ class VirtualCpuState
   // x87, MMX, SSE2, SSE3
   unsigned fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
 
-  VirtualCpuState() : msr_apic(0xfee00900u) {}
+
+  void reset() {
+    msr_apic = !cpunr ? 0xfee00100u : 0xfee00000u;
+  }
 };

@@ -15,7 +15,7 @@
  * General Public License version 2 for more details.
  */
 #pragma once
-
+#include "nul/config.h"
 #include "memcache.h"
 
 
@@ -24,9 +24,6 @@
  */
 class MemTlb : public MemCache
 {
-public:
-  static const unsigned PHYS_ADDR_SIZE = 40;
-
 private:
   enum Features {
     FEATURE_PSE        = 1 << 0,
@@ -76,7 +73,7 @@ private:
 	  {
 	    reserved_bit = (~tlb->paging_mode & (1<<11) && (pte & (1ULL << 63)))
 	      || ((~features & FEATURE_LONG) && features & FEATURE_PAE && (static_cast<unsigned long long>(pte) >> 52) & 0xeff)
-	      || (((static_cast<unsigned long long>(pte) & ~(1ULL << 63)) >> PHYS_ADDR_SIZE) || (is_sp && (pte >> 12) & ((1<<(l*9))-1)));
+	      || (((static_cast<unsigned long long>(pte) & ~(1ULL << 63)) >> Config::PHYS_ADDR_SIZE) || (is_sp && (pte >> 12) & ((1<<(l*9))-1)));
 	  }
 	if (reserved_bit)  PF(virt, type | 9);
       } while (l && !is_sp);
@@ -114,7 +111,7 @@ private:
 protected:
   int init(MessageExecutor &msg)
   {
-    paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | VCPU(efer) & 0xc00;
+    paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | VCPU(msr_efer) & 0xc00;
 
     // fetch pdpts in leagacy PAE mode
     if ((paging_mode & 0x80000420) == 0x80000020)
@@ -123,7 +120,7 @@ protected:
 	for (unsigned i=0; i < 4; i++)
 	  {
 	    values[i] = *reinterpret_cast<unsigned long long *>(get((READ(cr3) &~0x1f) + i*8, ~0xffful, 8, TYPE_R)->_ptr);
-	    if ((values[i] & 0x1e6) || (values[i] >> (PHYS_ADDR_SIZE - 32)))  GP0;
+	    if ((values[i] & 0x1e6) || (values[i] >> (Config::PHYS_ADDR_SIZE - 32)))  GP0;
 	  }
 	memcpy(msg.vcpu->pdpt, values, sizeof(msg.vcpu->pdpt));
       }

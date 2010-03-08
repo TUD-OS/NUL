@@ -1,7 +1,7 @@
 /**
  * Virtual motherboard.
  *
- * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -21,6 +21,7 @@
 #include "service/params.h"
 #include "service/profile.h"
 #include "service/string.h"
+#include "config.h"
 #include "bus.h"
 #include "message.h"
 #include "timer.h"
@@ -35,11 +36,8 @@ class Motherboard : public StaticReceiver<Motherboard>
 {
   const char *debug_getname() { return "Motherboard"; };
  public:
-  enum {
-    MAX_VCPUS = 1,
-  };
  private:
-  VirtualCpuState _cpustate[MAX_VCPUS];
+  VirtualCpuState _cpustate[Config::NUM_VCPUS];
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;
@@ -77,7 +75,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageNetwork>      bus_network;
   DBus<MessageVesa>         bus_vesa;
 
-  VirtualCpuState *vcpustate(unsigned vcpunr) { assert(vcpunr < MAX_VCPUS); return _cpustate + vcpunr; }
+  VirtualCpuState *vcpustate(unsigned vcpunr) { assert(vcpunr < Config::NUM_VCPUS); return _cpustate + vcpunr; }
   Clock *clock() { return _clock; }
 
   /**
@@ -150,7 +148,21 @@ class Motherboard : public StaticReceiver<Motherboard>
       }
   }
 
+  bool  receive(MessageLegacy &msg) {
+    if (msg.type == MessageLegacy::RESET) {
+      for (unsigned i=0; i < Config::NUM_VCPUS; i++) _cpustate[i].reset();
+      return true;
+    }
+    return false;
+  }
+
 
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
-  Motherboard(Clock *__clock) : _clock(__clock)  {}
+  Motherboard(Clock *__clock) : _clock(__clock)  {
+
+
+    for (unsigned i=0; i < Config::NUM_VCPUS; i++) _cpustate[i].cpunr = i;
+
+    bus_legacy.add(this, &Motherboard::receive_static<MessageLegacy>);
+  }
 };

@@ -32,12 +32,12 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
     assert (msg.cpu->head.pid == 10);
 
     const char *data;
-    switch (msg.cpu->eax)
+    unsigned index = msg.cpu->eax;
+    switch (index)
       {
 	// we emulate a pentium3 here with our own strings...
       case 0: data = "\x02\x00\x00\x00NOVAroHV mic"; break;
-      case 1: data = "\x73\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xa9\x80\x03"; break;
-	// with apic: case 1: data = "\x73\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xa9\x82\x03"; break;
+      case 1: data = "\x73\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xa9\x82\x03"; break;
       default:
 	Logging::printf("\tCPUID leaf %x at %x\n", msg.cpu->eax, msg.cpu->eip);
 	// fall through to the highest basic leaf
@@ -53,8 +53,12 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
     memcpy(&msg.cpu->ebx, data+0x4, 4);
     memcpy(&msg.cpu->ecx, data+0x8, 4);
     memcpy(&msg.cpu->edx, data+0xc, 4);
-    msg.cpu->eip += msg.cpu->inst_len;
+
+    // delete the APIC present bit if it is hardware disabled
+    if (index == 1 && ~msg.vcpu->msr_apic & 0x800) msg.cpu->edx &= ~2u;
+
     // done
+    msg.cpu->eip += msg.cpu->inst_len;
     msg.cpu->head.pid = 0;
     return true;
   };
