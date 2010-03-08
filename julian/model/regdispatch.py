@@ -32,7 +32,7 @@ rset82576vf = [
     # TODO Make this really RC/W1C
     { 'name' : 'VTEICR',
       'offset' : 0x1580,
-      },
+      'w1c' : True },
     { 'name' : 'VTEICS',
       'offset' : 0x1520,
       'set' : 'VTEICR',
@@ -90,11 +90,17 @@ def writer_gen(r, out):
         return
     out("\nvoid %s_write(uint32_t val)\n{" % r['name'])
     if 'set' in r:
-        out("\t%s = val;" % (r['set']['name']))
+        target = r['set']['name']
     else:
-        out("\t%s = val;" % r['name'])
+        target = r['name']
+
+    if 'w1c' in r:
+        out("\t%s &= ~val;" % target)
+    else:
+        out("\t%s = val;" % target)
+
     if 'callback' in r:
-        out("\t%s()" % r['callback'])
+        out("\t%s();" % r['callback'])
     out("}")
 
 def reader_gen(r, out):
@@ -123,7 +129,7 @@ def class_gen(rset, out):
     declaration_gen(rset, out)
     out("\n\t// Dispatch")
     write_dispatch_gen("dispatch_write", rset, out);
-    read_dispatch_gen("dispatch_write", rset, out);
+    read_dispatch_gen("dispatch_read", rset, out);
     out("\n\t// Readers")
     for r in rset:
         reader_gen(r, out)
