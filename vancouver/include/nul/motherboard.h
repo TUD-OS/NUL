@@ -160,9 +160,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock)  {
 
-
     for (unsigned i=0; i < Config::NUM_VCPUS; i++) _cpustate[i].cpunr = i;
-
     bus_legacy.add(this, &Motherboard::receive_static<MessageLegacy>);
   }
 };

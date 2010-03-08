@@ -56,7 +56,8 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
 
     // delete the APIC present bit if it is hardware disabled
     if (index == 1 && ~msg.vcpu->msr_apic & 0x800) msg.cpu->edx &= ~2u;
-
+    // propagate initial APIC id
+    if (index == 1) msg.cpu->ebx |= msg.vcpu->cpunr << 24;
     // done
     msg.cpu->eip += msg.cpu->inst_len;
     msg.cpu->head.pid = 0;
