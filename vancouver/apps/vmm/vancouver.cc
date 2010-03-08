@@ -635,15 +635,18 @@ public:
     create_irq_thread(~0u, do_timer);
     create_irq_thread(~0u, do_network);
 
-    Logging::printf("create VCPU\n");
-    // create a single VCPU
-    _mb->vcpustate(0)->block_sem = new KernelSemaphore(_cap_free++);
-    if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
-      Logging::panic("could not create blocking semaphore\n");
-    _mb->vcpustate(0)->cap_vcpu = _cap_free++;
-    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false)
-	|| create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
-      Logging::panic("creating a VCPU failed - does your CPU support VMX?");
+    Logging::printf("create VCPUs\n");
+    for (unsigned i=0; i < Config::NUM_VCPUS; i++) {
+      _mb->vcpustate(i)->block_sem = new KernelSemaphore(_cap_free++);
+      if (create_sm(_mb->vcpustate(i)->block_sem->sm()))
+	Logging::panic("could not create blocking semaphore\n");
+
+
+      _mb->vcpustate(i)->cap_vcpu = _cap_free++;
+      if (create_ec(_mb->vcpustate(i)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false)
+	  || create_sc(_cap_free++, _mb->vcpustate(i)->cap_vcpu, Qpd(1, 10000)))
+	Logging::panic("creating a VCPU failed - does your CPU support VMX?");
+    }
 
     _lock.up();
     Logging::printf("INIT done\n");
