@@ -16,6 +16,7 @@
  */
 
 #include "nul/motherboard.h"
+#include "model/lapic.h"
 
 /**
  * Handle RDMSR, WRMSR and RDTSC instructions.
@@ -62,9 +63,6 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	  case MSR_SYSENTER_EIP:
 	    set_value(msg.cpu, (&msg.cpu->sysenter_cs)[msg.cpu->ecx - MSR_SYSENTER_CS]);
 	    break;
-	  case 0x1b: // APIC base MSR
-	    set_value(msg.cpu, msg.vcpu->msr_apic);
-	    break;
 	  case 0x8b: // microcode
 	    // MTRRs
 	  case 0x250:
@@ -89,9 +87,6 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	  case MSR_SYSENTER_EIP:
 	    (&msg.cpu->sysenter_cs)[msg.cpu->ecx - MSR_SYSENTER_CS] = get_value(msg.cpu);
 	    Logging::printf("wrmsr[%x] = %llx\n", msg.cpu->ecx, get_value(msg.cpu));
-	    break;
-	  case 0x1b: // APIC base MSR
-	    msg.vcpu->msr_apic = get_value(msg.cpu) & ((1ull << Config::PHYS_ADDR_SIZE) - 1) & ~0x6ffull;
 	    break;
 	  default:
 	    Logging::panic("unsupported wrmsr %x <-(%x:%x) at %x",  msg.cpu->ecx, msg.cpu->edx, msg.cpu->eax, msg.cpu->eip);

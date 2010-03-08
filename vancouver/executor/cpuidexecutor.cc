@@ -15,6 +15,7 @@
  * General Public License version 2 for more details.
  */
 #include "nul/motherboard.h"
+#include "model/lapic.h"
 
 /**
  * Handle CPUID exits.
@@ -55,9 +56,9 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
     memcpy(&msg.cpu->edx, data+0xc, 4);
 
     // delete the APIC present bit if it is hardware disabled
-    if (index == 1 && ~msg.vcpu->msr_apic & 0x800) msg.cpu->edx &= ~2u;
+    if (index == 1 && ~msg.vcpu->apic->msr & 0x800) msg.cpu->edx &= ~2u;
     // propagate initial APIC id
-    if (index == 1) msg.cpu->ebx |= msg.vcpu->cpunr << 24;
+    if (index == 1) msg.cpu->ebx |= msg.vcpu->apic->initial_apic_id << 24;
     // done
     msg.cpu->eip += msg.cpu->inst_len;
     msg.cpu->head.pid = 0;

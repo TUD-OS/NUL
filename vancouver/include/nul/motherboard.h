@@ -148,19 +148,6 @@ class Motherboard : public StaticReceiver<Motherboard>
       }
   }
 
-  bool  receive(MessageLegacy &msg) {
-    if (msg.type == MessageLegacy::RESET) {
-      for (unsigned i=0; i < Config::NUM_VCPUS; i++) _cpustate[i].reset();
-      return true;
-    }
-    return false;
-  }
-
-
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
-  Motherboard(Clock *__clock) : _clock(__clock)  {
-
-    for (unsigned i=0; i < Config::NUM_VCPUS; i++) _cpustate[i].cpunr = i;
-    bus_legacy.add(this, &Motherboard::receive_static<MessageLegacy>);
-  }
+  Motherboard(Clock *__clock) : _clock(__clock)  {}
 };

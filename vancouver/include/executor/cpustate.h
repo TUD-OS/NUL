@@ -37,6 +37,7 @@ class CpuState : public Utcb
 
 class InstructionCache;
 class KernelSemaphore;
+class LocalApic;
 /**
  * Some state per VCPU that is not available in the above CPU state.
  *
@@ -57,7 +58,6 @@ class VirtualCpuState
   };
 
   volatile unsigned hazard;
-  unsigned long cpunr;
 
   // block+recall
   unsigned         cap_vcpu;
@@ -89,15 +89,11 @@ class VirtualCpuState
 
   // MSR state
   unsigned long msr_efer;
-  unsigned long msr_apic;
 
+  // the LAPCI
+  LocalApic  *apic;
   unsigned lastmsi;
 
   // x87, MMX, SSE2, SSE3
   unsigned fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
-
-
-  void reset() {
-    msr_apic = !cpunr ? 0xfee00100u : 0xfee00000u;
-  }
 };

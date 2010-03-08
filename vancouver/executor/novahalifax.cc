@@ -43,6 +43,7 @@ PARAM(novahalifax,
 	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_SINGLESTEP);
 	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_ENTER);
 	mb.bus_executor.add(dev,  &NovaHalifax::receive_static, MessageExecutor::DO_LEAVE);
-	mb.vcpustate(0)->instcache = new InstructionCache(mb);
+	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
+	  mb.vcpustate(i)->instcache = new InstructionCache(mb);
       },
       "novahalifax - create a halifax that emulatates instructions.");
