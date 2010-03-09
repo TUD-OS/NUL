@@ -3,3 +3,5 @@ bin
 *.[oa]
 *~
 *.pyc
+build
+!build/SConstruct

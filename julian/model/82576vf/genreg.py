@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- Mode: Python -*-
 
 ## Assumptions
@@ -18,72 +19,21 @@
 #
 # The resulting code should be human-readable.
 
-rset82576vf_pci = [
-    { 'name' : 'rPCIID',
-      'offset' : 0,
-      'initial' : 0x10ca8086,
-      'constant'  : True },     # Constant implies read-only
-    { 'name' : 'rPCISTSCTRL',
-      'offset' : 4,
-      'initial' : 0x100000,
-      'mutable' : 0x4 },  # Bus Master Enable
-    { 'name' : 'rPCICCRVID', 'offset' :    8, 'initial' : 0x02000001, 'constant' : True },
-    { 'name' : 'rBIST',      'offset' : 0x0C, 'initial' : 0x0, 'constant' : True },
-    { 'name' : 'rPCIBAR0',   'offset' : 0x10, 'initial' : 0x0, 'mutable' : ~0x3FFF,
-      'callback' : 'PCI_BAR0_cb' },
-    { 'name' : 'rPCIBAR3',   'offset' : 0x1C, 'initial' : 0x0, 'mutable' : ~0x0FFF,
-      'callback' : 'PCI_BAR2_cb' },
-    { 'name' : 'rPCISUBSYS', 'offset' : 0x2C, 'initial' : 0x8086, 'constant' : True },
-    { 'name' : 'rPCICAPPTR', 'offset' : 0x34, 'initial' : 0x70, 'constant' : True },
-
-    # MSI-X Cap
-    { 'name' : 'rPCIMSIX0',  'offset' : 0x70, 'initial' : 0x20011, 'mutable' : 0b11<<14 },
-    { 'name' : 'rPCIMSIXTBA', 'offset' : 0x74, 'initial' : 0x3, 'constant' : True },
-    { 'name' : 'rPCIMSIXPBA', 'offset' : 0x78, 'initial' : 0x183, 'constant' : True },
-
-    # PCIe Cap
-    # { 'name' : 'rPCIXCAP0', 'offset' : 0xA0, 'initial' : 0x20010, 'constant' : True },
-    # { 'name' : 'rPCIXCAP1', 'offset' : 0xA4, 'initial' : 0x10000d82, 'constant' : True },
-    # { 'name' : 'rPCIXCAP2', 'offset' : 0xA8, 'initial' : 0, 'mutable' : 1<<15,
-    #   'callback' : 'PCI_check_flr'},
-    # ...
-
-    ]
-
-rset82576vf_mmio = [
-    # Normal R/W register
-    { 'name' : 'rVTCTRL',
-      'offset'  : 0x0,
-      'initial' : 0},
-    # Normal R/O register
-    { 'name' : 'rSTATUS',
-      'offset' : 0x8,
-      'initial' : 0,
-      'read-only' : True },
-    # Free Running Timer
-    { 'name' : 'rVTFRTIMER',
-      'offset' : 0x1048,
-      'read-only' : True,
-      'read-compute' : 'VTFRTIMER_compute' },
-    # RC/W1C
-    { 'name' : 'rVTEICR',
-      'offset' : 0x1580,
-      'initial' : 0,
-      'w1c' : True,
-      'rc': True },
-    { 'name' : 'rVTEICS',
-      'offset' : 0x1520,
-      'set' : 'rVTEICR',
-      'callback' : 'rVTEICR_cb',
-      'w1s' : True,             # Write 1s to set. 0s are ignored
-      'write-only' : True },
-    ]
+import sys
+import imp
+from time import gmtime, strftime
+from getpass import getuser
 
 def offset_cmp(r1, r2):
     return r1['offset'] - r2['offset']
 
 def print_out(s):
     print(s)
+
+def make_file_out(f):
+    def file_out(s):
+        f.write(s + '\n')
+    return file_out
 
 def unsigned(n):
     return n & 0xFFFFFFFF
@@ -127,7 +77,7 @@ def declaration_gen(name, rset, out):
             pass
         else:
             inits.append("\t%s = 0x%xU;" % (r['name'], unsigned(r['initial'])))
-            out("\tuint32_t %s;" % r['name'])
+            out("uint32_t %s;" % r['name'])
     out("\nvoid %s_init()\n{" % name)
     for line in inits:
         out(line)
@@ -145,15 +95,15 @@ def writer_gen(r, out):
         target = r['name']
         
     if 'w1c' in r:
-        out("\tnv = %s & ~val;\t// W1C"  % r['name'])
+        out("\tnv = %s & ~val;\t// W1C"  % target)
     elif 'w1s' in r:
-        out("\tnv = %s | val;\t// W1S"  % r['name'])
+        out("\tnv = %s | val;\t// W1S"  % target)
     else:
         out("\tnv = val;")
 
     if 'mutable' in r:
-        out("\tnv = (%s & ~0x%xU) | (nv & 0x%xU);" % (r['name'], unsigned(r['mutable']), unsigned(r['mutable'])))
-    out("\t%s = nv;" % r['name'])
+        out("\tnv = (%s & ~0x%xU) | (nv & 0x%xU);" % (target, unsigned(r['mutable']), unsigned(r['mutable'])))
+    out("\t%s = nv;" % target)
 
     if 'callback' in r:
         out("\t%s();" % r['callback'])
@@ -184,6 +134,9 @@ def sanity_check(rset):
 def class_gen(name, rset, out):
     sanity_check(rset)
     # Resolve set references and provide some convenience
+    out("/// -*- Mode: C++ -*-")
+    out("/// This file has been automatically generated.")
+    out("/// Generated on %s by %s" % (strftime("%a, %d %b %Y %H:%M:%S", gmtime()), getuser()))
     for r in rset:
         if 'constant' in r:
             assert 'initial' in r
@@ -193,16 +146,24 @@ def class_gen(name, rset, out):
                 if ri['name'] == r['set']:
                     r['set'] = ri
                     break
-    out("\n\t// Declarations")
+    out("\n/// Declarations")
     declaration_gen(name, rset, out)
-    out("\n\t// Dispatch")
-    write_dispatch_gen("dispatch_write", rset, out);
-    read_dispatch_gen("dispatch_read", rset, out);
-    out("\n\t// Readers")
+    out("\n/// Dispatch")
+    write_dispatch_gen(name + "_write", rset, out);
+    read_dispatch_gen(name + "_read", rset, out);
+    out("\n/// Readers")
     for r in rset:
         reader_gen(r, out)
-    out("\n\t// Writers")
+    out("\n/// Writers")
     for r in rset:
         writer_gen(r, out)
+    out("\n/// Done")
 
+# Main
+
+if __name__ == "__main__":
+    m = imp.load_source("foomod", sys.argv[1], open(sys.argv[1], 'r'))
+    outfile = open(sys.argv[2], 'w')
+    class_gen(m.name, m.rset, make_file_out(outfile))
+        
 # EOF

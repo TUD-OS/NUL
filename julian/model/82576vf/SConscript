@@ -1,0 +1,11 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('host_env')
+
+for f in ['mmio', 'pci']:
+    host_env.Command('#include/model/82576vf%s.inc' % f, ['genreg.py', 'reg_%s.py' % f],
+                     '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
+
+# EOF
