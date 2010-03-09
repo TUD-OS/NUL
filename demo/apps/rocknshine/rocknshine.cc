@@ -136,10 +136,8 @@ public:
 
     if (mode == ~0u) Logging::panic("have not found any 24/32bit graphic mode");
     unsigned size = _modeinfo.resolution[1] * _modeinfo.bytes_per_scanline;
-    _free_phys.debug_dump("free_phys");
     _scratch      = reinterpret_cast<unsigned *>(_free_phys.alloc(3 * _header->width * _header->height, 12));
     _vesa_console = reinterpret_cast<char *>(_free_phys.alloc(size, 12));
-    _free_phys.debug_dump("free_phys");
     if (!_scratch || !_vesa_console) Logging::panic("not enough memory - %ld MB should be sufficient", ((3 * _header->width * _header->height + size + msg1.size) >> 20) + 2);
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
