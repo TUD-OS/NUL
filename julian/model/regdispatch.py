@@ -18,7 +18,7 @@
 #
 # The resulting code should be human-readable.
 
-rset82576vf = [ 
+rset82576vf = [
     # Normal R/W register
     { 'name' : 'VTCTRL',
       'offset'  : 0x0,
@@ -28,18 +28,24 @@ rset82576vf = [
       'offset' : 0x8,
       'initial' : 0,
       'read-only' : True },
+    # Free Running Timer
+    { 'name' : 'VTFRTIMER',
+      'offset' : 0x1048,
+      'read-only' : True,
+      'read-compute' : 'VTFRTIMER_compute' },
     # RC/W1C
-    # TODO Make this really RC/W1C
     { 'name' : 'VTEICR',
       'offset' : 0x1580,
-      'w1c' : True },
+      'w1c' : True,
+      'rc': True },
     { 'name' : 'VTEICS',
       'offset' : 0x1520,
       'set' : 'VTEICR',
       'callback' : 'VTEICR_cb',
+      'w1s' : True,             # Write 1s to set. 0s are ignored
       'write-only' : True },
     ]
-    
+
 def offset_cmp(r1, r2):
     return r1['offset'] - r2['offset']
 
@@ -65,7 +71,7 @@ def read_dispatch_gen(name, regs, out):
     def filt(r):
         return 'write-only' not in r
     out ("\nuint32_t %s(uint32_t offset)\n{\n\tuint32_t val;" % name)
-    gen_dispatch("offset", regs, filt, mangle, out, "val = 0; /* UNDEFINED! */")
+    dispatch_gen("offset", regs, filt, mangle, out, "val = 0; /* UNDEFINED! */")
     out ("\treturn val;\n}")
 
 def write_dispatch_gen(name, regs, out):
@@ -74,14 +80,14 @@ def write_dispatch_gen(name, regs, out):
     def filt(r):
         return 'read-only' not in r
     out ("\nvoid %s(uint32_t offset, uint32_t value)\n{" % name)
-    gen_dispatch("offset", regs, filt, mangle, out, "/* UNDEFINED! */")
+    dispatch_gen("offset", regs, filt, mangle, out, "/* UNDEFINED! */")
     out ("}")
 
 def declaration_gen(rset, out):
     """Generate declarations for all registers that need them."""
     for r in rset:
-        if 'write-only' in r:
-            pass                # No data for write-only registers
+        if 'write-only' in r or ('read-compute' in r and 'read-only' in r):
+            pass
         else:
             out("\tuint32_t %s;" % r['name'])
 
@@ -93,9 +99,10 @@ def writer_gen(r, out):
         target = r['set']['name']
     else:
         target = r['name']
-
     if 'w1c' in r:
-        out("\t%s &= ~val;" % target)
+        out("\t%s &= ~val;\t// W1C" % target)
+    elif 'w1s' in r:
+        out("\t%s |= val;\t// W1S" % target)
     else:
         out("\t%s = val;" % target)
 
@@ -107,14 +114,21 @@ def reader_gen(r, out):
     if 'write-only' in r:
         return
     out("\nuint32_t %s_read()\n{" % r['name'])
-    out("\treturn %s;" % r['name'])
+    if 'read-compute' in r:
+        out("\tuint32_t val = %s();" % r['read-compute'])
+    else:
+        out("\tuint32_t val = %s;" % r['name'])
+    if 'rc' in r:
+        out("\t%s = 0;\t// RC" % r['name'])
+    out("\treturn val;")
     out("}")
-    
+
 
 def sanity_check(rset):
     """Check the register set description for basic consistency."""
     for r in rset:
         assert 'name' in r
+        assert not ('read-compute' in r and 'rc' in r)
 
 def class_gen(rset, out):
     sanity_check(rset)
