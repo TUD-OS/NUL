@@ -39,18 +39,18 @@ class ProgramConsole
 
   VgaRegs             _vga_regs;
   struct console_data _console_data;
-
+  char                _vga_console[0x1000];
   void console_init(const char *name)
   {
-    char *vga_console = new (0x1000) char [0x1000];
-    _console_data.screen_address = reinterpret_cast<unsigned short *>(vga_console);
+    _console_data.screen_address = reinterpret_cast<unsigned short *>(_vga_console);
     _console_data.regs = &_vga_regs;
     Logging::init(putc, &_console_data);
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;
     _vga_regs.cursor_style = 0x2000;
 
-    MessageConsole msg(name, vga_console, 0x1000, &_vga_regs);
+
+    MessageConsole msg(name, _vga_console, sizeof(_vga_console), &_vga_regs);
     Sigma0Base::console(msg);
   }
 };

@@ -19,7 +19,8 @@
 #include "service/helper.h"
 #include "service/logging.h"
 
-void (*Logging::_putcf)(void *, int value);
+void dummy_putcf(void *, int) {};
+void (*Logging::_putcf)(void *, int value) = dummy_putcf;
 void *Logging::_data;
 
 void

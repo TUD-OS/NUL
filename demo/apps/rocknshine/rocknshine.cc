@@ -22,8 +22,6 @@
 #include <tinf.h>
 
 
-extern char __freemem[];
-
 struct pheader {
   char           magic[4];
   unsigned short width;
@@ -97,23 +95,25 @@ public:
     console_init("RS");
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
-
+    init_mem();
     Logging::printf("rocknshine up and running\n");
 
-    // Look for module
-    {
-      MessageHostOp msg(1, __freemem);
-      if (!Sigma0Base::hostop(msg))
-	Logging::panic("no module");
+    // Look for an module
+    extern char __image_end;
+    char *pmem = &__image_end;
+    MessageHostOp msg1(1, pmem);
+    if (!Sigma0Base::hostop(msg1))
+      Logging::panic("no enough memory for the module");
 
-      _header = (pheader *) __freemem;
-      if (memcmp(_header->magic, "PRE0", sizeof(_header->magic)) != 0)
-	Logging::panic("invalid module");
+    _header = reinterpret_cast<pheader *>(pmem);
+    _free_phys.del(Region(reinterpret_cast<unsigned long>(pmem), msg1.size));
+    if (memcmp(_header->magic, "PRE0", sizeof(_header->magic)) != 0)
+      Logging::panic("invalid module");
 
-      Logging::printf("Loaded presentation: (%d, %d), %d page%s.\n",
-		      _header->width, _header->height, _header->pages,
-		      (_header->pages == 1) ? "" : "s");
-    }
+    Logging::printf("Loaded presentation: (%d, %d), %d page%s.\n",
+		    _header->width, _header->height, _header->pages,
+		    (_header->pages == 1) ? "" : "s");
+
 
     // Initialize tiny zlib library.
     tinf_init();
@@ -136,8 +136,11 @@ public:
 
     if (mode == ~0u) Logging::panic("have not found any 24/32bit graphic mode");
     unsigned size = _modeinfo.resolution[1] * _modeinfo.bytes_per_scanline;
-    _scratch      = new (0x1000) unsigned [3 * _header->width * _header->height / sizeof(unsigned)];
-    _vesa_console = new (0x1000) char [size];
+    _free_phys.debug_dump("free_phys");
+    _scratch      = reinterpret_cast<unsigned *>(_free_phys.alloc(3 * _header->width * _header->height, 12));
+    _vesa_console = reinterpret_cast<char *>(_free_phys.alloc(size, 12));
+    _free_phys.debug_dump("free_phys");
+    if (!_scratch || !_vesa_console) Logging::panic("not enough memory - %ld MB should be sufficient", ((3 * _header->width * _header->height + size + msg1.size) >> 20) + 2);
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
@@ -147,8 +150,8 @@ public:
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-    StdinConsumer *stdinconsumer = new StdinConsumer(_cap_free++);
-    Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
+    StdinConsumer stdinconsumer(_cap_free++);
+    Sigma0Base::request_stdin(&stdinconsumer, stdinconsumer.sm());
 
     // switch to our view
     msg2.type = MessageConsole::TYPE_SWITCH_VIEW;
@@ -163,7 +166,7 @@ public:
       if (last_page != page) show_page(page);
       last_page = page;
 
-      MessageKeycode *kmsg = stdinconsumer->get_buffer();
+      MessageKeycode *kmsg = stdinconsumer.get_buffer();
       switch (kmsg->keycode & ~KBFLAG_NUM) {
       case KBCODE_SPACE:
       case KBCODE_DOWN:
@@ -200,7 +203,7 @@ public:
 	}
       }
 
-      stdinconsumer->free_buffer();
+      stdinconsumer.free_buffer();
     }
   }
 };
