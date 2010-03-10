@@ -162,7 +162,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	assert(msg.dword < PCI_CFG_SPACE_DWORDS);
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    bool internal = in_range(msg.dword, 0x4, MAX_BAR);
+	    bool internal = in_range(msg.dword, 0x0, MAX_BAR);
 	    if (_msi_cap)
 	      internal = internal || in_range(msg.dword, _msi_cap, (_msi_64bit ? 4 : 3));
 
