@@ -834,16 +834,16 @@ public:
     block_forever();
   }
 
-  static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn)) {
-    static Sigma0 sigma0;
-    sigma0.run(utcb, hip);
-  }
+  static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
 
   Sigma0() :  _numcpus(0), _modcount(0), _gsi(0), _pcidirect() {}
 };
 
 
-
+void Sigma0::start(Hip *hip, Utcb *utcb) {
+  static Sigma0 sigma0;
+  sigma0.run(utcb, hip);
+}
 
 
 void  do_exit(const char *msg)
