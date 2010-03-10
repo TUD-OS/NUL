@@ -59,6 +59,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     bool     io;
     unsigned short port;
   } _barinfo[MAX_BAR];
+  bool vf;
 
   const char *debug_getname() { return "DirectPciDevice"; }
 
@@ -112,20 +113,20 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   unsigned match_bars(unsigned long address, unsigned size, char *&ptr) {
 
     COUNTER_INC("PCIDirect::match");
-
+    
     // mem decode is disabled?
-    if (~_cfgspace[1] & 2)  return 0;
-
+    if (!vf && ~_cfgspace[1] & 2)  return 0;
 
     for (unsigned i=0; i < _bar_count; i++) {
 
       // we assume that accesses with a size larger than the bar will never happen
-      if (_barinfo[i].size < size || _barinfo[i].io || !in_range(address, _cfgspace[4 + i] & BAR_MEM_MASK, _barinfo[i].size - size + 1))
+      if (_barinfo[i].size < size || _barinfo[i].io || !in_range(address, _cfgspace[BAR0 + i] & BAR_MEM_MASK,
+								 _barinfo[i].size - size + 1))
 	continue;
-      ptr = _barinfo[i].ptr + address - (_cfgspace[4 + i] & BAR_MEM_MASK);
+      ptr = _barinfo[i].ptr + address - (_cfgspace[BAR0 + i] & BAR_MEM_MASK);
       if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_host_table) && ptr < reinterpret_cast<char *>(_msix_host_table + _irq_count))
 	ptr = reinterpret_cast<char *>(_msix_table) + (reinterpret_cast<char *>(_msix_host_table) - ptr);
-      return 4 + i;
+      return BAR0 + i;
     }
     return 0;
   }
@@ -162,7 +163,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	assert(msg.dword < PCI_CFG_SPACE_DWORDS);
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    bool internal = in_range(msg.dword, 0x0, BAR0 + MAX_BAR);
+	    bool internal = (msg.dword == 0) || in_range(msg.dword, 0x4, MAX_BAR);
 	    if (_msi_cap)
 	      internal = internal || in_range(msg.dword, _msi_cap, (_msi_64bit ? 4 : 3));
 
@@ -180,7 +181,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	  {
 	    unsigned mask = ~0u;
 	    if (!msg.dword) mask = 0;
-	    if (in_range(msg.dword, BAR0, BAR0 + MAX_BAR)) mask = ~(_barinfo[msg.dword - 4].size - 1);
+	    if (in_range(msg.dword, BAR0, MAX_BAR)) mask = ~(_barinfo[msg.dword - BAR0].size - 1);
 	    if (_msi_cap) {
 	      if (msg.dword == _msi_cap) mask = 0x710000;
 	      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
@@ -191,7 +192,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	      _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
 	    else {
 	      //write through
-	      conf_write(_bdf, msg.dword, _cfgspace[msg.dword]);
+	      conf_write(_bdf, msg.dword, msg.value);
 	      _cfgspace[msg.dword] = conf_read(_bdf, msg.dword);
 	    }
 	    //Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
@@ -334,11 +335,10 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
+    vf = parent_bdf != 0;
     if (parent_bdf)
       _bdf = bdf = vf_bdf(parent_bdf, vf_no);
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
-    if (parent_bdf) _cfgspace[0] = vf_device_id(parent_bdf);
-    Logging::printf("Our device ID is %04x.\n", _cfgspace[0]);
 
     MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _bdf, parent_bdf ? _bdf : 0);
     check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
@@ -351,6 +351,16 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
       read_all_bars(_bdf, bases, sizes);
 
     map_bars(bases, sizes);
+
+    Logging::printf("%x\n", *(unsigned *)(_barinfo[0].ptr));
+
+    if (parent_bdf) {
+      // Populate config space for VF
+      _cfgspace[0] = vf_device_id(parent_bdf);
+      Logging::printf("Our device ID is %04x.\n", _cfgspace[0]);
+      for (unsigned i = 0; i < MAX_BAR; i++)
+	_cfgspace[i + BAR0] = bases[i];
+    }
 
     _msi_cap  = find_cap(_bdf, CAP_MSI);
     _msi_64bit = false;
