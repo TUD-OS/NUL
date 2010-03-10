@@ -17,12 +17,6 @@
 
 #pragma once
 
-#include "register.h"
-
-enum {
-  PCI_CFG_SPACE_DWORDS = 1024,
-};
-
 
 class PciHelper
 {
@@ -46,49 +40,16 @@ public:
 };
 
 
-
-/**
- * A template class that provides functions for easier PCI config space implementation.
- */
-template <typename Y>
-class PciDeviceConfigSpace : public HwRegisterSet< PciDeviceConfigSpace<Y> >
-{
- public:
-  /**
-   * Match a given address to a pci-bar.
-   */
-  bool match_bar(int index, unsigned long &address)
-  {
-    unsigned value;
-    if (HwRegisterSet< PciDeviceConfigSpace<Y> >::read_reg(index, value))
-      {
-	unsigned long mask = HwRegisterSet< PciDeviceConfigSpace<Y> >::get_reg_mask(index);
-	bool res = !((address ^ value) & mask);
-	address &= ~mask;
-	return res;
-      }
-    return false;
-  }
-
-
-  /**
-   * The PCI bus transaction function.
-   */
-  bool receive(MessagePciConfig &msg)
-  {
+template <typename Y> class PciConfigHelper {
+public:
+  bool receive(MessagePciConfig &msg) {
     // config read/write type0 function 0
-    if (!msg.bdf)
-      {
-	bool res;
-	if (msg.type == MessagePciConfig::TYPE_READ)
-	  {
-	    msg.value = 0;
-	    res = HwRegisterSet< PciDeviceConfigSpace<Y> >::read_all_regs(msg.dword << 2, msg.value);
-	  }
-	else
-	  res = HwRegisterSet< PciDeviceConfigSpace<Y> >::write_all_regs(msg.dword << 2, msg.value);
-	return res;
-      }
+    if (!msg.bdf) {
+      if (msg.type == MessagePciConfig::TYPE_WRITE)
+	return reinterpret_cast<Y *>(this)->PCI_write(msg.dword, msg.value);
+      msg.value = 0;
+      return reinterpret_cast<Y *>(this)->PCI_read(msg.dword, msg.value);
+    }
     return false;
-  }
+  };
 };

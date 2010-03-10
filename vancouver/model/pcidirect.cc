@@ -30,6 +30,10 @@
  */
 class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
 {
+  enum {
+    PCI_CFG_SPACE_DWORDS = 1024,
+  };
+
   struct MsiXTableEntry {
     unsigned long long address;
     unsigned data;

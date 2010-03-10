@@ -25,16 +25,15 @@
  * Features: PCI, send, receive, broadcast, promiscuous mode
  * Missing: multicast, CRC calculation, rep optimized
  */
-class Rtl8029: public PciDeviceConfigSpace<Rtl8029>,
+#ifndef REGBASE
+class Rtl8029: public PciConfigHelper<Rtl8029>,
 	       public StaticReceiver<Rtl8029>
 {
+  enum { BAR_MASK = 0xffffffe0, };
   DBus<MessageNetwork> &_bus_network;
   DBus<MessageIrq>     &_bus_irqlines;
   unsigned char _irq;
   unsigned long long _mac;
-  unsigned const * _pci_cmd;
-  int _pci_bar_reg;
-
   struct {
     unsigned char  cr;
     unsigned short clda;
@@ -65,8 +64,9 @@ class Rtl8029: public PciDeviceConfigSpace<Rtl8029>,
     unsigned char dcr;
     unsigned char imr;
   } __attribute__((packed)) _regs;
-
   unsigned char _mem[65536];
+#define  REGBASE "rtl8029.cc"
+#include "reg.h"
 
 
   void update_isr(unsigned value)
@@ -271,6 +271,11 @@ class Rtl8029: public PciDeviceConfigSpace<Rtl8029>,
       }
   }
 
+  bool match_bar(unsigned long &address) {
+    bool res = !((address ^ PCI_BAR) & BAR_MASK);
+    address &= ~BAR_MASK;
+    return res;
+  }
 
 public:
   bool  receive(MessageNetwork &msg)
@@ -282,7 +287,7 @@ public:
   bool receive(MessageIOIn &msg)
   {
     unsigned long addr = msg.port;
-    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x1))
+    if (!match_bar(addr) || !(PCI_CMD_STS & 0x1))
       return false;
 
     // for every byte
@@ -298,7 +303,7 @@ public:
   bool receive(MessageIOOut &msg)
   {
     unsigned long addr = msg.port;
-    if (!match_bar(_pci_bar_reg, addr) || !(*_pci_cmd & 0x1))
+    if (!match_bar(addr) || !(PCI_CMD_STS & 0x1))
       return false;
 
     //Logging::printf("%s port %x value %x imr %x isr %x cr %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _regs.imr, _regs.isr, _regs.cr);
@@ -307,13 +312,11 @@ public:
     return true;
   }
 
-  bool receive(MessagePciConfig &msg)  {  return PciDeviceConfigSpace<Rtl8029>::receive(msg); }
+  bool receive(MessagePciConfig &msg)  {  return PciConfigHelper<Rtl8029>::receive(msg); }
 
 
   Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac) :
-    _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac),
-    _pci_cmd(PciDeviceConfigSpace<Rtl8029>::get_reg_ro("CMD_STS")),
-    _pci_bar_reg(PciDeviceConfigSpace<Rtl8029>::find_reg("BAR"))
+    _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac)
   {
     // init memory
     memset(_mem, 0x00, sizeof(_mem));
@@ -325,16 +328,6 @@ public:
     _regs.id8029 = 0x4350;
   }
 };
-
-
-REGISTERSET(PciDeviceConfigSpace<Rtl8029>,
-	    REGISTER_RO("ID",       0x0, 0x802910ec),
-	    REGISTER_RW("CMD_STS",  0x4, 0x02000000, 0x0003),
-	    REGISTER_RO("RID_CC",   0x8, 0x02000000),
-	    REGISTER_RW("BAR",     0x10, 1, 0xffffffe0),
-	    REGISTER_RO("SS",      0x2c, 0x802910ec),
-	    REGISTER_RW("INTR",    0x3c, 0x0100, 0x0f));
-
 
 
 PARAM(rtl8029,
@@ -351,15 +344,22 @@ PARAM(rtl8029,
 
 
 	// set IO region and IRQ
-	dev->PciDeviceConfigSpace<Rtl8029>::write_reg(dev->PciDeviceConfigSpace<Rtl8029>::find_reg("INTR"), argv[1], true);
-	dev->PciDeviceConfigSpace<Rtl8029>::write_reg(dev->PciDeviceConfigSpace<Rtl8029>::find_reg("BAR"),  argv[2], true);
+	dev->PCI_write(0xf, argv[1]);
+	dev->PCI_write(0x4, argv[2]);
 
 	// set default state, this is normally done by the BIOS
 	// enable IO accesses
-	dev->PciDeviceConfigSpace<Rtl8029>::write_reg(dev->PciDeviceConfigSpace<Rtl8029>::find_reg("CMD_STS"), 0x1, true);
-
-
+	dev->PCI_write(0x1, 1);
       },
       "rtl8029:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus",
       "Example: 'rtl8029:,9,0x300'.",
       "if no bdf is given a free one is searched.");
+#else
+REGSET(PCI,
+       REG_RO(PCI_ID,       0x0, 0x802910ec)
+       REG_RW(PCI_CMD_STS,  0x1, 0x02000000, 0x0003)
+       REG_RO(PCI_RID_CC,   0x2, 0x02000000)
+       REG_RW(PCI_BAR,      0x4, 1, BAR_MASK)
+       REG_RO(PCI_SS,       0xb, 0x802910ec)
+       REG_RW(PCI_INTR,     0xf, 0x0100, 0x0f));
+#endif

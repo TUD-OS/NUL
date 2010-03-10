@@ -26,13 +26,18 @@
  * Features: ConfigSpace
  * Missing: BusReset, LogicalPCI bus, MMConfig
  */
-class PciHostBridge : public PciDeviceConfigSpace<PciHostBridge>, public StaticReceiver<PciHostBridge>
+
+#ifndef REGBASE
+class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
   DBus<MessagePciConfig> &_bus_pcicfg;
   unsigned _secondary;
   unsigned _subordinate;
   unsigned short _iobase;
   unsigned _confaddress;
+
+#define  REGBASE "pcihostbridge.cc"
+#include "reg.h"
 
   const char *debug_getname() { return "PciHostBridge"; };
 
@@ -110,17 +115,11 @@ public:
   }
 
 
-  bool receive(MessagePciConfig &msg) { return PciDeviceConfigSpace<PciHostBridge>::receive(msg); };
+  bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
+
   PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, unsigned secondary, unsigned subordinate, unsigned short iobase)
     : _bus_pcicfg(bus_pcicfg), _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _confaddress(0) {}
 };
-
-
-REGISTERSET(PciDeviceConfigSpace<PciHostBridge>,
-	    REGISTER_RO("ID",  0x0, 0x27a08086),
-	    REGISTER_RW("CMD", 0x4, 0x000900106, 0x0106),
-	    REGISTER_RO("CC",  0x8, 0x06000000),
-	    REGISTER_RO("SS", 0x2c, 0x27a08086));
 
 PARAM(pcihostbridge,
       {
@@ -132,3 +131,10 @@ PARAM(pcihostbridge,
       },
       "pcihostbridge:secondary,subordinate,iobase=0xcf8 - attach a pci host bridge to the system.",
       "Example: 'pcihostbridge:0,0xff'");
+#else
+REGSET(PCI,
+       REG_RO(PCI_ID,  0x0, 0x27a08086)
+       REG_RW(PCI_CMD, 0x1, 0x000900106, 0x0106)
+       REG_RO(PCI_CC,  0x2, 0x06000000)
+       REG_RO(PCI_SS,  0xb, 0x27a08086));
+#endif

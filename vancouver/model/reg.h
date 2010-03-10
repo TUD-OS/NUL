@@ -1,0 +1,32 @@
+#define REG_RO(NAME, OFFSET, VALUE) REG(NAME, OFFSET, static const unsigned NAME = VALUE;, value = VALUE; , return false; , )
+#define REG_RW(NAME, OFFSET, VALUE, MASK) REG(NAME, OFFSET, unsigned NAME;, value = NAME; , NAME = (NAME & ~MASK) | (value & MASK); , NAME=VALUE;)
+#define REG_WR(NAME, OFFSET, VALUE, MASK, RW1S, RW1C, WRITE_CALLBACK) REG(NAME, OFFSET, unsigned NAME; , value = NAME; , unsigned oldvalue = NAME; value = value & ~RW1S | ( value | oldvalue) & RW1S; value = value & ~RW1C | (~value & oldvalue) & RW1C; NAME = (NAME & ~MASK) | (value & MASK); WRITE_CALLBACK , NAME = VALUE;)
+#define REGSET(NAME, ...) private: __VA_ARGS__
+#define REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) MEMBER
+#include REGBASE
+#undef  REG
+#undef  REGSET
+#define REGSET(NAME, ...) __VA_ARGS__
+#define REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) void reset_##NAME() { RESET };
+#include REGBASE
+#undef  REG
+#undef  REGSET
+#define REGSET(NAME, ...)  public: bool NAME##_read(unsigned offset, unsigned &value) { switch (offset) { __VA_ARGS__ default: return false; } return true; }
+#define REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) case OFFSET:  { READ }; break;
+#include REGBASE
+#undef  REG
+#undef  REGSET
+#define REGSET(NAME, ...)  bool NAME##_write(unsigned offset, unsigned value) { switch (offset) { __VA_ARGS__ default: return false; } return true; }
+#define REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) case OFFSET:  { WRITE }; break;
+#include REGBASE
+#undef  REG
+#undef  REGSET
+#define REGSET(NAME, ...)  void NAME##_reset() { __VA_ARGS__ }; private:
+#define REG(NAME, OFFSET, MEMBER, READ, WRITE, RESET) RESET
+#include REGBASE
+#undef  REG
+#undef  REGSET
+#undef  REG_WR
+#undef  REG_RW
+#undef  REG_RO
+#undef REGBASE
