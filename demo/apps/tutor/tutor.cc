@@ -15,7 +15,7 @@ void print_screen1(unsigned short *dst);
 struct Tutor : public NovaProgram,
 	       public ProgramConsole
 {
-  void run(Hip *hip)
+  void run(Utcb *utcb, Hip *hip)
   {
     console_init("TUT");
 

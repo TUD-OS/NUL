@@ -305,14 +305,14 @@ class Cycleburner : public NovaProgram,
   const char *debug_getname() { return "Cycleburner"; };
 
 public:
-  void run(Hip *hip)
+  void run(Utcb *utcb, Hip *hip)
   {
     console_init("CYC");
 
     init(hip);
 
     TimerConsumer *timerconsumer = new TimerConsumer(_cap_free++);
-    Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
 
     gen_sinlut();
     gen_sqrtlut();

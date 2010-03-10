@@ -68,7 +68,7 @@ class Forth : public ProgramConsole
 {
   unsigned _cap_free;
 public:
-  int run(Hip *hip)
+  int run(Utcb *utcb, Hip *hip)
   {
     console_init("Forth");
     printf("Forth booting...\n");

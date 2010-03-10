@@ -48,7 +48,7 @@ class Gt : public ProgramConsole
 
 
 public:
-  int run(Hip *hip)
+  int run(Utcb *utcb, Hip *hip)
   {
     console_init("GT");
     Logging::printf("GT up and running\n");
@@ -83,7 +83,7 @@ public:
 
     Logging::printf("request timer\n");
     TimerConsumer *timerconsumer = new TimerConsumer(hip->cfg_exc + hip->cfg_gsi);
-    Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
     Clock * clock = new Clock(hip->freq_tsc*1000);
 
     // switch to the graphic console

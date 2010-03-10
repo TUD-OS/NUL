@@ -90,7 +90,7 @@ class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
   };
 
 public:
-  int run(Hip *hip)
+  int run(Utcb *utcb, Hip *hip)
   {
     console_init("RS");
     unsigned res;
@@ -149,7 +149,7 @@ public:
     // Get keyboard
     Logging::printf("Getting keyboard\n");
     StdinConsumer stdinconsumer(_cap_free++);
-    Sigma0Base::request_stdin(&stdinconsumer, stdinconsumer.sm());
+    Sigma0Base::request_stdin(utcb, &stdinconsumer, stdinconsumer.sm());
 
     // switch to our view
     msg2.type = MessageConsole::TYPE_SWITCH_VIEW;

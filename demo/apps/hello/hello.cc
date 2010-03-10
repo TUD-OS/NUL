@@ -21,7 +21,7 @@
 class Hello : public ProgramConsole
 {
 public:
-  int run(Hip *hip)
+  int run(Utcb *utcb, Hip *hip)
   {
     console_init("Hello");
     for (unsigned i=0; ; i++)
