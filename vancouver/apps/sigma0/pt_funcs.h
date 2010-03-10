@@ -26,7 +26,7 @@ PT_FUNC(do_map,
 	// make sure we have enough words to reply
 	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
 	assert(~utcb->head.mtr.untyped() & 1);
-	utcb->head.mtr = Mtd(0, utcb->head.mtr.untyped()/2);
+	return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	)
 PT_FUNC(do_gsi_boot,
 	utcb->eip = reinterpret_cast<unsigned long>(&do_gsi_wrapper);
@@ -72,7 +72,7 @@ PT_FUNC(do_request,
 	COUNTER_INC("request");
 
 	// Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
-
+	// XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	SemaphoreGuard l(_lock);
 	if (utcb->head.mtr.untyped() < 0x1000)
 	  {
@@ -141,7 +141,7 @@ PT_FUNC(do_request,
 		    {
 		      MessageDisk msg2 = *msg;
 
-		      if (msg2.disknr >= modinfo->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return; }
+		      if (msg2.disknr >= modinfo->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return Mtd(utcb->head.mtr.untyped(), 0).value(); }
 		      switch (msg2.type)
 			{
 			case MessageDisk::DISK_GET_PARAMS:
@@ -339,7 +339,7 @@ PT_FUNC(do_request,
 	      default:
 		Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 	      }
-	    return;
+	    return utcb->head.mtr.value();
 	  fail:
 	    utcb->msg[0] = ~0x10u;
 	    utcb->head.mtr = Mtd(1, 0);

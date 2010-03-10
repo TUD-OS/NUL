@@ -32,7 +32,7 @@ Logging::panic(const char *format, ...)
   Vprintf::vprintf(_putcf, _data, format, ap);
   va_end(ap);
   Vprintf::printf(_putcf, _data, "\n");
-  do_exit("PANIC");
+  do_exit(format);
 }
 
 

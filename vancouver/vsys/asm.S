@@ -30,21 +30,15 @@ __start:
 	.global idc_reply_and_wait_fast
 idc_reply_and_wait_fast:
 	// we come here with a ret from a portal function
-	// w1: cond
-	xor	%edi, %edi
 	// w2: utcb->mtr
-	mov	(%esp), %esi
-	mov	4(%esi), %esi
+	mov	%eax, %esi
 	// w0: NOVA_IPC_REPLY
-	xor	%eax, %eax
-	inc	%eax
+	mov	$1, %eax
+
 	// ecx: stack - it starts from the top
 	pushl 	$idc_reply_and_wait_fast
 	mov	%esp, %ecx
-	// edx: return pointer - in the error case we return on the ud2a
-	mov	1f, %edx
 	sysenter
-1:	ud2a
 
 	.section .bss.stack
 	.align 0x1000

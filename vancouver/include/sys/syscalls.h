@@ -90,7 +90,7 @@ inline unsigned char  idc_send0(unsigned idx_pt, Mtd mtd_send)
 {  return syscall(NOVA_IPC_SEND0, idx_pt, mtd_send.value(), 0, 0); }
 
 
-extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(Utcb *utcb);
+extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
 
 inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, bool vcpus, unsigned char cpunr, bool dma)
 {  return syscall(NOVA_CREATE_PD | (vcpus ? NOVA_PD_VM : 0) | (dma ? NOVA_PD_DMA : 0),
@@ -104,7 +104,7 @@ inline unsigned char  create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 {  return syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
 
 
-inline unsigned char  create_pt(unsigned idx_pt, unsigned idx_ec, void __attribute__((regparm(0))) (*eip)(Utcb *utcb), Mtd mtd)
+inline unsigned char  create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long __attribute__((regparm(0))) (*eip)(Utcb *utcb), Mtd mtd)
 {  return syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value(), reinterpret_cast<unsigned>(eip)); }
 
 

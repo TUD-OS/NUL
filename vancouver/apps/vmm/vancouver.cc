@@ -62,11 +62,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
-#define PT_FUNC(NAME)  static void  NAME(Utcb *utcb) __attribute__((regparm(0)))
-#define EXCP_FUNC(NAME) PT_FUNC(NAME) __attribute__((noreturn))
+#define PT_FUNC(NAME)  static unsigned long  NAME(Utcb *utcb) __attribute__((regparm(0)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   PT_FUNC(NAME)								\
-  {  CODE; }
+  {  CODE; return utcb->head.mtr.value(); }
   #include "vmx_funcs.h"
 
   // the portal functions follow
@@ -75,9 +74,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
     Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
+    return  utcb->head.mtr.value();
   }
 
-  EXCP_FUNC(got_exception)
+  PT_FUNC(got_exception)
   {
     Logging::printf("%s() #%x ",  __func__, utcb->head.pid);
     Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
@@ -87,7 +87,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     reinterpret_cast<Vancouver*>(utcb->head.tls)->block_forever();
   }
 
-  EXCP_FUNC(do_gsi)
+  PT_FUNC(do_gsi)
   {
     unsigned res;
     bool shared = utcb->msg[1] >> 8;
@@ -106,7 +106,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  EXCP_FUNC(do_stdin)
+  PT_FUNC(do_stdin)
   {
     StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
     Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
@@ -146,9 +146,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	_mb->bus_keycode.send(*msg);
 	stdinconsumer->free_buffer();
       }
+    return 0;
   }
 
-  EXCP_FUNC(do_disk)
+  PT_FUNC(do_disk)
   {
     DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
     Sigma0Base::request_disks_attach(diskconsumer, diskconsumer->sm());
@@ -160,9 +161,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	_mb->bus_diskcommit.send(*msg);
 	diskconsumer->free_buffer();
       }
+    return 0;
   }
 
-  EXCP_FUNC(do_timer)
+  PT_FUNC(do_timer)
   {
     TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
     Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
@@ -175,9 +177,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	SemaphoreGuard l(_lock);
 	timeout_trigger();
       }
+    return 0;
   }
 
-  EXCP_FUNC(do_network)
+  PT_FUNC(do_network)
   {
     NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
     Sigma0Base::request_network_attach(network_consumer, network_consumer->sm());
@@ -196,6 +199,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	_forward_pkt = 0;
 	network_consumer->free_buffer();
       }
+    return 0;
   }
 
 
@@ -240,7 +244,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, void __attribute__((regparm(0))) (*func)(Utcb *utcb))
+  unsigned create_irq_thread(unsigned hostirq, unsigned long __attribute__((regparm(0))) (*func)(Utcb *utcb))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
 
@@ -291,7 +295,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE) {NR, NAME, INPUT},
     struct vm_caps {
       unsigned nr;
-      void __attribute__((regparm(0))) (*func)(Utcb *);
+      unsigned long __attribute__((regparm(0))) (*func)(Utcb *);
       unsigned mtd;
     } vm_caps[] = {
 #include "vmx_funcs.h"

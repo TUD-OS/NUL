@@ -504,6 +504,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	unsigned err;
 	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
 	  {
+	    asm volatile("ud2a" : : "a"(err) );
 	    Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
 	    res = 0;
 	    break;
@@ -584,8 +585,8 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
 #define PT_FUNC_NORETURN(NAME, CODE)					\
-  static void  NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0), noreturn)) \
-  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); }		\
+  static unsigned long NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0), noreturn)) \
+  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); } \
   									\
   void __attribute__((always_inline, noreturn))  NAME(Utcb *utcb)	\
   {									\
@@ -593,12 +594,13 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
 #define PT_FUNC(NAME, CODE, ...)					\
-  static void  NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0))) \
-  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); }	\
+  static unsigned long NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0))) \
+  { return reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); } \
 									\
-  void __attribute__((always_inline))  NAME(Utcb *utcb) __VA_ARGS__	\
+  unsigned long __attribute__((always_inline))  NAME(Utcb *utcb) __VA_ARGS__	\
   {									\
     CODE;								\
+    return utcb->head.mtr.value();					\
   }
 #include "pt_funcs.h"
 
@@ -853,5 +855,5 @@ void  do_exit(const char *msg)
   if (global_mb) Sigma0::switch_view(global_mb);
 
   while (1)
-    asm volatile ("ud2");
+    asm volatile ("ud2" : : "a"(msg));
 }

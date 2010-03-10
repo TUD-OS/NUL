@@ -376,7 +376,7 @@ class AhciController : public ParentIrqProvider,
 
     check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
 
-    bool res = false;
+    bool res;
     if (addr < 0x100)
       res = AhciController_write(addr, *reinterpret_cast<unsigned *>(msg.ptr));
     else if (addr < 0x100+MAX_PORTS*0x80)
@@ -384,7 +384,7 @@ class AhciController : public ParentIrqProvider,
     else
       return false;
 
-    if (!res)  Logging::panic("%s(%lx)\n", __func__, addr);
+    if (!res)  Logging::printf("%s(%lx) failed\n", __PRETTY_FUNCTION__, addr);
     return true;
   };
 
