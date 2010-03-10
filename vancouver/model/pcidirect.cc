@@ -125,7 +125,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	continue;
       ptr = _barinfo[i].ptr + address - (_cfgspace[BAR0 + i] & BAR_MEM_MASK);
       if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_host_table) && ptr < reinterpret_cast<char *>(_msix_host_table + _irq_count))
-	ptr = reinterpret_cast<char *>(_msix_table) + (reinterpret_cast<char *>(_msix_host_table) - ptr);
+	ptr = reinterpret_cast<char *>(_msix_table) + (ptr - reinterpret_cast<char *>(_msix_host_table));
       return BAR0 + i;
     }
     return 0;
