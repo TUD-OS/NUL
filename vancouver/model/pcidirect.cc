@@ -162,7 +162,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	assert(msg.dword < PCI_CFG_SPACE_DWORDS);
 	if (msg.type == MessagePciConfig::TYPE_READ)
 	  {
-	    bool internal = in_range(msg.dword, 0x0, MAX_BAR);
+	    bool internal = in_range(msg.dword, 0x0, BAR0 + MAX_BAR);
 	    if (_msi_cap)
 	      internal = internal || in_range(msg.dword, _msi_cap, (_msi_64bit ? 4 : 3));
 
@@ -180,7 +180,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 	  {
 	    unsigned mask = ~0u;
 	    if (!msg.dword) mask = 0;
-	    if (in_range(msg.dword, 4, MAX_BAR)) mask = ~(_barinfo[msg.dword - 4].size - 1);
+	    if (in_range(msg.dword, BAR0, BAR0 + MAX_BAR)) mask = ~(_barinfo[msg.dword - 4].size - 1);
 	    if (_msi_cap) {
 	      if (msg.dword == _msi_cap) mask = 0x710000;
 	      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
