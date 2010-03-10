@@ -55,7 +55,7 @@ enum {
   EXTCAP_ARI              = 0x000EU,
   EXTCAP_SRIOV            = 0x0010U,
 
-  SRIOV_VF_BAR0           = 0x24U,
+  SRIOV_VF_BAR0           = 0x9U,
 
   SRIOV_REG_CONTROL       = 0x2,
   SRIOV_VF_ENABLE         = 1,
