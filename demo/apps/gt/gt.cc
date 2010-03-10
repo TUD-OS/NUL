@@ -21,7 +21,7 @@
 #include "nul/timer.h"
 #include "sigma0/console.h"
 
-class Gt : public ProgramConsole
+class Gt : ProgramConsole
 {
 
   char *  _vesa_console;

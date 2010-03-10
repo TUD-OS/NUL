@@ -117,15 +117,15 @@ class NovaProgram : public BaseProgram
   /**
    * Init the memory map from the hip.
    */
-  void init_mem() {
+  void init_mem(Hip *hip) {
 
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
+    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
+	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
 	if (hmem->type == 1)  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
     }
 
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
-      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
+    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
       if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
       // make sure to remove the cmdline
       if (hmem->type == -2 && hmem->aux)  {

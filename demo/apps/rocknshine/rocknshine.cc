@@ -30,7 +30,7 @@ struct pheader {
   unsigned int   offset[];
 } NOVA_PACKED;
 
-class Rocknshine : public NovaProgram, public ProgramConsole, GenericKeyboard
+class Rocknshine : public NovaProgram, ProgramConsole, GenericKeyboard
 {
 
   char *  _vesa_console;
@@ -95,7 +95,7 @@ public:
     console_init("RS");
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
-    init_mem();
+    init_mem(hip);
     Logging::printf("rocknshine up and running\n");
 
     // Look for an module
