@@ -118,7 +118,8 @@ public:
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
 
   PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, unsigned secondary, unsigned subordinate, unsigned short iobase)
-    : _bus_pcicfg(bus_pcicfg), _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _confaddress(0) {}
+    : _bus_pcicfg(bus_pcicfg), _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _confaddress(0) 
+  { PCI_reset(); }
 };
 
 PARAM(pcihostbridge,

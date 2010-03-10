@@ -434,6 +434,7 @@ class AhciController : public ParentIrqProvider,
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
     PCI_reset();
+    AhciController_reset();
   };
 };
 

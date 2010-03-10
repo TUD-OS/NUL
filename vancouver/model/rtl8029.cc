@@ -318,6 +318,8 @@ public:
   Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac) :
     _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac)
   {
+    PCI_reset();
+
     // init memory
     memset(_mem, 0x00, sizeof(_mem));
     for (unsigned i=0; i< 12; i++)  _mem[i] = reinterpret_cast<unsigned char *>(&_mac)[5 - i/2];
