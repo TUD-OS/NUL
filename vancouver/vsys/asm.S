@@ -33,10 +33,10 @@ idc_reply_and_wait_fast:
 	// w2: utcb->mtr
 	mov	%eax, %esi
 	// w0: NOVA_IPC_REPLY
-	mov	$1, %eax
-
+	mov	$1, %al
+	// keep a value to ourself on the stack
+	sub	$4, %esp
 	// ecx: stack - it starts from the top
-	pushl 	$idc_reply_and_wait_fast
 	mov	%esp, %ecx
 	sysenter
 
