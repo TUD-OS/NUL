@@ -70,7 +70,10 @@ const char * Vprintf::handle_formatstring(PutcFunction putc, void *data, const c
 	  pad = (2*(*format - '0')) + (pad/2)*20 + (pad & 1);
 	  format++;
 	  break;
-
+	case 'z':		// size_t modifier
+	  l = 0;
+	  format++;
+	  break;
 	case 'l':
 	  l++;
 	  format++;
