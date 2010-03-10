@@ -28,17 +28,18 @@
  * Define the functions needed by asm.s.
  * Unfortunately this can not be a template.
  */
-#define ASMFUNCS(X, Y)				\
-  extern "C" void start(Hip *hip)		\
-  {						\
-    static X x;					\
-    x.run(hip);					\
-  }						\
-  void do_exit(const char *msg)			\
-  {						\
-    Y::exit(msg);				\
-    while (1)					\
-      asm volatile ("ud2a" : : "a"(msg));	\
+#define ASMFUNCS(X, Y)							\
+  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))); \
+  void start(Hip *hip, Utcb *utcb)					\
+  {									\
+    static X x;								\
+    x.run(utcb, hip);							\
+  }									\
+  void do_exit(const char *msg)						\
+  {									\
+    Y::exit(msg);							\
+    while (1)								\
+      asm volatile ("ud2a" : : "a"(msg));				\
   }
 
 
@@ -75,7 +76,7 @@ class NovaProgram : public BaseProgram
   /**
    * Create an ec and setup the stack.
    */
-  unsigned  __attribute__((noinline))  create_ec_helper(unsigned tls, Utcb **utcb_out=0, bool worker = false, unsigned excbase = 0, unsigned cpunr=~0)
+  unsigned  create_ec_helper(unsigned tls, Utcb **utcb_out=0, bool worker = false, unsigned excbase = 0, unsigned cpunr=~0)
   {
     const unsigned STACK_FRAME = 2;
 
@@ -97,7 +98,7 @@ class NovaProgram : public BaseProgram
   /**
    * Initialize ourself.
    */
-  unsigned __attribute__((noinline)) init(Hip *hip)
+  unsigned init(Hip *hip)
   {
     check1(1, hip->calc_checksum());
     _hip = hip;

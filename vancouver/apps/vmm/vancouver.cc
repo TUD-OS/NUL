@@ -109,7 +109,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   PT_FUNC(do_stdin)
   {
     StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
-    Sigma0Base::request_stdin(stdinconsumer, stdinconsumer->sm());
+    Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
     while (1)
       {
@@ -152,7 +152,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   PT_FUNC(do_disk)
   {
     DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
-    Sigma0Base::request_disks_attach(diskconsumer, diskconsumer->sm());
+    Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
 
     while (1)
       {
@@ -167,7 +167,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   PT_FUNC(do_timer)
   {
     TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
-    Sigma0Base::request_timer_attach(timerconsumer, timerconsumer->sm());
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
     while (1)
       {
 	COUNTER_INC("timer");
@@ -183,7 +183,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   PT_FUNC(do_network)
   {
     NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
-    Sigma0Base::request_network_attach(network_consumer, network_consumer->sm());
+    Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
     while (1)
       {
 	unsigned char *buf;
@@ -603,7 +603,7 @@ public:
   bool  receive(MessageTime &msg) {  return Sigma0Base::time(msg);  }
 
 public:
-  void __attribute__((noreturn)) run(Hip *hip)
+  void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     console_init("VMM");
     assert(hip);

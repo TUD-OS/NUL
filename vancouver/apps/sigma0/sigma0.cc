@@ -190,7 +190,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   /**
    * Create the needed host devices aka instantiate the drivers.
    */
-  unsigned create_host_devices(Hip *hip)
+  unsigned create_host_devices(Utcb *utcb, Hip *hip)
   {
 
     // prealloc timeouts for every module
@@ -205,7 +205,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     _mb->bus_timer.add(this,   &Sigma0::receive_static<MessageTimer>);
     _mb->bus_timeout.add(this, &Sigma0::receive_static<MessageTimeout>);
     _mb->bus_network.add(this, &Sigma0::receive_static<MessageNetwork>);
-    _mb->parse_args(map_string(_boot_utcb, hip->get_mod(0)->aux));
+    _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
 
     // alloc consoles for ourself
     MessageConsole msg1;
@@ -273,7 +273,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   /**
    * Init the pager and the console.
    */
-  unsigned __attribute__((noinline)) preinit(Hip *hip)
+  unsigned __attribute__((noinline)) preinit(Utcb *utcb, Hip *hip)
   {
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
@@ -311,7 +311,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
     // map vga memory
     Logging::printf("map vga memory\n");
-    _vga = map_self(_boot_utcb, 0xa0000, 1<<17);
+    _vga = map_self(utcb, 0xa0000, 1<<17);
 
     // keep the boot screen
     memcpy(_vga + 0x1a000, _vga + 0x18000, 0x1000);
@@ -325,7 +325,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
     // get all ioports
-    map_self(_boot_utcb, 0, 1 << (16+Utcb::MINSHIFT), 2);
+    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), 2);
     return 0;
   };
 
@@ -809,21 +809,21 @@ public:
   }
 
 
-  void  __attribute__((noreturn)) run(Hip *hip)
+  void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     unsigned res;
-    if ((res = preinit(hip)))              Logging::panic("init() failed with %x\n", res);
+    if ((res = preinit(utcb, hip)))              Logging::panic("init() failed with %x\n", res);
     Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
 
-    if ((res = init_memmap(_boot_utcb)))   Logging::panic("init memmap failed %x\n", res);
-    if ((res = create_host_devices(hip)))  Logging::panic("create host devices failed %x\n", res);
+    if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
+    if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
     Logging::printf("start modules\n");
     if (!startlate)
       for (unsigned i=0; i <= repeat; i++)
-	if ((res = start_modules(_boot_utcb, ~1U)))        Logging::printf("start modules failed %x\n", res);
+	if ((res = start_modules(utcb, ~1U)))    Logging::printf("start modules failed %x\n", res);
 
     if (forcestart && startlate)
-      start_modules(_boot_utcb, 1<<forcestart);
+      start_modules(utcb, 1<<forcestart);
 
     Logging::printf("INIT done\n");
 
@@ -834,16 +834,15 @@ public:
     block_forever();
   }
 
-  static void start(Hip *hip) asm ("start") __attribute__((noreturn));
+  static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn)) {
+    static Sigma0 sigma0;
+    sigma0.run(utcb, hip);
+  }
+
   Sigma0() :  _numcpus(0), _modcount(0), _gsi(0), _pcidirect() {}
 };
 
 
-Sigma0 sigma0;
-void Sigma0::start(Hip *hip)
-{
-  sigma0.run(hip);
-}
 
 
 

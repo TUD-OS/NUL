@@ -48,9 +48,8 @@ class Sigma0Base : public BaseProgram
  protected:
 
   template <unsigned OP>
-    static unsigned request_attach(void *buffer, unsigned sem_nq)
+    static unsigned request_attach(Utcb *utcb, void *buffer, unsigned sem_nq)
     {
-      Utcb *utcb = myutcb();
       TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
 
       utcb->msg[0] = OP;
@@ -82,10 +81,10 @@ class Sigma0Base : public BaseProgram
     PutsRequest(char *_buffer) : buffer(_buffer) {}
   };
   static unsigned  puts(char *buffer) {  PutsRequest req(buffer); return sigma0_message<PutsRequest, REQUEST_PUTS>(req); }
-  static unsigned  request_stdin         (void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(buffer, sem_nq); }
-  static unsigned  request_disks_attach  (void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(buffer, sem_nq); }
-  static unsigned  request_timer_attach  (void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(buffer, sem_nq); }
-  static unsigned  request_network_attach(void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(buffer, sem_nq); }
+  static unsigned  request_stdin         (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
 
 
   static unsigned request_irq(unsigned irq)

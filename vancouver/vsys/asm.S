@@ -19,10 +19,10 @@
 __start:
 	mov	$stack, %eax
 	xchg	%eax, %esp
-	sub	$0x1000, %eax
-	// push utcb
-	push	%eax
-	add	$0x1000, %eax
+	mov	%eax, %edx
+	sub	$0x1000, %edx
+	// push utcb -- needed for myutcb()
+	push	%edx
 	call	start
 	ud2a
 
