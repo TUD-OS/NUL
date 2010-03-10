@@ -611,7 +611,7 @@ public:
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
     char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-    Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, _boot_utcb, args);
+    Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);

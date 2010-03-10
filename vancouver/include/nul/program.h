@@ -58,7 +58,6 @@ class NovaProgram : public BaseProgram
  protected:
 
   Hip *     _hip;
-  Utcb *    _boot_utcb;
   unsigned  _cap_free;
   unsigned  _cap_block;
 
@@ -102,14 +101,13 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
-    _boot_utcb = reinterpret_cast<Utcb *>(hip) - 1;
     _cap_free = hip->cfg_exc + hip->cfg_gsi + 3;
     create_sm(_cap_block = _cap_free++);
 
     // prepopulate phys+virt memory
     extern char __image_start, __image_end;
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
-    _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(_boot_utcb) - VIRT_START));
+    _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
     _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, hip->get_mod(0)->addr));
     return 0;
