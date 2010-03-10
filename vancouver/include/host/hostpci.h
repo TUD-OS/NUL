@@ -216,26 +216,21 @@ class HostPci
     return 0;
   }
 
-
   /**
-   * Returns the gsi and enables them.
+   * Program the nr-th MSI/MSI-X vector of the given device.
    */
-  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, DBus<MessageAcpi> &bus_acpi, unsigned bdf, unsigned nr, bool level=false) {
-
+  unsigned get_gsi_msi(DBus<MessageHostOp> &bus_hostop, unsigned bdf, unsigned nr, void *msix_table = 0)
+  {
     unsigned msix_offset = find_cap(bdf, CAP_MSIX);
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
+    if (!(msix_offset || msi_offset)) Logging::panic("No MSI support.");
 
-    // XXX global disable MSI+MSI-X switch
-    //msi_offset = 0;
-
-    // attach to an MSI
     MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
-    if ((msi_offset || msix_offset) && !bus_hostop.send(msg1))
-      Logging::panic("could not attach to msi for bdf %x\n", bdf);
+    if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
 
     // MSI-X
-    if (msix_offset)
-      {
+    if (msix_offset) {
+      if (!msix_table) {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 1);
 	unsigned long base = bar_base(bdf, BAR0 + (ctrl1 & 0x7)) + (ctrl1 & ~0x7u);
 
@@ -243,32 +238,49 @@ class HostPci
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
 	if (!bus_hostop.send(msg2) || !msg2.ptr)
 	  Logging::panic("can not map MSIX bar %lx+%x", msg2.value, msg2.len);
-
-	volatile unsigned *msix_table = (volatile unsigned *) (msg2.ptr + (base & 0xfff));
-	msix_table[nr*4 + 0]  = msg1.msi_address;
-	msix_table[nr*4 + 1]  = msg1.msi_address >> 32;
-	msix_table[nr*4 + 2]  = msg1.msi_value;
-	msix_table[nr*4 + 3] &= ~1;
-	conf_write(bdf, msix_offset, 1U << 31);
-	return msg1.msi_gsi;
+      
+	msix_table = msg2.ptr + (base & 0xfff);
       }
+
+      volatile unsigned *_msix_table = (volatile unsigned *)msix_table;
+      _msix_table[nr*4 + 0]  = msg1.msi_address;
+      _msix_table[nr*4 + 1]  = msg1.msi_address >> 32;
+      _msix_table[nr*4 + 2]  = msg1.msi_value;
+      _msix_table[nr*4 + 3] &= ~1;
+      conf_write(bdf, msix_offset, 1U << 31);
+    }
 
     // MSI
-    if (msi_offset)
-      {
-	unsigned ctrl = conf_read(bdf, msi_offset);
-	unsigned base = msi_offset + 1;
-	conf_write(bdf, base+0, msg1.msi_address);
-	conf_write(bdf, base+1, msg1.msi_address >> 32);
-	if (ctrl & 0x800000) base += 1;
-	conf_write(bdf, base+1, msg1.msi_value);
+    if (msi_offset) {
+      unsigned ctrl = conf_read(bdf, msi_offset);
+      unsigned base = msi_offset + 1;
+      conf_write(bdf, base+0, msg1.msi_address);
+      conf_write(bdf, base+1, msg1.msi_address >> 32);
+      if (ctrl & 0x800000) base += 1;
+      conf_write(bdf, base+1, msg1.msi_value);
 
-	// we use only a single message and enable MSIs here
-	conf_write(bdf, msi_offset, (ctrl & ~0x700000) | 0x10000);
-	Logging::printf("MSI %x enabled for bdf %x MSI %llx/%x\n", msg1.msi_gsi, bdf, msg1.msi_address, msg1.msi_value);
-	return msg1.msi_gsi;
-      }
+      // we use only a single message and enable MSIs here
+      conf_write(bdf, msi_offset, (ctrl & ~0x700000) | 0x10000);
+      Logging::printf("MSI %x enabled for bdf %x MSI %llx/%x\n", msg1.msi_gsi, bdf, msg1.msi_address, msg1.msi_value);
+    }
 
+    return msg1.msi_gsi;
+  }
+
+
+  /**
+   * Returns the gsi and enables them.
+   */
+  unsigned get_gsi(DBus<MessageHostOp> &bus_hostop, DBus<MessageAcpi> &bus_acpi, unsigned bdf, unsigned nr,
+		   bool level=false, void *msix_table = 0)
+  {
+    // If the device is MSI or MSI-X capable, don't use legacy
+    // interrupts.
+    if (find_cap(bdf, CAP_MSIX) || find_cap(bdf, CAP_MSI))
+      return get_gsi_msi(bus_hostop, bdf, nr, msix_table);
+
+    if (nr != 0)
+      Logging::printf("XXX Trying to program vector %d, but we only have legacy interrupts!\n", nr);
 
     // normal GSIs -  ask atare
     unsigned char pin = conf_read(bdf, 0xf) >> 8;
@@ -288,7 +300,7 @@ class HostPci
 
 
   /**
-   * Finds a capability for a device.
+   * Find the position of a legacy PCI capability.
    */
   unsigned find_cap(unsigned bdf, unsigned char id)
   {
@@ -303,7 +315,7 @@ class HostPci
 
 
   /**
-   * Find an extended CAP.
+   * Find the position of an extended PCI capability.
    */
   unsigned find_extended_cap(unsigned bdf, unsigned short id)
   {

@@ -17,6 +17,7 @@
 
 #include "nul/motherboard.h"
 #include "host/hostpci.h"
+#include "host/hostvf.h"
 #include "model/pci.h"
 
 
@@ -28,7 +29,7 @@
  * Missing: MSI, MSI-X
  * Documentation: PCI spec v.2.2
  */
-class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
+class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 {
   enum {
     PCI_CFG_SPACE_DWORDS = 1024,
@@ -330,18 +331,30 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     return true;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned long long *bases, unsigned long long *sizes, unsigned didvid = 0)
-    : HostPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0)
+    : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
-
+    if (parent_bdf)
+      _bdf = bdf = vf_bdf(parent_bdf, vf_no);
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
-    _cfgspace[0] = didvid;
+    if (parent_bdf) _cfgspace[0] = vf_device_id(parent_bdf);
+    Logging::printf("Our device ID is %04x.\n", _cfgspace[0]);
+
+    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _bdf, parent_bdf ? _bdf : 0);
+    check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
+
+    unsigned long long bases[HostPci::MAX_BAR];
+    unsigned long long sizes[HostPci::MAX_BAR];
+    if (parent_bdf)
+      read_all_vf_bars(parent_bdf, vf_no, bases, sizes);
+    else
+      read_all_bars(_bdf, bases, sizes);
+
     map_bars(bases, sizes);
 
-
-    _msi_cap  = find_cap(bdf, CAP_MSI);
+    _msi_cap  = find_cap(_bdf, CAP_MSI);
     _msi_64bit = false;
-    _msix_cap = find_cap(bdf, CAP_MSIX);
+    _msix_cap = find_cap(_bdf, CAP_MSIX);
     _msix_bar = ~0;
     _irq_count = 1;
     if (_msi_cap)  {
@@ -363,7 +376,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostPci
     _host_irqs = new unsigned[_irq_count];
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
-      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, i, i ? false : true);
+      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _bdf, i, i ? false : true, _msix_host_table);
     dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
     mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
@@ -385,13 +398,7 @@ PARAM(dpci,
 	check0(!bdf, "search_device(%lx,%lx,%lx) failed", argv[0], argv[1], argv[2]);
 	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], bdf);
 
-	MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, bdf);
-	check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
-
-	unsigned long long bases[HostPci::MAX_BAR];
-	unsigned long long sizes[HostPci::MAX_BAR];
-	pci.read_all_bars(bdf, bases, sizes);
-	new DirectPciDevice(mb, bdf, argv[3], bases, sizes);
+	new DirectPciDevice(mb, bdf, argv[3]);
 	Logging::printf("dpci done\n");
       },
       "dpci:class,subclass,instance,bdf - makes the specified hostdevice directly accessible to the guest.",
@@ -408,24 +415,12 @@ PARAM(vfpci,
 	unsigned parent_bdf = argv[0];
 	unsigned vf_no      = argv[1];
 
-	// Compute BDF of VF
+	// Check if VF exists, before creating the object.
 	unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	// Retrieve device and vendor IDs
-	unsigned didvid = pci.vf_device_id(parent_bdf);
-	Logging::printf("Our device ID is %04x.\n", didvid);
-
-	// Put device into our address space
-	MessageHostOp msg_assign(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, vf_bdf);
-	check0(!mb.bus_hostop.send(msg_assign), "Could not assign %04x/%04x via IO/MMU.", parent_bdf, vf_bdf);
-
-	unsigned long long bases[HostPci::MAX_BAR];
-	unsigned long long sizes[HostPci::MAX_BAR];
-	pci.read_all_vf_bars(parent_bdf, vf_no, bases, sizes);
-
-	new DirectPciDevice(mb, vf_bdf, argv[2], bases, sizes, didvid);
+	new DirectPciDevice(mb, 0, argv[2], parent_bdf, vf_no);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.");
