@@ -334,7 +334,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     return true;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0)
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
     vf = parent_bdf != 0;
@@ -395,7 +395,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
     mb.bus_memread.add(this, &DirectPciDevice::receive_static<MessageMemRead>);
     mb.bus_memwrite.add(this, &DirectPciDevice::receive_static<MessageMemWrite>);
-    mb.bus_memmap.add(this, &DirectPciDevice::receive_static<MessageMemMap>);
+    if (map)
+      mb.bus_memmap.add(this, &DirectPciDevice::receive_static<MessageMemMap>);
     mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);
     mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
   }
@@ -432,7 +433,7 @@ PARAM(vfpci,
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], parent_bdf, vf_no);
+	new DirectPciDevice(mb, 0, argv[2], parent_bdf, vf_no, false);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.");
