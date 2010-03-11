@@ -39,7 +39,7 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ,
 	COUNTER_INC("cpuid");
 	VCpu * vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
-	CpuMessage msg(CpuMessage::TYPE_CPUID, *utcb);
+	CpuMessage msg(CpuMessage::TYPE_CPUID, utcb);
 	if (!vcpu->executor.send(msg, true, msg.type))
 	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	skip_instruction(utcb);

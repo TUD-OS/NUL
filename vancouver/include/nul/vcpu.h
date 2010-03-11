@@ -20,19 +20,32 @@
 struct CpuMessage {
   enum Type {
     TYPE_CPUID,
+    TYPE_CPUID_WRITE,
     TYPE_RDMSR,
     TYPE_WRMSR,
   } type;
-  Utcb    &cpu;
   union {
-    unsigned cpuid_index;
+    struct {
+      Utcb    *cpu;
+      unsigned cpuid_index;
+    };
+    struct {
+      unsigned nr;
+      unsigned reg;
+      unsigned value;
+    };
   };
-  CpuMessage(Type _type, Utcb &_cpu) : type(_type), cpu(_cpu) { if (type == TYPE_CPUID) cpuid_index = cpu.eax; }
+  CpuMessage(Type _type, Utcb *_cpu) : type(_type), cpu(_cpu) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
+  CpuMessage(unsigned _nr, unsigned _reg, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), value(_value) {}
 };
 
 
 class VCpu
 {
+  VCpu *_last;
 public:
+  VCpu *get_last() { return _last; } 
+  bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, value); return executor.send(msg); }
   DBus<CpuMessage> executor;
+  VCpu (VCpu *last) : _last(last) {}
 };

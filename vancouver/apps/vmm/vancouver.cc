@@ -434,9 +434,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 public:
   bool receive(CpuMessage &msg) {
-    switch (msg.cpu.eax) {
+    switch (msg.cpuid_index) {
       case 0x40000000:
-	//syscall(254, msg.cpu.ebx, 0, 0, 0);
+	//syscall(254, msg.cpu->ebx, 0, 0, 0);
 	break;
       case 0x40000001:
 	_mb->dump_counters();
@@ -445,11 +445,11 @@ public:
 	{
 	  unsigned long long c1=0;
 	  unsigned long long c2=0;
-	  perfcount(msg.cpu.ebx, msg.cpu.ecx, c1, c2);
-	  msg.cpu.eax = c1 >> 32;
-	  msg.cpu.ebx = c1;
-	  msg.cpu.ecx = c2 >> 32;
-	  msg.cpu.edx = c2;
+	  perfcount(msg.cpu->ebx, msg.cpu->ecx, c1, c2);
+	  msg.cpu->eax = c1 >> 32;
+	  msg.cpu->ebx = c1;
+	  msg.cpu->ecx = c2 >> 32;
+	  msg.cpu->edx = c2;
 	}
 	break;
       default:
@@ -661,6 +661,19 @@ public:
     create_irq_thread(~0u, do_disk);
     create_irq_thread(~0u, do_timer);
     create_irq_thread(~0u, do_network);
+
+
+    // init VCPUs
+    for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
+      const char *short_name = "NOVA microHV";
+      vcpu->set_cpuid(0, 1, reinterpret_cast<const unsigned *>(short_name)[0]);
+      vcpu->set_cpuid(0, 3, reinterpret_cast<const unsigned *>(short_name)[1]);
+      vcpu->set_cpuid(0, 2, reinterpret_cast<const unsigned *>(short_name)[2]);
+      const char *long_name = "Vancouver VMM proudly presents this VirtualCPU. ";
+      for (unsigned i=0; i<12; i++)
+	vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
+    }
+
     _lock.up();
     Logging::printf("INIT done\n");
 

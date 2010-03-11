@@ -19,26 +19,36 @@
 #include "nul/vcpu.h"
 
 #ifndef REGBASE
-class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu> {
+class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
+{
 #define REGBASE "../executor/vcpu.cc"
 #include "model/reg.h"
+
+  unsigned get_cpuid_reg(unsigned cpuid_index)
+  {
+    unsigned index;
+    if (cpuid_index & 0x80000000u && cpuid_index <= CPUID_EAX80)
+      index = (cpuid_index << 4) | 0x80000000u;
+    else {
+      index = cpuid_index << 4;
+      if (cpuid_index > CPUID_EAX0) index = CPUID_EAX0 << 4;
+    }
+    return index;
+  }
 public:
   bool receive(CpuMessage &msg) {
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:
       {
-	unsigned index;
-	if (msg.cpuid_index & 0x80000000u && msg.cpuid_index <= CPUID_EAX80)
-	  index = (msg.cpuid_index << 4) | 0x80000000u;
-	else {
-	  index = msg.cpuid_index << 4;
-	  if (msg.cpuid_index > CPUID_EAX0) index = CPUID_EAX0 << 4;
-	}
-	if (!CPUID_read(index+0, msg.cpu.eax)) msg.cpu.eax = 0;
-	if (!CPUID_read(index+1, msg.cpu.ebx)) msg.cpu.ebx = 0;
-	if (!CPUID_read(index+2, msg.cpu.ecx)) msg.cpu.ecx = 0;
-	if (!CPUID_read(index+3, msg.cpu.edx)) msg.cpu.edx = 0;
+	unsigned reg = get_cpuid_reg(msg.cpuid_index);
+	if (!CPUID_read(reg+0, msg.cpu->eax)) msg.cpu->eax = 0;
+	if (!CPUID_read(reg+1, msg.cpu->ebx)) msg.cpu->ebx = 0;
+	if (!CPUID_read(reg+2, msg.cpu->ecx)) msg.cpu->ecx = 0;
+	if (!CPUID_read(reg+3, msg.cpu->edx)) msg.cpu->edx = 0;
       }
+      break;
+    case CpuMessage::TYPE_CPUID_WRITE:
+      CPUID_write((msg.nr << 4) | msg.reg | msg.nr & 0x80000000, msg.value);
       break;
     case CpuMessage::TYPE_RDMSR:
     case CpuMessage::TYPE_WRMSR:
@@ -47,23 +57,11 @@ public:
     return true;
   }
 
-  VirtualCpu() {
-
-    // init CPUID register
-    CPUID_reset();
-    const char *short_name = "NOVA microHV";
-    CPUID_write(0x1, reinterpret_cast<const unsigned *>(short_name)[0]);
-    CPUID_write(0x3, reinterpret_cast<const unsigned *>(short_name)[1]);
-    CPUID_write(0x2, reinterpret_cast<const unsigned *>(short_name)[2]);
-    const char *long_name = "Vancouver VMM proudly presents this VirtualCPU. ";
-    for (unsigned i=0; i<12; i++)
-      CPUID_write(0x80000020+ (i % 4) +  0x10*(i / 4), reinterpret_cast<const unsigned *>(long_name)[i]);
-
-  }
+  VirtualCpu(VCpu *_last) : VCpu(_last) {  CPUID_reset();  }
 };
 
 PARAM(vcpu,
-      VirtualCpu *dev = new VirtualCpu();
+      VirtualCpu *dev = new VirtualCpu(mb.last_vcpu);
       dev->executor.add(dev, &VirtualCpu::receive_static, CpuMessage::TYPE_CPUID);
       mb.last_vcpu = dev;
       MessageHostOp msg(dev);
