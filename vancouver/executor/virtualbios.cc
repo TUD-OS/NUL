@@ -779,6 +779,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
+      case MessageHostOp::OP_CREATE_VCPU_BACKEND:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
