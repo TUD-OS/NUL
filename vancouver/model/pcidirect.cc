@@ -273,7 +273,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     char *ptr;
     if (!match_bars(msg.phys, msg.count, ptr))  return false;
     COUNTER_INC("PCIDirect::write");
-    Logging::printf("%s %lx %p count %d\n", __PRETTY_FUNCTION__, msg.phys, ptr, msg.count);
+    Logging::printf("PCIWRITE %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
     switch (msg.count) {
     case 4:
       *reinterpret_cast<unsigned       *>(ptr) = *reinterpret_cast<unsigned       *>(msg.ptr);
@@ -298,8 +298,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   {
     char *ptr;
     if (!match_bars(msg.phys, msg.count, ptr))  return false;
-
-    Logging::printf("%s %lx %p count %d\n", __PRETTY_FUNCTION__, msg.phys, ptr, msg.count);
+    
     COUNTER_INC("PCIDirect::read");
     switch (msg.count)
       {
@@ -315,6 +314,9 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
       default:
 	memcpy(msg.ptr, ptr, msg.count);
       }
+
+    Logging::printf("PCIREAD %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
+
     return true;
   }
 
