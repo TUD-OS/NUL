@@ -360,8 +360,6 @@ class AhciController : public ParentIrqProvider,
 	    }
 
 	    MessageIrq msg(MessageIrq::ASSERT_IRQ, irq);
-
-
 	    _bus_irqlines.send(msg);
 	  }
       }
