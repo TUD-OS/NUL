@@ -30,7 +30,7 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
   bool  receive(MessageExecutor &msg)
   {
     // is this our portal?
-    assert (msg.cpu->head.pid == 10);
+    assert (msg.cpu->head._pid == 10);
 
     const char *data;
     unsigned index = msg.cpu->eax;
@@ -64,7 +64,7 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
       }
     // done
     msg.cpu->eip += msg.cpu->inst_len;
-    msg.cpu->head.pid = 0;
+    msg.cpu->head._pid = 0;
     return true;
   };
 };

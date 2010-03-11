@@ -18,31 +18,31 @@
 // the VMX portals follow
 VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
 	{
-	  utcb->head.pid = 2;
+	  utcb->head._pid = 2;
 	  if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	    Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
-	  do_recall(utcb);
+	    Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	  do_recall(pid, utcb);
 	}
 	)
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
 	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl);
-	utcb->head.pid = 3;
+	utcb->head._pid = 3;
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
+	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x hz %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl, _mb->vcpustate(0)->hazard);
-	//do_recall(utcb);
+	//do_recall(pid, utcb);
 	)
 VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
-	do_recall(utcb);
+	do_recall(pid, utcb);
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	if (!handle_special_cpuid(utcb))
 	  {
-	    utcb->head.pid = 10;
+	    utcb->head._pid = 10;
 	    COUNTER_INC("cpuid");
 	    if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
+	      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	    // XXX call skip instruction for MTD_STATE update
 	  }
 	)
@@ -54,7 +54,7 @@ VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_INHLT);
 	if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_IRQ)  _mb->vcpustate(0)->block_sem->down();
 	Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_INHLT);
-	do_recall(utcb);
+	do_recall(pid, utcb);
 	)
 
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
@@ -73,22 +73,22 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	)
 
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
-	utcb->head.pid = 31;
+	utcb->head._pid = 31;
 	COUNTER_INC("rdmsr");
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
+	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
-	utcb->head.pid = 32;
+	utcb->head._pid = 32;
 	COUNTER_INC("wrmsr");
 	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
+	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	)
 
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	{
 	  utcb->efl |= 2;
-	  instruction_emulation(utcb, true);
+	  instruction_emulation(pid, utcb, true);
 	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	    {
 	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
@@ -96,7 +96,7 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	      utcb->ctrl[0] = 1 << 3; // tscoffs
 	      utcb->ctrl[1] = 0;
 	    }
-	  do_recall(utcb);
+	  do_recall(pid, utcb);
 	})
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
@@ -109,14 +109,14 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	if (!map_memory_helper(utcb))
 	  {
 	    // this is an access to MMIO
-	    instruction_emulation(utcb, false);
-	    do_recall(utcb);
+	    instruction_emulation(pid, utcb, false);
+	    do_recall(pid, utcb);
 	  }
 	)
-VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(utcb); )
+VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(pid, utcb); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
-	  vmx_init(utcb);
+	  vmx_init(pid, utcb);
 	else
 	  {
 	    SemaphoreGuard l(_lock);
@@ -127,19 +127,19 @@ VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	    COUNTER_SET("rCR3", utcb->cr3);
 	    COUNTER_SET("HZ", _mb->vcpustate(0)->hazard);
 #endif
-	    unsigned lastpid = utcb->head.pid;
-	    utcb->head.pid = 1;
+	    unsigned lastpid = utcb->head._pid;
+	    utcb->head._pid = 1;
 	    MessageExecutor msg(static_cast<CpuState*>(utcb), _mb->vcpustate(0));
-	    _mb->bus_executor.send(msg, true, utcb->head.pid);
-	    utcb->head.pid = lastpid;
+	    _mb->bus_executor.send(msg, true, utcb->head._pid);
+	    utcb->head._pid = lastpid;
 	  }
 	)
 
 
 // and now the SVM portals
-VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(utcb); )
-VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_ALL, if (!handle_special_cpuid(utcb)) svm_invalid(utcb); )
-VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(utcb); )
+VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, utcb); )
+VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_ALL, if (!handle_special_cpuid(utcb)) svm_invalid(pid, utcb); )
+VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, utcb); )
 VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
 	{
 	  if (utcb->qual[0] & 0x4)
@@ -156,18 +156,18 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	    }
 	}
 	)
-VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(utcb); )
-VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(utcb); )
+VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, utcb); )
+VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, utcb); )
 VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 	// make sure we do not inject the #PF!
 	utcb->inj_info = ~0x80000000;
 	if (!map_memory_helper(utcb))
-	  svm_invalid(utcb);
+	  svm_invalid(pid, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
 	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
-	instruction_emulation(utcb, true);
+	instruction_emulation(pid, utcb, true);
 	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
 	  {
 	    COUNTER_INC("ctrl");
@@ -176,7 +176,7 @@ VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	    utcb->ctrl[0] = 1 << 18; // cpuid
 	    utcb->ctrl[1] = 1 << 0;  // vmrun
 	  }
-	do_recall(utcb);
+	do_recall(pid, utcb);
 	)
-VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  svm_shutdwn(utcb);)
-VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(utcb); )
+VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  svm_shutdwn(pid, utcb);)
+VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, utcb); )

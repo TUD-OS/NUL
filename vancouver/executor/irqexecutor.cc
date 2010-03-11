@@ -33,7 +33,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
  public:
   bool  receive(MessageExecutor &msg)
   {
-    if (msg.cpu->head.pid != 1 && msg.cpu->head.pid != 7)  return false;
+    if (msg.cpu->head._pid != 1 && msg.cpu->head._pid != 7)  return false;
 
     CpuState *cpu = msg.cpu;
     assert_mtr(MTD_STATE | MTD_INJ | MTD_RFLAGS);
@@ -71,7 +71,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
       msg.cpu->inj_info &= ~INJ_IRQWIN;
 
     // get back to the inst emulator???
-    msg.cpu->head.pid = MessageExecutor::DO_SINGLESTEP;
+    msg.cpu->head._pid = MessageExecutor::DO_SINGLESTEP;
     return true;
   }
 

@@ -47,7 +47,7 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
  public:
   bool  receive(MessageExecutor &msg)
   {
-    switch (msg.cpu->head.pid)
+    switch (msg.cpu->head._pid)
       {
       case 16: // rdtsc
 	set_value(msg.cpu, msg.cpu->tsc_off + Cpu::rdtsc());
@@ -93,10 +93,10 @@ class MsrExecutor : public StaticReceiver<MsrExecutor>
 	  }
 	break;
       default:
-	Logging::panic("unsupported pid %x at %x",  msg.cpu->head.pid, msg.cpu->eip);
+	Logging::panic("unsupported pid %x at %x",  msg.cpu->head._pid, msg.cpu->eip);
       }
     msg.cpu->eip += msg.cpu->inst_len;
-    msg.cpu->head.pid = 0;
+    msg.cpu->head._pid = 0;
     return true;
   }
 };

@@ -24,7 +24,7 @@ PT_FUNC_NORETURN(do_pf,
 	)
 PT_FUNC(do_map,
 	// make sure we have enough words to reply
-	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb->head.pid);
+	//Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], pid);
 	assert(~utcb->head.mtr.untyped() & 1);
 	return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	)
@@ -50,7 +50,7 @@ PT_FUNC_NORETURN(do_gsi,
 		 Logging::panic("%s(%x) request failed with %x\n", __func__, irq, res);
 		 )
 PT_FUNC(do_startup,
-	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
+	unsigned short client = (pid & 0xffe0) >> 5;
 	ModuleInfo *modinfo = _modinfo + client;
 	{
 	  SemaphoreGuard s(_lock);
@@ -67,7 +67,7 @@ PT_FUNC(do_startup,
 	)
 
 PT_FUNC(do_request,
-	unsigned short client = (utcb->head.pid & 0xffe0) >> 5;
+	unsigned short client = (pid & 0xffe0) >> 5;
 	ModuleInfo *modinfo = _modinfo + client;
 	COUNTER_INC("request");
 

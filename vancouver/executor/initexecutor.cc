@@ -29,7 +29,7 @@ class InitExecutor : public StaticReceiver<InitExecutor>
  public:
   bool  receive(MessageExecutor &msg)
   {
-    assert(msg.cpu->head.pid == 3);
+    assert(msg.cpu->head._pid == 3);
     Logging::printf(">\t%s mtr %x rip %x il %x cr0 %x efl %x\n", __PRETTY_FUNCTION__, msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     memset(msg.cpu->msg, 0, sizeof(msg.cpu->msg));
@@ -50,7 +50,7 @@ class InitExecutor : public StaticReceiver<InitExecutor>
     msg.cpu->dr7      = 0x400;
     // goto singlestep instruction?
     msg.cpu->efl      = 0;
-    msg.cpu->head.pid = 0;
+    msg.cpu->head._pid = 0;
     // init hazards
     msg.vcpu->hazard = VirtualCpuState::HAZARD_CRWRITE | VirtualCpuState::HAZARD_CTRL | (msg.vcpu->hazard & VirtualCpuState::HAZARD_IRQ);
     msg.vcpu->lastmsi = 0;

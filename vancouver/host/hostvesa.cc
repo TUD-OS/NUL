@@ -92,22 +92,22 @@ class HostVesa : public StaticReceiver<HostVesa>
     MessageExecutor msg(&_cpu, _mb.vcpustate(0));
 
 
-    _cpu.head.pid = MessageExecutor::DO_ENTER;
-    _mb.bus_executor.send(msg, false, _cpu.head.pid);
-    _cpu.head.pid = 0;
+    _cpu.head._pid = MessageExecutor::DO_ENTER;
+    _mb.bus_executor.send(msg, false, _cpu.head._pid);
+    _cpu.head._pid = 0;
 
-    while (_cpu.head.pid != 12)
+    while (_cpu.head._pid != 12)
       {
 	_instructions++;
-	if (!_cpu.head.pid) _cpu.head.pid = 33;
+	if (!_cpu.head._pid) _cpu.head._pid = 33;
 	if (msg.vcpu->instcache->debug)
 	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
 			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp);
-	if (!_mb.bus_executor.send(msg, true, _cpu.head.pid))
+	if (!_mb.bus_executor.send(msg, true, _cpu.head._pid))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
       }
-    _cpu.head.pid = MessageExecutor::DO_LEAVE;
-    _mb.bus_executor.send(msg, false, _cpu.head.pid);
+    _cpu.head._pid = MessageExecutor::DO_LEAVE;
+    _mb.bus_executor.send(msg, false, _cpu.head._pid);
     _mb.dump_counters();
 
 

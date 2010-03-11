@@ -54,7 +54,7 @@ public:
     // detect that we are on our CPU
     //XXX if (!msg.vcpu->apic != this) return false;
     bool res = false;
-    switch (msg.cpu->head.pid) {
+    switch (msg.cpu->head._pid) {
     case 31: // rdmsr
       if (msg.cpu->ecx == 0x1b) {
 	msg.cpu->eax = _msr;
@@ -86,7 +86,7 @@ public:
     }
     if (res) {
       msg.cpu->eip += msg.cpu->inst_len;
-      msg.cpu->head.pid = 0;
+      msg.cpu->head._pid = 0;
       return true;
     }
     return false;

@@ -497,7 +497,7 @@ public:
       {
 	// successfull
 	//invalidate(true);
-	msg.cpu->head.pid = 0;
+	msg.cpu->head._pid = 0;
       }
     else
       {
@@ -516,23 +516,23 @@ public:
 	      case FAULT_CPUID:
 		// forward to the cpuid portal
 		// XXX unify portal-ID and faultNR
-		msg.cpu->head.pid = 10;
+		msg.cpu->head._pid = 10;
 		break;
 		// XXX own exits
 	      case FAULT_WBINVD:
 	      case FAULT_INVD:
 	      case FAULT_HLT:
-		msg.cpu->head.pid = 12;
+		msg.cpu->head._pid = 12;
 		break;
 	      case FAULT_RDTSC:
 		// forward to the rdtsc portal
-		msg.cpu->head.pid = 16;
+		msg.cpu->head._pid = 16;
 		break;
 	      case FAULT_RDMSR:
-		msg.cpu->head.pid = 31;
+		msg.cpu->head._pid = 31;
 		break;
 	      case FAULT_WRMSR:
-		msg.cpu->head.pid = 32;
+		msg.cpu->head._pid = 32;
 		break;
 	      default:
 		Logging::panic("internal fault %x at eip %x\n", msg.vcpu->fault, msg.cpu->eip);
@@ -552,7 +552,7 @@ public:
 	    if (old_info == 0x80000b08)
 	      {
 		msg.cpu->inj_info = (msg.cpu->inj_info & INJ_IRQWIN);
-		msg.cpu->head.pid = 2;
+		msg.cpu->head._pid = 2;
 	      }
 	    else
 	      {

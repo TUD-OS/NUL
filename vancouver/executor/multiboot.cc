@@ -163,7 +163,7 @@ private:
  public:
   bool  receive(MessageExecutor &msg)
   {
-    assert(msg.cpu->head.pid == 33);
+    assert(msg.cpu->head._pid == 33);
     if (msg.cpu->cs.base + msg.cpu->eip != _base)  return false;
     Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
 		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);

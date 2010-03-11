@@ -62,7 +62,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
-#define PT_FUNC(NAME)  static unsigned long  NAME(Utcb *utcb) __attribute__((regparm(0)))
+#define PT_FUNC(NAME)  static unsigned long  NAME(unsigned pid, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   PT_FUNC(NAME)								\
   {  CODE; return utcb->head.mtr.value(); }
@@ -79,7 +79,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(got_exception)
   {
-    Logging::printf("%s() #%x ",  __func__, utcb->head.pid);
+    Logging::printf("%s() #%x ",  __func__, pid);
     Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
 		    utcb->edx, utcb->eax,
 		    utcb->edi, utcb->esi,
@@ -244,7 +244,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, unsigned long __attribute__((regparm(0))) (*func)(Utcb *utcb))
+  unsigned create_irq_thread(unsigned hostirq, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
 
@@ -295,7 +295,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE) {NR, NAME, INPUT},
     struct vm_caps {
       unsigned nr;
-      unsigned long __attribute__((regparm(0))) (*func)(Utcb *);
+      unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *);
       unsigned mtd;
     } vm_caps[] = {
 #include "vmx_funcs.h"
@@ -309,25 +309,25 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void instruction_emulation(Utcb *utcb, bool long_run)
+  static void instruction_emulation(unsigned pid, Utcb *utcb, bool long_run)
   {
     if (_debug)
-      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid,
+      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
 		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard);
     // enter singlestep
-    utcb->head.pid = MessageExecutor::DO_ENTER;
+    utcb->head._pid = MessageExecutor::DO_ENTER;
     execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
 
-    utcb->head.pid = MessageExecutor::DO_SINGLESTEP;
+    utcb->head._pid = MessageExecutor::DO_SINGLESTEP;
     do {
       if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head.pid);
-      do_recall(utcb);
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+      do_recall(utcb->head._pid, utcb);
     }
-    while (long_run && utcb->head.pid);
+    while (long_run && utcb->head._pid);
 
     // leave singlestep
-    utcb->head.pid = MessageExecutor::DO_LEAVE;
+    utcb->head._pid = MessageExecutor::DO_LEAVE;
     execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
 
 
@@ -342,7 +342,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     SemaphoreGuard l(_lock);
     MessageExecutor msg(cpu, vcpu);
-    return _mb->bus_executor.send(msg, early_out, cpu->head.pid);
+    return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
   }
 
   static void skip_instruction(Utcb *utcb)

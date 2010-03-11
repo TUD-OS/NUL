@@ -29,9 +29,9 @@ class NovaHalifax : public StaticReceiver<NovaHalifax>
 public:
   bool  receive(MessageExecutor &msg)
   {
-    if (msg.cpu->head.pid == MessageExecutor::DO_SINGLESTEP)  return msg.vcpu->instcache->step(msg);
-    if (msg.cpu->head.pid == MessageExecutor::DO_ENTER)       return msg.vcpu->instcache->enter(msg);
-    if (msg.cpu->head.pid == MessageExecutor::DO_LEAVE)       return msg.vcpu->instcache->leave(msg);
+    if (msg.cpu->head._pid == MessageExecutor::DO_SINGLESTEP)  return msg.vcpu->instcache->step(msg);
+    if (msg.cpu->head._pid == MessageExecutor::DO_ENTER)       return msg.vcpu->instcache->enter(msg);
+    if (msg.cpu->head._pid == MessageExecutor::DO_LEAVE)       return msg.vcpu->instcache->leave(msg);
     assert(0);
   }
 };

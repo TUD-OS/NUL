@@ -173,7 +173,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   {
     CONSUMER *con = reinterpret_cast<CONSUMER *>(utcb->msg[1]);
     if (convert_client_ptr(modinfo, con, sizeof(CONSUMER)))
-      Logging::printf("(%x) consumer %p out of memory %lx\n", utcb->head.pid, con, modinfo->physsize);
+      Logging::printf("(%x) consumer %p out of memory %lx\n", modinfo - _modinfo, con, modinfo->physsize);
     else
       {
 	res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
@@ -585,19 +585,19 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
 #define PT_FUNC_NORETURN(NAME, CODE)					\
-  static unsigned long NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0), noreturn)) \
-  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); } \
+  static unsigned long NAME##_wrapper(unsigned pid, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
+  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(pid, utcb); }	\
   									\
-  void __attribute__((always_inline, noreturn))  NAME(Utcb *utcb)	\
+  void __attribute__((always_inline, noreturn))  NAME(unsigned pid, Utcb *utcb) \
   {									\
     CODE;								\
   }
 
 #define PT_FUNC(NAME, CODE, ...)					\
-  static unsigned long NAME##_wrapper(Utcb *utcb) __attribute__((regparm(0))) \
-  { return reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(utcb); } \
-									\
-  unsigned long __attribute__((always_inline))  NAME(Utcb *utcb) __VA_ARGS__	\
+  static unsigned long NAME##_wrapper(unsigned pid, Utcb *utcb) __attribute__((regparm(1))) \
+  { return reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(pid, utcb); } \
+  									\
+  unsigned long __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
   {									\
     CODE;								\
     return utcb->head.mtr.value();					\

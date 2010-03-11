@@ -706,7 +706,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   {
     CpuState *cpu = msg.cpu;
     VirtualCpuState *vcpu = msg.vcpu;
-    assert(cpu->head.pid == 33);
+    assert(cpu->head._pid == 33);
 
     // works only in real and x86mode
     if (cpu->pm() && !cpu->v86()) return false;
