@@ -36,15 +36,9 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
 	do_recall(pid, utcb);
 	)
-VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ,
+VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	VCpu * vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
-	CpuMessage msg(CpuMessage::TYPE_CPUID, utcb);
-	if (!vcpu->executor.send(msg, true, msg.type))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-	skip_instruction(utcb);
-	do_recall(pid, utcb);
-	)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID);)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	COUNTER_INC("hlt");
 	skip_instruction(utcb);
@@ -55,7 +49,6 @@ VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_INHLT);
 	do_recall(pid, utcb);
 	)
-
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
 	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
 	if (utcb->qual[0] & 0x10)
@@ -70,20 +63,12 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	    ioio_helper(utcb, utcb->qual[0] & 8, order);
 	  }
 	)
-
-VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
-	utcb->head._pid = 31;
+VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-	)
-VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER,
-	utcb->head._pid = 32;
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR);)
+VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
-	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-	)
-
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	{
 	  utcb->efl |= 2;

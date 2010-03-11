@@ -360,16 +360,37 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type)
+  {
+    CpuMessage msg(type, static_cast<CpuState *>(utcb));
+    VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
+    if (!vcpu->executor.send(msg))
+      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+    skip_instruction(utcb);
+  }
+
   static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
   {
-    if (cpu->head._pid == 10) {
-      vmx_cpuid(0, cpu);
-      cpu->head._pid = 0;
-      return true;
+    switch(cpu->head._pid) {
+    case 10:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_CPUID);
+      break;
+    case 16:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDTSC);
+      break;
+    case 31:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDMSR);
+      break;
+    case 32:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_WRMSR);
+      break;
+    default:
+      SemaphoreGuard l(_lock);
+      MessageExecutor msg(cpu, vcpu);
+      return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
     }
-    SemaphoreGuard l(_lock);
-    MessageExecutor msg(cpu, vcpu);
-    return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
+    cpu->head._pid = 0;
+    return true;
   }
 
   static void skip_instruction(Utcb *utcb)

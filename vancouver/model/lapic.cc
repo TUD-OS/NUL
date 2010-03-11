@@ -107,6 +107,12 @@ public:
   }
 };
 
+#if 0
+  if (index == 1 && msg.vcpu->apic->msr & 0x800) msg.cpu->edx |= 2u;
+  // propagate initial APIC id
+  if (index == 1) msg.cpu->ebx |= msg.vcpu->apic->initial_apic_id << 24;
+#endif
+
 
 PARAM(x2apic, {
     for (unsigned i=0; i < Config::NUM_VCPUS; i++) {

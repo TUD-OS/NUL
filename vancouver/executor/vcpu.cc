@@ -24,35 +24,106 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 #define REGBASE "../executor/vcpu.cc"
 #include "model/reg.h"
 
-  unsigned get_cpuid_reg(unsigned cpuid_index)
+  enum {
+    MSR_TSC = 0x10,
+    MSR_SYSENTER_CS = 0x174,
+    MSR_SYSENTER_ESP,
+    MSR_SYSENTER_EIP,
+  };
+
+  void msr_set_value(CpuState *cpu, unsigned long long value)
   {
-    unsigned index;
-    if (cpuid_index & 0x80000000u && cpuid_index <= CPUID_EAX80)
-      index = (cpuid_index << 4) | 0x80000000u;
+    cpu->eax = value;
+    cpu->edx = value >> 32;
+  };
+
+  unsigned long long msr_get_value(CpuState *cpu) {  return static_cast<unsigned long long>(cpu->edx) << 32 | cpu->eax; };
+
+
+  void handle_cpuid(CpuMessage &msg) {
+    unsigned reg;
+    if (msg.cpuid_index & 0x80000000u && msg.cpuid_index <= CPUID_EAX80)
+      reg = (msg.cpuid_index << 4) | 0x80000000u;
     else {
-      index = cpuid_index << 4;
-      if (cpuid_index > CPUID_EAX0) index = CPUID_EAX0 << 4;
+      reg = msg.cpuid_index << 4;
+      if (msg.cpuid_index > CPUID_EAX0) reg = CPUID_EAX0 << 4;
     }
-    return index;
+    if (!CPUID_read(reg | 0, msg.cpu->eax)) msg.cpu->eax = 0;
+    if (!CPUID_read(reg | 1, msg.cpu->ebx)) msg.cpu->ebx = 0;
+    if (!CPUID_read(reg | 2, msg.cpu->ecx)) msg.cpu->ecx = 0;
+    if (!CPUID_read(reg | 3, msg.cpu->edx)) msg.cpu->edx = 0;
   }
+
+
+  void handle_rdtsc(CpuState *cpu) {
+    msr_set_value(cpu, cpu->tsc_off + Cpu::rdtsc());
+  }
+
+
+  void handle_rdmsr(CpuState *cpu) {
+    switch (cpu->ecx) {
+    case MSR_TSC:
+      handle_rdtsc(cpu);
+      break;
+    case MSR_SYSENTER_CS:
+    case MSR_SYSENTER_ESP:
+    case MSR_SYSENTER_EIP:
+      msr_set_value(cpu, (&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS]);
+      break;
+    case 0x8b: // microcode
+      // MTRRs
+    case 0x250:
+    case 0x258:
+    case 0x259:
+    case 0x268 ... 0x26f:
+      msr_set_value(cpu, 0);
+      break;
+    default:
+      Logging::printf("unsupported rdmsr %x at %x",  cpu->ecx, cpu->eip);
+      // XXX GP
+    }
+  }
+
+
+  void handle_wrmsr(CpuState *cpu) {
+    switch (cpu->ecx)
+      {
+      case MSR_TSC:
+	cpu->tsc_off = -Cpu::rdtsc() + msr_get_value(cpu);
+	Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, msr_get_value(cpu));
+	break;
+      case MSR_SYSENTER_CS:
+      case MSR_SYSENTER_ESP:
+      case MSR_SYSENTER_EIP:
+	(&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS] = msr_get_value(cpu);
+	break;
+      default:
+	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
+	// XXX GP
+      }
+  }
+
+
 public:
   bool receive(CpuMessage &msg) {
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:
-      {
-	unsigned reg = get_cpuid_reg(msg.cpuid_index);
-	if (!CPUID_read(reg+0, msg.cpu->eax)) msg.cpu->eax = 0;
-	if (!CPUID_read(reg+1, msg.cpu->ebx)) msg.cpu->ebx = 0;
-	if (!CPUID_read(reg+2, msg.cpu->ecx)) msg.cpu->ecx = 0;
-	if (!CPUID_read(reg+3, msg.cpu->edx)) msg.cpu->edx = 0;
-      }
+      handle_cpuid(msg);
       break;
     case CpuMessage::TYPE_CPUID_WRITE:
       CPUID_write((msg.nr << 4) | msg.reg | msg.nr & 0x80000000, msg.value);
       break;
+    case CpuMessage::TYPE_RDTSC:
+      handle_rdtsc(msg.cpu);
+      break;
     case CpuMessage::TYPE_RDMSR:
+      handle_rdmsr(msg.cpu);
+      break;
     case CpuMessage::TYPE_WRMSR:
-    default: return false;
+      handle_wrmsr(msg.cpu);
+      break;
+    default:
+      return false;
     }
     return true;
   }
@@ -62,7 +133,7 @@ public:
 
 PARAM(vcpu,
       VirtualCpu *dev = new VirtualCpu(mb.last_vcpu);
-      dev->executor.add(dev, &VirtualCpu::receive_static, CpuMessage::TYPE_CPUID);
+      dev->executor.add(dev, &VirtualCpu::receive_static);
       mb.last_vcpu = dev;
       MessageHostOp msg(dev);
       if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
