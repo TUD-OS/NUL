@@ -18,6 +18,7 @@
 #include "sigma0/console.h"
 #include "nul/motherboard.h"
 #include "nul/program.h"
+#include "nul/vcpu.h"
 
 /**
  * Layout of the capability space.
@@ -235,12 +236,15 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
     // create default devices
-    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax ioio";
+    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr irq novahalifax ioio";
     _mb->parse_args(default_devices);
 
     // create devices from cmdline
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
+
+    // XXX add ourself to all CPUs!
+    _mb->last_vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
   }
 
 
@@ -285,10 +289,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create the gsi boot portal
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+    return 0;
+  }
 
+  unsigned create_vcpu(VCpu *vcpu, bool use_svm)
+  {
     // create worker
-    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
-
+    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(vcpu), 0, true);
 
     // create portals for VCPU faults
 #undef VM_FUNC
@@ -300,20 +307,35 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     } vm_caps[] = {
 #include "vmx_funcs.h"
     };
+    unsigned cap_start = _cap_free;
+    _cap_free += 0x100;
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
       {
+	if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
 	Logging::printf("create pt %x\n", vm_caps[i].nr);
-	check1(3, create_pt(vm_caps[i].nr, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+	check1(1, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
       }
+
+    Logging::printf("create VCPU\n");
+    _mb->vcpustate(0)->block_sem = new KernelSemaphore(_cap_free++);
+    if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
+      Logging::panic("could not create blocking semaphore\n");
+
+
+    _mb->vcpustate(0)->cap_vcpu = _cap_free++;
+    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), cap_start, false)
+	|| create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
+      Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return 0;
+
   }
 
 
   static void instruction_emulation(unsigned pid, Utcb *utcb, bool long_run)
   {
     if (_debug)
-      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
-		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard);
+      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x eax %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
+		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard, utcb->eax);
     // enter singlestep
     utcb->head._pid = MessageExecutor::DO_ENTER;
     execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
@@ -321,7 +343,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->head._pid = MessageExecutor::DO_SINGLESTEP;
     do {
       if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head._pid);
       do_recall(utcb->head._pid, utcb);
     }
     while (long_run && utcb->head._pid);
@@ -340,6 +362,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
   {
+    if (cpu->head._pid == 10) {
+      vmx_cpuid(0, cpu);
+      cpu->head._pid = 0;
+      return true;
+    }
     SemaphoreGuard l(_lock);
     MessageExecutor msg(cpu, vcpu);
     return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
@@ -405,13 +432,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     return false;
   }
 
-
-  static bool handle_special_cpuid(Utcb *utcb)
-  {
-    switch (utcb->eax)
-      {
+public:
+  bool receive(CpuMessage &msg) {
+    switch (msg.cpu.eax) {
       case 0x40000000:
-	//syscall(254, utcb->ebx, 0, 0, 0);
+	//syscall(254, msg.cpu.ebx, 0, 0, 0);
 	break;
       case 0x40000001:
 	_mb->dump_counters();
@@ -420,24 +445,19 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	{
 	  unsigned long long c1=0;
 	  unsigned long long c2=0;
-	  perfcount(utcb->ebx, utcb->ecx, c1, c2);
-	  utcb->eax = c1 >> 32;
-	  utcb->ebx = c1;
-	  utcb->ecx = c2 >> 32;
-	  utcb->edx = c2;
+	  perfcount(msg.cpu.ebx, msg.cpu.ecx, c1, c2);
+	  msg.cpu.eax = c1 >> 32;
+	  msg.cpu.ebx = c1;
+	  msg.cpu.ecx = c2 >> 32;
+	  msg.cpu.edx = c2;
 	}
 	break;
       default:
 	return false;
-      }
-
-    // we are sure here, since this is our experimental code
-    utcb->inst_len = 2;
-    skip_instruction(utcb);
+    }
     return true;
   }
 
-public:
 
   bool  receive(MessageIrq &msg)
   {
@@ -531,6 +551,9 @@ public:
       case MessageHostOp::OP_ATTACH_MSI:
 	res  = Sigma0Base::hostop(msg);
 	create_irq_thread(msg.msi_gsi, do_gsi);
+	break;
+      case MessageHostOp::OP_CREATE_VCPU_BACKEND:
+	create_vcpu(msg.vcpu, _hip->has_svm());
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:
@@ -638,20 +661,6 @@ public:
     create_irq_thread(~0u, do_disk);
     create_irq_thread(~0u, do_timer);
     create_irq_thread(~0u, do_network);
-
-    Logging::printf("create VCPUs\n");
-    for (unsigned i=0; i < Config::NUM_VCPUS; i++) {
-      _mb->vcpustate(i)->block_sem = new KernelSemaphore(_cap_free++);
-      if (create_sm(_mb->vcpustate(i)->block_sem->sm()))
-	Logging::panic("could not create blocking semaphore\n");
-
-
-      _mb->vcpustate(i)->cap_vcpu = _cap_free++;
-      if (create_ec(_mb->vcpustate(i)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false)
-	  || create_sc(_cap_free++, _mb->vcpustate(i)->cap_vcpu, Qpd(1, 10000)))
-	Logging::panic("creating a VCPU failed - does your CPU support VMX?");
-    }
-
     _lock.up();
     Logging::printf("INIT done\n");
 

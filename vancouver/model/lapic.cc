@@ -23,8 +23,8 @@ class X2Apic : public LocalApic, public StaticReceiver<X2Apic>
 {
   bool in_x2apic_mode;
   unsigned long long _msr;
-#define REGBASE "lapic.cc"
-#include "reg.h"
+#define REGBASE "../model/lapic.cc"
+#include "model/reg.h"
 
 public:
   bool  receive(MessageMemRead &msg)

@@ -65,6 +65,7 @@ class CpuidExecutor : public StaticReceiver<CpuidExecutor>
     // done
     msg.cpu->eip += msg.cpu->inst_len;
     msg.cpu->head._pid = 0;
+    Logging::printf("cpuid done eip %x %x:%x:%x:%x\n", msg.cpu->eip, msg.cpu->eax, msg.cpu->ebx, msg.cpu->ecx, msg.cpu->edx);
     return true;
   };
 };

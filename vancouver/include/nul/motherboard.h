@@ -25,6 +25,7 @@
 #include "bus.h"
 #include "message.h"
 #include "timer.h"
+class VCpu;
 
 /**
  * A virtual motherboard is a collection of busses.
@@ -35,8 +36,6 @@
 class Motherboard : public StaticReceiver<Motherboard>
 {
   const char *debug_getname() { return "Motherboard"; };
- public:
- private:
   VirtualCpuState _cpustate[Config::NUM_VCPUS];
   Clock *_clock;
  public:
@@ -75,6 +74,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageNetwork>      bus_network;
   DBus<MessageVesa>         bus_vesa;
 
+  VCpu *last_vcpu;
   VirtualCpuState *vcpustate(unsigned vcpunr) { assert(vcpunr < Config::NUM_VCPUS); return _cpustate + vcpunr; }
   Clock *clock() { return _clock; }
 
@@ -149,5 +149,5 @@ class Motherboard : public StaticReceiver<Motherboard>
   }
 
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
-  Motherboard(Clock *__clock) : _clock(__clock)  {}
+  Motherboard(Clock *__clock) : _clock(__clock), last_vcpu(0)  {}
 };

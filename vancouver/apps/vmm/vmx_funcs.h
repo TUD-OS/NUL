@@ -36,15 +36,15 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
 	do_recall(pid, utcb);
 	)
-VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
-	if (!handle_special_cpuid(utcb))
-	  {
-	    utcb->head._pid = 10;
-	    COUNTER_INC("cpuid");
-	    if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-	    // XXX call skip instruction for MTD_STATE update
-	  }
+VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ,
+	COUNTER_INC("cpuid");
+	CpuMessage msg(CpuMessage::TYPE_CPUID, *utcb);
+
+	// XXX get VPCU instance from the UTCB
+	if (!_mb->last_vcpu->executor.send(msg, true, msg.type))
+	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	skip_instruction(utcb);
+	do_recall(pid, utcb);
 	)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	COUNTER_INC("hlt");
@@ -138,7 +138,7 @@ VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 
 // and now the SVM portals
 VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, utcb); )
-VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_ALL, if (!handle_special_cpuid(utcb)) svm_invalid(pid, utcb); )
+VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ, utcb->inst_len = 2; vmx_cpuid(pid, utcb); )
 VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, utcb); )
 VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
 	{
