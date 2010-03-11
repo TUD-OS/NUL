@@ -140,7 +140,7 @@ class AhciPort : public FisReceiver
       }
 
     // copy to user
-    if (PxCMD & 0x10)  copy_out(PxFBU + copy_offset, fis, fislen * 4);
+    if (PxCMD & 0x10)  copy_out(PxFB + copy_offset, fis, fislen * 4);
     if (fis[0] & 0x4000) _parent->trigger_irq(this);
   };
 
@@ -200,7 +200,7 @@ class AhciPort : public FisReceiver
 	      _inprogress |= 1 << slot;
 
 	      unsigned  cl[4];
-	      copy_in(PxCLBU +  slot * 0x20, cl, sizeof(cl));
+	      copy_in(PxCLB +  slot * 0x20, cl, sizeof(cl));
 	      unsigned clflags  = cl[0];
 
 	      unsigned ct[clflags & 0x1f];
