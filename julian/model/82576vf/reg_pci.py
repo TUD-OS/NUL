@@ -10,7 +10,7 @@ rset = [
     { 'name' : 'rPCISTSCTRL',
       'offset' : 4,
       'initial' : 0x100000,
-      'mutable' : 0x4 },  # Bus Master Enable
+      'mutable' : 0x6 },  # Bus Master Enable, Memory Decode
     { 'name' : 'rPCICCRVID', 'offset' :    8, 'initial' : 0x02000001, 'constant' : True },
     { 'name' : 'rBIST',      'offset' : 0x0C, 'initial' : 0x0, 'constant' : True },
     { 'name' : 'rPCIBAR0',   'offset' : 0x10, 'initial' : 0x0, 'mutable' : ~0x3FFF,

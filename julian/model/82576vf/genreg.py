@@ -44,11 +44,11 @@ def unsigned(n):
 # computed from actual register access traces. Sounds like
 # profile-guided optimization for hardware models. Good idea?
 def dispatch_gen(var, regs, filt, mangle, out, default = ""):
-    out("\tswitch (%s) {" % var)
+    out("\tswitch (%s/4) {" % (var))
     for r in sorted(regs, offset_cmp):
         if filt(r):
-            out("\tcase 0x%x: %s break;" % (r['offset'], mangle(r) ))
-    out ("\tdefault: %s break;" % default)
+            out("\tcase 0x%x: %s break;" % (r['offset']/4, mangle(r) ))
+    out ("\tdefault: Logging::printf(\"XXX %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, offset*4); %s break;" % default)
     out ("\t}")
 
 def read_dispatch_gen(name, regs, out):
@@ -93,7 +93,10 @@ def writer_gen(r, out):
         target = r['set']['name']
     else:
         target = r['name']
-        
+
+    if 'callback' in r:
+        out("\tuint32_t old = %s;" % target);
+
     if 'w1c' in r:
         out("\tnv = %s & ~val;\t// W1C"  % target)
     elif 'w1s' in r:
@@ -106,7 +109,7 @@ def writer_gen(r, out):
     out("\t%s = nv;" % target)
 
     if 'callback' in r:
-        out("\t%s();" % r['callback'])
+        out("\t%s(old, val);" % r['callback'])
     out("}")
 
 def reader_gen(r, out):
@@ -120,7 +123,7 @@ def reader_gen(r, out):
     else:
         out("\tuint32_t val = %s;" % r['name'])
     if 'rc' in r:
-        out("\t%s = 0;\t// RC" % r['name'])
+        out("\t%s &= ~0x%x;\t// RC" % (r['name'], unsigned(r['rc'])))
     out("\treturn val;")
     out("}")
 
@@ -138,6 +141,7 @@ def class_gen(name, rset, out):
     out("/// This file has been automatically generated.")
     out("/// Generated on %s by %s" % (strftime("%a, %d %b %Y %H:%M:%S", gmtime()), getuser()))
     for r in rset:
+        assert r['offset'] % 4 == 0
         if 'constant' in r:
             assert 'initial' in r
             r['read-only'] = True
