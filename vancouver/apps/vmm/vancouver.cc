@@ -242,9 +242,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     // create devices from cmdline
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
-
-    // XXX add ourself to all CPUs!
-    _mb->last_vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
   }
 
 
@@ -576,6 +573,7 @@ public:
 	break;
       case MessageHostOp::OP_CREATE_VCPU_BACKEND:
 	create_vcpu(msg.vcpu, _hip->has_svm());
+	msg.vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:

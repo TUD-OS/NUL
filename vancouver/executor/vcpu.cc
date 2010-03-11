@@ -137,7 +137,6 @@ PARAM(vcpu,
       mb.last_vcpu = dev;
       MessageHostOp msg(dev);
       if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
-
       ,
       "vcpu - create a new VCPU");
 
