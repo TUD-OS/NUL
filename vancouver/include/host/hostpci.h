@@ -238,7 +238,7 @@ class HostPci
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
 	if (!bus_hostop.send(msg2) || !msg2.ptr)
 	  Logging::panic("can not map MSIX bar %lx+%x", msg2.value, msg2.len);
-      
+
 	msix_table = msg2.ptr + (base & 0xfff);
       }
 

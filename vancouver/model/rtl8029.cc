@@ -29,7 +29,6 @@
 class Rtl8029: public PciConfigHelper<Rtl8029>,
 	       public StaticReceiver<Rtl8029>
 {
-  enum { BAR_MASK = 0xffffffe0, };
   DBus<MessageNetwork> &_bus_network;
   DBus<MessageIrq>     &_bus_irqlines;
   unsigned char _irq;
@@ -272,8 +271,8 @@ class Rtl8029: public PciConfigHelper<Rtl8029>,
   }
 
   bool match_bar(unsigned long &address) {
-    bool res = !((address ^ PCI_BAR) & BAR_MASK);
-    address &= ~BAR_MASK;
+    bool res = !((address ^ PCI_BAR) & PCI_BAR_mask);
+    address &= ~PCI_BAR_mask;
     return res;
   }
 
@@ -346,12 +345,12 @@ PARAM(rtl8029,
 
 
 	// set IO region and IRQ
-	dev->PCI_write(0xf, argv[1]);
-	dev->PCI_write(0x4, argv[2]);
+	dev->PCI_write(Rtl8029::PCI_INTR_offset, argv[1]);
+	dev->PCI_write(Rtl8029::PCI_BAR_offset,  argv[2]);
 
 	// set default state, this is normally done by the BIOS
 	// enable IO accesses
-	dev->PCI_write(0x1, 1);
+	dev->PCI_write(Rtl8029::PCI_CMD_STS_offset, 1);
       },
       "rtl8029:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus",
       "Example: 'rtl8029:,9,0x300'.",
@@ -361,7 +360,7 @@ REGSET(PCI,
        REG_RO(PCI_ID,       0x0, 0x802910ec)
        REG_RW(PCI_CMD_STS,  0x1, 0x02000000, 0x0003)
        REG_RO(PCI_RID_CC,   0x2, 0x02000000)
-       REG_RW(PCI_BAR,      0x4, 1, BAR_MASK)
+       REG_RW(PCI_BAR,      0x4, 1, 0xffffffe0)
        REG_RO(PCI_SS,       0xb, 0x802910ec)
        REG_RW(PCI_INTR,     0xf, 0x0100, 0x0f));
 #endif

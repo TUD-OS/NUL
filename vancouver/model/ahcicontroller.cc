@@ -159,18 +159,15 @@ class AhciPort : public FisReceiver
   void comreset()
   {
     // reset all device registers except CL+FB to default values
-    reset_PxIS();
-    reset_PxIE();
-    reset_PxCMD();
-    reset_PxTFD();
-    reset_PxSIG();
-    reset_PxSSTS();
-    reset_PxSCTL();
-    reset_PxSERR();
-    reset_PxCI();
-    reset_PxSNTF();
-    reset_PxFBS();
-
+    PxIS   = PxIS_reset;
+    PxIE   = PxIE_reset;
+    PxCMD  = PxCMD_reset;
+    PxTFD  = PxTFD_reset;
+    PxSIG  = PxSIG_reset;
+    PxSSTS = PxSSTS_reset;
+    PxSCTL = PxSCTL_reset;
+    PxSERR = PxSERR_reset;
+    PxCI   = PxCI_reset;
     _need_initial_fis = true;
     _inprogress = 0;
 
@@ -251,8 +248,8 @@ REGSET(AhciPort,
 		{
 		  PxCMD &= ~(1 << 15);
 		  // reset PxSACT
-		  reset_PxSACT();
-		  reset_PxCI();
+		  PxSACT = PxSACT_reset;
+		  PxCI   = PxCI_reset;
 		}
 	      )
        REG_RW(PxTFD,   0x20, 0x7f, 0)
@@ -263,7 +260,7 @@ REGSET(AhciPort,
 	      case 1: comreset(); break;
 	      case 2:
 		// put device in offline mode
-		reset_PxSSTS();
+		PxSSTS = PxSSTS_reset;
 	      default:
 		break;
 	      })
@@ -280,7 +277,7 @@ REGSET(PCI,
        REG_RO(PCI_ID,        0x0, 0x275c8086)
        REG_RW(PCI_CMD_STS,   0x1, 0x100000, 0x0406)
        REG_RO(PCI_RID_CC,    0x2, 0x01060102)
-       REG_RW(PCI_ABAR,      0x9, 0, ABAR_MASK)
+       REG_RW(PCI_ABAR,      0x9, 0, 0xffffe000)
        REG_RO(PCI_SS,        0xb, 0x275c8086)
        REG_RO(PCI_CAP,       0xd, 0x80)
        REG_RW(PCI_INTR,      0xf, 0x0100, 0xff)
@@ -299,8 +296,8 @@ REGSET(AhciController,
 	      if (REG_GHC & 1) {
 		for (unsigned i=0; i < MAX_PORTS; i++)  _ports[i].comreset();
 		// set all registers to default values
-		reset_REG_IS();
-		reset_REG_GHC();
+		REG_IS  = REG_IS_reset;
+		REG_GHC = REG_GHC_reset;
 	      })
        REG_WR(REG_IS,    0x8, 0, 0xffffffff, 0x00000000, 0xffffffff, )
        REG_RW(REG_PI,    0xc, 1, 0)
@@ -325,7 +322,6 @@ class AhciController : public ParentIrqProvider,
 {
   enum {
     MAX_PORTS = 32,
-    ABAR_MASK = 0xffffe000,
   };
   DBus<MessageIrq> &_bus_irqlines;
   unsigned char _irq;
@@ -336,8 +332,8 @@ class AhciController : public ParentIrqProvider,
 #include "reg.h"
 
   bool match_bar(unsigned long &address) {
-    bool res = !((address ^ PCI_ABAR) & ABAR_MASK);
-    address &= ~ABAR_MASK;
+    bool res = !((address ^ PCI_ABAR) & PCI_ABAR_mask);
+    address &= ~PCI_ABAR_mask;
     return res;
   }
 
@@ -449,11 +445,11 @@ PARAM(ahci,
 	mb.bus_ahcicontroller.add(dev, &AhciController::receive_static<MessageAhciSetDrive>);
 
 	// set default state, this is normally done by the BIOS
-	// enable IRQ, busmaster DMA and memory accesses
-	dev->PCI_write(0x1, 0x406);
 	// set MMIO region and IRQ
-	dev->PCI_write(0x9, argv[0]);
-	dev->PCI_write(0xf, argv[1]);
+	dev->PCI_write(AhciController::PCI_ABAR_offset, argv[0]);
+	dev->PCI_write(AhciController::PCI_INTR_offset, argv[1]);
+	// enable IRQ, busmaster DMA and memory accesses
+	dev->PCI_write(AhciController::PCI_CMD_STS_offset, 0x406);
       },
       "ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.",
       "Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
