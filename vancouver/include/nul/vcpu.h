@@ -45,8 +45,10 @@ class VCpu
 {
   VCpu *_last;
 public:
+  DBus<CpuMessage> executor;
+
   VCpu *get_last() { return _last; }
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, value); return executor.send(msg); }
-  DBus<CpuMessage> executor;
+
   VCpu (VCpu *last) : _last(last) {}
 };

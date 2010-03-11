@@ -455,6 +455,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 public:
   bool receive(CpuMessage &msg) {
+    if (msg.type != CpuMessage::TYPE_CPUID) return false;
     switch (msg.cpuid_index) {
       case 0x40000000:
 	//syscall(254, msg.cpu->ebx, 0, 0, 0);
