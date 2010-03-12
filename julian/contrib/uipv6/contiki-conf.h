@@ -36,6 +36,10 @@
 
 #include <stdint.h>
 
+#ifndef NULL
+# error Your compiler sucks! (Should have included stddef.h in our version of stdint.h)
+#endif
+
 #define CC_CONF_REGISTER_ARGS          0 
 #define CC_CONF_FUNCTION_POINTER_ARGS  1
 #define CC_CONF_FASTCALL
