@@ -9,9 +9,10 @@
  * any shared resource.
  */
 
-#include "nul/motherboard.h"
-#include "host/hostvf.h"
-#include "host/host82576.h"
+#include <nul/types.h>
+#include <nul/motherboard.h>
+#include <host/hostvf.h>
+#include <host/host82576.h>
 
 // lspci -v:
 // 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
@@ -55,7 +56,7 @@ class Host82576 : public Base82576, public StaticReceiver<Host82576>
 {
 private:
   DBus<MessageHostOp> &_bus_hostop;
-  volatile uint32_t *_hwreg;     // Device MMIO registers (128K)
+  volatile uint32 *_hwreg;     // Device MMIO registers (128K)
   unsigned _hostirq;
 
   EthernetAddr _mac;
@@ -64,16 +65,16 @@ private:
   unsigned _msix_table_size;
 
   struct msix_table {
-    volatile uint64_t msg_addr;
-    volatile uint32_t msg_data;
-    volatile uint32_t vector_control;
+    volatile uint64 msg_addr;
+    volatile uint32 msg_data;
+    volatile uint32 vector_control;
   } *_msix_table;
 
   const char *debug_getname() { return "Host82576"; }
 
   void log_device_status()
   {
-    uint32_t status = _hwreg[STATUS];
+    uint32 status = _hwreg[STATUS];
     const char *up = (status & STATUS_LU ? "UP" : "DOWN");
     const char *speed[] = { "10", "100", "1000", "1000" };
     msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX\n", up,
@@ -92,7 +93,7 @@ private:
   void vf_set_mac(unsigned vf_no, EthernetAddr mac)
   {
     msg(VF, "VF%u is now " MAC_FMT "\n", vf_no, MAC_SPLIT(&mac));
-    _hwreg[RAL0 + vf_no*2] = (uint32_t)mac.raw;
+    _hwreg[RAL0 + vf_no*2] = mac.raw & 0xFFFFFFFFU;
     _hwreg[RAH0 + vf_no*2] = (mac.raw>>32) | RAH_AV | (1 << (RAH_POOLSEL_SHIFT + vf_no));
   }
 
@@ -101,7 +102,7 @@ private:
     assert(vf_no < 8);
     unsigned pfmbx    = PFMB0 + vf_no;
     unsigned pfmbxmem = PFMBMEM + vf_no*0x10;
-    uint32_t mbxmsg[0x10];
+    uint32 mbxmsg[0x10];
 
     // Message copy-in
     for (unsigned i = 0; i < 0x10; i++)
@@ -159,7 +160,7 @@ private:
     case VF_SET_MAC_ADDR:
       {
 	EthernetAddr vf_mac;
-	vf_mac.raw = (uint64_t)_hwreg[pfmbxmem + 1] | ((uint64_t)_hwreg[pfmbxmem + 2] & 0xFFFF) << 32;
+	vf_mac.raw = (uint64)_hwreg[pfmbxmem + 1] | ((uint64)_hwreg[pfmbxmem + 2] & 0xFFFF) << 32;
 	vf_set_mac(vf_no, vf_mac);
       }
       _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | CMD_ACK | CTS;
@@ -187,7 +188,7 @@ public:
   {
     // Hardware initializes the Receive Address registers of queue 0
     // with the MAC address stored in the EEPROM.
-    EthernetAddr a = {{ _hwreg[RAL0] | (((uint64_t)_hwreg[RAH0] & 0xFFFF) << 32) }};
+    EthernetAddr a = {{ _hwreg[RAL0] | (((uint64)_hwreg[RAH0] & 0xFFFF) << 32) }};
     return a;
   }
 
@@ -195,7 +196,7 @@ public:
   {
     if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
 
-    uint32_t icr = _hwreg[ICR];
+    uint32 icr = _hwreg[ICR];
 
     if ((icr & _hwreg[IMS]) == 0) {
       // Spurious IRQ.
@@ -211,18 +212,18 @@ public:
     }
 
     if (icr & IRQ_VMMB) {
-      uint32_t vflre  = _hwreg[VFLRE];
-      uint32_t mbvficr = _hwreg[MBVFICR];
-      //uint32_t mbvfimr = _hwreg[MBVFIMR];
+      uint32 vflre  = _hwreg[VFLRE];
+      uint32 mbvficr = _hwreg[MBVFICR];
+      //uint32 mbvfimr = _hwreg[MBVFIMR];
       //msg(VF, "VMMB: VFLRE %08x MBVFICR %08x MBVFIMR %08x\n", vflre, mbvficr, mbvfimr);
 
       // Check FLRs
-      for (uint32_t mask = 1, cur = 0; cur < 8; cur++, mask<<=1)
+      for (uint32 mask = 1, cur = 0; cur < 8; cur++, mask<<=1)
 	if (vflre & mask)
 	  handle_vf_reset(cur);
 
       // Check incoming
-      for (uint32_t mask = 1, cur = 0; cur < 8; cur++, mask<<=1) {
+      for (uint32 mask = 1, cur = 0; cur < 8; cur++, mask<<=1) {
 	if (mbvficr & mask)
 	  handle_vf_message(cur);
 	if (mbvficr & (mask << 16)) // Check ACKs
@@ -257,23 +258,23 @@ public:
     _hwreg   = 0;
 
     for (unsigned bar_i = 0; bar_i < pci.MAX_BAR; bar_i++) {
-      uint32_t bar_addr = pci.BAR0 + bar_i;
-      uint32_t bar = pci.conf_read(_bdf, bar_addr);
-      size_t size  = pci.bar_size(_bdf, bar_addr);
+      uint32 bar_addr = pci.BAR0 + bar_i;
+      uint32 bar = pci.conf_read(_bdf, bar_addr);
+      uint64 size  = pci.bar_size(_bdf, bar_addr);
 
       if (bar == 0) continue;
-      msg(PCI, "BAR %u: %08x (size %08zx)\n", bar_i, bar, size);
+      msg(PCI, "BAR %u: %08x (size %08llx)\n", bar_i, bar, size);
 
       if ((bar & pci.BAR_IO) != 1) {
 	// Memory BAR
 	// XXX 64-bit bars!
-	uint32_t phys_addr = bar & pci.BAR_MEM_MASK;
+	uint32 phys_addr = bar & pci.BAR_MEM_MASK;
 	
 	MessageHostOp iomsg(MessageHostOp::OP_ALLOC_IOMEM, phys_addr & ~0xFFF, size);
 	if (bus_hostop.send(iomsg) && iomsg.ptr) {
 
 	  if (size == (1<<17 /* 128K */)) {
-	    _hwreg = reinterpret_cast<volatile uint32_t *>(iomsg.ptr);
+	    _hwreg = reinterpret_cast<volatile uint32 *>(iomsg.ptr);
 	    msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
 	  }
 

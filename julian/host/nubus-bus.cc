@@ -15,9 +15,9 @@ PCIBus::PCIBus(PCIDevice &bridge)
   bridge.bus().add_bus(this);
 
   {
-    uint32_t memclaim = _bridge->conf_read(8);
-    uint32_t limit = ((memclaim >> 20)+1) << 20;
-    uint32_t base = memclaim<<16;
+    uint32 memclaim = _bridge->conf_read(8);
+    uint32 limit = ((memclaim >> 20)+1) << 20;
+    uint32 base = memclaim<<16;
     Region bridge_claim(base, limit - base);
     _memregion.add(bridge_claim);
   }
@@ -57,12 +57,12 @@ PCIDevice *PCIBus::add_device(PCIDevice *device)
   return device;
 }
 
-uint32_t PCIBus::conf_read(uint8_t df, uint16_t reg)
+uint32 PCIBus::conf_read(uint8 df, uint16 reg)
 {
   return _manager.pci().conf_read(_no<<8 | df, reg);
 }
 
-bool PCIBus::conf_write(uint8_t df, uint16_t reg, uint32_t val)
+bool PCIBus::conf_write(uint8 df, uint16 reg, uint32 val)
 {
   _manager.pci().conf_write(_no<<8 | df, reg, val);
   return true;
@@ -71,7 +71,7 @@ bool PCIBus::conf_write(uint8_t df, uint16_t reg, uint32_t val)
 bool PCIBus::ari_enabled()
 {
   if (!_bridge) return false;
-  uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
+  uint8 express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
   return express_cap ? ((_bridge->conf_read(express_cap + 0xa) & (1<<5)) != 0) : false;
 }
 
@@ -79,10 +79,10 @@ bool PCIBus::ari_enable()
 { 
   if (!_bridge) return false;
   if (_bridge->dclass() != CLASS_PCI_TO_PCI_BRIDGE) return false;
-  uint8_t express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
+  uint8 express_cap = _bridge->find_cap(CAP_PCI_EXPRESS);
   if (express_cap == 0) return false;
   
-  uint32_t devctrl2 = _bridge->conf_read(express_cap + 0xa);
+  uint32 devctrl2 = _bridge->conf_read(express_cap + 0xa);
   _bridge->conf_write(express_cap + 0xa,  devctrl2 | (1<<5));
   
   assert(ari_enabled());
@@ -94,7 +94,7 @@ void PCIBus::discover_devices()
   if (ari_enabled()) {
     Logging::printf("ARI-aware device discovery for bus %u.\n", _no);
     // ARI-aware discovery
-    uint16_t next = 0;
+    uint16 next = 0;
     do {
       if (device_exists(next)) {
 	PCIDevice *dev = add_device(new PCIDevice(*this, next));

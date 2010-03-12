@@ -56,7 +56,7 @@ def read_dispatch_gen(name, regs, out):
         return "val = %s_read();" % r['name']
     def filt(r):
         return 'write-only' not in r
-    out ("\nuint32_t %s(uint32_t offset)\n{\n\tuint32_t val;" % name)
+    out ("\nuint32 %s(uint32 offset)\n{\n\tuint32 val;" % name)
     dispatch_gen("offset", regs, filt, mangle, out, "val = 0; /* UNDEFINED! */")
     out ("\treturn val;\n}")
 
@@ -65,7 +65,7 @@ def write_dispatch_gen(name, regs, out):
         return "%s_write(value);" % r['name']
     def filt(r):
         return 'read-only' not in r
-    out ("\nvoid %s(uint32_t offset, uint32_t value)\n{" % name)
+    out ("\nvoid %s(uint32 offset, uint32 value)\n{" % name)
     dispatch_gen("offset", regs, filt, mangle, out, "/* UNDEFINED! */")
     out ("}")
 
@@ -77,7 +77,7 @@ def declaration_gen(name, rset, out):
             pass
         else:
             inits.append("\t%s = 0x%xU;" % (r['name'], unsigned(r['initial'])))
-            out("uint32_t %s;" % r['name'])
+            out("uint32 %s;" % r['name'])
     out("\nvoid %s_init()\n{" % name)
     for line in inits:
         out(line)
@@ -87,15 +87,15 @@ def declaration_gen(name, rset, out):
 def writer_gen(r, out):
     if 'read-only' in r:
         return
-    out("\nvoid %s_write(uint32_t val)\n{" % r['name'])
-    out("\tuint32_t nv;")
+    out("\nvoid %s_write(uint32 val)\n{" % r['name'])
+    out("\tuint32 nv;")
     if 'set' in r:
         target = r['set']['name']
     else:
         target = r['name']
 
     if 'callback' in r:
-        out("\tuint32_t old = %s;" % target);
+        out("\tuint32 old = %s;" % target);
 
     if 'w1c' in r:
         out("\tnv = %s & ~val;\t// W1C"  % target)
@@ -115,13 +115,13 @@ def writer_gen(r, out):
 def reader_gen(r, out):
     if 'write-only' in r:
         return
-    out("\nuint32_t %s_read()\n{" % r['name'])
+    out("\nuint32 %s_read()\n{" % r['name'])
     if 'read-compute' in r:
-        out("\tuint32_t val = %s();" % r['read-compute'])
+        out("\tuint32 val = %s();" % r['read-compute'])
     elif 'constant' in r:
-        out("\tuint32_t val = 0x%xU;" % unsigned(r['initial']))
+        out("\tuint32 val = 0x%xU;" % unsigned(r['initial']))
     else:
-        out("\tuint32_t val = %s;" % r['name'])
+        out("\tuint32 val = %s;" % r['name'])
     if 'rc' in r:
         out("\t%s &= ~0x%x;\t// RC" % (r['name'], unsigned(r['rc'])))
     out("\treturn val;")

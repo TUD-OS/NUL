@@ -7,11 +7,11 @@
 
 static const unsigned desc_ring_len = 32;
 
-typedef uint8_t packet_buffer[2048];
+typedef uint8 packet_buffer[2048];
 
 struct dma_desc {
-  uint64_t lo;
-  uint64_t hi;
+  uint64 lo;
+  uint64 hi;
 };
 
 class Host82576VF : public Base82576, public StaticReceiver<Host82576VF>
@@ -26,12 +26,12 @@ private:
     void (Host82576VF::*handle)();
   } _hostirqs[3];
 
-  volatile uint32_t *_hwreg;     // Device MMIO registers (16K)
+  volatile uint32 *_hwreg;     // Device MMIO registers (16K)
 
   struct msix_table {
-    volatile uint64_t msg_addr;
-    volatile uint32_t msg_data;
-    volatile uint32_t vector_control;
+    volatile uint64 msg_addr;
+    volatile uint32 msg_data;
+    volatile uint32 vector_control;
   } *_msix_table;
 
   EthernetAddr _mac;
@@ -63,7 +63,7 @@ public:
     unsigned handle = desc_ring_len/2;
     dma_desc *cur;
     while ((cur = &_rx_ring[last_rx])->hi & 1 /* done? */) {
-      uint16_t plen = cur->hi >> 32;
+      uint16 plen = cur->hi >> 32;
       //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
 	msg(INFO, "Too many packets. Exit handle_rx for now.\n");
@@ -74,8 +74,8 @@ public:
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
       
-      cur->lo = (uintptr_t)_rx_buf[last_rx];
-      cur->hi = 0;
+      cur->lo = (mword)_rx_buf[last_rx];
+      cur->hi = ((mword)_rx_buf[last_rx])>>32;
 
       last_rx = (last_rx+1) % desc_ring_len;
       _hwreg[RDT0] = last_rx;
@@ -87,7 +87,7 @@ public:
   {
     dma_desc *cur;
     while (((cur = &_tx_ring[last_tx])->hi >> 32) & 1 /* done? */) {
-      uint16_t plen = cur->hi >> 32;
+      uint16 plen = cur->hi >> 32;
       //msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
 
       cur->hi = cur->lo = 0;
@@ -99,7 +99,7 @@ public:
   {
     // MBX IRQ: Just handle RESET for now. Seems like we don't
     // need more right now.
-    uint32_t vmb = _hwreg[VMB];
+    uint32 vmb = _hwreg[VMB];
 
     if (vmb & (1<<4 /* PFSTS */)) {
       // Claim message buffer
@@ -108,11 +108,11 @@ public:
 	msg(INFO, "MBX Could not claim buffer.\n");
 	return;
       }
-      uint32_t msg0 = _hwreg[VBMEM];
+      uint32 msg0 = _hwreg[VBMEM];
       switch (msg0 & (0xFF|CMD_ACK|CMD_NACK)) {
       case (VF_RESET | CMD_ACK):
 	_mac.raw = _hwreg[VBMEM + 1];
-	_mac.raw |= (((uint64_t)_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
+	_mac.raw |= (((uint64)_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
 	_hwreg[VMB] = 1<<1 /* ACK */;
 	msg(VF, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 	reset_complete();
@@ -153,8 +153,8 @@ public:
     // If the dma descriptor is not zero, it is still in use.
     if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
 
-    _tx_ring[tail].lo = (uintptr_t)_tx_buf[tail];
-    _tx_ring[tail].hi = (uint64_t)nmsg.len | ((uint64_t)nmsg.len)<<46
+    _tx_ring[tail].lo = (mword)_tx_buf[tail];
+    _tx_ring[tail].hi = (uint64)nmsg.len | ((uint64)nmsg.len)<<46
       | (3U<<20 /* adv descriptor */)
       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
       | (1U<<27 /* Report Status = IRQ */);
@@ -171,7 +171,7 @@ public:
 	      void *reg,
 	      void *msix_reg)
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
-      _hwreg((volatile uint32_t *)reg), _msix_table((struct msix_table *)msix_reg), _up(false)
+      _hwreg((volatile uint32 *)reg), _msix_table((struct msix_table *)msix_reg), _up(false)
   {
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
@@ -206,7 +206,7 @@ public:
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
 
     // Enable RX
-    _hwreg[RDBAL0] = (uintptr_t)_rx_ring;
+    _hwreg[RDBAL0] = (mword)_rx_ring;
     _hwreg[RDBAH0] = 0;
     _hwreg[RDLEN0] = sizeof(_rx_ring);
     msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
@@ -215,7 +215,7 @@ public:
     assert(_hwreg[RDH0] == 0);
 
     // Enable TX
-    _hwreg[TDBAL0] = (uintptr_t)_tx_ring;
+    _hwreg[TDBAL0] = (mword)_tx_ring;
     _hwreg[TDBAH0] = 0;
     _hwreg[TDLEN0] = sizeof(_tx_ring);
     msg(INFO, "%08x bytes allocated for TX descriptor ring (%d descriptors).\n", _hwreg[TDLEN0], desc_ring_len);
@@ -226,7 +226,7 @@ public:
     // Prepare rings
     last_rx = last_tx = 0;
     for (unsigned i = 0; i < desc_ring_len; i++) {
-      _rx_ring[i].lo = (uintptr_t)_rx_buf[i];
+      _rx_ring[i].lo = (mword)_rx_buf[i];
       _rx_ring[i].hi = 0;
     }
 
@@ -239,9 +239,9 @@ public:
 
 PARAM(host82576vf, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-    uint16_t parent_bdf = argv[0];
+    uint16 parent_bdf = argv[0];
     unsigned vf_no      = argv[1];
-    uint16_t vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
+    uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
 
     if (pci.vf_device_id(parent_bdf) != 0x10ca8086) {
@@ -250,7 +250,7 @@ PARAM(host82576vf, {
     }
 
     unsigned sriov_cap = pci.find_extended_cap(parent_bdf, pci.EXTCAP_SRIOV);
-    uint16_t numvfs = pci.conf_read(parent_bdf, sriov_cap + 4) & 0xFFFF;
+    uint16 numvfs = pci.conf_read(parent_bdf, sriov_cap + 4) & 0xFFFF;
     if (vf_no >= numvfs) {
       Logging::printf("VF%d does not exist.\n", vf_no);
       return;
@@ -285,10 +285,10 @@ PARAM(host82576vf, {
       
       irqs[i] = msg1.msi_gsi;
       // Program MSI-X table
-      volatile uint32_t *msix = (volatile uint32_t *)msix_msg.ptr;
-      msix[i*4 + 0] = (uint32_t)msg1.msi_address;
-      msix[i*4 + 1] = (uint32_t)(msg1.msi_address>>32);
-      msix[i*4 + 2] = (uint32_t)msg1.msi_value;
+      volatile uint32 *msix = (volatile uint32 *)msix_msg.ptr;
+      msix[i*4 + 0] = (uint32)msg1.msi_address;
+      msix[i*4 + 1] = (uint32)(msg1.msi_address>>32);
+      msix[i*4 + 2] = (uint32)msg1.msi_value;
       msix[i*4 + 3] &= ~1;
     }
     pci.conf_write(vf_bdf, pci.find_cap(vf_bdf, pci.CAP_MSIX), 1U << 31);

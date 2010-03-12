@@ -12,7 +12,7 @@ Base82576::spin(unsigned micros)
 }
 
 bool
-Base82576::wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
+Base82576::wait(volatile uint32 &reg, uint32 mask, uint32 value,
 		unsigned timeout_micros)
 {
   timevalue timeout = _clock->abstime(timeout_micros, 1000000);

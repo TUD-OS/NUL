@@ -5,9 +5,7 @@
 #include <nul/motherboard.h>
 #include <host/hostvf.h>
 #include <nul/region.h>
-#include <cstdint>
-
-
+#include <nul/types.h>
 
 template <class T>
 class ListEntry {
@@ -69,7 +67,7 @@ class PCIDevice;
 class PCIBus : public ListEntry<PCIBus> {
 protected:
   NubusManager &_manager;
-  uint8_t    _no;
+  uint8    _no;
   PCIDevice *_bridge;
 
   PCIDevice *_devices;
@@ -81,20 +79,20 @@ protected:
   void discover_devices();
 
 public:
-  uint8_t       no() const { return _no; }
+  uint8       no() const { return _no; }
   NubusManager &manager() const { return _manager; };
   PCIBus       *add_bus(PCIBus *bus);
   PCIDevice    *add_device(PCIDevice *device);
 
-  void add_used_region(uint64_t base, uint64_t size) {
+  void add_used_region(uint64 base, uint64 size) {
     Region r(base, size);
     _memregion.del(r);
   }
 
-  uint64_t alloc_mmio_window(uint64_t size) { return _memregion.alloc((unsigned long)size, 12); }
+  uint64 alloc_mmio_window(uint64 size) { return _memregion.alloc((unsigned long)size, 12); }
 
-  uint32_t conf_read(uint8_t df, uint16_t reg);
-  bool     conf_write(uint8_t df, uint16_t reg, uint32_t val);
+  uint32 conf_read(uint8 df, uint16 reg);
+  bool     conf_write(uint8 df, uint16 reg, uint32 val);
 
   bool ari_enable();
   bool ari_enabled();
@@ -108,52 +106,52 @@ public:
 class PCIDevice : public ListEntry<PCIDevice> {
 protected:
   PCIBus &_bus;
-  uint8_t _df;
-  uint32_t _vendor;		// First word of ConfigSpace
-  uint16_t _dclass;
-  uint8_t _header_type;
+  uint8 _df;
+  uint32 _vendor;		// First word of ConfigSpace
+  uint16 _dclass;
+  uint8 _header_type;
 
   // Physical function (only set for VFs)
   PCIDevice *_pf;
 
 public:
   PCIBus     &bus() const { return _bus; }
-  uint32_t    vendor() const { return _vendor; }
-  uint16_t    dclass() const { return _dclass; }
+  uint32    vendor() const { return _vendor; }
+  uint16    dclass() const { return _dclass; }
   bool        multifunction() const { return (_header_type & (1<<7)) != 0; }
   bool        is_vf() const { return _pf != NULL; }
   PCIDevice  *pf() const { return _pf; }
-  uint16_t    bdf() const { return (_bus.no()<<8) | _df; }
+  uint16    bdf() const { return (_bus.no()<<8) | _df; }
 
-  uint32_t conf_read(uint16_t reg);
-  bool     conf_write(uint16_t reg, uint32_t val);
+  uint32 conf_read(uint16 reg);
+  bool     conf_write(uint16 reg, uint32 val);
 
-  uint8_t find_cap(uint8_t id);
-  uint16_t find_extcap(uint16_t id);
+  uint8 find_cap(uint8 id);
+  uint16 find_extcap(uint16 id);
 
   bool ari_capable();
 
-  uint8_t ari_next_function() {
-    uint16_t ari_cap = find_extcap(EXTCAP_ARI);
+  uint8 ari_next_function() {
+    uint16 ari_cap = find_extcap(EXTCAP_ARI);
     if (ari_cap == 0) return 0;
     return (conf_read(ari_cap + 1) >> 8) & 0xFF;
   }
 
-  uint16_t sriov_total_vfs() {
-    uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
+  uint16 sriov_total_vfs() {
+    uint16 sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
     return conf_read(sriov_cap + 3) >> 16;
   }
 
-  uint16_t sriov_device_id() {
-    uint16_t sriov_cap = find_extcap(EXTCAP_SRIOV);
+  uint16 sriov_device_id() {
+    uint16 sriov_cap = find_extcap(EXTCAP_SRIOV);
     if (sriov_cap == 0) return 0;
     return conf_read(sriov_cap + 6) >> 16;
   }
 
-  bool sriov_enable(uint16_t vfs_to_enable);
+  bool sriov_enable(uint16 vfs_to_enable);
 
-  PCIDevice(PCIBus &bus, uint8_t df, PCIDevice *pf = NULL);
+  PCIDevice(PCIBus &bus, uint8 df, PCIDevice *pf = NULL);
 };
 
 

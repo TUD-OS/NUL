@@ -2,14 +2,15 @@
 
 #pragma once
 
-#include "service/logging.h"
-#include "nul/motherboard.h"
-#include <cstdint>
+#include <nul/types.h>
+#include <service/logging.h>
+#include <nul/motherboard.h>
+
 
 struct EthernetAddr {
   union {
-    uint64_t raw;
-    uint8_t byte[6];
+    uint64 raw;
+    uint8 byte[6];
   };
 };
 
@@ -276,12 +277,12 @@ protected:
   Clock *_clock;
 
   void spin(unsigned micros);
-  bool wait(volatile uint32_t &reg, uint32_t mask, uint32_t value,
+  bool wait(volatile uint32 &reg, uint32 mask, uint32 value,
 	    unsigned timeout_micros = 1000000 /* 1s */);
 
   /// Logging
   unsigned _msg_level;
-  uint16_t _bdf;
+  uint16 _bdf;
 
   // Messages are tagged with one or more constants from this
   // bitfield. You can disable certain kinds of messages in the
@@ -300,7 +301,7 @@ protected:
 
   __attribute__ ((format (printf, 3, 4))) void msg(unsigned level, const char *msg, ...);
 
-  Base82576(Clock *clock, unsigned msg_level, uint16_t bdf)
+  Base82576(Clock *clock, unsigned msg_level, uint16 bdf)
     : _clock(clock), _msg_level(msg_level), _bdf(bdf)
   {}
 };

@@ -2,8 +2,6 @@
 
 #include <nul/message.h>
 #include <nul/motherboard.h>
-#include <cstdint>
-
 #include <host/nubus.h>
 
 
