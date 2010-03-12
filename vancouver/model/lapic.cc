@@ -27,10 +27,13 @@ class X2Apic : public StaticReceiver<X2Apic>
   unsigned long long _msr;
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
-  void update_msr(unsigned long long value) {
+  bool update_msr(unsigned long long value) {
+    const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
+    if (value & ~mask) return false;
     _msr = value;
     CpuMessage msg(1, 3, 2, _msr & 0x800 ? 0 : 2);
     _executor.send(msg);
+    return true;
   }
 
 public:
@@ -65,44 +68,53 @@ public:
   }
 
   bool  receive(CpuMessage &msg) {
-    bool res = false;
     switch (msg.type) {
     case CpuMessage::TYPE_RDMSR:
+      // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b) {
 	msg.cpu->edx_eax(_msr);
-	res= true;
-	break;
+	return true;
       }
-      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64) || msg.cpu->ecx == 0x831 || msg.cpu->ecx == 0x80e) return false;
-      res = X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax);
+      // check whether the register is available
+      if (!in_range(msg.cpu->ecx, 0x800, 64)
+	  || !in_x2apic_mode
+	  || msg.cpu->ecx == 0x831
+	  || msg.cpu->ecx == 0x80e) return false;
+
+      // read register
+      if (!X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax)) return false;
+
+      // only the ICR has a top half
       msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
-      break;
+      return true;
     case CpuMessage::TYPE_WRMSR:
-      if (msg.cpu->ecx == 0x1b) {
-	const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
-	update_msr(msg.cpu->edx_eax() & mask);
-	res= true;
-	break;
-      }
-      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64) || msg.cpu->ecx == 0x831 || msg.cpu->ecx == 0x80e || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
-      if (msg.cpu->ecx == 0x830 && !X2Apic_write(0x31, msg.cpu->edx, true)) break;
-      res = X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true);
-      break;
+      // handle APIC base MSR
+      if (msg.cpu->ecx == 0x1b)  return update_msr(msg.cpu->edx_eax());
+
+      // check whether the register is available
+      if (!in_range(msg.cpu->ecx, 0x800, 64)
+	  || !in_x2apic_mode
+	  || msg.cpu->ecx == 0x831
+	  || msg.cpu->ecx == 0x80e
+	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
+
+      // write upper half of ICR
+      if (msg.cpu->ecx == 0x830 && !X2Apic_write(0x31, msg.cpu->edx, true)) return false;
+
+      // write lower half in strict mode for reserved bit checking
+      return X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true);
     case CpuMessage::TYPE_CPUID:
     case CpuMessage::TYPE_CPUID_WRITE:
     case CpuMessage::TYPE_RDTSC:
     default:
-      break;
+      return false;
     }
-    return res;
   }
 
 
   bool  receive(MessageLegacy &msg) {
-    if (msg.type == MessageLegacy::RESET) {
-      update_msr(_ID ? 0xfee00800 : 0xfee00900);
-      return true;
-    }
+    if (msg.type == MessageLegacy::RESET)
+      return update_msr(_ID ? 0xfee00800 : 0xfee00900);
     return false;
   }
 
