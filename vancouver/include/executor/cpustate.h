@@ -28,7 +28,13 @@ class CpuState : public Utcb
   unsigned pm()    { return cr0 & 0x1; }
   unsigned pg()    { return cr0 & 0x80000000; }
   unsigned v86()   { return cr0 & 0x1 && efl & (1 << 17); }
+  void edx_eax(unsigned long long value)
+  {
+    eax = value;
+    edx = value >> 32;
+  };
 
+  unsigned long long edx_eax() {  return static_cast<unsigned long long>(edx) << 32 | eax; };
 };
 
 #define assert_mtr(value) { assert((cpu->head.mtr.untyped() & (value)) == (value)); }
@@ -37,7 +43,6 @@ class CpuState : public Utcb
 
 class InstructionCache;
 class KernelSemaphore;
-class LocalApic;
 /**
  * Some state per VCPU that is not available in the above CPU state.
  *
@@ -90,8 +95,6 @@ class VirtualCpuState
   // MSR state
   unsigned long msr_efer;
 
-  // the LAPCI
-  LocalApic  *apic;
   unsigned lastmsi;
 
   // x87, MMX, SSE2, SSE3

@@ -729,8 +729,7 @@ VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
 	  if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
 	    Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
 	  do_recall(pid, utcb);
-	}
-	)
+	})
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
 	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl);
 	utcb->head._pid = 3;

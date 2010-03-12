@@ -31,14 +31,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     MSR_SYSENTER_EIP,
   };
 
-  void msr_set_value(CpuState *cpu, unsigned long long value)
-  {
-    cpu->eax = value;
-    cpu->edx = value >> 32;
-  };
-
-  unsigned long long msr_get_value(CpuState *cpu) {  return static_cast<unsigned long long>(cpu->edx) << 32 | cpu->eax; };
-
 
   void handle_cpuid(CpuMessage &msg) {
     unsigned reg;
@@ -56,7 +48,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_rdtsc(CpuState *cpu) {
-    msr_set_value(cpu, cpu->tsc_off + Cpu::rdtsc());
+    cpu->edx_eax(cpu->tsc_off + Cpu::rdtsc());
   }
 
 
@@ -68,7 +60,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     case MSR_SYSENTER_CS:
     case MSR_SYSENTER_ESP:
     case MSR_SYSENTER_EIP:
-      msr_set_value(cpu, (&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS]);
+      cpu->edx_eax((&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS]);
       break;
     case 0x8b: // microcode
       // MTRRs
@@ -76,7 +68,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     case 0x258:
     case 0x259:
     case 0x268 ... 0x26f:
-      msr_set_value(cpu, 0);
+      cpu->edx_eax(0);
       break;
     default:
       Logging::printf("unsupported rdmsr %x at %x",  cpu->ecx, cpu->eip);
@@ -89,13 +81,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     switch (cpu->ecx)
       {
       case MSR_TSC:
-	cpu->tsc_off = -Cpu::rdtsc() + msr_get_value(cpu);
-	Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, msr_get_value(cpu));
+	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
+	Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
       case MSR_SYSENTER_CS:
       case MSR_SYSENTER_ESP:
       case MSR_SYSENTER_EIP:
-	(&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS] = msr_get_value(cpu);
+	(&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS] = cpu->edx_eax();
 	break;
       default:
 	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);

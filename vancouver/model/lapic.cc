@@ -15,11 +15,12 @@
  * General Public License version 2 for more details.
  */
 
-#include "model/lapic.h"
-#include "nul/motherboard.h"
-
 #ifndef REGBASE
-class X2Apic : public LocalApic, public StaticReceiver<X2Apic>
+#include "nul/motherboard.h"
+#include "nul/vcpu.h"
+
+
+class X2Apic : public StaticReceiver<X2Apic>
 {
   bool in_x2apic_mode;
   unsigned long long _msr;
@@ -29,10 +30,10 @@ class X2Apic : public LocalApic, public StaticReceiver<X2Apic>
 public:
   bool  receive(MessageMemRead &msg)
   {
-    // XXX 64bit access
-    // XXX distinguish CPUs
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)     || msg.count != 4) return false;
-    if (msg.phys & 0xf || (msg.phys & 0xfff) > 0x40*4 || !X2Apic_write((msg.phys >> 4) & 0x3f, *reinterpret_cast<unsigned *>(msg.ptr)))
+    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || msg.count != 4) return false;
+    if (msg.phys & 0xf
+	|| ((msg.phys & 0xfff) + msg.count) > 0x40*4
+	|| !X2Apic_read((msg.phys >> 4) & 0x3f, reinterpret_cast<unsigned *>(msg.ptr)[0]))
       {}// XXX error indication
     return true;
   }
@@ -40,25 +41,21 @@ public:
 
   bool  receive(MessageMemWrite &msg)
   {
-    // XXX 64bit access
-    // XXX distinguish CPUs
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)     || msg.count != 4) return false;
-    if (msg.phys & 0xf || (msg.phys & 0xfff) > 0x40*4 || !X2Apic_write((msg.phys >> 4) & 0x3f, *reinterpret_cast<unsigned *>(msg.ptr)))
+    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || msg.count != 4) return false;
+    if (msg.phys & 0xf
+	|| ((msg.phys & 0xfff) + msg.count) > 0x40*4
+	|| !X2Apic_write((msg.phys >> 4) & 0x3f, reinterpret_cast<unsigned *>(msg.ptr)[0]))
       {}// XXX error indication
     return true;
   }
 
 
-  bool  receive(MessageExecutor &msg) {
-
-    // detect that we are on our CPU
-    //XXX if (!msg.vcpu->apic != this) return false;
+  bool  receive(CpuMessage &msg) {
     bool res = false;
-    switch (msg.cpu->head._pid) {
-    case 31: // rdmsr
+    switch (msg.type) {
+    case CpuMessage::TYPE_RDMSR:
       if (msg.cpu->ecx == 0x1b) {
-	msg.cpu->eax = _msr;
-	msg.cpu->edx = _msr >> 32;
+	msg.cpu->edx_eax(_msr);
 	res= true;
 	break;
       }
@@ -68,10 +65,10 @@ public:
 	msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
       }
       break;
-    case 32: // wrmsr
+    case CpuMessage::TYPE_WRMSR:
       if (msg.cpu->ecx == 0x1b) {
-	msr = msg.cpu->eax & ~0x6ffu;
-	msr |= static_cast<unsigned long long>(msg.cpu->edx & (1u << (Config::PHYS_ADDR_SIZE - 32)) - 1) << 32;
+	const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
+	_msr = msg.cpu->edx_eax() & mask;
 	res= true;
 	break;
       }
@@ -81,13 +78,11 @@ public:
 	if (msg.cpu->ecx == 0x830) X2Apic_write(0x31, msg.cpu->edx);
       }
       break;
+    case CpuMessage::TYPE_CPUID:
+    case CpuMessage::TYPE_CPUID_WRITE:
+    case CpuMessage::TYPE_RDTSC:
     default:
       break;
-    }
-    if (res) {
-      msg.cpu->eip += msg.cpu->inst_len;
-      msg.cpu->head._pid = 0;
-      return true;
     }
     return false;
   }
@@ -102,8 +97,8 @@ public:
     return false;
   }
 
-  X2Apic(unsigned _initial_apic_id) : LocalApic(_initial_apic_id), in_x2apic_mode(false) {
-    _ID = _initial_apic_id;
+  X2Apic(unsigned initial_apic_id) : in_x2apic_mode(false) {
+    _ID = initial_apic_id;
   }
 };
 
@@ -115,14 +110,15 @@ public:
 
 
 PARAM(x2apic, {
-    for (unsigned i=0; i < Config::NUM_VCPUS; i++) {
-      X2Apic *dev = new X2Apic(i);
-      mb.vcpustate(i)->apic = dev;
-      mb.bus_legacy.add(dev,   &X2Apic::receive_static<MessageLegacy>);
-      mb.bus_executor.add(dev, &X2Apic::receive_static<MessageExecutor>);
-    }
+    if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
+
+    X2Apic *dev = new X2Apic(argv[0]);
+    mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
+    mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
   },
-  "x2apic - provide an x2 APIC for every CPU");
+  "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
+  "Example: 'x2apic:2'",
+  "If no initial_apic_id is given, a new free one is used.");
 #else
       // XXX calculate CCR+PPR
 REGSET(X2Apic,
