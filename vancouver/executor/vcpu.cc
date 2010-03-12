@@ -103,8 +103,11 @@ public:
       handle_cpuid(msg);
       break;
     case CpuMessage::TYPE_CPUID_WRITE:
-      CPUID_write((msg.nr << 4) | msg.reg | msg.nr & 0x80000000, msg.value);
-      break;
+      {
+	unsigned reg = (msg.nr << 4) | msg.reg | msg.nr & 0x80000000;
+	unsigned old;
+	return CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value);
+      };
     case CpuMessage::TYPE_RDTSC:
       handle_rdtsc(msg.cpu);
       break;

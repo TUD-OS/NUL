@@ -33,11 +33,12 @@ struct CpuMessage {
     struct {
       unsigned nr;
       unsigned reg;
+      unsigned mask;
       unsigned value;
     };
   };
   CpuMessage(Type _type, CpuState *_cpu) : type(_type), cpu(_cpu) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
-  CpuMessage(unsigned _nr, unsigned _reg, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), value(_value) {}
+  CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value) {}
 };
 
 
@@ -48,7 +49,7 @@ public:
   DBus<CpuMessage> executor;
 
   VCpu *get_last() { return _last; }
-  bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, value); return executor.send(msg); }
+  bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, 0, value); return executor.send(msg); }
 
   VCpu (VCpu *last) : _last(last) {}
 };
