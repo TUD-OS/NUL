@@ -29,9 +29,8 @@ rset = [
     { 'name' : 'rVMMB',
       'offset' : 0xC40,
       'rc' : 0b1011<<4,
-      'mutable' : ~0b11,
-      'initial' : 0,            # RSTI is on in the real hardware, but
-                                # we don't care.
+      'mutable' : ~0b11,        # These bits are handled in VMMB_cb
+      'initial' : 0x80,         # RSTD (PF has completed reset)
       'callback' : 'VMMB_cb',
       },
     { 'name' : 'rVTIVAR',      'offset' : 0x1700, 'initial' : 0, 'mutable' : 0x83838383 },

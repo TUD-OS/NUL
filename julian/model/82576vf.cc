@@ -2,10 +2,15 @@
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
+#include <service/math.h>
 #include <model/pci.h>
+
+// Notes:
+// We emulate more bits in the PCI COMMAND register than the real VF supports.
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
+  uint64 _mac;
   DBus<MessageIrq> _irqlines;
   uint32 _mem_mmio;
   uint32 _mem_msix;
@@ -61,19 +66,35 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
   void VMMB_cb(uint32 old, uint32 val)
   {
-    if ((rVMMB & 1) != 0) {
+    // See 82576 datasheet Table 7-70 on page 357 for a good
+    // explanation how this is supposed to work.
+
+    // XXX Handle writes to VFU properly.
+    if ((val & 1) != 0) {
       // Request for PF
       switch (rVFMBX0 & 0xFFFF) {
       case VF_RESET:
-      // XXX Do something with the message. Write answer and set Sts.
+	rVFMBX0 |= CMD_ACK;
+	rVFMBX1 = _mac;
+	rVFMBX2 = (_mac >> 32) & 0xFFFF;
+	break;
       default:
-	;
+	Logging::printf("VF message unknown %08x\n", rVFMBX0 & 0xFFFF);
+	rVFMBX0 |= CMD_NACK;
 	// XXX
+	break;
       }
-      rVMMB |= 1<<5;		/* PFACK */
+      // Claim the buffer in a magic atomic way. If this were a real
+      // VF, this would probably not happen at once.
+      rVMMB = (rVMMB & ~(1<<2 /* VFU */)) | (1<<3 /* PFU */);
+      // We have ACKed and sent a response. Send an IRQ to inform the
+      // VM.
+      rVMMB |= 1<<5 | 1<<4;	/* PFACK | PFSTS */
       MISC_irq();
-    } else if ((rVMMB & 2) != 0) {
-      // PF message received. Ignore!
+    } else if ((val & 2) != 0) {
+      // VF ACKs our message. Clear PFU to let the VM send a new
+      // message.
+      rVMMB &= (1<<3 /* PFU */);
     }
      
     rVMMB &= ~3;
@@ -183,8 +204,8 @@ public:
     }
   }
 
-  Model82576vf(DBus<MessageIrq> irqlines, uint32 mem_mmio, uint32 mem_msix) 
-    : _irqlines(irqlines), _mem_mmio(mem_mmio), _mem_msix(mem_msix)
+  Model82576vf(uint64 mac, DBus<MessageIrq> irqlines, uint32 mem_mmio, uint32 mem_msix) 
+    : _mac(mac), _irqlines(irqlines), _mem_mmio(mem_mmio), _mem_msix(mem_msix)
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -195,7 +216,13 @@ public:
 
 PARAM(82576vf,
       {
-	Model82576vf *dev = new Model82576vf(mb.bus_irqlines, argv[0], argv[1]);
+	MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
+	if (!mb.bus_hostop.send(msg)) Logging::printf("Could not get an UID");
+
+	Logging::printf("Our UID is %lx\n", msg.value);
+
+	Model82576vf *dev = new Model82576vf(static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+					     mb.bus_irqlines, argv[0], argv[1]);
 	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
 	mb.bus_memread.add(dev, &Model82576vf::receive_static<MessageMemRead>);
 	mb.bus_pcicfg.add(dev, &Model82576vf::receive_static<MessagePciConfig>,
@@ -203,7 +230,7 @@ PARAM(82576vf,
 
       },
       "82576vf:mem_mmio,mem_msix - attach an Intel 82576VF to the PCI bus."
-      "Example: 82576vf:f7ce0000,f7cc0000"
+      "Example: 82576vf:0xf7ce0000,0xf7cc0000"
       );
       
 

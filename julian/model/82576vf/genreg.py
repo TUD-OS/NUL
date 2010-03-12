@@ -52,7 +52,7 @@ def dispatch_gen(var, regs, filt, mangle, out, default = ""):
     for r in sorted(regs, offset_cmp):
         if filt(r):
             out("\tcase 0x%x: %s break;" % (r['offset']/4, mangle(r) ))
-    out ("\tdefault: Logging::printf(\"XXX %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, offset*4); %s break;" % default)
+    out ("\tdefault: Logging::printf(\"--> %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, %s); %s break;" % (var, default))
     out ("\t}")
 
 def read_dispatch_gen(name, regs, out):
