@@ -45,8 +45,8 @@ class AhciPort : public FisReceiver
   bool _need_initial_fis;
 
 
-#define  REGBASE "ahcicontroller.cc"
-#include "reg.h"
+#define  REGBASE "../model/ahcicontroller.cc"
+#include "model/reg.h"
 
 
   /**
@@ -328,8 +328,8 @@ class AhciController : public ParentIrqProvider,
   AhciPort _ports[MAX_PORTS];
 
 #define AHCI_CONTROLLER
-#define  REGBASE "ahcicontroller.cc"
-#include "reg.h"
+#define  REGBASE "../model/ahcicontroller.cc"
+#include "model/reg.h"
 
   bool match_bar(unsigned long &address) {
     bool res = !((address ^ PCI_ABAR) & PCI_ABAR_mask);

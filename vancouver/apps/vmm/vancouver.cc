@@ -14,10 +14,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+#ifndef  VM_FUNC
 #include "host/keyboard.h"
 #include "sigma0/console.h"
 #include "nul/motherboard.h"
 #include "nul/program.h"
+#include "nul/vcpu.h"
 
 /**
  * Layout of the capability space.
@@ -66,7 +68,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   PT_FUNC(NAME)								\
   {  CODE; return utcb->head.mtr.value(); }
-  #include "vmx_funcs.h"
+  #include "vancouver.cc"
 
   // the portal functions follow
 
@@ -235,7 +237,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
     // create default devices
-    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr cpuid irq novahalifax ioio";
+    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr irq novahalifax ioio";
     _mb->parse_args(default_devices);
 
     // create devices from cmdline
@@ -285,10 +287,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create the gsi boot portal
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+    return 0;
+  }
 
+  unsigned create_vcpu(VCpu *vcpu, bool use_svm)
+  {
     // create worker
-    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
-
+    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(vcpu), 0, true);
 
     // create portals for VCPU faults
 #undef VM_FUNC
@@ -298,22 +303,37 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *);
       unsigned mtd;
     } vm_caps[] = {
-#include "vmx_funcs.h"
+#include "vancouver.cc"
     };
+    unsigned cap_start = _cap_free;
+    _cap_free += 0x100;
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
       {
+	if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
 	Logging::printf("create pt %x\n", vm_caps[i].nr);
-	check1(3, create_pt(vm_caps[i].nr, cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+	check1(1, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
       }
+
+    Logging::printf("create VCPU\n");
+    _mb->vcpustate(0)->block_sem = new KernelSemaphore(_cap_free++);
+    if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
+      Logging::panic("could not create blocking semaphore\n");
+
+
+    _mb->vcpustate(0)->cap_vcpu = _cap_free++;
+    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), cap_start, false)
+	|| create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
+      Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return 0;
+
   }
 
 
   static void instruction_emulation(unsigned pid, Utcb *utcb, bool long_run)
   {
     if (_debug)
-      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
-		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard);
+      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x eax %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
+		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard, utcb->eax);
     // enter singlestep
     utcb->head._pid = MessageExecutor::DO_ENTER;
     execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
@@ -321,7 +341,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->head._pid = MessageExecutor::DO_SINGLESTEP;
     do {
       if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head._pid);
       do_recall(utcb->head._pid, utcb);
     }
     while (long_run && utcb->head._pid);
@@ -338,11 +358,37 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type)
+  {
+    CpuMessage msg(type, static_cast<CpuState *>(utcb));
+    VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
+    if (!vcpu->executor.send(msg, true))
+      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+    skip_instruction(utcb);
+  }
+
   static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
   {
-    SemaphoreGuard l(_lock);
-    MessageExecutor msg(cpu, vcpu);
-    return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
+    switch(cpu->head._pid) {
+    case 10:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_CPUID);
+      break;
+    case 16:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDTSC);
+      break;
+    case 31:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDMSR);
+      break;
+    case 32:
+      handle_vcpu(0, cpu, CpuMessage::TYPE_WRMSR);
+      break;
+    default:
+      SemaphoreGuard l(_lock);
+      MessageExecutor msg(cpu, vcpu);
+      return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
+    }
+    cpu->head._pid = 0;
+    return true;
   }
 
   static void skip_instruction(Utcb *utcb)
@@ -405,13 +451,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     return false;
   }
 
+public:
+  bool receive(CpuMessage &msg) {
+    if (msg.type != CpuMessage::TYPE_CPUID) return false;
 
-  static bool handle_special_cpuid(Utcb *utcb)
-  {
-    switch (utcb->eax)
-      {
+    // XXX locking?
+    switch (msg.cpuid_index) {
       case 0x40000000:
-	//syscall(254, utcb->ebx, 0, 0, 0);
+	//syscall(254, msg.cpu->ebx, 0, 0, 0);
 	break;
       case 0x40000001:
 	_mb->dump_counters();
@@ -420,24 +467,19 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	{
 	  unsigned long long c1=0;
 	  unsigned long long c2=0;
-	  perfcount(utcb->ebx, utcb->ecx, c1, c2);
-	  utcb->eax = c1 >> 32;
-	  utcb->ebx = c1;
-	  utcb->ecx = c2 >> 32;
-	  utcb->edx = c2;
+	  perfcount(msg.cpu->ebx, msg.cpu->ecx, c1, c2);
+	  msg.cpu->eax = c1 >> 32;
+	  msg.cpu->ebx = c1;
+	  msg.cpu->ecx = c2 >> 32;
+	  msg.cpu->edx = c2;
 	}
 	break;
       default:
 	return false;
-      }
-
-    // we are sure here, since this is our experimental code
-    utcb->inst_len = 2;
-    skip_instruction(utcb);
+    }
     return true;
   }
 
-public:
 
   bool  receive(MessageIrq &msg)
   {
@@ -531,6 +573,10 @@ public:
       case MessageHostOp::OP_ATTACH_MSI:
 	res  = Sigma0Base::hostop(msg);
 	create_irq_thread(msg.msi_gsi, do_gsi);
+	break;
+      case MessageHostOp::OP_CREATE_VCPU_BACKEND:
+	create_vcpu(msg.vcpu, _hip->has_svm());
+	msg.vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:
@@ -639,17 +685,25 @@ public:
     create_irq_thread(~0u, do_timer);
     create_irq_thread(~0u, do_network);
 
-    Logging::printf("create VCPUs\n");
-    for (unsigned i=0; i < Config::NUM_VCPUS; i++) {
-      _mb->vcpustate(i)->block_sem = new KernelSemaphore(_cap_free++);
-      if (create_sm(_mb->vcpustate(i)->block_sem->sm()))
-	Logging::panic("could not create blocking semaphore\n");
 
+    // init VCPUs
+    for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
 
-      _mb->vcpustate(i)->cap_vcpu = _cap_free++;
-      if (create_ec(_mb->vcpustate(i)->cap_vcpu, 0, 0, Cpu::cpunr(), hip->has_svm() ? PT_SVM : PT_VMX, false)
-	  || create_sc(_cap_free++, _mb->vcpustate(i)->cap_vcpu, Qpd(1, 10000)))
-	Logging::panic("creating a VCPU failed - does your CPU support VMX?");
+      // init CPU strings
+      const char *short_name = "NOVA microHV";
+      vcpu->set_cpuid(0, 1, reinterpret_cast<const unsigned *>(short_name)[0]);
+      vcpu->set_cpuid(0, 3, reinterpret_cast<const unsigned *>(short_name)[1]);
+      vcpu->set_cpuid(0, 2, reinterpret_cast<const unsigned *>(short_name)[2]);
+      const char *long_name = "Vancouver VMM proudly presents this VirtualCPU. ";
+      for (unsigned i=0; i<12; i++)
+	vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
+
+      // propagate feature flags
+      unsigned ebx_1=0, ecx_1=0, edx_1=0;
+      Cpu::cpuid(1, ebx_1, ecx_1, edx_1);
+      vcpu->set_cpuid(1, 1, ebx_1, 0x0000ff00); // clflush size
+      vcpu->set_cpuid(1, 2, ecx_1, 0x00000201); // +SSE3,+SSSE3
+      vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
     }
 
     _lock.up();
@@ -674,3 +728,148 @@ public:
 };
 
 ASMFUNCS(Vancouver, Vancouver);
+
+#else // !VM_FUNC
+
+// the VMX portals follow
+VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
+	{
+	  utcb->head._pid = 2;
+	  if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
+	    Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	  do_recall(pid, utcb);
+	})
+VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
+	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl);
+	utcb->head._pid = 3;
+	if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
+	  Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+	Logging::printf("%s() mtr %x rip %x ilen %x cr0 %x efl %x hz %x\n", __func__, utcb->head.mtr.value(), utcb->eip, utcb->inst_len, utcb->cr0, utcb->efl, _mb->vcpustate(0)->hazard);
+	//do_recall(pid, utcb);
+	)
+VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
+	COUNTER_INC("irqwin");
+	do_recall(pid, utcb);
+	)
+VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
+	COUNTER_INC("cpuid");
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID);)
+VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
+	COUNTER_INC("hlt");
+	skip_instruction(utcb);
+
+	// wait for irq
+	Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_INHLT);
+	if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_IRQ)  _mb->vcpustate(0)->block_sem->down();
+	Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_INHLT);
+	do_recall(pid, utcb);
+	)
+VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
+	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
+	if (utcb->qual[0] & 0x10)
+	  {
+	    COUNTER_INC("IOS");
+	    force_invalid_gueststate_intel(utcb);
+	  }
+	else
+	  {
+	    unsigned order = utcb->qual[0] & 7;
+	    if (order > 2)  order = 2;
+	    ioio_helper(utcb, utcb->qual[0] & 8, order);
+	  }
+	)
+VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
+	COUNTER_INC("rdmsr");
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR);)
+VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
+	COUNTER_INC("wrmsr");
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR);)
+VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
+	{
+	  utcb->efl |= 2;
+	  instruction_emulation(pid, utcb, true);
+	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
+	    {
+	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
+	      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
+	      utcb->ctrl[0] = 1 << 3; // tscoffs
+	      utcb->ctrl[1] = 0;
+	    }
+	  do_recall(pid, utcb);
+	})
+VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
+	COUNTER_INC("MMIO");
+	/**
+	 * Idea: optimize the default case - mmio to general purpose register
+	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
+	 */
+	// make sure we do not inject the #PF!
+	utcb->inj_info = ~0x80000000;
+	if (!map_memory_helper(utcb))
+	  {
+	    // this is an access to MMIO
+	    instruction_emulation(pid, utcb, false);
+	    do_recall(pid, utcb);
+	  }
+	)
+VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(pid, utcb); )
+VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
+	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
+	  vmx_init(pid, utcb);
+	else
+	  {
+	    SemaphoreGuard l(_lock);
+	    COUNTER_INC("recall");
+	    unsigned lastpid = utcb->head._pid;
+	    utcb->head._pid = 1;
+	    MessageExecutor msg(static_cast<CpuState*>(utcb), _mb->vcpustate(0));
+	    _mb->bus_executor.send(msg, true, utcb->head._pid);
+	    utcb->head._pid = lastpid;
+	  }
+	)
+
+// and now the SVM portals
+VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, utcb); )
+VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ, utcb->inst_len = 2; vmx_cpuid(pid, utcb); )
+VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, utcb); )
+VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
+	{
+	  if (utcb->qual[0] & 0x4)
+	    {
+	      COUNTER_INC("IOS");
+	      force_invalid_gueststate_amd(utcb);
+	    }
+	  else
+	    {
+	      unsigned order = ((utcb->qual[0] >> 4) & 7) - 1;
+	      if (order > 2)  order = 2;
+	      utcb->inst_len = utcb->qual[1] - utcb->eip;
+	      ioio_helper(utcb, utcb->qual[0] & 1, order);
+	    }
+	}
+	)
+VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, utcb); )
+VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, utcb); )
+VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
+	// make sure we do not inject the #PF!
+	utcb->inj_info = ~0x80000000;
+	if (!map_memory_helper(utcb))
+	  svm_invalid(pid, utcb);
+	)
+VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
+	COUNTER_INC("invalid");
+	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
+	instruction_emulation(pid, utcb, true);
+	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
+	  {
+	    COUNTER_INC("ctrl");
+	    Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
+	    utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
+	    utcb->ctrl[0] = 1 << 18; // cpuid
+	    utcb->ctrl[1] = 1 << 0;  // vmrun
+	  }
+	do_recall(pid, utcb);
+	)
+VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  svm_shutdwn(pid, utcb);)
+VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, utcb); )
+#endif

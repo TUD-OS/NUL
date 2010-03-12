@@ -64,8 +64,8 @@ class Rtl8029: public PciConfigHelper<Rtl8029>,
     unsigned char imr;
   } __attribute__((packed)) _regs;
   unsigned char _mem[65536];
-#define  REGBASE "rtl8029.cc"
-#include "reg.h"
+#define  REGBASE "../model/rtl8029.cc"
+#include "model/reg.h"
 
 
   void update_isr(unsigned value)

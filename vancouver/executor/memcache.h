@@ -168,16 +168,15 @@ public:
       // try to get a direct memory reference
       void *new_ptr = 0;
       MessageMemAlloc msg1(&new_ptr, phys1 & ~0xffful, phys2 & ~0xffful);
-      if (_mb.bus_memalloc.send(msg1))
-	{
-	  assert(new_ptr);
-	  CacheEntry *res = _sets[s]._values + entry;
-	  res->_ptr = reinterpret_cast<char *>(new_ptr) + (phys1 & 0xfff);
-	  res->_len = len;
-	  res->_phys1 = phys1;
-	  res->_phys2 = phys2;
-	  return_move_to_front(_sets[s]._values, _sets[s]._newest);
-	}
+
+      if (_mb.bus_memalloc.send(msg1, true) && new_ptr) {
+	CacheEntry *res = _sets[s]._values + entry;
+	res->_ptr = reinterpret_cast<char *>(new_ptr) + (phys1 & 0xfff);
+	res->_len = len;
+	res->_phys1 = phys1;
+	res->_phys2 = phys2;
+	return_move_to_front(_sets[s]._values, _sets[s]._newest);
+      }
     }
 #endif
 

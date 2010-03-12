@@ -36,8 +36,8 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
   unsigned short _iobase;
   unsigned _confaddress;
 
-#define  REGBASE "pcihostbridge.cc"
-#include "reg.h"
+#define  REGBASE "../model/pcihostbridge.cc"
+#include "model/reg.h"
 
   const char *debug_getname() { return "PciHostBridge"; };
 

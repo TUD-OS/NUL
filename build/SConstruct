@@ -9,7 +9,6 @@ CacheDir('build_cache')
 # least specific!
 Repository('../demo')
 Repository('../julian')
-Repository('../sriov')
 Repository('../vancouver')
 Repository('../forth')
 
