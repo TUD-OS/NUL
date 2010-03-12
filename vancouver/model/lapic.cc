@@ -23,10 +23,14 @@
 class X2Apic : public StaticReceiver<X2Apic>
 {
   DBus<CpuMessage> &_executor;
-  bool in_x2apic_mode;
   unsigned long long _msr;
+  bool in_x2apic_mode;
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
+
+  /**
+   * Update the APIC base MSR.
+   */
   bool update_msr(unsigned long long value) {
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
     if (value & ~mask) return false;
@@ -35,6 +39,11 @@ class X2Apic : public StaticReceiver<X2Apic>
     _executor.send(msg);
     return true;
   }
+
+  void send_ipi(unsigned icr, unsigned dst) {
+   
+  }
+    
 
 public:
   bool  receive(MessageMemRead &msg)
@@ -69,6 +78,7 @@ public:
     return true;
   }
 
+
   bool  receive(CpuMessage &msg) {
     switch (msg.type) {
     case CpuMessage::TYPE_RDMSR:
@@ -86,13 +96,12 @@ public:
       // read register
       if (!X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax)) return false;
 
-      // only the ICR has a top half
+      // only the ICR has an upper half
       msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
       return true;
     case CpuMessage::TYPE_WRMSR:
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b)  return update_msr(msg.cpu->edx_eax());
-
       // check whether the register is available
       if (!in_range(msg.cpu->ecx, 0x800, 64)
 	  || !in_x2apic_mode
@@ -100,11 +109,21 @@ public:
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
 
-      // write lower half in strict mode with reserved bit checking
-      if (!X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true)) return false;
+      // self IPI?
+      if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx) {
+	send_ipi(0x40000| msg.cpu->eax, 0);
+	return true;
+      }
 
-      // write upper half of ICR
+      unsigned old_ICR1 = _IRC1;
+      // write upper half of the ICR
       if (msg.cpu->ecx == 0x830) _ICR1 = msg.cpu->edx;
+
+      // write lower half in strict mode with reserved bit checking
+      if (!X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true)) {
+	_ICR1 = old_ICR1;
+	return false;
+      }
       return true;
     case CpuMessage::TYPE_CPUID:
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -149,7 +168,7 @@ PARAM(x2apic, {
 REGSET(X2Apic,
        REG_RW(_ID,            0x02,          0, 0)
        REG_RO(_VERSION,       0x03, 0x00050014)
-       REG_RW(_ICR,           0x30,          0, 0x000ccfff)
+       REG_WW(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000)
        REG_RW(_TIMER,         0x32, 0x00010000, 0x310ff)
        REG_RW(_TERM,          0x33, 0x00010000, 0x117ff)
