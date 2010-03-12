@@ -31,8 +31,8 @@ private:
     ASSOZ = 6,
     // Number of buffers, we need two for movs, push and similar instructions...
     BUFFERS = 6,
-    // The maximum size of a buffer, the minmum is 16 (cmpxchg16b+instruction-reread).
-    BUFFER_SIZE = 16,
+    // The maximum size of a buffer, the minmum is 16+dword (cmpxchg16b+instruction-reread).
+    BUFFER_SIZE = 16 + 4,
   };
 
   // the hash function for the cache
@@ -62,13 +62,14 @@ public:
     unsigned _phys1;
     unsigned _phys2;
     // 0 -> invalid, can be RAM up to 8k
-    void *_ptr;
+    char *_ptr;
     // length of cache entry, this can be up to 8k long
     unsigned _len;
     // a pointer in a single linked list to an older entry in the set or ~0u at the end
     unsigned _older;
     bool is_valid(unsigned long phys1, unsigned long phys2, unsigned len)
     {
+      if (!_ptr) return false;
       return _ptr && phys1 == _phys1 && len == _len && phys2 == _phys2;
     }
   };
@@ -89,11 +90,28 @@ private:
   struct Buffers : CacheEntry
   {
     unsigned _newer_write;
-    unsigned char data[BUFFER_SIZE];
+    char data[BUFFER_SIZE];
   } _buffers[BUFFERS];
   unsigned _newest_buffer;
   unsigned _oldest_write;
   unsigned _newest_write;
+
+
+  void buffer_io(bool read, unsigned index) {
+    assert(!(_buffers[index]._len & 3));
+    assert(!(_buffers[index]._phys1 & 3));
+
+    unsigned long address = _buffers[index]._phys1;
+    for (unsigned i=0; i < _buffers[index]._len; i += 4) {
+      MessageMemDword msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
+      _mb.bus_memdword.send(msg2, true);
+      if ((address & 0xfff) != 0xffc)
+	address += 4;
+      else
+	address = _buffers[index]._phys2;
+    }
+  }
+
 
   /**
    * Invalidate the oldest dirty entry in the list.
@@ -111,21 +129,9 @@ private:
       }
     _buffers[i]._newer_write = ~0;
 
-
-    int sublen = _buffers[i]._len - 0x1000 + (_buffers[i]._phys1 & 0xfff);
-    if (sublen < 0) sublen = 0;
-    MessageMemWrite msg2(_buffers[i]._phys1, _buffers[i].data, _buffers[i]._len - sublen);
-    _mb.bus_memwrite.send(msg2, true);
-
-    if (sublen)
-      {
-	MessageMemWrite msg3(_buffers[i]._phys2, _buffers[i].data + _buffers[i]._len - sublen, sublen);
-	_mb.bus_memwrite.send(msg3, true);
-      }
+    buffer_io(false, i);
   }
 
-
-public:
 
 /**
  * Move CacheEntries to the front of the usage list.
@@ -155,30 +161,32 @@ public:
   assert(~entry);							\
 
 
+public:
+
   /**
    * Get an entry from the cache or fetch one from memory.
    */
   CacheEntry *get(unsigned long phys1, unsigned long phys2, unsigned len, Type type)
   {
-#if 1
+    assert(!(phys1 & 3));
+    assert(!(len & 3));
     {
       unsigned s = slot(phys1);
       search_entry(_sets[s]._values, _sets[s]._newest);
 
       // try to get a direct memory reference
-      void *new_ptr = 0;
+      char *new_ptr = 0;
       MessageMemAlloc msg1(&new_ptr, phys1 & ~0xffful, phys2 & ~0xffful);
 
       if (_mb.bus_memalloc.send(msg1, true) && new_ptr) {
 	CacheEntry *res = _sets[s]._values + entry;
-	res->_ptr = reinterpret_cast<char *>(new_ptr) + (phys1 & 0xfff);
+	res->_ptr = new_ptr + (phys1 & 0xfff);
 	res->_len = len;
 	res->_phys1 = phys1;
 	res->_phys2 = phys2;
 	return_move_to_front(_sets[s]._values, _sets[s]._newest);
       }
     }
-#endif
 
     // we could not alloc the memory region directly from RAM, thus we use our own buffer instead.
     {
@@ -194,7 +202,7 @@ public:
 
       // init data as in the floating bus.
       memset(_buffers[entry].data, 0xff, sizeof(_buffers[entry].data));
-      _buffers[entry]._ptr = &_buffers[entry].data;
+      _buffers[entry]._ptr = _buffers[entry].data;
 
       // put us on the write list
       if (type & TYPE_W)
@@ -207,20 +215,8 @@ public:
 	}
 
       // do we have to read the data into the cache?
-      if (type & TYPE_R)
-	{
-	  int sublen = len - 0x1000 + (phys1 & 0xfff);
-	  if (sublen < 0)  sublen = 0;
+      if (type & TYPE_R) buffer_io(true, entry);
 
-	  MessageMemRead msg2(phys1, _buffers[entry].data, len - sublen);
-	  _mb.bus_memread.send(msg2, true);
-
-	  if (sublen)
-	    {
-	      MessageMemRead msg3(phys2, _buffers[entry].data +  len - sublen, sublen);
-	      _mb.bus_memread.send(msg3, true);
-	    }
-	}
       // init entry
       _buffers[entry]._len   = len;
       _buffers[entry]._phys1 = phys1;

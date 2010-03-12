@@ -124,10 +124,10 @@ struct MessageMemMap     : public MessageMem
  */
 struct MessageMemAlloc
 {
-  void **ptr;
+  char **ptr;
   unsigned long phys1;
   unsigned long phys2;
-  MessageMemAlloc(void **_ptr, unsigned long _phys1, unsigned long _phys2=~0ul) : ptr(_ptr), phys1(_phys1), phys2(_phys2) {}
+  MessageMemAlloc(char **_ptr, unsigned long _phys1, unsigned long _phys2=~0ul) : ptr(_ptr), phys1(_phys1), phys2(_phys2) {}
 };
 
 

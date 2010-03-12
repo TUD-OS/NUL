@@ -100,17 +100,31 @@ private:
     return msg.vcpu->fault;
   }
 
-  int virt_to_phys(MessageExecutor &msg, unsigned long virt, Type type, long unsigned &phys)
-  {
+  int virt_to_phys(MessageExecutor &msg, unsigned long virt, Type type, long unsigned &phys) {
+
     if (tlb_fill_func) return tlb_fill_func(this, msg, virt, type, phys);
     phys = virt;
     return msg.vcpu->fault;
   }
 
+  /**
+   * Find a CacheEntry to a virtual memory access.
+   */
+  CacheEntry *find_virtual(MessageExecutor &msg, unsigned virt, unsigned len, Type type) {
+
+    unsigned long phys1, phys2;
+    if (!virt_to_phys(msg, virt, type, phys1)) {
+      if (!((virt ^ (virt + len - 1)) & ~0xfff)) phys2 = ~0ul;
+      else
+	if (virt_to_phys(msg, virt + len - 1, type, phys2)) return 0;
+      return get(phys1, phys2 & ~0xffful, len, type);
+    }
+    return 0;
+  }
 
 protected:
-  int init(MessageExecutor &msg)
-  {
+  int init(MessageExecutor &msg) {
+
     paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | VCPU(msr_efer) & 0xc00;
 
     // fetch pdpts in leagacy PAE mode
@@ -143,21 +157,6 @@ protected:
 
 
   /**
-   * Find a CacheEntry to a virtual memory access.
-   */
-  CacheEntry *find_virtual(MessageExecutor &msg, unsigned virt, unsigned len, Type type)
-  {
-    unsigned long phys1, phys2;
-    if (!virt_to_phys(msg, virt, type, phys1) && !virt_to_phys(msg, virt + len - 1, type, phys2))
-      {
-	if (!((virt ^ (virt + len - 1)) & ~0xfff)) phys2 = ~0ul;
-	return get(phys1, phys2 & ~0xfff, len, type);
-      }
-    return 0;
-  }
-
-
-  /**
    * Read the len instruction-bytes at the given address into a buffer.
    */
   int read_code(MessageExecutor &msg, unsigned long virt, unsigned len, void *buffer)
@@ -165,22 +164,11 @@ protected:
     //COUNTER_INC("read_code");
 
     assert(len < 16);
-    CacheEntry *entry = find_virtual(msg, virt, len, user_access(msg, Type(TYPE_X | TYPE_R)));
-    if (entry)
-      {
-	assert(len <= entry->_len);
-	char *src = reinterpret_cast<char *>(entry->_ptr);
-	#if 0
-	if (len < entry->_len)
-	  {
-	    // the size needs to be a power of 2
-	    assert(!(entry->_len   & (entry->_len - 1)));
-	    assert(!(entry->_phys1 & (entry->_len - 1)));
-	    src += virt & (entry->_len - 1);
-	  }
-	#endif
-	memcpy(buffer, src, len);
-      }
+    CacheEntry *entry = find_virtual(msg, virt & ~3, (len + (virt & 3) + 3) & ~3ul, user_access(msg, Type(TYPE_X | TYPE_R)));
+    if (entry) {
+      assert(len <= entry->_len);
+      memcpy(buffer, entry->_ptr + (virt & 3), len);
+    }
     return msg.vcpu->fault;
   }
 
@@ -188,26 +176,14 @@ protected:
   int prepare_virtual(MessageExecutor &msg, unsigned virt, unsigned len, Type type, void *&ptr)
   {
     //COUNTER_INC("prep_virtual");
-    CacheEntry *entry = find_virtual(msg, virt, len, type);
-    if (entry)
-      {
-	assert(len <= entry->_len);
-	char *src = reinterpret_cast<char *>(entry->_ptr);
-	#if 0
-	if (len < entry->_len)
-	  {
-	    // the size needs to be a power of 2
-	    Logging::panic("len %x vs %x phys %x\n", len, entry->_len, entry->_phys1);
-	    assert(!(entry->_len   & (entry->_len - 1)));
-	    assert(!(entry->_phys1 & (entry->_len - 1)));
-	    src += virt & (entry->_len - 1);
-	  }
-	#endif
-	ptr = src;
-      }
+    bool round = (virt | len) & 3;
+    CacheEntry *entry = find_virtual(msg, virt & ~3ul, (len + (virt & 3) + 3) & ~3ul, round ? Type(type | TYPE_R) : type);
+    if (entry) {
+      assert(len <= entry->_len);
+      ptr = entry->_ptr + (virt & 3);
+    }
     return msg.vcpu->fault;
   }
-
 
 
   MemTlb(Motherboard &mb) : MemCache(mb) {}
