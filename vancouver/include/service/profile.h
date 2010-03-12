@@ -37,5 +37,5 @@
   {									\
     asm volatile (".section .data; 1: .string \"" NAME "\";.previous;"	\
 		  ".section .profile; "  PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
-		  "mov %0,2b" : : "r"((long)(VALUE)));			\
+		  "mov %0,2b" : : "r"(static_cast<long>(VALUE)));	\
   }
