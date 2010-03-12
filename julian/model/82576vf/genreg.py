@@ -24,6 +24,10 @@ import imp
 from time import gmtime, strftime
 from getpass import getuser
 
+# Check if we can use binary literals (0b1010)
+if sys.version_info < (2, 6):
+    print("Your python is OLD! Please upgrade to 2.6.")
+
 def offset_cmp(r1, r2):
     return r1['offset'] - r2['offset']
 

@@ -21,7 +21,7 @@ rset = [
     { 'name' : 'rPCICAPPTR', 'offset' : 0x34, 'initial' : 0x70, 'constant' : True },
 
     # MSI-X Cap
-    { 'name' : 'rPCIMSIX0',  'offset' : 0x70, 'initial' : 0x20011, 'mutable' : 0x11<<14 },
+    { 'name' : 'rPCIMSIX0',  'offset' : 0x70, 'initial' : 0x20011, 'mutable' : 3<<14 },
     { 'name' : 'rPCIMSIXTBA', 'offset' : 0x74, 'initial' : 0x3, 'constant' : True },
     { 'name' : 'rPCIMSIXPBA', 'offset' : 0x78, 'initial' : 0x183, 'constant' : True },
 
