@@ -21,7 +21,7 @@
 #ifndef REGBASE
 class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 {
-#define REGBASE "../executor/vcpu.cc"
+#define REGBASE "../model/vcpu.cc"
 #include "model/reg.h"
 
   enum {
