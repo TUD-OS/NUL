@@ -62,8 +62,10 @@ public:
   bool  receive(MessageMemAlloc &msg)
   {
     if ((_msr & ~0xfff) != msg.phys1) return false;
-    // we return true without setting msg.ptr and thus nobody else can
-    // claim this region
+    /**
+     * we return true without setting msg.ptr and thus nobody else can
+     * claim this region
+     */
     return true;
   }
 
@@ -98,11 +100,12 @@ public:
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
 
-      // write upper half of ICR
-      if (msg.cpu->ecx == 0x830 && !X2Apic_write(0x31, msg.cpu->edx, true)) return false;
+      // write lower half in strict mode with reserved bit checking
+      if (!X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true)) return false;
 
-      // write lower half in strict mode for reserved bit checking
-      return X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true);
+      // write upper half of ICR
+      if (msg.cpu->ecx == 0x830) _ICR1 = msg.cpu->edx;
+      return true;
     case CpuMessage::TYPE_CPUID:
     case CpuMessage::TYPE_CPUID_WRITE:
     case CpuMessage::TYPE_RDTSC:
@@ -146,8 +149,8 @@ PARAM(x2apic, {
 REGSET(X2Apic,
        REG_RW(_ID,            0x02,          0, 0)
        REG_RO(_VERSION,       0x03, 0x00050014)
-       REG_RW(_ICR,           0x30,          0, ~0u)
-       REG_RW(_ICR1,          0x31,          0, ~0u)
+       REG_RW(_ICR,           0x30,          0, 0x000ccfff)
+       REG_RW(_ICR1,          0x31,          0, 0xff000000)
        REG_RW(_TIMER,         0x32, 0x00010000, 0x310ff)
        REG_RW(_TERM,          0x33, 0x00010000, 0x117ff)
        REG_RW(_PERF,          0x34, 0x00010000, 0x117ff)
