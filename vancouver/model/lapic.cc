@@ -73,11 +73,9 @@ public:
 	res= true;
 	break;
       }
-      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64)) return false;
-      if (msg.cpu->ecx != 0x831) {
-	res = X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax);
-	msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
-      }
+      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64) || msg.cpu->ecx == 0x831 || msg.cpu->ecx == 0x80e) return false;
+      res = X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax);
+      msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
       break;
     case CpuMessage::TYPE_WRMSR:
       if (msg.cpu->ecx == 0x1b) {
@@ -86,11 +84,9 @@ public:
 	res= true;
 	break;
       }
-      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64)) return false;
-      if (msg.cpu->ecx != 0x831) {
-	res = X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax);
-	if (msg.cpu->ecx == 0x830) X2Apic_write(0x31, msg.cpu->edx);
-      }
+      if (!in_x2apic_mode || !in_range(msg.cpu->ecx, 0x800, 64) || msg.cpu->ecx == 0x831 || msg.cpu->ecx == 0x80e || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
+      if (msg.cpu->ecx == 0x830 && !X2Apic_write(0x31, msg.cpu->edx, true)) break;
+      res = X2Apic_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true);
       break;
     case CpuMessage::TYPE_CPUID:
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -98,7 +94,7 @@ public:
     default:
       break;
     }
-    return false;
+    return res;
   }
 
 
