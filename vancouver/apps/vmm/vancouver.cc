@@ -701,9 +701,9 @@ public:
       // propagate feature flags
       unsigned ebx_1=0, ecx_1=0, edx_1=0;
       Cpu::cpuid(1, ebx_1, ecx_1, edx_1);
-      vcpu->set_cpuid(1, 1, ebx_1, 0xff00);     // clflush size
-      vcpu->set_cpuid(1, 2, ecx_1, 0x21);       // allow SSE3+SSSE3
-      vcpu->set_cpuid(1, 3, edx_1, 0x0f8aa9bf); // no PAE, no MTRR, all MMX,SSE,SSE2, CLFLUSH and PSE36
+      vcpu->set_cpuid(1, 1, ebx_1, 0x0000ff00); // clflush size
+      vcpu->set_cpuid(1, 2, ecx_1, 0x00000201); // +SSE3,+SSSE3
+      vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
     }
 
     _lock.up();
