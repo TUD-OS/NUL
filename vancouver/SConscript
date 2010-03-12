@@ -69,11 +69,11 @@ if target_cxx:
 
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
-target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -minline-all-stringops --param max-inline-insns-single=100  -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2')
+target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -minline-all-stringops --param max-inline-insns-single=100  -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wlogical-op -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn -Wvla')
 #target_env.Append(CCFLAGS = (' -march=' + opt_arch))
 
-target_env['CXXFLAGS'] = "-std=gnu++0x -fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics"
-target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration"
+target_env['CXXFLAGS'] = "-std=gnu++0x -fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics -Wold-style-cast "
+target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration -Wmissing-prototypes"
 target_env['ASFLAGS'] = "-m32 -pipe -g"
 target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections", "-N", "--whole-archive", "--warn-common"]
