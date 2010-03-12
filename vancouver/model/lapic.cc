@@ -56,6 +56,14 @@ public:
   }
 
 
+  bool  receive(MessageMemAlloc &msg)
+  {
+    if ((_msr & ~0xfff) != msg.phys1) return false;
+    // we return true without setting msg.ptr and thus nobody else can
+    // claim this region
+    return true;
+  }
+
   bool  receive(CpuMessage &msg) {
     bool res = false;
     switch (msg.type) {
@@ -118,6 +126,9 @@ PARAM(x2apic, {
     X2Apic *dev = new X2Apic(mb.last_vcpu->executor, argv[0]);
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
+    mb.last_vcpu->memread. add(dev, &X2Apic::receive_static<MessageMemRead>);
+    mb.last_vcpu->memwrite.add(dev, &X2Apic::receive_static<MessageMemWrite>);
+    mb.last_vcpu->memalloc.add(dev, &X2Apic::receive_static<MessageMemAlloc>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
   "Example: 'x2apic:2'",

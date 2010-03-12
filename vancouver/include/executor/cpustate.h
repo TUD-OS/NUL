@@ -16,6 +16,7 @@
  */
 #pragma once
 #include "sys/utcb.h"
+#include "service/helper.h"
 
 /**
  * A generic cpu state class.
@@ -35,6 +36,11 @@ class CpuState : public Utcb
   };
 
   unsigned long long edx_eax() {  return static_cast<unsigned long long>(edx) << 32 | eax; };
+  void GP0() {
+    assert(~inj_info & 0x80000000);
+    inj_info = 0x80000b0d | (inj_info & INJ_IRQWIN);
+    inj_error = 0;
+  }
 };
 
 #define assert_mtr(value) { assert((cpu->head.mtr.untyped() & (value)) == (value)); }

@@ -16,6 +16,7 @@
  */
 #pragma once
 #include "bus.h"
+#include "message.h"
 
 struct CpuMessage {
   enum Type {
@@ -46,7 +47,10 @@ class VCpu
 {
   VCpu *_last;
 public:
-  DBus<CpuMessage> executor;
+  DBus<CpuMessage>       executor;
+  DBus<MessageMemRead>   memread;
+  DBus<MessageMemWrite>  memwrite;
+  DBus<MessageMemAlloc>  memalloc;
 
   VCpu *get_last() { return _last; }
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, 0, value); return executor.send(msg); }

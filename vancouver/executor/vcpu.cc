@@ -72,7 +72,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       break;
     default:
       Logging::printf("unsupported rdmsr %x at %x",  cpu->ecx, cpu->eip);
-      // XXX GP
+      cpu->GP0();
     }
   }
 
@@ -91,7 +91,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	break;
       default:
 	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
-	// XXX GP
+	cpu->GP0();
       }
   }
 
