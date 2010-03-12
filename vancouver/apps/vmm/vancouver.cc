@@ -688,6 +688,8 @@ public:
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
+
+      // init CPU strings
       const char *short_name = "NOVA microHV";
       vcpu->set_cpuid(0, 1, reinterpret_cast<const unsigned *>(short_name)[0]);
       vcpu->set_cpuid(0, 3, reinterpret_cast<const unsigned *>(short_name)[1]);
@@ -695,6 +697,13 @@ public:
       const char *long_name = "Vancouver VMM proudly presents this VirtualCPU. ";
       for (unsigned i=0; i<12; i++)
 	vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
+
+      // propagate feature flags
+      unsigned ebx_1=0, ecx_1=0, edx_1=0;
+      Cpu::cpuid(1, ebx_1, ecx_1, edx_1);
+      vcpu->set_cpuid(1, 1, ebx_1, 0xff00);     // clflush size
+      vcpu->set_cpuid(1, 2, ecx_1, 0x21);       // allow SSE3+SSSE3
+      vcpu->set_cpuid(1, 3, edx_1, 0x0f8aa9bf); // no PAE, no MTRR, all MMX,SSE,SSE2, CLFLUSH and PSE36
     }
 
     _lock.up();

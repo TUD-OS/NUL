@@ -41,10 +41,9 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
   void send_ipi(unsigned icr, unsigned dst) {
-   
+    Logging::panic("%s", __PRETTY_FUNCTION__);
   }
-    
-
+  
 public:
   bool  receive(MessageMemRead &msg)
   {
@@ -145,8 +144,10 @@ public:
     _ID = initial_apic_id;
 
     // propagate initial APIC id
-    CpuMessage msg(1, 3, 0xffffff, _ID << 24);
-    executor.send(msg);
+    CpuMessage msg1(1,  1, 0xffffff, _ID << 24);
+    CpuMessage msg2(11, 3, 0, _ID);
+    executor.send(msg1);
+    executor.send(msg2);
   }
 };
 
@@ -162,8 +163,7 @@ PARAM(x2apic, {
     mb.last_vcpu->memalloc.add(dev, &X2Apic::receive_static<MessageMemAlloc>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
-  "Example: 'x2apic:2'",
-  "If no initial_apic_id is given, a new free one is used.");
+  "Example: 'x2apic:2'");
 #else
       // XXX calculate CCR+PPR
 REGSET(X2Apic,

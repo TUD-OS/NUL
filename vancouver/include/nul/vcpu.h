@@ -53,7 +53,7 @@ public:
   DBus<MessageMemAlloc>  memalloc;
 
   VCpu *get_last() { return _last; }
-  bool set_cpuid(unsigned nr, unsigned reg, unsigned value) {  CpuMessage msg(nr, reg, 0, value); return executor.send(msg); }
+  bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }
 
   VCpu (VCpu *last) : _last(last) {}
 };
