@@ -698,7 +698,7 @@ public:
       for (unsigned i=0; i<12; i++)
 	vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
 
-      // propagate feature flags
+      // propagate feature flags from the host
       unsigned ebx_1=0, ecx_1=0, edx_1=0;
       Cpu::cpuid(1, ebx_1, ecx_1, edx_1);
       vcpu->set_cpuid(1, 1, ebx_1, 0x0000ff00); // clflush size

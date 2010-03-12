@@ -66,6 +66,18 @@ struct MessageIOOut {
 /****************************************************/
 
 /**
+ * A dword aligned memory access.
+ */
+struct MessageMemDword
+{
+  bool read;
+  unsigned long phys;
+  unsigned *ptr;
+  MessageMemDword(bool _read, unsigned long _phys, unsigned *_ptr) : read(_read), phys(_phys), ptr(_ptr) {}
+};
+
+
+/**
  * Generic memory message.
  */
 struct MessageMem

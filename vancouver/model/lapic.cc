@@ -43,29 +43,17 @@ class X2Apic : public StaticReceiver<X2Apic>
   void send_ipi(unsigned icr, unsigned dst) {
     Logging::panic("%s", __PRETTY_FUNCTION__);
   }
-  
+
 public:
-  bool  receive(MessageMemRead &msg)
+  bool  receive(MessageMemDword &msg)
   {
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || msg.count != 4) return false;
-    if (msg.phys & 0xf
-	|| ((msg.phys & 0xfff) + msg.count) > 0x40*4
-	|| !X2Apic_read((msg.phys >> 4) & 0x3f, reinterpret_cast<unsigned *>(msg.ptr)[0]))
+    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)) return false;
+    if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4
+	||  msg.read && !X2Apic_read((msg.phys >> 4) & 0x3f, *msg.ptr)
+	|| !msg.read && !X2Apic_write((msg.phys >> 4) & 0x3f, *msg.ptr))
       {}// XXX error indication
     return true;
   }
-
-
-  bool  receive(MessageMemWrite &msg)
-  {
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || msg.count != 4) return false;
-    if (msg.phys & 0xf
-	|| ((msg.phys & 0xfff) + msg.count) > 0x40*4
-	|| !X2Apic_write((msg.phys >> 4) & 0x3f, reinterpret_cast<unsigned *>(msg.ptr)[0]))
-      {}// XXX error indication
-    return true;
-  }
-
 
   bool  receive(MessageMemAlloc &msg)
   {
@@ -158,8 +146,7 @@ PARAM(x2apic, {
     X2Apic *dev = new X2Apic(mb.last_vcpu->executor, argv[0]);
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
-    mb.last_vcpu->memread. add(dev, &X2Apic::receive_static<MessageMemRead>);
-    mb.last_vcpu->memwrite.add(dev, &X2Apic::receive_static<MessageMemWrite>);
+    mb.last_vcpu->memdword.add(dev, &X2Apic::receive_static<MessageMemDword>);
     mb.last_vcpu->memalloc.add(dev, &X2Apic::receive_static<MessageMemAlloc>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",

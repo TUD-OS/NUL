@@ -113,7 +113,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   unsigned match_bars(unsigned long address, unsigned size, char *&ptr) {
 
     COUNTER_INC("PCIDirect::match");
-    
+
     // mem decode is disabled?
     if (!vf && ~_cfgspace[1] & 2)  return 0;
 
@@ -257,11 +257,9 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   bool receive(MessageMemAlloc &msg)
   {
     COUNTER_INC("PCIDirect::alloc");
+    // there is a bar and it does not cross multiple pages?
     char *ptr;
-    unsigned ofs = match_bars(msg.phys1 & ~0xfff, 0x1000, ptr);
-    unsigned bar = _cfgspace[ofs];
-    // there is a bar and it does not cross multiple pages and it is prefetchable?
-    if (!ofs || msg.phys2 != ~0xffful || ~bar & 0x8)  return false;
+    if (!match_bars(msg.phys1 & ~0xfff, 0x1000, ptr) || msg.phys2 != ~0xffful)  return false;
     *msg.ptr = ptr + (msg.phys1 & 0xfff);
     return true;
 
@@ -271,25 +269,13 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   {
 
     char *ptr;
-    if (!match_bars(msg.phys, msg.count, ptr))  return false;
+    if (!match_bars(msg.phys, msg.count, ptr) || msg.count != 4)  return false;
     COUNTER_INC("PCIDirect::write");
     Logging::printf("PCIWRITE %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
-    switch (msg.count) {
-    case 4:
-      *reinterpret_cast<unsigned       *>(ptr) = *reinterpret_cast<unsigned       *>(msg.ptr);
-       // write msix control trough
-       if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_table) && ptr < reinterpret_cast<char *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
-	_msix_host_table[(ptr - reinterpret_cast<char *>(_msix_table)) / 16].control = *reinterpret_cast<unsigned *>(msg.ptr);
-      break;
-      case 2:
-	*reinterpret_cast<unsigned short *>(ptr) = *reinterpret_cast<unsigned short *>(msg.ptr);
-	break;
-      case 1:
-	*reinterpret_cast<unsigned char  *>(ptr) = *reinterpret_cast<unsigned char  *>(msg.ptr);
-	break;
-      default:
-	memcpy(ptr, msg.ptr, msg.count);
-      }
+    *reinterpret_cast<unsigned       *>(ptr) = *reinterpret_cast<unsigned       *>(msg.ptr);
+    // write msix control trough
+    if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_table) && ptr < reinterpret_cast<char *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
+      _msix_host_table[(ptr - reinterpret_cast<char *>(_msix_table)) / 16].control = *reinterpret_cast<unsigned *>(msg.ptr);
     return true;
   }
 
@@ -297,24 +283,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   bool receive(MessageMemRead &msg)
   {
     char *ptr;
-    if (!match_bars(msg.phys, msg.count, ptr))  return false;
-    
-    COUNTER_INC("PCIDirect::read");
-    switch (msg.count)
-      {
-      case 4:
-	*reinterpret_cast<unsigned       *>(msg.ptr) = *reinterpret_cast<unsigned       *>(ptr);
-	break;
-      case 2:
-	*reinterpret_cast<unsigned short *>(msg.ptr) = *reinterpret_cast<unsigned short *>(ptr);
-	break;
-      case 1:
-	*reinterpret_cast<unsigned char  *>(msg.ptr) = *reinterpret_cast<unsigned char  *>(ptr);
-	break;
-      default:
-	memcpy(msg.ptr, ptr, msg.count);
-      }
-
+    if (!match_bars(msg.phys, msg.count, ptr) || msg.count != 4)  return false;
+    *reinterpret_cast<unsigned       *>(msg.ptr) = *reinterpret_cast<unsigned       *>(ptr);
     Logging::printf("PCIREAD %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
 
     return true;
