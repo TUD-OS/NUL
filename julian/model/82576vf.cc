@@ -66,7 +66,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
   void VMMB_cb(uint32 old, uint32 val)
   {
-    // See 82576 datasheet Table 7-70 on page 357 for a good
+    // See 82576 datasheet Table 7-71 on page 357 for a good
     // explanation how this is supposed to work.
 
     // XXX Handle writes to VFU properly.
