@@ -70,16 +70,15 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
    */
   bool jmp_int(CpuState *cpu, unsigned char number)
   {
-    unsigned short offset, segment;
-    copy_in(number*4+0, &offset, 2);
-    copy_in(number*4+2, &segment, 2);
+    unsigned short v[2];
+    copy_in(number*4, v, 4);
 
     // As this is only called within our own IDT handler cs.limit and
     // cs.ar are fine
-    cpu->cs.sel = segment;
-    cpu->cs.base = segment << 4;
-    cpu->eip = offset;
-    if (segment != 0xf000) Logging::printf("%s() %x - %x\n", __func__, segment, offset);
+    cpu->cs.sel = v[1];
+    cpu->cs.base = v[1] << 4;
+    cpu->eip = v[0];
+    if (v[1] != 0xf000) Logging::printf("%s() %x - %x\n", __func__, v[1], v[0]);
 
     // we are done with the emulation
     return true;
@@ -114,12 +113,11 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   void reset_helper()
   {
     // initialize realmode idt
-    unsigned segment = _base >> 4;
-    for (unsigned i=0; i<256; i++)
-      {
-	copy_out(i*4, &i, 2);
-	copy_out(i*4+2, &segment, 2);
-      }
+    unsigned value = (_base >> 4) << 16;
+    for (unsigned i=0; i<256; i++) {
+      copy_out(i*4, &value, 4);
+      value++;
+    }
 
 
     // initialize PIT0
