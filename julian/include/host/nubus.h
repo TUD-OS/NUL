@@ -20,14 +20,14 @@ public:
 
   T *first() {
     T *first;
-    for (first = (T *)this; first->_prev; first = first->_prev)
+    for (first = static_cast<T *>(this); first->_prev; first = first->_prev)
       ;
     return prev;
   }
 
   T *last() {
     T *last;
-    for (last = (T *)this; last->_next; last = last->_next)
+    for (last = static_cast<T *>(this); last->_next; last = last->_next)
       ;
     return last;
   }
@@ -89,7 +89,7 @@ public:
     _memregion.del(r);
   }
 
-  uint64 alloc_mmio_window(uint64 size) { return _memregion.alloc((unsigned long)size, 12); }
+  uint64 alloc_mmio_window(uint64 size) { return _memregion.alloc(size, 12); }
 
   uint32 conf_read(uint8 df, uint16 reg);
   bool     conf_write(uint8 df, uint16 reg, uint32 val);

@@ -160,7 +160,8 @@ private:
     case VF_SET_MAC_ADDR:
       {
 	EthernetAddr vf_mac;
-	vf_mac.raw = (uint64)_hwreg[pfmbxmem + 1] | ((uint64)_hwreg[pfmbxmem + 2] & 0xFFFF) << 32;
+	vf_mac.raw = static_cast<uint64>(_hwreg[pfmbxmem + 1]) |
+	  (static_cast<uint64>(_hwreg[pfmbxmem + 2]) & 0xFFFF) << 32;
 	vf_set_mac(vf_no, vf_mac);
       }
       _hwreg[pfmbxmem] = VF_SET_MAC_ADDR | CMD_ACK | CTS;
@@ -188,7 +189,7 @@ public:
   {
     // Hardware initializes the Receive Address registers of queue 0
     // with the MAC address stored in the EEPROM.
-    EthernetAddr a = {{ _hwreg[RAL0] | (((uint64)_hwreg[RAH0] & 0xFFFF) << 32) }};
+    EthernetAddr a = {{ _hwreg[RAL0] | ((static_cast<uint64>(_hwreg[RAH0]) & 0xFFFF) << 32) }};
     return a;
   }
 

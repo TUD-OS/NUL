@@ -74,8 +74,8 @@ public:
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
       
-      cur->lo = (mword)_rx_buf[last_rx];
-      cur->hi = ((mword)_rx_buf[last_rx])>>32;
+      cur->lo = reinterpret_cast<uint64>(_rx_buf[last_rx]);
+      cur->hi = reinterpret_cast<uint64>(_rx_buf[last_rx])>>32;
 
       last_rx = (last_rx+1) % desc_ring_len;
       _hwreg[RDT0] = last_rx;
@@ -87,7 +87,7 @@ public:
   {
     dma_desc *cur;
     while (((cur = &_tx_ring[last_tx])->hi >> 32) & 1 /* done? */) {
-      uint16 plen = cur->hi >> 32;
+      //uint16 plen = cur->hi >> 32;
       //msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", last_tx, cur->lo, cur->hi, plen);
 
       cur->hi = cur->lo = 0;
@@ -112,7 +112,7 @@ public:
       switch (msg0 & (0xFF|CMD_ACK|CMD_NACK)) {
       case (VF_RESET | CMD_ACK):
 	_mac.raw = _hwreg[VBMEM + 1];
-	_mac.raw |= (((uint64)_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
+	_mac.raw |= (static_cast<uint64>(_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
 	_hwreg[VMB] = 1<<1 /* ACK */;
 	msg(VF, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
 	reset_complete();
@@ -143,7 +143,8 @@ public:
   bool receive(MessageNetwork &nmsg)
   {
     // Protect against our own packets. WTF?
-    if ((nmsg.buffer >= (void *)_rx_buf) && (nmsg.buffer < (void *)_rx_buf[desc_ring_len])) return false;
+    if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
+	(nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
     msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
     // XXX Lock?
@@ -153,8 +154,8 @@ public:
     // If the dma descriptor is not zero, it is still in use.
     if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
 
-    _tx_ring[tail].lo = (mword)_tx_buf[tail];
-    _tx_ring[tail].hi = (uint64)nmsg.len | ((uint64)nmsg.len)<<46
+    _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
+    _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
       | (3U<<20 /* adv descriptor */)
       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
       | (1U<<27 /* Report Status = IRQ */);
@@ -171,7 +172,9 @@ public:
 	      void *reg,
 	      void *msix_reg)
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
-      _hwreg((volatile uint32 *)reg), _msix_table((struct msix_table *)msix_reg), _up(false)
+      _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
+      _msix_table(reinterpret_cast<struct msix_table *>(msix_reg)),
+      _up(false)
   {
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
@@ -206,8 +209,8 @@ public:
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
 
     // Enable RX
-    _hwreg[RDBAL0] = (mword)_rx_ring;
-    _hwreg[RDBAH0] = 0;
+    _hwreg[RDBAL0] = reinterpret_cast<uint64>(_rx_ring);
+    _hwreg[RDBAH0] = reinterpret_cast<uint64>(_rx_ring) >> 32;
     _hwreg[RDLEN0] = sizeof(_rx_ring);
     msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
     _hwreg[RXDCTL0] = (1U<<25);
@@ -215,8 +218,8 @@ public:
     assert(_hwreg[RDH0] == 0);
 
     // Enable TX
-    _hwreg[TDBAL0] = (mword)_tx_ring;
-    _hwreg[TDBAH0] = 0;
+    _hwreg[TDBAL0] = reinterpret_cast<uint64>(_tx_ring);
+    _hwreg[TDBAH0] = reinterpret_cast<uint64>(_tx_ring) >> 32;
     _hwreg[TDLEN0] = sizeof(_tx_ring);
     msg(INFO, "%08x bytes allocated for TX descriptor ring (%d descriptors).\n", _hwreg[TDLEN0], desc_ring_len);
     _hwreg[TXDCTL0] = (1U<<25);
@@ -226,7 +229,7 @@ public:
     // Prepare rings
     last_rx = last_tx = 0;
     for (unsigned i = 0; i < desc_ring_len; i++) {
-      _rx_ring[i].lo = (mword)_rx_buf[i];
+      _rx_ring[i].lo = reinterpret_cast<uint64>(_rx_buf[i]);
       _rx_ring[i].hi = 0;
     }
 
