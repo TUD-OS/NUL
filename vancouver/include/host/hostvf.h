@@ -32,7 +32,7 @@ public:
   /**
    * Return the base and size of a VF BAR (inside a SR-IOV capability).
    */
-  unsigned long long vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, unsigned long long &size, bool *is64bit=0) {
+  uint64 vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, uint64 &size, bool *is64bit=0) {
 
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
@@ -43,7 +43,7 @@ public:
   /**
    * Read all vf bars.
    */
-  void read_all_vf_bars(unsigned bdf, unsigned vf_no, unsigned long long *base, unsigned long long *size) {
+  void read_all_vf_bars(unsigned bdf, unsigned vf_no, uint64 *base, uint64 *size) {
 
     memset(base, 0, MAX_BAR*sizeof(*base));
     memset(size, 0, MAX_BAR*sizeof(*size));
@@ -55,7 +55,6 @@ public:
       if (is64bit) i++;
     }
   }
-
 
   /** Compute BDF of a particular VF. */
   unsigned vf_bdf(unsigned parent_bdf, unsigned vf_no)
@@ -69,7 +68,7 @@ public:
     return parent_bdf + vf_stride*vf_no + vf_offset;
   }
 
-  unsigned vf_device_id(unsigned parent_bdf)
+  uint32 vf_device_id(unsigned parent_bdf)
   {
     unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return 0;

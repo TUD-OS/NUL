@@ -17,7 +17,8 @@
 
 #pragma once
 
-#include "nul/motherboard.h"
+#include <nul/types.h>
+#include <nul/motherboard.h>
 
 /**
  * A helper for PCI config space access.
@@ -48,14 +49,14 @@ class HostPci
     EXTCAP_SRIOV            = 0x0010U,
   };
 
-  unsigned conf_read(unsigned bdf, unsigned dword)
+  uint32 conf_read(unsigned bdf, unsigned dword)
   {
     MessagePciConfig msg(bdf, dword);
     _bus_pcicfg.send(msg, true);
     return msg.value;
   }
 
-  void conf_write(unsigned bdf, unsigned dword, unsigned value)
+  void conf_write(unsigned bdf, unsigned dword, uint32 value)
   {
     MessagePciConfig msg(bdf, dword, value);
     _bus_pcicfg.send(msg, true);
@@ -75,7 +76,7 @@ class HostPci
   }
 
 
-  unsigned long long bar_base(unsigned bdf, unsigned bar)
+  uint64 bar_base(unsigned bdf, unsigned bar)
   {
     unsigned val = conf_read(bdf, bar);
     if ((val & BAR_IO) == BAR_IO)  return val;
@@ -92,10 +93,10 @@ class HostPci
    * Determines BAR size. You should probably disable interrupt
    * delivery from this device, while querying BAR sizes.
    */
-  unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
+  uint64 bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
   {
-    unsigned old = conf_read(bdf, bar);
-    unsigned long long size = 0;
+    uint32 old = conf_read(bdf, bar);
+    uint64 size = 0;
 
     if (is64bit) *is64bit = false;
     if ((old & BAR_IO) == 1) {
@@ -114,10 +115,10 @@ class HostPci
 	break;
       case BAR_TYPE_64B: {
 	if (is64bit) *is64bit = true;
-	unsigned old_hi = conf_read(bdf, bar + 1);
+	uint32 old_hi = conf_read(bdf, bar + 1);
 	conf_write(bdf, bar, 0xFFFFFFFFU);
 	conf_write(bdf, bar + 1, 0xFFFFFFFFU);
-	unsigned long long bar_size = ((unsigned long long)conf_read(bdf, bar + 1))<<32;
+	uint64 bar_size = static_cast<uint64>(conf_read(bdf, bar + 1))<<32;
 	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
 	size = bar_size;
 	conf_write(bdf, bar + 1, old_hi);
@@ -134,13 +135,13 @@ class HostPci
   }
 
 
-  void read_all_bars(unsigned bdf, unsigned long long *base, unsigned long long *size) {
+  void read_all_bars(unsigned bdf, uint64 *base, uint64 *size) {
 
     memset(base, 0, MAX_BAR*sizeof(*base));
     memset(size, 0, MAX_BAR*sizeof(*size));
 
     // disable device
-    unsigned cmd = conf_read(bdf, 1);
+    uint32 cmd = conf_read(bdf, 1);
     conf_write(bdf, 1, cmd & ~0x7);
 
     // read bars
@@ -242,7 +243,7 @@ class HostPci
 	msix_table = msg2.ptr + (base & 0xfff);
       }
 
-      volatile unsigned *_msix_table = (volatile unsigned *)msix_table;
+      volatile unsigned *_msix_table = reinterpret_cast<volatile unsigned *>(msix_table);
       _msix_table[nr*4 + 0]  = msg1.msi_address;
       _msix_table[nr*4 + 1]  = msg1.msi_address >> 32;
       _msix_table[nr*4 + 2]  = msg1.msi_value;
