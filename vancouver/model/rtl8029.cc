@@ -336,7 +336,7 @@ PARAM(rtl8029,
 	MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
 	if (!mb.bus_hostop.send(msg))
 	  Logging::printf("Could not get an UID");
-	unsigned long long prefix = ~argv[3] ? argv[3] : 0x00ff0000;
+	unsigned long long prefix = ~argv[3] ? argv[3] : 0x0050C200;
 	Rtl8029 *dev = new Rtl8029(mb.bus_network, mb.bus_irqlines, argv[1], (prefix << 16) | msg.value);
 	mb.bus_pcicfg.add (dev, &Rtl8029::receive_static<MessagePciConfig>, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
 	mb.bus_ioin.add   (dev, &Rtl8029::receive_static<MessageIOIn>);
