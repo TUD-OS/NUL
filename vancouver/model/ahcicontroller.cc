@@ -36,8 +36,7 @@ class ParentIrqProvider
  */
 class AhciPort : public FisReceiver
 {
-  DBus<MessageMemWrite> *_bus_memwrite;
-  DBus<MessageMemRead> *_bus_memread;
+#include "model/simplemem.h"
   FisReceiver *_drive;
   ParentIrqProvider *_parent;
   unsigned _ccs;
@@ -48,38 +47,13 @@ class AhciPort : public FisReceiver
 #define  REGBASE "../model/ahcicontroller.cc"
 #include "model/reg.h"
 
+public:
 
-  /**
-   * Copy to the user.
-   */
-  bool copy_out(unsigned long address, void *ptr, unsigned count)
-  {
-    MessageMemWrite msg(address, ptr, count);
-    if (!_bus_memwrite->send(msg))
-      // XXX DMA bus abort
-      Logging::panic("%s() could not copy out %x bytes to %lx\n", __PRETTY_FUNCTION__, count, address);
-    return true;
-  }
-
-  /**
-   * Copy from the user.
-   */
-  bool copy_in(unsigned long address, void *ptr, unsigned count)
-  {
-    MessageMemRead msg(address, ptr, count);
-    if (!_bus_memread->send(msg))
-      // XXX DMA bus abort
-      Logging::panic("%s() could not copy in %x bytes from %lx\n", __PRETTY_FUNCTION__, count, address);
-    return true;
-  }
-
- public:
-
-  void set_parent(ParentIrqProvider *parent, DBus<MessageMemWrite> *bus_memwrite, DBus<MessageMemRead> *bus_memread)
+  void set_parent(ParentIrqProvider *parent, DBus<MessageMemAlloc> *bus_memalloc, DBus<MessageMem> *bus_mem)
   {
     _parent = parent;
-    _bus_memwrite = bus_memwrite;
-    _bus_memread = bus_memread;
+    _bus_memalloc = bus_memalloc;
+    _bus_mem = bus_mem;
   }
 
 
@@ -203,8 +177,8 @@ class AhciPort : public FisReceiver
 	      copy_in(PxCLB +  slot * 0x20, cl, sizeof(cl));
 	      unsigned clflags  = cl[0];
 
-	      unsigned ct[clflags & 0x1f];
-	      copy_in(cl[2], ct, sizeof(ct));
+	      unsigned ct[32];
+	      copy_in(cl[2], ct, (clflags & 0x1f) * sizeof(unsigned));
 	      assert(~clflags & 0x20 && "ATAPI unimplemented");
 
 	      // send a dma_setup_fis
@@ -313,8 +287,7 @@ REGSET(AhciController,
  * An AhciController on a PCI card.
  *
  * State: unstable
- * Features: PCI cfg space, AHCI register set
- * Missing: MSI delivery
+ * Features: PCI cfg space, AHCI register set, MSI delivery
  */
 class AhciController : public ParentIrqProvider,
 		       public PciConfigHelper<AhciController>,
@@ -362,47 +335,27 @@ class AhciController : public ParentIrqProvider,
   };
 
 
-  bool receive(MessageMemWrite &msg)
+  bool receive(MessageMem &msg)
   {
     unsigned long addr = msg.phys;
     if (!match_bar(addr) || !(PCI_CMD_STS & 0x2))
       return false;
 
-    check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
-
-    bool res;
-    if (addr < 0x100)
-      res = AhciController_write(addr, *reinterpret_cast<unsigned *>(msg.ptr));
-    else if (addr < 0x100+MAX_PORTS*0x80)
-      res = _ports[(addr - 0x100) / 0x80].AhciPort_write(addr & 0x7f, *reinterpret_cast<unsigned *>(msg.ptr));
-    else
-      return false;
-
-    if (!res)  Logging::printf("%s(%lx) failed\n", __PRETTY_FUNCTION__, addr);
-    return true;
-  };
-
-
-  bool receive(MessageMemRead &msg)
-  {
-    unsigned long addr = msg.phys;
-    if (!match_bar(addr) || !(PCI_CMD_STS & 0x2))
-      return false;
-
-    check1(false, (msg.count != 4 || (addr & 0x3)), "%s() - unaligned or non-32bit access at %lx, %x", __PRETTY_FUNCTION__, msg.phys, msg.count);
+    assert(!(addr & 0x3));
 
     bool res;
     unsigned uvalue = 0;
     if (addr < 0x100)
-      res = AhciController_read(addr, uvalue);
+      res = msg.read ? AhciController_read(addr, uvalue) : AhciController_write(addr, *msg.ptr);
     else if (addr < 0x100+MAX_PORTS*0x80)
-      res = _ports[(addr - 0x100) / 0x80].AhciPort_read(addr & 0x7f, uvalue);
+      res = msg.read ? _ports[(addr - 0x100) / 0x80].AhciPort_read(addr & 0x7f, uvalue) : _ports[(addr - 0x100) / 0x80].AhciPort_write(addr & 0x7f, *msg.ptr);
     else
       return false;
 
-    if (res)  *reinterpret_cast<unsigned *>(msg.ptr) = uvalue;
-    return res;
-  };
+    if (res && msg.read)  *msg.ptr = uvalue;
+    else if (!res)  Logging::printf("%s(%lx) %s failed\n", __PRETTY_FUNCTION__, addr, msg.read ? "read" : "write");
+    return true;
+  }
 
 
   bool receive(MessageAhciSetDrive &msg)
@@ -426,7 +379,7 @@ class AhciController : public ParentIrqProvider,
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<AhciController>::receive(msg); }
   AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq)
   {
-    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memwrite, &mb.bus_memread);
+    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memalloc, &mb.bus_mem);
     PCI_reset();
     AhciController_reset();
   };
@@ -435,8 +388,7 @@ class AhciController : public ParentIrqProvider,
 PARAM(ahci,
       {
 	AhciController *dev = new AhciController(mb, argv[1]);
-	mb.bus_memwrite.add(dev, &AhciController::receive_static<MessageMemWrite>);
-	mb.bus_memread.add(dev, &AhciController::receive_static<MessageMemRead>);
+	mb.bus_mem.add(dev, &AhciController::receive_static<MessageMem>);
 
 	// register PCI device
 	mb.bus_pcicfg.add(dev, &AhciController::receive_static<MessagePciConfig>, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));

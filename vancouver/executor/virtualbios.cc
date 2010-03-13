@@ -661,10 +661,10 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
   /**
    * The memory read routine for the last 16byte below 4G and below 1M.
    */
-  bool receive(MessageMemRead &msg)
+  bool receive(MessageMem &msg)
   {
-    if (!in_range(msg.phys, 0xfffffff0, 0x10) && !in_range(msg.phys, 0xffff0, 0x10) )  return false;
-    memcpy(msg.ptr, _resetvector + (msg.phys & 0xf), msg.count);
+    if (!msg.read || !in_range(msg.phys, 0xfffffff0, 0x10) && !in_range(msg.phys, 0xffff0, 0x10))  return false;
+    *msg.ptr = *reinterpret_cast<unsigned *>(_resetvector + (msg.phys & 0xc));
     return true;
   }
 
@@ -827,7 +827,7 @@ class VirtualBios : public StaticReceiver<VirtualBios>, public BiosCommon
       // the iret for do_iret()
       _resetvector[0xf] = 0xcf;
 
-      mb.bus_memread.add(this,     &VirtualBios::receive_static<MessageMemRead>);
+      mb.bus_mem.add(this,         &VirtualBios::receive_static<MessageMem>);
       mb.bus_diskcommit.add(this,  &VirtualBios::receive_static<MessageDiskCommit>);
       mb.bus_timeout.add(this,     &VirtualBios::receive_static<MessageTimeout>);
 

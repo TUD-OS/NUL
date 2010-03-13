@@ -23,7 +23,7 @@ class BiosCommon
 {
 protected:
   Motherboard &_mb;
-
+#include "model/simplemem.h"
 
   /**
    * Special BIOS vectors.
@@ -33,40 +33,6 @@ protected:
     WAIT_DISK_VECTOR,
     MAX_VECTOR,
   };
-
-  /**
-   * Copy to the user.
-   */
-  void copy_out(unsigned long address, void *ptr, unsigned count)
-  {
-    /**
-     * No need to check segment limit and write rights here, as a
-     * pmode BIOS that reloads the ES segment would also crash this
-     * value!
-     *
-     * Note: we currently ignore the possible 64k wrap-around of a realmode segment here.
-     */
-    MessageMemWrite msg(address, ptr, count);
-    if (!_mb.bus_memwrite.send(msg))
-      Logging::printf("%s() could not copy out %x bytes to %lx\n", __PRETTY_FUNCTION__, count, address);
-  }
-
-
-  /**
-   * Copy from the user.
-   */
-  void copy_in(unsigned long address, void *ptr, unsigned count)
-  {    /**
-     * No need to check segment limit and access rights here, as a
-     * pmode BIOS that reloads the ES segment would also crash this
-     * value!
-     *
-     * Note: we currently ignore the possible 64k wrap-around of a realmode segment here.
-     */
-    MessageMemRead msg(address, ptr, count);
-    if (!_mb.bus_memread.send(msg))
-      Logging::printf("%s() could not copy in %x bytes from %lx\n", __PRETTY_FUNCTION__, count, address);
-  }
 
 
   /**
@@ -90,5 +56,5 @@ protected:
   }
 
 
-  BiosCommon(Motherboard &mb) : _mb(mb) {}
+  BiosCommon(Motherboard &mb) : _mb(mb), _bus_memalloc(&mb.bus_memalloc), _bus_mem(&mb.bus_mem) {}
 };

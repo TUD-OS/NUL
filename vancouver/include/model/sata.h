@@ -17,7 +17,7 @@
 
 #pragma once
 
-class FisReceiver 
+class FisReceiver
 {
  protected:
   FisReceiver *_peer;

@@ -24,7 +24,7 @@
  *
  * State: unstable
  * Features: textmode 80x25 supported, cursor
- * Missing: plenty, e.g: PCI, IRQ, VESA framebuffer...
+ * Missing: plenty, e.g: PCI, IRQ, VESA framebuffer, MemAlloc
  * Documentation: FreeVGA chipset reference - vga.htm
  */
 class Vga : public StaticReceiver<Vga>, public BiosCommon
@@ -392,26 +392,16 @@ public:
   }
 
 
-  bool  receive(MessageMemRead &msg)
+  bool  receive(MessageMem &msg)
   {
-    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size - msg.count))
-      memcpy(msg.ptr, _framebuffer_ptr + msg.phys - _framebuffer_phys, msg.count);
-    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE - msg.count))
-      memcpy(msg.ptr, _framebuffer_ptr + msg.phys - LOW_BASE, msg.count);
+    unsigned *ptr;
+    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size))
+      ptr = reinterpret_cast<unsigned *>(_framebuffer_ptr + msg.phys - _framebuffer_phys);
+    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE))
+      ptr = reinterpret_cast<unsigned *>(_framebuffer_ptr + msg.phys - LOW_BASE);
     else return false;
 
-    return true;
-  }
-
-
-  bool  receive(MessageMemWrite &msg)
-  {
-    if (in_range(msg.phys, _framebuffer_phys, _framebuffer_size - msg.count))
-      memcpy(_framebuffer_ptr + msg.phys - _framebuffer_phys, msg.ptr, msg.count);
-    else if (in_range(msg.phys, LOW_BASE, LOW_SIZE - msg.count))
-      memcpy(_framebuffer_ptr + msg.phys - LOW_BASE, msg.ptr, msg.count);
-    else return false;
-
+    if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
     return true;
   }
 
@@ -468,8 +458,7 @@ PARAM(vga,
 	mb.bus_ioin.  add(dev, &Vga::receive_static<MessageIOIn>);
 	mb.bus_ioout. add(dev, &Vga::receive_static<MessageIOOut>);
 	mb.bus_bios.  add(dev, &Vga::receive_static<MessageBios>);
-	mb.bus_memread.add(dev, &Vga::receive_static<MessageMemRead>);
-	mb.bus_memwrite.add(dev, &Vga::receive_static<MessageMemWrite>);
+	mb.bus_mem.add(dev, &Vga::receive_static<MessageMem>);
 	mb.bus_memmap.add(dev, &Vga::receive_static<MessageMemMap>);
       },
       "vga:iobase,fbsize=128 - attach a VGA controller.",

@@ -45,7 +45,7 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 public:
-  bool  receive(MessageMemDword &msg)
+  bool  receive(MessageMem &msg)
   {
     if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4
@@ -146,7 +146,7 @@ PARAM(x2apic, {
     X2Apic *dev = new X2Apic(mb.last_vcpu->executor, argv[0]);
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
-    mb.last_vcpu->memdword.add(dev, &X2Apic::receive_static<MessageMemDword>);
+    mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
     mb.last_vcpu->memalloc.add(dev, &X2Apic::receive_static<MessageMemAlloc>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",

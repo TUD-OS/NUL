@@ -33,9 +33,8 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 {
   const char *debug_getname() { return "SataDrive"; };
 
+#include "model/simplemem.h"
   DBus<MessageDisk>     &_bus_disk;
-  DBus<MessageMemWrite> &_bus_memwrite;
-  DBus<MessageMemRead>  &_bus_memread;
   unsigned _hostdisk;
   unsigned char _multiple;
   unsigned _regs[4];
@@ -48,30 +47,6 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   static unsigned const DMA_DESCRIPTORS = 64;
   DmaDescriptor _dma[DMA_DESCRIPTORS];
 
-
-  /**
-   * Copy to the user.
-   */
-  bool copy_out(unsigned long address, void *ptr, unsigned count)
-  {
-    MessageMemWrite msg(address, ptr, count);
-    if (!_bus_memwrite.send(msg))
-      // XXX DMA bus abort
-      Logging::panic("%s() could not copy out %x bytes to %lx\n", __PRETTY_FUNCTION__, count, address);
-    return true;
-  }
-
-  /**
-   * Copy from the user.
-   */
-  bool copy_in(unsigned long address, void *ptr, unsigned count)
-  {
-    MessageMemRead msg(address, ptr, count);
-    if (!_bus_memread.send(msg))
-      // XXX DMA bus abort
-      Logging::panic("%s() could not copy in %x bytes from %lx\n", __PRETTY_FUNCTION__, count, address);
-    return true;
-  }
 
   /**
    * A command is completed.
@@ -427,8 +402,8 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       }
     return true;
   };
-  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemWrite> &bus_memwrite, DBus<MessageMemRead> &bus_memread, unsigned hostdisk)
-    : _bus_disk(bus_disk), _bus_memwrite(bus_memwrite), _bus_memread(bus_memread), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
+  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemAlloc> *bus_memalloc, DBus<MessageMem> *bus_mem, unsigned hostdisk)
+    : _bus_disk(bus_disk), _bus_memalloc(bus_memalloc), _bus_mem(bus_mem), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
   {
 
     MessageDisk msg(hostdisk, &_params);
@@ -440,7 +415,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 
 PARAM(drive,
       {
-	SataDrive *drive = new SataDrive(mb.bus_disk, mb.bus_memwrite, mb.bus_memread, argv[0]);
+	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memalloc, &mb.bus_mem, argv[0]);
 	// XXX read params from sigma0
 	mb.bus_diskcommit.add(drive, &SataDrive::receive_static<MessageDiskCommit>);
 	// XXX put on SATA bus

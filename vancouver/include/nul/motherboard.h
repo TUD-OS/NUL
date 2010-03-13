@@ -57,9 +57,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageIrqNotify>    bus_irqnotify;
   DBus<MessageKeycode>      bus_keycode;
   DBus<MessageLegacy>       bus_legacy;
-  DBus<MessageMemRead>      bus_memread;
-  DBus<MessageMemWrite>     bus_memwrite;
-  DBus<MessageMemDword>     bus_memdword;
+  DBus<MessageMem>          bus_mem;
   DBus<MessageMemAlloc>     bus_memalloc;
   DBus<MessageMemMap>       bus_memmap;
   DBus<MessageMouse>        bus_mouse;

@@ -22,7 +22,6 @@
  * Device that ignores all operations.
  *
  * State: stable
- * Features: MemRead, MemWrite
  */
 class NullMemDevice : public StaticReceiver<NullMemDevice>
 {
@@ -36,11 +35,10 @@ class NullMemDevice : public StaticReceiver<NullMemDevice>
   };
 public:
   NullMemDevice(unsigned long base, unsigned long size) : _base(base), _size(size) {}
-  template <class M> bool  receive(M &msg)
+  bool  receive(MessageMem &msg)
   {
     if (!in_range(msg.phys, _base, _size)) return false;
-    for (unsigned i=0; i < msg.count; i++)
-      reinterpret_cast<char *>(msg.ptr)[i] = 0xff;
+    if (msg.read) *msg.ptr = 0xffffffff;
     return true;
   }
 };
@@ -49,8 +47,7 @@ public:
 PARAM(nullmem,
       {
 	Device *dev = new NullMemDevice(argv[0], argv[1]);
-	mb.bus_memread.add(dev, &NullMemDevice::receive_static<MessageMemRead>);
-	mb.bus_memwrite.add(dev, &NullMemDevice::receive_static<MessageMemWrite>);
+	mb.bus_mem.add(dev, &NullMemDevice::receive_static<MessageMem>);
       },
       "nullmem:<range> - ignore Memory access to the given physical address range.",
       "Example: 'nullmem:0xfee00000,0x1000'.");

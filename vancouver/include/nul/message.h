@@ -68,52 +68,26 @@ struct MessageIOOut {
 /**
  * A dword aligned memory access.
  */
-struct MessageMemDword
+struct MessageMem
 {
   bool read;
   unsigned long phys;
   unsigned *ptr;
-  MessageMemDword(bool _read, unsigned long _phys, unsigned *_ptr) : read(_read), phys(_phys), ptr(_ptr) {}
-};
-
-
-/**
- * Generic memory message.
- */
-struct MessageMem
-{
-  MessageMem(unsigned long _phys, void *_ptr, unsigned _count) : phys(_phys), ptr(_ptr), count(_count) {}
-  unsigned long phys;
-  void *ptr;
-  unsigned count;
-};
-
-
-/**
- * A memory write operation.
- */
-struct MessageMemWrite    : public MessageMem
-{
-  MessageMemWrite(unsigned long _phys, const void *_ptr, unsigned _count)
-    : MessageMem(_phys, const_cast<void *>(_ptr), _count) {}
-};
-
-
-/**
- * A memory read operation.
- */
-struct MessageMemRead     : public MessageMem
-{
-  MessageMemRead(unsigned long _phys, void *_ptr, unsigned _count) : MessageMem(_phys, _ptr, _count) {}
+  MessageMem(bool _read, unsigned long _phys, unsigned *_ptr) : read(_read), phys(_phys), ptr(_ptr) {}
 };
 
 
 /**
  * A mapping directly to the user.
+ *
+ * XXX switch to a push model.
  */
-struct MessageMemMap     : public MessageMem
+struct MessageMemMap
 {
- MessageMemMap(unsigned long _phys, void *_ptr, unsigned _count) : MessageMem(_phys, _ptr, _count) {}
+  MessageMemMap(unsigned long _phys, void *_ptr, unsigned _count) : phys(_phys), ptr(_ptr), count(_count) {}
+  unsigned long phys;
+  void *ptr;
+  unsigned count;
 };
 
 

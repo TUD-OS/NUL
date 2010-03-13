@@ -39,7 +39,10 @@ public:
   }
 };
 
-
+/**
+ * Template that forwards PCI config messages to the corresponding
+ * register functions.
+ */
 template <typename Y> class PciConfigHelper {
 public:
   bool receive(MessagePciConfig &msg) {

@@ -103,8 +103,8 @@ private:
 
     unsigned long address = _buffers[index]._phys1;
     for (unsigned i=0; i < _buffers[index]._len; i += 4) {
-      MessageMemDword msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
-      _mb.bus_memdword.send(msg2, true);
+      MessageMem msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
+      _mb.bus_mem.send(msg2, true);
       if ((address & 0xfff) != 0xffc)
 	address += 4;
       else

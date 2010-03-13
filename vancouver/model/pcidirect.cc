@@ -110,7 +110,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
    * Check whether the guest mem address matches and translate to host pointer
    * address.
    */
-  unsigned match_bars(unsigned long address, unsigned size, char *&ptr) {
+  unsigned match_bars(unsigned long address, unsigned size, unsigned *&ptr) {
 
     COUNTER_INC("PCIDirect::match");
 
@@ -123,9 +123,9 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
       if (_barinfo[i].size < size || _barinfo[i].io || !in_range(address, _cfgspace[BAR0 + i] & BAR_MEM_MASK,
 								 _barinfo[i].size - size + 1))
 	continue;
-      ptr = _barinfo[i].ptr + address - (_cfgspace[BAR0 + i] & BAR_MEM_MASK);
-      if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_host_table) && ptr < reinterpret_cast<char *>(_msix_host_table + _irq_count))
-	ptr = reinterpret_cast<char *>(_msix_table) + (ptr - reinterpret_cast<char *>(_msix_host_table));
+      ptr = reinterpret_cast<unsigned *>(_barinfo[i].ptr + address - (_cfgspace[BAR0 + i] & BAR_MEM_MASK));
+      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_host_table) && ptr < reinterpret_cast<unsigned *>(_msix_host_table + _irq_count))
+	ptr = reinterpret_cast<unsigned *>(_msix_table) + (ptr - reinterpret_cast<unsigned *>(_msix_host_table));
       return BAR0 + i;
     }
     return 0;
@@ -258,43 +258,37 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   {
     COUNTER_INC("PCIDirect::alloc");
     // there is a bar and it does not cross multiple pages?
-    char *ptr;
+    unsigned *ptr;
     if (!match_bars(msg.phys1 & ~0xfff, 0x1000, ptr) || msg.phys2 != ~0xffful)  return false;
-    *msg.ptr = ptr + (msg.phys1 & 0xfff);
+    *msg.ptr = reinterpret_cast<char *>(ptr) + (msg.phys1 & 0xfff);
     return true;
 
   }
 
-  bool receive(MessageMemWrite &msg)
+  bool receive(MessageMem &msg)
   {
-
-    char *ptr;
-    if (!match_bars(msg.phys, msg.count, ptr) || msg.count != 4)  return false;
-    COUNTER_INC("PCIDirect::write");
-    Logging::printf("PCIWRITE %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
-    *reinterpret_cast<unsigned       *>(ptr) = *reinterpret_cast<unsigned       *>(msg.ptr);
-    // write msix control trough
-    if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_table) && ptr < reinterpret_cast<char *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
-      _msix_host_table[(ptr - reinterpret_cast<char *>(_msix_table)) / 16].control = *reinterpret_cast<unsigned *>(msg.ptr);
-    return true;
-  }
-
-
-  bool receive(MessageMemRead &msg)
-  {
-    char *ptr;
-    if (!match_bars(msg.phys, msg.count, ptr) || msg.count != 4)  return false;
-    *reinterpret_cast<unsigned       *>(msg.ptr) = *reinterpret_cast<unsigned       *>(ptr);
-    Logging::printf("PCIREAD %lx (%d) %x %p\n", msg.phys, msg.count, *(unsigned *)msg.ptr, ptr);
+    unsigned *ptr;
+    if (!match_bars(msg.phys, 4, ptr))  return false;
+    if (msg.read) {
+      *msg.ptr = *ptr;
+      Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
+    }
+    else {
+      *ptr = *msg.ptr;
+      // write msix control trough
+      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
+	_msix_host_table[(ptr - reinterpret_cast<unsigned *>(_msix_table)) / 16].control = *msg.ptr;
+      Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
+    }
 
     return true;
   }
 
   bool  receive(MessageMemMap &msg) {
-    char *ptr;
+    unsigned *ptr;
     unsigned ofs = match_bars(msg.phys & ~0xfff, 0x1000, ptr);
     if (!ofs) return false;
-    if (_msix_host_table && ptr >= reinterpret_cast<char *>(_msix_table) && ptr < reinterpret_cast<char *>(_msix_table + _irq_count))
+    if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count))
       return false;
 
     // XXX fix _msix clashes
@@ -324,7 +318,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 
     map_bars(bases, sizes);
 
-    Logging::printf("%x\n", *(unsigned *)(_barinfo[0].ptr));
+    Logging::printf("%x\n", *reinterpret_cast<unsigned *>(_barinfo[0].ptr));
 
     if (parent_bdf) {
       // Populate config space for VF
@@ -363,8 +357,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
     mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
     mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
-    mb.bus_memread.add(this, &DirectPciDevice::receive_static<MessageMemRead>);
-    mb.bus_memwrite.add(this, &DirectPciDevice::receive_static<MessageMemWrite>);
+    mb.bus_mem.add(this, &DirectPciDevice::receive_static<MessageMem>);
     if (map)
       mb.bus_memmap.add(this, &DirectPciDevice::receive_static<MessageMemMap>);
     mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);

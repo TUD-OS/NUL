@@ -41,24 +41,18 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
   }
 
 
-  bool  receive(MessageMemRead &msg)
+  bool  receive(MessageMem &msg)
   {
-    if (in_range(msg.phys, _phys, _size - msg.count))
-      memcpy(msg.ptr, _ptr + msg.phys - _phys, msg.count);
+    unsigned *ptr;
+    if (in_range(msg.phys, _phys, _size))
+      ptr = reinterpret_cast<unsigned *>(_ptr + msg.phys - _phys);
     else return false;
 
+    if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
     return true;
   }
 
 
-  bool  receive(MessageMemWrite &msg)
-  {
-    if (in_range(msg.phys, _phys, _size - msg.count))
-      memcpy(_ptr + msg.phys - _phys, msg.ptr, msg.count);
-    else return false;
-
-    return true;
-  }
   DirectMemDevice(char *ptr, unsigned long phys, unsigned long size) : _ptr(ptr), _phys(phys), _size(size)
   {
     Logging::printf("DirectMem: %p base %lx+%lx\n", ptr, phys, size);
@@ -82,8 +76,7 @@ PARAM(mio,
 
 	Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
 	mb.bus_memmap.add(dev,  &DirectMemDevice::receive_static<MessageMemMap>);
-	mb.bus_memread.add(dev, &DirectMemDevice::receive_static<MessageMemRead>);
-	mb.bus_memwrite.add(dev,&DirectMemDevice::receive_static<MessageMemWrite>);
+	mb.bus_mem.add(dev, &DirectMemDevice::receive_static<MessageMem>);
 
       },
       "mio:base,size,dest=base - map hostmemory directly into the VM."

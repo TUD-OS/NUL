@@ -48,7 +48,7 @@ class VCpu
   VCpu *_last;
 public:
   DBus<CpuMessage>       executor;
-  DBus<MessageMemDword>  memdword;
+  DBus<MessageMem>       mem;
   DBus<MessageMemAlloc>  memalloc;
 
   VCpu *get_last() { return _last; }

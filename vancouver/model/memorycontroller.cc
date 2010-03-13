@@ -33,23 +33,14 @@ public:
   /****************************************************/
   /* Physmem access                                   */
   /****************************************************/
-  bool  receive(MessageMemRead &msg)
+  bool  receive(MessageMem &msg)
   {
-    //COUNTER_INC("read mem");
-    if ((msg.phys < _start) || (msg.phys >= (_end - msg.count)))  return false;
-    memcpy(msg.ptr, _physmem + msg.phys, msg.count);
+    if ((msg.phys < _start) || (msg.phys >= (_end - 4)))  return false;
+    unsigned *ptr = reinterpret_cast<unsigned *>(_physmem + msg.phys);
+
+    if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
     return true;
   }
-
-
-  bool  receive(MessageMemWrite &msg)
-  {
-    //COUNTER_INC("write mem");
-    if ((msg.phys < _start) || (msg.phys >= (_end - msg.count)))  return false;
-    memcpy(_physmem + msg.phys, msg.ptr, msg.count);
-    return true;
-  }
-
 
   bool  receive(MessageMemAlloc &msg)
   {
@@ -88,10 +79,9 @@ PARAM(mem,
 	Logging::printf("physmem: %lx [%lx, %lx]\n", msg.value, start, end);
 	Device *dev = new MemoryController(msg.ptr, start, end);
 	// physmem access
-	mb.bus_memwrite.add(dev,   &MemoryController::receive_static<MessageMemWrite>);
-	mb.bus_memread.add(dev,    &MemoryController::receive_static<MessageMemRead>);
-	mb.bus_memalloc.add(dev,   &MemoryController::receive_static<MessageMemAlloc>);
-	mb.bus_memmap.add(dev,     &MemoryController::receive_static<MessageMemMap>);
+	mb.bus_mem.add(dev,      &MemoryController::receive_static<MessageMem>);
+	mb.bus_memalloc.add(dev, &MemoryController::receive_static<MessageMemAlloc>);
+	mb.bus_memmap.add(dev,   &MemoryController::receive_static<MessageMemMap>);
 
       },
       "mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.",
