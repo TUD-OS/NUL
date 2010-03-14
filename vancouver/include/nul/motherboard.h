@@ -58,8 +58,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageKeycode>      bus_keycode;
   DBus<MessageLegacy>       bus_legacy;
   DBus<MessageMem>          bus_mem;
-  DBus<MessageMemAlloc>     bus_memalloc;
-  DBus<MessageMemMap>       bus_memmap;
+  DBus<MessageMemRegion>    bus_memregion;
   DBus<MessageMouse>        bus_mouse;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciConfig>    bus_hwpcicfg;

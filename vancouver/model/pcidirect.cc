@@ -254,16 +254,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   }
 
 
-  bool receive(MessageMemAlloc &msg)
-  {
-    COUNTER_INC("PCIDirect::alloc");
-    // there is a bar and it does not cross multiple pages?
-    unsigned *ptr;
-    if (!match_bars(msg.phys1 & ~0xfff, 0x1000, ptr) || msg.phys2 != ~0xffful)  return false;
-    *msg.ptr = reinterpret_cast<char *>(ptr) + (msg.phys1 & 0xfff);
-    return true;
-
-  }
 
   bool receive(MessageMem &msg)
   {
@@ -284,18 +274,33 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     return true;
   }
 
-  bool  receive(MessageMemMap &msg) {
-    unsigned *ptr;
-    unsigned ofs = match_bars(msg.phys & ~0xfff, 0x1000, ptr);
-    if (!ofs) return false;
-    if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count))
-      return false;
 
-    // XXX fix _msix clashes
-    msg.ptr = ptr;
-    msg.count = _barinfo[ofs - 4].size;
-    Logging::printf(" MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
-    return true;
+  bool  receive(MessageMemRegion &msg) {
+    for (unsigned i=0; i < _bar_count; i++) {
+      if (_barinfo[i].io || !in_range(msg.page << 12, _cfgspace[BAR0 + i] & BAR_MEM_MASK, _barinfo[i].size)) continue;
+
+      msg.start_page = (_cfgspace[BAR0 + i] & BAR_MEM_MASK) >> 12;
+      msg.count = _barinfo[i].size >> 12;
+      msg.ptr = _barinfo[i].ptr;
+
+      unsigned msix_size = (16*_irq_count + 0xfff) & ~0xffful;
+      unsigned msix_offset = _cfgspace[1 + _msix_cap] & ~0x7;
+      if (i == _msix_bar) {
+	unsigned long offset = (_cfgspace[BAR0 + i] & BAR_MEM_MASK) - (msg.page << 12);
+	if (in_range(offset, msix_offset, msix_size)) return false;
+	if (offset < msix_offset)
+	  msg.count = msix_offset >> 12;
+	else {
+	  unsigned long shift = (msix_offset + 0xfff) & ~0xffful;
+	  msg.start_page += shift >> 12;
+	  msg.count -= shift;
+	  msg.ptr += shift;
+	}
+      }
+      Logging::printf(" MAP %lx+%x from %p\n", msg.start_page << 12, msg.count << 12, msg.ptr);
+      return true;
+    }
+    return false;
   }
 
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
@@ -359,7 +364,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
     mb.bus_mem.add(this, &DirectPciDevice::receive_static<MessageMem>);
     if (map)
-      mb.bus_memmap.add(this, &DirectPciDevice::receive_static<MessageMemMap>);
+      mb.bus_memregion.add(this, &DirectPciDevice::receive_static<MessageMemRegion>);
     mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);
     mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
   }

@@ -174,13 +174,21 @@ public:
       unsigned s = slot(phys1);
       search_entry(_sets[s]._values, _sets[s]._newest);
 
-      // try to get a direct memory reference
-      char *new_ptr = 0;
-      MessageMemAlloc msg1(&new_ptr, phys1 & ~0xffful, phys2 & ~0xffful);
+      /**
+       * What should we do if two different pages are referenced?
+       *
+       * We could fallback to dword mode but there is this strange
+       * corner case where somebody does an locked operation crossing
+       * two non-adjunct pages, where we have to map the two pages
+       * into an 8k region and unmap them later on....
+       */
+      if (phys2 != ~0xffful && (((phys1 >> 12) + 1) != (phys2 >> 12))) Logging::panic("joining two non-adjunct pages %lx,%lx is not supported", phys1 >> 12, phys2 >> 12);
 
-      if (_mb.bus_memalloc.send(msg1, true) && new_ptr) {
+      // try to get a direct memory reference
+      MessageMemRegion msg1(phys1 >> 12);
+      if (_mb.bus_memregion.send(msg1, true) && msg1.ptr && ((phys1 + len) <= ((msg1.start_page + msg1.count) << 12))) {
 	CacheEntry *res = _sets[s]._values + entry;
-	res->_ptr = new_ptr + (phys1 & 0xfff);
+	res->_ptr = msg1.ptr + (phys1 - (msg1.start_page << 12));
 	res->_len = len;
 	res->_phys1 = phys1;
 	res->_phys2 = phys2;

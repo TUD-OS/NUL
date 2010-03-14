@@ -42,25 +42,13 @@ public:
     return true;
   }
 
-  bool  receive(MessageMemAlloc &msg)
-  {
-    //disable ALLOC?  return false;
-    //COUNTER_INC("allocmem");
-    if ((msg.phys1 < _start) || (msg.phys1 >= (_end & ~0xfff)))  return false;
-    if (msg.phys2 != ~0xffful && ((msg.phys2 < _start) || (msg.phys2 >= _end & ~0xfff)))  return false;
-    if ((msg.phys2 != ~0xffful) && ((msg.phys1 | 0xffful) + 1) != msg.phys2)
-      Logging::panic("mmap unimplemented for %lx, %lx", msg.phys1, msg.phys2);
-    *msg.ptr = _physmem + msg.phys1;
-    return true;
-  }
 
-
-  bool  receive(MessageMemMap &msg)
+  bool  receive(MessageMemRegion &msg)
   {
-    if ((msg.phys < _start) || (msg.phys >= _end))  return false;
-    msg.phys = _start;
+    if ((msg.page < (_start >> 12)) || (msg.page >= (_end >> 12)))  return false;
+    msg.start_page = _start >> 12;
+    msg.count = (_end - _start) >> 12;
     msg.ptr = _physmem + _start;
-    msg.count = _end - _start;
     return true;
   }
 
@@ -80,9 +68,7 @@ PARAM(mem,
 	Device *dev = new MemoryController(msg.ptr, start, end);
 	// physmem access
 	mb.bus_mem.add(dev,      &MemoryController::receive_static<MessageMem>);
-	mb.bus_memalloc.add(dev, &MemoryController::receive_static<MessageMemAlloc>);
-	mb.bus_memmap.add(dev,   &MemoryController::receive_static<MessageMemMap>);
-
+	mb.bus_memregion.add(dev, &MemoryController::receive_static<MessageMemRegion>);
       },
       "mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.",
       "Example: 'mem:0,0xa0000' for the first 640k region",

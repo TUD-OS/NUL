@@ -30,13 +30,13 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
   unsigned long _phys;
   unsigned long _size;
  public:
-  bool  receive(MessageMemMap &msg)
+  bool  receive(MessageMemRegion &msg)
   {
-    if (!in_range(msg.phys, _phys, _size))  return false;
+    if (!in_range(msg.page, _phys >> 12, _size >> 12))  return false;
     Logging::printf("%s: %p base %lx+%lx\n", __PRETTY_FUNCTION__, _ptr, _phys, _size);
-    msg.phys  = _phys;
+    msg.start_page = _phys >> 12;
+    msg.count = _size >> 12;
     msg.ptr   = _ptr;
-    msg.count = _size;
     return true;
   }
 
@@ -75,7 +75,7 @@ PARAM(mio,
 	  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
 
 	Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
-	mb.bus_memmap.add(dev,  &DirectMemDevice::receive_static<MessageMemMap>);
+	mb.bus_memregion.add(dev,  &DirectMemDevice::receive_static<MessageMemRegion>);
 	mb.bus_mem.add(dev, &DirectMemDevice::receive_static<MessageMem>);
 
       },

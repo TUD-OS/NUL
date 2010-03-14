@@ -56,5 +56,5 @@ protected:
   }
 
 
-  BiosCommon(Motherboard &mb) : _mb(mb), _bus_memalloc(&mb.bus_memalloc), _bus_mem(&mb.bus_mem) {}
+  BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem) {}
 };

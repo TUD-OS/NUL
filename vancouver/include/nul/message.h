@@ -76,34 +76,21 @@ struct MessageMem
   MessageMem(bool _read, unsigned long _phys, unsigned *_ptr) : read(_read), phys(_phys), ptr(_ptr) {}
 };
 
-
 /**
- * A mapping directly to the user.
+ * Request a region that is direct mapped into our memory.  Used for
+ * mapping it directly to the user and optimizing internal access.
  *
- * XXX switch to a push model.
+ * Note, that clients can also return an empty region by not setting
+ * the ptr.
  */
-struct MessageMemMap
+struct MessageMemRegion
 {
-  MessageMemMap(unsigned long _phys, void *_ptr, unsigned _count) : phys(_phys), ptr(_ptr), count(_count) {}
-  unsigned long phys;
-  void *ptr;
-  unsigned count;
+  unsigned long page;
+  unsigned long start_page;
+  unsigned      count;
+  char *        ptr;
+  MessageMemRegion(unsigned long _page) : page(_page), count(0), ptr(0) {}
 };
-
-
-/**
- * Get a pointer for up to 2 pages of memory for direct read-write access.
- *
- * Phys2 == ~0ul means only a single page.
- */
-struct MessageMemAlloc
-{
-  char **ptr;
-  unsigned long phys1;
-  unsigned long phys2;
-  MessageMemAlloc(char **_ptr, unsigned long _phys1, unsigned long _phys2=~0ul) : ptr(_ptr), phys1(_phys1), phys2(_phys2) {}
-};
-
 
 
 /****************************************************/

@@ -55,13 +55,15 @@ public:
     return true;
   }
 
-  bool  receive(MessageMemAlloc &msg)
+  bool  receive(MessageMemRegion &msg)
   {
-    if ((_msr & ~0xfff) != msg.phys1) return false;
+    if ((_msr >> 12) != msg.page) return false;
     /**
      * we return true without setting msg.ptr and thus nobody else can
      * claim this region
      */
+    msg.start_page = msg.page;
+    msg.count = 1;
     return true;
   }
 
@@ -147,7 +149,7 @@ PARAM(x2apic, {
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
-    mb.last_vcpu->memalloc.add(dev, &X2Apic::receive_static<MessageMemAlloc>);
+    mb.last_vcpu->memregion.add(dev, &X2Apic::receive_static<MessageMemRegion>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
   "Example: 'x2apic:2'");

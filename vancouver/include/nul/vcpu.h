@@ -49,7 +49,7 @@ class VCpu
 public:
   DBus<CpuMessage>       executor;
   DBus<MessageMem>       mem;
-  DBus<MessageMemAlloc>  memalloc;
+  DBus<MessageMemRegion>    memregion;
 
   VCpu *get_last() { return _last; }
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }

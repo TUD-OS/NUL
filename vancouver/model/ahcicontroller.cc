@@ -49,10 +49,10 @@ class AhciPort : public FisReceiver
 
 public:
 
-  void set_parent(ParentIrqProvider *parent, DBus<MessageMemAlloc> *bus_memalloc, DBus<MessageMem> *bus_mem)
+  void set_parent(ParentIrqProvider *parent, DBus<MessageMemRegion> *bus_memregion, DBus<MessageMem> *bus_mem)
   {
     _parent = parent;
-    _bus_memalloc = bus_memalloc;
+    _bus_memregion = bus_memregion;
     _bus_mem = bus_mem;
   }
 
@@ -379,7 +379,7 @@ class AhciController : public ParentIrqProvider,
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<AhciController>::receive(msg); }
   AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq)
   {
-    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memalloc, &mb.bus_mem);
+    for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memregion, &mb.bus_mem);
     PCI_reset();
     AhciController_reset();
   };

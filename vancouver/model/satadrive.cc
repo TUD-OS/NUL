@@ -402,8 +402,8 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       }
     return true;
   };
-  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemAlloc> *bus_memalloc, DBus<MessageMem> *bus_mem, unsigned hostdisk)
-    : _bus_disk(bus_disk), _bus_memalloc(bus_memalloc), _bus_mem(bus_mem), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
+  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemRegion> *bus_memregion, DBus<MessageMem> *bus_mem, unsigned hostdisk)
+    : _bus_memregion(bus_memregion), _bus_mem(bus_mem), _bus_disk(bus_disk), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
   {
 
     MessageDisk msg(hostdisk, &_params);
@@ -415,7 +415,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 
 PARAM(drive,
       {
-	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memalloc, &mb.bus_mem, argv[0]);
+	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, argv[0]);
 	// XXX read params from sigma0
 	mb.bus_diskcommit.add(drive, &SataDrive::receive_static<MessageDiskCommit>);
 	// XXX put on SATA bus

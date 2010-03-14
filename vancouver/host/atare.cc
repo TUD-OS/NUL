@@ -142,7 +142,7 @@ class Atare : public StaticReceiver<Atare>
     }
     else if (*res == 0x2f) {
       unsigned i;
-      for (i=0; i < ((unsigned char) res[1]); i++)
+      for (i=0; i < res[1]; i++)
 	if (!name_seg(res + 2 + i*4)) return 0;
       if (i)  return  res - table + 2 + 4*i;
     }
