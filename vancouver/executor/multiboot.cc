@@ -23,8 +23,8 @@
  * Provide Multiboot ability.
  *
  * State: unstable
- * Features: CPU init, elf-decoding, MBI creation, memory-map
- * Missing: variable trigger address, request modules from sigma0
+ * Features: CPU init, elf-decoding, MBI creation, memory-map, request
+ *           modules from sigma0, modaddr
  */
 class MultibootExecutor : public StaticReceiver<MultibootExecutor>
 {
