@@ -63,13 +63,47 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
 
   const char *debug_getname() { return "DirectPciDevice"; }
 
+public:
+  void read_all_bars(unsigned bdf, unsigned long *base, unsigned long *size) {
+
+    memset(base, 0, MAX_BAR*sizeof(*base));
+    memset(size, 0, MAX_BAR*sizeof(*size));
+
+    // disable device
+    uint32 cmd = conf_read(bdf, 1);
+    conf_write(bdf, 1, cmd & ~0x7);
+
+    // read bars
+    for (unsigned i=0; i < count_bars(bdf); i++) {
+      unsigned old = conf_read(bdf, BAR0 + i);
+      conf_write(bdf, BAR0 + i, 0xFFFFFFFFU);
+      unsigned bar = conf_read(bdf, BAR0 + i);
+      if (old & BAR_IO) {
+	size[i] = ((bar & BAR_IO_MASK) ^ 0xFFFFU) + 1;
+	base[i] = old & BAR_IO_MASK;
+      }
+      else {
+	size[i] = ((bar & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
+	base[i] = old & BAR_MEM_MASK;
+      }
+      conf_write(bdf, BAR0 + i, old);
+      if ((old & 7) == 0x4) {
+	if (conf_read(bdf, BAR0 + i + 1)) Logging::panic("64bit bar %x:%8x with high bits set!", conf_read(bdf, BAR0 + i + 1), old);
+	i++;
+      }
+    }
+    // reenable device
+    conf_write(bdf, 1, cmd);
+  }
+
+private:
 
   /**
    * Map the bars.
    */
-  void map_bars(unsigned long long *bases, unsigned long long *sizes) {
+  void map_bars(unsigned long *bases, unsigned long *sizes) {
     for (unsigned i=0; i < _bar_count; i++) {
-      Logging::printf("%s %llx %llx\n", __func__, bases[i], sizes[i]);
+      Logging::printf("%s %lx %lx\n", __func__, bases[i], sizes[i]);
       _barinfo[i].size = sizes[i];
       if (!bases[i]) continue;
       if ((bases[i] & 1) == 1) {
@@ -314,8 +348,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _bdf, parent_bdf ? _bdf : 0);
     check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
 
-    unsigned long long bases[HostPci::MAX_BAR];
-    unsigned long long sizes[HostPci::MAX_BAR];
+    unsigned long bases[HostPci::MAX_BAR];
+    unsigned long sizes[HostPci::MAX_BAR];
     if (parent_bdf)
       read_all_vf_bars(parent_bdf, vf_no, bases, sizes);
     else
