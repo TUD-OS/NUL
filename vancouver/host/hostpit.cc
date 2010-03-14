@@ -26,7 +26,7 @@ class HostPit : public StaticReceiver<HostPit>
 {
   #include "host/simplehwioout.h"
   DBus<MessageTimeout> &_bus_timeout;
-  static const long long FREQ = 1193180;
+  static const unsigned long long FREQ = 1193180;
   unsigned _period;
   unsigned _iobase;
   unsigned _irq;
