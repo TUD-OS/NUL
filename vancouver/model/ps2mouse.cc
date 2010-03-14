@@ -220,7 +220,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 		_param = PARAM_SET_RESOLUTION;
 		break;
 	      case 0xe9: // status request
-		packet = static_cast<unsigned long long>(_samplerate) << 32 | _resolution << 24 | _status << 16 | 0xfa00 | 4;
+		packet = union64(_samplerate, _resolution << 24 | _status << 16 | 0xfa00 | 4);
 		break;
 	      case 0xea: // set stream mode
 		_status &= ~STATUS_REMOTE;

@@ -77,8 +77,8 @@ struct MessageMem
 };
 
 /**
- * Request a region that is direct mapped into our memory.  Used for
- * mapping it directly to the user and optimizing internal access.
+ * Request a region that is directly mapped into our memory.  Used for
+ * mapping it to the user and optimizing internal access.
  *
  * Note, that clients can also return an empty region by not setting
  * the ptr.

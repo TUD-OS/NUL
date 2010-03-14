@@ -32,7 +32,7 @@ enum
   NOVA_SEMCTL,
   NOVA_ASSIGN_PCI,
   NOVA_ASSIGN_GSI,
-  NOVA_PERFCNT,			/* XXX */
+  NOVA_PERFCNT,
 
   NOVA_FLAG0          = 1 << 8,
   NOVA_FLAG1          = 1 << 9,
@@ -162,7 +162,7 @@ perfcount(unsigned event1, unsigned event2, unsigned long long &count1, unsigned
 		"pop %%ebp;"
 		: "+a" (w0), "+D" (event1), "+S" (event2), "+b"(w3), "+c"(w4) :
 		: "edx", "memory");
-  count1 = event1 | static_cast<unsigned long long>(w3) << 32;
-  count2 = event2 | static_cast<unsigned long long>(w4) << 32;
+  count1 = union64(w3, event1);
+  count2 = union64(w4, event2);
   return w0;
 }

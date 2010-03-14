@@ -133,7 +133,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   unsigned push_data(unsigned length, void *data, bool &irq)
   {
     if (!_dsf[3]) return 0;
-    unsigned long prdbase = _dsf[1] | static_cast<unsigned long long>(_dsf[2]) << 32;
+    unsigned long prdbase = union64(_dsf[2], _dsf[1]);
     Logging::printf("push data %x prdbase %lx _dsf %x %x %x\n", length, prdbase, _dsf[1], _dsf[2], _dsf[3]);
     unsigned prd = 0;
     unsigned offset = 0;
@@ -145,7 +145,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	irq = irq || prdvalue[3] & 0x80000000;
 	unsigned sublen = (prdvalue[3] & 0x3fffff) + 1;
 	if (sublen > length - offset) sublen = length - offset;
-	copy_out(prdvalue[0] | static_cast<unsigned long long>(prdvalue[1]) << 32, reinterpret_cast<char *>(data)+offset, sublen);
+	copy_out(union64(prdvalue[1], prdvalue[0]), reinterpret_cast<char *>(data)+offset, sublen);
 	offset += sublen;
 	prd++;
       }
@@ -176,7 +176,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       }
 
     if (!_dsf[3]) return 0;
-    unsigned long prdbase = _dsf[1] | static_cast<unsigned long long>(_dsf[2]) << 32;
+    unsigned long prdbase = union64(_dsf[2], _dsf[1]);
 
     assert(_dsf[6] < 32);
     assert(_splits[_dsf[6]] == 0);
@@ -198,7 +198,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	    unsigned sublen = ((prdvalue[3] & 0x3fffff) + 1) - lastoffset;
 	    if (sublen > len - transfer) sublen = len - transfer;
 
-	    _dma[dmacount].byteoffset = prdvalue[0] | static_cast<unsigned long long>(prdvalue[1]) << 32 + lastoffset;
+	    _dma[dmacount].byteoffset = union64(prdvalue[1], prdvalue[0]) + lastoffset;
 	    _dma[dmacount].bytecount = sublen;
 	    transfer += sublen;
 	    lastoffset = 0;

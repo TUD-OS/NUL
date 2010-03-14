@@ -17,7 +17,7 @@
 #pragma once
 
 
-#define union64(HIGH, LOW)          ({ unsigned long long res; asm volatile ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; });
+#define union64(HIGH, LOW)          ({ unsigned long long res; asm volatile ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; })
 #define split64(INPUT, HIGH, LOW)   asm volatile ("" : "=d"(HIGH), "=a"(LOW) : "A"(INPUT));
 
 class Math
