@@ -17,12 +17,7 @@
 
 #pragma once
 
-#ifdef __LP64__
-#define PVAR  ".quad"
-#else
 #define PVAR  ".long"
-#endif
-
 #define COUNTER_INC(NAME)						\
   ({									\
     long __res;								\
