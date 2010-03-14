@@ -24,6 +24,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 #define REGBASE "../model/vcpu.cc"
 #include "model/reg.h"
 
+  Motherboard &_mb;
   enum {
     MSR_TSC = 0x10,
     MSR_SYSENTER_CS = 0x174,
@@ -95,6 +96,27 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       }
   }
 
+  void handle_init(CpuState *cpu) {
+    memset(cpu->msg, 0, sizeof(cpu->msg));
+    cpu->eip      = 0xfff0;
+    cpu->cr0      = 0x10;
+    cpu->cs.ar    = 0x9b;
+    cpu->cs.limit = 0xffff;
+    cpu->cs.base  = 0xffff0000;
+    cpu->ss.ar    = 0x93;
+    cpu->edx      = 0x600;
+    cpu->ds.ar = cpu->es.ar = cpu->fs.ar = cpu->gs.ar = cpu->ss.ar;
+    cpu->ld.ar    = 0x1000;
+    cpu->tr.ar    = 0x8b;
+    cpu->ss.limit = cpu->ds.limit = cpu->es.limit = cpu->fs.limit = cpu->gs.limit = cpu->cs.limit;
+    cpu->tr.limit = cpu->ld.limit = cpu->gd.limit = cpu->id.limit = 0xffff;
+    cpu->head.mtr = Mtd(MTD_ALL, 0);
+    /*cpu->dr6      = 0xffff0ff0;*/
+    cpu->dr7      = 0x400;
+    // goto singlestep instruction?
+    cpu->efl      = 0;
+    cpu->head._pid = 0;
+  }
 
 public:
   bool receive(CpuMessage &msg) {
@@ -117,17 +139,27 @@ public:
     case CpuMessage::TYPE_WRMSR:
       handle_wrmsr(msg.cpu);
       break;
+    case CpuMessage::TYPE_TRIPLE:
+      {
+	// XXX that will generate an INIT signal if not blocked
+	MessageLegacy msg1(MessageLegacy::RESET, 0);
+	_mb.bus_legacy.send_fifo(msg1);
+      }
+      break;
+    case CpuMessage::TYPE_INIT:
+      handle_init(msg.cpu);
+      break;
     default:
       return false;
     }
     return true;
   }
 
-  VirtualCpu(VCpu *_last) : VCpu(_last) {  CPUID_reset();  }
+  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb) {  CPUID_reset();  }
 };
 
 PARAM(vcpu,
-      VirtualCpu *dev = new VirtualCpu(mb.last_vcpu);
+      VirtualCpu *dev = new VirtualCpu(mb.last_vcpu, mb);
       dev->executor.add(dev, &VirtualCpu::receive_static);
       mb.last_vcpu = dev;
       MessageHostOp msg(dev);

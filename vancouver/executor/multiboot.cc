@@ -82,14 +82,9 @@ public:
   };
 private:
   Motherboard &_mb;
-  unsigned long _base;
   unsigned long _modaddr;
   unsigned _lowmem;
   const char *debug_getname() { return "MultibootExecutor"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" base 0x%lx", _base);
-  }
 
   /**
    * Initialize an MBI from the hip.
@@ -161,10 +156,9 @@ private:
 
 
  public:
-  bool  receive(MessageExecutor &msg)
+  bool  receive(MessageBios &msg)
   {
-    assert(msg.cpu->head._pid == 33);
-    if (msg.cpu->cs.base + msg.cpu->eip != _base)  return false;
+    if (msg.irq != 19) return false;
     Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
 		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
@@ -192,19 +186,17 @@ private:
     return true;
   }
 
-  MultibootExecutor(Motherboard &mb, unsigned long base, unsigned long modaddr, unsigned lowmem) : _mb(mb), _base(base), _modaddr(modaddr), _lowmem(lowmem) {}
+  MultibootExecutor(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : _mb(mb), _modaddr(modaddr), _lowmem(lowmem) {}
 };
 
 PARAM(multiboot,
       {
-	mb.bus_executor.add(new MultibootExecutor(mb,
-						  argv[0],
-						  argv[1]!= ~0ul ? argv[1] : 0x1000000,
-						  argv[2]!= ~0ul ? argv[2] : 0xa0000),
-			    &MultibootExecutor::receive_static, 33);
+	mb.bus_bios.add(new MultibootExecutor(mb,
+					      argv[0]!= ~0ul ? argv[0] : 0x1000000,
+					      argv[1]!= ~0ul ? argv[1] : 0xa0000),
+			&MultibootExecutor::receive_static);
       },
-      "multiboot:eip,modaddr=0x1000000,lowmem=0xa0000 - create a executor that supports multiboot",
-      "Example:  'multiboot:0xfffffff0'",
-      "If the eip is reached, the CPU is initilized and the modules are requested from sigma0.",
+      "multiboot:eip,modaddr=0x1000000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
+      "Example:  'multiboot'",
       "modaddr defines where the modules are loaded in guest memory.",
       "lowmem allows to restrict memory below 1M to less than 640k.");
