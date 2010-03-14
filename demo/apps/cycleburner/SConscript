@@ -7,7 +7,7 @@ Import('target_env')
 nul.App(target_env, 'cycleburner',
         SOURCES = [ 'cycleburner.cc' ],
         INCLUDE = [ 'sigma0' ],
-        LIBS    = [ 'vsys', 'crun' ],
+        LIBS    = [ 'vsys' ],
         MEMSIZE = 1<<19)
 
 # EOF
