@@ -438,14 +438,16 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static bool map_memory_helper(Utcb *utcb)
   {
-    MessageMemMap msg(utcb->qual[1] & ~0xfff, 0, 0);
+    MessageMemRegion msg(utcb->qual[1] & ~0xfff);
+
+    // XXX use a push model instead
 
     // do we have not mapped physram yet?
-    if (_mb->bus_memmap.send(msg, true))
+    if (_mb->bus_memregion.send(msg, true) && msg.ptr)
       {
-	Logging::printf("%s(%llx) phys %lx ptr %p+%x eip %x\n", __func__, utcb->qual[1], msg.phys, msg.ptr, msg.count, utcb->eip);
+	Logging::printf("%s(%llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
 	utcb->head.mtr = Mtd();
-	utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count, msg.phys, 0x1c | 1);
+	utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count << 12, msg.start_page << 12, 0x1c | 1);
 	return true;
       }
     return false;

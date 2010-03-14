@@ -123,5 +123,6 @@ Export('target_env')
 Export('debug_opts')
 
 SConscript(Glob('*/SConscript'))
+SConscript(Glob('*/*/SConscript'))
 
 # EOF
