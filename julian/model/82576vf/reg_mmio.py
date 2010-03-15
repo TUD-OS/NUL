@@ -23,9 +23,27 @@ rset = [
     { 'name' : 'rVTEICS',
       'offset' : 0x1520,
       'set' : 'rVTEICR',
-      'callback' : 'VTEICR_cb',
+      'callback' : 'VTEICS_cb',
       'w1s' : True,             # Write 1s to set. 0s are ignored
       'write-only' : True },
+    # Interrupt Mask
+    { 'name' : 'rVTEIMS',
+      'offset' : 0x1524,
+      'initial' : 0,
+      'w1s' : True },
+    { 'name' : 'rVTEIMC',
+      'offset' : 0x1528,
+      'write-only' : True,
+      'w1c' : True,
+      'set' : 'rVTEIMS' },
+    # Auto-Clear
+    { 'name' : 'rVTEIAC',
+      'offset' : 0x152c,
+      'initial' : 0 },
+    # Auto-Mask
+    { 'name' : 'rVTEIAM',
+      'offset' : 0x1530,
+      'initial' : 0 },
     { 'name' : 'rVMMB',
       'offset' : 0xC40,
       'rc' : 0b1011<<4,
@@ -37,7 +55,7 @@ rset = [
     { 'name' : 'rVTIVAR_MISC', 'offset' : 0x1740, 'initial' : 0, 'mutable' : 0x83 },
     ]
 
-for n in range(10):
+for n in range(0x10):
     rset.append({'name' : 'rVFMBX%d' % n,
                  'offset' : 0x800 + 4*n,
                  'initial' : 0})

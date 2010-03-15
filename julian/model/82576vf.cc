@@ -50,16 +50,28 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   // Generate a MSI-X IRQ.
   void MSIX_irq(unsigned nr)
   {
-    if ((_msix.table[nr].vector_control & 1) == 0) {
-      // XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
-      MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
-      _irqlines.send(msg);
+    uint32 mask = 1<<nr;
+    // Set interrupt cause.
+    rVTEICR |= mask;
+
+    if ((mask & rVTEIMS) != 0) {
+      if ((_msix.table[nr].vector_control & 1) == 0) {
+	// XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
+	MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
+	_irqlines.send(msg);
+      }
+      // Auto-Clear
+      // XXX Do we auto-clear even if the interrupt cause was masked?
+      // The spec is not clear on this.
+      rVTEICR &= ~(mask & rVTEIAC);
+      rVTEIMS &= ~(mask & rVTEIAM);
     }
   }
 
   /// Generate a mailbox/misc IRQ.
   void MISC_irq()
   {
+    Logging::printf("MISC_irq: IVAR_MISC %x\n", rVTIVAR_MISC);
     if ((rVTIVAR_MISC & 0x80) && ((rVTIVAR_MISC & 3) != 3))
       MSIX_irq(rVTIVAR_MISC & 0x3);
   }
@@ -78,6 +90,15 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	rVFMBX1 = _mac;
 	rVFMBX2 = (_mac >> 32) & 0xFFFF;
 	break;
+      case VF_SET_MAC_ADDR:
+	rVFMBX0 |= CMD_ACK;
+	_mac = static_cast<uint64>(rVFMBX1) | static_cast<uint64>((rVFMBX2 & 0xFFFF))<<32;
+	break;
+      case VF_SET_MULTICAST:
+	// Ignore
+	rVFMBX0 |= CMD_ACK;
+	break;
+	
       default:
 	Logging::printf("VF message unknown %08x\n", rVFMBX0 & 0xFFFF);
 	rVFMBX0 |= CMD_NACK;
@@ -108,9 +129,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     }
   }
 
-  void VTEICR_cb(uint32 old, uint32 val)
+  void VTEICS_cb(uint32 old, uint32 val)
   {
-    // XXX
+    for (unsigned i = 0; i < 3; i++)
+      if ((rVTEICR & (1<<i)) != 0) MSIX_irq(i);
   }
 
 public:
