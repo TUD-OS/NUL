@@ -38,7 +38,7 @@ protected:
   /**
    * Write bios data helper.
    */
-  inline void write_bda(unsigned short offset, unsigned value, unsigned len)
+  void write_bda(unsigned short offset, unsigned value, unsigned len)
   {
     assert(len <= sizeof(value));
     copy_out(0x400 + offset, &value, len);
@@ -55,6 +55,34 @@ protected:
     return res;
   }
 
+  /**
+   * Jump to another realmode INT handler.
+   */
+  bool jmp_int(CpuState *cpu, unsigned char number)
+  {
+    // we build a new iret fram of the stack, to return to
+    unsigned short idt_frames[6];
+
+    // the destination
+    copy_in(number*4, idt_frames, 4);
+    // the old frame
+    copy_in(cpu->ss.base + cpu->esp, idt_frames + 3, 6);
+    // flags are the same
+    idt_frames[2] = idt_frames[5];
+    // space for the new frame
+    cpu->esp -= 6;
+    copy_out(cpu->ss.base + cpu->esp, idt_frames, 12);
+    return true;
+  }
+
+  /**
+   * Set the usual error indication.
+   */
+  void error(CpuState *cpu, unsigned char errorcode)
+  {
+    cpu->efl |= 1;
+    cpu->ah = errorcode;
+  }
 
   BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem) {}
 };

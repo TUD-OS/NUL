@@ -1,7 +1,7 @@
 /**
- * Multiboot executor.
+ * Multiboot support for the virtual BIOS.
  *
- * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -20,13 +20,13 @@
 
 
 /**
- * Provide Multiboot ability.
+ * Provide Multiboot support for the virtual BIOS.
  *
  * State: unstable
  * Features: CPU init, elf-decoding, MBI creation, memory-map, request
  *           modules from sigma0, modaddr
  */
-class MultibootExecutor : public StaticReceiver<MultibootExecutor>
+class VirtualBiosMultiboot : public StaticReceiver<VirtualBiosMultiboot>
 {
 public:
   enum mbi_enum
@@ -84,7 +84,7 @@ private:
   Motherboard &_mb;
   unsigned long _modaddr;
   unsigned _lowmem;
-  const char *debug_getname() { return "MultibootExecutor"; };
+  const char *debug_getname() { return "VirtualBiosMultiboot"; };
 
   /**
    * Initialize an MBI from the hip.
@@ -186,17 +186,17 @@ private:
     return true;
   }
 
-  MultibootExecutor(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : _mb(mb), _modaddr(modaddr), _lowmem(lowmem) {}
+  VirtualBiosMultiboot(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : _mb(mb), _modaddr(modaddr), _lowmem(lowmem) {}
 };
 
-PARAM(multiboot,
+PARAM(vbios_multiboot,
       {
-	mb.bus_bios.add(new MultibootExecutor(mb,
-					      argv[0]!= ~0ul ? argv[0] : 0x1000000,
-					      argv[1]!= ~0ul ? argv[1] : 0xa0000),
-			&MultibootExecutor::receive_static);
+	mb.bus_bios.add(new VirtualBiosMultiboot(mb,
+						 argv[0]!= ~0ul ? argv[0] : 0x1000000,
+						 argv[1]!= ~0ul ? argv[1] : 0xa0000),
+			&VirtualBiosMultiboot::receive_static);
       },
-      "multiboot:eip,modaddr=0x1000000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
-      "Example:  'multiboot'",
+      "vbios_multiboot:modaddr=0x1000000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
+      "Example:  'vbios_multiboot'",
       "modaddr defines where the modules are loaded in guest memory.",
       "lowmem allows to restrict memory below 1M to less than 640k.");
