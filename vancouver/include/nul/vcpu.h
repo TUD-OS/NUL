@@ -27,6 +27,9 @@ struct CpuMessage {
     TYPE_WRMSR,
     TYPE_TRIPLE,
     TYPE_INIT,
+    TYPE_HLT,
+    TYPE_CHECK_IRQ,
+    TYPE_SINGLE_STEP,
   } type;
   union {
     struct {
@@ -48,6 +51,16 @@ struct CpuMessage {
 class VCpu
 {
   VCpu *_last;
+
+protected:
+  enum {
+    HAZARD_IRQ    = 1,
+    HAZARD_INHLT  = 2,
+    HAZARD_INIT   = 4,
+  };
+  volatile unsigned hazard;
+  unsigned lastmsi;
+
 public:
   DBus<CpuMessage>       executor;
   DBus<MessageMem>       mem;

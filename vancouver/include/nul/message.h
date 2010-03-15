@@ -396,7 +396,9 @@ struct MessageHostOp
       OP_GET_UID,
       OP_GUEST_MEM,
       OP_ALLOC_FROM_GUEST,
-      OP_CREATE_VCPU_BACKEND,
+      OP_VCPU_CREATE_BACKEND,
+      OP_VCPU_BLOCK,
+      OP_VCPU_RELEASE,
     } type;
   unsigned long value;
   union {
@@ -424,7 +426,7 @@ struct MessageHostOp
       VCpu *vcpu;
     };
   };
-  MessageHostOp(VCpu *_vcpu) : type(OP_CREATE_VCPU_BACKEND), vcpu(_vcpu) {}
+  MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   MessageHostOp(unsigned _module, char * _start) : type(OP_GET_MODULE), module(_module), start(_start), size(0), cmdlen(0)  {}
   MessageHostOp(Type _type, unsigned long _value, unsigned _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
 };

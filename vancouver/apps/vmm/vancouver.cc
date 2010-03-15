@@ -311,21 +311,18 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       {
 	if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
 	Logging::printf("create pt %x\n", vm_caps[i].nr);
-	check1(1, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+	check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
       }
 
     Logging::printf("create VCPU\n");
-    _mb->vcpustate(0)->block_sem = new KernelSemaphore(_cap_free++);
-    if (create_sm(_mb->vcpustate(0)->block_sem->sm()))
+    unsigned cap_block = _cap_free;
+    _cap_free += 3;
+    if (create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
-
-
-    _mb->vcpustate(0)->cap_vcpu = _cap_free++;
-    if (create_ec(_mb->vcpustate(0)->cap_vcpu, 0, 0, Cpu::cpunr(), cap_start, false)
-	|| create_sc(_cap_free++, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
+    if (create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
+	|| create_sc(_cap_block + 2, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
-    return 0;
-
+    return cap_block;
   }
 
 
@@ -358,29 +355,29 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type)
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip)
   {
     CpuMessage msg(type, static_cast<CpuState *>(utcb));
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-    skip_instruction(utcb);
+    if (skip) skip_instruction(utcb);
   }
 
   static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
   {
     switch(cpu->head._pid) {
     case 10:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_CPUID);
+      handle_vcpu(0, cpu, CpuMessage::TYPE_CPUID, true);
       break;
     case 16:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_RDTSC);
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDTSC, true);
       break;
     case 31:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_RDMSR);
+      handle_vcpu(0, cpu, CpuMessage::TYPE_RDMSR, true);
       break;
     case 32:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_WRMSR);
+      handle_vcpu(0, cpu, CpuMessage::TYPE_WRMSR, true);
       break;
     default:
       SemaphoreGuard l(_lock);
@@ -427,14 +424,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     skip_instruction(utcb);
   }
 
-
-  static void wakeup_cpu(unsigned i)
-  {
-    if (_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_INHLT && _mb->vcpustate(0)->block_sem)
-      _mb->vcpustate(0)->block_sem->up();
-    else
-      recall(_mb->vcpustate(i)->cap_vcpu);
-  }
 
   static bool map_memory_helper(Utcb *utcb)
   {
@@ -493,7 +482,7 @@ public:
 	      if (~_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_IRQ)
 		{
 		  Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_IRQ);
-		  wakeup_cpu(i);
+		  //wakeup_cpu(i);
 		}
 	    }
 	  else
@@ -512,7 +501,7 @@ public:
 	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
 	  {
 	    Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_INIT);
-	    wakeup_cpu(i);
+	    //wakeup_cpu(i);
 	  }
       }
     else if (msg.type == MessageLegacy::GATE_A20 || msg.type == MessageLegacy::FAST_A20)
@@ -575,9 +564,20 @@ public:
 	res  = Sigma0Base::hostop(msg);
 	create_irq_thread(msg.msi_gsi, do_gsi);
 	break;
-      case MessageHostOp::OP_CREATE_VCPU_BACKEND:
-	create_vcpu(msg.vcpu, _hip->has_svm());
+      case MessageHostOp::OP_VCPU_CREATE_BACKEND:
+	msg.value = create_vcpu(msg.vcpu, _hip->has_svm());
+
+	// handle cpuid overrides
 	msg.vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
+	break;
+      case MessageHostOp::OP_VCPU_BLOCK:
+	semdown(msg.value);
+	break;
+      case MessageHostOp::OP_VCPU_RELEASE:
+	if (msg.len)
+	  semup(msg.value);
+	else
+	  recall(msg.value + 1);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:
@@ -734,28 +734,20 @@ ASMFUNCS(Vancouver, Vancouver);
 
 // the VMX portals follow
 VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_TRIPLE);
-	do_recall(pid, utcb);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_TRIPLE, false);
 	)
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_INIT);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_INIT, false);
 	)
 VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
-	do_recall(pid, utcb);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ, false);
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
-	COUNTER_INC("hlt");
-	skip_instruction(utcb);
-
-	// wait for irq
-	Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_INHLT);
-	if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_IRQ)  _mb->vcpustate(0)->block_sem->down();
-	Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_INHLT);
-	do_recall(pid, utcb);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
 	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
@@ -773,23 +765,14 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
-	{
-	  utcb->efl |= 2;
-	  instruction_emulation(pid, utcb, true);
-	  if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
-	    {
-	      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
-	      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
-	      utcb->ctrl[0] = 1 << 3; // tscoffs
-	      utcb->ctrl[1] = 0;
-	    }
-	  do_recall(pid, utcb);
-	})
+	utcb->efl |= 2;
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP, false);
+	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
 	/**
@@ -802,23 +785,11 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	  {
 	    // this is an access to MMIO
 	    instruction_emulation(pid, utcb, false);
-	    do_recall(pid, utcb);
 	  }
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(pid, utcb); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
-	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_INIT)
-	  vmx_init(pid, utcb);
-	else
-	  {
-	    SemaphoreGuard l(_lock);
-	    COUNTER_INC("recall");
-	    unsigned lastpid = utcb->head._pid;
-	    utcb->head._pid = 1;
-	    MessageExecutor msg(static_cast<CpuState*>(utcb), _mb->vcpustate(0));
-	    _mb->bus_executor.send(msg, true, utcb->head._pid);
-	    utcb->head._pid = lastpid;
-	  }
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ, false);
 	)
 
 // and now the SVM portals

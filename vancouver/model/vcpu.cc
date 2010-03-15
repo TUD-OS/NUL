@@ -24,7 +24,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 #define REGBASE "../model/vcpu.cc"
 #include "model/reg.h"
 
+  unsigned long _hostop_id;
   Motherboard &_mb;
+
   enum {
     MSR_TSC = 0x10,
     MSR_SYSENTER_CS = 0x174,
@@ -96,6 +98,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       }
   }
 
+
   void handle_init(CpuState *cpu) {
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->eip      = 0xfff0;
@@ -117,6 +120,58 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->efl      = 0;
     cpu->head._pid = 0;
   }
+
+
+  bool can_inject(CpuState *cpu) {  return !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
+  void inject_extint(CpuState *cpu, unsigned vec) {
+    cpu->actv_state &= ~1;
+    cpu->inj_info = vec | 0x80000000;
+  }
+
+  void handle_irq(CpuState *cpu) {
+
+    assert_mtr(MTD_STATE | MTD_INJ | MTD_RFLAGS);
+
+    bool res = false;
+    if (hazard & HAZARD_IRQ)
+      {
+	COUNTER_INC("lint0");
+	if (((~cpu->head.mtr.untyped() & MTD_INJ) || ~cpu->inj_info & 0x80000000) && can_inject(cpu))
+	  {
+	    Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_IRQ);
+	    if (lastmsi && lastmsi != 0xff)
+	      {
+		Logging::printf("inject MSI %x\n", lastmsi);
+		COUNTER_INC("injmsi");
+		inject_extint(cpu, lastmsi & 0xff);
+		lastmsi = 0;
+	      }
+	    else {
+	      MessageApic msg2(0);
+	      if (_mb.bus_apic.send(msg2))
+		{
+		  inject_extint(cpu, msg2.vector);
+		  COUNTER_INC("inj");
+		}
+	      else
+		Logging::panic("spurious IRQ?");
+	    }
+	    res = true;
+	  }
+	else
+	  cpu->inj_info |=  INJ_IRQWIN;
+      }
+    else
+      cpu->inj_info &= ~INJ_IRQWIN;
+  }
+
+
+  void wakeup()
+  {
+    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, hazard & HAZARD_INHLT);
+    _mb.bus_hostop.send(msg);
+  }
+
 
 public:
   bool receive(CpuMessage &msg) {
@@ -149,21 +204,36 @@ public:
     case CpuMessage::TYPE_INIT:
       handle_init(msg.cpu);
       break;
+    case CpuMessage::TYPE_HLT:
+      {
+	MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
+	Cpu::atomic_or<volatile unsigned>(&hazard, HAZARD_INHLT);
+	if (~hazard & HAZARD_IRQ) _mb.bus_hostop.send(msg2);
+	Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_INHLT);
+      }
+      // fall through
+    case CpuMessage::TYPE_CHECK_IRQ:
+      handle_irq(msg.cpu);
+      break;
     default:
       return false;
     }
     return true;
   }
 
-  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb) {  CPUID_reset();  }
+  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb) {
+    MessageHostOp msg(this);
+    if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
+    _hostop_id = msg.value;
+
+    CPUID_reset();
+ }
 };
 
 PARAM(vcpu,
       VirtualCpu *dev = new VirtualCpu(mb.last_vcpu, mb);
       dev->executor.add(dev, &VirtualCpu::receive_static);
       mb.last_vcpu = dev;
-      MessageHostOp msg(dev);
-      if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
       ,
       "vcpu - create a new VCPU");
 

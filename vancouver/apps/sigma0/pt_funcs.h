@@ -271,7 +271,9 @@ PT_FUNC(do_request,
 		    case MessageHostOp::OP_ALLOC_FROM_GUEST:
 		    case MessageHostOp::OP_VIRT_TO_PHYS:
 		    case MessageHostOp::OP_NOTIFY_IRQ:
-		    case MessageHostOp::OP_CREATE_VCPU_BACKEND:
+		    case MessageHostOp::OP_VCPU_CREATE_BACKEND:
+		    case MessageHostOp::OP_VCPU_BLOCK:
+		    case MessageHostOp::OP_VCPU_RELEASE:
 		    default:
 		      // unhandled
 		      Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);

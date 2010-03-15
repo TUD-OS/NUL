@@ -775,7 +775,9 @@ public:
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
-      case MessageHostOp::OP_CREATE_VCPU_BACKEND:
+      case MessageHostOp::OP_VCPU_CREATE_BACKEND:
+      case MessageHostOp::OP_VCPU_BLOCK:
+      case MessageHostOp::OP_VCPU_RELEASE:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
