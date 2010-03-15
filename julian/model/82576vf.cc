@@ -87,7 +87,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       // Claim the buffer in a magic atomic way. If this were a real
       // VF, this would probably not happen at once.
       rVMMB = (rVMMB & ~(1<<2 /* VFU */)) | (1<<3 /* PFU */);
-      // We have ACKed and sent a response. Send an IRQ to inform the
+      // We have ACKed and wrote a response. Send an IRQ to inform the
       // VM.
       rVMMB |= 1<<5 | 1<<4;	/* PFACK | PFSTS */
       MISC_irq();
@@ -109,16 +109,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   }
 
   void VTEICR_cb(uint32 old, uint32 val)
-  {
-    // XXX
-  }
-
-  void PCI_BAR0_cb(uint32 old, uint32 val)
-  {
-    // XXX
-  }
-
-  void PCI_BAR3_cb(uint32 old, uint32 val)
   {
     // XXX
   }

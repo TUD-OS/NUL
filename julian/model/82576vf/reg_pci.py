@@ -13,10 +13,8 @@ rset = [
       'mutable' : 0x6 },  # Bus Master Enable, Memory Decode
     { 'name' : 'rPCICCRVID', 'offset' :    8, 'initial' : 0x02000001, 'constant' : True },
     { 'name' : 'rBIST',      'offset' : 0x0C, 'initial' : 0x0, 'constant' : True },
-    { 'name' : 'rPCIBAR0',   'offset' : 0x10, 'initial' : 0x0, 'mutable' : ~0x3FFF,
-      'callback' : 'PCI_BAR0_cb' },
-    { 'name' : 'rPCIBAR3',   'offset' : 0x1C, 'initial' : 0x0, 'mutable' : ~0x0FFF,
-      'callback' : 'PCI_BAR3_cb' },
+    { 'name' : 'rPCIBAR0',   'offset' : 0x10, 'initial' : 0x0, 'mutable' : ~0x3FFF },
+    { 'name' : 'rPCIBAR3',   'offset' : 0x1C, 'initial' : 0x0, 'mutable' : ~0x0FFF },
     { 'name' : 'rPCISUBSYS', 'offset' : 0x2C, 'initial' : 0x8086, 'constant' : True },
     { 'name' : 'rPCICAPPTR', 'offset' : 0x34, 'initial' : 0x70, 'constant' : True },
 
