@@ -5,22 +5,36 @@
 #include <service/math.h>
 #include <model/pci.h>
 
-// Notes:
-// We emulate more bits in the PCI COMMAND register than the real VF supports.
+/// NOTES
+// 
+// We emulate more bits in the PCI COMMAND register than the real VF
+// supports.
+// 
+// We can probably map the receive register range 0x2000 - 0x2FFF
+// directly into VM space, if we ignore RXDCTL.SWFLUSH (Software
+// Flush).
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
   uint64 _mac;
-  DBus<MessageIrq> _irqlines;
+  DBus<MessageNetwork>  &_net;
+  DBus<MessageIrq>      &_irqlines;
+
   uint32 _mem_mmio;
   uint32 _mem_msix;
 
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
-  // XXX
   struct Queue {
     unsigned n;
+
+    // Too bad we have to duplicate these per queue, but my C++ skills
+    // are simply to limited to think of a better solution that does
+    // not look like someone justed barfed in my Emacs window...
+    DBus<MessageMemWrite> &memwrite;
+    DBus<MessageMemRead>  &memread;
+
     uint32 &rxdctl;
     uint32 &rdbal;
     uint32 &rdbah;
@@ -35,7 +49,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	if ((rxdctl & (1<<25)) != 0) {
 	  // Enable queue. Reset registers.
 	  Logging::printf("Enabling queue %u.\n", n);
-	  rdlen = 0;
 	  rdh = 0;
 	  rdt = 0;
 	} else {
@@ -44,11 +57,37 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	}
       }
     }
-    
-    void receive_packet(char *buf, size_t size)
-    {
 
+    void receive_packet(const uint8 *buf, size_t size)
+    {
+      Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
+      if ((rxdctl & (1<<25)) == 0) {
+	Logging::printf("Dropped packet: Queue %u not enabled.\n", n);
+	return;
+      }
+      if (rdlen == 0) {
+	Logging::printf("Dropped packet: Queue %u has zero size.\n", n);
+	return;
+      }
+      if (rdt == rdh) {
+	Logging::printf("Dropped packet: Queue %u has no receive descriptors available.\n", n);
+	return;
+      }
+      
+      // assert(rdbah == 0);
+      uint32 pos = (rdh*16) % rdlen;
+      uint64 desc[2];
+      
+      Logging::printf("RX descriptor at %x\n", rdbal + pos);
+      MessageMemRead msg(rdbal + pos, desc, sizeof(desc));
+      if (!memread.send(msg)) {
+	Logging::printf("RX descriptor fetch failed.\n");
+	return;
+      }
+
+      
     }
+
   // public:
   //   Queue(uint32 &_rxdctl, uint32 &_rdbal, uint32 &_rdbah, uint32 &_rdt, uint32 &_rdh, uint32 &_rdlen)
   //     : rxdctl(_rxdctl), rdbal(_rdbal), rdbah(_rdbah), rdt(_rdt), rdh(_rdh), rdlen(_rdlen)
@@ -240,10 +279,21 @@ public:
     return true;
   }
 
-  Model82576vf(uint64 mac, DBus<MessageIrq> irqlines, uint32 mem_mmio, uint32 mem_msix) 
-    : _mac(mac), _irqlines(irqlines), _mem_mmio(mem_mmio), _mem_msix(mem_msix),
-      _rx_queues( {{ 0, rRXDCTL0, rRDBAL0, rRDBAH0, rRDT0, rRDH0, rRDLEN0 },
-	           { 1, rRXDCTL1, rRDBAL1, rRDBAH1, rRDT1, rRDH1, rRDLEN1 }})
+  bool receive(MessageNetwork &msg)
+  {
+    // We just receive all.
+    // XXX Check if we just sent this.
+    _rx_queues[0].receive_packet(msg.buffer, msg.len);
+    return true;
+  }
+
+  Model82576vf(uint64 mac, DBus<MessageNetwork> net, DBus<MessageIrq> irqlines, 
+	       DBus<MessageMemWrite> memwrite, DBus<MessageMemRead> memread,
+	       uint32 mem_mmio, uint32 mem_msix) 
+    : _mac(mac), _net(net), _irqlines(irqlines),
+      _mem_mmio(mem_mmio), _mem_msix(mem_msix),
+      _rx_queues( {{ 0, memwrite, memread, rRXDCTL0, rRDBAL0, rRDBAH0, rRDT0, rRDH0, rRDLEN0 },
+	           { 1, memwrite, memread, rRXDCTL1, rRDBAL1, rRDBAH1, rRDT1, rRDH1, rRDLEN1 }})
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -271,11 +321,14 @@ PARAM(82576vf,
 	Logging::printf("Our UID is %lx\n", msg.value);
 
 	Model82576vf *dev = new Model82576vf(static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
-					     mb.bus_irqlines, argv[0], argv[1]);
+					     mb.bus_network, mb.bus_irqlines,
+					     mb.bus_memwrite, mb.bus_memread,
+					     argv[0], argv[1]);
 	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
 	mb.bus_memread.add(dev, &Model82576vf::receive_static<MessageMemRead>);
 	mb.bus_pcicfg.add(dev, &Model82576vf::receive_static<MessagePciConfig>,
 			  PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
+	mb.bus_network.add(dev, &Model82576vf::receive_static<MessageNetwork>);
 
       },
       "82576vf:mem_mmio,mem_msix - attach an Intel 82576VF to the PCI bus."
