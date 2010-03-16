@@ -92,7 +92,7 @@ public:
     switch(msg.irq) {
     case RESET_VECTOR:
       reset_helper();
-      return jmp_int(msg.cpu, 0x19);
+      return jmp_int(msg, 0x19);
     default:    return false;
     }
   }

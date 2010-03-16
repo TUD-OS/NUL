@@ -72,14 +72,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   // the portal functions follow
 
-  PT_FUNC(do_gsi_boot)
-  {
-    utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
-    Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
-    return  utcb->head.mtr.value();
-  }
-
-  PT_FUNC(got_exception)
+  PT_FUNC(got_exception) __attribute__((noreturn))
   {
     Logging::printf("%s() #%x ",  __func__, pid);
     Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
@@ -89,119 +82,123 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     reinterpret_cast<Vancouver*>(utcb->head.tls)->block_forever();
   }
 
-  PT_FUNC(do_gsi)
+
+  PT_FUNC(do_gsi_boot)
+  {
+    utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
+    Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
+    return  utcb->head.mtr.value();
+  }
+
+
+  PT_FUNC(do_gsi) __attribute__((noreturn))
   {
     unsigned res;
     bool shared = utcb->msg[1] >> 8;
     Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
-    while (1)
+    while (1) {
+      if ((res = semdown(utcb->msg[0])))
+	Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
       {
-	if ((res = semdown(utcb->msg[0])))
-	  Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
-	{
-	  SemaphoreGuard l(_lock);
-	  MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
-	  _mb->bus_hostirq.send(msg);
-	}
-	if (shared)  semdown(utcb->msg[2]);
+	SemaphoreGuard l(_lock);
+	MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
+	_mb->bus_hostirq.send(msg);
       }
+      if (shared)  semdown(utcb->msg[2]);
+    }
   }
 
 
-  PT_FUNC(do_stdin)
+  PT_FUNC(do_stdin) __attribute__((noreturn))
   {
     StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    assert(stdinconsumer);
     Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
-    while (1)
-      {
-	MessageKeycode *msg = stdinconsumer->get_buffer();
-	switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
+    while (1) {
+      MessageKeycode *msg = stdinconsumer->get_buffer();
+      switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
+	{
+	case KBFLAG_EXTEND0 | 0x7c: // printscr
+	  recall(_mb->vcpustate(0)->cap_vcpu);
+	  break;
+	case KBCODE_SCROLL: // scroll lock
+	  Logging::printf("toggle HLT\n");
+	  break;
+	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
+	  _debug = true;
+	  _mb->dump_counters();
+	  syscall(254, 0, 0, 0, 0);
+	  break;
+	case KBCODE_HOME: // reset VM
 	  {
-	  case KBFLAG_EXTEND0 | 0x7c: // printscr
-	    recall(_mb->vcpustate(0)->cap_vcpu);
-	    break;
-	  case KBCODE_SCROLL: // scroll lock
-	    Logging::printf("toggle HLT\n");
-	    break;
-	  case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
-	    _debug = true;
-	    _mb->dump_counters();
-	    syscall(254, 0, 0, 0, 0);
-	    break;
-	  case KBCODE_HOME: // reset VM
-	    {
-	      SemaphoreGuard l(_lock);
-	      MessageLegacy msg2(MessageLegacy::RESET, 0);
-	      _mb->bus_legacy.send_fifo(msg2);
-	    }
-	    break;
-	  case KBFLAG_LCTRL | KBFLAG_RWIN |  KBFLAG_LWIN | 0x5:
-	    Logging::printf("hz %x\n", _mb->vcpustate(0)->hazard);
-	    _mb->dump_counters();
-	    break;
-	  default:
-	    break;
+	    SemaphoreGuard l(_lock);
+	    MessageLegacy msg2(MessageLegacy::RESET, 0);
+	    _mb->bus_legacy.send_fifo(msg2);
 	  }
+	  break;
+	case KBFLAG_LCTRL | KBFLAG_RWIN |  KBFLAG_LWIN | 0x5:
+	  Logging::printf("hz %x\n", _mb->vcpustate(0)->hazard);
+	  _mb->dump_counters();
+	  break;
+	default:
+	  break;
+	}
 
 	SemaphoreGuard l(_lock);
 	_mb->bus_keycode.send(*msg);
 	stdinconsumer->free_buffer();
-      }
-    return 0;
+    }
   }
 
-  PT_FUNC(do_disk)
+  PT_FUNC(do_disk) __attribute__((noreturn))
   {
     DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    assert(diskconsumer);
     Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
+    while (1) {
 
-    while (1)
-      {
-	MessageDiskCommit *msg = diskconsumer->get_buffer();
-	SemaphoreGuard l(_lock);
-	_mb->bus_diskcommit.send(*msg);
-	diskconsumer->free_buffer();
-      }
-    return 0;
+      MessageDiskCommit *msg = diskconsumer->get_buffer();
+      SemaphoreGuard l(_lock);
+      _mb->bus_diskcommit.send(*msg);
+      diskconsumer->free_buffer();
+    }
   }
 
-  PT_FUNC(do_timer)
+  PT_FUNC(do_timer) __attribute__((noreturn))
   {
     TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    assert(timerconsumer);
     Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
-    while (1)
-      {
-	COUNTER_INC("timer");
-	timerconsumer->get_buffer();
-	timerconsumer->free_buffer();
+    while (1) {
 
-	SemaphoreGuard l(_lock);
-	timeout_trigger();
-      }
-    return 0;
+      COUNTER_INC("timer");
+      timerconsumer->get_buffer();
+      timerconsumer->free_buffer();
+
+      SemaphoreGuard l(_lock);
+      timeout_trigger();
+    }
   }
 
-  PT_FUNC(do_network)
+  PT_FUNC(do_network) __attribute__((noreturn))
   {
     NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
     Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
-    while (1)
-      {
-	unsigned char *buf;
-	unsigned size = network_consumer->get_buffer(buf);
+    while (1) {
+      unsigned char *buf;
+      unsigned size = network_consumer->get_buffer(buf);
 
-	MessageNetwork msg(buf, size, 0);
-	assert(!_forward_pkt);
-	_forward_pkt = msg.buffer;
-	{
-	  SemaphoreGuard l(_lock);
-	  _mb->bus_network.send(msg);
-	}
-	_forward_pkt = 0;
-	network_consumer->free_buffer();
+      MessageNetwork msg(buf, size, 0);
+      assert(!_forward_pkt);
+      _forward_pkt = msg.buffer;
+      {
+	SemaphoreGuard l(_lock);
+	_mb->bus_network.send(msg);
       }
-    return 0;
+      _forward_pkt = 0;
+      network_consumer->free_buffer();
+    }
   }
 
 
@@ -209,7 +206,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     utcb->ctrl[1] = 0;
     utcb->head.mtr = Mtd(MTD_CTRL, 0);
-    Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(0)->hazard, VirtualCpuState::HAZARD_CTRL);
   };
 
   static void force_invalid_gueststate_intel(Utcb *utcb)
@@ -237,7 +233,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
     // create default devices
-    char default_devices [] = "mem:0,0xa0000 mem:0x100000 init triplefault msr irq novahalifax ioio";
+    char default_devices [] = "mem:0,0xa0000 mem:0x100000 ioio";
     _mb->parse_args(default_devices);
 
     // create devices from cmdline
@@ -307,12 +303,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     };
     unsigned cap_start = _cap_free;
     _cap_free += 0x100;
-    for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++)
-      {
-	if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
-	Logging::printf("create pt %x\n", vm_caps[i].nr);
-	check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
-      }
+    for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
+      if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
+      Logging::printf("create pt %x\n", vm_caps[i].nr);
+      check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+    }
 
     Logging::printf("create VCPU\n");
     unsigned cap_block = _cap_free;
@@ -326,102 +321,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void instruction_emulation(unsigned pid, Utcb *utcb, bool long_run)
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, unsigned order=~0u)
   {
-    if (_debug)
-      Logging::printf("execute %s at %x:%x pid %d cr3 %x inj_info %x hazard %x eax %x\n", __func__, utcb->cs.sel, utcb->eip, pid,
-		      utcb->cr3, utcb->inj_info, _mb->vcpustate(0)->hazard, utcb->eax);
-    // enter singlestep
-    utcb->head._pid = MessageExecutor::DO_ENTER;
-    execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
-
-    utcb->head._pid = MessageExecutor::DO_SINGLESTEP;
-    do {
-      if (!execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0)))
-	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, utcb->head._pid);
-      do_recall(utcb->head._pid, utcb);
-    }
-    while (long_run && utcb->head._pid);
-
-    // leave singlestep
-    utcb->head._pid = MessageExecutor::DO_LEAVE;
-    execute_all(static_cast<CpuState*>(utcb), _mb->vcpustate(0), false);
-
-
-    if (~_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CRWRITE)
-      utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() & ~MTD_CR, 0);
-    else
-      Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CRWRITE);
-  }
-
-
-  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip)
-  {
-    CpuMessage msg(type, static_cast<CpuState *>(utcb));
+    CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+    if (order != ~0u) msg.io_order = order;
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-    if (skip) skip_instruction(utcb);
-  }
-
-  static bool execute_all(CpuState *cpu, VirtualCpuState *vcpu, bool early_out = true)
-  {
-    switch(cpu->head._pid) {
-    case 10:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_CPUID, true);
-      break;
-    case 16:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_RDTSC, true);
-      break;
-    case 31:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_RDMSR, true);
-      break;
-    case 32:
-      handle_vcpu(0, cpu, CpuMessage::TYPE_WRMSR, true);
-      break;
-    default:
-      SemaphoreGuard l(_lock);
-      MessageExecutor msg(cpu, vcpu);
-      return _mb->bus_executor.send(msg, early_out, cpu->head._pid);
-    }
-    cpu->head._pid = 0;
-    return true;
-  }
-
-  static void skip_instruction(Utcb *utcb)
-  {
-    assert(utcb->head.mtr.untyped() & MTD_RIP_LEN);
-    assert(utcb->head.mtr.untyped() & MTD_STATE);
-    utcb->eip += utcb->inst_len;
-    /**
-     * Cancel sti and mov-ss blocking as we emulated an instruction.
-     */
-    utcb->intr_state &= ~3;
-  }
-
-  static void ioio_helper(Utcb *utcb, bool is_in, unsigned order)
-  {
-    SemaphoreGuard l(_lock);
-    if (is_in)
-      {
-	COUNTER_INC("IN");
-	if ((utcb->qual[0] >> 16) == 0x40) COUNTER_INC("in(0x40)");
-	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("in(0x21)");
-	MessageIOIn msg(static_cast<MessageIOIn::Type>(order), utcb->qual[0] >> 16);
-	if (!_mb->bus_ioin.send(msg))
-	  Logging::printf("could not IN from port %x\n", msg.port);
-	memcpy(&utcb->eax, &msg.value, 1 << order);
-      }
-    else
-      {
-	COUNTER_INC("OUT");
-	if ((utcb->qual[0] >> 16) == 0x40) COUNTER_INC("out(0x40)");
-	if ((utcb->qual[0] >> 16) == 0x20) COUNTER_INC("out(0x20)");
-	if ((utcb->qual[0] >> 16) == 0x21) COUNTER_INC("out(0x21)");
-	MessageIOOut msg(static_cast<MessageIOOut::Type>(order), utcb->qual[0] >> 16, utcb->eax);
-	_mb->bus_ioout.send(msg);
-      }
-    skip_instruction(utcb);
+    utcb->head.mtr = Mtd(msg.mtr_out);
   }
 
 
@@ -446,6 +353,7 @@ public:
     if (msg.type != CpuMessage::TYPE_CPUID) return false;
 
     // XXX locking?
+    // XXX use reserved CPUID regions
     switch (msg.cpuid_index) {
       case 0x40000000:
 	//syscall(254, msg.cpu->ebx, 0, 0, 0);
@@ -594,12 +502,15 @@ public:
     }
     return Sigma0Base::disk(msg);
   }
+
+
   bool  receive(MessageNetwork &msg)
   {
     if (_forward_pkt == msg.buffer) return false;
     Sigma0Base::network(msg);
     return true;
   }
+
   bool  receive(MessageConsole &msg)   {  return Sigma0Base::console(msg); }
   bool  receive(MessagePciConfig &msg) {  return Sigma0Base::pcicfg(msg);  }
   bool  receive(MessageAcpi      &msg) {  return Sigma0Base::acpi(msg);    }
@@ -664,16 +575,14 @@ public:
     _physmem = reinterpret_cast<unsigned long>(&__freemem);
     _physsize = 0;
     // get physsize
-    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++)
-      {
+    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
-	if (hmem->type == 1 && hmem->addr <= _physmem)
-	  {
-	    _physsize = hmem->size - (_physmem - hmem->addr);
-	    _iomem_start = hmem->addr + hmem->size;
-	    break;
-	  }
-      }
+	if (hmem->type == 1 && hmem->addr <= _physmem) {
+	  _physsize = hmem->size - (_physmem - hmem->addr);
+	  _iomem_start = hmem->addr + hmem->size;
+	  break;
+	}
+    }
 
     if (init_caps(hip))
       Logging::panic("init_caps() failed\n");
@@ -734,20 +643,20 @@ ASMFUNCS(Vancouver, Vancouver);
 
 // the VMX portals follow
 VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_TRIPLE, false);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_TRIPLE);
 	)
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_INIT, false);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_INIT);
 	)
 VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ, false);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID);)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
 	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
@@ -760,18 +669,18 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	  {
 	    unsigned order = utcb->qual[0] & 7;
 	    if (order > 2)  order = 2;
-	    ioio_helper(utcb, utcb->qual[0] & 8, order);
+	    handle_vcpu(pid, utcb, (utcb->qual[0] & 8) ? CpuMessage::TYPE_IOIN : CpuMessage::TYPE_IOOUT, order);
 	  }
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR);)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	utcb->efl |= 2;
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP, false);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
@@ -782,14 +691,12 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	// make sure we do not inject the #PF!
 	utcb->inj_info = ~0x80000000;
 	if (!map_memory_helper(utcb))
-	  {
-	    // this is an access to MMIO
-	    instruction_emulation(pid, utcb, false);
-	  }
+	  // this is an access to MMIO
+	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(pid, utcb); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ, false);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
 
 // and now the SVM portals
@@ -808,7 +715,7 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	      unsigned order = ((utcb->qual[0] >> 4) & 7) - 1;
 	      if (order > 2)  order = 2;
 	      utcb->inst_len = utcb->qual[1] - utcb->eip;
-	      ioio_helper(utcb, utcb->qual[0] & 1, order);
+	      handle_vcpu(pid, utcb, (utcb->qual[0] & 1) ? CpuMessage::TYPE_IOIN : CpuMessage::TYPE_IOOUT, order);
 	    }
 	}
 	)
@@ -823,15 +730,10 @@ VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
 	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
-	instruction_emulation(pid, utcb, true);
-	if (_mb->vcpustate(0)->hazard & VirtualCpuState::HAZARD_CTRL)
-	  {
-	    COUNTER_INC("ctrl");
-	    Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(0)->hazard, ~VirtualCpuState::HAZARD_CTRL);
-	    utcb->head.mtr =  Mtd(utcb->head.mtr.untyped() | MTD_CTRL, 0);
-	    utcb->ctrl[0] = 1 << 18; // cpuid
-	    utcb->ctrl[1] = 1 << 0;  // vmrun
-	  }
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+	utcb->head.mtr.add(MTD_CTRL);
+	utcb->ctrl[0] = 1 << 18; // cpuid
+	utcb->ctrl[1] = 1 << 0;  // vmrun
 	do_recall(pid, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  svm_shutdwn(pid, utcb);)

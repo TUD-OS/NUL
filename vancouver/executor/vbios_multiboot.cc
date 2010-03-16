@@ -17,6 +17,7 @@
 
 #include "nul/motherboard.h"
 #include "service/elf.h"
+#include "executor/bios.h"
 
 
 /**
@@ -175,14 +176,13 @@ private:
     msg.cpu->cs.base  = 0x0;
     msg.cpu->ss.ar    = 0xc93;
     msg.cpu->efl      = 2;
-    msg.cpu->ds.ar = msg.cpu->es.ar = msg.cpu->fs.ar = msg.cpu->gs.ar = msg.cpu->ss.ar;
+    msg.cpu->ds.ar    = msg.cpu->es.ar = msg.cpu->fs.ar = msg.cpu->gs.ar = msg.cpu->ss.ar;
     msg.cpu->ld.ar    = 0x1000;
     msg.cpu->tr.ar    = 0x8b;
     msg.cpu->ss.base  = msg.cpu->ds.base  = msg.cpu->es.base  = msg.cpu->fs.base  = msg.cpu->gs.base  = msg.cpu->cs.base;
     msg.cpu->ss.limit = msg.cpu->ds.limit = msg.cpu->es.limit = msg.cpu->fs.limit = msg.cpu->gs.limit = msg.cpu->cs.limit;
     msg.cpu->tr.limit = msg.cpu->ld.limit = msg.cpu->gd.limit = msg.cpu->id.limit = 0xffff;
-    msg.cpu->head.mtr = Mtd(MTD_ALL, 0);
-    Cpu::atomic_or<volatile unsigned>(&msg.vcpu->hazard, VirtualCpuState::HAZARD_CRWRITE);
+    msg.mtr_out       = MTD_ALL;
     return true;
   }
 

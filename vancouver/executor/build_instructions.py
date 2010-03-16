@@ -397,7 +397,7 @@ opcodes += [("mov %es,%edx", ["MODRM", "DROP1", "ENTRY"], [
 	    "CpuState::Descriptor *dsc = &msg.cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7)",
 	    "move<[os]>(tmp_dst, &(dsc->sel))"]),
 	    ("mov %edx,%es", ["MODRM", "DROP1", "ENTRY", "DIRECTION"], [
-	    "if ((([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7) == 2) msg.cpu->actv_state |= 2",
+	    "if ((([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7) == 2) msg.cpu->intr_state |= 2",
 	    "set_segment(msg, &msg.cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
 	    ("pusha", ["ENTRY"], ["for (unsigned i=0; i<8; i++) {",
 				  "if (i == 4) { if (helper_PUSH<[os]>(msg, &msg.vcpu->oesp, [ENTRY])) return; }"
@@ -409,7 +409,7 @@ opcodes += [("mov %es,%edx", ["MODRM", "DROP1", "ENTRY"], [
 
 for x in segment_list:
     opcodes += [("push %"+x, ["ENTRY"], ["helper_PUSH<[os]>(msg, &msg.cpu->%s.sel, [ENTRY])"%x]),
-		("pop %"+x, ["ENTRY"], ["unsigned sel", "helper_POP<[os]>(msg, [ENTRY], &sel) || set_segment(msg, &msg.cpu->%s, sel)"%x, x == "ss" and "msg.cpu->actv_state |= 2" or ""]),
+		("pop %"+x, ["ENTRY"], ["unsigned sel", "helper_POP<[os]>(msg, [ENTRY], &sel) || set_segment(msg, &msg.cpu->%s, sel)"%x, x == "ss" and "msg.cpu->intr_state |= 2" or ""]),
 		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY", "ENTRY"], ["helper_loadsegment<[os]>(msg, &msg.cpu->%s, [ENTRY])"%x])]
 opcodes += [(x, ["FPU", "NO_OS"], [x]) for x in ["fninit"]]
 opcodes += [(x, ["FPU", "NO_OS"], [x+" (%%ecx)"]) for x in ["fnstsw", "fnstcw", "ficom", "ficomp"]]

@@ -22,83 +22,75 @@
 /**
  * Virtual Bios disk routines.
  * Features: int13, boot from disk
- * Missing:
+ * Missing: multiple disks
  */
 class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommon
 {
   enum
   {
-    FREQ = 1000,
     MAGIC_DISK_TAG = ~0u,
+    FREQ = 1000,
     DISK_TIMEOUT = 5000,
     DISK_COMPLETION_CODE = 0x79,
   };
   unsigned _timer;
   DiskParameter _disk_params;
+  bool _diskop_inprogress;
 
 
-
-  bool check_drive(CpuState *cpu)
+  bool check_drive(MessageBios &msg)
   {
-    if (cpu->dl == 0x80) return true;
-    error(cpu, 0x01); // invalid parameter
+    if (msg.cpu->dl == 0x80) return true;
+    error(msg, 0x01); // invalid parameter
     return false;
   }
 
   /**
    * Read/Write disk helper.
    */
-  bool disk_op(CpuState *cpu, unsigned long long blocknr, unsigned long address, unsigned count, bool write)
+  bool disk_op(MessageBios &msg, unsigned long long blocknr, unsigned long address, unsigned count, bool write)
   {
     DmaDescriptor dma;
     dma.bytecount  = 512*count;
     dma.byteoffset = address;
 
     //    Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, blocknr, write ? "write" : "read",  count, address);
-    MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
+    MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, msg.cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
       {
 	Logging::printf("msg2.error %x\n", msg2.error);
-	error(cpu, 0x01);
+	error(msg, 0x01);
 	return true;
       }
     else
       {
-	// XXX use HLT instead
+	_diskop_inprogress = true;
 
 	// wait for completion needed for AHCI backend!
-	//Cpu::atomic_or<volatile unsigned>(&vcpu->hazard, VirtualCpuState::HAZARD_BIOS);
-
 	// prog timeout during wait
 	MessageTimer msg3(_timer, _mb.clock()->abstime(DISK_TIMEOUT, FREQ));
 	_mb.bus_timer.send(msg3);
 
-	assert(0);
-	//cpu->cs.base = _base;
-	//cpu->eip = WAIT_DISK_VECTOR;
-	return true;
+	return jmp_int(msg, 0x76);
       }
   }
 
 
-  bool boot_from_disk(CpuState *cpu)
+  bool boot_from_disk(MessageBios &msg)
   {
-    cpu->cs.sel = 0;
-    cpu->cs.base = 0;
-    cpu->eip = 0x7c00;
-    cpu->efl = 2;
+    msg.cpu->cs.sel = 0;
+    msg.cpu->cs.base = 0;
+    msg.cpu->eip = 0x7c00;
+    msg.cpu->efl = 2;
 
     // we push an iret frame on the stack
-    cpu->ss.sel  = 0;
-    cpu->ss.base = 0;
-    cpu->esp     = 0x7000;
-    copy_out(cpu->ss.base + cpu->esp + 0, &cpu->eip,    2);
-    copy_out(cpu->ss.base + cpu->esp + 2, &cpu->cs.sel, 2);
-    copy_out(cpu->ss.base + cpu->esp + 4, &cpu->efl,    2);
-
-    cpu->edx = 0x80; // booting from first disk
-    if (!disk_op(cpu, 0, 0x7c00, 1, false) || cpu->ah)
+    msg.cpu->ss.sel  = 0;
+    msg.cpu->ss.base = 0;
+    msg.cpu->esp     = 0x7000;
+    msg.cpu->edx = 0x80; // booting from first disk
+    if (!disk_op(msg, 0, 0x7c00, 1, false) || msg.cpu->ah)
       Logging::panic("VB: could not read MBR from boot disk");
+    msg.mtr_out |= MTD_CS_SS | MTD_RIP_LEN | MTD_RSP | MTD_RFLAGS | MTD_GPR_ACDB;
     return true;
   }
 
@@ -106,7 +98,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
   /**
    * Disk INT.
    */
-  bool handle_int13(CpuState *cpu)
+  bool handle_int13(MessageBios &msg)
   {
     COUNTER_INC("int13");
     struct disk_addr_packet {
@@ -119,73 +111,73 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     } da;
 
     // default clears CF
-    cpu->efl &= ~1;
+    msg.cpu->efl &= ~1;
 
-    switch (cpu->ah)
+    switch (msg.cpu->ah)
       {
       case 0x00: // reset disk
 	goto reset_disk;
       case 0x02: // read
       case 0x03: // write
-	if (check_drive(cpu))
+	if (check_drive(msg))
 	  {
-	    unsigned cylinders = cpu->ch | (cpu->cl << 2) & 0x300;
-	    unsigned heads =  cpu->dh;
-	    unsigned sectors = cpu->cl & 0x3f;
+	    unsigned cylinders = msg.cpu->ch | (msg.cpu->cl << 2) & 0x300;
+	    unsigned heads =  msg.cpu->dh;
+	    unsigned sectors = msg.cpu->cl & 0x3f;
 	    unsigned blocknr;
-	    if (cpu->dl & 0x80)
+	    if (msg.cpu->dl & 0x80)
 	      blocknr = (cylinders * 255 + heads) * 63 + sectors - 1;
 	    else
 	      blocknr = (cylinders * 2 + heads) * 18 + sectors - 1;
-	    return disk_op(cpu, blocknr, cpu->es.base + cpu->bx, cpu->al, cpu->ah & 1);
+	    return disk_op(msg, blocknr, msg.cpu->es.base + msg.cpu->bx, msg.cpu->al, msg.cpu->ah & 1);
 	  }
 	break;
       case 0x08: // get drive params
 	// we report a single drive with maximum parameters
-	if (check_drive(cpu))
+	if (check_drive(msg))
 	  {
-	    cpu->cx = 0xfeff;
-	    cpu->dx = 0xfe01;
-	    cpu->ah = 0;  // successful
+	    msg.cpu->cx = 0xfeff;
+	    msg.cpu->dx = 0xfe01;
+	    msg.cpu->ah = 0;  // successful
 	  }
 	break;
       case 0x15: // get disk type
-	if (check_drive(cpu))
+	if (check_drive(msg))
 	  {
-	    cpu->ah = 0x03;  // we report a harddisk
+	    msg.cpu->ah = 0x03;  // we report a harddisk
 	    unsigned sectors = (_disk_params.sectors >> 32) ? 0xffffffff : _disk_params.sectors;
-	    cpu->dx = sectors & 0xffff;
-	    cpu->cx = sectors >> 16;
+	    msg.cpu->dx = sectors & 0xffff;
+	    msg.cpu->cx = sectors >> 16;
 	  }
 	break;
       case 0x41:  // int13 extension supported?
-	if (check_drive(cpu))
-	  switch (cpu->bx)
+	if (check_drive(msg))
+	  switch (msg.cpu->bx)
 	    {
 	    case 0x55aa:
 	      // we report that version1 is supported
-	      cpu->ah = 0x01;
-	      cpu->cx = 0x0001;
-	      cpu->bx = 0xaa55;
+	      msg.cpu->ah = 0x01;
+	      msg.cpu->cx = 0x0001;
+	      msg.cpu->bx = 0xaa55;
 	      break;
 	    default:
-	      VB_UNIMPLEMENTED;
+	      DEBUG(msg.cpu);
 	    }
 	break;
       reset_disk:
       case 0x0d: // reset disk
-	if (check_drive(cpu))  cpu->ah = 0x00; // successful
+	if (check_drive(msg))  msg.cpu->ah = 0x00; // successful
 	break;
       case 0x42: // extended read
       case 0x43: // extended write
-	if (check_drive(cpu))
+	if (check_drive(msg))
 	  {
-	    copy_in(cpu->ds.base + cpu->si, &da, sizeof(da));
-	    return disk_op(cpu, da.block, (da.segment << 4) + da.offset, da.count, cpu->ah & 1);
+	    copy_in(msg.cpu->ds.base + msg.cpu->si, &da, sizeof(da));
+	    return disk_op(msg, da.block, (da.segment << 4) + da.offset, da.count, msg.cpu->ah & 1);
 	  }
 	break;
       case 0x48: // get drive params extended
-	if (check_drive(cpu))
+	if (check_drive(msg))
 	  {
 	    struct drive_parameters
 	    {
@@ -206,22 +198,23 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 	    params.pcylinders = sectors;
 	    params.size = 0x1a;
 	    params.sectorsize = 512;
-	    copy_out(cpu->ds.base + cpu->si, &params, params.size);
+	    copy_out(msg.cpu->ds.base + msg.cpu->si, &params, params.size);
 	    Logging::printf("VB: driveparam size %x sectors %llx\n", params.size, params.sectors);
-	    cpu->ah = 0; // function supported
+	    msg.cpu->ah = 0; // function supported
 	  }
 	break;
       default:
-	switch (cpu->ax)
+	switch (msg.cpu->ax)
 	  {
 	  case 0x4b00:  // bootable CDROM Emulation termintate
 	  case 0x4b01:  // bootable CDROM Emulation status
-	    error(cpu, 0x4b);
+	    error(msg, 0x4b);
 	    break;
 	  default:
-	    VB_UNIMPLEMENTED;
+	    DEBUG(msg.cpu);
 	  }
       }
+    msg.mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
     return true;
   }
 
@@ -234,6 +227,11 @@ public:
   {
     if (msg.usertag == MAGIC_DISK_TAG) {
 	write_bda(DISK_COMPLETION_CODE, msg.status, 1);
+	_diskop_inprogress = false;
+
+	// send a disk IRQ
+	MessageIrq msg2(MessageIrq::ASSERT_IRQ, 14);
+	_mb.bus_irqlines.send(msg2);
 	return true;
       }
     return false;
@@ -248,6 +246,11 @@ public:
       // a timeout happened -> howto return error code?
       Logging::printf("BIOS disk timeout\n");
       write_bda(DISK_COMPLETION_CODE, 1, 1);
+      _diskop_inprogress = false;
+
+      // send a disk IRQ to wakeup the threads
+      MessageIrq msg2(MessageIrq::ASSERT_IRQ, 14);
+      _mb.bus_irqlines.send(msg2);
       return true;
     }
     return false;
@@ -255,10 +258,17 @@ public:
 
   bool  receive(MessageBios &msg) {
     switch(msg.irq) {
-    case 0x13:  return handle_int13(msg.cpu);
-    case 0x19:  return boot_from_disk(msg.cpu);
-    case WAIT_DISK_VECTOR:
+    case 0x13:  return handle_int13(msg);
+    case 0x19:  return boot_from_disk(msg);
+    case 0x76:
+      if (_diskop_inprogress) {
+	msg.cpu->inst_len = 0;
+	CpuMessage msg2(CpuMessage::TYPE_HLT, msg.cpu, MTD_RIP_LEN | MTD_IRQ);
+	msg.vcpu->executor.send(msg2);
+	return jmp_int(msg, 0x76);
+      }
       msg.cpu->al = read_bda(DISK_COMPLETION_CODE);
+      msg.mtr_out |= MTD_GPR_ACDB;
       return true;
     default:    return false;
     }

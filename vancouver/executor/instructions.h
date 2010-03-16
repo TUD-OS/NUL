@@ -70,7 +70,7 @@ static int helper_CLI (MessageExecutor &msg) {
 static int helper_STI(MessageExecutor &msg) {
   if (msg.cpu->cpl() <= msg.cpu->iopl()) {
     // add irq shadow
-    if (~msg.cpu->efl & EFL_IF) msg.cpu->actv_state |= 1;
+    if (~msg.cpu->efl & EFL_IF) msg.cpu->intr_state |= 1;
     msg.cpu->efl |= EFL_IF;
   }
   else if (msg.cpu->v86() && (msg.cpu->cr4 & 1) || (!msg.cpu->v86() && msg.cpu->pm() && msg.cpu->cpl() == 3 && (msg.cpu->cr4 & 2)))

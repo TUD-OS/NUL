@@ -93,8 +93,9 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
   /**
    * Keyboard INT handler.
    */
-  bool handle_int16(CpuState *cpu)
+  bool handle_int16(MessageBios &msg)
   {
+    CpuState *cpu = msg.cpu;
     //COUNTER_INC("int16");
     //DEBUG;
     unsigned short next  = read_bda(0x1a);
@@ -142,8 +143,9 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
 	// ignored
 	break;
       default:
-	VB_UNIMPLEMENTED;
+	DEBUG(cpu);
       }
+    msg.mtr_out |= MTD_RFLAGS | MTD_GPR_ACDB;
     return true;
   }
 
@@ -176,14 +178,6 @@ public:
     return false;
   }
 
-
-  bool  receive(MessageBios &msg) {
-    switch(msg.irq) {
-    case 0x09:  return handle_int09(msg.cpu);
-    case 0x16:  return handle_int16(msg.cpu);
-    default:    return false;
-    }
-  }
 
   /**
    * Answer HostRequests from DummyHostDevices.
@@ -221,6 +215,14 @@ public:
   bool  receive(MessageIOOut &msg) { return _mb.bus_ioout.send(msg); }
   bool  receive(MessageLegacy &msg) { return _hostmb->bus_legacy.send_fifo(msg); }
 
+
+  bool  receive(MessageBios &msg) {
+    switch(msg.irq) {
+    case 0x09:  return handle_int09(msg.cpu);
+    case 0x16:  return handle_int16(msg);
+    default:    return false;
+    }
+  }
 
   VirtualBiosKeyboard(Motherboard &mb) : BiosCommon(mb) {
 

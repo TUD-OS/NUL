@@ -60,7 +60,7 @@ class Mtd : public Desc
 {
 public:
   Mtd() : Desc(0) {}
-  Mtd(unsigned _untyped, unsigned _typed) : Desc((_typed << 23) | _untyped) { }
+  Mtd(unsigned _untyped, unsigned _typed = 0) : Desc((_typed << 23) | _untyped) { }
   unsigned typed() { return (_value  >> 23); }
   unsigned untyped() { return _value & ~0xff800000; }
   void add (unsigned v) { _value |= v; };

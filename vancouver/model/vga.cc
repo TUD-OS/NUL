@@ -239,10 +239,10 @@ public:
 	    cpu->cx = 0x0007;  //  0-features, mode: 7 (80x25)
 	    break;
 	  case 0x01: // unkown windows boot
-	    DEBUG;
+	    DEBUG(cpu);
 	    break;
 	  default:
-	    VB_UNIMPLEMENTED;
+	    DEBUG(cpu);
 	  }
 	break;
       default:
@@ -268,7 +268,7 @@ public:
 	    break;
 	  default:
 	    if (!handle_vesa(cpu))
-	      VB_UNIMPLEMENTED;
+	      DEBUG(cpu);
 	  }
       }
     return true;

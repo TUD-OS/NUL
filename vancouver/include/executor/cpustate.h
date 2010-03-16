@@ -86,7 +86,7 @@ class VirtualCpuState
   // old state to save for instruction abort
   unsigned oeip;
   unsigned oesp;
-  unsigned oactv_state;
+  unsigned ointr_state;
 
   // instruction and data cache
   InstructionCache *instcache;

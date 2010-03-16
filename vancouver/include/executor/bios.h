@@ -15,24 +15,23 @@
  * General Public License version 2 for more details.
  */
 #pragma once
+#include "nul/vcpu.h"
 
-#define VB_UNIMPLEMENTED    Logging::panic("\t%s():%d eax %x ebx %x edx %x eip %x:%x\n", __func__, __LINE__, cpu->eax, cpu->ebx, cpu->edx, cpu->cs.base, cpu->eip)
-#define DEBUG            Logging::printf("\t%s eax %x ebx %x ecx %x edx %x eip %x efl %x\n", __func__, cpu->eax, cpu->ebx, cpu->ecx, cpu->edx, cpu->eip, cpu->efl)
+#define DEBUG(cpu)   Logging::printf("\t%s eax %x ebx %x ecx %x edx %x eip %x efl %x\n", __func__, cpu->eax, cpu->ebx, cpu->ecx, cpu->edx, cpu->eip, cpu->efl)
 
 class BiosCommon
 {
+
+public:
+
+  enum {
+    RESET_VECTOR = 0x100,
+    MAX_VECTOR,
+  };
+
 protected:
   Motherboard &_mb;
 #include "model/simplemem.h"
-
-  /**
-   * Special BIOS vectors.
-   */
-  enum {
-    RESET_VECTOR = 0x100,
-    WAIT_DISK_VECTOR,
-    MAX_VECTOR,
-  };
 
 
   /**
@@ -58,30 +57,26 @@ protected:
   /**
    * Jump to another realmode INT handler.
    */
-  bool jmp_int(CpuState *cpu, unsigned char number)
+  bool jmp_int(MessageBios &msg, unsigned char number)
   {
-    // we build a new iret fram of the stack, to return to
-    unsigned short idt_frames[6];
+    unsigned short v[2];
+    copy_in(number*4, v, 4);
 
-    // the destination
-    copy_in(number*4, idt_frames, 4);
-    // the old frame
-    copy_in(cpu->ss.base + cpu->esp, idt_frames + 3, 6);
-    // flags are the same
-    idt_frames[2] = idt_frames[5];
-    // space for the new frame
-    cpu->esp -= 6;
-    copy_out(cpu->ss.base + cpu->esp, idt_frames, 12);
+    msg.cpu->cs.sel  = v[1];
+    msg.cpu->cs.base = v[1] << 4;
+    msg.cpu->eip = v[0];
+    msg.mtr_out |= MTD_RIP_LEN | MTD_CS_SS;
     return true;
   }
 
   /**
    * Set the usual error indication.
    */
-  void error(CpuState *cpu, unsigned char errorcode)
+  void error(MessageBios &msg, unsigned char errorcode)
   {
-    cpu->efl |= 1;
-    cpu->ah = errorcode;
+    msg.cpu->efl |= 1;
+    msg.cpu->ah = errorcode;
+    msg.mtr_out |= MTD_RFLAGS | MTD_GPR_ACDB;
   }
 
   BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem) {}

@@ -1108,14 +1108,14 @@ static void __attribute__ ((regparm (3))) exec_17_pop__ss_1 (MessageExecutor & m
 {
   unsigned sel;
   helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ss, sel);
-  msg.cpu->actv_state |= 2;
+  msg.cpu->intr_state |= 2;
 }
 
 static void __attribute__ ((regparm (3))) exec_17_pop__ss_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
   helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ss, sel);
-  msg.cpu->actv_state |= 2;
+  msg.cpu->intr_state |= 2;
 }
 
 static void __attribute__ ((regparm (3))) exec_18_sbb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
@@ -2090,7 +2090,7 @@ static void __attribute__ ((regparm (3))) exec_8d_lea_2 (MessageExecutor & msg, 
 static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   if (((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7) == 2)
-    msg.cpu->actv_state |= 2;
+    msg.cpu->intr_state |= 2;
   set_segment (msg,
 	       &msg.cpu->es +
 	       ((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),
@@ -2100,7 +2100,7 @@ static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_1 (MessageExecuto
 static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
 {
   if (((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7) == 2)
-    msg.cpu->actv_state |= 2;
+    msg.cpu->intr_state |= 2;
   set_segment (msg,
 	       &msg.cpu->es +
 	       ((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),

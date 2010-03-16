@@ -31,8 +31,9 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
   /**
    * Memory+PS2 INT.
    */
-  bool handle_int15(CpuState *cpu)
+  bool handle_int15(MessageBios &msg)
   {
+    CpuState *cpu = msg.cpu;
     COUNTER_INC("int15");
     // default is to clear CF
     cpu->efl &= ~1;
@@ -41,11 +42,11 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
       case 0x2400: // disable A20
       case 0x2401: // enable  A20
 	{
-	  MessageLegacy msg(MessageLegacy::GATE_A20, cpu->al);
-	  if (_mb.bus_legacy.send(msg))
+	  MessageLegacy msg1(MessageLegacy::GATE_A20, cpu->al);
+	  if (_mb.bus_legacy.send(msg1))
 	    cpu->ax = 0;
 	  else
-	    error(cpu, 0x24);
+	    error(msg, 0x24);
 	}
 	break;
       case 0xc201:            // reset mouse
@@ -102,12 +103,13 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
       case 0xe980:            // get intel speedstep information
       unsupported:
 	// unsupported
-	DEBUG;
-	error(cpu, 0x86);
+	DEBUG(cpu);
+	error(msg, 0x86);
 	break;
       default:
-	VB_UNIMPLEMENTED;
+	DEBUG(cpu);
       }
+    msg.mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
     return true;
   }
 
@@ -119,13 +121,15 @@ public:
     case 0x10:  return true;
     case 0x11: // BIOS equipment word
       msg.cpu->ax = 0x34; // 80x25, ps2-mouse, no-floppy
+      msg.mtr_out |= MTD_GPR_ACDB;
       return true;
     case 0x12: // get low memory
       msg.cpu->ax = read_bda(0x13);
+      msg.mtr_out |= MTD_GPR_ACDB;
       return true;
-    case 0x15:  return handle_int15(msg.cpu);
+    case 0x15:  return handle_int15(msg);
     case 0x17:  // printer
-      msg.cpu->efl |= 1;  // unsupported
+      error(msg, msg.cpu->ah);
       return true;
     default:    return false;
     }

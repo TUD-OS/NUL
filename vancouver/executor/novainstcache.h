@@ -486,8 +486,8 @@ public:
   bool commit(MessageExecutor &msg, InstructionCacheEntry *entry)
   {
     // irq blocking propagation
-    if (msg.vcpu->fault)  msg.cpu->actv_state = msg.vcpu->oactv_state;
-    if (msg.cpu->actv_state != msg.vcpu->oactv_state)
+    if (msg.vcpu->fault)  msg.cpu->intr_state = msg.vcpu->ointr_state;
+    if (msg.cpu->intr_state != msg.vcpu->ointr_state)
       {
 	msg.vcpu->mtr_read  |= MTD_STATE;
 	msg.vcpu->mtr_write |= MTD_STATE;
@@ -582,9 +582,9 @@ public:
     msg.vcpu->fault = 0;
     msg.vcpu->oeip = msg.cpu->eip;
     msg.vcpu->oesp = msg.cpu->esp;
-    msg.vcpu->oactv_state = msg.cpu->actv_state;
+    msg.vcpu->ointr_state = msg.cpu->intr_state;
     // remove sti+movss blocking
-    msg.cpu->actv_state &= ~3;
+    msg.cpu->intr_state &= ~3;
     event_injection(msg) || get_instruction(msg, entry) || execute(msg, entry);
     return commit(msg, entry);
   }

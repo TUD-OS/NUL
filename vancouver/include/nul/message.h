@@ -540,10 +540,13 @@ struct MessageExecutor
   MessageExecutor(CpuState *_cpu, VirtualCpuState *_vcpu) : cpu(_cpu), vcpu(_vcpu) {}
 };
 
-struct MessageBios : public MessageExecutor
+struct MessageBios
 {
+  VCpu *vcpu;
+  CpuState *cpu;
   unsigned irq;
-  MessageBios(MessageExecutor &msg, unsigned _irq) : MessageExecutor(msg), irq(_irq) {}
+  unsigned mtr_out;
+  MessageBios(VCpu *_vcpu, CpuState *_cpu, unsigned _irq) : vcpu(_vcpu), cpu(_cpu), irq(_irq) {}
 };
 
 

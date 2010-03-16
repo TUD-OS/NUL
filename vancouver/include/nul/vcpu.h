@@ -25,16 +25,22 @@ struct CpuMessage {
     TYPE_RDTSC,
     TYPE_RDMSR,
     TYPE_WRMSR,
+    TYPE_IOIN,
+    TYPE_IOOUT,
     TYPE_TRIPLE,
     TYPE_INIT,
     TYPE_HLT,
     TYPE_CHECK_IRQ,
+    TYPE_WAKEUP,
     TYPE_SINGLE_STEP,
   } type;
   union {
     struct {
       CpuState *cpu;
-      unsigned  cpuid_index;
+      union {
+	unsigned  cpuid_index;
+	unsigned  io_order;
+      };
     };
     struct {
       unsigned nr;
@@ -43,7 +49,9 @@ struct CpuMessage {
       unsigned value;
     };
   };
-  CpuMessage(Type _type, CpuState *_cpu) : type(_type), cpu(_cpu) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
+  unsigned mtr_in;
+  unsigned mtr_out;
+  CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
   CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value) {}
 };
 
