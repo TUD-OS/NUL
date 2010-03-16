@@ -328,7 +328,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-    utcb->head.mtr = Mtd(msg.mtr_out);
+    utcb->head.mtr = msg.mtr_out;
   }
 
 
@@ -729,7 +729,6 @@ VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 	)
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
-	if (_mb->vcpustate(0)->hazard & ~1) Logging::printf("invalid %x\n", _mb->vcpustate(0)->hazard);
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	utcb->head.mtr.add(MTD_CTRL);
 	utcb->ctrl[0] = 1 << 18; // cpuid

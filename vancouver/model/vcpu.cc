@@ -26,7 +26,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 #include "model/reg.h"
 
   unsigned long _hostop_id;
-  unsigned char _resetvector[16];
   Motherboard &_mb;
 
   enum {
@@ -34,8 +33,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     MSR_SYSENTER_CS = 0x174,
     MSR_SYSENTER_ESP,
     MSR_SYSENTER_EIP,
-
-    BIOS_BASE = 0xf0000,
   };
 
   void handle_cpuid(CpuMessage &msg) {
@@ -189,62 +186,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  bool handle_bios(CpuMessage &msg) {
-    CpuState *cpu = msg.cpu;
-    if (cpu->pm() && !cpu->v86() || !in_range(cpu->cs.base + cpu->eip, BIOS_BASE, BiosCommon::MAX_VECTOR)) return false;
-
-    COUNTER_INC("VB");
-
-    unsigned irq =  (cpu->cs.base + cpu->eip) - BIOS_BASE;
-
-    if (irq == BiosCommon::RESET_VECTOR) {
-      // initialize realmode idt
-      unsigned value = (BIOS_BASE >> 4) << 16;
-      for (unsigned i=0; i<256; i++) {
-	MessageMem msg(false, i*4, &value);
-	mem.send(msg);
-	value++;
-      }
-    }
-
-
-
-    /**
-     * We jump to the last instruction in the 16-byte reset area where
-     * we provide an IRET instruction to the instruction emulator.
-     */
-    cpu->cs.sel  = BIOS_BASE >> 4;
-    cpu->cs.base = BIOS_BASE;
-    cpu->eip = 0xffff;
-
-    MessageBios msg1(this, cpu, irq);
-    if (irq != BiosCommon::RESET_VECTOR ? _mb.bus_bios.send(msg1, true) : _mb.bus_bios.send_fifo(msg1)) {
-
-      // we have to propagate the flags to the user stack!
-      unsigned flags;
-      MessageMem msg2(true, cpu->ss.base + cpu->esp + 4, &flags);
-      mem.send(msg2);
-      flags = flags & ~0xffffu | cpu->efl & 0xffffu;
-      msg2.read = false;
-      mem.send(msg2);
-      msg.mtr_out |= msg1.mtr_out;
-      return true;
-    }
-    return false;
-  }
-
-
 public:
-  /**
-   * The memory read routine for the last 16byte below 4G and below 1M.
-   */
-  bool receive(MessageMem &msg)
-  {
-    if (!msg.read || !in_range(msg.phys, 0xfffffff0, 0x10) && !in_range(msg.phys, BIOS_BASE + 0xfff0, 0x10))  return false;
-    *msg.ptr = *reinterpret_cast<unsigned *>(_resetvector + (msg.phys & 0xc));
-    return true;
-  }
-
 
   bool receive(CpuMessage &msg) {
     bool skip = false;
@@ -288,20 +230,17 @@ public:
     case CpuMessage::TYPE_CHECK_IRQ:
       // we handle it later on
       break;
-    case CpuMessage::TYPE_SINGLE_STEP:
-      handle_bios(msg)/*|| handle_instruction_emulator()*/;
-      break;
     case CpuMessage::TYPE_WAKEUP:
       {
 	MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, hazard & HAZARD_INHLT);
 	_mb.bus_hostop.send(msg);
       }
       break;
+    case CpuMessage::TYPE_SINGLE_STEP:
     default:
       return false;
     }
 
-    // XXX check INIT, CRWRITE
     if (skip) skip_instruction(msg.cpu);
 
     // handle IRQ injection
@@ -314,19 +253,6 @@ public:
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;
 
-    // initialize the reset vector with noops
-    memset(_resetvector, 0x90, sizeof(_resetvector));
-    // realmode longjump to reset vector
-    _resetvector[0x0] = 0xea;
-    _resetvector[0x1] = BiosCommon::RESET_VECTOR & 0xff;
-    _resetvector[0x2] = BiosCommon::RESET_VECTOR >> 8;
-    _resetvector[0x3] = (BIOS_BASE >> 4) & 0xff;
-    _resetvector[0x4] = BIOS_BASE >> 12;
-
-    // the iret for do_iret()
-    _resetvector[0xf] = 0xcf;
-
-
     CPUID_reset();
  }
 };
@@ -334,7 +260,6 @@ public:
 PARAM(vcpu,
       VirtualCpu *dev = new VirtualCpu(mb.last_vcpu, mb);
       dev->executor.add(dev, &VirtualCpu::receive_static<CpuMessage>);
-      dev->mem.add(dev,      &VirtualCpu::receive_static<MessageMem>);
       mb.last_vcpu = dev;
       ,
       "vcpu - create a new VCPU");
