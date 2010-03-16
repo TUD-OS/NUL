@@ -4,7 +4,8 @@
 ## Assumptions
 #
 # Devices have sparse register windows. Registers are 32-bit or 64-bit
-# wide and are naturally aligned.
+# wide and are naturally aligned. 64-bit registers can be safely read
+# and written as two 32-bit chunks.
 #
 # Most registers have a static behavior (read-clear, etc), but some
 # have mode switches.
@@ -112,6 +113,7 @@ def writer_gen(r, out):
         out("\tnv = (%s & ~0x%xU) | (nv & 0x%xU);" % (target, unsigned(r['mutable']), unsigned(r['mutable'])))
     out("\t%s = nv;" % target)
 
+    out('\tLogging::printf("WRITE %10s %%x %%x\\n", val, nv);' % r['name'])
     if 'callback' in r:
         out("\t%s(old, val);" % r['callback'])
     out("}")
@@ -128,6 +130,7 @@ def reader_gen(r, out):
         out("\tuint32 val = %s;" % r['name'])
     if 'rc' in r:
         out("\t%s &= ~0x%x;\t// RC" % (r['name'], unsigned(r['rc'])))
+    out('\tLogging::printf("READ  %10s %%x\\n", val);' % r['name'])
     out("\treturn val;")
     out("}")
 

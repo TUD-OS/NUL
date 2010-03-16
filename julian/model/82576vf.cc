@@ -71,7 +71,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   /// Generate a mailbox/misc IRQ.
   void MISC_irq()
   {
-    Logging::printf("MISC_irq: IVAR_MISC %x\n", rVTIVAR_MISC);
     if ((rVTIVAR_MISC & 0x80) && ((rVTIVAR_MISC & 3) != 3))
       MSIX_irq(rVTIVAR_MISC & 0x3);
   }
@@ -144,10 +143,10 @@ public:
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
       msg.value = PCI_read(msg.dword<<2);
-      Logging::printf("PCICFG READ  %02x -> %08x\n", msg.dword, msg.value);
+      //Logging::printf("PCICFG READ  %02x -> %08x\n", msg.dword, msg.value);
       break;
     case MessagePciConfig::TYPE_WRITE:
-      Logging::printf("PCICFG WRITE %02x <- %08x\n", msg.dword, msg.value);
+      //Logging::printf("PCICFG WRITE %02x <- %08x\n", msg.dword, msg.value);
       PCI_write(msg.dword<<2, msg.value);
       break;
     }
@@ -178,8 +177,8 @@ public:
       *(reinterpret_cast<uint32 *>(msg.ptr)) = MSIX_read(msg.phys - (rPCIBAR3 & ~0xFFF));
     } else return false;
 
-    Logging::printf("PCIREAD %lx (%d) %x \n", msg.phys, msg.count,
-		    *reinterpret_cast<unsigned *>(msg.ptr));
+    // Logging::printf("PCIREAD %lx (%d) %x \n", msg.phys, msg.count,
+    // 		    *reinterpret_cast<unsigned *>(msg.ptr));
     return true;
   }
 
@@ -189,8 +188,8 @@ public:
     if ((rPCISTSCTRL & 2) == 0) return false;
 
     // XXX Assert msg.count == 4
-    Logging::printf("PCIWRITE %lx (%d) %x \n", msg.phys, msg.count,
-		    *reinterpret_cast<unsigned *>(msg.ptr));
+    // Logging::printf("PCIWRITE %lx (%d) %x \n", msg.phys, msg.count,
+    // 		    *reinterpret_cast<unsigned *>(msg.ptr));
     if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
       MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
     } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
