@@ -55,10 +55,30 @@ rset = [
     { 'name' : 'rVTIVAR_MISC', 'offset' : 0x1740, 'initial' : 0, 'mutable' : 0x83 },
     ]
 
+# Mailbox memory
 for n in range(0x10):
     rset.append({'name' : 'rVFMBX%d' % n,
                  'offset' : 0x800 + 4*n,
                  'initial' : 0})
-                 
+
+# Queues
+for n in range(2):
+    rset.append({'name' : 'rRDBAL%d' % n, 'offset' : 0x2800 + n*256,
+                 'initial' : 0, 'mutable' : ~0x3F})
+    rset.append({'name' : 'rRDBAH%d' % n, 'offset' : 0x2804 + n*256,
+                 'initial' : 0, 'mutable' : ~0x3F})
+    rset.append({'name' : 'rRDLEN%d' % n, 'offset' : 0x2808 + n*256,
+                 'initial' : 0, 'mutable' : 0xFFFFC0})
+    rset.append({'name' : 'rRDH%d' % n, 'offset' : 0x2810 + n*256,
+                 'initial' : 0, 'mutable' : 0xFFFF})
+    rset.append({'name' : 'rRDT%d' % n, 'offset' : 0x2818 + n*256,
+                 'initial' : 0, 'mutable' : 0xFFFF})
+    rset.append({'name' : 'rRXDCTL%d' % n, 'offset' : 0x2828 + n*256,
+                 'initial' : 1<<16 | ((1<<26) if n == 0 else 0),
+                 'mutable' : ~(1<<26) # SWFLUSH is WC
+                 })
+    rset.append({'name' : 'rSRRCTL%d' % n, 'offset' : 0x280C + n*256,
+                 'initial' : 0x400 | (0x80000000 if n != 0 else 0),
+                 'mutable' : 0xFFFF})
 
 # EOF
