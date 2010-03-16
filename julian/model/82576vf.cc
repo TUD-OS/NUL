@@ -18,6 +18,43 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
+  // XXX
+  struct Queue {
+    unsigned n;
+    uint32 &rxdctl;
+    uint32 &rdbal;
+    uint32 &rdbah;
+    uint32 &rdt;
+    uint32 &rdh;
+    uint32 &rdlen;
+
+    void rxdctl_cb(uint32 old, uint32 val)
+    {
+      if (((old ^ val) & (1<<25)) != 0) {
+	// Enable/Disable receive queue 0
+	if ((rxdctl & (1<<25)) != 0) {
+	  // Enable queue. Reset registers.
+	  Logging::printf("Enabling queue %u.\n", n);
+	  rdlen = 0;
+	  rdh = 0;
+	  rdt = 0;
+	} else {
+	  // Disable queue. Keep register content.
+	  Logging::printf("Disabling queue %u.\n", n);
+	}
+      }
+    }
+    
+    void receive_packet(char *buf, size_t size)
+    {
+
+    }
+  // public:
+  //   Queue(uint32 &_rxdctl, uint32 &_rdbal, uint32 &_rdbah, uint32 &_rdt, uint32 &_rdh, uint32 &_rdlen)
+  //     : rxdctl(_rxdctl), rdbal(_rdbal), rdbah(_rdbah), rdt(_rdt), rdh(_rdh), rdlen(_rdlen)
+  //   {}
+  } _rx_queues[2];
+
   // Software interface
   enum MBX {
     VF_RESET         = 0x0001U,
@@ -56,6 +93,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     if ((mask & rVTEIMS) != 0) {
       if ((_msix.table[nr].vector_control & 1) == 0) {
+	Logging::printf("Generating MSI-X IRQ %d\n", nr);
 	// XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
 	_irqlines.send(msg);
@@ -120,11 +158,14 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     rVMMB &= ~3;
   }
 
+  void RXDCTL0_cb(uint32 old, uint32 val) { _rx_queues[0].rxdctl_cb(old, val); }
+  void RXDCTL1_cb(uint32 old, uint32 val) { _rx_queues[1].rxdctl_cb(old, val); }
+
   void VTCTRL_cb(uint32 old, uint32 val)
   {
     if ((old ^ val) & (1<<26 /* Reset */)) {
-      // XXX Do reset here.
-      
+      MMIO_init();
+      // XXX Anything else to do here?
     }
   }
 
@@ -199,12 +240,15 @@ public:
     return true;
   }
 
-  void device_reset()
+  Model82576vf(uint64 mac, DBus<MessageIrq> irqlines, uint32 mem_mmio, uint32 mem_msix) 
+    : _mac(mac), _irqlines(irqlines), _mem_mmio(mem_mmio), _mem_msix(mem_msix),
+      _rx_queues( {{ 0, rRXDCTL0, rRDBAL0, rRDBAH0, rRDT0, rRDH0, rRDLEN0 },
+	           { 1, rRXDCTL1, rRDBAL1, rRDBAH1, rRDT1, rRDH1, rRDLEN1 }})
   {
-    Logging::printf("82576vf device reset.\n");
-    PCI_init();
-    MMIO_init();
+    Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
+		    mem_mmio, mem_msix);
     
+    PCI_init();
     rPCIBAR0 = _mem_mmio;
     rPCIBAR3 = _mem_msix;
 
@@ -213,14 +257,8 @@ public:
       _msix.table[i].msg_data = 0;
       _msix.table[i].vector_control = 1;
     }
-  }
 
-  Model82576vf(uint64 mac, DBus<MessageIrq> irqlines, uint32 mem_mmio, uint32 mem_msix) 
-    : _mac(mac), _irqlines(irqlines), _mem_mmio(mem_mmio), _mem_msix(mem_msix)
-  {
-    Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
-		    mem_mmio, mem_msix);
-    device_reset();
+    MMIO_init();
   }
 
 };

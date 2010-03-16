@@ -74,7 +74,8 @@ for n in range(2):
     rset.append({'name' : 'rRDT%d' % n, 'offset' : 0x2818 + n*256,
                  'initial' : 0, 'mutable' : 0xFFFF})
     rset.append({'name' : 'rRXDCTL%d' % n, 'offset' : 0x2828 + n*256,
-                 'initial' : 1<<16 | ((1<<26) if n == 0 else 0),
+                 'callback' : 'RXDCTL%d_cb' % n,
+                 'initial' : 1<<16 | ((1<<25) if n == 0 else 0),
                  'mutable' : ~(1<<26) # SWFLUSH is WC
                  })
     rset.append({'name' : 'rSRRCTL%d' % n, 'offset' : 0x280C + n*256,
