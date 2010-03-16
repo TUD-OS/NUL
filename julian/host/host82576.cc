@@ -240,20 +240,10 @@ public:
     return true;
   };
 
-  Host82576(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock,
-	    unsigned bdf, unsigned hostirq)
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop), _hostirq(hostirq)
+  Host82576(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
+    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
   {
     msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
-
-    // MSI-X preparations
-    unsigned msix_cap = pci.find_cap(bdf, HostPci::CAP_MSIX);
-    assert(msix_cap != 0);
-    unsigned msix_table = pci.conf_read(bdf, msix_cap + 1);
-
-    msg(PCI, "MSI-X[0] = %08x\n", pci.conf_read(bdf, msix_cap));
-    _msix_table_size = ((pci.conf_read(bdf, msix_cap)>>16) & ((1<<11)-1))+1;
-    _msix_table = NULL;
 
     // Scan BARs and discover our register windows.
     _hwreg   = 0;
@@ -279,12 +269,6 @@ public:
 	    msg(INFO, "Found MMIO window at %p (phys %x).\n", _hwreg, phys_addr);
 	  }
 
-	  if (bar_i == (msix_table & 7)) {
-	    _msix_table = reinterpret_cast<struct msix_table *>(iomsg.ptr + (msix_table&~0x7));
-	    msg(INFO, "MSI-X Table at %p (phys %x, %d elements).\n", _msix_table,
-		phys_addr + (msix_table&~0x7), _msix_table_size);
-	  }
-	  
 	  } else {
 	    Logging::panic("%s could not map BAR %u.\n", __PRETTY_FUNCTION__, bar);
 	  }
@@ -292,7 +276,6 @@ public:
     }
 
     if ((_hwreg == 0)) Logging::panic("Could not find 82576 register windows.\n");
-    if (!_msix_table) Logging::panic("MSI-X initialization failed.\n");
 
     /// Initialization (4.5)
     msg(INFO, "Perform Global Reset.\n");
@@ -320,6 +303,9 @@ public:
     // internal interrupt vector (vector 0). The 82576 has 25, but
     // each of the 8 VMs needs 3.
     _hwreg[GPIE] = GPIE_EIAME | GPIE_MULTIPLE_MSIX | GPIE_PBA | GPIE_NSICR; // 7.3.2.11
+
+    // Configure MSI-X
+    _hostirq = pci.get_gsi_msi(bus_hostop, bdf, 0);
 
     // Disable all RX/TX interrupts.
     for (unsigned i = 0; i < 8; i++)
@@ -406,8 +392,7 @@ PARAM(host82576, {
             continue;
           }
 
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf,
-					 pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0));
+	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
 	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
 	}
       }
