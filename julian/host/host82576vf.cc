@@ -28,14 +28,8 @@ private:
 
   volatile uint32 *_hwreg;     // Device MMIO registers (16K)
 
-  struct msix_table {
-    volatile uint64 msg_addr;
-    volatile uint32 msg_data;
-    volatile uint32 vector_control;
-  } *_msix_table;
-
   EthernetAddr _mac;
-  
+
   bool _up;			// Are we UP?
 
   unsigned last_rx;
@@ -66,21 +60,21 @@ public:
       uint16 plen = cur->hi >> 32;
       //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
-	msg(INFO, "Too many packets. Exit handle_rx for now.\n");
-	_hwreg[VTEICS] = 1;	// XXX Needed?
-	return;
+        msg(INFO, "Too many packets. Exit handle_rx for now.\n");
+        _hwreg[VTEICS] = 1;	// XXX Needed?
+        return;
       }
 
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
-      
+
       cur->lo = reinterpret_cast<uint64>(_rx_buf[last_rx]);
       cur->hi = reinterpret_cast<uint64>(_rx_buf[last_rx])>>32;
 
       last_rx = (last_rx+1) % desc_ring_len;
       _hwreg[RDT0] = last_rx;
     }
-    
+
   }
 
   void handle_tx()
@@ -105,23 +99,23 @@ public:
       // Claim message buffer
       _hwreg[VMB] = 1<<2 /* VFU */;
       if ((_hwreg[VMB] & (1<<2)) == 0) {
-	msg(INFO, "MBX Could not claim buffer.\n");
-	return;
+        msg(INFO, "MBX Could not claim buffer.\n");
+        return;
       }
       uint32 msg0 = _hwreg[VBMEM];
       switch (msg0 & (0xFF|CMD_ACK|CMD_NACK)) {
       case (VF_RESET | CMD_ACK):
-	_mac.raw = _hwreg[VBMEM + 1];
-	_mac.raw |= (static_cast<uint64>(_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
-	_hwreg[VMB] = 1<<1 /* ACK */;
-	msg(VF, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
-	reset_complete();
-	break;
+        _mac.raw = _hwreg[VBMEM + 1];
+        _mac.raw |= (static_cast<uint64>(_hwreg[VBMEM + 2]) & 0xFFFFULL) << 32;
+        _hwreg[VMB] = 1<<1 /* ACK */;
+        msg(VF, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+        reset_complete();
+        break;
       default:
-	msg(IRQ, "Unrecognized message.\n");
-	_hwreg[VMB] = 1<<1 /* ACK */;
+        msg(IRQ, "Unrecognized message.\n");
+        _hwreg[VMB] = 1<<1 /* ACK */;
       }
-    
+
     }
   }
 
@@ -129,13 +123,13 @@ public:
   {
     for (unsigned i = 0; i < 3; i++)
       if (irq_msg.line == _hostirqs[i].vec) {
-	unsigned eicr = _hwreg[VTEICR];
-	_hwreg[VTEICR] = eicr;
-	// msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
-	//     _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
-	(this->*(_hostirqs[i].handle))();
-	_hwreg[VTEIMS] = 7;
-	return true;
+        unsigned eicr = _hwreg[VTEICR];
+        _hwreg[VTEICR] = eicr;
+        // msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
+        //     _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
+        (this->*(_hostirqs[i].handle))();
+        _hwreg[VTEIMS] = 7;
+        return true;
       }
     return false;
   }
@@ -144,7 +138,7 @@ public:
   {
     // Protect against our own packets. WTF?
     if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
-	(nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
+        (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
     msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
     // XXX Lock?
@@ -168,12 +162,10 @@ public:
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
-	      Clock *clock, unsigned bdf, unsigned irqs[3],
-	      void *reg,
-	      void *msix_reg)
+              Clock *clock, unsigned bdf, unsigned irqs[3],
+              void *reg)
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
-      _msix_table(reinterpret_cast<struct msix_table *>(msix_reg)),
       _up(false)
   {
     msg(INFO, "Found Intel 82576VF-style controller.\n");
@@ -259,15 +251,16 @@ PARAM(host82576vf, {
       return;
     }
 
-    unsigned long long size; 
+    unsigned long long size;
     unsigned long long base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
-    
+
     MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
+
     base = pci.vf_bar_base_size(parent_bdf, vf_no, 3, size);
     MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 
     if (!(mb.bus_hostop.send(reg_msg) && mb.bus_hostop.send(msix_msg) &&
-	  reg_msg.ptr && msix_msg.ptr)) {
+          reg_msg.ptr && msix_msg.ptr)) {
       Logging::printf("Could not map register windows.\n");
       return;
     }
@@ -283,11 +276,10 @@ PARAM(host82576vf, {
     unsigned irqs[3];
     for (unsigned i = 0; i < 3; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
-    pci.conf_write(vf_bdf, pci.find_cap(vf_bdf, pci.CAP_MSIX), 1U << 31);
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
-				       mb.clock(), vf_bdf,
-				       irqs, reg_msg.ptr, msix_msg.ptr);
+                                       mb.clock(), vf_bdf,
+                                       irqs, reg_msg.ptr);
 
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
     mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
