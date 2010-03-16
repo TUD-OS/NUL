@@ -28,10 +28,10 @@ class VBios : public StaticReceiver<VBios>
     BIOS_BASE = 0xf0000,
   };
 
-
 public:
   bool receive(CpuMessage &msg) {
     if (msg.type != CpuMessage::TYPE_SINGLE_STEP) return false;
+
     CpuState *cpu = msg.cpu;
     if (cpu->pm() && !cpu->v86() || !in_range(cpu->cs.base + cpu->eip, BIOS_BASE, BiosCommon::MAX_VECTOR)) return false;
 

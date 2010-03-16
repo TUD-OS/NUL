@@ -160,8 +160,8 @@ private:
   bool  receive(MessageBios &msg)
   {
     if (msg.irq != 19) return false;
-    Logging::printf(">\t%s mtr %x rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
-		    msg.cpu->head.mtr.value(), msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
+    Logging::printf(">\t%s rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
+		    msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     unsigned long rip = 0xfffffff0;
     unsigned long mbi;

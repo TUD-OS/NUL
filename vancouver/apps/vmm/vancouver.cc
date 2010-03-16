@@ -205,13 +205,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
     utcb->ctrl[1] = 0;
-    utcb->head.mtr = Mtd(MTD_CTRL, 0);
+    utcb->head.mtr = MTD_CTRL;
   };
 
   static void force_invalid_gueststate_intel(Utcb *utcb)
   {
     utcb->efl &= ~2;
-    utcb->head.mtr = Mtd(MTD_RFLAGS, 0);
+    utcb->head.mtr = MTD_RFLAGS;
   };
 
 

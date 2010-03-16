@@ -50,20 +50,22 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  void handle_rdtsc(CpuState *cpu) {
-    cpu->edx_eax(cpu->tsc_off + Cpu::rdtsc());
+  void handle_rdtsc(CpuMessage &msg) {
+    msg.cpu->edx_eax(msg.cpu->tsc_off + Cpu::rdtsc());
+    msg.mtr_out |= MTD_GPR_ACDB;
   }
 
 
-  void handle_rdmsr(CpuState *cpu) {
-    switch (cpu->ecx) {
+  void handle_rdmsr(CpuMessage &msg) {
+    switch (msg.cpu->ecx) {
     case MSR_TSC:
-      handle_rdtsc(cpu);
+      handle_rdtsc(msg);
       break;
     case MSR_SYSENTER_CS:
     case MSR_SYSENTER_ESP:
     case MSR_SYSENTER_EIP:
-      cpu->edx_eax((&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS]);
+      assert(msg.mtr_in & MTD_SYSENTER);
+      msg.cpu->edx_eax((&msg.cpu->sysenter_cs)[msg.cpu->ecx - MSR_SYSENTER_CS]);
       break;
     case 0x8b: // microcode
       // MTRRs
@@ -71,16 +73,18 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     case 0x258:
     case 0x259:
     case 0x268 ... 0x26f:
-      cpu->edx_eax(0);
+      msg.cpu->edx_eax(0);
       break;
     default:
-      Logging::printf("unsupported rdmsr %x at %x",  cpu->ecx, cpu->eip);
-      cpu->GP0();
+      Logging::printf("unsupported rdmsr %x at %x",  msg.cpu->ecx, msg.cpu->eip);
+      msg.cpu->GP0();
     }
+    msg.mtr_out |= MTD_GPR_ACDB;
   }
 
 
-  void handle_wrmsr(CpuState *cpu) {
+  void handle_wrmsr(CpuMessage &msg) {
+    CpuState *cpu = msg.cpu;
     switch (cpu->ecx)
       {
       case MSR_TSC:
@@ -91,6 +95,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       case MSR_SYSENTER_ESP:
       case MSR_SYSENTER_EIP:
 	(&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS] = cpu->edx_eax();
+	msg.mtr_out |= MTD_SYSENTER;
 	break;
       default:
 	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
@@ -99,7 +104,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  void handle_init(CpuState *cpu) {
+  void handle_init(CpuMessage &msg) {
+    CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->eip      = 0xfff0;
     cpu->cr0      = 0x10;
@@ -113,12 +119,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->tr.ar    = 0x8b;
     cpu->ss.limit = cpu->ds.limit = cpu->es.limit = cpu->fs.limit = cpu->gs.limit = cpu->cs.limit;
     cpu->tr.limit = cpu->ld.limit = cpu->gd.limit = cpu->id.limit = 0xffff;
-    cpu->head.mtr = Mtd(MTD_ALL, 0);
     /*cpu->dr6      = 0xffff0ff0;*/
     cpu->dr7      = 0x400;
     // goto singlestep instruction?
     cpu->efl      = 0;
-    cpu->head._pid = 0;
+    msg.mtr_out   = MTD_ALL;
   }
 
 
@@ -128,15 +133,18 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->inj_info = vec | 0x80000000;
   }
 
-  void handle_irq(CpuState *cpu) {
+  void handle_irq(CpuMessage &msg) {
 
-    assert_mtr(MTD_STATE | MTD_INJ | MTD_RFLAGS);
+    CpuState *cpu = msg.cpu;
+    assert(msg.mtr_in & MTD_STATE);
+    assert(msg.mtr_in & MTD_INJ);
+    assert(msg.mtr_in & MTD_RFLAGS);
 
     bool res = false;
     if (hazard & HAZARD_IRQ)
       {
 	COUNTER_INC("lint0");
-	if (((~cpu->head.mtr.untyped() & MTD_INJ) || ~cpu->inj_info & 0x80000000) && can_inject(cpu))
+	if ((~cpu->inj_info & 0x80000000) && can_inject(cpu))
 	  {
 	    Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_IRQ);
 	    if (lastmsi && lastmsi != 0xff)
@@ -166,23 +174,23 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  void handle_hlt(CpuState *cpu) {
-    cpu->actv_state &= ~1u;
+  void handle_hlt(CpuMessage &msg) {
+    msg.cpu->actv_state &= ~1u;
     MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
     Cpu::atomic_or<volatile unsigned>(&hazard, HAZARD_INHLT);
     if (~hazard & HAZARD_IRQ) _mb.bus_hostop.send(msg2);
     Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_INHLT);
   }
 
-  void skip_instruction(CpuState *cpu)
+  void skip_instruction(CpuMessage &msg)
   {
-    assert(cpu->head.mtr.untyped() & MTD_RIP_LEN);
-    assert(cpu->head.mtr.untyped() & MTD_STATE);
-    cpu->eip += cpu->inst_len;
+    assert(msg.mtr_in & MTD_RIP_LEN);
+    assert(msg.mtr_in & MTD_STATE);
+    msg.cpu->eip += msg.cpu->inst_len;
     /**
      * Cancel sti and mov-ss blocking as we emulated an instruction.
      */
-    cpu->intr_state &= ~3;
+    msg.cpu->intr_state &= ~3;
   }
 
 
@@ -202,15 +210,15 @@ public:
 	return CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value);
       };
     case CpuMessage::TYPE_RDTSC:
-      handle_rdtsc(msg.cpu);
+      handle_rdtsc(msg);
       skip = true;
       break;
     case CpuMessage::TYPE_RDMSR:
-      handle_rdmsr(msg.cpu);
+      handle_rdmsr(msg);
       skip = true;
       break;
     case CpuMessage::TYPE_WRMSR:
-      handle_wrmsr(msg.cpu);
+      handle_wrmsr(msg);
       skip = true;
       break;
     case CpuMessage::TYPE_TRIPLE:
@@ -221,10 +229,10 @@ public:
       }
       break;
     case CpuMessage::TYPE_INIT:
-      handle_init(msg.cpu);
+      handle_init(msg);
       break;
     case CpuMessage::TYPE_HLT:
-      handle_hlt(msg.cpu);
+      handle_hlt(msg);
       skip = true;
       break;
     case CpuMessage::TYPE_CHECK_IRQ:
@@ -241,10 +249,10 @@ public:
       return false;
     }
 
-    if (skip) skip_instruction(msg.cpu);
+    if (skip) skip_instruction(msg);
 
     // handle IRQ injection
-    handle_irq(msg.cpu);
+    handle_irq(msg);
     return true;
   }
 

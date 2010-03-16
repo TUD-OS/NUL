@@ -43,9 +43,6 @@ class CpuState : public Utcb
   }
 };
 
-#define assert_mtr(value) { assert((cpu->head.mtr.untyped() & (value)) == (value)); }
-
-
 
 class InstructionCache;
 class KernelSemaphore;
