@@ -96,7 +96,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	break;
       case VF_SET_MULTICAST:
 	// Ignore
-	rVFMBX0 |= CMD_ACK;
+	rVFMBX0 |= CMD_ACK | CTS;
 	break;
 	
       default:
