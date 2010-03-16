@@ -263,7 +263,7 @@ PARAM(host82576vf, {
     unsigned long long base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
     
     MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
-    base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
+    base = pci.vf_bar_base_size(parent_bdf, vf_no, 3, size);
     MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 
     if (!(mb.bus_hostop.send(reg_msg) && mb.bus_hostop.send(msix_msg) &&
