@@ -75,23 +75,20 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       }
       
       // assert(rdbah == 0);
-      uint32 pos = (rdh*16) % rdlen;
+      uint64 addr = (static_cast<uint64>(rdbah)<<32 | rdbal) + ((rdh*16) % rdlen);
       uint64 desc[2];
       
-      Logging::printf("RX descriptor at %x\n", rdbal + pos);
-      MessageMemRead msg(rdbal + pos, desc, sizeof(desc));
+      Logging::printf("RX descriptor at %llx\n", addr);
+      MessageMemRead msg(addr, desc, sizeof(desc));
       if (!memread.send(msg)) {
 	Logging::printf("RX descriptor fetch failed.\n");
 	return;
       }
 
+      // XXX Complete
+      #warning incomplete
       
     }
-
-  // public:
-  //   Queue(uint32 &_rxdctl, uint32 &_rdbal, uint32 &_rdbah, uint32 &_rdt, uint32 &_rdh, uint32 &_rdlen)
-  //     : rxdctl(_rxdctl), rdbal(_rdbal), rdbah(_rdbah), rdt(_rdt), rdh(_rdh), rdlen(_rdlen)
-  //   {}
   } _rx_queues[2];
 
   // Software interface
