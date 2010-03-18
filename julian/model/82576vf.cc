@@ -332,7 +332,7 @@ public:
     return true;
   }
 
-  Model82576vf(uint64 mac, DBus<MessageNetwork> net, DBus<MessageIrq> irqlines,
+  Model82576vf(uint64 mac, DBus<MessageNetwork> &net, DBus<MessageIrq> &irqlines,
 	       DBus<MessageMemWrite> &memwrite, DBus<MessageMemRead> &memread,
 	       uint32 mem_mmio, uint32 mem_msix)
     : _mac(mac), _net(net), _irqlines(irqlines),
