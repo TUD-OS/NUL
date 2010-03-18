@@ -182,8 +182,24 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_INHLT);
   }
 
-  void skip_instruction(CpuMessage &msg)
-  {
+
+  void handle_ioin(CpuMessage &msg) {
+    MessageIOIn msg2(MessageIOIn::Type(msg.io_order), msg.cpu->dx);
+    _mb.bus_ioin.send(msg2);
+    Cpu::move(&msg.cpu->eax, &msg2.value, msg.io_order);
+    msg.mtr_out |= MTD_GPR_ACDB;
+  }
+
+
+  void handle_ioout(CpuMessage &msg) {
+    MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.cpu->dx, msg.cpu->eax);
+    _mb.bus_ioout.send(msg2);
+    Cpu::move(&msg.cpu->eax, &msg2.value, msg.io_order);
+  }
+
+
+  void skip_instruction(CpuMessage &msg) {
+
     assert(msg.mtr_in & MTD_RIP_LEN);
     assert(msg.mtr_in & MTD_STATE);
     msg.cpu->eip += msg.cpu->inst_len;
@@ -192,8 +208,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
      */
     msg.cpu->intr_state &= ~3;
   }
-
-
 public:
 
   bool receive(CpuMessage &msg) {
@@ -219,6 +233,14 @@ public:
       break;
     case CpuMessage::TYPE_WRMSR:
       handle_wrmsr(msg);
+      skip = true;
+      break;
+    case CpuMessage::TYPE_IOIN:
+      handle_ioin(msg);
+      skip = true;
+      break;
+    case CpuMessage::TYPE_IOOUT:
+      handle_ioout(msg);
       skip = true;
       break;
     case CpuMessage::TYPE_TRIPLE:

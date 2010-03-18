@@ -22,7 +22,7 @@ class Cpu
 {
  public:
   static  void  pause() { asm volatile("pause"); }
-  static  void  hlt() { asm volatile("hlt"); }
+  static  void  hlt()   { asm volatile("hlt"); }
   template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" :: "r"(ptr), "q"(value)); }
   template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
   static  unsigned cmpxchg(volatile void *var, unsigned oldvalue, unsigned newvalue)
@@ -87,5 +87,30 @@ class Cpu
     unsigned ebx, ecx, edx;
     cpuid(0x1, ebx, ecx, edx);
     return (ebx >> 24) & 0xff;
+  }
+
+
+  template<unsigned operand_size>
+  static void move(void *tmp_dst, void *tmp_src)
+  {
+    // XXX aliasing!
+    if (operand_size == 0) *reinterpret_cast<unsigned char *>(tmp_dst) = *reinterpret_cast<unsigned char *>(tmp_src);
+    if (operand_size == 1) *reinterpret_cast<unsigned short *>(tmp_dst) = *reinterpret_cast<unsigned short *>(tmp_src);
+    if (operand_size == 2) *reinterpret_cast<unsigned int *>(tmp_dst) = *reinterpret_cast<unsigned int *>(tmp_src);
+    //asm volatile ("" : : : "memory");
+  }
+
+  /**
+   * Transfer bytes from src to dst.
+   */
+  static void move(void * tmp_dst, void *tmp_src, unsigned order)
+  {
+    switch (order)
+      {
+      case 0:  move<0>(tmp_dst, tmp_src); break;
+      case 1:  move<1>(tmp_dst, tmp_src); break;
+      case 2:  move<2>(tmp_dst, tmp_src); break;
+      default: asm volatile ("ud2a");
+      }
   }
 };

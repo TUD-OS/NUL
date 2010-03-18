@@ -65,6 +65,9 @@
     return msg.vcpu->fault;
   }
 
+static void move(void * tmp_dst, void *tmp_src, unsigned order) {  Cpu::move(tmp_dst, tmp_src, order); }
+template<unsigned operand_size> static void move(void *tmp_dst, void *tmp_src) { Cpu::move<operand_size>(tmp_dst, tmp_src); }
+
 /**
  * Move
  */
@@ -72,31 +75,6 @@
     if (operand_size == 0)  DST = (DST & ~0xff)   | (SRC & 0xff);	\
     if (operand_size == 1)  DST = (DST & ~0xffff) | (SRC & 0xffff);	\
     if (operand_size == 2)  DST = SRC;					\
-  }
-
-
-  template<unsigned operand_size>
-  static void move(void *tmp_dst, void *tmp_src)
-  {
-    // XXX aliasing!
-    if (operand_size == 0) *reinterpret_cast<unsigned char *>(tmp_dst) = *reinterpret_cast<unsigned char *>(tmp_src);
-    if (operand_size == 1) *reinterpret_cast<unsigned short *>(tmp_dst) = *reinterpret_cast<unsigned short *>(tmp_src);
-    if (operand_size == 2) *reinterpret_cast<unsigned int *>(tmp_dst) = *reinterpret_cast<unsigned int *>(tmp_src);
-    //asm volatile ("" : : : "memory");
-  }
-
-  /**
-   * Transfer bytes from src to dst.
-   */
-static void move(void * tmp_dst, void *tmp_src, unsigned order)
-  {
-    switch (order)
-      {
-      case 0:  move<0>(tmp_dst, tmp_src); break;
-      case 1:  move<1>(tmp_dst, tmp_src); break;
-      case 2:  move<2>(tmp_dst, tmp_src); break;
-      default: assert(0);
-      }
   }
 
   /**
