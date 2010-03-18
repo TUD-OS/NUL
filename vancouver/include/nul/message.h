@@ -94,7 +94,8 @@ struct MessageMem
  */
 struct MessageMemWrite    : public MessageMem
 {
-  MessageMemWrite(unsigned long _phys, void *_ptr, unsigned _count) : MessageMem(_phys, _ptr, _count) {}
+  MessageMemWrite(unsigned long _phys, const void *_ptr, unsigned _count)
+    : MessageMem(_phys, const_cast<void *>(_ptr), _count) {}
 };
 
 
