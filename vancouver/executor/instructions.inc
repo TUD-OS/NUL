@@ -1,3283 +1,3283 @@
-static void __attribute__ ((regparm (3))) exec_00_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_00_add_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock addb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_01_add_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_01_add_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock addw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_01_add_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_01_add_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock addl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_02_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_02_add_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; addb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_03_add_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_03_add_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; addw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_03_add_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_03_add_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; addl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_04_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_04_add_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; addb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_05_add_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_05_add_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; addw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_05_add_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_05_add_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; addl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_06_push__es_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_06_push__es_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->es.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->es.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_06_push__es_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_06_push__es_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->es.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->es.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_07_pop__es_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  unsigned sel;
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->es, sel);;
-}
-
-static void __attribute__ ((regparm (3))) exec_07_pop__es_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_07_pop__es_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->es, sel);;
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->es, sel);;
 }
 
-static void __attribute__ ((regparm (3))) exec_08_or_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_07_pop__es_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned sel;
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->es, sel);;
+}
+
+static void __attribute__ ((regparm (3))) exec_08_or_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock orb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_09_or_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_09_or_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock orw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_09_or_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_09_or_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock orl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0a_or_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0a_or_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; orb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0b_or_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0b_or_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; orw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0b_or_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0b_or_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; orl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0c_or_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0c_or_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; orb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0d_or_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0d_or_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; orw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0d_or_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0d_or_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; orl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0e_push__cs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0e_push__cs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->cs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->cs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0e_push__cs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0e_push__cs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->cs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->cs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0000_sldt_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0000_sldt_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  move < 1 > (tmp_dst, &msg.cpu->ld.sel);
+  move < 1 > (tmp_dst, &cache->_cpu->ld.sel);
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0008_str_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0008_str_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  move < 1 > (tmp_dst, &msg.cpu->tr.sel);
+  move < 1 > (tmp_dst, &cache->_cpu->tr.sel);
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0010_lldt_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0010_lldt_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LLDT (msg, *reinterpret_cast < unsigned short *>(tmp_src));
+  cache->helper_LLDT (*reinterpret_cast < unsigned short *>(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0018_ltr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0018_ltr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LTR (msg, *reinterpret_cast < unsigned short *>(tmp_src));
+  cache->helper_LTR (*reinterpret_cast < unsigned short *>(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0100_sgdt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0100_sgdt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SGDT < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_SGDT < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0100_sgdt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0100_sgdt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SGDT < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_SGDT < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0108_sidt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0108_sidt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SIDT < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_SIDT < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0108_sidt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0108_sidt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SIDT < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_SIDT < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0110_lgdt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0110_lgdt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LGDT < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LGDT < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0110_lgdt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0110_lgdt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LGDT < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LGDT < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0118_lidt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0118_lidt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LIDT < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LIDT < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0118_lidt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0118_lidt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LIDT < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LIDT < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0138_invlpg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0138_invlpg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_INVLPG (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_INVLPG (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f06_clts_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f06_clts_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CLTS (msg);
+  cache->helper_CLTS ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f08_invd_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f08_invd_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_INVD (msg);
+  cache->helper_INVD ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f09_wbinvd_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f09_wbinvd_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_WBINVD (msg);
+  cache->helper_WBINVD ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f0b_ud2a_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f0b_ud2a_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_UD2A (msg);
+  cache->helper_UD2A ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f1f_nopl___eax__0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f1f_nopl___eax__0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   ;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f20_mov__cr0__edx_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f20_mov__cr0__edx_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_MOV__CR0__EDX (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_MOV__CR0__EDX (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f21_mov__db0__edx_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f21_mov__db0__edx_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_MOV__DB0__EDX (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_MOV__DB0__EDX (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f22_mov__edx__cr0_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f22_mov__edx__cr0_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_MOV__EDX__CR0 (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_MOV__EDX__CR0 (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f23_mov__edx__db0_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f23_mov__edx__db0_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_MOV__EDX__DB0 (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_MOV__EDX__DB0 (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_WRMSR;
+  cache->_fault = FAULT_WRMSR;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_WRMSR;
+  cache->_fault = FAULT_WRMSR;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_RDTSC;
+  cache->_fault = FAULT_RDTSC;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_RDTSC;
+  cache->_fault = FAULT_RDTSC;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_RDMSR;
+  cache->_fault = FAULT_RDMSR;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_RDMSR;
+  cache->_fault = FAULT_RDMSR;
 }
 
-static void __attribute__ ((regparm (3))) exec_0f34_sysenter_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f34_sysenter_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SYSENTER (msg);
+  cache->helper_SYSENTER ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f35_sysexit_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f35_sysexit_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_SYSEXIT (msg);
+  cache->helper_SYSEXIT ();
 }
 
-static void __attribute__ ((regparm (3))) exec_0f40_cmovo_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f40_cmovo_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jno 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f41_cmovno_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f41_cmovno_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jo 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f42_cmovb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f42_cmovb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jae 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f43_cmovae_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f43_cmovae_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jb 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f44_cmove_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f44_cmove_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jne 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f45_cmovne_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f45_cmovne_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("je 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f46_cmovbe_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f46_cmovbe_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("ja 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f47_cmova_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f47_cmova_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jbe 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f48_cmovs_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f48_cmovs_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jns 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f49_cmovns_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f49_cmovns_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("js 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4a_cmovp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4a_cmovp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jnp 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4b_cmovnp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4b_cmovnp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jp 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4c_cmovl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4c_cmovl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jge 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4d_cmovge_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4d_cmovge_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jl 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4e_cmovle_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4e_cmovle_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jg 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f4f_cmovg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f4f_cmovg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("jle 1f;mov (%edx), %eax;mov %eax, (%ecx);1:");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f80_jo_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f80_jo_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f80_jo_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f80_jo_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f81_jno_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f81_jno_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f81_jno_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f81_jno_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f82_jb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f82_jb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f82_jb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f82_jb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f83_jae_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f83_jae_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f83_jae_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f83_jae_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f84_je_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f84_je_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f84_je_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f84_je_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f85_jne_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f85_jne_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f85_jne_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f85_jne_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f86_jbe_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f86_jbe_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f86_jbe_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f86_jbe_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f87_ja_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f87_ja_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f87_ja_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f87_ja_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f88_js_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f88_js_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f88_js_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f88_js_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f89_jns_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f89_jns_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f89_jns_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f89_jns_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8a_jp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8a_jp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8a_jp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8a_jp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8b_jnp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8b_jnp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8b_jnp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8b_jnp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8c_jl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8c_jl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8c_jl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8c_jl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8d_jge_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8d_jge_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8d_jge_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8d_jge_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8e_jle_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8e_jle_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8e_jle_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8e_jle_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8f_jg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8f_jg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f8f_jg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f8f_jg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9000_seto_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9000_seto_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("seto (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9100_setno_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9100_setno_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setno (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9200_setb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9200_setb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setb (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9300_setae_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9300_setae_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setae (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9400_sete_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9400_sete_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("sete (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9500_setne_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9500_setne_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setne (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9600_setbe_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9600_setbe_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setbe (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9700_seta_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9700_seta_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("seta (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9800_sets_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9800_sets_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("sets (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9900_setns_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9900_setns_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setns (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9a00_setp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9a00_setp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setp (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9b00_setnp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9b00_setnp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setnp (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9c00_setl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9c00_setl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9d00_setge_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9d00_setge_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setge (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9e00_setle_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9e00_setle_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setle (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0f9f00_setg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0f9f00_setg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("setg (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa0_push__fs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa0_push__fs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->fs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->fs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa0_push__fs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa0_push__fs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->fs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->fs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa1_pop__fs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  unsigned sel;
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->fs, sel);;
-}
-
-static void __attribute__ ((regparm (3))) exec_0fa1_pop__fs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa1_pop__fs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->fs, sel);;
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->fs, sel);;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa1_pop__fs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_CPUID;
+  unsigned sel;
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->fs, sel);;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.vcpu->fault = FAULT_CPUID;
+  cache->_fault = FAULT_CPUID;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa3_bt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->_fault = FAULT_CPUID;
+}
+
+static void __attribute__ ((regparm (3))) exec_0fa3_bt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax; bt %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa3_bt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa3_bt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax; bt %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa4_shld_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa4_shld_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (1)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa4_shld_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa4_shld_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (1)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa5_shld_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa5_shld_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (0)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa5_shld_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa5_shld_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (0)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shld %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa8_push__gs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa8_push__gs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->gs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->gs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa8_push__gs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa8_push__gs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->gs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->gs.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fa9_pop__gs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  unsigned sel;
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->gs, sel);;
-}
-
-static void __attribute__ ((regparm (3))) exec_0fa9_pop__gs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa9_pop__gs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->gs, sel);;
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->gs, sel);;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fab_bts_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fa9_pop__gs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned sel;
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->gs, sel);;
+}
+
+static void __attribute__ ((regparm (3))) exec_0fab_bts_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock bts %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fab_bts_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fab_bts_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock bts %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fac_shrd_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fac_shrd_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (1)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fac_shrd_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fac_shrd_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (1)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fad_shrd_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fad_shrd_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (0)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; data16 shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fad_shrd_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fad_shrd_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned count;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_src);
   if (0)
     count = entry->immediate;
   else
-    count = msg.cpu->ecx;
-  tmp_src = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+    count = cache->_cpu->ecx;
+  tmp_src = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx;  shrd %%cl, %%edx, (%%eax); pushf; pop %%eax":"+a" (count), "+d" (tmp_src), "+c" (tmp_dst));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count & 0x8d5);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fae00_fxsave_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fae00_fxsave_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_FXSAVE (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_FXSAVE (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_0faf_imul_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0faf_imul_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 1 > (&param, tmp_dst);;
   asm volatile ("imulw (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 1 ? 1 : 1 > (&msg.cpu->eax, &param);
+    move < 1 ? 1 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 1)
-    move < 1 > (&msg.cpu->edx, &result);
+    move < 1 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 1 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_0faf_imul_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0faf_imul_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 2 > (&param, tmp_dst);;
   asm volatile ("imull (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 2 ? 2 : 1 > (&msg.cpu->eax, &param);
+    move < 2 ? 2 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 2)
-    move < 2 > (&msg.cpu->edx, &result);
+    move < 2 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 2 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb0_cmpxchg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb0_cmpxchg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   char res;
-  asm volatile ("mov (%2), %2; lock cmpxchg %%dl, (%3); setz %1":"+a" (msg.cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
+  asm volatile ("mov (%2), %2; lock cmpxchg %%dl, (%3); setz %1":"+a" (cache->_cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
   if (res)
-    msg.cpu->efl |= EFL_ZF;
+    cache->_cpu->efl |= EFL_ZF;
   else
-    msg.cpu->efl &= EFL_ZF;
+    cache->_cpu->efl &= EFL_ZF;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb1_cmpxchg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb1_cmpxchg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   char res;
-  asm volatile ("mov (%2), %2; lock cmpxchg %%dx, (%3); setz %1":"+a" (msg.cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
+  asm volatile ("mov (%2), %2; lock cmpxchg %%dx, (%3); setz %1":"+a" (cache->_cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
   if (res)
-    msg.cpu->efl |= EFL_ZF;
+    cache->_cpu->efl |= EFL_ZF;
   else
-    msg.cpu->efl &= EFL_ZF;
+    cache->_cpu->efl &= EFL_ZF;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb1_cmpxchg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb1_cmpxchg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   char res;
-  asm volatile ("mov (%2), %2; lock cmpxchg %%edx, (%3); setz %1":"+a" (msg.cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
+  asm volatile ("mov (%2), %2; lock cmpxchg %%edx, (%3); setz %1":"+a" (cache->_cpu->eax), "=d" (res):"d" (tmp_src), "c" (tmp_dst));
   if (res)
-    msg.cpu->efl |= EFL_ZF;
+    cache->_cpu->efl |= EFL_ZF;
   else
-    msg.cpu->efl &= EFL_ZF;
+    cache->_cpu->efl &= EFL_ZF;
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb2_lss_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb2_lss_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 1 > (msg, &msg.cpu->ss, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 1 > (&cache->_cpu->ss, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb2_lss_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb2_lss_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 2 > (msg, &msg.cpu->ss, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 2 > (&cache->_cpu->ss, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb3_btr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb3_btr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock btr %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb3_btr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb3_btr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock btr %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb4_lfs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb4_lfs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 1 > (msg, &msg.cpu->fs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 1 > (&cache->_cpu->fs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb4_lfs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb4_lfs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 2 > (msg, &msg.cpu->fs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 2 > (&cache->_cpu->fs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb5_lgs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb5_lgs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 1 > (msg, &msg.cpu->gs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 1 > (&cache->_cpu->gs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb5_lgs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb5_lgs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_loadsegment < 2 > (msg, &msg.cpu->gs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_loadsegment < 2 > (&cache->_cpu->gs, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb7_movzxw_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movzxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbae2_bt_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbae2_bt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax; bt %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbae2_bt_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbae2_bt_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax; bt %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbaea_bts_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbaea_bts_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock bts %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbaea_bts_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbaea_bts_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock bts %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbaf2_btr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbaf2_btr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock btr %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbaf2_btr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbaf2_btr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock btr %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbafa_btc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbafa_btc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock btc %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbafa_btc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbafa_btc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock btc %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbb_btc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbb_btc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<1)-1, %eax;lock btc %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbb_btc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbb_btc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;and  $(8<<2)-1, %eax;lock btc %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbc_bsf_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbc_bsf_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("bsfw (%edx), %ax;mov %ax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbc_bsf_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbc_bsf_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("bsfl (%edx), %eax;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbd_bsr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbd_bsr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("bsrw (%edx), %ax;mov %ax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbd_bsr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbd_bsr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("bsrl (%edx), %eax;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxb (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0; data16 movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbf_movsxw_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   asm volatile ("movl (%2), %0;  movsxw (%1), %0; mov %0, (%2)":"+a" (entry), "+d" (tmp_src), "+c" (tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_0fc0_xadd_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fc0_xadd_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %al;lock xadd %al, (%ecx);mov %al, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fc1_xadd_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fc1_xadd_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %ax;lock xadd %ax, (%ecx);mov %ax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fc1_xadd_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fc1_xadd_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;lock xadd %eax, (%ecx);mov %eax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fc9_bswap_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fc9_bswap_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax;bswap %eax;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_10_adc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_10_adc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock adcb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_11_adc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_11_adc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock adcw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_11_adc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_11_adc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock adcl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_12_adc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_12_adc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; adcb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_13_adc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_13_adc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; adcw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_13_adc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_13_adc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; adcl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_14_adc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_14_adc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; adcb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_15_adc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_15_adc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; adcw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_15_adc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_15_adc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; adcl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_16_push__ss_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_16_push__ss_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->ss.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->ss.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_16_push__ss_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_16_push__ss_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->ss.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->ss.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_17_pop__ss_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  unsigned sel;
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ss, sel);
-  msg.cpu->intr_state |= 2;
-}
-
-static void __attribute__ ((regparm (3))) exec_17_pop__ss_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_17_pop__ss_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ss, sel);
-  msg.cpu->intr_state |= 2;
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->ss, sel);
+  cache->_cpu->intr_state |= 2;
 }
 
-static void __attribute__ ((regparm (3))) exec_18_sbb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_17_pop__ss_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned sel;
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->ss, sel);
+  cache->_cpu->intr_state |= 2;
+}
+
+static void __attribute__ ((regparm (3))) exec_18_sbb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock sbbb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_19_sbb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_19_sbb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock sbbw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_19_sbb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_19_sbb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock sbbl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1a_sbb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1a_sbb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; sbbb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1b_sbb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1b_sbb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; sbbw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1b_sbb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1b_sbb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; sbbl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1c_sbb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1c_sbb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; sbbb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1d_sbb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1d_sbb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; sbbw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1d_sbb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1d_sbb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; sbbl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_1e_push__ds_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1e_push__ds_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, &msg.cpu->ds.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 1 > (&cache->_cpu->ds.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_1e_push__ds_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1e_push__ds_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, &msg.cpu->ds.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSH < 2 > (&cache->_cpu->ds.sel, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_1f_pop__ds_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  unsigned sel;
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ds, sel);;
-}
-
-static void __attribute__ ((regparm (3))) exec_1f_pop__ds_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1f_pop__ds_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned sel;
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || set_segment (msg, &msg.cpu->ds, sel);;
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->ds, sel);;
 }
 
-static void __attribute__ ((regparm (3))) exec_20_and_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_1f_pop__ds_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned sel;
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), &sel) || cache->set_segment (&cache->_cpu->ds, sel);;
+}
+
+static void __attribute__ ((regparm (3))) exec_20_and_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock andb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_21_and_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_21_and_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock andw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_21_and_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_21_and_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock andl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_22_and_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_22_and_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; andb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_23_and_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_23_and_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; andw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_23_and_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_23_and_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; andl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_24_and_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_24_and_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; andb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_25_and_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_25_and_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; andw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_25_and_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_25_and_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; andl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_27_daa_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_27_daa_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax;daa;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_28_sub_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_28_sub_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock subb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_29_sub_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_29_sub_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock subw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_29_sub_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_29_sub_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock subl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2a_sub_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2a_sub_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; subb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2b_sub_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2b_sub_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; subw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2b_sub_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2b_sub_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; subl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2c_sub_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2c_sub_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; subb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2d_sub_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2d_sub_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; subw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2d_sub_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2d_sub_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; subl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_2f_das_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_2f_das_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax;das;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_30_xor_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_30_xor_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock xorb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_31_xor_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_31_xor_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock xorw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_31_xor_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_31_xor_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock xorl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_32_xor_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_32_xor_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; xorb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_33_xor_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_33_xor_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; xorw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_33_xor_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_33_xor_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; xorl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_34_xor_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_34_xor_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; xorb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_35_xor_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_35_xor_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; xorw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_35_xor_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_35_xor_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; xorl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_37_aaa_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_37_aaa_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax;aaa;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_38_cmp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_38_cmp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; cmpb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_39_cmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_39_cmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; cmpw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_39_cmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_39_cmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; cmpl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3a_cmp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3a_cmp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; cmpb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3b_cmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3b_cmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; cmpw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3b_cmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3b_cmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; cmpl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3c_cmp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3c_cmp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; cmpb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3d_cmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3d_cmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; cmpw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3d_cmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3d_cmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; cmpl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_3f_aas_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_3f_aas_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax;aas;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_41_inc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_41_inc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile (" incw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_41_inc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_41_inc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile (" incl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_49_dec_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_49_dec_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile (" decw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_49_dec_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_49_dec_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile (" decl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_51_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_51_push_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_51_push_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_51_push_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_59_pop_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_59_pop_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
 }
 
-static void __attribute__ ((regparm (3))) exec_59_pop_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_59_pop_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
 }
 
-static void __attribute__ ((regparm (3))) exec_60_pusha_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  for (unsigned i = 0; i < 8; i++)
-    {;
-      if (i == 4)
-	{
-	  if (helper_PUSH < 1 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
-	    return;
-	}
-      else if (helper_PUSH < 1 > (msg, get_reg32 (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
-	return;
-    };
-}
-
-static void __attribute__ ((regparm (3))) exec_60_pusha_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_60_pusha_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   for (unsigned i = 0; i < 8; i++)
     {;
       if (i == 4)
 	{
-	  if (helper_PUSH < 2 > (msg, &msg.vcpu->oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+	  if (cache->helper_PUSH < 1 > (&cache->_oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	    return;
 	}
-      else if (helper_PUSH < 2 > (msg, get_reg32 (msg, i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+      else if (cache->helper_PUSH < 1 > (cache->get_reg32 (i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
 	return;
     };
 }
 
-static void __attribute__ ((regparm (3))) exec_61_popa_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_60_pusha_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  for (unsigned i = 0; i < 8; i++)
+    {;
+      if (i == 4)
+	{
+	  if (cache->helper_PUSH < 2 > (&cache->_oesp, reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+	    return;
+	}
+      else if (cache->helper_PUSH < 2 > (cache->get_reg32 (i), reinterpret_cast < InstructionCacheEntry * >(tmp_src)))
+	return;
+    };
+}
+
+static void __attribute__ ((regparm (3))) exec_61_popa_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned values[8];
   for (unsigned i = 8; i; i--)
-    if (helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), values + i - 1))
+    if (cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), values + i - 1))
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 1 > (get_reg32 (msg, i), values + i);
+      move < 1 > (cache->get_reg32 (i), values + i);
 }
 
-static void __attribute__ ((regparm (3))) exec_61_popa_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_61_popa_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned values[8];
   for (unsigned i = 8; i; i--)
-    if (helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), values + i - 1))
+    if (cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), values + i - 1))
       return;;
   for (unsigned i = 0; i < 8; i++)
     if (i != 4)
-      move < 2 > (get_reg32 (msg, i), values + i);
+      move < 2 > (cache->get_reg32 (i), values + i);
 }
 
-static void __attribute__ ((regparm (3))) exec_68_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_68_push_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_68_push_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_68_push_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_69_imul_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_69_imul_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 1 > (&param, tmp_dst);;
   asm volatile ("imulw (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 1 ? 1 : 1 > (&msg.cpu->eax, &param);
+    move < 1 ? 1 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 1)
-    move < 1 > (&msg.cpu->edx, &result);
+    move < 1 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 1 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_69_imul_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_69_imul_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 2 > (&param, tmp_dst);;
   asm volatile ("imull (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 2 ? 2 : 1 > (&msg.cpu->eax, &param);
+    move < 2 ? 2 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 2)
-    move < 2 > (&msg.cpu->edx, &result);
+    move < 2 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 2 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_6a_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6a_push_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_6a_push_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6a_push_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_6b_imul_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6b_imul_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 1 > (&param, tmp_dst);;
   asm volatile ("imulw (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 1 ? 1 : 1 > (&msg.cpu->eax, &param);
+    move < 1 ? 1 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 1)
-    move < 1 > (&msg.cpu->edx, &result);
+    move < 1 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 1 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_6b_imul_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6b_imul_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (1)
     param = entry->immediate;
   else if (0)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 2 > (&param, tmp_dst);;
   asm volatile ("imull (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (0)
-    move < 2 ? 2 : 1 > (&msg.cpu->eax, &param);
+    move < 2 ? 2 : 1 > (&cache->_cpu->eax, &param);
   if (0 && 2)
-    move < 2 > (&msg.cpu->edx, &result);
+    move < 2 > (&cache->_cpu->edx, &result);
   if (!0)
     move < 2 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_6c_ins_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6c_ins_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI | SH_DOOP_IN, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI | SH_DOOP_IN, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_6d_ins_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6d_ins_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI | SH_DOOP_IN, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI | SH_DOOP_IN, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_6d_ins_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6d_ins_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI | SH_DOOP_IN, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI | SH_DOOP_IN, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_6e_outs_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6e_outs_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_6f_outs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6f_outs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_6f_outs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_6f_outs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_DOOP_OUT, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_70_jo_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_70_jo_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_70_jo_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_70_jo_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jno 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_71_jno_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_71_jno_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_71_jno_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_71_jno_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jo 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_72_jb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_72_jb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_72_jb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_72_jb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jae 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_73_jae_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_73_jae_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_73_jae_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_73_jae_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jb 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_74_je_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_74_je_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_74_je_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_74_je_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jne 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_75_jne_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_75_jne_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_75_jne_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_75_jne_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("je 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_76_jbe_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_76_jbe_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_76_jbe_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_76_jbe_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("ja 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_77_ja_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_77_ja_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_77_ja_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_77_ja_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jbe 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_78_js_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_78_js_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_78_js_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_78_js_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jns 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_79_jns_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_79_jns_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_79_jns_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_79_jns_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("js 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7a_jp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7a_jp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7a_jp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7a_jp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jnp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7b_jnp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7b_jnp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7b_jnp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7b_jnp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jp 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7c_jl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7c_jl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7c_jl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7c_jl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jge 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7d_jge_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7d_jge_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7d_jge_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7d_jge_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jl 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7e_jle_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7e_jle_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7e_jle_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7e_jle_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jg 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7f_jg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7f_jg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 1 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 1 >;
   asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_7f_jg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_7f_jg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  int (*foo) (MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP < 2 >;
+  int (*foo) (InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static < 2 >;
   asm volatile ("jle 1f;call %c0; 1:"::"i" (foo));
 }
 
-static void __attribute__ ((regparm (3))) exec_80c2_add_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80c2_add_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock addb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80ca_or_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80ca_or_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock orb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80d2_adc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80d2_adc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock adcb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80da_sbb_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80da_sbb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock sbbb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80e2_and_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80e2_and_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock andb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80ea_sub_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80ea_sub_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock subb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80f2_xor_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80f2_xor_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al;lock xorb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_80fa_cmp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_80fa_cmp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; cmpb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81c2_add_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81c2_add_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock addw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81c2_add_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81c2_add_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock addl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81ca_or_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81ca_or_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock orw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81ca_or_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81ca_or_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock orl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81d2_adc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81d2_adc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock adcw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81d2_adc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81d2_adc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock adcl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81da_sbb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81da_sbb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock sbbw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81da_sbb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81da_sbb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock sbbl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81e2_and_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81e2_and_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock andw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81e2_and_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81e2_and_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock andl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81ea_sub_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81ea_sub_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock subw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81ea_sub_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81ea_sub_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock subl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81f2_xor_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81f2_xor_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock xorw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81f2_xor_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81f2_xor_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock xorl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81fa_cmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81fa_cmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; cmpw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_81fa_cmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_81fa_cmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; cmpl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83c2_add_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83c2_add_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock addw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83c2_add_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83c2_add_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock addl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83ca_or_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83ca_or_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock orw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83ca_or_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83ca_or_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock orl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83d2_adc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83d2_adc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock adcw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83d2_adc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83d2_adc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock adcl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83da_sbb_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83da_sbb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock sbbw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83da_sbb_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83da_sbb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock sbbl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83e2_and_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83e2_and_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock andw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83e2_and_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83e2_and_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock andl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83ea_sub_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83ea_sub_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock subw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83ea_sub_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83ea_sub_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock subl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83f2_xor_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83f2_xor_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax;lock xorw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83f2_xor_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83f2_xor_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax;lock xorl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83fa_cmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83fa_cmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; cmpw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_83fa_cmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_83fa_cmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; cmpl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_84_test_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_84_test_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; testb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_85_test_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_85_test_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; testw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_85_test_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_85_test_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; testl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_86_xchg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_86_xchg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %al;lock xchgb %al, (%ecx);mov %al, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_87_xchg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_87_xchg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %ax;lock xchgw %ax, (%ecx);mov %ax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_87_xchg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_87_xchg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;lock xchgl %eax, (%ecx);mov %eax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_88_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_88_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_89_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_89_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_89_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_89_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_8a_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8a_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_8b_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8b_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_8b_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8b_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_8c_mov__es__edx_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8c_mov__es__edx_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   CpuState::Descriptor * dsc =
-    &msg.cpu->es +
+    &cache->_cpu->es +
     ((reinterpret_cast < InstructionCacheEntry * >(tmp_src)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_src)->offset_opcode] >> 3) & 0x7);
   move < 1 > (tmp_dst, &(dsc->sel));
 }
 
-static void __attribute__ ((regparm (3))) exec_8c_mov__es__edx_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8c_mov__es__edx_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   CpuState::Descriptor * dsc =
-    &msg.cpu->es +
+    &cache->_cpu->es +
     ((reinterpret_cast < InstructionCacheEntry * >(tmp_src)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_src)->offset_opcode] >> 3) & 0x7);
   move < 2 > (tmp_dst, &(dsc->sel));
 }
 
-static void __attribute__ ((regparm (3))) exec_8d_lea_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8d_lea_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LEA < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LEA < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_8d_lea_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8d_lea_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LEA < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LEA < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  if (((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7) == 2)
-    msg.cpu->intr_state |= 2;
-  set_segment (msg,
-	       &msg.cpu->es +
-	       ((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),
-	       *reinterpret_cast < unsigned short *>(tmp_src));
-}
-
-static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   if (((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7) == 2)
-    msg.cpu->intr_state |= 2;
-  set_segment (msg,
-	       &msg.cpu->es +
-	       ((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),
-	       *reinterpret_cast < unsigned short *>(tmp_src));
+    cache->_cpu->intr_state |= 2;
+  cache->set_segment (&cache->_cpu->es +
+		      ((reinterpret_cast <
+			InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),
+		      *reinterpret_cast < unsigned short *>(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_8f00_pop_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8e_mov__edx__es_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POP < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
+  if (((reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7) == 2)
+    cache->_cpu->intr_state |= 2;
+  cache->set_segment (&cache->_cpu->es +
+		      ((reinterpret_cast <
+			InstructionCacheEntry * >(tmp_dst)->data[reinterpret_cast < InstructionCacheEntry * >(tmp_dst)->offset_opcode] >> 3) & 0x7),
+		      *reinterpret_cast < unsigned short *>(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_8f00_pop_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8f00_pop_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POP < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
+  cache->helper_POP < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
 }
 
-static void __attribute__ ((regparm (3))) exec_92_xchg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_8f00_pop_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_POP < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src), tmp_dst);
+}
+
+static void __attribute__ ((regparm (3))) exec_92_xchg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %ax; xchgw %ax, (%ecx);mov %ax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_92_xchg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_92_xchg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax; xchgl %eax, (%ecx);mov %eax, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_98_cwtl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_98_cwtl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %ax;data16 cwde;mov %ax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_98_cwtl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_98_cwtl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%ecx), %eax; cwde;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_99_cltd_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_99_cltd_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax;data16 cltd;mov %edx, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_99_cltd_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_99_cltd_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("mov (%edx), %eax; cltd;mov %edx, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_9a_lcall_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9a_lcall_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LCALL < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LCALL < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_9a_lcall_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9a_lcall_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LCALL < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LCALL < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_9b_fwait_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9b_fwait_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_FWAIT (msg);
+  cache->helper_FWAIT ();
 }
 
-static void __attribute__ ((regparm (3))) exec_9c_pushf_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9c_pushf_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSHF < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSHF < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_9c_pushf_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9c_pushf_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSHF < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_PUSHF < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_9d_popf_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9d_popf_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POPF < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_POPF < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_9d_popf_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9d_popf_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_POPF < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_POPF < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_9e_sahf_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9e_sahf_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl = (msg.cpu->efl & ~0xd5) | (msg.cpu->ah & 0xd5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0xd5) | (cache->_cpu->ah & 0xd5);
 }
 
-static void __attribute__ ((regparm (3))) exec_9f_lahf_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_9f_lahf_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->ah = (msg.cpu->efl & 0xd5) | 2;
+  cache->_cpu->ah = (cache->_cpu->efl & 0xd5) | 2;
 }
 
-static void __attribute__ ((regparm (3))) exec_a0_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_a1_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_a1_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_a2_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a0_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a3_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a1_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a3_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a1_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a4_movs_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a2_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a5_movs_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a3_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a5_movs_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a3_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a6_cmps_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a4_movs_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_a7_cmps_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a5_movs_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_a7_cmps_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a5_movs_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EDI, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_a8_test_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a6_cmps_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_a7_cmps_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_a7_cmps_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->string_helper < SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_a8_test_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; testb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a9_test_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a9_test_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; testw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_a9_test_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_a9_test_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; testl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_aa_stos_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_aa_stos_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ab_stos_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ab_stos_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ab_stos_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ab_stos_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_SAVE_EDI, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_SAVE_EDI, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ac_lods_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ac_lods_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ad_lods_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ad_lods_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ad_lods_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ad_lods_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_ESI | SH_SAVE_EAX, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_ae_scas_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ae_scas_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 0 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 0 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_af_scas_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_af_scas_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_af_scas_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_af_scas_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->string_helper < SH_LOAD_EDI | SH_DOOP_CMP, 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_b2_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_ba_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_ba_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0c2_rol_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0ca_ror_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0d2_rcl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0da_rcr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0e2_shl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0ea_shr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c0fa_sar_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarb %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1c2_rol_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1c2_rol_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;roll %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1ca_ror_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1ca_ror_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorl %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1d2_rcl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1d2_rcl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcll %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1da_rcr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1da_rcr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrl %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1e2_shl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1e2_shl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shll %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1ea_shr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1ea_shr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrl %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1fa_sar_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarw %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c1fa_sar_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarl %cl, (%edx)");
-}
-
-static void __attribute__ ((regparm (3))) exec_c2_ret_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_RET < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c2_ret_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_RET < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c3_ret_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_RET < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c3_ret_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_RET < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c4_les_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_loadsegment < 1 > (msg, &msg.cpu->es, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c4_les_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_loadsegment < 2 > (msg, &msg.cpu->es, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c5_lds_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_loadsegment < 1 > (msg, &msg.cpu->ds, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c5_lds_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_loadsegment < 2 > (msg, &msg.cpu->ds, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_c602_mov_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_b2_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_c702_mov_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ba_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_c702_mov_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ba_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_c9_leave_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LEAVE < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
-}
-
-static void __attribute__ ((regparm (3))) exec_c9_leave_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LEAVE < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
-}
-
-static void __attribute__ ((regparm (3))) exec_ca_lret_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LRET < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_ca_lret_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LRET < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_cb_lret_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LRET < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_cb_lret_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_LRET < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
-}
-
-static void __attribute__ ((regparm (3))) exec_cc_int3_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_INT3 (msg);
-}
-
-static void __attribute__ ((regparm (3))) exec_cd_int_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_INT (msg, tmp_src);
-}
-
-static void __attribute__ ((regparm (3))) exec_ce_into_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_INTO (msg);
-}
-
-static void __attribute__ ((regparm (3))) exec_cf_iret_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_IRET < 1 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
-}
-
-static void __attribute__ ((regparm (3))) exec_cf_iret_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
-{
-  helper_IRET < 2 > (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
-}
-
-static void __attribute__ ((regparm (3))) exec_d000_rol_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0c2_rol_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d008_ror_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0ca_ror_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d010_rcl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0d2_rcl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d018_rcr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0da_rcr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d020_shl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0e2_shl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d028_shr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0ea_shr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d038_sar_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c0fa_sar_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d100_rol_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1c2_rol_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d100_rol_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1c2_rol_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;roll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d108_ror_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1ca_ror_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d108_ror_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1ca_ror_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d110_rcl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1d2_rcl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d110_rcl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1d2_rcl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d118_rcr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1da_rcr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d118_rcr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1da_rcr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d120_shl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1e2_shl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d120_shl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1e2_shl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d128_shr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1ea_shr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d128_shr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1ea_shr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d138_sar_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1fa_sar_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d138_sar_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c1fa_sar_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d200_rol_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_c2_ret_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_RET < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c2_ret_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_RET < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c3_ret_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_RET < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c3_ret_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_RET < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c4_les_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_loadsegment < 1 > (&cache->_cpu->es, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c4_les_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_loadsegment < 2 > (&cache->_cpu->es, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c5_lds_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_loadsegment < 1 > (&cache->_cpu->ds, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c5_lds_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_loadsegment < 2 > (&cache->_cpu->ds, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_c602_mov_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("movb (%edx), %al; movb %al,(%ecx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_c702_mov_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("movw (%edx), %ax; movw %ax,(%ecx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_c702_mov_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_c9_leave_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LEAVE < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_c9_leave_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LEAVE < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_ca_lret_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LRET < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_ca_lret_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LRET < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_cb_lret_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LRET < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_cb_lret_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LRET < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_cc_int3_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_INT3 ();
+}
+
+static void __attribute__ ((regparm (3))) exec_cd_int_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_INT (tmp_src);
+}
+
+static void __attribute__ ((regparm (3))) exec_ce_into_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_INTO ();
+}
+
+static void __attribute__ ((regparm (3))) exec_cf_iret_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_IRET < 1 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_cf_iret_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_IRET < 2 > (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_d000_rol_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d208_ror_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d008_ror_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d210_rcl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d010_rcl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d218_rcr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d018_rcr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d220_shl_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d020_shl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d228_shr_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d028_shr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d238_sar_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d038_sar_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d300_rol_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d100_rol_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d300_rol_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d100_rol_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;roll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d308_ror_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d108_ror_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d308_ror_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d108_ror_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d310_rcl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d110_rcl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d310_rcl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d110_rcl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d318_rcr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d118_rcr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d318_rcr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d118_rcr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d320_shl_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d120_shl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d320_shl_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d120_shl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shll %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d328_shr_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d128_shr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d328_shr_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d128_shr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d338_sar_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d138_sar_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarw %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d338_sar_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d138_sar_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarl %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_d938_fnstcw_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d200_rol_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);fnstcw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_da10_ficom_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d208_ror_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);ficom (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_da18_ficomp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d210_rcl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);ficomp (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_dbe3_fninit_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d218_rcr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);fninit; fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrb %cl, (%edx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_dbe4__byte_0xdb__0xe4__0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_d220_shl_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlb %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d228_shr_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrb %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d238_sar_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarb %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d300_rol_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rolw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d300_rol_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;roll %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d308_ror_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d308_ror_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rorl %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d310_rcl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rclw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d310_rcl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcll %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d318_rcr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d318_rcr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;rcrl %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d320_shl_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shlw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d320_shl_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shll %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d328_shr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d328_shr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;shrl %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d338_sar_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarw %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d338_sar_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarl %cl, (%edx)");
+}
+
+static void __attribute__ ((regparm (3))) exec_d938_fnstcw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);fnstcw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
+}
+
+static void __attribute__ ((regparm (3))) exec_da10_ficom_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);ficom (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
+}
+
+static void __attribute__ ((regparm (3))) exec_da18_ficomp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);ficomp (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
+}
+
+static void __attribute__ ((regparm (3))) exec_dbe3_fninit_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);fninit; fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
+}
+
+static void __attribute__ ((regparm (3))) exec_dbe4__byte_0xdb__0xe4__0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   /* fnsetpm, on 287 only, noop afterwards */ ;
 }
 
-static void __attribute__ ((regparm (3))) exec_dd20_frstor_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_dd20_frstor_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_FRSTOR (msg, reinterpret_cast < InstructionCacheEntry * >(tmp_src));
+  cache->helper_FRSTOR (reinterpret_cast < InstructionCacheEntry * >(tmp_src));
 }
 
-static void __attribute__ ((regparm (3))) exec_dd38_fnstsw_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_dd38_fnstsw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);fnstsw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);fnstsw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
 }
 
-static void __attribute__ ((regparm (3))) exec_de10_ficom_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_de10_ficom_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);ficom (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);ficom (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
 }
 
-static void __attribute__ ((regparm (3))) exec_de18_ficomp_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_de18_ficomp_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);ficomp (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);ficomp (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
 }
 
-static void __attribute__ ((regparm (3))) exec_dfe0_fnstsw__ax_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_dfe0_fnstsw__ax_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  if (msg.cpu->cr0 & 0xc)
-    EXCEPTION (0x7, 0);
-  asm volatile ("fxrstor (%%eax);fnstsw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (msg.vcpu->fpustate));
+  if (cache->_cpu->cr0 & 0xc)
+    EXCEPTION (cache, 0x7, 0);
+  asm volatile ("fxrstor (%%eax);fnstsw (%%ecx); fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
 }
 
-static void __attribute__ ((regparm (3))) exec_e0_loopne_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e0_loopne_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOPNE < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOPNE < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e0_loopne_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e0_loopne_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOPNE < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOPNE < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e1_loope_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e1_loope_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOPE < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOPE < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e1_loope_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e1_loope_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOPE < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOPE < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e2_loop_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e2_loop_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e2_loop_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e2_loop_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LOOP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LOOP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e3_jecxz_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e3_jecxz_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JECXZ < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JECXZ < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e3_jecxz_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e3_jecxz_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JECXZ < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JECXZ < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e4_in_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e4_in_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 0 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 0 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e5_in_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e5_in_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 1 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 1 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e5_in_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e5_in_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 2 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 2 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e6_out_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e6_out_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 0 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 0 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e7_out_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e7_out_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 1 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 1 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e7_out_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e7_out_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 2 > (msg, *reinterpret_cast < unsigned char *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 2 > (*reinterpret_cast < unsigned char *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_e8_call_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e8_call_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CALL < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_CALL < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e8_call_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e8_call_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CALL < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_CALL < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e9_jmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e9_jmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_e9_jmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_e9_jmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ea_ljmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ea_ljmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LJMP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LJMP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ea_ljmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ea_ljmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LJMP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LJMP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_eb_jmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_eb_jmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_eb_jmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_eb_jmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ec_in_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ec_in_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 0 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 0 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_ed_in_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ed_in_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 1 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 1 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_ed_in_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ed_in_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_IN < 2 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_IN < 2 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_ee_out_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ee_out_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 0 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 0 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_ef_out_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ef_out_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 1 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 1 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_ef_out_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ef_out_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_OUT < 2 > (msg, *reinterpret_cast < unsigned *>(tmp_src), &msg.cpu->eax);
+  cache->helper_OUT < 2 > (*reinterpret_cast < unsigned *>(tmp_src), &cache->_cpu->eax);
 }
 
-static void __attribute__ ((regparm (3))) exec_f4_hlt_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f4_hlt_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_HLT (msg);
+  cache->helper_HLT ();
 }
 
-static void __attribute__ ((regparm (3))) exec_f5_cmc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f5_cmc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl ^= 1;
+  cache->_cpu->efl ^= 1;
 }
 
-static void __attribute__ ((regparm (3))) exec_f610_not_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f610_not_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock notb (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f618_neg_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f618_neg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock negb (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f620_mul_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f620_mul_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mulb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f628_imul_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f628_imul_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 0 > (&param, tmp_dst);;
   asm volatile ("imulb (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (1)
-    move < 0 ? 0 : 1 > (&msg.cpu->eax, &param);
+    move < 0 ? 0 : 1 > (&cache->_cpu->eax, &param);
   if (1 && 0)
-    move < 0 > (&msg.cpu->edx, &result);
+    move < 0 > (&cache->_cpu->edx, &result);
   if (!1)
     move < 0 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_f630_div_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f630_div_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f638_idiv_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f638_idiv_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f6c2_test_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f6c2_test_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movb (%edx), %al; testb %al,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f710_not_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f710_not_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock notw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f710_not_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f710_not_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock notl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f718_neg_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f718_neg_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock negw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f718_neg_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f718_neg_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock negl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f720_mul_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f720_mul_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mulw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f720_mul_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f720_mul_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mull (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f728_imul_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f728_imul_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 1 > (&param, tmp_dst);;
   asm volatile ("imulw (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (1)
-    move < 1 ? 1 : 1 > (&msg.cpu->eax, &param);
+    move < 1 ? 1 : 1 > (&cache->_cpu->eax, &param);
   if (1 && 1)
-    move < 1 > (&msg.cpu->edx, &result);
+    move < 1 > (&cache->_cpu->edx, &result);
   if (!1)
     move < 1 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_f728_imul_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f728_imul_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned param, result;
   InstructionCacheEntry *entry = reinterpret_cast < InstructionCacheEntry * >(tmp_dst);
-  tmp_dst = get_reg32 (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+  tmp_dst = cache->get_reg32 ((entry->data[entry->offset_opcode] >> 3) & 0x7);
   if (0)
     param = entry->immediate;
   else if (1)
-    param = msg.cpu->eax;
+    param = cache->_cpu->eax;
   else
     move < 2 > (&param, tmp_dst);;
   asm volatile ("imull (%%ecx); pushf; pop %%ecx":"+a" (param), "=d" (result), "+c" (tmp_src));
-  msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
+  cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast < unsigned >(tmp_src) & 0x8d5);
   if (1)
-    move < 2 ? 2 : 1 > (&msg.cpu->eax, &param);
+    move < 2 ? 2 : 1 > (&cache->_cpu->eax, &param);
   if (1 && 2)
-    move < 2 > (&msg.cpu->edx, &result);
+    move < 2 > (&cache->_cpu->edx, &result);
   if (!1)
     move < 2 > (tmp_dst, &param);
 }
 
-static void __attribute__ ((regparm (3))) exec_f730_div_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f730_div_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f730_div_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f730_div_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divl (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f738_idiv_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f738_idiv_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f738_idiv_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f738_idiv_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;;
+  unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivl (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
     DE0;
-  msg.cpu->eax = eax;
-  msg.cpu->edx = edx;
+  cache->_cpu->eax = eax;
+  cache->_cpu->edx = edx;
 }
 
-static void __attribute__ ((regparm (3))) exec_f7c2_test_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f7c2_test_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movw (%edx), %ax; testw %ax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f7c2_test_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f7c2_test_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("movl (%edx), %eax; testl %eax,(%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_f8_clc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f8_clc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl &= ~1;
+  cache->_cpu->efl &= ~1;
 }
 
-static void __attribute__ ((regparm (3))) exec_f9_stc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_f9_stc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl |= 1;
+  cache->_cpu->efl |= 1;
 }
 
-static void __attribute__ ((regparm (3))) exec_fa_cli_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fa_cli_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CLI (msg);
+  cache->helper_CLI ();
 }
 
-static void __attribute__ ((regparm (3))) exec_fb_sti_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fb_sti_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_STI (msg);
+  cache->helper_STI ();
 }
 
-static void __attribute__ ((regparm (3))) exec_fc_cld_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fc_cld_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl &= ~0x400;
+  cache->_cpu->efl &= ~0x400;
 }
 
-static void __attribute__ ((regparm (3))) exec_fd_std_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fd_std_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  msg.cpu->efl |= 0x400;
+  cache->_cpu->efl |= 0x400;
 }
 
-static void __attribute__ ((regparm (3))) exec_fe00_inc_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fe00_inc_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock incb (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_fe08_dec_0 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_fe08_dec_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock decb (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_ff00_inc_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff00_inc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock incw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_ff00_inc_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff00_inc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock incl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_ff08_dec_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff08_dec_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock decw (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_ff08_dec_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff08_dec_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   asm volatile ("lock decl (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_ff15_call_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff15_call_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CALL < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_CALL < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff15_call_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff15_call_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_CALL < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_CALL < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff1d_lcall_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff1d_lcall_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LCALL < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LCALL < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff1d_lcall_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff1d_lcall_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LCALL < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LCALL < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff25_jmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff25_jmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff25_jmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff25_jmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_JMP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_JMP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff2d_ljmp_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff2d_ljmp_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LJMP < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LJMP < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff2d_ljmp_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff2d_ljmp_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_LJMP < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_LJMP < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff30_push_1 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff30_push_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 1 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 1 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
-static void __attribute__ ((regparm (3))) exec_ff30_push_2 (MessageExecutor & msg, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_ff30_push_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  helper_PUSH < 2 > (msg, tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
+  cache->helper_PUSH < 2 > (tmp_src, reinterpret_cast < InstructionCacheEntry * >(tmp_dst));
 }
 
 int
-handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned char code, int &op_mode)
+handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mode)
 {
   entry->offset_opcode = entry->inst_len;
   switch (op_mode)
@@ -3289,8 +3289,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x00:
 	    {
 /* instruction2 'add' ['00'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_00_add_0;
@@ -3300,8 +3300,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x01:
 	    {
 /* instruction2 'add' ['01'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3316,8 +3316,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x02:
 	    {
 /* instruction2 'add' ['02'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_02_add_0;
@@ -3327,8 +3327,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x03:
 	    {
 /* instruction2 'add' ['03'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3343,10 +3343,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x04:
 	    {
 /* instruction2 'add' ['04'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_04_add_0;
@@ -3358,17 +3358,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'add' ['05'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_05_add_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_05_add_2;
 		};
@@ -3405,8 +3405,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x08:
 	    {
 /* instruction2 'or' ['08'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_08_or_0;
@@ -3416,8 +3416,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x09:
 	    {
 /* instruction2 'or' ['09'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3432,8 +3432,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x0a:
 	    {
 /* instruction2 'or' ['0a'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_0a_or_0;
@@ -3443,8 +3443,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x0b:
 	    {
 /* instruction2 'or' ['0b'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3459,10 +3459,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x0c:
 	    {
 /* instruction2 'or' ['0c'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_0c_or_0;
@@ -3474,17 +3474,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'or' ['0d'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0d_or_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0d_or_2;
 		};
@@ -3512,8 +3512,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x10:
 	    {
 /* instruction2 'adc' ['10'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_10_adc_0;
@@ -3523,8 +3523,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x11:
 	    {
 /* instruction2 'adc' ['11'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3539,8 +3539,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x12:
 	    {
 /* instruction2 'adc' ['12'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_12_adc_0;
@@ -3550,8 +3550,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x13:
 	    {
 /* instruction2 'adc' ['13'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3566,10 +3566,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x14:
 	    {
 /* instruction2 'adc' ['14'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_14_adc_0;
@@ -3581,17 +3581,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'adc' ['15'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_15_adc_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_15_adc_2;
 		};
@@ -3628,8 +3628,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x18:
 	    {
 /* instruction2 'sbb' ['18'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_18_sbb_0;
@@ -3639,8 +3639,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x19:
 	    {
 /* instruction2 'sbb' ['19'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3655,8 +3655,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x1a:
 	    {
 /* instruction2 'sbb' ['1a'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_1a_sbb_0;
@@ -3666,8 +3666,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x1b:
 	    {
 /* instruction2 'sbb' ['1b'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3682,10 +3682,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x1c:
 	    {
 /* instruction2 'sbb' ['1c'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_1c_sbb_0;
@@ -3697,17 +3697,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'sbb' ['1d'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_1d_sbb_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_1d_sbb_2;
 		};
@@ -3744,8 +3744,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x20:
 	    {
 /* instruction2 'and' ['20'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_20_and_0;
@@ -3755,8 +3755,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x21:
 	    {
 /* instruction2 'and' ['21'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3771,8 +3771,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x22:
 	    {
 /* instruction2 'and' ['22'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_22_and_0;
@@ -3782,8 +3782,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x23:
 	    {
 /* instruction2 'and' ['23'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3798,10 +3798,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x24:
 	    {
 /* instruction2 'and' ['24'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_24_and_0;
@@ -3813,17 +3813,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'and' ['25'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_25_and_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_25_and_2;
 		};
@@ -3838,7 +3838,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x27:
 	    {
 /* instruction2 'daa' ['27'] ['ASM', 'EAX', 'NO_OS', 'SAVEFLAGS'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS;
 	      {
 		entry->execute = exec_27_daa_0;
@@ -3848,8 +3848,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x28:
 	    {
 /* instruction2 'sub' ['28'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_28_sub_0;
@@ -3859,8 +3859,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x29:
 	    {
 /* instruction2 'sub' ['29'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3875,8 +3875,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x2a:
 	    {
 /* instruction2 'sub' ['2a'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_2a_sub_0;
@@ -3886,8 +3886,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x2b:
 	    {
 /* instruction2 'sub' ['2b'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -3902,10 +3902,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x2c:
 	    {
 /* instruction2 'sub' ['2c'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_2c_sub_0;
@@ -3917,17 +3917,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'sub' ['2d'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_2d_sub_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_2d_sub_2;
 		};
@@ -3942,7 +3942,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x2f:
 	    {
 /* instruction2 'das' ['2f'] ['ASM', 'EAX', 'NO_OS', 'SAVEFLAGS'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS;
 	      {
 		entry->execute = exec_2f_das_0;
@@ -3952,8 +3952,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x30:
 	    {
 /* instruction2 'xor' ['30'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_30_xor_0;
@@ -3963,8 +3963,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x31:
 	    {
 /* instruction2 'xor' ['31'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -3979,8 +3979,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x32:
 	    {
 /* instruction2 'xor' ['32'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_32_xor_0;
@@ -3990,8 +3990,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x33:
 	    {
 /* instruction2 'xor' ['33'] ['ASM', 'SAVEFLAGS', 'RMW', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -4006,10 +4006,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x34:
 	    {
 /* instruction2 'xor' ['34'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_BYTE;
 	      {
 		entry->execute = exec_34_xor_0;
@@ -4021,17 +4021,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'xor' ['35'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_35_xor_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_35_xor_2;
 		};
@@ -4046,7 +4046,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x37:
 	    {
 /* instruction2 'aaa' ['37'] ['ASM', 'EAX', 'NO_OS', 'LOADFLAGS', 'SAVEFLAGS'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS;
 	      {
 		entry->execute = exec_37_aaa_0;
@@ -4056,8 +4056,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x38:
 	    {
 /* instruction2 'cmp' ['38'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_38_cmp_0;
@@ -4067,8 +4067,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x39:
 	    {
 /* instruction2 'cmp' ['39'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -4083,8 +4083,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x3a:
 	    {
 /* instruction2 'cmp' ['3a'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_3a_cmp_0;
@@ -4094,8 +4094,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x3b:
 	    {
 /* instruction2 'cmp' ['3b'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -4110,10 +4110,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x3c:
 	    {
 /* instruction2 'cmp' ['3c'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_BYTE;
 	      {
 		entry->execute = exec_3c_cmp_0;
@@ -4125,17 +4125,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'cmp' ['3d'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_3d_cmp_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_3d_cmp_2;
 		};
@@ -4150,7 +4150,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x3f:
 	    {
 /* instruction2 'aas' ['3f'] ['ASM', 'EAX', 'NO_OS', 'LOADFLAGS', 'SAVEFLAGS'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS;
 	      {
 		entry->execute = exec_3f_aas_0;
@@ -4160,7 +4160,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x40 ... 0x47:
 	    {
 /* instruction2 'inc' ['41'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_LOADFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
@@ -4175,7 +4175,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x48 ... 0x4f:
 	    {
 /* instruction2 'dec' ['49'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_LOADFLAGS | IC_RMW;
 	      if (entry->operand_size == 1)
 		{
@@ -4190,7 +4190,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x50 ... 0x57:
 	    {
 /* instruction2 'push' ['51'] ['DIRECTION', 'ENTRY', 'IMPL'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -4206,7 +4206,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x58 ... 0x5f:
 	    {
 /* instruction2 'pop' ['59'] ['ENTRY', 'IMPL'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->src = entry;
 	      if (entry->operand_size == 1)
 		{
@@ -4249,17 +4249,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x62:
 	    {
 /* instruction2 'bound' ['62'] ['MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x63:
 	    {
 /* instruction2 'arpl' ['63'] ['MODRMREG', 'MODRM', 'WORD'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x64:
@@ -4297,13 +4297,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_68_push_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_68_push_2;
 		};
@@ -4312,21 +4312,21 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x69:
 	    {
 /* instruction2 'imul' ['69'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'IMMO', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      ;
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_69_imul_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_69_imul_2;
 		};
@@ -4335,7 +4335,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x6a:
 	    {
 /* instruction2 'push' ['6a'] ['DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4353,9 +4353,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x6b:
 	    {
 /* instruction2 'imul' ['6b'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'IMM1', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      fetch_code (msg, entry, 1);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4421,7 +4421,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x70:
 	    {
 /* instruction2 'jo' ['70'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4439,7 +4439,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x71:
 	    {
 /* instruction2 'jno' ['71'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4457,7 +4457,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x72:
 	    {
 /* instruction2 'jb' ['72'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4475,7 +4475,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x73:
 	    {
 /* instruction2 'jae' ['73'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4493,7 +4493,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x74:
 	    {
 /* instruction2 'je' ['74'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4511,7 +4511,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x75:
 	    {
 /* instruction2 'jne' ['75'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4529,7 +4529,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x76:
 	    {
 /* instruction2 'jbe' ['76'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4547,7 +4547,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x77:
 	    {
 /* instruction2 'ja' ['77'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4565,7 +4565,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x78:
 	    {
 /* instruction2 'js' ['78'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4583,7 +4583,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x79:
 	    {
 /* instruction2 'jns' ['79'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4601,7 +4601,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7a:
 	    {
 /* instruction2 'jp' ['7a'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4619,7 +4619,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7b:
 	    {
 /* instruction2 'jnp' ['7b'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4637,7 +4637,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7c:
 	    {
 /* instruction2 'jl' ['7c'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4655,7 +4655,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7d:
 	    {
 /* instruction2 'jge' ['7d'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4673,7 +4673,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7e:
 	    {
 /* instruction2 'jle' ['7e'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4691,7 +4691,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x7f:
 	    {
 /* instruction2 'jg' ['7f'] ['JMP', 'ASM', 'ENTRY', 'LOADFLAGS', 'DIRECTION', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -4708,13 +4708,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x80:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
 		  {;
 /* instruction 'cmp' ['80', 'fa'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMM1', 'MODRM', 'GRP', 'BYTE'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
@@ -4726,7 +4726,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xf2 & 0x38:
 		  {;
 /* instruction 'xor' ['80', 'f2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4738,7 +4738,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xea & 0x38:
 		  {;
 /* instruction 'sub' ['80', 'ea'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4750,7 +4750,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xe2 & 0x38:
 		  {;
 /* instruction 'and' ['80', 'e2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4762,7 +4762,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xda & 0x38:
 		  {;
 /* instruction 'sbb' ['80', 'da'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4774,7 +4774,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xd2 & 0x38:
 		  {;
 /* instruction 'adc' ['80', 'd2'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4786,7 +4786,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xca & 0x38:
 		  {;
 /* instruction 'or' ['80', 'ca'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4798,7 +4798,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xc2 & 0x38:
 		  {;
 /* instruction 'add' ['80', 'c2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -4809,13 +4809,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x81:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
@@ -4826,13 +4826,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81fa_cmp_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81fa_cmp_2;
 		      };
@@ -4846,13 +4846,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81f2_xor_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81f2_xor_2;
 		      };
@@ -4866,13 +4866,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81ea_sub_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81ea_sub_2;
 		      };
@@ -4886,13 +4886,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81e2_and_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81e2_and_2;
 		      };
@@ -4906,13 +4906,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81da_sbb_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81da_sbb_2;
 		      };
@@ -4926,13 +4926,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81d2_adc_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81d2_adc_2;
 		      };
@@ -4946,13 +4946,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81ca_or_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81ca_or_2;
 		      };
@@ -4966,13 +4966,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_81c2_add_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_81c2_add_2;
 		      };
@@ -4980,19 +4980,19 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x83:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
 		  {;
 /* instruction 'cmp' ['83', 'fa'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMM1', 'MODRM', 'GRP'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
@@ -5009,7 +5009,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xf2 & 0x38:
 		  {;
 /* instruction 'xor' ['83', 'f2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5026,7 +5026,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xea & 0x38:
 		  {;
 /* instruction 'sub' ['83', 'ea'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5043,7 +5043,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xe2 & 0x38:
 		  {;
 /* instruction 'and' ['83', 'e2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5060,7 +5060,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xda & 0x38:
 		  {;
 /* instruction 'sbb' ['83', 'da'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5077,7 +5077,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xd2 & 0x38:
 		  {;
 /* instruction 'adc' ['83', 'd2'] ['ASM', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5094,7 +5094,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xca & 0x38:
 		  {;
 /* instruction 'or' ['83', 'ca'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5111,7 +5111,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xc2 & 0x38:
 		  {;
 /* instruction 'add' ['83', 'c2'] ['ASM', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5127,15 +5127,15 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x84:
 	    {
 /* instruction2 'test' ['84'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_84_test_0;
@@ -5145,8 +5145,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x85:
 	    {
 /* instruction2 'test' ['85'] ['ASM', 'READONLY', 'SAVEFLAGS', 'MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -5161,8 +5161,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x86:
 	    {
 /* instruction2 'xchg' ['86'] ['ASM', 'RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_86_xchg_0;
@@ -5172,8 +5172,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x87:
 	    {
 /* instruction2 'xchg' ['87'] ['ASM', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -5188,8 +5188,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x88:
 	    {
 /* instruction2 'mov' ['88'] ['ASM', 'MODRMMEM', 'MODRM', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_BYTE;
 	      {
 		entry->execute = exec_88_mov_0;
@@ -5199,8 +5199,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x89:
 	    {
 /* instruction2 'mov' ['89'] ['ASM', 'MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -5215,8 +5215,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x8a:
 	    {
 /* instruction2 'mov' ['8a'] ['ASM', 'MODRMMEM', 'MODRM', 'DIRECTION', 'BYTE'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_8a_mov_0;
@@ -5226,8 +5226,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x8b:
 	    {
 /* instruction2 'mov' ['8b'] ['ASM', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -5242,8 +5242,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x8c:
 	    {
 /* instruction2 'mov %es,%edx' ['8c'] ['MODRM', 'DROP1', 'ENTRY'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM;
 	      if (entry->operand_size == 1)
@@ -5259,8 +5259,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x8d:
 	    {
 /* instruction2 'lea' ['8d'] ['MEMONLY', 'DIRECTION', 'SKIPMODRM', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -5276,17 +5276,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lea not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("lea not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x8e:
 	    {
 /* instruction2 'mov %edx,%es' ['8e'] ['MODRM', 'DROP1', 'ENTRY', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -5301,7 +5301,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x8f:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -5321,15 +5321,15 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x90 ... 0x97:
 	    {
 /* instruction2 'xchg' ['92'] ['ASM', 'RMW', 'EAX', 'IMPL', 'DIRECTION'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
-	      entry->src = &msg.cpu->eax;
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_RMW | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -5344,7 +5344,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x98:
 	    {
 /* instruction2 'cwtl' ['98'] ['ASM', 'EAX'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM;
 	      if (entry->operand_size == 1)
 		{
@@ -5359,8 +5359,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x99:
 	    {
 /* instruction2 'cltd' ['99'] ['ASM', 'EAX', 'EDX', 'DIRECTION'] */ ;
-	      entry->dst = &msg.cpu->edx;
-	      entry->src = &msg.cpu->eax;
+	      entry->dst = &_cpu->edx;
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM;
 	      if (entry->operand_size == 1)
 		{
@@ -5375,7 +5375,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x9a:
 	    {
 /* instruction2 'lcall' ['9a'] ['JMP', 'DIRECTION', 'ENTRY', 'LONGJMP'] */ ;
-	      fetch_code (msg, entry, 2 + (1 << entry->operand_size));
+	      fetch_code (entry, 2 + (1 << entry->operand_size));
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -5443,8 +5443,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa0:
 	    {
 /* instruction2 'mov' ['a0'] ['ASM', 'MOFS', 'DIRECTION', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1 << entry->address_size);
-	      entry->src = &msg.cpu->eax;
+	      fetch_code (entry, 1 << entry->address_size);
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_MOFS | IC_DIRECTION | IC_BYTE;
 	      {
 		entry->execute = exec_a0_mov_0;
@@ -5454,8 +5454,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa1:
 	    {
 /* instruction2 'mov' ['a1'] ['ASM', 'MOFS', 'DIRECTION'] */ ;
-	      fetch_code (msg, entry, 1 << entry->address_size);
-	      entry->src = &msg.cpu->eax;
+	      fetch_code (entry, 1 << entry->address_size);
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_MOFS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -5470,8 +5470,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa2:
 	    {
 /* instruction2 'mov' ['a2'] ['ASM', 'MOFS', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1 << entry->address_size);
-	      entry->src = &msg.cpu->eax;
+	      fetch_code (entry, 1 << entry->address_size);
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_MOFS | IC_BYTE;
 	      {
 		entry->execute = exec_a2_mov_0;
@@ -5481,8 +5481,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa3:
 	    {
 /* instruction2 'mov' ['a3'] ['ASM', 'MOFS'] */ ;
-	      fetch_code (msg, entry, 1 << entry->address_size);
-	      entry->src = &msg.cpu->eax;
+	      fetch_code (entry, 1 << entry->address_size);
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_MOFS;
 	      if (entry->operand_size == 1)
 		{
@@ -5545,10 +5545,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa8:
 	    {
 /* instruction2 'test' ['a8'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_BYTE;
 	      {
 		entry->execute = exec_a8_test_0;
@@ -5560,17 +5560,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'test' ['a9'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMMO', 'EAX'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_a9_test_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_a9_test_2;
 		};
@@ -5651,10 +5651,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb0 ... 0xb7:
 	    {
 /* instruction2 'mov' ['b2'] ['ASM', 'IMM1', 'IMPL', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = get_reg < 1 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 1 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM | IC_BYTE;
 	      {
 		entry->execute = exec_b2_mov_0;
@@ -5666,17 +5666,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction2 'mov' ['ba'] ['ASM', 'IMMO', 'IMPL'] */ ;
 	      ;
 	      entry->src = &entry->immediate;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_ba_mov_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_ba_mov_2;
 		};
@@ -5684,7 +5684,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xc0:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
@@ -5692,7 +5692,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'sar' ['c0', 'fa'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5706,7 +5706,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shr' ['c0', 'ea'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5720,7 +5720,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shl' ['c0', 'e2'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5734,7 +5734,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcr' ['c0', 'da'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5748,7 +5748,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcl' ['c0', 'd2'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5762,7 +5762,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'ror' ['c0', 'ca'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5776,7 +5776,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rol' ['c0', 'c2'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
@@ -5787,13 +5787,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc1:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
@@ -5801,7 +5801,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'sar' ['c1', 'fa'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5820,7 +5820,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shr' ['c1', 'ea'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5839,7 +5839,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shl' ['c1', 'e2'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5858,7 +5858,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcr' ['c1', 'da'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5877,7 +5877,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcl' ['c1', 'd2'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5896,7 +5896,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'ror' ['c1', 'ca'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5915,7 +5915,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rol' ['c1', 'c2'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
@@ -5931,14 +5931,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc2:
 	    {
 /* instruction2 'ret' ['c2'] ['DIRECTION', 'ENTRY', 'IMM2'] */ ;
-	      fetch_code (msg, entry, 2);
+	      fetch_code (entry, 2);
 	      entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -5971,8 +5971,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xc4:
 	    {
 /* instruction2 'les' ['c4'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -5988,17 +5988,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("les not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("les not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc5:
 	    {
 /* instruction2 'lds' ['c5'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -6014,21 +6014,21 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lds not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("lds not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc6:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x02 & 0x38:
 		  {;
 /* instruction 'mov' ['c6', '02'] ['ASM', 'OP1', 'MODRM', 'GRP', 'IMM1', 'BYTE'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_MODRM | IC_BYTE;
@@ -6039,13 +6039,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc7:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x02 & 0x38:
@@ -6056,13 +6056,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_MODRM;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_c702_mov_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_c702_mov_2;
 		      };
@@ -6070,14 +6070,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc8:
 	    {
 /* instruction2 'enter' ['c8'] ['IMM3'] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xc9:
@@ -6097,7 +6097,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xca:
 	    {
 /* instruction2 'lret' ['ca'] ['DIRECTION', 'ENTRY', 'IMM2'] */ ;
-	      fetch_code (msg, entry, 2);
+	      fetch_code (entry, 2);
 	      entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6138,7 +6138,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xcd:
 	    {
 /* instruction2 'int' ['cd'] ['NO_OS', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
 	      {
@@ -6170,7 +6170,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xd0:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6252,13 +6252,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xd1:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6375,13 +6375,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xd2:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6389,7 +6389,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'sar' ['d2', '38'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d238_sar_0;
@@ -6401,7 +6401,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shr' ['d2', '28'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d228_shr_0;
@@ -6413,7 +6413,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shl' ['d2', '20'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d220_shl_0;
@@ -6425,7 +6425,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcr' ['d2', '18'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d218_rcr_0;
@@ -6437,7 +6437,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcl' ['d2', '10'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d210_rcl_0;
@@ -6449,7 +6449,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'ror' ['d2', '08'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d208_ror_0;
@@ -6461,7 +6461,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rol' ['d2', '00'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'BYTE', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 		    {
 		      entry->execute = exec_d200_rol_0;
@@ -6470,13 +6470,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xd3:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6484,7 +6484,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'sar' ['d3', '38'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6501,7 +6501,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shr' ['d3', '28'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6518,7 +6518,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'shl' ['d3', '20'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6535,7 +6535,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcr' ['d3', '18'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6552,7 +6552,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rcl' ['d3', '10'] ['ASM', 'CONST1', 'LOADFLAGS', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_LOADFLAGS | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6569,7 +6569,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'ror' ['d3', '08'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6586,7 +6586,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 /* instruction 'rol' ['d3', '00'] ['ASM', 'CONST1', 'SAVEFLAGS', 'RMW', 'OP1', 'MODRM', 'GRP', 'ECX', 'LOCK'] */ ;
 		    entry->immediate = 1;
 		    entry->src = &entry->immediate;
-		    entry->src = &msg.cpu->ecx;
+		    entry->src = &_cpu->ecx;
 		    entry->flags = IC_ASM | IC_SAVEFLAGS | IC_RMW | IC_MODRM | IC_LOCK;
 		    if (entry->operand_size == 1)
 		      {
@@ -6600,31 +6600,31 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xd4:
 	    {
 /* instruction2 'aam' ['d4'] ['IMM1'] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xd5:
 	    {
 /* instruction2 'aad' ['d5'] ['IMM1'] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xd7:
 	    {
 /* instruction2 'xlat' ['d7'] ['BYTE'] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xd9:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6638,13 +6638,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xda:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x18 & 0x38:
@@ -6667,7 +6667,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
@@ -6678,7 +6678,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xdd:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -6701,13 +6701,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xde:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x18 & 0x38:
@@ -6730,7 +6730,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
@@ -6742,7 +6742,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe0:
 	    {
 /* instruction2 'loopne' ['e0'] ['JMP', 'DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6760,7 +6760,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe1:
 	    {
 /* instruction2 'loope' ['e1'] ['JMP', 'DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6778,7 +6778,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe2:
 	    {
 /* instruction2 'loop' ['e2'] ['JMP', 'DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6796,7 +6796,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe3:
 	    {
 /* instruction2 'jecxz' ['e3'] ['JMP', 'DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6814,10 +6814,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe4:
 	    {
 /* instruction2 'in' ['e4'] ['IMM1', 'EAX', 'BYTE'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      entry->flags = IC_BYTE;
 	      {
 		entry->execute = exec_e4_in_0;
@@ -6827,7 +6827,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe5:
 	    {
 /* instruction2 'in' ['e5'] ['IMM1', 'PORT'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
 	      if (entry->operand_size == 1)
@@ -6843,10 +6843,10 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe6:
 	    {
 /* instruction2 'out' ['e6'] ['IMM1', 'EAX', 'BYTE', 'DIRECTION'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
-	      entry->src = &msg.cpu->eax;
+	      entry->src = &_cpu->eax;
 	      entry->flags = IC_BYTE | IC_DIRECTION;
 	      {
 		entry->execute = exec_e6_out_0;
@@ -6856,7 +6856,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe7:
 	    {
 /* instruction2 'out' ['e7'] ['IMM1', 'PORT'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
 	      if (entry->operand_size == 1)
@@ -6878,13 +6878,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_e8_call_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_e8_call_2;
 		};
@@ -6899,13 +6899,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_e9_jmp_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_e9_jmp_2;
 		};
@@ -6914,7 +6914,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xea:
 	    {
 /* instruction2 'ljmp' ['ea'] ['JMP', 'DIRECTION', 'ENTRY', 'LONGJMP'] */ ;
-	      fetch_code (msg, entry, 2 + (1 << entry->operand_size));
+	      fetch_code (entry, 2 + (1 << entry->operand_size));
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -6930,7 +6930,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xeb:
 	    {
 /* instruction2 'jmp' ['eb'] ['JMP', 'DIRECTION', 'ENTRY', 'IMM1'] */ ;
-	      fetch_code (msg, entry, 1);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->dst = &entry->immediate;
 	      entry->src = entry;
@@ -6948,7 +6948,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xec:
 	    {
 /* instruction2 'in' ['ec'] ['PORT', 'BYTE', 'EDX'] */ ;
-	      entry->src = &msg.cpu->edx;
+	      entry->src = &_cpu->edx;
 	      entry->flags = IC_BYTE;
 	      {
 		entry->execute = exec_ec_in_0;
@@ -6958,7 +6958,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xed:
 	    {
 /* instruction2 'in' ['ed'] ['PORT', 'EDX'] */ ;
-	      entry->src = &msg.cpu->edx;
+	      entry->src = &_cpu->edx;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_ed_in_1;
@@ -6972,7 +6972,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xee:
 	    {
 /* instruction2 'out' ['ee'] ['PORT', 'BYTE', 'EDX'] */ ;
-	      entry->src = &msg.cpu->edx;
+	      entry->src = &_cpu->edx;
 	      entry->flags = IC_BYTE;
 	      {
 		entry->execute = exec_ee_out_0;
@@ -6982,7 +6982,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xef:
 	    {
 /* instruction2 'out' ['ef'] ['PORT', 'EDX'] */ ;
-	      entry->src = &msg.cpu->edx;
+	      entry->src = &_cpu->edx;
 	      if (entry->operand_size == 1)
 		{
 		  entry->execute = exec_ef_out_1;
@@ -7029,13 +7029,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xf6:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xc2 & 0x38:
 		  {;
 /* instruction 'test' ['f6', 'c2'] ['ASM', 'READONLY', 'SAVEFLAGS', 'IMM1', 'MODRM', 'GRP', 'BYTE'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM | IC_BYTE;
@@ -7101,13 +7101,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xf7:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xc2 & 0x38:
@@ -7118,13 +7118,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		    entry->flags = IC_ASM | IC_READONLY | IC_SAVEFLAGS | IC_MODRM;
 		    if (entry->operand_size == 1)
 		      {
-			fetch_code (msg, entry, 2);
+			fetch_code (entry, 2);
 			entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 			entry->execute = exec_f7c2_test_1;
 		      }
 		    else
 		      {
-			fetch_code (msg, entry, 4);
+			fetch_code (entry, 4);
 			entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 			entry->execute = exec_f7c2_test_2;
 		      };
@@ -7217,7 +7217,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
@@ -7271,7 +7271,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xfe:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x08 & 0x38:
@@ -7294,13 +7294,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xff:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x30 & 0x38:
@@ -7408,14 +7408,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  default:
-	    fetch_code (msg, entry, 4);
+	    fetch_code (entry, 4);
 	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	    UNIMPLEMENTED;
+	    UNIMPLEMENTED (this);
 	  }
       }
       break;
@@ -7425,19 +7425,19 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  {
 	  case 0x00:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x28 & 0x38:
 		  {;
 /* instruction 'verw' ['0f', '00', '28'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x20 & 0x38:
 		  {;
 /* instruction 'verr' ['0f', '00', '20'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x18 & 0x38:
@@ -7482,13 +7482,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x01:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
@@ -7503,22 +7503,22 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("invlpg not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
-					 entry->data[1], entry->data[2]);;
-			UNIMPLEMENTED;
+			Logging::printf ("invlpg not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+					 entry->data[2]);;
+			UNIMPLEMENTED (this);
 		      };
 		    break;
 		  };
 		case 0x30 & 0x38:
 		  {;
 /* instruction 'lmsw' ['0f', '01', '30'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x20 & 0x38:
 		  {;
 /* instruction 'smsw' ['0f', '01', '20'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x18 & 0x38:
@@ -7539,9 +7539,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("lidt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+			Logging::printf ("lidt not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 					 entry->data[2]);;
-			UNIMPLEMENTED;
+			UNIMPLEMENTED (this);
 		      };
 		    break;
 		  };
@@ -7563,9 +7563,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("lgdt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+			Logging::printf ("lgdt not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 					 entry->data[2]);;
-			UNIMPLEMENTED;
+			UNIMPLEMENTED (this);
 		      };
 		    break;
 		  };
@@ -7586,9 +7586,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("sidt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+			Logging::printf ("sidt not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 					 entry->data[2]);;
-			UNIMPLEMENTED;
+			UNIMPLEMENTED (this);
 		      };
 		    break;
 		  };
@@ -7609,32 +7609,32 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		      }
 		    else
 		      {;
-			Logging::printf ("sgdt not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+			Logging::printf ("sgdt not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 					 entry->data[2]);;
-			UNIMPLEMENTED;
+			UNIMPLEMENTED (this);
 		      };
 		    break;
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x02:
 	    {
 /* instruction2 'lar' ['0f', '02'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x03:
 	    {
 /* instruction2 'lsl' ['0f', '03'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x06:
@@ -7672,8 +7672,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x1f:
 	    {
 /* instruction2 'nopl (%eax)' ['0f', '1f'] ['NO_OS', 'SKIPMODRM', 'MODRM', 'DROP1'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      {
 		entry->execute = exec_0f1f_nopl___eax__0;
 	      };
@@ -7682,8 +7682,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x20:
 	    {
 /* instruction2 'mov %cr0,%edx' ['0f', '20'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7694,17 +7694,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%cr0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+		  Logging::printf ("mov %%cr0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0],
 				   entry->data[1], entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x21:
 	    {
 /* instruction2 'mov %db0,%edx' ['0f', '21'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7715,17 +7715,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%db0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+		  Logging::printf ("mov %%db0,%%edx not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0],
 				   entry->data[1], entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x22:
 	    {
 /* instruction2 'mov %edx,%cr0' ['0f', '22'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7736,17 +7736,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%edx,%%cr0 not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+		  Logging::printf ("mov %%edx,%%cr0 not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0],
 				   entry->data[1], entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x23:
 	    {
 /* instruction2 'mov %edx,%db0' ['0f', '23'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'ENTRY'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -7757,9 +7757,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("mov %%edx,%%db0 not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0],
+		  Logging::printf ("mov %%edx,%%db0 not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0],
 				   entry->data[1], entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
@@ -7805,7 +7805,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x33:
 	    {
 /* instruction2 'rdpmc' ['0f', '33'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x34:
@@ -7827,14 +7827,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x37:
 	    {
 /* instruction2 'getsec' ['0f', '37'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x40:
 	    {
 /* instruction2 'cmovo' ['0f', '40'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7845,8 +7845,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x41:
 	    {
 /* instruction2 'cmovno' ['0f', '41'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7857,8 +7857,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x42:
 	    {
 /* instruction2 'cmovb' ['0f', '42'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7869,8 +7869,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x43:
 	    {
 /* instruction2 'cmovae' ['0f', '43'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7881,8 +7881,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x44:
 	    {
 /* instruction2 'cmove' ['0f', '44'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7893,8 +7893,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x45:
 	    {
 /* instruction2 'cmovne' ['0f', '45'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7905,8 +7905,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x46:
 	    {
 /* instruction2 'cmovbe' ['0f', '46'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7917,8 +7917,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x47:
 	    {
 /* instruction2 'cmova' ['0f', '47'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7929,8 +7929,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x48:
 	    {
 /* instruction2 'cmovs' ['0f', '48'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7941,8 +7941,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x49:
 	    {
 /* instruction2 'cmovns' ['0f', '49'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7953,8 +7953,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4a:
 	    {
 /* instruction2 'cmovp' ['0f', '4a'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7965,8 +7965,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4b:
 	    {
 /* instruction2 'cmovnp' ['0f', '4b'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7977,8 +7977,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4c:
 	    {
 /* instruction2 'cmovl' ['0f', '4c'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -7989,8 +7989,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4d:
 	    {
 /* instruction2 'cmovge' ['0f', '4d'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -8001,8 +8001,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4e:
 	    {
 /* instruction2 'cmovle' ['0f', '4e'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -8013,8 +8013,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x4f:
 	    {
 /* instruction2 'cmovg' ['0f', '4f'] ['NO_OS', 'ASM', 'LOADFLAGS', 'OS2', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->operand_size = 2;
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_MODRM | IC_DIRECTION;
 	      {
@@ -8025,17 +8025,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0x78:
 	    {
 /* instruction2 'vmread' ['0f', '78'] ['MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x79:
 	    {
 /* instruction2 'vmwrite' ['0f', '79'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      UNIMPLEMENTED;
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0x80:
@@ -8047,13 +8047,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f80_jo_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f80_jo_2;
 		};
@@ -8068,13 +8068,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f81_jno_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f81_jno_2;
 		};
@@ -8089,13 +8089,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f82_jb_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f82_jb_2;
 		};
@@ -8110,13 +8110,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f83_jae_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f83_jae_2;
 		};
@@ -8131,13 +8131,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f84_je_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f84_je_2;
 		};
@@ -8152,13 +8152,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f85_jne_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f85_jne_2;
 		};
@@ -8173,13 +8173,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f86_jbe_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f86_jbe_2;
 		};
@@ -8194,13 +8194,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f87_ja_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f87_ja_2;
 		};
@@ -8215,13 +8215,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f88_js_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f88_js_2;
 		};
@@ -8236,13 +8236,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f89_jns_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f89_jns_2;
 		};
@@ -8257,13 +8257,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8a_jp_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8a_jp_2;
 		};
@@ -8278,13 +8278,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8b_jnp_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8b_jnp_2;
 		};
@@ -8299,13 +8299,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8c_jl_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8c_jl_2;
 		};
@@ -8320,13 +8320,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8d_jge_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8d_jge_2;
 		};
@@ -8341,13 +8341,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8e_jle_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8e_jle_2;
 		};
@@ -8362,13 +8362,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      entry->flags = IC_ASM | IC_LOADFLAGS | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
-		  fetch_code (msg, entry, 2);
+		  fetch_code (entry, 2);
 		  entry->immediate = *reinterpret_cast < short *>(entry->data + entry->inst_len - 2);
 		  entry->execute = exec_0f8f_jg_1;
 		}
 	      else
 		{
-		  fetch_code (msg, entry, 4);
+		  fetch_code (entry, 4);
 		  entry->immediate = *reinterpret_cast < int *>(entry->data + entry->inst_len - 4);
 		  entry->execute = exec_0f8f_jg_2;
 		};
@@ -8376,7 +8376,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0x90:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8390,13 +8390,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x91:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8410,13 +8410,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x92:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8430,13 +8430,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x93:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8450,13 +8450,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x94:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8470,13 +8470,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x95:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8490,13 +8490,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x96:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8510,13 +8510,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x97:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8530,13 +8530,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x98:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8550,13 +8550,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x99:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8570,13 +8570,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9a:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8590,13 +8590,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9b:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8610,13 +8610,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9c:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8630,13 +8630,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9d:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8650,13 +8650,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9e:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8670,13 +8670,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0x9f:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8690,7 +8690,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
@@ -8738,8 +8738,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa3:
 	    {
 /* instruction2 'bt' ['0f', 'a3'] ['READONLY', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_READONLY | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM;
 	      if (entry->operand_size == 1)
 		{
@@ -8754,9 +8754,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa4:
 	    {
 /* instruction2 'shld' ['0f', 'a4'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'IMM1', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      fetch_code (msg, entry, 1);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
 	      entry->src = entry;
@@ -8774,8 +8774,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xa5:
 	    {
 /* instruction2 'shld' ['0f', 'a5'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
@@ -8819,14 +8819,14 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xaa:
 	    {
 /* instruction2 'rsm' ['0f', 'aa'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xab:
 	    {
 /* instruction2 'bts' ['0f', 'ab'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8841,9 +8841,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xac:
 	    {
 /* instruction2 'shrd' ['0f', 'ac'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'IMM1', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
-	      fetch_code (msg, entry, 1);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      fetch_code (entry, 1);
 	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 	      entry->src = &entry->immediate;
 	      entry->src = entry;
@@ -8861,8 +8861,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xad:
 	    {
 /* instruction2 'shrd' ['0f', 'ad'] ['ENTRY', 'RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
@@ -8877,7 +8877,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xae:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x00 & 0x38:
@@ -8891,15 +8891,15 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xaf:
 	    {
 /* instruction2 'imul' ['0f', 'af'] ['ENTRY', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -8915,8 +8915,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb0:
 	    {
 /* instruction2 'cmpxchg' ['0f', 'b0'] ['RMW', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_0fb0_cmpxchg_0;
@@ -8926,8 +8926,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb1:
 	    {
 /* instruction2 'cmpxchg' ['0f', 'b1'] ['RMW', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8942,8 +8942,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb2:
 	    {
 /* instruction2 'lss' ['0f', 'b2'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -8959,17 +8959,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lss not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("lss not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xb3:
 	    {
 /* instruction2 'btr' ['0f', 'b3'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -8984,8 +8984,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb4:
 	    {
 /* instruction2 'lfs' ['0f', 'b4'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -9001,17 +9001,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lfs not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("lfs not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xb5:
 	    {
 /* instruction2 'lgs' ['0f', 'b5'] ['SKIPMODRM', 'MODRM', 'MEMONLY', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (~entry->modrminfo & MRM_REG)
 		{;
 		  entry->src = entry;
@@ -9027,17 +9027,17 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		}
 	      else
 		{;
-		  Logging::printf ("lgs not implemented at %x - %x instr %02x%02x%02x\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
+		  Logging::printf ("lgs not implemented at %x - %x instr %02x%02x%02x\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1],
 				   entry->data[2]);;
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xb6:
 	    {
 /* instruction2 'movzxb' ['0f', 'b6'] ['BYTE', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
 	      {
@@ -9048,8 +9048,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xb7:
 	    {
 /* instruction2 'movzxw' ['0f', 'b7'] ['ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -9064,13 +9064,13 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xba:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0xfa & 0x38:
 		  {;
 /* instruction 'btc' ['0f', 'ba', 'fa'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_RMW | IC_SAVEFLAGS | IC_ASM | IC_MODRM | IC_LOCK;
@@ -9087,7 +9087,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xf2 & 0x38:
 		  {;
 /* instruction 'btr' ['0f', 'ba', 'f2'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_RMW | IC_SAVEFLAGS | IC_ASM | IC_MODRM | IC_LOCK;
@@ -9104,7 +9104,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xea & 0x38:
 		  {;
 /* instruction 'bts' ['0f', 'ba', 'ea'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'IMM1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_RMW | IC_SAVEFLAGS | IC_ASM | IC_MODRM | IC_LOCK;
@@ -9121,7 +9121,7 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		case 0xe2 & 0x38:
 		  {;
 /* instruction 'bt' ['0f', 'ba', 'e2'] ['READONLY', 'SAVEFLAGS', 'BITS', 'ASM', 'IMM1', 'MODRM', 'GRP'] */ ;
-		    fetch_code (msg, entry, 1);
+		    fetch_code (entry, 1);
 		    entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
 		    entry->src = &entry->immediate;
 		    entry->flags = IC_READONLY | IC_SAVEFLAGS | IC_ASM | IC_MODRM;
@@ -9137,15 +9137,15 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xbb:
 	    {
 /* instruction2 'btc' ['0f', 'bb'] ['RMW', 'SAVEFLAGS', 'BITS', 'ASM', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_SAVEFLAGS | IC_BITS | IC_ASM | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -9160,8 +9160,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xbc:
 	    {
 /* instruction2 'bsf' ['0f', 'bc'] ['ASM', 'SAVEFLAGS', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -9176,8 +9176,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xbd:
 	    {
 /* instruction2 'bsr' ['0f', 'bd'] ['ASM', 'SAVEFLAGS', 'DIRECTION', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_ASM | IC_SAVEFLAGS | IC_DIRECTION | IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
 		{
@@ -9192,8 +9192,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xbe:
 	    {
 /* instruction2 'movsxb' ['0f', 'be'] ['BYTE', 'ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
 	      {
@@ -9204,8 +9204,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xbf:
 	    {
 /* instruction2 'movsxw' ['0f', 'bf'] ['ENTRY', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->src = entry;
 	      entry->flags = IC_MODRM | IC_DIRECTION;
 	      if (entry->operand_size == 1)
@@ -9221,8 +9221,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xc0:
 	    {
 /* instruction2 'xadd' ['0f', 'c0'] ['RMW', 'ASM', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'BYTE', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 1 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_ASM | IC_SAVEFLAGS | IC_MODRM | IC_BYTE | IC_LOCK;
 	      {
 		entry->execute = exec_0fc0_xadd_0;
@@ -9232,8 +9232,8 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xc1:
 	    {
 /* instruction2 'xadd' ['0f', 'c1'] ['RMW', 'ASM', 'SAVEFLAGS', 'MODRMMEM', 'MODRM', 'LOCK'] */ ;
-	      get_modrm (msg, entry);
-	      entry->src = get_reg < 0 > (msg, (entry->data[entry->offset_opcode] >> 3) & 0x7);
+	      get_modrm (entry);
+	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_RMW | IC_ASM | IC_SAVEFLAGS | IC_MODRM | IC_LOCK;
 	      if (entry->operand_size == 1)
 		{
@@ -9247,37 +9247,37 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	    }
 	  case 0xc7:
 	    {
-	      get_modrm (msg, entry);
+	      get_modrm (entry);
 	      switch (entry->data[entry->offset_opcode] & 0x38)
 		{;
 		case 0x38 & 0x38:
 		  {;
 /* instruction 'vmptrst' ['0f', 'c7', '38'] ['OP1', 'MODRM', 'GRP'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x30 & 0x38:
 		  {;
 /* instruction 'vmptrld' ['0f', 'c7', '30'] ['OP1', 'MODRM', 'GRP'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		case 0x08 & 0x38:
 		  {;
 /* instruction 'cmpxchg8b' ['0f', 'c7', '08'] ['RMW', 'OP1', 'MODRM', 'GRP', 'LOCK'] */ ;
-		    UNIMPLEMENTED;
+		    UNIMPLEMENTED (this);
 		    break;
 		  };
 		default:;
 		  Logging::printf ("unimpl GRP case %02x%02x%02x at %d\n", entry->data[0], entry->data[1], entry->data[2], __LINE__);
-		  UNIMPLEMENTED;
+		  UNIMPLEMENTED (this);
 		};
 	      break;
 	    }
 	  case 0xc8 ... 0xcf:
 	    {
 /* instruction2 'bswap' ['0f', 'c9'] ['NO_OS', 'ASM', 'IMPL'] */ ;
-	      entry->dst = get_reg < 0 > (msg, entry->data[entry->offset_opcode - 1] & 0x7);
+	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
 	      entry->flags = IC_ASM;
 	      {
 		entry->execute = exec_0fc9_bswap_0;
@@ -9285,9 +9285,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      break;
 	    }
 	  default:
-	    fetch_code (msg, entry, 4);
+	    fetch_code (entry, 4);
 	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	    UNIMPLEMENTED;
+	    UNIMPLEMENTED (this);
 	  }
       }
       break;
@@ -9298,31 +9298,31 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xc1:
 	    {
 /* instruction2 'vmcall' ['0f', '01', 'c1'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xc2:
 	    {
 /* instruction2 'vmlaunch' ['0f', '01', 'c2'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xc3:
 	    {
 /* instruction2 'vmresume' ['0f', '01', 'c3'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  case 0xc4:
 	    {
 /* instruction2 'vmxoff' ['0f', '01', 'c4'] [] */ ;
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED (this);
 	      break;
 	    }
 	  default:
-	    fetch_code (msg, entry, 4);
+	    fetch_code (entry, 4);
 	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	    UNIMPLEMENTED;
+	    UNIMPLEMENTED (this);
 	  }
       }
       break;
@@ -9347,9 +9347,9 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	      break;
 	    }
 	  default:
-	    fetch_code (msg, entry, 4);
+	    fetch_code (entry, 4);
 	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	    UNIMPLEMENTED;
+	    UNIMPLEMENTED (this);
 	  }
       }
       break;
@@ -9360,21 +9360,21 @@ handle_code_byte (MessageExecutor & msg, InstructionCacheEntry * entry, unsigned
 	  case 0xe0:
 	    {
 /* instruction2 'fnstsw %ax' ['df', 'e0'] ['FPU', 'NO_OS', 'EAX'] */ ;
-	      entry->dst = &msg.cpu->eax;
+	      entry->dst = &_cpu->eax;
 	      {
 		entry->execute = exec_dfe0_fnstsw__ax_0;
 	      };
 	      break;
 	    }
 	  default:
-	    fetch_code (msg, entry, 4);
+	    fetch_code (entry, 4);
 	    Logging::printf ("unimplemented case %x at line %d code %02x%02x%02x\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	    UNIMPLEMENTED;
+	    UNIMPLEMENTED (this);
 	  }
       }
       break;
     default:
       assert (0);
     }
-  return msg.vcpu->fault;
+  return _fault;
 }

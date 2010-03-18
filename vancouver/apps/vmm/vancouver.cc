@@ -120,7 +120,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
 	{
 	case KBFLAG_EXTEND0 | 0x7c: // printscr
-	  recall(_mb->vcpustate(0)->cap_vcpu);
+	  // XXX
+	  //recall(_mb->vcpustate(0)->cap_vcpu);
 	  break;
 	case KBCODE_SCROLL: // scroll lock
 	  Logging::printf("toggle HLT\n");
@@ -138,7 +139,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	  }
 	  break;
 	case KBFLAG_LCTRL | KBFLAG_RWIN |  KBFLAG_LWIN | 0x5:
-	  Logging::printf("hz %x\n", _mb->vcpustate(0)->hazard);
 	  _mb->dump_counters();
 	  break;
 	default:
@@ -221,14 +221,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _timeouts.init();
 
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
-    _mb->bus_irqlines.add(this, &Vancouver::receive_static<MessageIrq>);
     _mb->bus_hostop.add(this, &Vancouver::receive_static<MessageHostOp>);
     _mb->bus_console.add(this, &Vancouver::receive_static<MessageConsole>);
     _mb->bus_disk.add(this, &Vancouver::receive_static<MessageDisk>);
     _mb->bus_timer.add(this, &Vancouver::receive_static<MessageTimer>);
     _mb->bus_time.add(this, &Vancouver::receive_static<MessageTime>);
     _mb->bus_network.add(this, &Vancouver::receive_static<MessageNetwork>);
-    _mb->bus_legacy.add(this, &Vancouver::receive_static<MessageLegacy>);
     _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
     _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
@@ -315,7 +313,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
     if (create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
-	|| create_sc(_cap_block + 2, _mb->vcpustate(0)->cap_vcpu, Qpd(1, 10000)))
+	|| create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return cap_block;
   }
@@ -375,52 +373,6 @@ public:
       default:
 	return false;
     }
-    return true;
-  }
-
-
-  bool  receive(MessageIrq &msg)
-  {
-    if (msg.line == MessageIrq::LINT0 || msg.line > 0x40)
-      {
-	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
-	  if (msg.type == MessageIrq::ASSERT_IRQ)
-	    {
-	      if (msg.line > 0x40 && msg.line != MessageIrq::LINT0) _mb->vcpustate(i)->lastmsi = msg.line;
-	      if (~_mb->vcpustate(i)->hazard & VirtualCpuState::HAZARD_IRQ)
-		{
-		  Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_IRQ);
-		  //wakeup_cpu(i);
-		}
-	    }
-	  else
-	    Cpu::atomic_and<volatile unsigned>(&_mb->vcpustate(i)->hazard, ~VirtualCpuState::HAZARD_IRQ);
-	return true;
-      }
-    return false;
-  };
-
-
-  bool  receive(MessageLegacy &msg)
-  {
-    if (msg.type == MessageLegacy::RESET || msg.type == MessageLegacy::INIT)
-      {
-	Logging::printf("try to RESET the machine (%x, %x)\n", msg.type, msg.value);
-	for (unsigned i=0; i < Config::NUM_VCPUS; i++)
-	  {
-	    Cpu::atomic_or<volatile unsigned>(&_mb->vcpustate(i)->hazard, VirtualCpuState::HAZARD_INIT);
-	    //wakeup_cpu(i);
-	  }
-      }
-    else if (msg.type == MessageLegacy::GATE_A20 || msg.type == MessageLegacy::FAST_A20)
-      {
-	if (!msg.value)
-	  Logging::printf("no idea how to toggle A20 (%x, %x)", msg.type, msg.value);
-	else
-	  Logging::printf("no idea how to toggle A20 (%x, %x) - already enabled!\n",  msg.type,  msg.value);
-      }
-    else
-      return false;
     return true;
   }
 

@@ -17,7 +17,7 @@
 
 #include "nul/motherboard.h"
 #include "host/vesa.h"
-#include "../executor/novainstcache.h"
+#include "executor/cpustate.h"
 
 /**
  * A Vesa console.
@@ -89,6 +89,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.eip      = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 0];
     _cpu.cs.sel   = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 1];
     _cpu.cs.base  = _cpu.cs.sel << 4;
+#if 0
     MessageExecutor msg(&_cpu, _mb.vcpustate(0));
 
 
@@ -109,7 +110,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.head._pid = MessageExecutor::DO_LEAVE;
     _mb.bus_executor.send(msg, false, _cpu.head._pid);
     _mb.dump_counters();
-
+#endif
 
     if ((_cpu.eax & 0xffff) == 0x004f)  return false;
     Logging::printf("VBE call(%x, %x, %x, %x) returned %x\n", eax, ecx, edx, ebx, _cpu.eax);

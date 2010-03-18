@@ -123,7 +123,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->dr7      = 0x400;
     // goto singlestep instruction?
     cpu->efl      = 0;
-    msg.mtr_out   = MTD_ALL;
+    msg.mtr_out  |= MTD_ALL;
   }
 
 

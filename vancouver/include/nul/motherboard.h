@@ -16,7 +16,6 @@
  */
 
 #pragma once
-#include "executor/cpustate.h"
 #include "service/helper.h"
 #include "service/params.h"
 #include "service/profile.h"
@@ -36,7 +35,6 @@ class VCpu;
 class Motherboard : public StaticReceiver<Motherboard>
 {
   const char *debug_getname() { return "Motherboard"; };
-  VirtualCpuState _cpustate[Config::NUM_VCPUS];
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;
@@ -44,7 +42,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageApic>         bus_apic;
   DBus<MessageDisk>         bus_disk;
   DBus<MessageDiskCommit>   bus_diskcommit;
-  DBus<MessageExecutor>     bus_executor;
   DBus<MessageBios>         bus_bios;
   DBus<MessageConsole>      bus_console;
   DBus<MessageHostOp>       bus_hostop;
@@ -73,7 +70,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageVesa>         bus_vesa;
 
   VCpu *last_vcpu;
-  VirtualCpuState *vcpustate(unsigned vcpunr) { assert(vcpunr < Config::NUM_VCPUS); return _cpustate + vcpunr; }
   Clock *clock() { return _clock; }
 
   /**

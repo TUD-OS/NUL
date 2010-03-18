@@ -24,7 +24,15 @@
  */
 class MemTlb : public MemCache
 {
+protected:
+  CpuState *_cpu;
+
 private:
+  // pdpt cache for 32-bit PAE
+  unsigned long long _pdpt[4];
+  unsigned long _msr_efer;
+  unsigned _paging_mode;
+
   enum Features {
     FEATURE_PSE        = 1 << 0,
     FEATURE_PSE36      = 1 << 1,
@@ -32,8 +40,7 @@ private:
     FEATURE_SMALL_PDPT = 1 << 3,
     FEATURE_LONG       = 1 << 4,
   };
-  unsigned (*tlb_fill_func)(MemTlb *tlb, MessageExecutor &msg, unsigned long virt, unsigned type, long unsigned &phys);
-  unsigned paging_mode;
+  unsigned (*tlb_fill_func)(MemTlb *tlb, unsigned long virt, unsigned type, long unsigned &phys);
 
 #define AD_ASSIST(bits)							\
   if ((pte & (bits)) != (bits))						\
@@ -42,14 +49,18 @@ private:
       else  Cpu::cmpxchg(entry->_ptr, pte, pte | bits);			\
     }
 
+  template <unsigned features, typename PTE_TYPE>
+    static unsigned tlb_fill(MemTlb *tlb, unsigned long virt, unsigned type, long unsigned &phys)
+  {  return tlb->tlb_fill2<features, PTE_TYPE>(virt, type, phys); }
+
 
   template <unsigned features, typename PTE_TYPE>
-  static unsigned tlb_fill(MemTlb *tlb, MessageExecutor &msg, unsigned long virt, unsigned type, long unsigned &phys)
+    unsigned tlb_fill2(unsigned long virt, unsigned type, long unsigned &phys)
   {
     PTE_TYPE pte;
-    if (features & FEATURE_SMALL_PDPT) pte = VCPU(pdpt)[(virt >> 30) & 3]; else pte = READ(cr3);
+    if (features & FEATURE_SMALL_PDPT) pte = _pdpt[(virt >> 30) & 3]; else pte = READ(cr3);
     if (features & FEATURE_SMALL_PDPT && ~pte & 1) PF(virt, type & ~1);
-    if (~features & FEATURE_PAE || ~tlb->paging_mode & (1<<11)) type &= ~TYPE_X;
+    if (~features & FEATURE_PAE || ~_paging_mode & (1<<11)) type &= ~TYPE_X;
     unsigned r = type;
     unsigned l = features & FEATURE_LONG ? 4 : 2;
     bool is_sp;
@@ -57,8 +68,8 @@ private:
     do
       {
 	if (entry) AD_ASSIST(0x20);
-	if (features & FEATURE_PAE)  entry = tlb->get((pte & ~0xfff) | ((virt >> l* 9) & 0xff8ul), ~0xffful, 8, TYPE_R);
-	else                         entry = tlb->get((pte & ~0xfff) | ((virt >> l*10) & 0xffcul), ~0xffful, 4, TYPE_R);
+	if (features & FEATURE_PAE)  entry = get((pte & ~0xfff) | ((virt >> l* 9) & 0xff8ul), ~0xffful, 8, TYPE_R);
+	else                         entry = get((pte & ~0xfff) | ((virt >> l*10) & 0xffcul), ~0xffful, 4, TYPE_R);
 	pte = *reinterpret_cast<PTE_TYPE *>(entry->_ptr);
 	if (~pte & 1)  PF(virt, type & ~1);
 	r &= pte | TYPE_X;
@@ -71,7 +82,7 @@ private:
 	if (features & FEATURE_PSE36)  reserved_bit = is_sp && pte & (1 << 21);
 	else if (features & FEATURE_PAE)
 	  {
-	    reserved_bit = (~tlb->paging_mode & (1<<11) && (pte & (1ULL << 63)))
+	    reserved_bit = (~_paging_mode & (1<<11) && (pte & (1ULL << 63)))
 	      || ((~features & FEATURE_LONG) && features & FEATURE_PAE && (static_cast<unsigned long long>(pte) >> 52) & 0xeff)
 	      || (((static_cast<unsigned long long>(pte) & ~(1ULL << 63)) >> Config::PHYS_ADDR_SIZE) || (is_sp && (pte >> 12) & ((1<<(l*9))-1)));
 	  }
@@ -79,7 +90,7 @@ private:
       } while (l && !is_sp);
 
     // !wp: kernel write to read-only userpage? -> put the page as kernel read-write in the TLB
-    if (~tlb->paging_mode & (1<<16) && type & TYPE_W && ~type & TYPE_U && ~r & TYPE_W && r & TYPE_U)
+    if (~_paging_mode & (1<<16) && type & TYPE_W && ~type & TYPE_U && ~r & TYPE_W && r & TYPE_U)
       r = (r | TYPE_W) & ~TYPE_U;
 
     // enough rights?
@@ -97,38 +108,46 @@ private:
     else
       phys = pte >> size;
     phys = (phys << size) | (virt & ((1 << size) - 1));
-    return msg.vcpu->fault;
+    return _fault;
   }
 
-  int virt_to_phys(MessageExecutor &msg, unsigned long virt, Type type, long unsigned &phys) {
+  int virt_to_phys(unsigned long virt, Type type, long unsigned &phys) {
 
-    if (tlb_fill_func) return tlb_fill_func(this, msg, virt, type, phys);
+    if (tlb_fill_func) return tlb_fill_func(this, virt, type, phys);
     phys = virt;
-    return msg.vcpu->fault;
+    return _fault;
   }
 
   /**
    * Find a CacheEntry to a virtual memory access.
    */
-  CacheEntry *find_virtual(MessageExecutor &msg, unsigned virt, unsigned len, Type type) {
+  CacheEntry *find_virtual(unsigned virt, unsigned len, Type type) {
 
     unsigned long phys1, phys2;
-    if (!virt_to_phys(msg, virt, type, phys1)) {
+    if (!virt_to_phys(virt, type, phys1)) {
       if (!((virt ^ (virt + len - 1)) & ~0xfff)) phys2 = ~0ul;
       else
-	if (virt_to_phys(msg, virt + len - 1, type, phys2)) return 0;
+	if (virt_to_phys(virt + len - 1, type, phys2)) return 0;
       return get(phys1, phys2 & ~0xffful, len, type);
     }
     return 0;
   }
 
 protected:
-  int init(MessageExecutor &msg) {
+  Type user_access(Type type) {
+    if (_cpu->cpl() == 3) return Type(TYPE_U | type);
+    return type;
+  }
 
-    paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | VCPU(msr_efer) & 0xc00;
+
+  int init(CpuState *cpu) {
+    // XXX assert this instead
+    _cpu = cpu;
+
+    _paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | _msr_efer & 0xc00;
 
     // fetch pdpts in leagacy PAE mode
-    if ((paging_mode & 0x80000420) == 0x80000020)
+    if ((_paging_mode & 0x80000420) == 0x80000020)
       {
 	unsigned long long values[4];
 	for (unsigned i=0; i < 4; i++)
@@ -136,53 +155,53 @@ protected:
 	    values[i] = *reinterpret_cast<unsigned long long *>(get((READ(cr3) &~0x1f) + i*8, ~0xffful, 8, TYPE_R)->_ptr);
 	    if ((values[i] & 0x1e6) || (values[i] >> (Config::PHYS_ADDR_SIZE - 32)))  GP0;
 	  }
-	memcpy(msg.vcpu->pdpt, values, sizeof(msg.vcpu->pdpt));
+	memcpy(_pdpt, values, sizeof(_pdpt));
       }
 
     // set paging mode
     tlb_fill_func = 0;
-    if (paging_mode & 0x80000000)
+    if (_paging_mode & 0x80000000)
       {
 	tlb_fill_func = &tlb_fill<0, unsigned>;
-	if (paging_mode & (1 << 4))  tlb_fill_func = &tlb_fill<FEATURE_PSE | FEATURE_PSE36, unsigned>;
-	if (paging_mode & (1 << 5))
+	if (_paging_mode & (1 << 4))  tlb_fill_func = &tlb_fill<FEATURE_PSE | FEATURE_PSE36, unsigned>;
+	if (_paging_mode & (1 << 5))
 	  {
 	    tlb_fill_func = &tlb_fill<FEATURE_PSE | FEATURE_PAE | FEATURE_SMALL_PDPT, unsigned long long>;
-	    if (paging_mode & (1 << 10))
+	    if (_paging_mode & (1 << 10))
 	      tlb_fill_func = &tlb_fill<FEATURE_PSE | FEATURE_PAE | FEATURE_LONG, unsigned long long>;
 	  }
       }
-    return msg.vcpu->fault;
+    return _fault;
   }
 
 
   /**
    * Read the len instruction-bytes at the given address into a buffer.
    */
-  int read_code(MessageExecutor &msg, unsigned long virt, unsigned len, void *buffer)
+  int read_code(unsigned long virt, unsigned len, void *buffer)
   {
     //COUNTER_INC("read_code");
 
     assert(len < 16);
-    CacheEntry *entry = find_virtual(msg, virt & ~3, (len + (virt & 3) + 3) & ~3ul, user_access(msg, Type(TYPE_X | TYPE_R)));
+    CacheEntry *entry = find_virtual(virt & ~3, (len + (virt & 3) + 3) & ~3ul, user_access(Type(TYPE_X | TYPE_R)));
     if (entry) {
       assert(len <= entry->_len);
       memcpy(buffer, entry->_ptr + (virt & 3), len);
     }
-    return msg.vcpu->fault;
+    return _fault;
   }
 
 
-  int prepare_virtual(MessageExecutor &msg, unsigned virt, unsigned len, Type type, void *&ptr)
+  int prepare_virtual(unsigned virt, unsigned len, Type type, void *&ptr)
   {
     //COUNTER_INC("prep_virtual");
     bool round = (virt | len) & 3;
-    CacheEntry *entry = find_virtual(msg, virt & ~3ul, (len + (virt & 3) + 3) & ~3ul, round ? Type(type | TYPE_R) : type);
+    CacheEntry *entry = find_virtual(virt & ~3ul, (len + (virt & 3) + 3) & ~3ul, round ? Type(type | TYPE_R) : type);
     if (entry) {
       assert(len <= entry->_len);
       ptr = entry->_ptr + (virt & 3);
     }
-    return msg.vcpu->fault;
+    return _fault;
   }
 
 

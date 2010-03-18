@@ -88,8 +88,6 @@ class VirtualCpuState
   // instruction and data cache
   InstructionCache *instcache;
 
-  // pdpt cache for 32-bit PAE
-  unsigned long long pdpt[4];
 
   // debug register
   unsigned dr[4];

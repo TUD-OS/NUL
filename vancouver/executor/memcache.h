@@ -16,6 +16,25 @@
  */
 #pragma once
 
+#define READ(NAME) ({ _mtr_read |= RMTR_##NAME; _cpu->NAME; })
+#define WRITE(NAME) ({							\
+      _mtr_out |= RMTR_##NAME;						\
+      _cpu->NAME;							\
+})
+#define FAULT(NAME, VALUE) { NAME->_debug_fault_line = __LINE__;  NAME->_fault = VALUE; }
+#define UNIMPLEMENTED(NAME) { return (FAULT(NAME, FAULT_UNIMPLEMENTED)); }
+#define RETRY         { return (FAULT(this, FAULT_RETRY)); }
+#define EXCEPTION0(NAME, NR) { NAME->_error_code = 0; FAULT(NAME, 0x80000300 | NR); }
+#define EXCEPTION(NAME, NR, ERROR) { NAME->_error_code = ERROR; FAULT(NAME, 0x80000b00 | NR); }
+#define DE0   { EXCEPTION0(cache, 0x0); }
+#define UD0   { EXCEPTION0(this, 0x6); return _fault; }
+#define NP(X) { EXCEPTION(this, 0xb, X); return _fault; }
+#define SS(X) { EXCEPTION(this, 0xc, X); return _fault; }
+#define SS0   { EXCEPTION(this, 0xc, 0); return _fault; }
+#define GP(X) { EXCEPTION(this, 0xd, X); return _fault; }
+#define GP0   { EXCEPTION(this, 0xd, 0); return _fault; }
+#define PF(ADDR, ERR) { _cpu->cr2 = ADDR; EXCEPTION(this, 0xe, ERR); return _fault; }
+
 
 /**
  * A cache for physical memory indexed by page number.
@@ -24,6 +43,12 @@ class MemCache
 {
 protected:
   Motherboard &_mb;
+  unsigned  _fault;
+  unsigned  _error_code;
+  unsigned  _debug_fault_line;
+  unsigned  _mtr_in;
+  unsigned  _mtr_read;
+  unsigned  _mtr_out;
 private:
   enum {
     SIZE = 64,
@@ -50,11 +75,6 @@ public:
     TYPE_X   = 1u << 4,
   };
 
-  static Type user_access(MessageExecutor &msg, Type type)
-  {
-    if (msg.cpu->cpl() == 3) return Type(TYPE_U | type);
-    return type;
-  }
 
   struct CacheEntry
   {

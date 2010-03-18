@@ -16,6 +16,7 @@
  */
 #pragma once
 #include "bus.h"
+#include "executor/cpustate.h"
 #include "message.h"
 
 struct CpuMessage {

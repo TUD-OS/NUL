@@ -128,11 +128,11 @@ def filter_chars(snippet, op_size, flags):
 
 def generate_functions(name, flags, snippet, enc, functions, l2):
     if not snippet:
-	l2.append("UNIMPLEMENTED")
+	l2.append("UNIMPLEMENTED(this)")
 	return
     if "ASM" in flags and not "asm volatile" in ";".join(snippet):     snippet = ['asm volatile("'+ ";".join(snippet)+'")']
-    if "FPU" in flags:     snippet = ["if (msg.cpu->cr0 & 0xc) EXCEPTION(0x7, 0)",
-				      'asm volatile("fxrstor (%%eax);'+ ";".join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(msg.vcpu->fpustate))']
+    if "FPU" in flags:     snippet = ["if (cache->_cpu->cr0 & 0xc) EXCEPTION(cache, 0x7, 0)",
+				      'asm volatile("fxrstor (%%eax);'+ ";".join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(cache->_fpustate))']
     # parameter handling
     imm = ";entry->%s = &entry->immediate"%("DIRECTION" in flags and "dst" or "src")
     additions = [("MEMONLY", "if (~entry->modrminfo & MRM_REG) {"),
@@ -140,16 +140,16 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
 		 ("OS2",     "entry->operand_size = 2"),
 		 ("OS1",     "entry->operand_size = 1"),
 		 ("CONST1",  "entry->immediate = 1" + imm),
-		 ("IMM1",    "fetch_code(msg, entry, 1); entry->immediate = *reinterpret_cast<char  *>(entry->data+entry->inst_len - 1)" + imm),
-		 ("IMM2",    "fetch_code(msg, entry, 2); entry->immediate = *reinterpret_cast<short *>(entry->data+entry->inst_len - 2)" + imm),
+		 ("IMM1",    "fetch_code(entry, 1); entry->immediate = *reinterpret_cast<char  *>(entry->data+entry->inst_len - 1)" + imm),
+		 ("IMM2",    "fetch_code(entry, 2); entry->immediate = *reinterpret_cast<short *>(entry->data+entry->inst_len - 2)" + imm),
 		 ("IMMO",    imm),
-		 ("MOFS",    "fetch_code(msg, entry, 1 << entry->address_size); entry->src = &msg.cpu->eax"),
-		 ("LONGJMP", "fetch_code(msg, entry, 2 + (1 << entry->operand_size))"),
-		 ("IMPL",    "entry->dst = get_reg<%d>(msg, entry->data[entry->offset_opcode-1] & 0x7)"%("BYTE" in flags)),
-		 ("ECX",     "entry->src = &msg.cpu->ecx"),
-		 ("EDX",     "entry->%s = &msg.cpu->edx"%("DIRECTION" in flags and "dst" or "src")),
+		 ("MOFS",    "fetch_code(entry, 1 << entry->address_size); entry->src = &_cpu->eax"),
+		 ("LONGJMP", "fetch_code(entry, 2 + (1 << entry->operand_size))"),
+		 ("IMPL",    "entry->dst = get_reg<%d>(entry->data[entry->offset_opcode-1] & 0x7)"%("BYTE" in flags)),
+		 ("ECX",     "entry->src = &_cpu->ecx"),
+		 ("EDX",     "entry->%s = &_cpu->edx"%("DIRECTION" in flags and "dst" or "src")),
 		 ("ENTRY",   "entry->src = entry"),
-		 ("EAX",     "entry->%s = &msg.cpu->eax"%("DIRECTION" in flags and "src" or "dst")),
+		 ("EAX",     "entry->%s = &_cpu->eax"%("DIRECTION" in flags and "src" or "dst")),
 		 ]
     l2.extend(filter(lambda x: x, map(lambda x: x[0] in flags and x[1] or "", additions)))
 
@@ -168,7 +168,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
 	if no_os or op_size > 0:
 	    s += op_size == 1 and "if (entry->operand_size == 1) {" or op_size == 2 and " else {" or "{"
 	    if "IMMO"   in flags:
-		s += "fetch_code(msg, entry, %d);"%(1 << op_size)
+		s += "fetch_code(entry, %d);"%(1 << op_size)
 		s += (op_size == 1 and "entry->immediate = *reinterpret_cast<short *>(entry->data+entry->inst_len - 2);"  or
 		      op_size == 2 and "entry->immediate = *reinterpret_cast<int   *>(entry->data+entry->inst_len - 4);")
 	    funcname = "exec_%s_%s_%d"%("".join(enc), reduce(lambda x,y: x.replace(y, "_"), "% ,.()", name), op_size)
@@ -178,8 +178,8 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
     l2.append(s)
     if "MEMONLY" in flags or "REGONLY" in flags:
 	l2.append("} else  { ")
-	l2.append('Logging::printf("%s not implemented at %%x - %%x instr %%02x%%02x%%02x\\n", msg.cpu->eip, entry->modrminfo, entry->data[0], entry->data[1], entry->data[2]); '%(name.replace("%", "%%")))
-	l2.append("UNIMPLEMENTED; }")
+	l2.append('Logging::printf("%s not implemented at %%x - %%x instr %%02x%%02x%%02x\\n", _cpu->eip, entry->modrminfo, entry->data[0], entry->data[1], entry->data[2]); '%(name.replace("%", "%%")))
+	l2.append("UNIMPLEMENTED(this); }")
 
 
 def generate_code(encodings):
@@ -199,15 +199,15 @@ def generate_code(encodings):
 		l2 = []
 		if "PREFIX" in flags:  l2.extend(snippet)
 		if "MODRM"  in flags:
-		    l2.append("get_modrm(msg, entry)")
+		    l2.append("get_modrm(entry)")
 		    if "GRP" not in flags:
-			l2.append("entry->%s = get_reg<%d>(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)"%("src", "BYTE" in flags))
+			l2.append("entry->%s = get_reg<%d>((entry->data[entry->offset_opcode] >> 3) & 0x7)"%("src", "BYTE" in flags))
 		if l == len(enc)-2:
 		    if enc[l] not in p:
 			l2.append("switch (entry->data[entry->offset_opcode] & 0x38) {")
 			l2.append('default:')
 			l2.append('Logging::printf("unimpl GRP case %02x%02x%02x at %d\\n", entry->data[0], entry->data[1], entry->data[2], __LINE__)')
-			l2.append("UNIMPLEMENTED")
+			l2.append("UNIMPLEMENTED(this)")
 			l2.append('}')
 			p[enc[l]] = l2
 		    l2 = []
@@ -237,10 +237,10 @@ def print_code(code, functions):
     names = functions.keys()
     names.sort()
     for funcname in names:
-	print """static void __attribute__((regparm(3))) %s(MessageExecutor &msg, void *tmp_src, void *tmp_dst) {
+	print """static void __attribute__((regparm(3))) %s(InstructionCache *cache, void *tmp_src, void *tmp_dst) {
 		 %s; }"""%(funcname, ";".join(functions[funcname]))
 
-    print "int handle_code_byte(MessageExecutor &msg, InstructionCacheEntry *entry, unsigned char code, int &op_mode) {"
+    print "int handle_code_byte(InstructionCacheEntry *entry, unsigned char code, int &op_mode) {"
     print "entry->offset_opcode = entry->inst_len;"
     print "switch (op_mode) {"
     p = code.keys()
@@ -258,14 +258,14 @@ def print_code(code, functions):
 		print l,";"
 	    print "break; }"
 	print """default:
-	      fetch_code(msg, entry, 4);
+	      fetch_code( entry, 4);
 	      Logging::printf("unimplemented case %x at line %d code %02x%02x%02x\\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
-	      UNIMPLEMENTED;
+	      UNIMPLEMENTED(this);
 	  }
 	}
 	break;"""
     print "default:  assert(0); }"
-    print "return msg.vcpu->fault; }"
+    print "return _fault; }"
 
 
 FILE="foo.keep"
@@ -284,20 +284,20 @@ opcodes += [(x, ["PREFIX"], ["entry->prefixes = (entry->prefixes & ~(%#x)) | (co
 opcodes[-2] = (opcodes[-2][0], opcodes[-2][1], opcodes[-2][2]+["entry->operand_size = (((entry->cs_ar >> 10) & 1) + 1) ^ 3"])
 opcodes[-1] = (opcodes[-1][0], opcodes[-1][1], opcodes[-1][2]+["entry->address_size = (((entry->cs_ar >> 10) & 1) + 1) ^ 3"])
 opcodes += [
-    ("clc",   ["NO_OS"], ["msg.cpu->efl &= ~1"]),
-    ("cmc",   ["NO_OS"], ["msg.cpu->efl ^=  1"]),
-    ("stc",   ["NO_OS"], ["msg.cpu->efl |=  1"]),
-    ("cld",   ["NO_OS"], ["msg.cpu->efl &= ~0x400"]),
-    ("std",   ["NO_OS"], ["msg.cpu->efl |=  0x400"]),
+    ("clc",   ["NO_OS"], ["cache->_cpu->efl &= ~1"]),
+    ("cmc",   ["NO_OS"], ["cache->_cpu->efl ^=  1"]),
+    ("stc",   ["NO_OS"], ["cache->_cpu->efl |=  1"]),
+    ("cld",   ["NO_OS"], ["cache->_cpu->efl &= ~0x400"]),
+    ("std",   ["NO_OS"], ["cache->_cpu->efl |=  0x400"]),
     ("bswap", ["NO_OS", "ASM"], ["mov (%ecx), %eax", "bswap %eax", "mov %eax, (%ecx)"]),
     ("xchg",  ["ASM", "RMW"],  ["mov (%edx), [EAX]", "[lock] xchg[bwl] [EAX], (%ecx)", "mov [EAX], (%edx)"]),
     ("cwtl",  ["ASM", "EAX"],  ["mov (%ecx), [EAX]", "[data16] cwde", "mov [EAX], (%ecx)"]),
     ("cltd",  ["ASM", "EAX", "EDX", "DIRECTION"],   ["mov (%edx), %eax", "[data16] cltd", "mov %edx, (%ecx)"]),
-    ("str",   ["NO_OS", "OS1"], ["move<1>(tmp_dst, &msg.cpu->tr.sel)"]),
-    ("sldt",  ["NO_OS", "OS1"], ["move<1>(tmp_dst, &msg.cpu->ld.sel)"]),
+    ("str",   ["NO_OS", "OS1"], ["move<1>(tmp_dst, &cache->_cpu->tr.sel)"]),
+    ("sldt",  ["NO_OS", "OS1"], ["move<1>(tmp_dst, &cache->_cpu->ld.sel)"]),
     ("nopl (%eax)",  ["NO_OS", "SKIPMODRM", "MODRM", "DROP1"], [" "]),
-    ("lahf",  ["NO_OS"], ["msg.cpu->ah = (msg.cpu->efl & 0xd5) | 2"]),
-    ("sahf",  ["NO_OS"], ["msg.cpu->efl = (msg.cpu->efl & ~0xd5) | (msg.cpu->ah  & 0xd5)"]),
+    ("lahf",  ["NO_OS"], ["cache->_cpu->ah = (cache->_cpu->efl & 0xd5) | 2"]),
+    ("sahf",  ["NO_OS"], ["cache->_cpu->efl = (cache->_cpu->efl & ~0xd5) | (cache->_cpu->ah  & 0xd5)"]),
     ]
 opcodes += [(x, ["ASM", "EAX", "NO_OS", x in ["aaa", "aas"] and "LOADFLAGS", "SAVEFLAGS"],
 	     ["mov (%ecx), %eax", x, "mov %eax, (%ecx)"])
@@ -321,11 +321,11 @@ for i in range(len(ccflags)):
     opcodes += [("set" +ccflag, ["BYTE",   "ASM", "LOADFLAGS"], ["set%s (%%ecx)"%ccflag])]
     opcodes += [("cmov"+ccflag, ["NO_OS",  "ASM", "LOADFLAGS",  "OS2"], ["j%s 1f"%(ccflags[i ^ 1]), "mov (%edx), %eax", "mov %eax, (%ecx)", "1:"])]
     opcodes += [("j"+ccflag,    ["JMP",   "ASM", "ENTRY", "LOADFLAGS", "DIRECTION"],
-		 ['int (*foo)(MessageExecutor &, void *, InstructionCacheEntry *) = helper_JMP<[os]>',
+		 ['int (*foo)(InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static<[os]>',
 		  'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "ENTRY"], [
 	    "InstructionCacheEntry *entry = reinterpret_cast<InstructionCacheEntry *>(tmp_dst)",
-	    "tmp_dst = get_reg32(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
+	    "tmp_dst = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
 	    """asm volatile("movl (%%2), %%0; [data16] %s (%%1), %%0; mov %%0, (%%2)" : "+a"(entry), "+d"(tmp_src), "+c"(tmp_dst))"""%x])
 	    for x in ["movzxb", "movzxw", "movsxb", "movsxw"]]
 
@@ -334,12 +334,12 @@ def add_helper(l, flags, params):
     for x in l:
 	name = reduce(lambda x,y: x.replace(y, "_"), "% ,", x.upper())
 	if "NO_OS" not in flags: name += "<[os]>"
-	opcodes.append((x, flags, ["helper_%s(msg %s)"%(name, params and "," + params or "")]))
+	opcodes.append((x, flags, ["cache->helper_%s(%s)"%(name, params or "")]))
 add_helper(["push", "lret", "ret"],                              ["DIRECTION"], "tmp_src, [ENTRY]")
 add_helper(["int"],                                              ["NO_OS"], "tmp_src")
 add_helper(["ljmp", "lcall", "call", "jmp",  "jecxz", "loop", "loope", "loopne"],
 	   ["JMP", "DIRECTION"], "tmp_src, [ENTRY]")
-add_helper(["in", "out"],                                        [],       "*reinterpret_cast<[IMMU] *>(tmp_src), &msg.cpu->eax")
+add_helper(["in", "out"],                                        [],       "*reinterpret_cast<[IMMU] *>(tmp_src), &cache->_cpu->eax")
 add_helper(["popf", "pushf", "leave", "iret"],                   [], "[ENTRY]")
 add_helper(["pop"],                                              [], "[ENTRY], tmp_dst")
 add_helper(["lea", "lgdt", "lidt"],                              ["MEMONLY", "DIRECTION", "SKIPMODRM"], "[ENTRY]")
@@ -359,58 +359,58 @@ stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "scas": "SH_LOAD_EDI | SH_DOOP_CMP",
 	     "stos": "SH_SAVE_EDI",
 	     "lods": "SH_LOAD_ESI | SH_SAVE_EAX"}
-opcodes += [(x, ["ENTRY"], ["string_helper<%s, [os]>(msg, [ENTRY])"%stringops[x]]) for x in stringops.keys()]
-opcodes += [(x, [], ["msg.vcpu->fault = FAULT_%s"%(x.upper())]) for x in ["cpuid", "rdtsc", "rdmsr", "wrmsr"]]
+opcodes += [(x, ["ENTRY"], ["cache->string_helper<%s, [os]>([ENTRY])"%stringops[x]]) for x in stringops.keys()]
+opcodes += [(x, [], ["cache->_fault = FAULT_%s"%(x.upper())]) for x in ["cpuid", "rdtsc", "rdmsr", "wrmsr"]]
 opcodes += [(x, ["DIRECTION"], [
-	    # 'Logging::printf("%s(%%x, %%x)\\n", msg.cpu->eax, *reinterpret_cast<unsigned *>(tmp_dst))'%x,
-	    "unsigned edx = msg.cpu->edx, eax = msg.cpu->eax;",
+	    # 'Logging::printf("%s(%%x, %%x)\\n", cache->_cpu->eax, *reinterpret_cast<unsigned *>(tmp_dst))'%x,
+	    "unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;",
 	    "asm volatile (\"1: ;"
 	    "%s[bwl] (%%2);"
 	    "xorl %%2, %%2;"
 	    "2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;"
 	    "\" : \"+a\"(eax), \"+d\"(edx), \"+c\"(tmp_src))"%x,
 	    "if (tmp_src) DE0",
-	    "msg.cpu->eax = eax",
-	    "msg.cpu->edx = edx",
+	    "cache->_cpu->eax = eax",
+	    "cache->_cpu->edx = edx",
 	    ]) for x in ["div", "idiv", "mul"]]
 opcodes += [(x, ["ENTRY", "RMW"], ["unsigned count",
 			    "InstructionCacheEntry *entry = [ENTRY]",
-			    "if ([IMM]) count = entry->immediate; else count = msg.cpu->ecx",
-			    "tmp_src = get_reg32(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
+			    "if ([IMM]) count = entry->immediate; else count = cache->_cpu->ecx",
+			    "tmp_src = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
 			    'asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; [data16] '+
 			    x+' %%cl, %%edx, (%%eax); pushf; pop %%eax" : "+a"(count), "+d"(tmp_src), "+c"(tmp_dst))',
-			    "msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (count  & 0x8d5)"])
+			    "cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count  & 0x8d5)"])
 	    for x in ["shrd", "shld"]]
 opcodes += [("imul", ["ENTRY", "DIRECTION"], ["unsigned param, result",
 				 "InstructionCacheEntry *entry = [ENTRY]",
-				 "tmp_dst = get_reg32(msg, (entry->data[entry->offset_opcode] >> 3) & 0x7)",
-				 "if ([IMM]) param = entry->immediate; else if ([OP1]) param = msg.cpu->eax; else move<[os]>(&param, tmp_dst);",
+				 "tmp_dst = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
+				 "if ([IMM]) param = entry->immediate; else if ([OP1]) param = cache->_cpu->eax; else move<[os]>(&param, tmp_dst);",
 				 # 'Logging::printf("IMUL %x * %x\\n", param, *reinterpret_cast<unsigned *>(tmp_src))',
 				 'asm volatile ("imul[bwl] (%%ecx); pushf; pop %%ecx" : "+a"(param), "=d"(result), "+c"(tmp_src))',
-				 "msg.cpu->efl = (msg.cpu->efl & ~0x8d5) | (reinterpret_cast<unsigned>(tmp_src)  & 0x8d5)",
-				 "if ([OP1]) move<[os] ? [os] : 1>(&msg.cpu->eax, &param)",
-				 "if ([OP1] && [os]) move<[os]>(&msg.cpu->edx, &result)",
+				 "cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast<unsigned>(tmp_src)  & 0x8d5)",
+				 "if ([OP1]) move<[os] ? [os] : 1>(&cache->_cpu->eax, &param)",
+				 "if ([OP1] && [os]) move<[os]>(&cache->_cpu->edx, &result)",
 				 "if (![OP1]) move<[os]>(tmp_dst, &param)",
 				 # 'Logging::printf("IMUL %x:%x\\n", result, param)',
 				 ])]
 opcodes += [("mov %es,%edx", ["MODRM", "DROP1", "ENTRY"], [
-	    "CpuState::Descriptor *dsc = &msg.cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7)",
+	    "CpuState::Descriptor *dsc = &cache->_cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7)",
 	    "move<[os]>(tmp_dst, &(dsc->sel))"]),
 	    ("mov %edx,%es", ["MODRM", "DROP1", "ENTRY", "DIRECTION"], [
-	    "if ((([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7) == 2) msg.cpu->intr_state |= 2",
-	    "set_segment(msg, &msg.cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
+	    "if ((([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7) == 2) cache->_cpu->intr_state |= 2",
+	    "cache->set_segment(&cache->_cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
 	    ("pusha", ["ENTRY"], ["for (unsigned i=0; i<8; i++) {",
-				  "if (i == 4) { if (helper_PUSH<[os]>(msg, &msg.vcpu->oesp, [ENTRY])) return; }"
-				  "else if (helper_PUSH<[os]>(msg, get_reg32(msg, i), [ENTRY])) return; }"]),
+				  "if (i == 4) { if (cache->helper_PUSH<[os]>(&cache->_oesp, [ENTRY])) return; }"
+				  "else if (cache->helper_PUSH<[os]>(cache->get_reg32(i), [ENTRY])) return; }"]),
 	    ("popa", ["ENTRY"], ["unsigned values[8]",
-				 "for (unsigned i=8; i; i--)  if (helper_POP<[os]>(msg, [ENTRY], values+i-1)) return;",
-				 "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(get_reg32(msg, i), values+i)"]),
+				 "for (unsigned i=8; i; i--)  if (cache->helper_POP<[os]>([ENTRY], values+i-1)) return;",
+				 "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(cache->get_reg32(i), values+i)"]),
 	    ]
 
 for x in segment_list:
-    opcodes += [("push %"+x, ["ENTRY"], ["helper_PUSH<[os]>(msg, &msg.cpu->%s.sel, [ENTRY])"%x]),
-		("pop %"+x, ["ENTRY"], ["unsigned sel", "helper_POP<[os]>(msg, [ENTRY], &sel) || set_segment(msg, &msg.cpu->%s, sel)"%x, x == "ss" and "msg.cpu->intr_state |= 2" or ""]),
-		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY", "ENTRY"], ["helper_loadsegment<[os]>(msg, &msg.cpu->%s, [ENTRY])"%x])]
+    opcodes += [("push %"+x, ["ENTRY"], ["cache->helper_PUSH<[os]>(&cache->_cpu->%s.sel, [ENTRY])"%x]),
+		("pop %"+x, ["ENTRY"], ["unsigned sel", "cache->helper_POP<[os]>([ENTRY], &sel) || cache->set_segment(&cache->_cpu->%s, sel)"%x, x == "ss" and "cache->_cpu->intr_state |= 2" or ""]),
+		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY", "ENTRY"], ["cache->helper_loadsegment<[os]>(&cache->_cpu->%s, [ENTRY])"%x])]
 opcodes += [(x, ["FPU", "NO_OS"], [x]) for x in ["fninit"]]
 opcodes += [(x, ["FPU", "NO_OS"], [x+" (%%ecx)"]) for x in ["fnstsw", "fnstcw", "ficom", "ficomp"]]
 opcodes += [(x, ["FPU", "NO_OS", "EAX"], ["fnstsw (%%ecx)"]) for x in ["fnstsw %ax"]]
@@ -418,8 +418,8 @@ opcodes += [(".byte 0xdb, 0xe4 ", ["NO_OS", "COMPLETE"], ["/* fnsetpm, on 287 on
 opcodes += [(x, [x not in ["bt"] and "RMW" or "READONLY", "SAVEFLAGS", "BITS", "ASM"], ["mov (%edx), %eax",
 										       "and  $(8<<[os])-1, %eax",
 											"[lock] "+x+" [EAX],(%ecx)"]) for x in ["bt", "btc", "bts", "btr"]]
-opcodes += [("cmpxchg", ["RMW"], ['char res; asm volatile("mov (%2), %2; [lock] cmpxchg %[EDX], (%3); setz %1" : "+a"(msg.cpu->eax), "=d"(res) : "d"(tmp_src), "c"(tmp_dst))',
-				  "if (res) msg.cpu->efl |= EFL_ZF; else msg.cpu->efl &= EFL_ZF"])]
+opcodes += [("cmpxchg", ["RMW"], ['char res; asm volatile("mov (%2), %2; [lock] cmpxchg %[EDX], (%3); setz %1" : "+a"(cache->_cpu->eax), "=d"(res) : "d"(tmp_src), "c"(tmp_dst))',
+				  "if (res) cache->_cpu->efl |= EFL_ZF; else cache->_cpu->efl &= EFL_ZF"])]
 opcodes += [("xadd", ["RMW", "ASM", "SAVEFLAGS"], ['mov (%edx), [EAX]', '[lock] xadd [EAX], (%ecx)', 'mov [EAX], (%edx)'])]
 
 # unimplemented instructions
