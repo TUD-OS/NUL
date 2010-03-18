@@ -153,24 +153,26 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   // Generate a MSI-X IRQ.
   void MSIX_irq(unsigned nr)
   {
-    Logging::printf("MSI-X IRQ %d | EIMS %02x | C %02x\n", nr,
-		    rVTEIMS, _msix.table[nr].vector_control);
+    Logging::printf("MSI-X IRQ %d | EIMS %02x | EIAC %02x | EIAM %02x | C %02x\n", nr,
+		    rVTEIMS, rVTEIAC, rVTEIAM, _msix.table[nr].vector_control);
     uint32 mask = 1<<nr;
     // Set interrupt cause.
     rVTEICR |= mask;
 
     if ((mask & rVTEIMS) != 0) {
       if ((_msix.table[nr].vector_control & 1) == 0) {
-	Logging::printf("Generating MSI-X IRQ %d\n", nr);
+	Logging::printf("Generating MSI-X IRQ %d (%02x)\n", nr, _msix.table[nr].msg_data & 0xFF);
 	// XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
 	_irqlines.send(msg);
+	
+	// Auto-Clear
+	// XXX Do we auto-clear even if the interrupt cause was masked?
+	// The spec is not clear on this.
+	rVTEICR &= ~(mask & rVTEIAC);
+	rVTEIMS &= ~(mask & rVTEIAM);
+	Logging::printf("MSI-X -> EIMS %02x\n", rVTEIMS);
       }
-      // Auto-Clear
-      // XXX Do we auto-clear even if the interrupt cause was masked?
-      // The spec is not clear on this.
-      rVTEICR &= ~(mask & rVTEIAC);
-      rVTEIMS &= ~(mask & rVTEIAM);
     }
   }
 
