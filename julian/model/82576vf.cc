@@ -41,6 +41,16 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     uint32 &rdt;
     uint32 &rdh;
     uint32 &rdlen;
+    uint32 &srrctl;
+
+    typedef union {
+      uint64 raw[2];
+      struct {
+	uint64 buffer;
+	uint32 status;
+	uint32 sumlen;
+      } legacy;
+    } rx_desc ;
 
     void rxdctl_cb(uint32 old, uint32 val)
     {
@@ -76,18 +86,41 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       
       // assert(rdbah == 0);
       uint64 addr = (static_cast<uint64>(rdbah)<<32 | rdbal) + ((rdh*16) % rdlen);
-      uint64 desc[2];
+      rx_desc desc;
       
       Logging::printf("RX descriptor at %llx\n", addr);
-      MessageMemRead msg(addr, desc, sizeof(desc));
+      MessageMemRead msg(addr, desc.raw, sizeof(desc));
       if (!memread.send(msg)) {
 	Logging::printf("RX descriptor fetch failed.\n");
 	return;
       }
 
-      // XXX Complete
-      #warning incomplete
-      
+      // Which descriptor type?
+      uint8 desc_type = (srrctl >> 25) & 0xF;
+      switch (desc_type) {
+      case 0:			// Legacy
+	{
+	  MessageMemWrite m(desc.legacy.buffer, buf, size);
+	  desc.legacy.status = 0;
+	  if (!memwrite.send(m))
+	    desc.legacy.status |= 0x8000; // RX error
+	  desc.legacy.status |= 0x3; // EOP, DD
+	  desc.legacy.sumlen = size;
+	}
+	break;
+      default:
+	Logging::printf("Invalid descriptor type %x\n", desc_type);
+	break;
+      }
+
+      MessageMemWrite m(addr, desc.raw, sizeof(desc));
+      if (!memwrite.send(m))
+	Logging::printf("RX descriptor store failed.\n");
+
+      // Advance queue head
+      rdh = (((rdh+1)*16 ) % rdlen) / 16;
+
+      // XXX IRQ!
     }
   } _rx_queues[2];
 
@@ -289,8 +322,8 @@ public:
 	       uint32 mem_mmio, uint32 mem_msix) 
     : _mac(mac), _net(net), _irqlines(irqlines),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
-      _rx_queues( {{ 0, memwrite, memread, rRXDCTL0, rRDBAL0, rRDBAH0, rRDT0, rRDH0, rRDLEN0 },
-	           { 1, memwrite, memread, rRXDCTL1, rRDBAL1, rRDBAH1, rRDT1, rRDH1, rRDLEN1 }})
+      _rx_queues( {{ 0, memwrite, memread, rRXDCTL0, rRDBAL0, rRDBAH0, rRDT0, rRDH0, rRDLEN0, rSRRCTL0 },
+	           { 1, memwrite, memread, rRXDCTL1, rRDBAL1, rRDBAH1, rRDT1, rRDH1, rRDLEN1, rSRRCTL1 }})
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
