@@ -152,6 +152,7 @@ public:
     _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
       | (3U<<20 /* adv descriptor */)
       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
+      | (1U<<25 /* Append MAC FCS */)
       | (1U<<27 /* Report Status = IRQ */);
     msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
 
