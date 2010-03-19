@@ -5,7 +5,7 @@
 #include <host/hostvf.h>
 #include <host/host82576.h>
 
-static const unsigned desc_ring_len = 32;
+static const unsigned desc_ring_len = 64;
 
 typedef uint8 packet_buffer[2048];
 
@@ -139,7 +139,7 @@ public:
     // Protect against our own packets. WTF?
     if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
         (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
-    msg(INFO, "Send packet (size %u)\n", nmsg.len);
+    //msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
     // XXX Lock?
     unsigned tail = _hwreg[TDT0];
@@ -154,7 +154,7 @@ public:
       | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
       | (1U<<25 /* Append MAC FCS */)
       | (1U<<27 /* Report Status = IRQ */);
-    msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
+    //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
 
     asm volatile ("sfence" ::: "memory");
     _hwreg[TDT0] = (tail+1) % desc_ring_len;
