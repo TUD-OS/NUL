@@ -203,5 +203,5 @@ protected:
   }
 
 
-  MemTlb(Motherboard &mb) : MemCache(mb) {}
+  MemTlb(DBus<MessageMem> &mem, DBus<MessageMemRegion> &memregion) : MemCache(mem, memregion) {}
 };

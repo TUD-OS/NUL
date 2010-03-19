@@ -42,7 +42,8 @@
 class MemCache
 {
 protected:
-  Motherboard &_mb;
+  DBus<MessageMem>       &_mem;
+  DBus<MessageMemRegion> &_memregion;
   unsigned  _fault;
   unsigned  _error_code;
   unsigned  _debug_fault_line;
@@ -124,7 +125,7 @@ private:
     unsigned long address = _buffers[index]._phys1;
     for (unsigned i=0; i < _buffers[index]._len; i += 4) {
       MessageMem msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
-      _mb.bus_mem.send(msg2, true);
+      _mem.send(msg2, true);
       if ((address & 0xfff) != 0xffc)
 	address += 4;
       else
@@ -206,7 +207,7 @@ public:
 
       // try to get a direct memory reference
       MessageMemRegion msg1(phys1 >> 12);
-      if (_mb.bus_memregion.send(msg1, true) && msg1.ptr && ((phys1 + len) <= ((msg1.start_page + msg1.count) << 12))) {
+      if (_memregion.send(msg1, true) && msg1.ptr && ((phys1 + len) <= ((msg1.start_page + msg1.count) << 12))) {
 	CacheEntry *res = _sets[s]._values + entry;
 	res->_ptr = msg1.ptr + (phys1 - (msg1.start_page << 12));
 	res->_len = len;
@@ -267,7 +268,7 @@ public:
     }
 
 
- MemCache(Motherboard &mb) : _mb(mb), _sets()
+  MemCache(DBus<MessageMem> &mem, DBus<MessageMemRegion> &memregion) : _mem(mem), _memregion(memregion), _sets()
   {
     assert(ASSOZ   >= 2);
     assert(BUFFERS >= 2);

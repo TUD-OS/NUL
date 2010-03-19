@@ -533,7 +533,6 @@ public:
 	      }
 	  }
       }
-    //_cpu->head.mtr = Mtd(mtr_write, 0);
     return true;
   }
 
@@ -564,5 +563,5 @@ public:
     return true;
   }
 
- InstructionCache(Motherboard &mb, VCpu *vcpu) : MemTlb(mb), _values(), _vcpu(vcpu) { }
+ InstructionCache(VCpu *vcpu) : MemTlb(vcpu->mem, vcpu->memregion), _values(), _vcpu(vcpu) { }
 };

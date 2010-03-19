@@ -36,7 +36,7 @@ public:
     return true;
   }
 
-  Halifax(Motherboard &mb, VCpu *vcpu) : InstructionCache(mb, vcpu) {
+  Halifax(VCpu *vcpu) : InstructionCache(vcpu) {
     vcpu->executor.add(this,  &Halifax::receive_static);
   }
 };
@@ -44,6 +44,6 @@ public:
 PARAM(halifax,
       {
 	if (!mb.last_vcpu) Logging::panic("no VCPU for this Halifax");
-	new Halifax(mb, mb.last_vcpu);
+	new Halifax(mb.last_vcpu);
       },
       "halifax - create a halifax that emulatates instructions.");
