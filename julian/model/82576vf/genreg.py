@@ -53,7 +53,7 @@ def dispatch_gen(var, regs, filt, mangle, out, default = ""):
     for r in sorted(regs, important_cmp):
         if filt(r):
             out("\tcase 0x%x: %s break;" % (r['offset']/4, mangle(r) ))
-    out ("\tdefault: Logging::printf(\"--> %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, %s); %s break;" % (var, default))
+    out ("\tdefault: /* Logging::printf(\"--> %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, %s);*/ %s break;" % (var, default))
     out ("\t}")
 
 def read_dispatch_gen(name, regs, out):
@@ -112,7 +112,7 @@ def writer_gen(r, out):
     if 'mutable' in r:
         out("\tnv = (%s & ~0x%xU) | (nv & 0x%xU);" % (target, unsigned(r['mutable']), unsigned(r['mutable'])))
     out("\t%s = nv;" % target)
-    out('\tLogging::printf("WRITE %10s %%x %%x\\n", val, nv);' % r['name'])
+    #out('\tLogging::printf("WRITE %10s %%x %%x\\n", val, nv);' % r['name'])
     if 'callback' in r:
         out("\t%s(old, val);" % r['callback'])
     out("}")
@@ -129,7 +129,7 @@ def reader_gen(r, out):
         out("\tuint32 val = %s;" % r['name'])
     if 'rc' in r:
         out("\t%s &= ~0x%x;\t// RC" % (r['name'], unsigned(r['rc'])))
-    out('\tLogging::printf("READ  %10s %%x\\n", val);' % r['name'])
+    #out('\tLogging::printf("READ  %10s %%x\\n", val);' % r['name'])
     out("\treturn val;")
     out("}")
 
