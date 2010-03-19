@@ -29,8 +29,8 @@ from getpass import getuser
 if sys.version_info < (2, 6):
     print("Your python is OLD! Please upgrade to 2.6.")
 
-def offset_cmp(r1, r2):
-    return r1['offset'] - r2['offset']
+def important_cmp(r1, r2):
+    return r2['important'] - r1['important']
 
 def print_out(s):
     print(s)
@@ -50,7 +50,7 @@ def unsigned(n):
 # profile-guided optimization for hardware models. Good idea?
 def dispatch_gen(var, regs, filt, mangle, out, default = ""):
     out("\tswitch (%s/4) {" % (var))
-    for r in sorted(regs, offset_cmp):
+    for r in sorted(regs, important_cmp):
         if filt(r):
             out("\tcase 0x%x: %s break;" % (r['offset']/4, mangle(r) ))
     out ("\tdefault: Logging::printf(\"--> %%s UNKNOWN %%x\\n\", __PRETTY_FUNCTION__, %s); %s break;" % (var, default))
@@ -112,7 +112,6 @@ def writer_gen(r, out):
     if 'mutable' in r:
         out("\tnv = (%s & ~0x%xU) | (nv & 0x%xU);" % (target, unsigned(r['mutable']), unsigned(r['mutable'])))
     out("\t%s = nv;" % target)
-
     out('\tLogging::printf("WRITE %10s %%x %%x\\n", val, nv);' % r['name'])
     if 'callback' in r:
         out("\t%s(old, val);" % r['callback'])
@@ -149,6 +148,8 @@ def class_gen(name, rset, out):
     out("/// Generated on %s by %s" % (strftime("%a, %d %b %Y %H:%M:%S", gmtime()), getuser()))
     for r in rset:
         assert r['offset'] % 4 == 0
+        if 'important' not in r:
+            r['important'] = -100
         if 'constant' in r:
             assert 'initial' in r
             r['read-only'] = True
