@@ -20,6 +20,8 @@
 // - handle BAR remapping
 // - RXDCTL.enable (bit 25) may be racy
 // - receive path does not set packet type in RX descriptor
+// - TX legacy descriptors
+// - interrupt thresholds
 
 
 class Model82576vf : public StaticReceiver<Model82576vf>
@@ -29,6 +31,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   DBus<MessageIrq>      &_irqlines;
   DBus<MessageMemWrite> &_memwrite;
   DBus<MessageMemRead>  &_memread;
+  DBus<MessageMemAlloc> &_memalloc;
 
   Clock                 *_clock;
   DBus<MessageTimer>    &_timer;
@@ -71,6 +74,13 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     typedef union {
       uint64 raw[2];
+      struct {
+	uint64 buffer;
+	uint16 dtalen;
+	uint8  dtypmacrsv;
+	uint8  dcmd;
+	uint32 pay;
+      } advanced;
     } tx_desc;
 
     enum {
@@ -123,6 +133,53 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  Logging::printf("TX descriptor fetch failed.\n");
 	  return;
 	}
+	
+	if ((desc.raw[1] & (1<<29)) == 0) {
+	  Logging::printf("TX legacy descriptor: XXX\n");
+	  // XXX Not implemented!
+	} else {
+	  uint8 dtyp = (desc.raw[1] >> 20) & 0xF;
+	  switch (dtyp) {
+	  case 2:
+	    Logging::printf("TX advanced context descriptor XXX\n");
+	    // XXX Not implemented!
+	    break;
+	  case 3: 
+	    {
+	      uint32 payload_len = desc.advanced.pay >> 14;
+	      uint32 data_len = desc.advanced.dtalen;
+	      Logging::printf("TX advanced data descriptor: %x %x %x\n",
+			    desc.advanced.dcmd, data_len, payload_len);
+	      if ((desc.advanced.dcmd & (1<<5)) == 0)
+		Logging::printf("TX bad descriptor\n");
+	      
+	      // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+	      // Only the most basic TX descriptor
+	      if (desc.advanced.dcmd == 0x2b) {
+		// EOP, IFCS, RS
+		const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
+		MessageNetwork m(data, data_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
+		parent->_net.send(m);
+		desc.advanced.pay = 1;
+		
+		MessageMemWrite msg(addr, desc.raw, sizeof(desc));
+		if (!parent->_memwrite.send(msg)) {
+		  Logging::printf("TX descriptor writeback failed.\n");
+		  return;
+		}
+
+		if ((desc.advanced.dcmd & (1<<3) /* Report Status */) != 0)
+		  parent->TX_irq(n);
+	      } else {
+		Logging::printf("TX descriptor complicated... fail.\n");
+	      }
+	    }
+	    break;
+	  default:
+	    Logging::printf("TX unknown descriptor?\n");
+	  }
+	}
+
 	  
 	// Advance queue head
 	asm ( "" ::: "memory");
@@ -180,6 +237,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       } advanced_write;
     } rx_desc;
 
+    struct {
+      
+    } context[8];
+
     enum {
       RDBAL  = 0x800/4,
       RDBAH  = 0x804/4,
@@ -222,16 +283,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 rxdctl = regs[RXDCTL];
 
       Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
-      if ((rxdctl & (1<<25)) == 0) {
-      	Logging::printf("Dropped packet: Queue %u not enabled.\n", n);
-      	return;
-      }
-      if (rdlen == 0) {
-      	Logging::printf("Dropped packet: Queue %u has zero size.\n", n);
-      	return;
-      }
-      if (rdt == rdh) {
-      	Logging::printf("Dropped packet: Queue %u has no receive descriptors available.\n", n);
+      if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */) 
+	  || (rdlen == 0) || (rdt == rdh)) {
+	// Drop
       	return;
       }
 
@@ -278,7 +332,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       
       MessageMemWrite m(addr, desc.raw, sizeof(desc));
       if (!parent->_memwrite.send(m))
-       	Logging::printf("RX descriptor store failed.\n");
+       	Logging::printf("RX descriptor writeback failed.\n");
 
       // Advance queue head
       asm ( "" ::: "memory");
@@ -320,6 +374,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     return 0;
   }
 
+  void *guestmem(uint64 addr)
+  {
+    void *r;
+    Logging::printf("Trying to get pointer to %llx.\n", addr);
+    // XXX Don't panic here
+    // XXX We don't use the interface the way it is intended...
+    MessageMemAlloc m(&r, addr, ~0xFFFUL);
+    if (!_memalloc.send(m))
+      Logging::panic("Address translation failed.\n");
+    return r;
+  }
+
   // Generate a MSI-X IRQ.
   void MSIX_irq(unsigned nr)
   {
@@ -338,7 +404,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
 	// Auto-Clear
 	// XXX Do we auto-clear even if the interrupt cause was masked?
-	// The spec is not clear on this.
+	// The spec is not clear on this. At least not to me...
 	rVTEICR &= ~(mask & rVTEIAC);
 	rVTEIMS &= ~(mask & rVTEIAM);
 	Logging::printf("MSI-X -> EIMS %02x\n", rVTEIMS);
@@ -507,8 +573,9 @@ public:
 
   bool receive(MessageNetwork &msg)
   {
-    // We just receive all.
-    // XXX Check if we just sent this.
+    // XXX Hack. Avoid our own packets.
+    if (msg.client == 23) return false;
+
     _rx_queues[0].receive_packet(msg.buffer, msg.len);
     return true;
   }
@@ -565,11 +632,11 @@ public:
     
 
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net, DBus<MessageIrq> &irqlines,
-	       DBus<MessageMemWrite> &memwrite, DBus<MessageMemRead> &memread,
+	       DBus<MessageMemWrite> &memwrite, DBus<MessageMemRead> &memread, DBus<MessageMemAlloc> &memalloc,
 	       Clock *clock, DBus<MessageTimer> &timer,
 	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us)
     : _mac(mac), _net(net), _irqlines(irqlines),
-      _memwrite(memwrite), _memread(memread),
+      _memwrite(memwrite), _memread(memread),  _memalloc(memalloc),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
       _txpoll_us(txpoll_us)
@@ -617,7 +684,7 @@ PARAM(82576vf,
 	Model82576vf *dev = new Model82576vf( //static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
 					     0xe8e24d211b00ULL,
 					     mb.bus_network, mb.bus_irqlines,
-					     mb.bus_memwrite, mb.bus_memread,
+					     mb.bus_memwrite, mb.bus_memread, mb.bus_memalloc,
 					     mb.clock(), mb.bus_timer,
 					     argv[0], argv[1], (argv[2] == ~0U) ? 1000000 : argv[2] );
 	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
