@@ -72,6 +72,8 @@ static const unsigned short modrminfo[64] =
   };
 
 
+class InstructionCache;
+
 /**
  * The data that is cached between different runs.
  */
@@ -95,7 +97,6 @@ struct InstructionCacheEntry
   void     *dst;
   unsigned immediate;
 };
-
 
 
 /**
@@ -146,6 +147,7 @@ class InstructionCache : public MemTlb
 
   // cpu state
   VCpu   * _vcpu;
+  InstructionCacheEntry *_entry;
   unsigned _oeip;
   unsigned _oesp;
   unsigned _ointr_state;
@@ -222,27 +224,27 @@ class InstructionCache : public MemTlb
   /**
    * Fetch the modrm byte including sib byte and displacement.
    */
-  int get_modrm(InstructionCacheEntry *entry)
+  int get_modrm()
   {
-    fetch_code(entry, 1);
-    unsigned char  modrm = entry->data[entry->inst_len - 1];
-    unsigned short info = modrminfo[(entry->address_size == 2) << 5 | (modrm >> 3) & 0x18 | modrm & 0x7];
+    fetch_code(_entry, 1);
+    unsigned char  modrm = _entry->data[_entry->inst_len - 1];
+    unsigned short info = modrminfo[(_entry->address_size == 2) << 5 | (modrm >> 3) & 0x18 | modrm & 0x7];
 
     // sib byte
     if (info & MRM_SIB)
       {
-	fetch_code(entry, 1);
-	if ((modrm & 0xc7) == 0x4 && (entry->data[entry->inst_len - 1] & 0x7) == 5) info |= MRM_DISP32 | MRM_NOBASE;
-	info = info & ~0xff | entry->data[entry->inst_len - 1];
+	fetch_code(_entry, 1);
+	if ((modrm & 0xc7) == 0x4 && (_entry->data[_entry->inst_len - 1] & 0x7) == 5) info |= MRM_DISP32 | MRM_NOBASE;
+	info = info & ~0xff | _entry->data[_entry->inst_len - 1];
 	if (((info >> 3) & 0xf) == 4) info |= MRM_NOINDEX;
       }
     unsigned disp = ((info >> MRM_DISPSHIFT) & 0x3);
-    if (disp)  fetch_code(entry, 1 << (disp-1));
-    entry->modrminfo = info;
+    if (disp)  fetch_code(_entry, 1 << (disp-1));
+    _entry->modrminfo = info;
 
     // in 16bit addressing mode bp-references are using the stack segment as default
-    if ((entry->address_size == 1) && ((entry->prefixes & 0xff00) == 0x8300) && ((info & 0xf0) == 0x50))
-      entry->prefixes = (entry->prefixes & ~0xff00) | 0x200;
+    if ((_entry->address_size == 1) && ((_entry->prefixes & 0xff00) == 0x8300) && ((info & 0xf0) == 0x50))
+      _entry->prefixes = (_entry->prefixes & ~0xff00) | 0x200;
 
     return _fault;
   }
@@ -257,15 +259,15 @@ public:
   /**
    * Decode the instruction.
    */
-  int get_instruction(InstructionCacheEntry *&entry)
+  int get_instruction()
   {
     //COUNTER_INC("INSTR");
     unsigned index = 0;
     if (!find_entry(index) && !_fault)
       {
-	entry = _values + index;
-	entry->address_size = entry->operand_size = ((entry->cs_ar >> 10) & 1) + 1;
-	for (int op_mode = 0; !entry->execute && !_fault; )
+	_entry = _values + index;
+	_entry->address_size = _entry->operand_size = ((_entry->cs_ar >> 10) & 1) + 1;
+	for (int op_mode = 0; !_entry->execute && !_fault; )
 	  {
 	    /**
 	     * Handle a new byte of the instruction.
@@ -273,12 +275,12 @@ public:
 	     * The op_mode, keeps track which parts of the opcode bytes have
 	     * already been seen.  Negative if the whole instruction is fetched.
 	     */
-	    fetch_code(entry, 1) || handle_code_byte(entry, entry->data[entry->inst_len-1], op_mode);
+	    fetch_code(_entry, 1) || handle_code_byte(_entry, _entry->data[_entry->inst_len-1], op_mode);
 	  }
 	if (_fault)
 	  {
 	    // invalidate entry
-	    entry->inst_len = 0;
+	    _entry->inst_len = 0;
 	    Logging::printf("decode fault %x\n", _fault);
 	    return _fault;
 	  }
@@ -286,16 +288,16 @@ public:
 	assert(_values[index].execute);
 	//COUNTER_INC("decoded");
       }
-    entry = _values + index;
-    _cpu->eip += entry->inst_len;
+    _entry = _values + index;
+    _cpu->eip += _entry->inst_len;
     if (debug)
       {
-	Logging::printf("eip %x:%x esp %x eax %x ebp %x prefix %x\n", _cpu->cs.sel, _oeip, _oesp, _cpu->eax, _cpu->ebp, entry->prefixes);
+	Logging::printf("eip %x:%x esp %x eax %x ebp %x prefix %x\n", _cpu->cs.sel, _oeip, _oesp, _cpu->eax, _cpu->ebp, _entry->prefixes);
 	if (_oeip == 0xf69)
 	  Logging::panic("done bp %x\n", _cpu->ebp);
 	Logging::printf(".byte ");
-	for (unsigned i = 0; i < entry->inst_len; i++)
-	    Logging::printf("0x%02x%c", entry->data[i], (i == entry->inst_len - 1) ? '\n' : ',');
+	for (unsigned i = 0; i < _entry->inst_len; i++)
+	    Logging::printf("0x%02x%c", _entry->data[i], (i == _entry->inst_len - 1) ? '\n' : ',');
       }
     return _fault;
   }
@@ -319,11 +321,11 @@ public:
 
 
 
-  unsigned modrm2virt(InstructionCacheEntry *entry)
+  unsigned modrm2virt()
   {
-    unsigned short info = entry->modrminfo;
+    unsigned short info = _entry->modrminfo;
     unsigned virt = 0;
-    unsigned char *disp_offset = entry->data + entry->offset_opcode + 1;
+    unsigned char *disp_offset = _entry->data + _entry->offset_opcode + 1;
     if (info & MRM_SIB)
       {
 	// add base + scaled index
@@ -346,18 +348,18 @@ public:
       default:
 	break;
       }
-    if (entry->flags & IC_BITS)
+    if (_entry->flags & IC_BITS)
       {
-	unsigned bitofs = *get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7);
-	virt += (bitofs >> 3) & ~((1 << entry->operand_size) - 1);
+	unsigned bitofs = *get_reg32((_entry->data[_entry->offset_opcode] >> 3) & 0x7);
+	virt += (bitofs >> 3) & ~((1 << _entry->operand_size) - 1);
       }
     return virt;
   }
 
 
-  int virt_to_ptr(InstructionCacheEntry *entry, void *&res, unsigned length, Type type, unsigned virt)
+  int virt_to_ptr(void *&res, unsigned length, Type type, unsigned virt)
   {
-    InstructionCache::handle_segment(entry, (&_cpu->es) + ((entry->prefixes >> 8) & 0x0f), virt, length, type & TYPE_W)
+    InstructionCache::handle_segment((&_cpu->es) + ((_entry->prefixes >> 8) & 0x0f), virt, length, type & TYPE_W)
       || prepare_virtual(virt, length, type, res);
     return _fault;
   }
@@ -366,46 +368,46 @@ public:
   /**
    * Convert modrm to a pointer in cache or RAM.
    */
-  int modrm2mem(InstructionCacheEntry *entry, void *&res, unsigned length, Type type)
+  int modrm2mem(void *&res, unsigned length, Type type)
   {
-    unsigned short info = entry->modrminfo;
+    unsigned short info = _entry->modrminfo;
     if (info & MRM_REG)
 	res = length == 1 ? get_reg<1>(info & 0x7) : get_reg<0>(info & 0x7);
     else
-      virt_to_ptr(entry, res, length, type, modrm2virt(entry));
+      virt_to_ptr(res, length, type, modrm2virt());
     return _fault;
   }
 
 
-  void call_asm(void *tmp_src, void *tmp_dst, InstructionCacheEntry *entry)
+  void call_asm(void *tmp_src, void *tmp_dst)
   {
     unsigned tmp_flag;
     unsigned dummy1, dummy2, dummy3;
-    switch (entry->flags & (IC_LOADFLAGS | IC_SAVEFLAGS))
+    switch (_entry->flags & (IC_LOADFLAGS | IC_SAVEFLAGS))
       {
       case IC_SAVEFLAGS:
 	asm volatile ("call *%4; pushf; pop %3"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "=g"(tmp_flag)
-		      : "m"(entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
+		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	_cpu->efl = (_cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       case IC_LOADFLAGS:
 	tmp_flag = _cpu->efl & 0x8d5;
 	asm volatile ("push %3; popf; call *%4;"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
-		      : "m"(entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
+		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	break;
       case IC_LOADFLAGS | IC_SAVEFLAGS:
 	tmp_flag = _cpu->efl & 0x8d5;
 	asm volatile ("push %3; popf; call *%4; pushf; pop %3"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
-		      : "m"(entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
+		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	_cpu->efl = (_cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
 	break;
       default:
 	asm volatile ("call *%3;"
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3)
-		      : "m"(entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
+		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	break;
       }
   }
@@ -414,44 +416,44 @@ public:
   /**
    * Execute the instruction.
    */
-  int execute(InstructionCacheEntry *entry)
+  int execute()
   {
 
     //COUNTER_INC("executed");
-    assert(entry->execute);
-    bool is_byte = entry->flags & IC_BYTE;
-    void *tmp_src = entry->src;
-    void *tmp_dst = entry->dst;
+    assert(_entry->execute);
+    bool is_byte = _entry->flags & IC_BYTE;
+    void *tmp_src = _entry->src;
+    void *tmp_dst = _entry->dst;
 
-    if (((entry->prefixes & 0xff) == 0xf0) && ((~entry->flags & IC_LOCK) || (entry->modrminfo & MRM_REG)))
+    if (((_entry->prefixes & 0xff) == 0xf0) && ((~_entry->flags & IC_LOCK) || (_entry->modrminfo & MRM_REG)))
       {
-	Logging::panic("LOCK prefix %02x%02x%02x%02x at eip %x\n", entry->data[0], entry->data[1], entry->data[2], entry->data[3], _cpu->eip);
+	Logging::panic("LOCK prefix %02x%02x%02x%02x at eip %x\n", _entry->data[0], _entry->data[1], _entry->data[2], _entry->data[3], _cpu->eip);
 	UD0;
       }
 
     Type type = TYPE_R;
-    if (!(entry->flags & (IC_DIRECTION | IC_READONLY))) type = TYPE_W;
-    if (entry->flags & IC_RMW) type = Type(type | TYPE_R);
-    if (entry->flags & IC_MODRM)
+    if (!(_entry->flags & (IC_DIRECTION | IC_READONLY))) type = TYPE_W;
+    if (_entry->flags & IC_RMW) type = Type(type | TYPE_R);
+    if (_entry->flags & IC_MODRM)
       {
-	if (modrm2mem(entry, tmp_dst, is_byte ? 1 : 1 << entry->operand_size, type)) return _fault;
+	if (modrm2mem(tmp_dst, is_byte ? 1 : 1 << _entry->operand_size, type)) return _fault;
       }
-    if (entry->flags & IC_MOFS)
+    if (_entry->flags & IC_MOFS)
       {
 	unsigned virt = 0;
-	move(&virt, entry->data+entry->offset_opcode, entry->address_size);
-	if (virt_to_ptr(entry, tmp_dst, is_byte ? 1 : 1 << entry->operand_size, type, virt)) return _fault;
+	move(&virt, _entry->data+_entry->offset_opcode, _entry->address_size);
+	if (virt_to_ptr(tmp_dst, is_byte ? 1 : 1 << _entry->operand_size, type, virt)) return _fault;
       }
-    if (entry->flags & IC_DIRECTION)
+    if (_entry->flags & IC_DIRECTION)
       {
 	void *tmp = tmp_src;
 	tmp_src = tmp_dst;
 	tmp_dst = tmp;
       }
-    if (entry->flags & IC_ASM)
-      call_asm(tmp_src, tmp_dst, entry);
+    if (_entry->flags & IC_ASM)
+      call_asm(tmp_src, tmp_dst);
     else
-      entry->execute(this, tmp_src, tmp_dst);
+      _entry->execute(this, tmp_src, tmp_dst);
 
     /**
      * Have we accessed more than we are allowed to?
@@ -471,7 +473,7 @@ public:
   /**
    * Commits the instruction by setting the appropriate UTCB fields.
    */
-  bool commit(InstructionCacheEntry *entry)
+  bool commit()
   {
     // irq blocking propagation
     if (_fault)  _cpu->intr_state = _ointr_state;
@@ -490,7 +492,7 @@ public:
 	_cpu->esp = _oesp;
 	if (_fault > 0)
 	  {
-	    if (entry)  _cpu->inst_len = entry->inst_len; else _cpu->inst_len = 0;
+	    if (_entry)  _cpu->inst_len = _entry->inst_len; else _cpu->inst_len = 0;
 	    switch (_fault)
 	      {
 	      case FAULT_UNIMPLEMENTED:
@@ -547,15 +549,15 @@ public:
 
   bool step() {
 
-    InstructionCacheEntry *entry = 0;
+    _entry = 0;
     _fault = 0;
     _oeip = _cpu->eip;
     _oesp = _cpu->esp;
     _ointr_state = _cpu->intr_state;
     // remove sti+movss blocking
     _cpu->intr_state &= ~3;
-    event_injection() || get_instruction(entry) || execute(entry);
-    return commit(entry);
+    event_injection() || get_instruction() || execute();
+    return commit();
   }
 
   bool leave() {

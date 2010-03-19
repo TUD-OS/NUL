@@ -120,7 +120,6 @@ def filter_chars(snippet, op_size, flags):
 		("[EDX]", ("%dl","%dx", "%edx")[op_size]),
 		("[IMM]", filter(lambda x: x in ["IMM1", "IMM2", "IMMO", "CONST1"], flags) and "1" or "0"),
 		("[OP1]", "OP1" in flags and "1" or "0"),
-		("[ENTRY]", ("reinterpret_cast<InstructionCacheEntry *>(tmp_src)", "reinterpret_cast<InstructionCacheEntry *>(tmp_dst)")["DIRECTION" in flags]),
 		("[IMMU]", "IMM1" in flags and "unsigned char" or "unsigned")]:
 	snippet = map(lambda x: x.replace(m, n), snippet)
     return snippet
@@ -148,7 +147,6 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
 		 ("IMPL",    "entry->dst = get_reg<%d>(entry->data[entry->offset_opcode-1] & 0x7)"%("BYTE" in flags)),
 		 ("ECX",     "entry->src = &_cpu->ecx"),
 		 ("EDX",     "entry->%s = &_cpu->edx"%("DIRECTION" in flags and "dst" or "src")),
-		 ("ENTRY",   "entry->src = entry"),
 		 ("EAX",     "entry->%s = &_cpu->eax"%("DIRECTION" in flags and "src" or "dst")),
 		 ]
     l2.extend(filter(lambda x: x, map(lambda x: x[0] in flags and x[1] or "", additions)))
@@ -199,7 +197,7 @@ def generate_code(encodings):
 		l2 = []
 		if "PREFIX" in flags:  l2.extend(snippet)
 		if "MODRM"  in flags:
-		    l2.append("get_modrm(entry)")
+		    l2.append("get_modrm()")
 		    if "GRP" not in flags:
 			l2.append("entry->%s = get_reg<%d>((entry->data[entry->offset_opcode] >> 3) & 0x7)"%("src", "BYTE" in flags))
 		if l == len(enc)-2:
@@ -258,7 +256,7 @@ def print_code(code, functions):
 		print l,";"
 	    print "break; }"
 	print """default:
-	      fetch_code( entry, 4);
+	      fetch_code(entry, 4);
 	      Logging::printf("unimplemented case %x at line %d code %02x%02x%02x\\n", code, __LINE__, entry->data[0], entry->data[1], entry->data[2]);
 	      UNIMPLEMENTED(this);
 	  }
@@ -320,37 +318,36 @@ for i in range(len(ccflags)):
     ccflag = ccflags[i]
     opcodes += [("set" +ccflag, ["BYTE",   "ASM", "LOADFLAGS"], ["set%s (%%ecx)"%ccflag])]
     opcodes += [("cmov"+ccflag, ["NO_OS",  "ASM", "LOADFLAGS",  "OS2"], ["j%s 1f"%(ccflags[i ^ 1]), "mov (%edx), %eax", "mov %eax, (%ecx)", "1:"])]
-    opcodes += [("j"+ccflag,    ["JMP",   "ASM", "ENTRY", "LOADFLAGS", "DIRECTION"],
-		 ['int (*foo)(InstructionCache *, void *, InstructionCacheEntry *) = helper_JMP_static<[os]>',
+    opcodes += [("j"+ccflag,    ["JMP",   "ASM", "LOADFLAGS", "DIRECTION"],
+		 ['int (*foo)(InstructionCache *, void *) = helper_JMP_static<[os]>',
 		  'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
-opcodes += [(x, [x[-1] == "b" and "BYTE", "ENTRY"], [
-	    "InstructionCacheEntry *entry = reinterpret_cast<InstructionCacheEntry *>(tmp_dst)",
-	    "tmp_dst = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
-	    """asm volatile("movl (%%2), %%0; [data16] %s (%%1), %%0; mov %%0, (%%2)" : "+a"(entry), "+d"(tmp_src), "+c"(tmp_dst))"""%x])
+opcodes += [(x, [x[-1] == "b" and "BYTE"], [
+            "unsigned dummy",
+	    "tmp_dst = cache->get_reg32((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
+	    """asm volatile("movl (%%2), %%0; [data16] %s (%%1), %%0; mov %%0, (%%2)" : "=a"(dummy), "+d"(tmp_src), "+c"(tmp_dst))"""%x])
 	    for x in ["movzxb", "movzxw", "movsxb", "movsxw"]]
 
 def add_helper(l, flags, params):
-    if "[ENTRY]" in params: flags.append("ENTRY")
     for x in l:
 	name = reduce(lambda x,y: x.replace(y, "_"), "% ,", x.upper())
 	if "NO_OS" not in flags: name += "<[os]>"
 	opcodes.append((x, flags, ["cache->helper_%s(%s)"%(name, params or "")]))
-add_helper(["push", "lret", "ret"],                              ["DIRECTION"], "tmp_src, [ENTRY]")
+add_helper(["push", "lret", "ret"],                              ["DIRECTION"], "tmp_src")
 add_helper(["int"],                                              ["NO_OS"], "tmp_src")
 add_helper(["ljmp", "lcall", "call", "jmp",  "jecxz", "loop", "loope", "loopne"],
-	   ["JMP", "DIRECTION"], "tmp_src, [ENTRY]")
+	   ["JMP", "DIRECTION"], "tmp_src")
 add_helper(["in", "out"],                                        [],       "*reinterpret_cast<[IMMU] *>(tmp_src), &cache->_cpu->eax")
-add_helper(["popf", "pushf", "leave", "iret"],                   [], "[ENTRY]")
-add_helper(["pop"],                                              [], "[ENTRY], tmp_dst")
-add_helper(["lea", "lgdt", "lidt"],                              ["MEMONLY", "DIRECTION", "SKIPMODRM"], "[ENTRY]")
-add_helper(["sgdt", "sidt"],                                     ["MEMONLY", "SKIPMODRM"], "[ENTRY]")
+add_helper(["popf", "pushf", "leave", "iret"],                   [], "")
+add_helper(["pop"],                                              [], "tmp_dst")
+add_helper(["lea", "lgdt", "lidt"],                              ["MEMONLY", "DIRECTION", "SKIPMODRM"], "")
+add_helper(["sgdt", "sidt"],                                     ["MEMONLY", "SKIPMODRM"], "")
 
-add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS"], "[ENTRY]")
+add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
 add_helper(["ltr", "lldt"],                                      ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
 add_helper(["hlt", "sti", "cli", "clts", "int3", "into", "wbinvd",  "invd", "fwait", "ud2a", "sysenter", "sysexit"], ["NO_OS"], "")
-add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM"], "[ENTRY]")
-add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS"], "[ENTRY]")
-add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "[ENTRY]");
+add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM"], "")
+add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
+add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "");
 
 stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "ins" : "SH_SAVE_EDI | SH_DOOP_IN",
@@ -359,7 +356,7 @@ stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "scas": "SH_LOAD_EDI | SH_DOOP_CMP",
 	     "stos": "SH_SAVE_EDI",
 	     "lods": "SH_LOAD_ESI | SH_SAVE_EAX"}
-opcodes += [(x, ["ENTRY"], ["cache->string_helper<%s, [os]>([ENTRY])"%stringops[x]]) for x in stringops.keys()]
+opcodes += [(x, [], ["cache->string_helper<%s, [os]>()"%stringops[x]]) for x in stringops.keys()]
 opcodes += [(x, [], ["cache->send_message(CpuMessage::TYPE_%s)"%(x.upper())]) for x in ["cpuid", "rdtsc", "rdmsr", "wrmsr"]]
 opcodes += [(x, ["DIRECTION"], [
 	    # 'Logging::printf("%s(%%x, %%x)\\n", cache->_cpu->eax, *reinterpret_cast<unsigned *>(tmp_dst))'%x,
@@ -373,18 +370,16 @@ opcodes += [(x, ["DIRECTION"], [
 	    "cache->_cpu->eax = eax",
 	    "cache->_cpu->edx = edx",
 	    ]) for x in ["div", "idiv", "mul"]]
-opcodes += [(x, ["ENTRY", "RMW"], ["unsigned count",
-			    "InstructionCacheEntry *entry = [ENTRY]",
-			    "if ([IMM]) count = entry->immediate; else count = cache->_cpu->ecx",
-			    "tmp_src = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
+opcodes += [(x, ["RMW"], ["unsigned count",
+			    "if ([IMM]) count = cache->_entry->immediate; else count = cache->_cpu->ecx",
+			    "tmp_src = cache->get_reg32((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
 			    'asm volatile ("xchg %%eax, %%ecx; mov (%%edx), %%edx; [data16] '+
 			    x+' %%cl, %%edx, (%%eax); pushf; pop %%eax" : "+a"(count), "+d"(tmp_src), "+c"(tmp_dst))',
 			    "cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (count  & 0x8d5)"])
 	    for x in ["shrd", "shld"]]
-opcodes += [("imul", ["ENTRY", "DIRECTION"], ["unsigned param, result",
-				 "InstructionCacheEntry *entry = [ENTRY]",
-				 "tmp_dst = cache->get_reg32((entry->data[entry->offset_opcode] >> 3) & 0x7)",
-				 "if ([IMM]) param = entry->immediate; else if ([OP1]) param = cache->_cpu->eax; else move<[os]>(&param, tmp_dst);",
+opcodes += [("imul", ["DIRECTION"], ["unsigned param, result",
+				 "tmp_dst = cache->get_reg32((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
+				 "if ([IMM]) param = cache->_entry->immediate; else if ([OP1]) param = cache->_cpu->eax; else move<[os]>(&param, tmp_dst);",
 				 # 'Logging::printf("IMUL %x * %x\\n", param, *reinterpret_cast<unsigned *>(tmp_src))',
 				 'asm volatile ("imul[bwl] (%%ecx); pushf; pop %%ecx" : "+a"(param), "=d"(result), "+c"(tmp_src))',
 				 "cache->_cpu->efl = (cache->_cpu->efl & ~0x8d5) | (reinterpret_cast<unsigned>(tmp_src)  & 0x8d5)",
@@ -393,24 +388,24 @@ opcodes += [("imul", ["ENTRY", "DIRECTION"], ["unsigned param, result",
 				 "if (![OP1]) move<[os]>(tmp_dst, &param)",
 				 # 'Logging::printf("IMUL %x:%x\\n", result, param)',
 				 ])]
-opcodes += [("mov %es,%edx", ["MODRM", "DROP1", "ENTRY"], [
-	    "CpuState::Descriptor *dsc = &cache->_cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7)",
+opcodes += [("mov %es,%edx", ["MODRM", "DROP1"], [
+	    "CpuState::Descriptor *dsc = &cache->_cpu->es + ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
 	    "move<[os]>(tmp_dst, &(dsc->sel))"]),
-	    ("mov %edx,%es", ["MODRM", "DROP1", "ENTRY", "DIRECTION"], [
-	    "if ((([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7) == 2) cache->_cpu->intr_state |= 2",
-	    "cache->set_segment(&cache->_cpu->es + (([ENTRY]->data[[ENTRY]->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
-	    ("pusha", ["ENTRY"], ["for (unsigned i=0; i<8; i++) {",
-				  "if (i == 4) { if (cache->helper_PUSH<[os]>(&cache->_oesp, [ENTRY])) return; }"
-				  "else if (cache->helper_PUSH<[os]>(cache->get_reg32(i), [ENTRY])) return; }"]),
-	    ("popa", ["ENTRY"], ["unsigned values[8]",
-				 "for (unsigned i=8; i; i--)  if (cache->helper_POP<[os]>([ENTRY], values+i-1)) return;",
-				 "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(cache->get_reg32(i), values+i)"]),
+	    ("mov %edx,%es", ["MODRM", "DROP1", "DIRECTION"], [
+	    "if (((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7) == 2) cache->_cpu->intr_state |= 2",
+	    "cache->set_segment(&cache->_cpu->es + ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7), *reinterpret_cast<unsigned short *>(tmp_src))"]),
+	    ("pusha", [], ["for (unsigned i=0; i<8; i++) {",
+                           "if (i == 4) { if (cache->helper_PUSH<[os]>(&cache->_oesp)) return; }"
+                           "else if (cache->helper_PUSH<[os]>(cache->get_reg32(i))) return; }"]),
+	    ("popa", [], ["unsigned values[8]",
+                          "for (unsigned i=8; i; i--)  if (cache->helper_POP<[os]>(values+i-1)) return;",
+                          "for (unsigned i=0; i < 8; i++) if (i!=4) move<[os]>(cache->get_reg32(i), values+i)"]),
 	    ]
 
 for x in segment_list:
-    opcodes += [("push %"+x, ["ENTRY"], ["cache->helper_PUSH<[os]>(&cache->_cpu->%s.sel, [ENTRY])"%x]),
-		("pop %"+x, ["ENTRY"], ["unsigned sel", "cache->helper_POP<[os]>([ENTRY], &sel) || cache->set_segment(&cache->_cpu->%s, sel)"%x, x == "ss" and "cache->_cpu->intr_state |= 2" or ""]),
-		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY", "ENTRY"], ["cache->helper_loadsegment<[os]>(&cache->_cpu->%s, [ENTRY])"%x])]
+    opcodes += [("push %"+x, [], ["cache->helper_PUSH<[os]>(&cache->_cpu->%s.sel)"%x]),
+		("pop %"+x, [], ["unsigned sel", "cache->helper_POP<[os]>(&sel) || cache->set_segment(&cache->_cpu->%s, sel)"%x, x == "ss" and "cache->_cpu->intr_state |= 2" or ""]),
+		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY"], ["cache->helper_loadsegment<[os]>(&cache->_cpu->%s)"%x])]
 opcodes += [(x, ["FPU", "NO_OS"], [x]) for x in ["fninit"]]
 opcodes += [(x, ["FPU", "NO_OS"], [x+" (%%ecx)"]) for x in ["fnstsw", "fnstcw", "ficom", "ficomp"]]
 opcodes += [(x, ["FPU", "NO_OS", "EAX"], ["fnstsw (%%ecx)"]) for x in ["fnstsw %ax"]]
