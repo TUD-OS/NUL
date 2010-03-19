@@ -39,13 +39,6 @@ enum {
   FAULT_RETRY,
   FAULT_RECALL,
   FAULT_UNIMPLEMENTED,
-  FAULT_CPUID,
-  FAULT_RDTSC,
-  FAULT_RDMSR,
-  FAULT_WRMSR,
-  FAULT_HLT,
-  FAULT_INVD,
-  FAULT_WBINVD,
 };
 
 #include "memtlb.h"
@@ -152,12 +145,20 @@ class InstructionCache : public MemTlb
 
 
   // cpu state
+  VCpu   * _vcpu;
   unsigned _oeip;
   unsigned _oesp;
   unsigned _ointr_state;
   unsigned _dr6;
   unsigned _dr[4];
   unsigned _fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
+
+  int send_message(CpuMessage::Type type)
+  {
+    CpuMessage msg(type, _cpu, _mtr_in);
+    _vcpu->executor.send(msg, true);
+    return _fault;
+  }
 
   int event_injection()
   {
@@ -481,7 +482,6 @@ public:
       {
 	// successfull
 	//invalidate(true);
-	_cpu->head._pid = 0;
       }
     else
       {
@@ -497,27 +497,6 @@ public:
 		Logging::printf("unimplemented at line %d eip %x\n", _debug_fault_line, _cpu->eip);
 		// unimplemented
 		return false;
-	      case FAULT_CPUID:
-		// forward to the cpuid portal
-		// XXX unify portal-ID and faultNR
-		_cpu->head._pid = 10;
-		break;
-		// XXX own exits
-	      case FAULT_WBINVD:
-	      case FAULT_INVD:
-	      case FAULT_HLT:
-		_cpu->head._pid = 12;
-		break;
-	      case FAULT_RDTSC:
-		// forward to the rdtsc portal
-		_cpu->head._pid = 16;
-		break;
-	      case FAULT_RDMSR:
-		_cpu->head._pid = 31;
-		break;
-	      case FAULT_WRMSR:
-		_cpu->head._pid = 32;
-		break;
 	      default:
 		Logging::panic("internal fault %x at eip %x\n", _fault, _cpu->eip);
 	      }
@@ -536,7 +515,9 @@ public:
 	    if (old_info == 0x80000b08)
 	      {
 		_cpu->inj_info = (_cpu->inj_info & INJ_IRQWIN);
-		_cpu->head._pid = 2;
+		// triple fault
+		CpuMessage msg(CpuMessage::TYPE_TRIPLE, _cpu, _mtr_in);
+		_vcpu->executor.send(msg, true);
 	      }
 	    else
 	      {
@@ -557,7 +538,12 @@ public:
   }
 
 public:
-  bool enter(CpuMessage &msg) { return init(msg.cpu); }
+  bool enter(CpuMessage &msg) {
+    _cpu = msg.cpu;
+    _mtr_in = msg.mtr_in;
+    _mtr_out =  0;
+    return init();
+  }
 
 
   bool step() {
@@ -578,5 +564,5 @@ public:
     return true;
   }
 
- InstructionCache(Motherboard &mb) : MemTlb(mb), _values() { }
+ InstructionCache(Motherboard &mb, VCpu *vcpu) : MemTlb(mb), _values(), _vcpu(vcpu) { }
 };

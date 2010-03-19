@@ -109,9 +109,9 @@ template<unsigned operand_size> static void move(void *tmp_dst, void *tmp_src) {
     return helper_JMP_absolute<operand_size>(nrip, entry);
   }
 
-int helper_HLT ()    {  if (_cpu->cpl()) { GP0; } return _fault = FAULT_HLT; }
-int helper_WBINVD () {  if (_cpu->cpl()) { GP0; } return _fault = FAULT_WBINVD; }
-int helper_INVD ()   {  if (_cpu->cpl()) { GP0; } return _fault = FAULT_INVD; }
+int helper_HLT ()    {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_HLT); }
+int helper_WBINVD () {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_WBINVD); }
+int helper_INVD ()   {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_INVD); }
 int helper_INT3() {  _oeip = _cpu->eip; return _fault = 0x80000603; }
 int helper_UD2A() {  return _fault = 0x80000606; }
 int helper_INTO() {  _oeip = _cpu->eip; if (_cpu->efl & EFL_OF) _fault = 0x80000604; return _fault; }
@@ -303,37 +303,18 @@ helper_LDT(LGDT, gd)
   template<unsigned operand_size>
   void __attribute__((regparm(3)))  helper_IN(unsigned port, void *dst)
   {
-
     // XXX check IOPBM
-    MessageIOIn msg1(static_cast<MessageIOIn::Type>(operand_size), port);
-    bool res =  _mb.bus_ioin.send(msg1);
-    move<operand_size>(dst, &msg1.value);
-
-    //Logging::printf("in<%d>(%x) = %x\n", operand_size, port, msg1.value);
-
-    static unsigned char debugioin[8192];
-    if (!res && ~debugioin[port >> 3] & (1 << (port & 7)))
-      {
-	debugioin[port >> 3] |= 1 << (port & 7);
-	Logging::panic("could not read from ioport %x eip %x cs %x-%x\n", port, _oeip, _cpu->cs.base, _cpu->cs.ar);
-      }
+    CpuMessage msg(true, _cpu, operand_size, port, dst);
+    _vcpu->executor.send(msg, true);
   }
 
   template<unsigned operand_size>
-  void __attribute__((regparm(3)))  helper_OUT(unsigned port, void *src)
+  void __attribute__((regparm(3)))  helper_OUT(unsigned port, void *dst)
   {
 
     // XXX check IOPBM
-    MessageIOOut msg1(static_cast<MessageIOOut::Type>(operand_size), port, 0);
-    move<operand_size>(&msg1.value, src);
-    bool res =  _mb.bus_ioout.send(msg1);
-
-    static unsigned char debugioout[8192];
-    if (!res && ~debugioout[port >> 3] & (1 << (port & 7)))
-      {
-	debugioout[port >> 3] |= 1 << (port & 7);
-	Logging::printf("could not write to ioport %x at %x\n", port, _cpu->eip);
-      }
+    CpuMessage msg(false, _cpu, operand_size, port, dst);
+    _vcpu->executor.send(msg, true);
   }
 
 
@@ -360,8 +341,8 @@ helper_LDT(LGDT, gd)
 	void *dst = &_cpu->eax;
 	FEATURE(SH_LOAD_ESI, NCHECK(logical_mem<operand_size>(entry, (&_cpu->es) + ((entry->prefixes >> 8) & 0xf), _cpu->esi, false, src)));
 	FEATURE(SH_LOAD_EDI, NCHECK(logical_mem<operand_size>(entry, &_cpu->es, _cpu->edi, false, dst)));
-	FEATURE(SH_DOOP_IN,  helper_IN<operand_size>( _cpu->edx & 0xffff, dst));
-	FEATURE(SH_DOOP_OUT, helper_OUT<operand_size>(_cpu->edx & 0xffff, src));
+	FEATURE(SH_DOOP_IN,  helper_IN<operand_size>(_cpu->dx, dst));
+	FEATURE(SH_DOOP_OUT, helper_OUT<operand_size>(_cpu->dx, src));
 	FEATURE(SH_DOOP_CMP, {
 	    InstructionCacheEntry entry2;
 	    entry2.execute = operand_size == 0 ? exec_38_cmp_0 : (operand_size == 1 ? exec_39_cmp_1 : exec_39_cmp_2);
@@ -425,7 +406,7 @@ int helper_MOV__EDX__CR0(InstructionCacheEntry * entry)
   _mtr_out |= MTD_CR;
 
   // update TLB
-  return init(_cpu);
+  return init();
 }
 
 

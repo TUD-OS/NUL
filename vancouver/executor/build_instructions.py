@@ -360,7 +360,7 @@ stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "stos": "SH_SAVE_EDI",
 	     "lods": "SH_LOAD_ESI | SH_SAVE_EAX"}
 opcodes += [(x, ["ENTRY"], ["cache->string_helper<%s, [os]>([ENTRY])"%stringops[x]]) for x in stringops.keys()]
-opcodes += [(x, [], ["cache->_fault = FAULT_%s"%(x.upper())]) for x in ["cpuid", "rdtsc", "rdmsr", "wrmsr"]]
+opcodes += [(x, [], ["cache->send_message(CpuMessage::TYPE_%s)"%(x.upper())]) for x in ["cpuid", "rdtsc", "rdmsr", "wrmsr"]]
 opcodes += [(x, ["DIRECTION"], [
 	    # 'Logging::printf("%s(%%x, %%x)\\n", cache->_cpu->eax, *reinterpret_cast<unsigned *>(tmp_dst))'%x,
 	    "unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;",

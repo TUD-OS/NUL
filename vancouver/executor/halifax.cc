@@ -24,7 +24,7 @@
 /**
  * Halifax: an instruction emulator.
  */
-class Halifax : public StaticReceiver<Halifax>
+class Halifax : public InstructionCache, public StaticReceiver<Halifax>
 {
   const char *debug_getname() { return "Halifax"; };
 
@@ -32,10 +32,11 @@ public:
   bool  receive(CpuMessage &msg)
   {
     if (msg.type != CpuMessage::TYPE_SINGLE_STEP) return false;
-    assert(0);
+    enter(msg) && step() && leave();
+    return true;
   }
 
-  Halifax(VCpu *vcpu) {
+  Halifax(Motherboard &mb, VCpu *vcpu) : InstructionCache(mb, vcpu) {
     vcpu->executor.add(this,  &Halifax::receive_static);
   }
 };
@@ -43,6 +44,6 @@ public:
 PARAM(halifax,
       {
 	if (!mb.last_vcpu) Logging::panic("no VCPU for this Halifax");
-	new Halifax(mb.last_vcpu);
+	new Halifax(mb, mb.last_vcpu);
       },
       "halifax - create a halifax that emulatates instructions.");

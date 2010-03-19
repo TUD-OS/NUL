@@ -232,32 +232,32 @@ static void __attribute__ ((regparm (3))) exec_0f23_mov__edx__db0_0 (Instruction
 
 static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_WRMSR;
+  cache->send_message (CpuMessage::TYPE_WRMSR);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f30_wrmsr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_WRMSR;
+  cache->send_message (CpuMessage::TYPE_WRMSR);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_RDTSC;
+  cache->send_message (CpuMessage::TYPE_RDTSC);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f31_rdtsc_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_RDTSC;
+  cache->send_message (CpuMessage::TYPE_RDTSC);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_RDMSR;
+  cache->send_message (CpuMessage::TYPE_RDMSR);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f32_rdmsr_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_RDMSR;
+  cache->send_message (CpuMessage::TYPE_RDMSR);
 }
 
 static void __attribute__ ((regparm (3))) exec_0f34_sysenter_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
@@ -646,12 +646,12 @@ static void __attribute__ ((regparm (3))) exec_0fa1_pop__fs_2 (InstructionCache 
 
 static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_CPUID;
+  cache->send_message (CpuMessage::TYPE_CPUID);
 }
 
 static void __attribute__ ((regparm (3))) exec_0fa2_cpuid_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->_fault = FAULT_CPUID;
+  cache->send_message (CpuMessage::TYPE_CPUID);
 }
 
 static void __attribute__ ((regparm (3))) exec_0fa3_bt_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)

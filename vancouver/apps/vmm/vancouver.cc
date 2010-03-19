@@ -319,10 +319,19 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, unsigned order=~0u)
+
+  static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
+    CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax);
+    VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
+    if (!vcpu->executor.send(msg, true))
+      Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
+    utcb->head.mtr = msg.mtr_out;
+  }
+
+
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type)
   {
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
-    if (order != ~0u) msg.io_order = order;
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
@@ -621,7 +630,7 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	  {
 	    unsigned order = utcb->qual[0] & 7;
 	    if (order > 2)  order = 2;
-	    handle_vcpu(pid, utcb, (utcb->qual[0] & 8) ? CpuMessage::TYPE_IOIN : CpuMessage::TYPE_IOOUT, order);
+	    handle_io(utcb, utcb->qual[0] & 8, order, utcb->qual[0] >> 16);
 	  }
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
@@ -667,7 +676,7 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	      unsigned order = ((utcb->qual[0] >> 4) & 7) - 1;
 	      if (order > 2)  order = 2;
 	      utcb->inst_len = utcb->qual[1] - utcb->eip;
-	      handle_vcpu(pid, utcb, (utcb->qual[0] & 1) ? CpuMessage::TYPE_IOIN : CpuMessage::TYPE_IOOUT, order);
+	      handle_io(utcb, utcb->qual[0] & 1, order, utcb->qual[0] >> 16);
 	    }
 	}
 	)

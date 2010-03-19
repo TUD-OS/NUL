@@ -184,17 +184,32 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_ioin(CpuMessage &msg) {
-    MessageIOIn msg2(MessageIOIn::Type(msg.io_order), msg.cpu->dx);
-    _mb.bus_ioin.send(msg2);
-    Cpu::move(&msg.cpu->eax, &msg2.value, msg.io_order);
+    MessageIOIn msg2(MessageIOIn::Type(msg.io_order), msg.port);
+    bool res = _mb.bus_ioin.send(msg2);
+
+    Cpu::move(msg.dst, &msg2.value, msg.io_order);
     msg.mtr_out |= MTD_GPR_ACDB;
+
+    static unsigned char debugioin[8192];
+    if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7)))
+      {
+	debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
+	Logging::panic("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+      }
   }
 
 
   void handle_ioout(CpuMessage &msg) {
-    MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.cpu->dx, msg.cpu->eax);
-    _mb.bus_ioout.send(msg2);
-    Cpu::move(&msg.cpu->eax, &msg2.value, msg.io_order);
+    MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.port, 0);
+    Cpu::move(&msg2.value, msg.dst, msg.io_order);
+    bool res = _mb.bus_ioout.send(msg2);
+
+    static unsigned char debugioout[8192];
+    if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7)))
+      {
+	debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
+	Logging::printf("could not write to ioport %x at %x\n", msg.port, msg.cpu->eip);
+      }
   }
 
 

@@ -140,9 +140,7 @@ protected:
   }
 
 
-  int init(CpuState *cpu) {
-    // XXX assert this instead
-    _cpu = cpu;
+  int init() {
 
     _paging_mode = (READ(cr0) & 0x80010000) | READ(cr4) & 0x30 | _msr_efer & 0xc00;
 
