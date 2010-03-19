@@ -44,7 +44,6 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
 	COUNTER_INC("lint0");
 	if (((~msg.cpu->head.mtr.untyped() & MTD_INJ) || ~msg.cpu->inj_info & 0x80000000) && can_inject(msg.cpu))
 	  {
-	    Cpu::atomic_and<volatile unsigned>(&msg.vcpu->hazard, ~VirtualCpuState::HAZARD_IRQ);
 	    if (msg.vcpu->lastmsi && msg.vcpu->lastmsi != 0xff)
 	      {
 		Logging::printf("inject MSI %x\n", msg.vcpu->lastmsi);
@@ -53,6 +52,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
 		msg.vcpu->lastmsi = 0;
 	      }
 	    else {
+	      Cpu::atomic_and<volatile unsigned>(&msg.vcpu->hazard, ~VirtualCpuState::HAZARD_IRQ);
 	      MessageApic msg2(0);
 	      if (_mb.bus_apic.send(msg2))
 		{
@@ -60,7 +60,7 @@ class IrqExecutor : public StaticReceiver<IrqExecutor>
 		  COUNTER_INC("inj");
 		}
 	      else
-		Logging::panic("spurious IRQ?");
+		Logging::printf("spurious IRQ?");
 	    }
 	    res = true;
 	  }
