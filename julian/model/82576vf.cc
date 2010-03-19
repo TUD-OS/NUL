@@ -6,14 +6,29 @@
 #include <service/time.h>
 #include <model/pci.h>
 
-/// NOTES
-//
-// We emulate more bits in the PCI COMMAND register than the real VF
-// supports.
-//
-// We can probably map the receive register range 0x2000 - 0x2FFF
-// directly into VM space, if we ignore RXDCTL.SWFLUSH (Software
-// Flush).
+// Status: INCOMPLETE
+// Offloads are missing, i.e. context descriptor handling.
+// RX path should be fine.
+// 
+// The model's MAC should match the host driver's MAC. Otherwise you
+// might run into trouble. See XXX Change me below.
+// 
+// What works:
+// - udhcpc
+// - nc -u -l
+// - nc -l
+// 
+// What doesn't:
+// - DNS queries    (UDP segmentation offload?)
+// - echo foo | nc  (TCP segmentation offload?)
+
+// This model supports two modes of operation for the TX path:
+//  - trap&emulate mode (default):
+//     trap every access to TX registers
+//  - polled mode:
+//     check every n µs for queued packets. n is configured using
+//     the txpoll_us parameter (see the comment at the bottom of
+//     this file).
 
 // TODO
 // - handle resets properly (i.e. reset queues)
@@ -21,6 +36,7 @@
 // - RXDCTL.enable (bit 25) may be racy
 // - receive path does not set packet type in RX descriptor
 // - TX legacy descriptors
+// - TX context descriptors
 // - interrupt thresholds
 
 
@@ -94,6 +110,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       TDWBAH  = 0x83C/4,
     };
 
+    // XXX Support huge packets
+    uint8 packet_buf[1500];
+    unsigned packet_cur;
+    
     void txdctl_poll()
     {
       uint32 txdctl_new = regs[TXDCTL];
@@ -109,12 +129,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void tdt_poll()
     {
       if ((regs[TXDCTL] & (1<<25)) == 0) {
-	Logging::printf("TX: Queue %u not enabled.\n", n);
+	if (n == 0) Logging::printf("TX: Queue %u not enabled.\n", n);
 	return;
       }
       uint32 tdlen = regs[TDLEN];
       if (tdlen == 0) {
-	Logging::printf("TX: Queue %u has zero size.\n", n);
+	if (n == 0) Logging::printf("TX: Queue %u has zero size.\n", n);
 	return;
       }
 
@@ -142,44 +162,78 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  switch (dtyp) {
 	  case 2:
 	    Logging::printf("TX advanced context descriptor XXX\n");
+	    Logging::printf("raw[0] = %016llx\n", desc.raw[0]);
+	    Logging::printf("raw[1] = %016llx\n", desc.raw[1]);
+	    // ping: (dns? -> udp?)
+	    // raw[0] = 0000000000001c14
+	    // raw[1] = 0000000020200400
+	    // netcat (tcp)
+	    // raw[0] = 0000000000001c14
+	    // raw[1] = 0000000020200c00
 	    // XXX Not implemented!
 	    break;
 	  case 3: 
 	    {
+	      uint8 context = (desc.advanced.pay >> 4) & 0x7;
 	      uint32 payload_len = desc.advanced.pay >> 14;
 	      uint32 data_len = desc.advanced.dtalen;
-	      Logging::printf("TX advanced data descriptor: %x %x %x\n",
-			    desc.advanced.dcmd, data_len, payload_len);
-	      if ((desc.advanced.dcmd & (1<<5)) == 0)
+	      uint8 dcmd = desc.advanced.dcmd;
+	      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
+			      dcmd, data_len, payload_len, context);
+	      if ((dcmd & (1<<5)) == 0)
 		Logging::printf("TX bad descriptor\n");
-	      
-	      // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-	      // Only the most basic TX descriptor
-	      if (desc.advanced.dcmd == 0x2b) {
-		// EOP, IFCS, RS
-		const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
-		MessageNetwork m(data, data_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
-		parent->_net.send(m);
-		desc.advanced.pay = 1;
-		
-		MessageMemWrite msg(addr, desc.raw, sizeof(desc));
-		if (!parent->_memwrite.send(msg)) {
-		  Logging::printf("TX descriptor writeback failed.\n");
-		  return;
-		}
 
-		if ((desc.advanced.dcmd & (1<<3) /* Report Status */) != 0)
-		  parent->TX_irq(n);
-	      } else {
-		Logging::printf("TX descriptor complicated... fail.\n");
+	      enum {
+		EOP = 1,
+		IFCS = 2,
+		RS = 8,
+		VLE = 64,
+		TSE = 128,
+	      };
+
+	      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
+			      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
+	      const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
+
+	      if (dcmd&TSE) {
+		Logging::printf("XXX We don't support TCP Segmentation Offload.\n");
+		goto done;
 	      }
+	      if ((dcmd&IFCS) == 0) Logging::printf("IFCS not set, but we append FCS anyway in host82576vf.\n");
+
+	      if ((dcmd & EOP) && (payload_len == data_len)) {
+		// "Fast path": Complete packet, send as-is.
+		MessageNetwork m(data, payload_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
+		parent->_net.send(m);
+		packet_cur = 0;
+		goto done;
+	      }
+
+	      memcpy(packet_buf + packet_cur, data, data_len);
+	      packet_cur += data_len;
+
+	      if (dcmd & EOP) {
+		MessageNetwork m(data, payload_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
+		parent->_net.send(m);
+		packet_cur = 0;
+	      }
+
+	    done:
+	      // Descriptor is done
+	      desc.advanced.pay |= 1;
+	      MessageMemWrite msg(addr, desc.raw, sizeof(desc));
+	      if (!parent->_memwrite.send(msg)) {
+		Logging::printf("TX descriptor writeback failed.\n");
+		return;
+	      }
+	      if ((dcmd & (1<<3) /* Report Status */) != 0)
+		parent->TX_irq(n);
 	    }
 	    break;
 	  default:
 	    Logging::printf("TX unknown descriptor?\n");
 	  }
 	}
-
 	  
 	// Advance queue head
 	asm ( "" ::: "memory");
@@ -194,17 +248,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       memset(const_cast<uint32 *>(regs), 0, 0x100);
       regs[TXDCTL] = (n == 0) ? (1<<24) : 0;
       txdctl_old = regs[TXDCTL];
+      packet_cur = 0;
     }
 
     uint32 read(uint32 offset)
     {
-      Logging::printf("TX read %x (%x)\n", offset, (offset & 0x8FF) / 4);
+      // Logging::printf("TX read %x (%x)\n", offset, (offset & 0x8FF) / 4);
       return regs[(offset & 0x8FF)/4];
     }
 
     void write(uint32 offset, uint32 val)
     {
-      Logging::printf("TX write %x (%x) <- %x\n", offset, (offset & 0x8FF) / 4, val);
+      // Logging::printf("TX write %x (%x) <- %x\n", offset, (offset & 0x8FF) / 4, val);
       unsigned i = (offset & 0x8FF) / 4;
       regs[i] = val;
       if (i == TXDCTL) txdctl_poll();
@@ -282,7 +337,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 rdt    = regs[RDT];
       uint32 rxdctl = regs[RXDCTL];
 
-      Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
+      //Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
       if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */) 
 	  || (rdlen == 0) || (rdt == rdh)) {
 	// Drop
@@ -293,7 +348,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint64 addr = (static_cast<uint64>(rdbah)<<32 | rdbal) + ((rdh*16) % rdlen);
       rx_desc desc;
 
-      Logging::printf("RX descriptor at %llx\n", addr);
+      //Logging::printf("RX descriptor at %llx\n", addr);
       MessageMemRead msg(addr, desc.raw, sizeof(desc));
       if (!parent->_memread.send(msg)) {
        	Logging::printf("RX descriptor fetch failed.\n");
@@ -377,7 +432,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   void *guestmem(uint64 addr)
   {
     void *r;
-    Logging::printf("Trying to get pointer to %llx.\n", addr);
+    //Logging::printf("Trying to get pointer to %llx.\n", addr);
     // XXX Don't panic here
     // XXX We don't use the interface the way it is intended...
     MessageMemAlloc m(&r, addr, ~0xFFFUL);
@@ -389,15 +444,15 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   // Generate a MSI-X IRQ.
   void MSIX_irq(unsigned nr)
   {
-    Logging::printf("MSI-X IRQ %d | EIMS %02x | EIAC %02x | EIAM %02x | C %02x\n", nr,
-		    rVTEIMS, rVTEIAC, rVTEIAM, _msix.table[nr].vector_control);
+    // Logging::printf("MSI-X IRQ %d | EIMS %02x | EIAC %02x | EIAM %02x | C %02x\n", nr,
+    // 		    rVTEIMS, rVTEIAC, rVTEIAM, _msix.table[nr].vector_control);
     uint32 mask = 1<<nr;
     // Set interrupt cause.
     rVTEICR |= mask;
 
     if ((mask & rVTEIMS) != 0) {
       if ((_msix.table[nr].vector_control & 1) == 0) {
-	Logging::printf("Generating MSI-X IRQ %d (%02x)\n", nr, _msix.table[nr].msg_data & 0xFF);
+	// Logging::printf("Generating MSI-X IRQ %d (%02x)\n", nr, _msix.table[nr].msg_data & 0xFF);
 	// XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
 	_irqlines.send(msg);
@@ -407,7 +462,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	// The spec is not clear on this. At least not to me...
 	rVTEICR &= ~(mask & rVTEIAC);
 	rVTEIMS &= ~(mask & rVTEIAM);
-	Logging::printf("MSI-X -> EIMS %02x\n", rVTEIMS);
+	// Logging::printf("MSI-X -> EIMS %02x\n", rVTEIMS);
       }
     }
   }
@@ -424,8 +479,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     uint32 va = rVTIVAR >> (nr*16);
     if ((va & 0x80) != 0)
       MSIX_irq(va & 0x3);
-    else
-      Logging::printf("RX irq %u is disabled.\n", nr);
   }
 
   void TX_irq(unsigned nr)
@@ -621,7 +674,7 @@ public:
   {
     if (msg.nr != _timer_nr) return false;
 
-    for (unsigned i = 1; i < 2; i++) {
+    for (unsigned i = 0; i < 2; i++) {
       _tx_queues[i].txdctl_poll();
       _tx_queues[i].tdt_poll();
     }
@@ -681,12 +734,14 @@ PARAM(82576vf,
 
 	Logging::printf("Our UID is %lx\n", msg.value);
 
-	Model82576vf *dev = new Model82576vf( //static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
-					     0xe8e24d211b00ULL,
+	Model82576vf *dev = new Model82576vf( // XXX Change me 
+					     //0xe8e24d211b00ULL,
+					     static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+
 					     mb.bus_network, mb.bus_irqlines,
 					     mb.bus_memwrite, mb.bus_memread, mb.bus_memalloc,
 					     mb.clock(), mb.bus_timer,
-					     argv[0], argv[1], (argv[2] == ~0U) ? 1000000 : argv[2] );
+					     argv[0], argv[1], (argv[2] == ~0U) ? 0 : argv[2] );
 	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
 	mb.bus_memread. add(dev, &Model82576vf::receive_static<MessageMemRead>);
 	mb.bus_memmap.  add(dev, &Model82576vf::receive_static<MessageMemMap>);
