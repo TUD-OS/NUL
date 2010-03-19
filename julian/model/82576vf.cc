@@ -3,6 +3,7 @@
 #include <nul/types.h>
 #include <nul/motherboard.h>
 #include <service/math.h>
+#include <service/time.h>
 #include <model/pci.h>
 
 /// NOTES
@@ -29,22 +30,134 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   DBus<MessageMemWrite> &_memwrite;
   DBus<MessageMemRead>  &_memread;
 
+  Clock                 *_clock;
+  DBus<MessageTimer>    &_timer;
+  unsigned               _timer_nr;
+
   // Guest-physical addresses for MMIO and MSI-X regs.
   uint32 _mem_mmio;
   uint32 _mem_msix;
 
-  // A page of memory holding RX registers. Can be mapped to guest (at
-  // _mem_mmio+0x2000).
-  uint32 *_local_rx_regs;
+  // Two pages of memory holding RX and TX registers.
+  uint32 *_local_rx_regs;	// Mapped to _mem_mmio + 0x2000
+  uint32 *_local_tx_regs;	// Mapped to _mem_mmio + 0x3000
+
+  
+  // TX queue polling interval in µs.
+  unsigned _txpoll_us;
 
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
-  struct rx_queue {
+  struct queue {
     Model82576vf *parent;
     unsigned n;
+    volatile uint32 *regs;
 
-    volatile uint32 *qmem;
+    virtual void reset();
+
+    void init(Model82576vf *_parent, unsigned _n, uint32 *_regs)
+    {
+      parent = _parent;
+      n      = _n;
+      regs   = _regs;
+
+      reset();
+    }
+  };
+  
+  struct tx_queue : queue {
+    uint32 txdctl_old;
+
+    typedef union {
+      uint64 raw[2];
+    } tx_desc;
+
+    enum {
+      TDBAL   = 0x800/4,
+      TDBAH   = 0x804/4,
+      TDLEN   = 0x808/4,
+      TDH     = 0x810/4,
+      TDT     = 0x818/4,
+      TXDCTL  = 0x828/4,
+      TDWBAL  = 0x838/4,
+      TDWBAH  = 0x83C/4,
+    };
+
+    void txdctl_poll()
+    {
+      uint32 txdctl_new = regs[TXDCTL];
+      if (((txdctl_old ^ txdctl_new) & (1<<25)) != 0) {
+	// Enable/Disable receive queue
+	Logging::printf("TX queue %u: %s\n", n,
+			((txdctl_new & (1<<25)) != 0) ? "ENABLED" : "DISABLED");
+      }
+      regs[TXDCTL] &= ~(1<<26);	// Clear SWFLUSH
+      txdctl_old = txdctl_new;
+    }
+
+    void tdt_poll()
+    {
+      if ((regs[TXDCTL] & (1<<25)) == 0) {
+	Logging::printf("TX: Queue %u not enabled.\n", n);
+	return;
+      }
+      uint32 tdlen = regs[TDLEN];
+      if (tdlen == 0) {
+	Logging::printf("TX: Queue %u has zero size.\n", n);
+	return;
+      }
+
+      uint32 tdbah = regs[TDBAH];
+      uint32 tdbal = regs[TDBAL];
+
+      // Packet send loop.
+      uint32 tdh;
+      while ((tdh = regs[TDH]) != regs[TDT]) {
+	uint64 addr = (static_cast<uint64>(tdbah)<<32 | tdbal) + ((tdh*16) % tdlen);
+	tx_desc desc;
+
+	Logging::printf("TX descriptor at %llx\n", addr);
+	MessageMemRead msg(addr, desc.raw, sizeof(desc));
+	if (!parent->_memread.send(msg)) {
+	  Logging::printf("TX descriptor fetch failed.\n");
+	  return;
+	}
+	  
+	// Advance queue head
+	asm ( "" ::: "memory");
+	regs[TDH] = (((tdh+1)*16 ) % tdlen) / 16;
+      }
+
+    }
+ 
+
+    void reset()
+    {
+      memset(const_cast<uint32 *>(regs), 0, 0x100);
+      regs[TXDCTL] = (n == 0) ? (1<<24) : 0;
+      txdctl_old = regs[TXDCTL];
+    }
+
+    uint32 read(uint32 offset)
+    {
+      Logging::printf("TX read %x (%x)\n", offset, (offset & 0x8FF) / 4);
+      return regs[(offset & 0x8FF)/4];
+    }
+
+    void write(uint32 offset, uint32 val)
+    {
+      Logging::printf("TX write %x (%x) <- %x\n", offset, (offset & 0x8FF) / 4, val);
+      unsigned i = (offset & 0x8FF) / 4;
+      regs[i] = val;
+      if (i == TXDCTL) txdctl_poll();
+      if (i == TDT) tdt_poll();
+      
+    }
+
+  };
+
+  struct rx_queue : queue {
     uint32 rxdctl_old;
 
     typedef union {
@@ -79,37 +192,19 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     void reset()
     {
-      memset(const_cast<uint32 *>(qmem), 0, 0x100);
-      qmem[RXDCTL] = 1<<16 | ((n == 0) ? (1<<24) : 0);
-      qmem[SRRCTL] = 0x400 | ((n != 0) ? 0x80000000U : 0);
-      rxdctl_old = qmem[RXDCTL];
-    }
-
-    void init(Model82576vf *_parent, unsigned _n, uint32 *_qmem)
-    {
-      parent = _parent;
-      n      = _n;
-      qmem   = _qmem;
-
-      reset();
+      memset(const_cast<uint32 *>(regs), 0, 0x100);
+      regs[RXDCTL] = 1<<16 | ((n == 0) ? (1<<24) : 0);
+      regs[SRRCTL] = 0x400 | ((n != 0) ? 0x80000000U : 0);
+      rxdctl_old = regs[RXDCTL];
     }
 
     void rxdctl_poll()
     {
-      uint32 rxdctl_new = qmem[RXDCTL];
+      uint32 rxdctl_new = regs[RXDCTL];
       if (((rxdctl_old ^ rxdctl_new) & (1<<25)) != 0) {
 	// Enable/Disable receive queue
-	if ((rxdctl_new & (1<<25)) != 0) {
-	  // Enable queue. Reset registers.
-	  Logging::printf("RX queue %u: ENABLED\n", n);
-	  qmem[RDH] = 0;
-	  // Can't set RDT, because we enable the queue
-	  // lazily. Hopefully, the OS has set this until then.
-      	  //qmem[RDT] = 0;
-	} else {
-	  // Disable queue. Keep register content.
-	  Logging::printf("RX queue %u: DISABLED\n", n);
-	}
+	Logging::printf("RX queue %u: %s\n", n,
+			((rxdctl_new & (1<<25)) != 0) ? "ENABLED" : "DISABLED");
       }
       rxdctl_old = rxdctl_new;
     }
@@ -118,13 +213,13 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     {
       rxdctl_poll();
 
-      uint32 rdbah  = qmem[RDBAH];
-      uint32 rdbal  = qmem[RDBAL];
-      uint32 rdlen  = qmem[RDLEN];
-      uint32 srrctl = qmem[SRRCTL];
-      uint32 rdh    = qmem[RDH];
-      uint32 rdt    = qmem[RDT];
-      uint32 rxdctl = qmem[RXDCTL];
+      uint32 rdbah  = regs[RDBAH];
+      uint32 rdbal  = regs[RDBAL];
+      uint32 rdlen  = regs[RDLEN];
+      uint32 srrctl = regs[SRRCTL];
+      uint32 rdh    = regs[RDH];
+      uint32 rdt    = regs[RDT];
+      uint32 rxdctl = regs[RXDCTL];
 
       Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
       if ((rxdctl & (1<<25)) == 0) {
@@ -172,6 +267,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  desc.advanced_write.vlan = 0;
 	  desc.advanced_write.len = size;
 	  desc.advanced_write.status = 0x3; // EOP, DD
+       	  if (!parent->_memwrite.send(m))
+       	    desc.advanced_write.status |= 0x80000000U; // RX error
 	}
 	break;
       default:
@@ -184,11 +281,15 @@ class Model82576vf : public StaticReceiver<Model82576vf>
        	Logging::printf("RX descriptor store failed.\n");
 
       // Advance queue head
-      qmem[RDH] = (((rdh+1)*16 ) % rdlen) / 16;
+      asm ( "" ::: "memory");
+      regs[RDH] = (((rdh+1)*16 ) % rdlen) / 16;
 
       parent->RX_irq(n);
     }
-  } _rx_queues[2];
+  };
+  
+  tx_queue _tx_queues[2];
+  rx_queue _rx_queues[2];
 
   // Software interface
   enum MBX {
@@ -367,15 +468,16 @@ public:
     if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
       uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
       // RX
-      if ((offset >= 0x2000) && (offset < 0x3000)) return false;
-
-      *(reinterpret_cast<uint32 *>(msg.ptr)) = MMIO_read(offset);
+      if ((offset >> 12) == 0x2) Logging::panic("RX read? Shouldn't happen.");
+      // TX
+      if ((offset >> 12) == 0x3) 
+	*(reinterpret_cast<uint32 *>(msg.ptr)) = _tx_queues[(offset & 0x100) ? 1 : 0].read(offset);
+      else
+	*(reinterpret_cast<uint32 *>(msg.ptr)) = MMIO_read(offset);
     } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
       *(reinterpret_cast<uint32 *>(msg.ptr)) = MSIX_read(msg.phys - (rPCIBAR3 & ~0xFFF));
     } else return false;
 
-    // Logging::printf("PCIREAD %lx (%d) %x \n", msg.phys, msg.count,
-    //              *reinterpret_cast<unsigned *>(msg.ptr));
     return true;
   }
 
@@ -388,7 +490,14 @@ public:
     // Logging::printf("PCIWRITE %lx (%d) %x \n", msg.phys, msg.count,
     //              *reinterpret_cast<unsigned *>(msg.ptr));
     if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
-      MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
+      uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
+      // RX
+      if ((offset >> 12) == 0x2) Logging::panic("RX write? Shouldn't happen.");
+      // TX
+      if ((offset >> 12) == 0x3) 
+	_tx_queues[(offset & 0x100) ? 1 : 0].write(offset, *(reinterpret_cast<uint32 *>(msg.ptr)));
+      else
+	MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
     } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
       MSIX_write(msg.phys - (rPCIBAR3 & ~0xFFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
     } else return false;
@@ -404,24 +513,66 @@ public:
     return true;
   }
 
+  void reprogram_timer()
+  {
+    assert(_txpoll_us != 0);
+    MessageTimer msgn(_timer_nr, _clock->abstime(_txpoll_us, 1000000));
+    if (!_timer.send(msgn))
+      Logging::panic("%s could not program timer.", __PRETTY_FUNCTION__);
+  }
+
   bool receive(MessageMemMap &msg)
   {
-    if ((msg.phys & ~0xFFF) == _mem_mmio + 0x2000) {
-      // Map RX registers
+    switch ((msg.phys & ~0xFFF) - _mem_mmio) {
+    case 0x2000:
       msg.ptr = _local_rx_regs;
       msg.count = 0x1000;
-      Logging::printf("82576VF MAP RX %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
-      return true;
+      break;
+    case 0x3000:
+      if (_txpoll_us != 0) {
+	msg.ptr = _local_tx_regs;
+	msg.count = 0x1000;
+	
+	// If TX memory is mapped, we need to poll it periodically.
+	reprogram_timer();
+
+	break;
+      } else {
+	// If _txpoll_us is zero, we don't map TX registers and don't
+	// need to poll.
+	// FALLTHROUGH
+      }
+    default:
+      return false;
     }
-    return false;
+
+    Logging::printf("82576VF MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
+    return true;
   }
+
+  bool receive(MessageTimeout &msg)
+  {
+    if (msg.nr != _timer_nr) return false;
+
+    for (unsigned i = 1; i < 2; i++) {
+      _tx_queues[i].txdctl_poll();
+      _tx_queues[i].tdt_poll();
+    }
+
+    reprogram_timer();
+    return true;
+  }
+    
 
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net, DBus<MessageIrq> &irqlines,
 	       DBus<MessageMemWrite> &memwrite, DBus<MessageMemRead> &memread,
-	       uint32 mem_mmio, uint32 mem_msix)
+	       Clock *clock, DBus<MessageTimer> &timer,
+	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us)
     : _mac(mac), _net(net), _irqlines(irqlines),
       _memwrite(memwrite), _memread(memread),
-      _mem_mmio(mem_mmio), _mem_msix(mem_msix)
+      _clock(clock), _timer(timer),
+      _mem_mmio(mem_mmio), _mem_msix(mem_msix),
+      _txpoll_us(txpoll_us)
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -430,6 +581,10 @@ public:
     _local_rx_regs = new (4096) uint32[1024];
     _rx_queues[0].init(this, 0, _local_rx_regs);
     _rx_queues[1].init(this, 1, _local_rx_regs + 0x100/4);
+
+    _local_tx_regs = new (4096) uint32[1024];
+    _tx_queues[0].init(this, 0, _local_tx_regs);
+    _tx_queues[1].init(this, 1, _local_tx_regs + 0x100/4);
 
     PCI_init();
     rPCIBAR0 = _mem_mmio;
@@ -442,6 +597,12 @@ public:
     }
 
     MMIO_init();
+
+    // Program timer
+    MessageTimer msgt;
+    if (!_timer.send(msgt))
+      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+    _timer_nr = msgt.nr;
   }
 
 };
@@ -453,19 +614,22 @@ PARAM(82576vf,
 
 	Logging::printf("Our UID is %lx\n", msg.value);
 
-	Model82576vf *dev = new Model82576vf(static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+	Model82576vf *dev = new Model82576vf( //static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+					     0xe8e24d211b00ULL,
 					     mb.bus_network, mb.bus_irqlines,
 					     mb.bus_memwrite, mb.bus_memread,
-					     argv[0], argv[1]);
+					     mb.clock(), mb.bus_timer,
+					     argv[0], argv[1], (argv[2] == ~0U) ? 1000000 : argv[2] );
 	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
-	mb.bus_memread.add(dev, &Model82576vf::receive_static<MessageMemRead>);
-	mb.bus_memmap.add(dev, &Model82576vf::receive_static<MessageMemMap>);
-	mb.bus_pcicfg.add(dev, &Model82576vf::receive_static<MessagePciConfig>,
-			  PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
-	mb.bus_network.add(dev, &Model82576vf::receive_static<MessageNetwork>);
+	mb.bus_memread. add(dev, &Model82576vf::receive_static<MessageMemRead>);
+	mb.bus_memmap.  add(dev, &Model82576vf::receive_static<MessageMemMap>);
+	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>,
+			    PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
+	mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);
+	mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
 
       },
-      "82576vf:mem_mmio,mem_msix - attach an Intel 82576VF to the PCI bus."
+      "82576vf:mem_mmio,mem_msix[,txpoll_us] - attach an Intel 82576VF to the PCI bus."
       "Example: 82576vf:0xf7ce0000,0xf7cc0000"
       );
 
