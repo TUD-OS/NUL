@@ -321,14 +321,17 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void skip_instruction(CpuMessage &msg) {
 
+    // advance EIP
     assert(msg.mtr_in & MTD_RIP_LEN);
-    assert(msg.mtr_in & MTD_STATE);
     msg.cpu->eip += msg.cpu->inst_len;
-    /**
-     * Cancel sti and mov-ss blocking as we emulated an instruction.
-     */
-    msg.cpu->intr_state &= ~3;
-    msg.mtr_out |= MTD_RIP_LEN | MTD_STATE;
+    msg.mtr_out |= MTD_RIP_LEN;
+
+    // cancel sti and mov-ss blocking as we emulated an instruction
+    assert(msg.mtr_in & MTD_STATE);
+    if (msg.cpu->intr_state & 3) {
+      msg.cpu->intr_state &= ~3;
+      msg.mtr_out |= MTD_STATE;
+    }
   }
 
 
