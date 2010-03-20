@@ -90,8 +90,6 @@ public:
     EVENT_SIPI   = 1 << 6,
     EVENT_EXTINT = 1 << 7,
     EVENT_MASK   = 0xff,
-    // SIPI vector: bit 8-15
-    STATE_WFS    = 1 << 16,
     STATE_BLOCK  = 1 << 17,
     STATE_WAKEUP = 1 << 18,
   };

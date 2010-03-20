@@ -136,11 +136,6 @@ struct MessageAhciSetDrive
 /* IRQ messages                                     */
 /****************************************************/
 
-enum {
-  MSI_ADDRESS = 0xfee00018,
-  MSI_VALUE   = 0x0,
-};
-
 
 /**
  * Raise an IRQ.
@@ -180,6 +175,17 @@ struct MessagePic
   MessagePic(unsigned char _slave) :  slave(_slave) { }
 };
 
+/**
+ * Message on the APIC bus.
+ */
+struct MessageApic
+{
+  enum {
+    EOI,
+  } type;
+  unsigned char vector;
+  MessageApic(unsigned char _vector) : type(EOI), vector(_vector) {};
+};
 
 /****************************************************/
 /* Legacy messages                                  */

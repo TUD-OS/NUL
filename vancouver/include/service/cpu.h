@@ -42,6 +42,8 @@ class Cpu
     if (!value) vector[index] &= ~mask;
   }
 
+  static bool get_bit(unsigned *vector, unsigned bit) { return vector[bit >> 5] & (1 << (bit & 0x1f)); }
+
   static  unsigned xchg(unsigned *x, unsigned y)
   {
     asm volatile ("xchg %1, (%0)": "+r"(x), "+r"(y));

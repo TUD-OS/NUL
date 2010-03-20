@@ -22,8 +22,8 @@
 /**
  * X2Apic model.
  * State: unstable
- * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error
- * Missing:  reset,  IPI, RemoteEOI,  timer, x2apic mode
+ * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI
+ * Missing:  reset,  IPI, timer, x2apic mode
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
@@ -38,6 +38,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     LVT_BASE  = _TIMER_offset,
   };
   VCpu *_vcpu;
+  DBus<MessageApic> &_bus_apic;
   unsigned long long _msr;
   bool in_x2apic_mode;
   unsigned _vector[8*3];
@@ -108,6 +109,15 @@ class X2Apic : public StaticReceiver<X2Apic>
     update_irqs();
   }
 
+  void broadcast_eoi(unsigned vector) {
+    // we clear our LVT entries first
+    if (vector == (_LINT0 & 0xff)) _lvtrirr[_LINT0_offset - LVT_BASE] = false;
+    if (vector == (_LINT1 & 0xff)) _lvtrirr[_LINT1_offset - LVT_BASE] = false;
+
+    MessageApic msg(vector);
+    _bus_apic.send(msg);
+  }
+
 
   bool register_read(unsigned num, unsigned &value) {
     bool res = false;
@@ -125,7 +135,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     }
     if (in_range(num, LVT_BASE, 6)) {
       if (_lvtds[num - LVT_BASE])    value |= 1 << 12;
-      if (_lvtrirr[num - LVT_BASE]) value |= 1 << 14;
+      if (_lvtrirr[num - LVT_BASE])  value |= 1 << 14;
     }
     if (!res) set_error(7);
     return res;
@@ -143,9 +153,10 @@ class X2Apic : public StaticReceiver<X2Apic>
       {
 	if (_isrv) {
 	  Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
+	  if (Cpu::get_bit(_vector, OFS_TMR + _isrv)) broadcast_eoi(_isrv);
+
 	  _isrv = get_highest_bit(OFS_ISR);
 	  update_irqs();
-	  // XXX send broadcast EOI if TMR is set
 	}
       }
       return true;
@@ -193,7 +204,7 @@ class X2Apic : public StaticReceiver<X2Apic>
       }
       break;
     default:
-      // other encodings are reserved, thus we simply drop them
+      // other encodings (LOWEST_PRIO, SIPI, REMOTE_READ) are reserved, thus we simply drop them
       break;
     }
 
@@ -312,7 +323,8 @@ public:
     return false;
   }
 
-  X2Apic(VCpu *vcpu, unsigned initial_apic_id) : _vcpu(vcpu), in_x2apic_mode(false) {
+
+  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, unsigned initial_apic_id) : _vcpu(vcpu), _bus_apic(bus_apic), in_x2apic_mode(false) {
     _ID = initial_apic_id;
 
     // propagate initial APIC id
@@ -327,7 +339,7 @@ public:
 PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    X2Apic *dev = new X2Apic(mb.last_vcpu, argv[0]);
+    X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, argv[0]);
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);

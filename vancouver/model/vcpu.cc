@@ -28,7 +28,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   unsigned long _hostop_id;
   Motherboard &_mb;
 
-  volatile unsigned event;
+  volatile unsigned _event;
+  unsigned _sipi;
 
   enum {
     MSR_TSC = 0x10,
@@ -151,68 +152,62 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     return false;
   }
 
-  void handle_irq(CpuMessage &msg) {
-
+  /**
+   * Prioritize different events.
+   * Returns the events to clear.
+   */
+  unsigned prioritize_events(CpuMessage msg) {
     CpuState *cpu = msg.cpu;
-    assert(msg.mtr_in & MTD_STATE);
-    assert(msg.mtr_in & MTD_INJ);
-    assert(msg.mtr_in & MTD_RFLAGS);
+    unsigned and_mask = STATE_WAKEUP;
+    unsigned old_event = _event;
+    if (old_event & EVENT_RESET) {
+      handle_cpu_init(msg, true);
 
-    unsigned or_mask  = 0;
-    unsigned and_mask = 0;
-    unsigned old_event = event;
-    do {
-      if (old_event & EVENT_RESET) {
-	handle_cpu_init(msg, true);
-	and_mask |= EVENT_RESET;
-
-	// are we an AP and should go to the wait-for-sipi state?
-	if (is_ap()) {
-	  cpu->actv_state = 3;
-	  or_mask |= STATE_WFS;
-	}
-	break;
-      }
+      // are we an AP and should go to the wait-for-sipi state?
+      if (is_ap()) cpu->actv_state = 3;
+      _sipi = !is_ap();
+      return and_mask | EVENT_RESET;
+    }
 
 
-      // SIPI pending?
-      if (old_event & EVENT_SIPI) {
-	cpu->eip          = 0;
-	cpu->cs.base      = (old_event & 0xff00) << 4;
-	cpu->cs.sel       =  old_event & 0xff00;
-	cpu->actv_state   = 0;
-	and_mask |= 0xff00 | EVENT_SIPI;
-      }
+    // SIPI pending?
+    if (old_event & EVENT_SIPI) {
+      cpu->eip          = 0;
+      cpu->cs.sel       = (_sipi & 0xff) << 8;
+      cpu->cs.base      = cpu->cs.sel << 4;
+      cpu->actv_state   = 0;
+      and_mask |= EVENT_SIPI;
+      // fall through
+    }
 
-      // do block everything until we got an SIPI
-      if (cpu->actv_state == 3) break;
+    // do block everything until we got an SIPI
+    if (cpu->actv_state == 3)  return and_mask;
 
-      // INIT
-      if (old_event & EVENT_INIT) {
-	handle_cpu_init(msg, false);
-	cpu->actv_state = 3;
-	and_mask |= EVENT_INIT;
-	or_mask  |= STATE_WFS;
-	break;
-      }
+    // INIT
+    if (old_event & EVENT_INIT) {
+      handle_cpu_init(msg, false);
+      cpu->actv_state = 3;
+      _sipi = 0;
+      return and_mask | EVENT_INIT;
+    }
 
-      // SMI
-      if (old_event & EVENT_SMI && ~cpu->intr_state & 4) {
-	Logging::printf("SMI received\n");
-	and_mask |= EVENT_SMI;
-	cpu->actv_state = 0;
+    // SMI
+    if (old_event & EVENT_SMI && ~cpu->intr_state & 4) {
+      Logging::printf("SMI received\n");
+      and_mask |= EVENT_SMI;
+      cpu->actv_state = 0;
+      // fall trough
       }
 
       // NMI
       if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && ~cpu->inj_info & 0x80000000 && !(cpu->intr_state & 3)) {
 	cpu->inj_info = 0x80000200;
 	cpu->actv_state = 0;
-	and_mask |= EVENT_NMI;
-	break;
+	return and_mask | EVENT_NMI;
       }
 
       // interrupts are blocked in shutdown
-      if (cpu->actv_state == 2) break;
+      if (cpu->actv_state == 2) return and_mask;
 
       // ExtINT
       if (old_event & EVENT_EXTINT) {
@@ -221,7 +216,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	if (inject_interrupt(cpu, msg2.value))
 	  and_mask |= EVENT_EXTINT;
 	cpu->actv_state = 0;
-	break;
+	return and_mask;
       }
 
       // APIC interrupt?
@@ -231,22 +226,23 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	if (inject_interrupt(cpu, msg2.value))
 	  and_mask |= EVENT_FIXED;
 	cpu->actv_state = 0;
-	break;
+	return and_mask;
       }
-    } while (0);
+      return and_mask;
+  }
 
-    /**
-     * The order is important here, as we have to delete the SIPI
-     * first and then enable the wait-for-sipi bit.
-     */
-    Cpu::atomic_and<volatile unsigned>(&event, ~and_mask);
-    Cpu::atomic_or <volatile unsigned>(&event,   or_mask);
-    old_event = event;
+  void handle_irq(CpuMessage &msg) {
+    assert(msg.mtr_in & MTD_STATE);
+    assert(msg.mtr_in & MTD_INJ);
+    assert(msg.mtr_in & MTD_RFLAGS);
+
+    Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
+    unsigned old_event = _event;
 
     // recalculate the IRQ windows
-    cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
-    if (old_event & (EVENT_EXTINT | EVENT_FIXED))  cpu->inj_info |= INJ_IRQWIN;
-    if (old_event & EVENT_NMI)                     cpu->inj_info |= INJ_NMIWIN;
+    msg.cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
+    if (old_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
+    if (old_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
   }
 
 
@@ -282,27 +278,19 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
      * We received an asynchronous event. As code runs in many
      * threads, state updates have to be atomic!
      */
-    unsigned old_value;
-    unsigned new_value;
-    do {
-      old_value = event;
-      new_value = old_value | (value & EVENT_MASK);
-      if (old_value == new_value) return;
-      if ((value & EVENT_MASK) == EVENT_SIPI) {
-	if (~old_value & STATE_WFS) return;
-	new_value = (new_value & ~(STATE_WFS & 0xff00)) | value;
-      }
-    } while (Cpu::cmpxchg(&event, old_value, new_value) != old_value);
+    if (!((_event ^ value) & EVENT_MASK)) return;
+    if ((value & EVENT_MASK) == EVENT_SIPI)
+      // try to claim the sipi field, if it is empty, we waiting for a sipi
+      // if it fails, somebody else was faster and we do not wakeup the client
+      if (Cpu::cmpxchg(&_sipi, 0, value)) return;
 
-    Cpu::atomic_or<volatile unsigned>(&event, STATE_WAKEUP);
-    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, event & STATE_BLOCK);
+    Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & EVENT_MASK));
+    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }
 
 public:
   bool receive(CpuEvent &msg) { got_event(msg.value); return true; }
-
-
   bool receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET) {
       got_event(EVENT_RESET);
@@ -370,14 +358,14 @@ public:
     // handle IRQ injection
     for (handle_irq(msg); msg.cpu->actv_state & 0x3; handle_irq(msg)) {
       MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
-      Cpu::atomic_or<volatile unsigned>(&event, STATE_BLOCK);
-      if (~event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
-      Cpu::atomic_and<volatile unsigned>(&event, ~(STATE_BLOCK | STATE_WAKEUP));
+      Cpu::atomic_or<volatile unsigned>(&_event, STATE_BLOCK);
+      if (~_event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
+      Cpu::atomic_and<volatile unsigned>(&_event, ~(STATE_BLOCK | STATE_WAKEUP));
     }
     return true;
   }
 
-  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb) {
+  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb), _sipi(~0u) {
     MessageHostOp msg(this);
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;

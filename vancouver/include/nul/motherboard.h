@@ -38,6 +38,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;
+  DBus<MessageApic>         bus_apic;
   DBus<MessageAhciSetDrive> bus_ahcicontroller;
   DBus<MessageDisk>         bus_disk;
   DBus<MessageDiskCommit>   bus_diskcommit;
