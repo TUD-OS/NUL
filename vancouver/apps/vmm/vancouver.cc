@@ -592,6 +592,10 @@ public:
       vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
     }
 
+    // RESET device state
+    MessageLegacy msg2(MessageLegacy::RESET, 0);
+    _mb->bus_legacy.send_fifo(msg2);
+
     _lock.up();
     Logging::printf("INIT done\n");
 
@@ -670,7 +674,7 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	  // this is an access to MMIO
 	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
-VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  vmx_triple(pid, utcb); )
+VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ); )
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
@@ -711,6 +715,6 @@ VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	utcb->ctrl[1] = 1 << 0;  // vmrun
 	do_recall(pid, utcb);
 	)
-VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  svm_shutdwn(pid, utcb);)
+VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  vmx_irqwin(pid, utcb); )
 VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, utcb); )
 #endif
