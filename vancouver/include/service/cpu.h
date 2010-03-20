@@ -26,7 +26,7 @@ class Cpu
   template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" :: "r"(ptr), "q"(value)); }
   template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
 
-  static bool atomic_set_bit(unsigned *vector, unsigned bit, bool value=true)
+  static void atomic_set_bit(unsigned *vector, unsigned bit, bool value=true)
   {
     unsigned index = bit >> 5;
     unsigned mask  = 1 << (bit & 0x1f);

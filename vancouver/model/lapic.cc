@@ -42,6 +42,7 @@ class X2Apic : public StaticReceiver<X2Apic>
   bool in_x2apic_mode;
   unsigned _vector[8*3];
   unsigned _esr_shadow;
+  unsigned _isrv;
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
 
@@ -64,33 +65,34 @@ class X2Apic : public StaticReceiver<X2Apic>
     Logging::panic("%s", __PRETTY_FUNCTION__);
   }
 
-  unsigned get_highest_bit(unsigned offset) {
+  unsigned get_highest_bit(unsigned bit_offset) {
     for (int i=7; i >=0; i--) {
-      unsigned value = _vector[8*offset + i];
+      unsigned value = _vector[(bit_offset >> 5) + i];
       if (value) return (i << 5) | Cpu::bsr(value);
     }
     return 0;
   }
 
   unsigned processor_prio() {
-    unsigned isrv = get_highest_bit(0);
-    if (_TPR >= (isrv & 0xf0))
+    if (_TPR >= (_isrv & 0xf0))
       return _TPR;
-    return isrv & 0xf0;
+    return _isrv & 0xf0;
   }
 
+  unsigned prioritize_irq() {
+    unsigned irrv = get_highest_bit(OFS_IRR);
+    if ((irrv & 0xf0) > processor_prio()) return irrv;
+    return 0;
+  }
 
   void update_irqs() {
-    unsigned irrv = get_highest_bit(2) & 0xf0;
-    if (irrv > processor_prio()) {
-      CpuEvent msg(VCpu::EVENT_FIXED);
-      _vcpu->bus_event.send(msg);
-    }
+    CpuEvent msg(VCpu::EVENT_FIXED);
+    if (prioritize_irq()) _vcpu->bus_event.send(msg);
   }
 
   void set_error(unsigned bit) {
     Cpu::atomic_set_bit(&_esr_shadow, bit);
-    if (~_error & (1 << LVT_DS))  trigger_lvt(&_error);
+    if (~_ERROR & (1 << LVT_DS))  trigger_lvt(&_ERROR);
   }
 
 
@@ -135,9 +137,9 @@ class X2Apic : public StaticReceiver<X2Apic>
       return true;
     case 0xb: // EOI
       {
-	unsigned isrv = get_highest_bit(0);
-	if (isrv) {
-	  Cpu::set_bit(_vector, isrv, false);
+	if (_isrv) {
+	  Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
+	  _isrv = get_highest_bit(OFS_ISR);
 	  update_irqs();
 	  // XXX send broadcast EOI if TMR is set
 	}
@@ -218,10 +220,12 @@ public:
    * An INTA cycle
    */
   bool  receive(CpuEvent &msg) {
-    // XXX prioritize IRQ
-    unsigned irrv = get_highest_bit(2) & 0xf0;
-    if (irrv > processor_prio()) {
+    unsigned irrv = prioritize_irq();
+    if (irrv) {
+      assert(irrv > _isrv);
+      Cpu::atomic_set_bit(_vector, OFS_IRR + irrv, false);
       Cpu::set_bit(_vector, OFS_ISR + irrv);
+      _isrv = irrv;
       msg.value = irrv;
     } else
       msg.value = _SVR & 0xff;

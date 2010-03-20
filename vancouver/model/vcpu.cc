@@ -226,10 +226,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
       // APIC interrupt?
       if (old_event & EVENT_FIXED) {
-	CpuEvent msg(0);
-	if (!bus_lapic.send())
-	    cpu->actv_state = 0;
-	and_mask |= EVENT_FIXED;
+	CpuEvent msg2(~0u);
+	bus_lapic.send(msg2);
+	if (inject_interrupt(cpu, msg2.value))
+	  and_mask |= EVENT_FIXED;
+	cpu->actv_state = 0;
 	break;
       }
     } while (0);
