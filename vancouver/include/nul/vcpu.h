@@ -85,6 +85,7 @@ public:
     // SIPI vector: bit 8-15
     STATE_WFS    = 1 << 16,
     STATE_BLOCK  = 1 << 17,
+    STATE_WAKEUP = 1 << 18,
   };
 
 

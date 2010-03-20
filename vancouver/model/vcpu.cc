@@ -159,7 +159,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	cpu->eip          = 0;
 	cpu->cs.base      = (old_event & 0xff00) << 4;
 	cpu->cs.sel       =  old_event & 0xff00;
-	cpu->actv_state = 0;
+	cpu->actv_state   = 0;
 	and_mask |= 0xff00 | EVENT_SIPI;
       }
 
@@ -270,7 +270,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       }
     } while (Cpu::cmpxchg(&event, old_value, new_value) != old_value);
 
-    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, old_value & STATE_BLOCK);
+    Cpu::atomic_or<volatile unsigned>(&event, STATE_WAKEUP);
+    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }
 
@@ -340,17 +341,11 @@ public:
     }
 
     // handle IRQ injection
-    while (1) {
-      handle_irq(msg);
-
-      if (msg.cpu->actv_state & 0x3) {
-	MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
-	Cpu::atomic_or<volatile unsigned>(&event, STATE_BLOCK);
-	if (msg.cpu->actv_state & 0x3) _mb.bus_hostop.send(msg2);
-	Cpu::atomic_and<volatile unsigned>(&event, ~STATE_BLOCK);
-      }
-      else
-	break;
+    for (handle_irq(msg); msg.cpu->actv_state & 0x3; handle_irq(msg)) {
+      MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
+      Cpu::atomic_or<volatile unsigned>(&event, STATE_BLOCK);
+      if (~event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
+      Cpu::atomic_and<volatile unsigned>(&event, ~(STATE_BLOCK | STATE_WAKEUP));
     }
     return true;
   }
