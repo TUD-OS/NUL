@@ -183,8 +183,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       }
 
       // NMI
-      if (old_event & EVENT_NMI && ~cpu->intr_state & 8) {
-	// XXX NMI side effects
+      if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && ~cpu->inj_info & 0x80000000 && !(cpu->intr_state & 3)) {
+	cpu->inj_info = 0x80000200;
 	cpu->actv_state = 0;
 	and_mask |= EVENT_NMI;
 	break;
@@ -192,6 +192,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
       // Interrupts are blocked in shutdown
       if (cpu->actv_state == 2) break;
+
       // ExtINT
       if (old_event & EVENT_EXTINT) {
 	MessageLegacy msg2(MessageLegacy::INTA, ~0u);
@@ -201,6 +202,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	cpu->actv_state = 0;
 	break;
       }
+
       // FIXED APIC interrupt
       if (old_event & EVENT_FIXED) {
 	// XXX go to the APIC
@@ -215,13 +217,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
      * first and then enable the wait-for-sipi bit.
      */
     Cpu::atomic_and<volatile unsigned>(&event, ~and_mask);
-    Cpu::atomic_or<volatile unsigned>(&event, or_mask);
+    Cpu::atomic_or <volatile unsigned>(&event,   or_mask);
     old_event = event;
 
     // recalculate the IRQ windows
     cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
     if (old_event & (EVENT_EXTINT | EVENT_FIXED))  cpu->inj_info |= INJ_IRQWIN;
-    if (old_event & EVENT_NMI)  cpu->inj_info |= INJ_NMIWIN;
+    if (old_event & EVENT_NMI)                     cpu->inj_info |= INJ_NMIWIN;
   }
 
 
