@@ -25,6 +25,15 @@ class Cpu
   static  void  hlt()   { asm volatile("hlt"); }
   template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" :: "r"(ptr), "q"(value)); }
   template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
+
+  static void atomic_set_bit(unsigned *vector, unsigned bit, bool value=true)
+  {
+    unsigned index = bit >> 5;
+    unsigned mask  = 1 << (bit & 0x1f);
+    if (value && ~vector[index] & mask) atomic_or (vector+index,  mask);
+    if (!value && vector[index] & mask) atomic_and(vector+index, ~mask);
+  }
+
   static  unsigned cmpxchg(volatile void *var, unsigned oldvalue, unsigned newvalue)
   {
     asm volatile ("lock; cmpxchg %2, (%0)": "+r"(var), "+a"(oldvalue): "r"(newvalue) : "memory");
