@@ -26,12 +26,26 @@ class Cpu
   template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" :: "r"(ptr), "q"(value)); }
   template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
 
-  static void atomic_set_bit(unsigned *vector, unsigned bit, bool value=true)
+  static bool atomic_set_bit(unsigned *vector, unsigned bit, bool value=true)
   {
     unsigned index = bit >> 5;
     unsigned mask  = 1 << (bit & 0x1f);
     if (value && ~vector[index] & mask) atomic_or (vector+index,  mask);
     if (!value && vector[index] & mask) atomic_and(vector+index, ~mask);
+  }
+
+  static void set_bit(unsigned *vector, unsigned bit, bool value=true)
+  {
+    unsigned index = bit >> 5;
+    unsigned mask  = 1 << (bit & 0x1f);
+    if (value)  vector[index] |= mask;
+    if (!value) vector[index] &= ~mask;
+  }
+
+  static  unsigned xchg(unsigned *x, unsigned y)
+  {
+    asm volatile ("xchg %1, (%0)": "+r"(x), "+r"(y));
+    return y;
   }
 
   static  unsigned cmpxchg(volatile void *var, unsigned oldvalue, unsigned newvalue)

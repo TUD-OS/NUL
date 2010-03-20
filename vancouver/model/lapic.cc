@@ -33,11 +33,15 @@ class X2Apic : public StaticReceiver<X2Apic>
     LVT_MASK   = 16,
     LVT_LEVEL  = 15,
     LVT_LEVEL_MASK = 1 << LVT_LEVEL,
+    OFS_ISR   = 0,
+    OFS_TMR   = 256,
+    OFS_IRR   = 512,
   };
   VCpu *_vcpu;
   unsigned long long _msr;
   bool in_x2apic_mode;
   unsigned _vector[8*3];
+  unsigned _esr_shadow;
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
 
@@ -84,51 +88,65 @@ class X2Apic : public StaticReceiver<X2Apic>
     }
   }
 
+  void set_error(unsigned bit) {
+    Cpu::atomic_set_bit(&_esr_shadow, bit);
+    if (~_error & (1 << LVT_DS))  trigger_lvt(&_error);
+  }
+
 
   void set_vector(unsigned value) {
     unsigned vector = value & 0xff;
 
     // lower vectors are reserved
-    if (vector < 16) return;
-    Cpu::atomic_set_bit(_vector, 256*2 + vector, true);
-    Cpu::atomic_set_bit(_vector, 256*1 + vector, value & LVT_LEVEL_MASK);
+    if (vector < 16) set_error(5);
+    else {
+      Cpu::atomic_set_bit(_vector, OFS_IRR + vector);
+      Cpu::atomic_set_bit(_vector, OFS_TMR + vector, value & LVT_LEVEL_MASK);
+    }
     update_irqs();
   }
 
 
   bool register_read(unsigned num, unsigned &value) {
+    bool res = false;
     switch (num) {
     case 0x0a:
       value = processor_prio();
+      res = true;
       break;
     case 0x10 ... 0x18:
       value = _vector[num - 0x10];
+      res = true;
       break;
     default:
-      return X2Apic_read(num, value);
+      res = X2Apic_read(num, value);
     }
-    return true;
+    if (!res) set_error(7);
+    return res;
   }
 
 
   bool register_write(unsigned num, unsigned value) {
     bool res;
     switch (num) {
+    case 0x9: // APR
+    case 0xc: // RRD
+      // the accesses are ignored
+      return true;
     case 0xb: // EOI
       {
 	unsigned isrv = get_highest_bit(0);
 	if (isrv) {
-	  Cpu::atomic_set_bit(_vector, isrv, false);
+	  Cpu::set_bit(_vector, isrv, false);
 	  update_irqs();
+	  // XXX send broadcast EOI if TMR is set
 	}
       }
       return true;
     default:
       res = X2Apic_write(num, value, true);
     }
-    if (!res) {
-      // XXX ERROR bits
-    }
+    if (!res) set_error(7);
     return true;
   }
 
@@ -192,6 +210,21 @@ public:
      */
     msg.start_page = msg.page;
     msg.count = 1;
+    return true;
+  }
+
+
+  /**
+   * An INTA cycle
+   */
+  bool  receive(CpuEvent &msg) {
+    // XXX prioritize IRQ
+    unsigned irrv = get_highest_bit(2) & 0xf0;
+    if (irrv > processor_prio()) {
+      Cpu::set_bit(_vector, OFS_ISR + irrv);
+      msg.value = irrv;
+    } else
+      msg.value = _SVR & 0xff;
     return true;
   }
 
@@ -286,6 +319,7 @@ PARAM(x2apic, {
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
     mb.last_vcpu->memregion.add(dev, &X2Apic::receive_static<MessageMemRegion>);
+    mb.last_vcpu->bus_lapic.add(dev, &X2Apic::receive_static<CpuEvent>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
   "Example: 'x2apic:2'");
@@ -294,6 +328,8 @@ REGSET(X2Apic,
        REG_RW(_ID,            0x02,          0, 0)
        REG_RO(_VERSION,       0x03, 0x00050014)
        REG_RW(_TPR,           0x08,          0, 0xff)
+       REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff)
+       REG_WR(_ESR,           0x28,          0, 0,          0, 0, _ESR = Cpu::xchg(&_esr_shadow, 0); )
        REG_WR(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000)
        REG_WR(_TIMER,         0x32, 0x00010000, 0x310ff, 0, 0, recheck_lvt(&_TIMER);)

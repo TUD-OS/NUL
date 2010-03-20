@@ -73,6 +73,7 @@ class VCpu
 public:
   DBus<CpuMessage>       executor;
   DBus<CpuEvent>         bus_event;
+  DBus<CpuEvent>         bus_lapic;
   DBus<MessageMem>       mem;
   DBus<MessageMemRegion> memregion;
 
