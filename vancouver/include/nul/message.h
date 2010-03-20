@@ -193,11 +193,11 @@ struct MessageLegacy
   enum Type
     {
       GATE_A20,
-      RESET,
       FAST_A20,
+      RESET,
       INIT,
-      EXTINT,
       NMI,
+      EXTINT,
       INTA,
     } type;
   unsigned value;

@@ -22,7 +22,7 @@
 
 class X2Apic : public StaticReceiver<X2Apic>
 {
-  DBus<CpuMessage> &_executor;
+  VCpu *_vcpu;
   unsigned long long _msr;
   bool in_x2apic_mode;
 #define REGBASE "../model/lapic.cc"
@@ -34,9 +34,12 @@ class X2Apic : public StaticReceiver<X2Apic>
   bool update_msr(unsigned long long value) {
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
     if (value & ~mask) return false;
-    _msr = value;
-    CpuMessage msg(1, 3, 2, _msr & 0x800 ? 0 : 2);
-    _executor.send(msg);
+    if (_msr ^ value & 0x800) {
+      CpuMessage msg(1, 3, 2, _msr & 0x800 ? 0 : 2);
+      _vcpu->executor.send(msg);
+    }
+    // make the BSP flag read-only
+    _msr = (value & ~0x100ull) | (_msr & 0x100);
     return true;
   }
 
@@ -126,18 +129,18 @@ public:
 
   bool  receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET)
-      return update_msr(_ID ? 0xfee00800 : 0xfee00900);
+      return update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
     return false;
   }
 
-  X2Apic(DBus<CpuMessage> &executor, unsigned initial_apic_id) : _executor(executor), in_x2apic_mode(false) {
+  X2Apic(VCpu *vcpu, unsigned initial_apic_id) : _vcpu(vcpu), in_x2apic_mode(false) {
     _ID = initial_apic_id;
 
     // propagate initial APIC id
     CpuMessage msg1(1,  1, 0xffffff, _ID << 24);
     CpuMessage msg2(11, 3, 0, _ID);
-    executor.send(msg1);
-    executor.send(msg2);
+    _vcpu->executor.send(msg1);
+    _vcpu->executor.send(msg2);
   }
 };
 
@@ -145,7 +148,7 @@ public:
 PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    X2Apic *dev = new X2Apic(mb.last_vcpu->executor, argv[0]);
+    X2Apic *dev = new X2Apic(mb.last_vcpu, argv[0]);
     mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);

@@ -73,10 +73,13 @@ public:
   DBus<MessageMemRegion> memregion;
 
   VCpu *get_last() { return _last; }
+  bool is_ap() { return _last; }
+  
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }
   enum {
     EVENT_FIXED  = 1 << 0,
     EVENT_SMI    = 1 << 2,
+    EVENT_RESET  = 1 << 3,
     EVENT_NMI    = 1 << 4,
     EVENT_INIT   = 1 << 5,
     EVENT_SIPI   = 1 << 6,
@@ -90,7 +93,5 @@ public:
 
 
   void got_event(unsigned value);
-
-
   VCpu (VCpu *last) : _last(last) {}
 };

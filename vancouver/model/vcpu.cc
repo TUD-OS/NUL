@@ -106,14 +106,16 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  void handle_init(CpuMessage &msg) {
+  void handle_cpu_init(CpuMessage &msg, bool reset) {
     CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
+    cpu->efl      = 2;
     cpu->eip      = 0xfff0;
     cpu->cr0      = 0x10;
     cpu->cs.ar    = 0x9b;
     cpu->cs.limit = 0xffff;
     cpu->cs.base  = 0xffff0000;
+    cpu->cs.sel   = 0xf000;
     cpu->ss.ar    = 0x93;
     cpu->edx      = 0x600;
     cpu->ds.ar = cpu->es.ar = cpu->fs.ar = cpu->gs.ar = cpu->ss.ar;
@@ -122,10 +124,17 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->ss.limit = cpu->ds.limit = cpu->es.limit = cpu->fs.limit = cpu->gs.limit = cpu->cs.limit;
     cpu->tr.limit = cpu->ld.limit = cpu->gd.limit = cpu->id.limit = 0xffff;
     /*cpu->dr6      = 0xffff0ff0;*/
+    // cpu->_dr = {0, 0, 0, 0};
     cpu->dr7      = 0x400;
-    // goto singlestep instruction?
-    cpu->efl      = 0;
     msg.mtr_out  |= MTD_ALL;
+    if (reset) {
+      cpu->tsc_off = -Cpu::rdtsc();
+      // XXX floating point
+      // XXX MXCSR
+      // XXX MTRR
+      // XXX APIC
+      // XXX PERF
+    }
   }
 
 
@@ -153,6 +162,18 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     unsigned and_mask = 0;
     unsigned old_event = event;
     do {
+      if (old_event & EVENT_RESET) {
+	handle_cpu_init(msg, true);
+	and_mask |= EVENT_RESET;
+
+	// are we an AP and should go to the wait-for-sipi state?
+	if (is_ap()) {
+	  cpu->actv_state = 3;
+	  or_mask |= STATE_WFS;
+	}
+	break;
+      }
+
 
       // SIPI pending?
       if (old_event & EVENT_SIPI) {
@@ -168,7 +189,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
       // INIT
       if (old_event & EVENT_INIT) {
-	handle_init(msg);
+	handle_cpu_init(msg, false);
 	cpu->actv_state = 3;
 	and_mask |= EVENT_INIT;
 	or_mask  |= STATE_WFS;
@@ -190,7 +211,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	break;
       }
 
-      // Interrupts are blocked in shutdown
+      // interrupts are blocked in shutdown
       if (cpu->actv_state == 2) break;
 
       // ExtINT
@@ -286,6 +307,8 @@ public:
       got_event(EVENT_NMI);
     else if (msg.type == MessageLegacy::INIT)
       got_event(EVENT_INIT);
+    else if (msg.type == MessageLegacy::RESET)
+      got_event(EVENT_RESET);
     else return false;
     return true;
   }
@@ -321,11 +344,6 @@ public:
     case CpuMessage::TYPE_TRIPLE:
       assert(!msg.cpu->actv_state);
       msg.cpu->actv_state = 2;
-      {
-	// XXX that will generate an shutdown cycle if not blocked
-	MessageLegacy msg1(MessageLegacy::RESET, 0);
-	_mb.bus_legacy.send_fifo(msg1);
-      }
       break;
     case CpuMessage::TYPE_INIT:
       got_event(EVENT_INIT);
