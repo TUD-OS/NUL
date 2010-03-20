@@ -73,6 +73,47 @@ class X2Apic : public StaticReceiver<X2Apic>
     return X2Apic_read(num, value);
   }
 
+
+  bool trigger_lvt(unsigned *lvt_ptr) {
+    unsigned lvt = *lvt_ptr;
+
+    // masked? - set delivery status bit
+    if (lvt & (1 << LVT_MASK)) {
+      Cpu::atomic_set_bit(lvt_ptr, LVT_DS);
+      return true;
+    }
+
+    // perf IRQs are auto masked
+    if (lvt_ptr == &_PERF) Cpu::atomic_set_bit(lvt_ptr, LVT_MASK);
+
+    unsigned event = (lvt >> 8) & 7;
+    switch (event) {
+    case VCpu::EVENT_FIXED:
+      // set Remote IRR on level triggered IRQs
+      if (lvt & LVT_LEVEL_MASK) Cpu::atomic_set_bit(lvt_ptr, LVT_RIRR);
+      set_vector(lvt);
+      break;
+    case VCpu::EVENT_SMI:
+    case VCpu::EVENT_NMI:
+    case VCpu::EVENT_INIT :
+    case VCpu::EVENT_EXTINT:
+      {
+	CpuEvent msg(event);
+	_vcpu->bus_event.send(msg);
+      }
+      break;
+    default:
+      // other encodings are reserved, thus we simply drop them
+      break;
+    }
+
+    // we have delivered it
+    Cpu::atomic_set_bit(lvt_ptr, LVT_DS, false);
+    return true;
+  }
+
+  void recheck_lvt(unsigned *lvt_ptr) { if (*lvt_ptr & (1 << LVT_DS)) trigger_lvt(lvt_ptr); }
+
 public:
   bool  receive(MessageMem &msg)
   {
@@ -153,41 +194,6 @@ public:
   }
 
 
-  bool trigger_lint(unsigned *lintptr) {
-    unsigned lint = *lintptr;
-
-    // masked? - set delivery status bit
-    if (lint & (1 << LVT_MASK)) {
-      Cpu::atomic_set_bit(lintptr, LVT_DS);
-      return true;
-    }
-
-    // perf IRQs are auto masked
-    if (lintptr == &_PERF) Cpu::atomic_set_bit(lintptr, LVT_MASK);
-
-    unsigned event = (lint >> 8) & 7;
-    switch (event) {
-    case VCpu::EVENT_FIXED:
-      // set Remote IRR on level triggered IRQs
-      if (lint & LVT_LEVEL_MASK) Cpu::atomic_set_bit(lintptr, LVT_RIRR);
-      set_vector(lint);
-      break;
-    case VCpu::EVENT_SMI:
-    case VCpu::EVENT_NMI:
-    case VCpu::EVENT_INIT :
-    case VCpu::EVENT_EXTINT:
-      {
-	CpuEvent msg(event);
-	_vcpu->bus_event.send(msg);
-      }
-      break;
-    default:
-      // other encodings are reserved, thus we simply drop them
-      break;
-    }
-    return true;
-  }
-
 
   bool  receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET)
@@ -196,9 +202,9 @@ public:
 
     // the BSP gets the legacy PIC output and NMI on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
-      return trigger_lint(&_LINT0);
+      return trigger_lvt(&_LINT0);
     if (msg.type == MessageLegacy::NMI)
-      return trigger_lint(&_LINT1);
+      return trigger_lvt(&_LINT1);
     return false;
   }
 
@@ -232,12 +238,12 @@ REGSET(X2Apic,
        REG_RO(_VERSION,       0x03, 0x00050014)
        REG_WR(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000)
-       REG_RW(_TIMER,         0x32, 0x00010000, 0x310ff)
-       REG_RW(_TERM,          0x33, 0x00010000, 0x117ff)
-       REG_RW(_PERF,          0x34, 0x00010000, 0x117ff)
-       REG_RW(_LINT0,         0x35, 0x00010000, 0x1f7ff)
-       REG_RW(_LINT1,         0x36, 0x00010000, 0x1f7ff)
-       REG_RW(_ERROR,         0x37, 0x00010000, 0x110ff)
+       REG_WR(_TIMER,         0x32, 0x00010000, 0x310ff, 0, 0, recheck_lvt(&_TIMER);)
+       REG_WR(_TERM,          0x33, 0x00010000, 0x117ff, 0, 0, recheck_lvt(&_TERM); )
+       REG_WR(_PERF,          0x34, 0x00010000, 0x117ff, 0, 0, recheck_lvt(&_PERF); )
+       REG_WR(_LINT0,         0x35, 0x00010000, 0x1f7ff, 0, 0, recheck_lvt(&_LINT0);)
+       REG_WR(_LINT1,         0x36, 0x00010000, 0x1f7ff, 0, 0, recheck_lvt(&_LINT1);)
+       REG_WR(_ERROR,         0x37, 0x00010000, 0x110ff, 0, 0, recheck_lvt(&_ERROR);)
        REG_RW(_INITIAL_COUNT, 0x38,          0, ~0u)
        REG_RW(_CURRENT_COUNT, 0x39,          0, ~0u)
        REG_RW(_DIVIDE_CONFIG, 0x3e,          0, 0xb))
