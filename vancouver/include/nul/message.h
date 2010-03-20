@@ -147,10 +147,6 @@ enum {
  */
 struct MessageIrq
 {
-  enum Vector
-    {
-      LINT0 = 255,
-    };
   enum MessageType
     {
       ASSERT_IRQ,
@@ -185,17 +181,6 @@ struct MessagePic
 };
 
 
-/**
- * Message on the APIC bus.
- */
-struct MessageApic
-{
-  unsigned char line;
-  unsigned char vector;
-  MessageApic(unsigned char _line) :  line(_line) { }
-};
-
-
 /****************************************************/
 /* Legacy messages                                  */
 /****************************************************/
@@ -211,9 +196,12 @@ struct MessageLegacy
       RESET,
       FAST_A20,
       INIT,
+      EXTINT,
+      NMI,
+      INTA,
     } type;
   unsigned value;
-  MessageLegacy(Type _type, unsigned _value) : type(_type), value(_value) {}
+  MessageLegacy(Type _type, unsigned _value=0) : type(_type), value(_value) {}
 };
 
 /**

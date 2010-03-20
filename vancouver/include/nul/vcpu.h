@@ -34,7 +34,6 @@ struct CpuMessage {
     TYPE_INVD,
     TYPE_WBINVD,
     TYPE_CHECK_IRQ,
-    TYPE_WAKEUP,
     TYPE_SINGLE_STEP,
   } type;
   union {
@@ -68,16 +67,6 @@ struct CpuMessage {
 class VCpu
 {
   VCpu *_last;
-
-protected:
-  enum {
-    HAZARD_IRQ    = 1,
-    HAZARD_INHLT  = 2,
-    HAZARD_INIT   = 4,
-  };
-  volatile unsigned hazard;
-  unsigned lastmsi;
-
 public:
   DBus<CpuMessage>       executor;
   DBus<MessageMem>       mem;
@@ -85,6 +74,22 @@ public:
 
   VCpu *get_last() { return _last; }
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }
+  enum {
+    EVENT_FIXED  = 1 << 0,
+    EVENT_SMI    = 1 << 2,
+    EVENT_NMI    = 1 << 4,
+    EVENT_INIT   = 1 << 5,
+    EVENT_SIPI   = 1 << 6,
+    EVENT_EXTINT = 1 << 7,
+    EVENT_MASK   = 0xff,
+    // SIPI vector: bit 8-15
+    STATE_WFS    = 1 << 16,
+    STATE_BLOCK  = 1 << 17,
+  };
+
+
+  void got_event(unsigned value);
+
 
   VCpu (VCpu *last) : _last(last) {}
 };

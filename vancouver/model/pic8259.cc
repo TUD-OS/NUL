@@ -47,6 +47,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 
   DBus<MessageIrq>       &_bus_irq;
   DBus<MessagePic>       &_bus_pic;
+  DBus<MessageLegacy>    &_bus_legacy;
   DBus<MessageIrqNotify> &_bus_notify;
   unsigned short _base;
   unsigned       _upstream_irq;
@@ -160,51 +161,56 @@ class PicDevice : public StaticReceiver<PicDevice>
   void propagate_irq()
   {
     unsigned char dummy;
-    if (prioritize_irq(dummy, false))
-      {
+    if (prioritize_irq(dummy, false)) {
+      if (!_virq) {
+	// send an ExtINT message to CPU0
+	MessageLegacy msg(MessageLegacy::EXTINT, 0);
+	_bus_legacy.send(msg, true);
+      }
+      else {
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
 	_bus_irq.send(msg);
       }
+    }
   }
 
 
   /**
    * Upstream requests an irq vector.
    */
-  bool get_irqvector(unsigned char &res)
+  void get_irqvector(unsigned char &res)
   {
-    if (prioritize_irq(res, true))
-      {
-	if (!is_slave() && (_icw[ICW3] & (1 << res)))
-	  {
+    if (prioritize_irq(res, true)) {
+	if (!is_slave() && (_icw[ICW3] & (1 << res))) {
 	    MessagePic msg(res);
-	    if (_bus_pic.send(msg))
-	      {
-		res = msg.vector;
-		return true;
-	      }
+	    if (_bus_pic.send(msg)) {
+	      res = msg.vector;
+	      return;
+	    }
 	    Logging::printf("PicDevice::%s() spurious slave IRQ? for irr %x isr %x %x\n", __func__, _irr, _isr, res);
-	  }
-      }
-    else
-      {
-	Logging::printf("PicDevice::%s() spurious IRQ? for irr %x isr %x %x\n", __func__, _irr, _isr, res);
-	res = 7;
-      }
+	}
+    }
+    else {
+      Logging::printf("PicDevice::%s() spurious IRQ? for irr %x isr %x %x\n", __func__, _irr, _isr, res);
+      res = 7;
+    }
     res += _icw[ICW2];
-    return true;
+    return;
   }
 
  public:
 
   /**
-   * The CPU send an int-ack cycle.
+   * The CPU send an int-ack cycle?
    */
-  bool  receive(MessageApic &msg)
+  bool  receive(MessageLegacy &msg)
   {
-    bool res = (msg.line == _virq) && get_irqvector(msg.vector);
-    if (res)  propagate_irq();
-    return res;
+    if (msg.type != MessageLegacy::INTA) return false;
+    unsigned char vec;
+    get_irqvector(vec);
+    msg.value = vec;
+    propagate_irq();
+    return true;
   }
 
 
@@ -214,12 +220,11 @@ class PicDevice : public StaticReceiver<PicDevice>
   bool  receive(MessagePic &msg)
   {
     // get irq vector if slave and addr match
-    if (is_slave() && (msg.slave == (_icw[ICW3] & 7)))
-      {
-	bool res = get_irqvector(msg.vector);
-	if (res)  propagate_irq();
-	return res;
-      }
+    if (is_slave() && (msg.slave == (_icw[ICW3] & 7))) {
+      get_irqvector(msg.vector);
+      propagate_irq();
+      return true;
+    }
     return false;
   }
 
@@ -356,9 +361,10 @@ class PicDevice : public StaticReceiver<PicDevice>
     }
 
 
- PicDevice(DBus<MessageIrq> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageIrqNotify> &bus_notify,
+ PicDevice(DBus<MessageIrq> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageLegacy> &bus_legacy, DBus<MessageIrqNotify> &bus_notify,
 	   unsigned short base, unsigned char irq, unsigned short elcr_base, unsigned char virq) :
-  _bus_irq(bus_irq), _bus_pic(bus_pic), _bus_notify(bus_notify), _base(base), _upstream_irq(irq), _elcr_base(elcr_base), _virq(virq), _icw_mode(OCW1)
+   _bus_irq(bus_irq), _bus_pic(bus_pic), _bus_legacy(bus_legacy), _bus_notify(bus_notify),
+   _base(base), _upstream_irq(irq), _elcr_base(elcr_base), _virq(virq), _icw_mode(OCW1)
   {
     _icw[ICW1] = 0;
     reset_values();
@@ -370,6 +376,7 @@ PARAM(pic,
       { static unsigned virq;
 	PicDevice *dev = new PicDevice(mb.bus_irqlines,
 				       mb.bus_pic,
+				       mb.bus_legacy,
 				       mb.bus_irqnotify,
 				       argv[0],
 				       argv[1],
@@ -379,7 +386,8 @@ PARAM(pic,
 	mb.bus_ioout.   add(dev, &PicDevice::receive_static<MessageIOOut>);
 	mb.bus_irqlines.add(dev, &PicDevice::receive_static<MessageIrq>);
 	mb.bus_pic.     add(dev, &PicDevice::receive_static<MessagePic>);
-	mb.bus_apic.    add(dev, &PicDevice::receive_static<MessageApic>);
+	if (!virq)
+	  mb.bus_legacy.add(dev, &PicDevice::receive_static<MessageLegacy>);
 	virq += 8;
       },
       "pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.",

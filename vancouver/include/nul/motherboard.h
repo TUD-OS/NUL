@@ -39,7 +39,6 @@ class Motherboard : public StaticReceiver<Motherboard>
  public:
   DBus<MessageAcpi>         bus_acpi;
   DBus<MessageAhciSetDrive> bus_ahcicontroller;
-  DBus<MessageApic>         bus_apic;
   DBus<MessageDisk>         bus_disk;
   DBus<MessageDiskCommit>   bus_diskcommit;
   DBus<MessageBios>         bus_bios;

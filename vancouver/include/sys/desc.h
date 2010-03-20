@@ -29,6 +29,8 @@ enum
 enum
   {
     INJ_IRQWIN = 0x1000,
+    INJ_NMIWIN = 0x0000, // XXX missing
+    INJ_WIN    = INJ_IRQWIN | INJ_NMIWIN,
   };
 
 
