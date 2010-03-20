@@ -224,7 +224,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	break;
       }
 
-      // FIXED APIC interrupt
+      // APIC interrupt?
       if (old_event & EVENT_FIXED) {
 	// XXX go to the APIC
 	and_mask |= EVENT_FIXED;
@@ -275,7 +275,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     }
   }
 
-
   void got_event(unsigned value) {
     /**
      * We received an asynchronous event. As code runs in many
@@ -299,6 +298,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 public:
+  bool receive(CpuEvent &msg) { got_event(msg.value); return true; }
+
 
   bool receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET) {
@@ -386,6 +387,7 @@ public:
 PARAM(vcpu,
       VirtualCpu *dev = new VirtualCpu(mb.last_vcpu, mb);
       dev->executor.add(dev, &VirtualCpu::receive_static<CpuMessage>);
+      dev->bus_event.add(dev, &VirtualCpu::receive_static<CpuEvent>);
       mb.last_vcpu = dev;
       ,
       "vcpu - create a new VCPU");

@@ -60,21 +60,25 @@ struct CpuMessage {
   CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
   CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value) {}
   CpuMessage(bool is_in, CpuState *_cpu, unsigned _io_order, unsigned _port, void *_dst) : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(io_order), port(_port), dst(_dst) {}
-
 };
 
+struct CpuEvent {
+  unsigned value;
+  CpuEvent(unsigned _value) : value(_value) {}
+};
 
 class VCpu
 {
   VCpu *_last;
 public:
   DBus<CpuMessage>       executor;
+  DBus<CpuEvent>         bus_event;
   DBus<MessageMem>       mem;
   DBus<MessageMemRegion> memregion;
 
   VCpu *get_last() { return _last; }
   bool is_ap() { return _last; }
-  
+
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }
   enum {
     EVENT_FIXED  = 1 << 0,
@@ -91,7 +95,5 @@ public:
     STATE_WAKEUP = 1 << 18,
   };
 
-
-  void got_event(unsigned value);
   VCpu (VCpu *last) : _last(last) {}
 };

@@ -22,9 +22,17 @@
 
 class X2Apic : public StaticReceiver<X2Apic>
 {
+  enum {
+    LVT_DS     = 12,
+    LVT_RIRR   = 14,
+    LVT_MASK   = 16,
+    LVT_LEVEL  = 15,
+    LVT_LEVEL_MASK = 1 << LVT_LEVEL,
+  };
   VCpu *_vcpu;
   unsigned long long _msr;
   bool in_x2apic_mode;
+  unsigned _vector[8*3];
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
 
@@ -47,12 +55,30 @@ class X2Apic : public StaticReceiver<X2Apic>
     Logging::panic("%s", __PRETTY_FUNCTION__);
   }
 
+
+  void set_vector(unsigned value) {
+    unsigned vector = value & 0xff;
+
+    // lower vectors are reserved
+    if (vector < 16) return;
+    Cpu::atomic_set_bit(_vector, 256*2 + vector, true);
+    Cpu::atomic_set_bit(_vector, 256*1 + vector, value & LVT_LEVEL_MASK);
+  }
+
+  bool register_read(unsigned num, unsigned &value) {
+    if (in_range(num, 0x10, 0x18)) {
+      value = _vector[num - 0x10];
+      return true;
+    }
+    return X2Apic_read(num, value);
+  }
+
 public:
   bool  receive(MessageMem &msg)
   {
     if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4
-	||  msg.read && !X2Apic_read((msg.phys >> 4) & 0x3f, *msg.ptr)
+	||  msg.read && !register_read((msg.phys >> 4) & 0x3f, *msg.ptr)
 	|| !msg.read && !X2Apic_write((msg.phys >> 4) & 0x3f, *msg.ptr))
       {}// XXX error indication
     return true;
@@ -86,7 +112,7 @@ public:
 	  || msg.cpu->ecx == 0x80e) return false;
 
       // read register
-      if (!X2Apic_read(msg.cpu->ecx & 0x3f, msg.cpu->eax)) return false;
+      if (!register_read(msg.cpu->ecx & 0x3f, msg.cpu->eax)) return false;
 
       // only the ICR has an upper half
       msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
@@ -127,9 +153,52 @@ public:
   }
 
 
+  bool trigger_lint(unsigned *lintptr) {
+    unsigned lint = *lintptr;
+
+    // masked? - set delivery status bit
+    if (lint & (1 << LVT_MASK)) {
+      Cpu::atomic_set_bit(lintptr, LVT_DS);
+      return true;
+    }
+
+    // perf IRQs are auto masked
+    if (lintptr == &_PERF) Cpu::atomic_set_bit(lintptr, LVT_MASK);
+
+    unsigned event = (lint >> 8) & 7;
+    switch (event) {
+    case VCpu::EVENT_FIXED:
+      // set Remote IRR on level triggered IRQs
+      if (lint & LVT_LEVEL_MASK) Cpu::atomic_set_bit(lintptr, LVT_RIRR);
+      set_vector(lint);
+      break;
+    case VCpu::EVENT_SMI:
+    case VCpu::EVENT_NMI:
+    case VCpu::EVENT_INIT :
+    case VCpu::EVENT_EXTINT:
+      {
+	CpuEvent msg(event);
+	_vcpu->bus_event.send(msg);
+      }
+      break;
+    default:
+      // other encodings are reserved, thus we simply drop them
+      break;
+    }
+    return true;
+  }
+
+
   bool  receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET)
       return update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
+    if (_vcpu->is_ap()) return false;
+
+    // the BSP gets the legacy PIC output and NMI on LINT0/1
+    if (msg.type == MessageLegacy::EXTINT)
+      return trigger_lint(&_LINT0);
+    if (msg.type == MessageLegacy::NMI)
+      return trigger_lint(&_LINT1);
     return false;
   }
 
