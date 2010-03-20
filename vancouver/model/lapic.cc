@@ -27,15 +27,15 @@
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
+#define REGBASE "../model/lapic.cc"
+#include "model/reg.h"
   enum {
-    LVT_DS     = 12,
-    LVT_RIRR   = 14,
-    LVT_MASK   = 16,
-    LVT_LEVEL  = 15,
-    LVT_LEVEL_MASK = 1 << LVT_LEVEL,
+    LVT_MASK_BIT = 16,
+    LVT_LEVEL = 1 << 15,
     OFS_ISR   = 0,
     OFS_TMR   = 256,
     OFS_IRR   = 512,
+    LVT_BASE  = _TIMER_offset,
   };
   VCpu *_vcpu;
   unsigned long long _msr;
@@ -43,8 +43,8 @@ class X2Apic : public StaticReceiver<X2Apic>
   unsigned _vector[8*3];
   unsigned _esr_shadow;
   unsigned _isrv;
-#define REGBASE "../model/lapic.cc"
-#include "model/reg.h"
+  bool     _lvtds[6];
+  bool     _lvtrirr[6];
 
   /**
    * Update the APIC base MSR.
@@ -92,18 +92,18 @@ class X2Apic : public StaticReceiver<X2Apic>
 
   void set_error(unsigned bit) {
     Cpu::atomic_set_bit(&_esr_shadow, bit);
-    if (~_ERROR & (1 << LVT_DS))  trigger_lvt(&_ERROR);
+    if (!_lvtds[_ERROR_offset - LVT_BASE])  trigger_lvt(_ERROR_offset - LVT_BASE);
   }
 
 
-  void received_vector(unsigned value) {
+  void received_vector(unsigned value, bool level) {
     unsigned vector = value & 0xff;
 
     // lower vectors are reserved
     if (vector < 16) set_error(6);
     else {
       Cpu::atomic_set_bit(_vector, OFS_IRR + vector);
-      Cpu::atomic_set_bit(_vector, OFS_TMR + vector, value & LVT_LEVEL_MASK);
+      Cpu::atomic_set_bit(_vector, OFS_TMR + vector, level);
     }
     update_irqs();
   }
@@ -122,6 +122,10 @@ class X2Apic : public StaticReceiver<X2Apic>
       break;
     default:
       res = X2Apic_read(num, value);
+    }
+    if (in_range(num, LVT_BASE, 6)) {
+      if (_lvtds[num - LVT_BASE])    value |= 1 << 12;
+      if (_lvtrirr[num - LVT_BASE]) value |= 1 << 14;
     }
     if (!res) set_error(7);
     return res;
@@ -153,24 +157,31 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  bool trigger_lvt(unsigned *lvt_ptr) {
-    unsigned lvt = *lvt_ptr;
+  void recheck_lvt(unsigned num) { if (_lvtds[num]) trigger_lvt(num); }
 
-    // masked? - set delivery status bit
-    if (lvt & (1 << LVT_MASK)) {
-      Cpu::atomic_set_bit(lvt_ptr, LVT_DS);
+  bool trigger_lvt(unsigned num){
+    assert(num < 6);
+    unsigned lvt;
+    X2Apic_read(num + LVT_BASE, lvt);
+
+
+    unsigned event = (lvt >> 8) & 7;
+    bool level =  (lvt & LVT_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
+
+    // level && masked? - set delivery status bit
+    if (lvt & (1 << LVT_MASK_BIT)) {
+      if (level) _lvtds[num] = true;
       return true;
     }
 
     // perf IRQs are auto masked
-    if (lvt_ptr == &_PERF) Cpu::atomic_set_bit(lvt_ptr, LVT_MASK);
+    if (num == (_PERF_offset - LVT_BASE)) Cpu::atomic_set_bit(&_PERF, LVT_MASK_BIT);
 
-    unsigned event = (lvt >> 8) & 7;
     switch (event) {
     case VCpu::EVENT_FIXED:
       // set Remote IRR on level triggered IRQs
-      if (lvt & LVT_LEVEL_MASK) Cpu::atomic_set_bit(lvt_ptr, LVT_RIRR);
-      received_vector(lvt);
+      if (level) _lvtrirr[num] = true;
+      received_vector(lvt, level);
       break;
     case VCpu::EVENT_SMI:
     case VCpu::EVENT_NMI:
@@ -187,11 +198,9 @@ class X2Apic : public StaticReceiver<X2Apic>
     }
 
     // we have delivered it
-    Cpu::atomic_set_bit(lvt_ptr, LVT_DS, false);
+    _lvtds[num] = false;
     return true;
   }
-
-  void recheck_lvt(unsigned *lvt_ptr) { if (*lvt_ptr & (1 << LVT_DS)) trigger_lvt(lvt_ptr); }
 
 public:
   bool  receive(MessageMem &msg)
@@ -297,9 +306,9 @@ public:
 
     // the BSP gets the legacy PIC output and NMI on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
-      return trigger_lvt(&_LINT0);
+      return trigger_lvt(_LINT0_offset - LVT_BASE);
     if (msg.type == MessageLegacy::NMI)
-      return trigger_lvt(&_LINT1);
+      return trigger_lvt(_LINT1_offset - LVT_BASE);
     return false;
   }
 
@@ -336,12 +345,12 @@ REGSET(X2Apic,
        REG_WR(_ESR,           0x28,          0, 0,          0, 0, _ESR = Cpu::xchg(&_esr_shadow, 0); )
        REG_WR(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000)
-       REG_WR(_TIMER,         0x32, 0x00010000, 0x310ff, 0, 0, recheck_lvt(&_TIMER);)
-       REG_WR(_TERM,          0x33, 0x00010000, 0x117ff, 0, 0, recheck_lvt(&_TERM); )
-       REG_WR(_PERF,          0x34, 0x00010000, 0x117ff, 0, 0, recheck_lvt(&_PERF); )
-       REG_WR(_LINT0,         0x35, 0x00010000, 0x1f7ff, 0, 0, recheck_lvt(&_LINT0);)
-       REG_WR(_LINT1,         0x36, 0x00010000, 0x1f7ff, 0, 0, recheck_lvt(&_LINT1);)
-       REG_WR(_ERROR,         0x37, 0x00010000, 0x110ff, 0, 0, recheck_lvt(&_ERROR);)
+       REG_WR(_TIMER,         0x32, 0x00010000, 0x300ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_WR(_TERM,          0x33, 0x00010000, 0x107ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_WR(_PERF,          0x34, 0x00010000, 0x107ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_WR(_LINT0,         0x35, 0x00010000, 0x1a7ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_WR(_LINT1,         0x36, 0x00010000, 0x1a7ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_WR(_ERROR,         0x37, 0x00010000, 0x100ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
        REG_RW(_INITIAL_COUNT, 0x38,          0, ~0u)
        REG_RW(_CURRENT_COUNT, 0x39,          0, ~0u)
        REG_RW(_DIVIDE_CONFIG, 0x3e,          0, 0xb))
