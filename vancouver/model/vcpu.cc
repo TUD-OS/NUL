@@ -301,14 +301,18 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 public:
 
   bool receive(MessageLegacy &msg) {
+    if (msg.type == MessageLegacy::RESET) {
+      got_event(EVENT_RESET);
+      return true;
+    }
+    // only the BSP receives legacy signals
+    if (is_ap()) return false;
     if (msg.type == MessageLegacy::EXTINT)
       got_event(EVENT_EXTINT);
     else if (msg.type == MessageLegacy::NMI)
       got_event(EVENT_NMI);
     else if (msg.type == MessageLegacy::INIT)
       got_event(EVENT_INIT);
-    else if (msg.type == MessageLegacy::RESET)
-      got_event(EVENT_RESET);
     else return false;
     return true;
   }

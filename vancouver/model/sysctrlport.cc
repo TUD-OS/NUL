@@ -80,7 +80,7 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
 	if (!(_last_porta & 1) && msg.value & 1)
 	  {
 	    MessageLegacy msg2(MessageLegacy::INIT, 1);
-	    _bus_legacy.send(msg2);
+	    _bus_legacy.send(msg2, true);
 	  }
 	_last_porta = msg.value;
 	return true;
