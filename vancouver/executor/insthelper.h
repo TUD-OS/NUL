@@ -695,6 +695,7 @@ int helper_IRET()
       set_realmode_segment(&_cpu->fs, sels[2], false);
       set_realmode_segment(&_cpu->gs, sels[3], false);
       set_realmode_segment(&_cpu->ss, tmp_ss,  false);
+      _cpu->intr_state &= ~8;  // clear NMI BLOCKING
       return _fault;
     }
 
@@ -722,10 +723,13 @@ int helper_IRET()
 	  _cpu->eip = tmp_eip;
 	  _cpu->efl = tmp_flag | 2;
 	}
+      _cpu->intr_state &= ~8;  // clear NMI BLOCKING
       return _fault;
     };
   // RETURN-FROM-VIRTUAL-8086-MODE? || REALMODE
-  return helper_far_jmp(tmp_cs, tmp_eip, tmp_flag);
+  if (!helper_far_jmp(tmp_cs, tmp_eip, tmp_flag))
+    _cpu->intr_state &= ~8; // clear NMI BLOCKING
+  return _fault;
 }
 
 

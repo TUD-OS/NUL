@@ -28,6 +28,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   unsigned long _hostop_id;
   Motherboard &_mb;
 
+  volatile unsigned event;
+
   enum {
     MSR_TSC = 0x10,
     MSR_SYSENTER_CS = 0x174,
@@ -128,9 +130,16 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   bool can_inject(CpuState *cpu) {  return !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
-  void inject_extint(CpuState *cpu, unsigned vec) {
-    cpu->actv_state &= ~1;
-    cpu->inj_info = vec | 0x80000000;
+  bool inject_interrupt(CpuState *cpu, unsigned vec) {
+    // spurious vector?
+    if (vec == ~0u) return true;
+
+    // already injection in progress?
+    if (~cpu->inj_info & 0x80000000 && can_inject(cpu)) {
+      cpu->inj_info = vec | 0x80000000;
+      return true;
+    }
+    return false;
   }
 
   void handle_irq(CpuMessage &msg) {
@@ -140,46 +149,79 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     assert(msg.mtr_in & MTD_INJ);
     assert(msg.mtr_in & MTD_RFLAGS);
 
-    bool res = false;
-    if (hazard & HAZARD_IRQ)
-      {
-	COUNTER_INC("lint0");
-	if ((~cpu->inj_info & 0x80000000) && can_inject(cpu))
-	  {
-	    Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_IRQ);
-	    if (lastmsi && lastmsi != 0xff)
-	      {
-		Logging::printf("inject MSI %x\n", lastmsi);
-		COUNTER_INC("injmsi");
-		inject_extint(cpu, lastmsi & 0xff);
-		lastmsi = 0;
-	      }
-	    else {
-	      MessageApic msg2(0);
-	      if (_mb.bus_apic.send(msg2))
-		{
-		  inject_extint(cpu, msg2.vector);
-		  COUNTER_INC("inj");
-		}
-	      else
-		Logging::panic("spurious IRQ?");
-	    }
-	    res = true;
-	  }
-	else
-	  cpu->inj_info |=  INJ_IRQWIN;
+    unsigned or_mask  = 0;
+    unsigned and_mask = 0;
+    unsigned old_event = event;
+    do {
+
+      // SIPI pending?
+      if (old_event & EVENT_SIPI) {
+	cpu->eip          = 0;
+	cpu->cs.base      = (old_event & 0xff00) << 4;
+	cpu->cs.sel       =  old_event & 0xff00;
+	cpu->actv_state = 0;
+	and_mask |= 0xff00 | EVENT_SIPI;
       }
-    else
-      cpu->inj_info &= ~INJ_IRQWIN;
-  }
 
+      // do block everything until we got an SIPI
+      if (cpu->actv_state == 3) break;
 
-  void handle_hlt(CpuMessage &msg) {
-    msg.cpu->actv_state &= ~1u;
-    MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
-    Cpu::atomic_or<volatile unsigned>(&hazard, HAZARD_INHLT);
-    if (~hazard & HAZARD_IRQ) _mb.bus_hostop.send(msg2);
-    Cpu::atomic_and<volatile unsigned>(&hazard, ~HAZARD_INHLT);
+      // INIT
+      if (old_event & EVENT_INIT) {
+	handle_init(msg);
+	cpu->actv_state = 3;
+	and_mask |= EVENT_INIT;
+	or_mask  |= STATE_WFS;
+	break;
+      }
+
+      // SMI
+      if (old_event & EVENT_SMI && ~cpu->intr_state & 4) {
+	Logging::printf("SMI received\n");
+	and_mask |= EVENT_SMI;
+	cpu->actv_state = 0;
+      }
+
+      // NMI
+      if (old_event & EVENT_NMI && ~cpu->intr_state & 8) {
+	// XXX NMI side effects
+	cpu->actv_state = 0;
+	and_mask |= EVENT_NMI;
+	break;
+      }
+
+      // Interrupts are blocked in shutdown
+      if (cpu->actv_state == 2) break;
+      // ExtINT
+      if (old_event & EVENT_EXTINT) {
+	MessageLegacy msg2(MessageLegacy::INTA, ~0u);
+	_mb.bus_legacy.send(msg2);
+	if (inject_interrupt(cpu, msg2.value))
+	  and_mask |= EVENT_EXTINT;
+	cpu->actv_state = 0;
+	break;
+      }
+      // FIXED APIC interrupt
+      if (old_event & EVENT_FIXED) {
+	// XXX go to the APIC
+	and_mask |= EVENT_FIXED;
+	cpu->actv_state = 0;
+	break;
+      }
+    } while (0);
+
+    /**
+     * The order is important here, as we have to delete the SIPI
+     * first and then enable the wait-for-sipi bit.
+     */
+    Cpu::atomic_and<volatile unsigned>(&event, ~and_mask);
+    Cpu::atomic_or<volatile unsigned>(&event, or_mask);
+    old_event = event;
+
+    // recalculate the IRQ windows
+    cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
+    if (old_event & (EVENT_EXTINT | EVENT_FIXED))  cpu->inj_info |= INJ_IRQWIN;
+    if (old_event & EVENT_NMI)  cpu->inj_info |= INJ_NMIWIN;
   }
 
 
@@ -191,11 +233,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     msg.mtr_out |= MTD_GPR_ACDB;
 
     static unsigned char debugioin[8192];
-    if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7)))
-      {
-	debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
-	Logging::panic("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
-      }
+    if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
+      debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
+      Logging::panic("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+    }
   }
 
 
@@ -205,32 +246,53 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     bool res = _mb.bus_ioout.send(msg2);
 
     static unsigned char debugioout[8192];
-    if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7)))
-      {
-	debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
-	Logging::printf("could not write to ioport %x at %x\n", msg.port, msg.cpu->eip);
-      }
+    if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
+      debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
+      Logging::printf("could not write to ioport %x eip %x\n", msg.port, msg.cpu->eip);
+    }
   }
 
 
-  void skip_instruction(CpuMessage &msg) {
-
-    assert(msg.mtr_in & MTD_RIP_LEN);
-    assert(msg.mtr_in & MTD_STATE);
-    msg.cpu->eip += msg.cpu->inst_len;
+  void got_event(unsigned value) {
     /**
-     * Cancel sti and mov-ss blocking as we emulated an instruction.
+     * We received an asynchronous event. As code runs in many
+     * threads, state updates have to be atomic!
      */
-    msg.cpu->intr_state &= ~3;
+    unsigned old_value;
+    unsigned new_value;
+    do {
+      old_value = event;
+      new_value = old_value | (value & EVENT_MASK);
+      if (old_value == new_value) return;
+      if ((value & EVENT_MASK) == EVENT_SIPI) {
+	if (~old_value & STATE_WFS) return;
+	new_value = (new_value & ~(STATE_WFS & 0xff00)) | value;
+      }
+    } while (Cpu::cmpxchg(&event, old_value, new_value) != old_value);
+
+    MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, old_value & STATE_BLOCK);
+    _mb.bus_hostop.send(msg);
   }
+
 public:
 
+  bool receive(MessageLegacy &msg) {
+    if (msg.type == MessageLegacy::EXTINT)
+      got_event(EVENT_EXTINT);
+    else if (msg.type == MessageLegacy::NMI)
+      got_event(EVENT_NMI);
+    else if (msg.type == MessageLegacy::INIT)
+      got_event(EVENT_INIT);
+    else return false;
+    return true;
+  }
+
+
+
   bool receive(CpuMessage &msg) {
-    bool skip = false;
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:
       handle_cpuid(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_CPUID_WRITE:
       {
@@ -240,56 +302,56 @@ public:
       };
     case CpuMessage::TYPE_RDTSC:
       handle_rdtsc(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_RDMSR:
       handle_rdmsr(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_WRMSR:
       handle_wrmsr(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_IOIN:
       handle_ioin(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_IOOUT:
       handle_ioout(msg);
-      skip = true;
       break;
     case CpuMessage::TYPE_TRIPLE:
+      assert(!msg.cpu->actv_state);
+      msg.cpu->actv_state = 2;
       {
-	// XXX that will generate an INIT signal if not blocked
+	// XXX that will generate an shutdown cycle if not blocked
 	MessageLegacy msg1(MessageLegacy::RESET, 0);
 	_mb.bus_legacy.send_fifo(msg1);
       }
       break;
     case CpuMessage::TYPE_INIT:
-      handle_init(msg);
+      got_event(EVENT_INIT);
       break;
     case CpuMessage::TYPE_HLT:
-      handle_hlt(msg);
-      skip = true;
+      assert(!msg.cpu->actv_state);
+      msg.cpu->actv_state = 1;
       break;
     case CpuMessage::TYPE_CHECK_IRQ:
       // we handle it later on
-      break;
-    case CpuMessage::TYPE_WAKEUP:
-      {
-	MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, hazard & HAZARD_INHLT);
-	_mb.bus_hostop.send(msg);
-      }
       break;
     case CpuMessage::TYPE_SINGLE_STEP:
     default:
       return false;
     }
 
-    if (skip) skip_instruction(msg);
-
     // handle IRQ injection
-    handle_irq(msg);
+    while (1) {
+      handle_irq(msg);
+
+      if (msg.cpu->actv_state & 0x3) {
+	MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
+	Cpu::atomic_or<volatile unsigned>(&event, STATE_BLOCK);
+	if (msg.cpu->actv_state & 0x3) _mb.bus_hostop.send(msg2);
+	Cpu::atomic_and<volatile unsigned>(&event, ~STATE_BLOCK);
+      }
+      else
+	break;
+    }
     return true;
   }
 
@@ -297,7 +359,7 @@ public:
     MessageHostOp msg(this);
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;
-
+    mb.bus_legacy.add(this, &VirtualCpu::receive_static<MessageLegacy>);
     CPUID_reset();
  }
 };

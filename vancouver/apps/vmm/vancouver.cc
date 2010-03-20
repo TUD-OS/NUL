@@ -319,22 +319,37 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
+  static void skip_instruction(CpuMessage &msg) {
+
+    assert(msg.mtr_in & MTD_RIP_LEN);
+    assert(msg.mtr_in & MTD_STATE);
+    msg.cpu->eip += msg.cpu->inst_len;
+    /**
+     * Cancel sti and mov-ss blocking as we emulated an instruction.
+     */
+    msg.cpu->intr_state &= ~3;
+    msg.mtr_out |= MTD_RIP_LEN | MTD_STATE;
+  }
+
 
   static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax);
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
+    skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
   }
 
 
-  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type)
+  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+
+    if (skip) skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
   }
 
@@ -615,9 +630,9 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLAGS | MTD_STATE,
 	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
@@ -635,10 +650,10 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR);)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);

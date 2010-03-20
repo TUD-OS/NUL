@@ -513,10 +513,10 @@ public:
 	    // consolidate two exceptions
 
 	    // triple fault ?
-	    unsigned old_info = _cpu->inj_info & ~INJ_IRQWIN;
+	    unsigned old_info = _cpu->inj_info & INJ_WIN;
 	    if (old_info == 0x80000b08)
 	      {
-		_cpu->inj_info = (_cpu->inj_info & INJ_IRQWIN);
+		_cpu->inj_info &= INJ_WIN;
 		// triple fault
 		CpuMessage msg(CpuMessage::TYPE_TRIPLE, _cpu, _mtr_in);
 		_vcpu->executor.send(msg, true);
@@ -530,7 +530,7 @@ public:
 		      _fault = 0x80000b08;
 		      _error_code = 0;
 		    }
-		_cpu->inj_info = _fault | (_cpu->inj_info & INJ_IRQWIN);
+		_cpu->inj_info = _fault | (_cpu->inj_info & INJ_WIN);
 		_cpu->inj_error = _error_code;
 	      }
 	  }
