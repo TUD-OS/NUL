@@ -22,8 +22,8 @@
 /**
  * X2Apic model.
  * State: unstable
- * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ
- * Missing:  reset,  IPI, RemoteEOI, error, timer, x2apic mode
+ * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error
+ * Missing:  reset,  IPI, RemoteEOI,  timer, x2apic mode
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
@@ -94,11 +94,11 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  void set_vector(unsigned value) {
+  void received_vector(unsigned value) {
     unsigned vector = value & 0xff;
 
     // lower vectors are reserved
-    if (vector < 16) set_error(5);
+    if (vector < 16) set_error(6);
     else {
       Cpu::atomic_set_bit(_vector, OFS_IRR + vector);
       Cpu::atomic_set_bit(_vector, OFS_TMR + vector, value & LVT_LEVEL_MASK);
@@ -168,7 +168,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     case VCpu::EVENT_FIXED:
       // set Remote IRR on level triggered IRQs
       if (lvt & LVT_LEVEL_MASK) Cpu::atomic_set_bit(lvt_ptr, LVT_RIRR);
-      set_vector(lvt);
+      received_vector(lvt);
       break;
     case VCpu::EVENT_SMI:
     case VCpu::EVENT_NMI:
