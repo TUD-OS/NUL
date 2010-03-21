@@ -116,6 +116,8 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (vector == (_LINT0 & 0xff)) _lvtrirr[_LINT0_offset - LVT_BASE] = false;
     if (vector == (_LINT1 & 0xff)) _lvtrirr[_LINT1_offset - LVT_BASE] = false;
 
+    // broadcast suppression
+    if (_SVR & 0x1000) return;
     MessageApic msg(vector);
     _bus_apic.send(msg);
   }
