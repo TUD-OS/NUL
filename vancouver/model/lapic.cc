@@ -91,13 +91,15 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (prioritize_irq()) _vcpu->bus_event.send(msg);
   }
 
+
   void set_error(unsigned bit) {
+    if (_esr_shadow & (1<< bit)) return;
     Cpu::atomic_set_bit(&_esr_shadow, bit);
-    if (!_lvtds[_ERROR_offset - LVT_BASE])  trigger_lvt(_ERROR_offset - LVT_BASE);
+    trigger_lvt(_ERROR_offset - LVT_BASE);
   }
 
 
-  void received_vector(unsigned value, bool level) {
+  void accept_vector(unsigned value, bool level) {
     unsigned vector = value & 0xff;
 
     // lower vectors are reserved
@@ -168,8 +170,6 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  void recheck_lvt(unsigned num) { if (_lvtds[num]) trigger_lvt(num); }
-
   bool trigger_lvt(unsigned num){
     assert(num < 6);
     unsigned lvt;
@@ -179,7 +179,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     unsigned event = (lvt >> 8) & 7;
     bool level =  (lvt & LVT_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
 
-    // level && masked? - set delivery status bit
+    // level && masked - set delivery status bit
     if (lvt & (1 << LVT_MASK_BIT)) {
       if (level) _lvtds[num] = true;
       return true;
@@ -192,7 +192,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     case VCpu::EVENT_FIXED:
       // set Remote IRR on level triggered IRQs
       if (level) _lvtrirr[num] = true;
-      received_vector(lvt, level);
+      accept_vector(lvt, level);
       break;
     case VCpu::EVENT_SMI:
     case VCpu::EVENT_NMI:
@@ -357,12 +357,12 @@ REGSET(X2Apic,
        REG_WR(_ESR,           0x28,          0, 0,          0, 0, _ESR = Cpu::xchg(&_esr_shadow, 0); )
        REG_WR(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000)
-       REG_WR(_TIMER,         0x32, 0x00010000, 0x300ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
-       REG_WR(_TERM,          0x33, 0x00010000, 0x107ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
-       REG_WR(_PERF,          0x34, 0x00010000, 0x107ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
-       REG_WR(_LINT0,         0x35, 0x00010000, 0x1a7ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
-       REG_WR(_LINT1,         0x36, 0x00010000, 0x1a7ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
-       REG_WR(_ERROR,         0x37, 0x00010000, 0x100ff, 0, 0, recheck_lvt(offset - LVT_BASE);)
+       REG_RW(_TIMER,         0x32, 0x00010000, 0x300ff)
+       REG_RW(_TERM,          0x33, 0x00010000, 0x107ff)
+       REG_RW(_PERF,          0x34, 0x00010000, 0x107ff)
+       REG_WR(_LINT0,         0x35, 0x00010000, 0x1a7ff, 0, 0, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
+       REG_WR(_LINT1,         0x36, 0x00010000, 0x1a7ff, 0, 0, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
+       REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff)
        REG_RW(_INITIAL_COUNT, 0x38,          0, ~0u)
        REG_RW(_CURRENT_COUNT, 0x39,          0, ~0u)
        REG_RW(_DIVIDE_CONFIG, 0x3e,          0, 0xb))
