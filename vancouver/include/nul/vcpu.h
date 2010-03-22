@@ -62,10 +62,22 @@ struct CpuMessage {
   CpuMessage(bool is_in, CpuState *_cpu, unsigned _io_order, unsigned _port, void *_dst) : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(io_order), port(_port), dst(_dst) {}
 };
 
+
 struct CpuEvent {
   unsigned value;
   CpuEvent(unsigned _value) : value(_value) {}
 };
+
+
+struct LapicEvent {
+  enum Type{
+    INTA,
+    RESET,
+  } type;
+  unsigned value;
+  LapicEvent(Type _type) : type(_type) { if (type == INTA) value = ~0u; }
+};
+
 
 class VCpu
 {
@@ -73,7 +85,7 @@ class VCpu
 public:
   DBus<CpuMessage>       executor;
   DBus<CpuEvent>         bus_event;
-  DBus<CpuEvent>         bus_lapic;
+  DBus<LapicEvent>         bus_lapic;
   DBus<MessageMem>       mem;
   DBus<MessageMemRegion> memregion;
 

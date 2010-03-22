@@ -136,6 +136,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX APIC
       // XXX PERF
     }
+    
+    LapicEvent msg2(LapicEvent::RESET);
+    bus_lapic.send(msg2);
   }
 
 
@@ -221,7 +224,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
       // APIC interrupt?
       if (old_event & EVENT_FIXED) {
-	CpuEvent msg2(~0u);
+	LapicEvent msg2(LapicEvent::INTA);
 	bus_lapic.send(msg2);
 	if (inject_interrupt(cpu, msg2.value))
 	  and_mask |= EVENT_FIXED;

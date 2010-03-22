@@ -24,6 +24,7 @@
  * State: unstable
  * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI
  * Missing:  reset,  IPI, timer, x2apic mode
+ * Difference:  read-only _ID, read-only BSP flag
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
@@ -62,6 +63,8 @@ class X2Apic : public StaticReceiver<X2Apic>
     return true;
   }
 
+  bool sw_disabled() { return ~_SVR & 0x100; }
+
   void send_ipi(unsigned icr, unsigned dst) {
     Logging::panic("%s", __PRETTY_FUNCTION__);
   }
@@ -93,6 +96,10 @@ class X2Apic : public StaticReceiver<X2Apic>
 
 
   void set_error(unsigned bit) {
+    /**
+     * Make sure we do not loop, if the ERROR LVT has also an invalid
+     * vector.
+     */
     if (_esr_shadow & (1<< bit)) return;
     Cpu::atomic_set_bit(&_esr_shadow, bit);
     trigger_lvt(_ERROR_offset - LVT_BASE);
@@ -112,6 +119,8 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
   void broadcast_eoi(unsigned vector) {
+    if (!Cpu::get_bit(_vector, OFS_TMR + _isrv)) return;
+
     // we clear our LVT entries first
     if (vector == (_LINT0 & 0xff)) _lvtrirr[_LINT0_offset - LVT_BASE] = false;
     if (vector == (_LINT1 & 0xff)) _lvtrirr[_LINT1_offset - LVT_BASE] = false;
@@ -140,6 +149,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (in_range(num, LVT_BASE, 6)) {
       if (_lvtds[num - LVT_BASE])    value |= 1 << 12;
       if (_lvtrirr[num - LVT_BASE])  value |= 1 << 14;
+      if (sw_disabled())             value |= 1 << 16;
     }
     if (!res) set_error(7);
     return res;
@@ -157,7 +167,7 @@ class X2Apic : public StaticReceiver<X2Apic>
       {
 	if (_isrv) {
 	  Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
-	  if (Cpu::get_bit(_vector, OFS_TMR + _isrv)) broadcast_eoi(_isrv);
+	  broadcast_eoi(_isrv);
 
 	  _isrv = get_highest_bit(OFS_ISR);
 	  update_irqs();
@@ -181,8 +191,9 @@ class X2Apic : public StaticReceiver<X2Apic>
     unsigned event = (lvt >> 8) & 7;
     bool level =  (lvt & LVT_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
 
-    // level && masked - set delivery status bit
-    if (lvt & (1 << LVT_MASK_BIT)) {
+    // masked?
+    if (lvt & (1 << LVT_MASK_BIT) || sw_disabled()) {
+      // level && masked - set delivery status bit
       if (level) _lvtds[num] = true;
       return true;
     }
@@ -220,7 +231,11 @@ public:
   {
     if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4) return false;
-    if (msg.read) register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
+    if (msg.read) {
+      register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
+      // fix APIC ID
+      if ((msg.phys & 0xff0) == 0x20) *msg.ptr = *msg.ptr << 24;
+    }
     else          register_write((msg.phys >> 4) & 0x3f, *msg.ptr);
     return true;
   }
@@ -241,16 +256,23 @@ public:
   /**
    * An INTA cycle
    */
-  bool  receive(CpuEvent &msg) {
-    unsigned irrv = prioritize_irq();
-    if (irrv) {
-      assert(irrv > _isrv);
-      Cpu::atomic_set_bit(_vector, OFS_IRR + irrv, false);
-      Cpu::set_bit(_vector, OFS_ISR + irrv);
-      _isrv = irrv;
-      msg.value = irrv;
-    } else
-      msg.value = _SVR & 0xff;
+  bool  receive(LapicEvent &msg) {
+    if (msg.type == LapicEvent::INTA) {
+      unsigned irrv = prioritize_irq();
+      if (irrv) {
+	assert(irrv > _isrv);
+	Cpu::atomic_set_bit(_vector, OFS_IRR + irrv, false);
+	Cpu::set_bit(_vector, OFS_ISR + irrv);
+	_isrv = irrv;
+	msg.value = irrv;
+      } else
+	msg.value = _SVR & 0xff;
+    }
+    else if (msg.type == LapicEvent::RESET) {
+      X2Apic_reset();
+      memset(_vector, 0, sizeof(_vector));
+      update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
+    }
     return true;
   }
 
@@ -311,12 +333,7 @@ public:
   }
 
 
-
   bool  receive(MessageLegacy &msg) {
-    if (msg.type == MessageLegacy::RESET)
-      return update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
-    if (_vcpu->is_ap()) return false;
-
     // the BSP gets the legacy PIC output and NMI on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
       return trigger_lvt(_LINT0_offset - LVT_BASE);
@@ -326,14 +343,17 @@ public:
   }
 
 
-  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, unsigned initial_apic_id) : _vcpu(vcpu), _bus_apic(bus_apic), in_x2apic_mode(false) {
-    _ID = initial_apic_id;
+  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, unsigned initial_apic_id) : _ID(initial_apic_id), _vcpu(vcpu), _bus_apic(bus_apic), in_x2apic_mode(false) {
 
-    // propagate initial APIC id
-    CpuMessage msg1(1,  1, 0xffffff, _ID << 24);
-    CpuMessage msg2(11, 3, 0, _ID);
-    _vcpu->executor.send(msg1);
-    _vcpu->executor.send(msg2);
+    CpuMessage msg[] = {
+      // propagate initial APIC id
+      CpuMessage(1,  1, 0xffffff, _ID << 24),
+      CpuMessage(11, 3, 0, _ID),
+      // support for X2Apic
+      CpuMessage(1, 2, 1 << 21, 1 << 21),
+    };
+    for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
+      _vcpu->executor.send(msg[i]);
   }
 };
 
@@ -342,11 +362,12 @@ PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
     X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, argv[0]);
-    mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
+    if (!mb.last_vcpu->is_ap())
+      mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
     mb.last_vcpu->memregion.add(dev, &X2Apic::receive_static<MessageMemRegion>);
-    mb.last_vcpu->bus_lapic.add(dev, &X2Apic::receive_static<CpuEvent>);
+    mb.last_vcpu->bus_lapic.add(dev, &X2Apic::receive_static<LapicEvent>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
   "Example: 'x2apic:2'");
@@ -355,6 +376,8 @@ REGSET(X2Apic,
        REG_RW(_ID,            0x02,          0, 0)
        REG_RO(_VERSION,       0x03, 0x00050014)
        REG_RW(_TPR,           0x08,          0, 0xff)
+       REG_RW(_LDR,           0x0d,          0, 0xff000000)
+       REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000)
        REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff)
        REG_WR(_ESR,           0x28,          0, 0,          0, 0, _ESR = Cpu::xchg(&_esr_shadow, 0); )
        REG_WR(_ICR,           0x30,          0, 0x000ccfff, 0, 0, send_ipi(_ICR, _ICR1))
