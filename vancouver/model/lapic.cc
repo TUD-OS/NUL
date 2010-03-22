@@ -165,6 +165,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     // broadcast?
     if (shorthand & 2) dst = ~0u;
 
+    // LOWEST does not work in x2apic mode
     if (event == VCpu::EVENT_LOWEST && x2apic_mode()) return set_error(4);
 
 
@@ -177,7 +178,8 @@ class X2Apic : public StaticReceiver<X2Apic>
 
 	/**
 	 * This is a strange thing in the manual: lowest priority with
-	 * a broadcast shorthand is invalid.
+	 * a broadcast shorthand is invalid. But what about physical
+	 * destination mode with dst=0xff?
 	 */
 	|| event == VCpu::EVENT_LOWEST && shorthand == 2)
       return false;
@@ -189,8 +191,9 @@ class X2Apic : public StaticReceiver<X2Apic>
     // level triggered IRQs are treated as edge triggered
     icr = icr & 0x4fff;
     if (event != VCpu::EVENT_LOWEST) {
+
       // we send them round-robin as EVENT_FIXED
-      MessageApic msg(icr & ~0x700u, dst, 0);
+      MessageApic msg((icr & ~0x700u), dst, 0);
       _lowest_rr = _bus_apic.send_rr(msg, _lowest_rr);
       // we could set an send accept error here, but that is not supported in the P4...
       return _lowest_rr;
@@ -376,9 +379,11 @@ class X2Apic : public StaticReceiver<X2Apic>
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
-    else
-      // ignore SIPI, RRD and LOWEST
-      return true;
+
+    /**
+     * It is not defined how invalid Delivery Modes are handled. We
+     * simply drop SIPI, RRD and LOWEST here.
+     */
 
     // we have delivered it
     _lvtds[num] = false;
@@ -470,6 +475,7 @@ public:
     if (event == VCpu::EVENT_FIXED)
       accept_vector(msg.icr, msg.icr & MessageApic::ICR_LEVEL, msg.icr & MessageApic::ICR_ASSERT);
     else {
+      // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
@@ -643,8 +649,8 @@ REGSET(X2Apic,
 		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7) + 1;
 
 		/**
-		 * move timer_start in the past, which what would be
-		 * already done on this period with the current speed
+		 * Move timer_start in the past, which what would be
+		 * already done on this period with the current speed.
 		 */
 		_timer_start     = now - (done << _timer_dcr_shift);
 		update_timer(now);
