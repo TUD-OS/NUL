@@ -95,7 +95,9 @@ public:
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned invmask=~0) {  CpuMessage msg(nr, reg, ~invmask, value & invmask); return executor.send(msg); }
   enum {
     EVENT_FIXED  = 1 << 0,
+    EVENT_LOWEST = 1 << 1,
     EVENT_SMI    = 1 << 2,
+    EVENT_RRD    = 1 << 3,
     EVENT_RESET  = 1 << 3,
     EVENT_NMI    = 1 << 4,
     EVENT_INIT   = 1 << 5,

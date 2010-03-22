@@ -135,7 +135,7 @@ PARAM(pcihostbridge,
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,  0x0, 0x27a08086)
-       REG_RW(PCI_CMD, 0x1, 0x000900106, 0x0106)
+       REG_RW(PCI_CMD, 0x1, 0x000900106, 0x0106,)
        REG_RO(PCI_CC,  0x2, 0x06000000)
        REG_RO(PCI_SS,  0xb, 0x27a08086));
 #endif

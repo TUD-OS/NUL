@@ -358,9 +358,9 @@ PARAM(rtl8029,
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,       0x0, 0x802910ec)
-       REG_RW(PCI_CMD_STS,  0x1, 0x02000000, 0x0003)
+       REG_RW(PCI_CMD_STS,  0x1, 0x02000000, 0x0003,)
        REG_RO(PCI_RID_CC,   0x2, 0x02000000)
-       REG_RW(PCI_BAR,      0x4, 1, 0xffffffe0)
+       REG_RW(PCI_BAR,      0x4, 1, 0xffffffe0,)
        REG_RO(PCI_SS,       0xb, 0x802910ec)
-       REG_RW(PCI_INTR,     0xf, 0x0100, 0x0f));
+       REG_RW(PCI_INTR,     0xf, 0x0100, 0x0f,));
 #endif

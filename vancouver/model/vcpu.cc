@@ -136,7 +136,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX APIC
       // XXX PERF
     }
-    
+
     LapicEvent msg2(LapicEvent::RESET);
     bus_lapic.send(msg2);
   }
@@ -387,26 +387,26 @@ PARAM(vcpu,
 
 #else
 REGSET(CPUID,
-       REG_RW(CPUID_EAX0,  0x00, 2, ~0u)
-       REG_RW(CPUID_EBX0,  0x01, 0, ~0u)
-       REG_RW(CPUID_ECX0,  0x02, 0, ~0u)
-       REG_RW(CPUID_EDX0,  0x03, 0, ~0u)
-       REG_RW(CPUID_EAX1,  0x10, 0x673, ~0u)
-       REG_RW(CPUID_EBX1,  0x11, 0, ~0u)
-       REG_RW(CPUID_ECX1,  0x12, 0, ~0u)
-       REG_RW(CPUID_EDX1,  0x13, 0, ~0u)
-       REG_RW(CPUID_EAX80, 0x80000000, 0x80000004, ~0u)
-       REG_RW(CPUID_ECX81, 0x80000012, 0x100000, ~0u)
-       REG_RW(CPUID_EAX82, 0x80000020, 0, ~0u)
-       REG_RW(CPUID_EBX82, 0x80000021, 0, ~0u)
-       REG_RW(CPUID_ECX82, 0x80000022, 0, ~0u)
-       REG_RW(CPUID_EDX82, 0x80000023, 0, ~0u)
-       REG_RW(CPUID_EAX83, 0x80000030, 0, ~0u)
-       REG_RW(CPUID_EBX83, 0x80000031, 0, ~0u)
-       REG_RW(CPUID_ECX83, 0x80000032, 0, ~0u)
-       REG_RW(CPUID_EDX83, 0x80000033, 0, ~0u)
-       REG_RW(CPUID_EAX84, 0x80000040, 0, ~0u)
-       REG_RW(CPUID_EBX84, 0x80000041, 0, ~0u)
-       REG_RW(CPUID_ECX84, 0x80000042, 0, ~0u)
-       REG_RW(CPUID_EDX84, 0x80000043, 0, ~0u))
+       REG_RW(CPUID_EAX0,  0x00, 2, ~0u,)
+       REG_RW(CPUID_EBX0,  0x01, 0, ~0u,)
+       REG_RW(CPUID_ECX0,  0x02, 0, ~0u,)
+       REG_RW(CPUID_EDX0,  0x03, 0, ~0u,)
+       REG_RW(CPUID_EAX1,  0x10, 0x673, ~0u,)
+       REG_RW(CPUID_EBX1,  0x11, 0, ~0u,)
+       REG_RW(CPUID_ECX1,  0x12, 0, ~0u,)
+       REG_RW(CPUID_EDX1,  0x13, 0, ~0u,)
+       REG_RW(CPUID_EAX80, 0x80000000, 0x80000004, ~0u,)
+       REG_RW(CPUID_ECX81, 0x80000012, 0x100000, ~0u,)
+       REG_RW(CPUID_EAX82, 0x80000020, 0, ~0u,)
+       REG_RW(CPUID_EBX82, 0x80000021, 0, ~0u,)
+       REG_RW(CPUID_ECX82, 0x80000022, 0, ~0u,)
+       REG_RW(CPUID_EDX82, 0x80000023, 0, ~0u,)
+       REG_RW(CPUID_EAX83, 0x80000030, 0, ~0u,)
+       REG_RW(CPUID_EBX83, 0x80000031, 0, ~0u,)
+       REG_RW(CPUID_ECX83, 0x80000032, 0, ~0u,)
+       REG_RW(CPUID_EDX83, 0x80000033, 0, ~0u,)
+       REG_RW(CPUID_EAX84, 0x80000040, 0, ~0u,)
+       REG_RW(CPUID_EBX84, 0x80000041, 0, ~0u,)
+       REG_RW(CPUID_ECX84, 0x80000042, 0, ~0u,)
+       REG_RW(CPUID_EDX84, 0x80000043, 0, ~0u,))
 #endif

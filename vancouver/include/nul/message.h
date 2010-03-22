@@ -182,9 +182,18 @@ struct MessageApic
 {
   enum {
     EOI,
+    IPI,
   } type;
-  unsigned char vector;
+  union {
+    unsigned char vector;
+    struct {
+      unsigned icr; // only bits 0xcfff are used
+      unsigned dst; // 32bit APIC ID
+      void    *ptr;
+    };
+  };
   MessageApic(unsigned char _vector) : type(EOI), vector(_vector) {};
+  MessageApic(unsigned _icr, unsigned _dst, void *_ptr) : type(IPI), icr(_icr), dst(_dst), ptr(_ptr) {};
 };
 
 /****************************************************/
