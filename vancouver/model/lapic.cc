@@ -374,7 +374,7 @@ PARAM(x2apic, {
 #else
 REGSET(X2Apic,
        REG_RW(_ID,            0x02,          0, 0)
-       REG_RO(_VERSION,       0x03, 0x00050014)
+       REG_RO(_VERSION,       0x03, 0x01050014)
        REG_RW(_TPR,           0x08,          0, 0xff)
        REG_RW(_LDR,           0x0d,          0, 0xff000000)
        REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000)
