@@ -124,14 +124,17 @@ class X2Apic : public StaticReceiver<X2Apic>
    */
   unsigned get_ccr(timevalue now) {
     if (!_ICT)  return 0;
+
     timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
     if (delta < _ICT)  return _ICT - delta;
+
+    // we need to trigger the timer LVT
     trigger_lvt(_TIMER_offset - LVT_BASE);
 
     // one shot?
     if (_TIMER & (1 << 17)) return 0;
 
-    // add periods
+    // add periods to the time we started to detect the next overflow
     unsigned done = Math::mod64(delta, _ICT);
     _timer_start += (delta - done) << _timer_dcr_shift;
     return _ICT - done;
@@ -324,19 +327,21 @@ class X2Apic : public StaticReceiver<X2Apic>
       // the accesses are ignored
       return true;
     case 0xb: // EOI
-	if (_isrv) {
-	  Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
-	  broadcast_eoi(_isrv);
+      if (strict && value) return false;
+      if (_isrv) {
+	Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
+	broadcast_eoi(_isrv);
 
-	  _isrv = get_highest_bit(OFS_ISR);
-	  update_irqs();
-	}
+	_isrv = get_highest_bit(OFS_ISR);
+	update_irqs();
+      }
       return true;
     default:
       if (!(res = X2Apic_write(offset, value, strict)))
 	set_error(7);
     }
 
+    // do side effects of a changed LVT entry
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
       if (offset == _TIMER_offset)   update_timer(_clock->time());
