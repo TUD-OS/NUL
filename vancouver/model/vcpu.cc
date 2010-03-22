@@ -137,7 +137,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX PERF
     }
 
-    LapicEvent msg2(LapicEvent::RESET);
+    LapicEvent msg2(reset ? LapicEvent::RESET : LapicEvent::INIT);
     bus_lapic.send(msg2);
   }
 

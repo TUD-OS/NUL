@@ -73,6 +73,7 @@ struct LapicEvent {
   enum Type{
     INTA,
     RESET,
+    INIT,
   } type;
   unsigned value;
   LapicEvent(Type _type) : type(_type) { if (type == INTA) value = ~0u; }

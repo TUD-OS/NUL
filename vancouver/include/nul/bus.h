@@ -100,6 +100,18 @@ public:
   }
 
 
+  /**
+   * Send message first hit round robin and return the number of the
+   * next one that accepted the message.
+   */
+  unsigned  send_rr(M &msg, unsigned start)
+  {
+    for (unsigned i = 0; i < _list_count; i++)
+      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) return i + 1;
+    return 0;
+  }
+
+
 
   /**
    * Return the number of entries in the list.

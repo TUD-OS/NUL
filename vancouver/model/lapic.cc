@@ -22,8 +22,8 @@
 /**
  * X2Apic model.
  * State: unstable
- * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI
- * Missing:  reset, x2apic mode
+ * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio
+ * Missing:  focus checking, reset, x2apic mode
  * Difference:  read-only BSP flag, no interrupt polarity
  */
 class X2Apic : public StaticReceiver<X2Apic>
@@ -50,14 +50,13 @@ class X2Apic : public StaticReceiver<X2Apic>
   unsigned  _timer;
   unsigned  _timer_clock_shift;
   unsigned  _timer_dcr_shift;
-  unsigned  _timer_start_ccr;
   timevalue _timer_start;
   unsigned _vector[8*3];
   unsigned _esr_shadow;
   unsigned _isrv;
   bool     _lvtds[6];
   bool     _lvtrirr[6];
-
+  unsigned _lowest_rr;
 
   bool _x2apic_mode;
 
@@ -68,7 +67,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
     if (value & ~mask) return false;
     if (_msr ^ value & 0x800) {
-      CpuMessage msg(1, 3, 2, _msr & 0x800 ? 0 : 2);
+      CpuMessage msg(1, 3, 1 << 9, (_msr & 0x800) >> 2);
       _vcpu->executor.send(msg);
     }
     // make the BSP flag read-only
@@ -83,18 +82,16 @@ class X2Apic : public StaticReceiver<X2Apic>
   unsigned get_ccr(timevalue now) {
     if (!_ICT)  return 0;
     timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
-    if (delta < _timer_start_ccr)  return _timer_start_ccr - delta;
+    if (delta < _ICT)  return _ICT - delta;
     trigger_lvt(_TIMER_offset - LVT_BASE);
 
     // one shot?
     if (_TIMER & (1 << 17)) return 0;
 
     // add periods
-    unsigned remainder = Math::mod64(delta - _timer_start_ccr, _ICT);
-    _timer_start += (delta - remainder) << _timer_dcr_shift;
-    _timer_start_ccr = _ICT;
-
-    return _ICT - remainder;
+    unsigned done = Math::mod64(delta, _ICT);
+    _timer_start += (delta - done) << _timer_dcr_shift;
+    return _ICT - done;
   }
 
   /**
@@ -109,6 +106,7 @@ class X2Apic : public StaticReceiver<X2Apic>
 
 
   bool sw_disabled() { return ~_SVR & 0x100; }
+  bool hw_disabled() { return ~_msr & 0x800; }
 
   /**
    * We send an IPI.
@@ -118,27 +116,43 @@ class X2Apic : public StaticReceiver<X2Apic>
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
 
+    // self IPI?
+    if (shorthand == 1) dst = _ID;
+
+    // broadcast?
+    if (shorthand & 2) dst = ~0u;
+
+
     // self IPIs can only be fixed
     if (self && event != VCpu::EVENT_FIXED
 	// we can not send EXTINT and RRD
 	|| event & (VCpu::EVENT_EXTINT | VCpu::EVENT_RRD)
 	//  and INIT deassert messages
-	|| event == VCpu::EVENT_INIT && (~icr & ICR_ASSERT))
+	|| event == VCpu::EVENT_INIT && ~icr & ICR_ASSERT
+
+	/**
+	 * This is a strange thing in the manual: lowest priority with
+	 * a broadcast shorthand is invalid.
+	 */
+	|| event == VCpu::EVENT_LOWEST && shorthand == 2)
       return;
 
-    if ((event == VCpu::EVENT_FIXED) && (icr & 0xff) < 16) {
+    // send vector error check
+    if ((event & (VCpu::EVENT_FIXED | VCpu::EVENT_LOWEST)) && (icr & 0xff) < 16) {
       set_error(5);
       return;
     }
 
-    // self IPI?
-    if (shorthand == 1) dst = _ID;
-
-    // broadcast?
-    if (shorthand & 2)  dst = ~0u;
-
-    // level triggered IRQs are threated as edge triggered
-    MessageApic msg(icr & 0x4fff | ICR_ASSERT, dst, shorthand == 3 ? this : 0);
+    // level triggered IRQs are treated as edge triggered
+    icr = icr & 0x4fff | ICR_ASSERT;
+    if (event != VCpu::EVENT_LOWEST) {
+      // we send them round-robin as EVENT_FIXED
+      MessageApic msg(icr & ~0x700u, dst, 0);
+      _lowest_rr = _bus_apic.send_rr(msg, _lowest_rr);
+      // we could set an send accept error here, but that is not supported in the P4...
+      return;
+    }
+    MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
     _bus_apic.send(msg);
   }
 
@@ -232,7 +246,7 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  bool register_write(unsigned offset, unsigned value) {
+  bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
     switch (offset) {
     case 0x9: // APR
@@ -251,7 +265,7 @@ class X2Apic : public StaticReceiver<X2Apic>
       }
       return true;
     default:
-      res = X2Apic_write(offset, value, true);
+      res = X2Apic_write(offset, value, strict);
     }
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
@@ -271,7 +285,10 @@ class X2Apic : public StaticReceiver<X2Apic>
     unsigned event = 1 << ((lvt >> 8) & 7);
     bool level =  (lvt & LVT_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
 
-    // masked?
+    // do not accept more IRQs if no EOI was performed
+    if (_lvtrirr[num]) return true;
+
+    // masked or already pending?
     if (lvt & (1 << LVT_MASK_BIT) || sw_disabled()) {
       // level && masked - set delivery status bit
       if (level) _lvtds[num] = true;
@@ -304,46 +321,47 @@ class X2Apic : public StaticReceiver<X2Apic>
    * Check whether we should accept the message.
    */
   bool accept_message(MessageApic &msg) {
+    if (hw_disabled())   return false;
     if (msg.ptr == this) return false;
 
-    if (!_x2apic_mode) {
-
-      // broadcast
-      if ((msg.dst >> 24) == 0xff)  return true;
-
-      // physical DM
+    if (_x2apic_mode) {
+      if (msg.dst == ~0u) return true;
       if (~msg.icr & ICR_DM) return msg.dst == _ID;
-
-      // flat mode
-      if ((_DFR >> 28) == 0xf) return _LDR & msg.dst;
-
-      // cluster matches?
-      if (!(((_LDR ^ msg.dst)) & 0xf0000000)) return _LDR & msg.dst & ~0xf0000000;
-      return false;
+      return !((_LDR ^ msg.dst) & 0xffff0000) && _LDR & (1 << (msg.dst & 0xf));
     }
-    if (msg.dst == ~0u) return true;
+
+    // broadcast
+    if ((msg.dst >> 24) == 0xff)  return true;
+
+    // physical DM
     if (~msg.icr & ICR_DM) return msg.dst == _ID;
-    
+
+    // flat mode
+    if ((_DFR >> 28) == 0xf) return _LDR & msg.dst;
+
+    // cluster mode
+    return !((_LDR ^ msg.dst) & 0xf0000000) && _LDR & msg.dst & ~0xf0000000;
   }
 
 
 public:
   bool  receive(MessageMem &msg)
   {
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000)) return false;
+    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || hw_disabled()) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4) return false;
     if (msg.read) {
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
       // fix APIC ID
       if ((msg.phys & 0xff0) == 0x20) *msg.ptr = *msg.ptr << 24;
     }
-    else          register_write((msg.phys >> 4) & 0x3f, *msg.ptr);
+    else
+      register_write((msg.phys >> 4) & 0x3f, *msg.ptr, false);
     return true;
   }
 
   bool  receive(MessageMemRegion &msg)
   {
-    if ((_msr >> 12) != msg.page) return false;
+    if (hw_disabled() || (_msr >> 12) != msg.page) return false;
     /**
      * we return true without setting msg.ptr and thus nobody else can
      * claim this region
@@ -355,7 +373,7 @@ public:
 
 
   bool  receive(MessageTimeout &msg) {
-    if (msg.nr != _timer) return false;
+    if (hw_disabled() || msg.nr != _timer) return false;
     get_ccr(_clock->time());
     return true;
   }
@@ -384,7 +402,7 @@ public:
    * Receive INTA cycle or RESET from the CPU.
    */
   bool  receive(LapicEvent &msg) {
-    if (msg.type == LapicEvent::INTA) {
+    if (!hw_disabled() && msg.type == LapicEvent::INTA) {
       unsigned irrv = prioritize_irq();
       if (irrv) {
 	assert(irrv > _isrv);
@@ -395,9 +413,13 @@ public:
       } else
 	msg.value = _SVR & 0xff;
     }
-    else if (msg.type == LapicEvent::RESET) {
+    else if (msg.type == LapicEvent::RESET || msg.type == LapicEvent::INIT) {
+      unsigned old_id = _ID;
       X2Apic_reset();
-      memset(_vector, 0, sizeof(_vector));
+      if (msg.type == LapicEvent::INIT) _ID = old_id;
+      memset(_vector,  0, sizeof(_vector));
+      memset(_lvtds,   0, sizeof(_lvtds));
+      memset(_lvtrirr, 0, sizeof(_lvtrirr));
       update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
       _timer_dcr_shift = 2 + _timer_clock_shift;
     }
@@ -446,7 +468,7 @@ public:
       if (msg.cpu->ecx == 0x830) _ICR1 = msg.cpu->edx;
 
       // write lower half in strict mode with reserved bit checking
-      if (!register_write(msg.cpu->ecx & 0x3f, msg.cpu->eax)) {
+      if (!register_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true)) {
 	_ICR1 = old_ICR1;
 	return false;
       }
@@ -478,8 +500,8 @@ public:
     for (_timer_clock_shift=0; _timer_clock_shift < 63; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
 
-    _ID = _initial_apic_id << 24;
 
+    X2Apic_write(_ID_offset,  _initial_apic_id << 24);
     CpuMessage msg[] = {
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _ID),
@@ -533,16 +555,19 @@ REGSET(X2Apic,
        REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
        REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff, )
        REG_RW(_ICT,           0x38,          0, ~0u,
-	      _timer_start_ccr = _ICT;
 	      _timer_start = _clock->time();
 	      update_timer(_timer_start); )
        REG_RW(_DCR,           0x3e,          0, 0xb,
 	      {
 		timevalue now = _clock->time();
-		// XXX shift timer_start instead of start_ccr
-		_timer_start_ccr = get_ccr(now);
-		_timer_start     = now;
+		unsigned  done = _ICT - get_ccr(now);
 		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7) + 1;
+
+		/**
+		 * move timer_start in the past, which what would be
+		 * already done on this period with the current speed
+		 */
+		_timer_start     = now - (done << _timer_dcr_shift);
 		update_timer(now);
 	      }
 	      ))
