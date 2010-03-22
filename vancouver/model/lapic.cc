@@ -22,9 +22,10 @@
 /**
  * X2Apic model.
  * State: unstable
- * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio
- * Missing:  focus checking, reset, x2apic mode
- * Difference:  read-only BSP flag, no interrupt polarity
+ * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio
+ * Missing:  focus checking, reset, x2apic mode, CR8
+ * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
+ * Documentation: Intel SDM vol3a chapter 10 253668-033.
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
@@ -33,30 +34,27 @@ class X2Apic : public StaticReceiver<X2Apic>
   enum {
     MAX_FREQ   = 200000000,
     LVT_MASK_BIT = 16,
-    LVT_LEVEL = 1 << 15,
     OFS_ISR   = 0,
     OFS_TMR   = 256,
     OFS_IRR   = 512,
     LVT_BASE  = _TIMER_offset,
-    ICR_DM    = 1 << 11,
-    ICR_ASSERT = 1 << 14,
   };
-  VCpu *_vcpu;
+  VCpu *    _vcpu;
   DBus<MessageApic>  & _bus_apic;
   DBus<MessageTimer> & _bus_timer;
-  Clock *_clock;
-  unsigned _initial_apic_id;
+  Clock *   _clock;
+  unsigned  _initial_apic_id;
   unsigned long long _msr;
   unsigned  _timer;
   unsigned  _timer_clock_shift;
   unsigned  _timer_dcr_shift;
   timevalue _timer_start;
-  unsigned _vector[8*3];
-  unsigned _esr_shadow;
-  unsigned _isrv;
-  bool     _lvtds[6];
-  bool     _lvtrirr[6];
-  unsigned _lowest_rr;
+  unsigned  _vector[8*3];
+  unsigned  _esr_shadow;
+  unsigned  _isrv;
+  bool      _lvtds[6];
+  bool      _lvtrirr[6];
+  unsigned  _lowest_rr;
 
   bool _x2apic_mode;
 
@@ -116,6 +114,9 @@ class X2Apic : public StaticReceiver<X2Apic>
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
 
+    // no logical destination mode with shorthand
+    if (shorthand) icr &= MessageApic::ICR_DM;
+
     // self IPI?
     if (shorthand == 1) dst = _ID;
 
@@ -128,7 +129,7 @@ class X2Apic : public StaticReceiver<X2Apic>
 	// we can not send EXTINT and RRD
 	|| event & (VCpu::EVENT_EXTINT | VCpu::EVENT_RRD)
 	//  and INIT deassert messages
-	|| event == VCpu::EVENT_INIT && ~icr & ICR_ASSERT
+	|| event == VCpu::EVENT_INIT && ~icr & MessageApic::ICR_ASSERT
 
 	/**
 	 * This is a strange thing in the manual: lowest priority with
@@ -144,7 +145,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     }
 
     // level triggered IRQs are treated as edge triggered
-    icr = icr & 0x4fff | ICR_ASSERT;
+    icr = icr & 0x4fff;
     if (event != VCpu::EVENT_LOWEST) {
       // we send them round-robin as EVENT_FIXED
       MessageApic msg(icr & ~0x700u, dst, 0);
@@ -193,12 +194,12 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  void accept_vector(unsigned char vector, bool level) {
+  void accept_vector(unsigned char vector, bool level, bool value) {
 
     // lower vectors are reserved
     if (vector < 16) set_error(6);
     else {
-      Cpu::atomic_set_bit(_vector, OFS_IRR + vector);
+      Cpu::atomic_set_bit(_vector, OFS_IRR + vector, !level || value);
       Cpu::atomic_set_bit(_vector, OFS_TMR + vector, level);
     }
     update_irqs();
@@ -238,7 +239,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     }
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE])    value |= 1 << 12;
-      if (_lvtrirr[offset - LVT_BASE])  value |= ICR_ASSERT;
+      if (_lvtrirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
       if (sw_disabled())                value |= 1 << 16;
     }
     if (!res) set_error(7);
@@ -283,7 +284,7 @@ class X2Apic : public StaticReceiver<X2Apic>
 
 
     unsigned event = 1 << ((lvt >> 8) & 7);
-    bool level =  (lvt & LVT_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
+    bool level =  (lvt & MessageApic::ICR_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
 
     // do not accept more IRQs if no EOI was performed
     if (_lvtrirr[num]) return true;
@@ -301,7 +302,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (event == VCpu::EVENT_FIXED) {
       // set Remote IRR on level triggered IRQs
       _lvtrirr[num] = level;
-      accept_vector(lvt, level);
+      accept_vector(lvt, level, true);
     }
     else if (event & (VCpu::EVENT_SMI | VCpu::EVENT_NMI | VCpu::EVENT_INIT | VCpu::EVENT_EXTINT)) {
       CpuEvent msg(event);
@@ -325,8 +326,11 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (msg.ptr == this) return false;
 
     if (_x2apic_mode) {
-      if (msg.dst == ~0u) return true;
-      if (~msg.icr & ICR_DM) return msg.dst == _ID;
+      // broadcast?
+      if (msg.dst == ~0u)    return true;
+      // physical DM
+      if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
+      // logical DM
       return !((_LDR ^ msg.dst) & 0xffff0000) && _LDR & (1 << (msg.dst & 0xf));
     }
 
@@ -334,7 +338,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     if ((msg.dst >> 24) == 0xff)  return true;
 
     // physical DM
-    if (~msg.icr & ICR_DM) return msg.dst == _ID;
+    if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
 
     // flat mode
     if ((_DFR >> 28) == 0xf) return _LDR & msg.dst;
@@ -390,7 +394,7 @@ public:
     assert(event != VCpu::EVENT_LOWEST);
 
     if (event == VCpu::EVENT_FIXED)
-      accept_vector(msg.icr, msg.icr & LVT_LEVEL);
+      accept_vector(msg.icr, msg.icr & MessageApic::ICR_LEVEL, msg.icr & MessageApic::ICR_ASSERT);
     else {
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);

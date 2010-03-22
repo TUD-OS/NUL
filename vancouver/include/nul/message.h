@@ -181,6 +181,11 @@ struct MessagePic
 struct MessageApic
 {
   enum {
+    ICR_DM     = 1 << 11,
+    ICR_ASSERT = 1 << 14,
+    ICR_LEVEL  = 1 << 15,
+  };
+  enum {
     EOI,
     IPI,
   } type;
