@@ -24,13 +24,14 @@
  * State: unstable
  * Features: MEM and MSR access, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI
  * Missing:  reset,  IPI, timer, x2apic mode
- * Difference:  read-only _ID, read-only BSP flag
+ * Difference:  read-only _ID, read-only BSP flag, no interrupt polarity
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
   enum {
+    MAX_FREQ   = 200000000,
     LVT_MASK_BIT = 16,
     LVT_LEVEL = 1 << 15,
     OFS_ISR   = 0,
@@ -39,14 +40,23 @@ class X2Apic : public StaticReceiver<X2Apic>
     LVT_BASE  = _TIMER_offset,
   };
   VCpu *_vcpu;
-  DBus<MessageApic> &_bus_apic;
+  DBus<MessageApic>  & _bus_apic;
+  DBus<MessageTimer> & _bus_timer;
+  Clock *_clock;
   unsigned long long _msr;
-  bool in_x2apic_mode;
+  unsigned  _timer;
+  unsigned  _timer_clock_shift;
+  unsigned  _timer_dcr_shift;
+  unsigned  _timer_start_ccr;
+  timevalue _timer_start;
   unsigned _vector[8*3];
   unsigned _esr_shadow;
   unsigned _isrv;
   bool     _lvtds[6];
   bool     _lvtrirr[6];
+
+
+  bool in_x2apic_mode;
 
   /**
    * Update the APIC base MSR.
@@ -62,6 +72,38 @@ class X2Apic : public StaticReceiver<X2Apic>
     _msr = (value & ~0x100ull) | (_msr & 0x100);
     return true;
   }
+
+  /**
+   * Checks whether a timeout should trigger and returns the current
+   * counter value.
+   */
+  unsigned get_ccr(timevalue now) {
+    if (!_ICT)  return 0;
+    timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
+    if (delta < _timer_start_ccr)  return _timer_start_ccr - delta;
+    trigger_lvt(_TIMER_offset - LVT_BASE);
+
+    // one shot?
+    if (_TIMER & (1 << 17)) return 0;
+
+    // add periods
+    unsigned remainder = Math::mod64(delta - _timer_start_ccr, _ICT);
+    _timer_start += (delta - remainder) << _timer_dcr_shift;
+    _timer_start_ccr = _ICT;
+
+    return _ICT - remainder;
+  }
+
+  /**
+   * Reprogramm a new host timer.
+   */
+  void update_timer(timevalue now) {
+    unsigned value = get_ccr(now);
+    if (!value || _TIMER & (1 << LVT_MASK_BIT)) return;
+    MessageTimer msg(_timer, now + (value << _timer_dcr_shift));
+    _bus_timer.send(msg);
+  }
+
 
   bool sw_disabled() { return ~_SVR & 0x100; }
 
@@ -132,23 +174,27 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  bool register_read(unsigned num, unsigned &value) {
+  bool register_read(unsigned offset, unsigned &value) {
     bool res = false;
-    switch (num) {
+    switch (offset) {
     case 0x0a:
       value = processor_prio();
       res = true;
       break;
     case 0x10 ... 0x18:
-      value = _vector[num - 0x10];
+      value = _vector[offset - 0x10];
+      res = true;
+      break;
+    case 0x39:
+      value = get_ccr(_clock->time());
       res = true;
       break;
     default:
-      res = X2Apic_read(num, value);
+      res = X2Apic_read(offset, value);
     }
-    if (in_range(num, LVT_BASE, 6)) {
-      if (_lvtds[num - LVT_BASE])    value |= 1 << 12;
-      if (_lvtrirr[num - LVT_BASE])  value |= 1 << 14;
+    if (in_range(offset, LVT_BASE, 6)) {
+      if (_lvtds[offset - LVT_BASE])    value |= 1 << 12;
+      if (_lvtrirr[offset - LVT_BASE])  value |= 1 << 14;
       if (sw_disabled())             value |= 1 << 16;
     }
     if (!res) set_error(7);
@@ -156,9 +202,9 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  bool register_write(unsigned num, unsigned value) {
+  bool register_write(unsigned offset, unsigned value) {
     bool res;
-    switch (num) {
+    switch (offset) {
     case 0x9: // APR
     case 0xc: // RRD
       // the accesses are ignored
@@ -175,7 +221,11 @@ class X2Apic : public StaticReceiver<X2Apic>
       }
       return true;
     default:
-      res = X2Apic_write(num, value, true);
+      res = X2Apic_write(offset, value, true);
+    }
+    if (in_range(offset, LVT_BASE, 6)) {
+      if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
+      if (offset == _TIMER_offset) update_timer(_clock->time());
     }
     if (!res) set_error(7);
     return true;
@@ -253,6 +303,13 @@ public:
   }
 
 
+  bool  receive(MessageTimeout &msg) {
+    if (msg.nr != _timer) return false;
+    get_ccr(_clock->time());
+    return true;
+  }
+
+
   /**
    * An INTA cycle
    */
@@ -272,6 +329,7 @@ public:
       X2Apic_reset();
       memset(_vector, 0, sizeof(_vector));
       update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
+      _timer_dcr_shift = 2 + _timer_clock_shift;
     }
     return true;
   }
@@ -343,17 +401,30 @@ public:
   }
 
 
-  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, unsigned initial_apic_id) : _ID(initial_apic_id), _vcpu(vcpu), _bus_apic(bus_apic), in_x2apic_mode(false) {
+  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
+    : _ID(initial_apic_id), _vcpu(vcpu), _bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), in_x2apic_mode(false) {
+
+
+    for (_timer_clock_shift=0; _timer_clock_shift < 63; _timer_clock_shift++)
+      if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
+
 
     CpuMessage msg[] = {
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _ID << 24),
       CpuMessage(11, 3, 0, _ID),
       // support for X2Apic
-      CpuMessage(1, 2, 1 << 21, 1 << 21),
+      CpuMessage(1, 2, 0, 1 << 21),
+      // support for APIC timer that does not sleep in C-states
+      CpuMessage(6, 0, 0, 1 << 2),
     };
     for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
       _vcpu->executor.send(msg[i]);
+
+    MessageTimer msg0;
+    if (!_bus_timer.send(msg0))
+      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+    _timer = msg0.nr;
   }
 };
 
@@ -361,9 +432,10 @@ public:
 PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, argv[0]);
+    X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
     if (!mb.last_vcpu->is_ap())
       mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
+    mb.bus_timeout.add(dev,  &X2Apic::receive_static<MessageTimeout>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
     mb.last_vcpu->memregion.add(dev, &X2Apic::receive_static<MessageMemRegion>);
@@ -388,7 +460,17 @@ REGSET(X2Apic,
        REG_WR(_LINT0,         0x35, 0x00010000, 0x1a7ff, 0, 0, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
        REG_WR(_LINT1,         0x36, 0x00010000, 0x1a7ff, 0, 0, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
        REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff)
-       REG_RW(_INITIAL_COUNT, 0x38,          0, ~0u)
-       REG_RW(_CURRENT_COUNT, 0x39,          0, ~0u)
-       REG_RW(_DIVIDE_CONFIG, 0x3e,          0, 0xb))
+       REG_WR(_ICT,           0x38,          0, ~0u,     0, 0,
+	      _timer_start_ccr = _ICT;
+	      _timer_start = _clock->time();
+	      update_timer(_timer_start); )
+       REG_WR(_DCR,           0x3e,          0, 0xb,     0, 0,
+	      {
+		timevalue now = _clock->time();
+		_timer_start_ccr = get_ccr(now);
+		_timer_start     = now;
+		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7) + 1;
+		update_timer(now);
+	      }
+	      ))
 #endif

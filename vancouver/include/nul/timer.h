@@ -42,6 +42,11 @@ class Clock
   timevalue clock(timevalue freq) { return Math::muldiv128(time(), freq, _source_freq); }
 
   /**
+   * Frequency of the clock.
+   */
+  timevalue freq() { return _source_freq; }
+
+  /**
    * Returns a timeout in absolute TSC time.
    */
   timevalue abstime(timevalue thedelta, timevalue freq) {  return time() + Math::muldiv128(thedelta, _source_freq, freq); }
