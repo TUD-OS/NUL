@@ -70,9 +70,9 @@ class PitCounter : public StaticReceiver<PitCounter>
   bool feature(Features f)
   {
     int features[6] = { FCOUNTDOWN | FSOFTWARE_TRIGGER | FGATE_DISABLE_COUNTING,
-			FCOUNTDOWN, 
+			FCOUNTDOWN,
 			FPERIODIC | FGATE_DISABLE_COUNTING,
-			FPERIODIC | FGATE_DISABLE_COUNTING | FSQUARE_WAVE, 
+			FPERIODIC | FGATE_DISABLE_COUNTING | FSQUARE_WAVE,
 			FSOFTWARE_TRIGGER | FGATE_DISABLE_COUNTING,
 			0};
     return (features[(_modus >> 1) & 0x7] & f) == f;
@@ -341,7 +341,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   }
 
 
-  PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrq> *bus_irq, unsigned irq, Clock *clock) 
+  PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrq> *bus_irq, unsigned irq, Clock *clock)
   : _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(clock), _timer(0)
   {
     if (_irq != ~0U)
@@ -392,7 +392,7 @@ class PitDevice : public StaticReceiver<PitDevice>
 	break;
       default:
 	assert(0);
-      }	
+      }
     return true;
   }
 
