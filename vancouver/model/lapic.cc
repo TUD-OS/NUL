@@ -611,8 +611,7 @@ PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
     X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
-    if (!mb.last_vcpu->is_ap())
-      mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
+    mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
     mb.bus_apic.add(dev,     &X2Apic::receive_static<MessageApic>);
     mb.bus_timeout.add(dev,  &X2Apic::receive_static<MessageTimeout>);
     mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
