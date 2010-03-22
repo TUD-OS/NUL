@@ -21,11 +21,12 @@
 
 /**
  * X2Apic model.
+ *
  * State: unstable
- * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio
- * Missing:  focus checking, reset, x2apic mode, CR8
+ * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode
+ * Missing:  focus checking, CR8/TPR setting, BIOS ACPI tables
  * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
- * Documentation: Intel SDM vol3a chapter 10 253668-033.
+ * Documentation: Intel SDM Volume 3a Chapter 10 253668-033.
  */
 class X2Apic : public StaticReceiver<X2Apic>
 {
@@ -39,10 +40,12 @@ class X2Apic : public StaticReceiver<X2Apic>
     OFS_IRR   = 512,
     LVT_BASE  = _TIMER_offset,
   };
+
   VCpu *    _vcpu;
   DBus<MessageApic>  & _bus_apic;
   DBus<MessageTimer> & _bus_timer;
   Clock *   _clock;
+
   unsigned  _initial_apic_id;
   unsigned long long _msr;
   unsigned  _timer;
@@ -56,20 +59,62 @@ class X2Apic : public StaticReceiver<X2Apic>
   bool      _lvtrirr[6];
   unsigned  _lowest_rr;
 
-  bool _x2apic_mode;
+
+  bool sw_disabled() { return ~_SVR & 0x100; }
+  bool hw_disabled() { return ~_msr & 0x800; }
+  bool x2apic_mode() { return  (_msr & 0xc00) == 0xc000; }
+
+
+  /**
+   * Reset the APIC to some default state.
+   */
+  void reset(bool init) {
+    // INIT preserves the APIC ID
+    unsigned old_id = _ID;
+    X2Apic_reset();
+    if (init) _ID = old_id;
+    memset(_vector,  0, sizeof(_vector));
+    memset(_lvtds,   0, sizeof(_lvtds));
+    memset(_lvtrirr, 0, sizeof(_lvtrirr));
+    _timer_dcr_shift = 2 + _timer_clock_shift;
+
+    // RESET?
+    if (!init) {
+      X2Apic_write(_ID_offset,  _initial_apic_id << 24);
+      set_base_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
+
+      // as we enable the APICs, we also perform the BIOS INIT
+      if (!_vcpu->is_ap()) {
+	X2Apic_write(_LINT0_offset,  0x700);
+	X2Apic_write(_LINT1_offset,  0x400);
+      }
+    }
+  }
+
 
   /**
    * Update the APIC base MSR.
    */
-  bool update_msr(unsigned long long value) {
-    const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x6ffull;
-    if (value & ~mask) return false;
+  bool set_base_msr(unsigned long long value) {
+    const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
+    bool was_x2apic_mode = x2apic_mode();
+    if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
     if (_msr ^ value & 0x800) {
       CpuMessage msg(1, 3, 1 << 9, (_msr & 0x800) >> 2);
       _vcpu->executor.send(msg);
     }
     // make the BSP flag read-only
     _msr = (value & ~0x100ull) | (_msr & 0x100);
+
+    if (!was_x2apic_mode && x2apic_mode()) {
+      // init LDR + _ID
+      register_write(_LDR_offset, _ID, false);
+      register_write(_LDR_offset, _LDR, false);
+      _ICR1 = 0;
+    }
+
+    // set them to default state
+    if (hw_disabled()) reset(false);
     return true;
   }
 
@@ -103,13 +148,10 @@ class X2Apic : public StaticReceiver<X2Apic>
   }
 
 
-  bool sw_disabled() { return ~_SVR & 0x100; }
-  bool hw_disabled() { return ~_msr & 0x800; }
-
   /**
    * We send an IPI.
    */
-  void send_ipi(unsigned icr, unsigned dst) {
+  bool send_ipi(unsigned icr, unsigned dst) {
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
@@ -122,6 +164,8 @@ class X2Apic : public StaticReceiver<X2Apic>
 
     // broadcast?
     if (shorthand & 2) dst = ~0u;
+
+    if (event == VCpu::EVENT_LOWEST && x2apic_mode()) return set_error(4);
 
 
     // self IPIs can only be fixed
@@ -136,13 +180,11 @@ class X2Apic : public StaticReceiver<X2Apic>
 	 * a broadcast shorthand is invalid.
 	 */
 	|| event == VCpu::EVENT_LOWEST && shorthand == 2)
-      return;
+      return false;
 
     // send vector error check
-    if ((event & (VCpu::EVENT_FIXED | VCpu::EVENT_LOWEST)) && (icr & 0xff) < 16) {
-      set_error(5);
-      return;
-    }
+    if ((event & (VCpu::EVENT_FIXED | VCpu::EVENT_LOWEST)) && (icr & 0xff) < 16)
+      return set_error(5);
 
     // level triggered IRQs are treated as edge triggered
     icr = icr & 0x4fff;
@@ -151,12 +193,17 @@ class X2Apic : public StaticReceiver<X2Apic>
       MessageApic msg(icr & ~0x700u, dst, 0);
       _lowest_rr = _bus_apic.send_rr(msg, _lowest_rr);
       // we could set an send accept error here, but that is not supported in the P4...
-      return;
+      return _lowest_rr;
     }
+
     MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
-    _bus_apic.send(msg);
+    return _bus_apic.send(msg);
   }
 
+
+  /**
+   * Scan for the highest bit in the ISR or IRR.
+   */
   unsigned get_highest_bit(unsigned bit_offset) {
     for (int i=7; i >=0; i--) {
       unsigned value = _vector[(bit_offset >> 5) + i];
@@ -165,35 +212,50 @@ class X2Apic : public StaticReceiver<X2Apic>
     return 0;
   }
 
+  /**
+   * Calc the PPR.
+   */
   unsigned processor_prio() {
-    if (_TPR >= (_isrv & 0xf0))
-      return _TPR;
-    return _isrv & 0xf0;
+    unsigned res = _isrv & 0xf0;
+    if (_TPR >= res) res = _TPR;
+    return res;
   }
 
+  /**
+   * Check whether there is an IRQ above the processor prio to inject.
+   */
   unsigned prioritize_irq() {
     unsigned irrv = get_highest_bit(OFS_IRR);
     if ((irrv & 0xf0) > processor_prio()) return irrv;
     return 0;
   }
 
+
+  /**
+   * Send upstream to the CPU that we have an IRQ.
+   */
   void update_irqs() {
     CpuEvent msg(VCpu::EVENT_FIXED);
     if (prioritize_irq()) _vcpu->bus_event.send(msg);
   }
 
 
-  void set_error(unsigned bit) {
+  /**
+   * Indicate an error and trigger the error LVT.
+   */
+  bool set_error(unsigned bit) {
     /**
      * Make sure we do not loop, if the ERROR LVT has also an invalid
-     * vector.
+     * vector programmed.
      */
-    if (_esr_shadow & (1<< bit)) return;
+    if (_esr_shadow & (1<< bit)) return true;
     Cpu::atomic_set_bit(&_esr_shadow, bit);
-    trigger_lvt(_ERROR_offset - LVT_BASE);
+    return trigger_lvt(_ERROR_offset - LVT_BASE);
   }
 
-
+  /**
+   * Accept a fixed vector in the IRR.
+   */
   void accept_vector(unsigned char vector, bool level, bool value) {
 
     // lower vectors are reserved
@@ -205,6 +267,9 @@ class X2Apic : public StaticReceiver<X2Apic>
     update_irqs();
   }
 
+  /**
+   * Broadcast an EOI on the bus if it is level triggered.
+   */
   void broadcast_eoi(unsigned vector) {
     if (!Cpu::get_bit(_vector, OFS_TMR + _isrv)) return;
 
@@ -212,37 +277,38 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (vector == (_LINT0 & 0xff)) _lvtrirr[_LINT0_offset - LVT_BASE] = false;
     if (vector == (_LINT1 & 0xff)) _lvtrirr[_LINT1_offset - LVT_BASE] = false;
 
-    // broadcast suppression
+    // broadcast suppression?
     if (_SVR & 0x1000) return;
+
     MessageApic msg(vector);
     _bus_apic.send(msg);
   }
 
+  /**
+   *
+   */
 
   bool register_read(unsigned offset, unsigned &value) {
-    bool res = false;
+    bool res = true;
     switch (offset) {
     case 0x0a:
       value = processor_prio();
-      res = true;
       break;
     case 0x10 ... 0x18:
       value = _vector[offset - 0x10];
-      res = true;
       break;
     case 0x39:
       value = get_ccr(_clock->time());
-      res = true;
       break;
     default:
-      res = X2Apic_read(offset, value);
+      if (!(res = X2Apic_read(offset, value)))
+	set_error(7);
     }
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE])    value |= 1 << 12;
       if (_lvtrirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
       if (sw_disabled())                value |= 1 << 16;
     }
-    if (!res) set_error(7);
     return res;
   }
 
@@ -255,7 +321,6 @@ class X2Apic : public StaticReceiver<X2Apic>
       // the accesses are ignored
       return true;
     case 0xb: // EOI
-      {
 	if (_isrv) {
 	  Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
 	  broadcast_eoi(_isrv);
@@ -263,20 +328,23 @@ class X2Apic : public StaticReceiver<X2Apic>
 	  _isrv = get_highest_bit(OFS_ISR);
 	  update_irqs();
 	}
-      }
       return true;
     default:
-      res = X2Apic_write(offset, value, strict);
+      if (!(res = X2Apic_write(offset, value, strict)))
+	set_error(7);
     }
+
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
-      if (offset == _TIMER_offset) update_timer(_clock->time());
+      if (offset == _TIMER_offset)   update_timer(_clock->time());
     }
-    if (!res) set_error(7);
-    return true;
+    return res;
   }
 
 
+  /**
+   * Trigger an LVT entry.
+   */
   bool trigger_lvt(unsigned num){
     assert(num < 6);
     unsigned lvt;
@@ -325,7 +393,7 @@ class X2Apic : public StaticReceiver<X2Apic>
     if (hw_disabled())   return false;
     if (msg.ptr == this) return false;
 
-    if (_x2apic_mode) {
+    if (x2apic_mode()) {
       // broadcast?
       if (msg.dst == ~0u)    return true;
       // physical DM
@@ -349,38 +417,44 @@ class X2Apic : public StaticReceiver<X2Apic>
 
 
 public:
+  /**
+   * Receive MMIO access.
+   */
   bool  receive(MessageMem &msg)
   {
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || hw_disabled()) return false;
+    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || hw_disabled() || x2apic_mode()) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4) return false;
-    if (msg.read) {
+    if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
-      // fix APIC ID
-      if ((msg.phys & 0xff0) == 0x20) *msg.ptr = *msg.ptr << 24;
-    }
     else
       register_write((msg.phys >> 4) & 0x3f, *msg.ptr, false);
     return true;
   }
 
+  /**
+   * Receive MMIO map request.
+   */
   bool  receive(MessageMemRegion &msg)
   {
-    if (hw_disabled() || (_msr >> 12) != msg.page) return false;
+    if ((_msr >> 12) != msg.page) return false;
     /**
-     * we return true without setting msg.ptr and thus nobody else can
-     * claim this region
+     * We return true without setting msg.ptr and thus nobody else can
+     * claim this region.
      */
     msg.start_page = msg.page;
     msg.count = 1;
     return true;
   }
 
-
+  /**
+   * Timeout for the APIC timer.
+   */
   bool  receive(MessageTimeout &msg) {
     if (hw_disabled() || msg.nr != _timer) return false;
     get_ccr(_clock->time());
     return true;
   }
+
 
   /**
    * Receive an IPI.
@@ -402,7 +476,7 @@ public:
     return true;
   }
 
-    /**
+  /**
    * Receive INTA cycle or RESET from the CPU.
    */
   bool  receive(LapicEvent &msg) {
@@ -417,31 +491,27 @@ public:
       } else
 	msg.value = _SVR & 0xff;
     }
-    else if (msg.type == LapicEvent::RESET || msg.type == LapicEvent::INIT) {
-      unsigned old_id = _ID;
-      X2Apic_reset();
-      if (msg.type == LapicEvent::INIT) _ID = old_id;
-      memset(_vector,  0, sizeof(_vector));
-      memset(_lvtds,   0, sizeof(_lvtds));
-      memset(_lvtrirr, 0, sizeof(_lvtrirr));
-      update_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
-      _timer_dcr_shift = 2 + _timer_clock_shift;
-    }
+    else if (msg.type == LapicEvent::RESET || msg.type == LapicEvent::INIT)
+      reset(msg.type == LapicEvent::INIT);
     return true;
   }
 
 
+  /**
+   * Receive RDMSR and WRMSR messages.
+   */
   bool  receive(CpuMessage &msg) {
-    switch (msg.type) {
-    case CpuMessage::TYPE_RDMSR:
+    if (msg.type == CpuMessage::TYPE_RDMSR) {
+
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b) {
 	msg.cpu->edx_eax(_msr);
 	return true;
       }
+
       // check whether the register is available
       if (!in_range(msg.cpu->ecx, 0x800, 64)
-	  || !_x2apic_mode
+	  || !x2apic_mode()
 	  || msg.cpu->ecx == 0x831
 	  || msg.cpu->ecx == 0x80e) return false;
 
@@ -451,24 +521,25 @@ public:
       // only the ICR has an upper half
       msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
       return true;
-    case CpuMessage::TYPE_WRMSR: {
+    }
+    if (msg.type == CpuMessage::TYPE_WRMSR) {
       // handle APIC base MSR
-      if (msg.cpu->ecx == 0x1b)  return update_msr(msg.cpu->edx_eax());
+      if (msg.cpu->ecx == 0x1b)  return set_base_msr(msg.cpu->edx_eax());
+
+
       // check whether the register is available
       if (!in_range(msg.cpu->ecx, 0x800, 64)
-	  || !_x2apic_mode
+	  || !x2apic_mode()
 	  || msg.cpu->ecx == 0x831
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
 
       // self IPI?
-      if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx) {
-	send_ipi(0x40000 | msg.cpu->eax, 0);
-	return true;
-      }
+      if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx)
+	return send_ipi(0x40000 | msg.cpu->eax, 0);
 
+      // write upper half of the ICR first
       unsigned old_ICR1 = _ICR1;
-      // write upper half of the ICR
       if (msg.cpu->ecx == 0x830) _ICR1 = msg.cpu->edx;
 
       // write lower half in strict mode with reserved bit checking
@@ -478,16 +549,16 @@ public:
       }
       return true;
     }
-    case CpuMessage::TYPE_CPUID:
-    case CpuMessage::TYPE_CPUID_WRITE:
-    case CpuMessage::TYPE_RDTSC:
-    default:
-      return false;
-    }
+    return false;
   }
 
 
+  /**
+   * Legacy pins.
+   */
   bool  receive(MessageLegacy &msg) {
+    if (hw_disabled())  return false;
+
     // the BSP gets the legacy PIC output and NMI on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
       return trigger_lvt(_LINT0_offset - LVT_BASE);
@@ -498,14 +569,12 @@ public:
 
 
   X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
-    : _vcpu(vcpu), _bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id), _x2apic_mode(false) {
+    : _vcpu(vcpu), _bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
 
-
+    // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 63; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
 
-
-    X2Apic_write(_ID_offset,  _initial_apic_id << 24);
     CpuMessage msg[] = {
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _ID),
@@ -518,6 +587,7 @@ public:
     for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
       _vcpu->executor.send(msg[i]);
 
+    // allocate a timer
     MessageTimer msg0;
     if (!_bus_timer.send(msg0))
       Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
@@ -540,15 +610,20 @@ PARAM(x2apic, {
     mb.last_vcpu->bus_lapic.add(dev, &X2Apic::receive_static<LapicEvent>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
-  "Example: 'x2apic:2'");
+  "Example: 'x2apic:2'",
+  "The first x2apic is dedicated the BSP and connected to the legacy NMI+EXTINT pins.");
+
+
 #else
 REGSET(X2Apic,
-       REG_RW(_ID,            0x02,          0, 0xff000000, if (_x2apic_mode) _ID = _initial_apic_id; )
+       REG_RW(_ID,            0x02,          0, 0xff000000, if (x2apic_mode()) _ID = _initial_apic_id; )
        REG_RO(_VERSION,       0x03, 0x01050014)
        REG_RW(_TPR,           0x08,          0, 0xff,)
-       REG_RW(_LDR,           0x0d,          0, 0xff000000, if (_x2apic_mode) _LDR = ((_initial_apic_id & ~0xf) << 12) | ( 1 << (_initial_apic_id & 0xf)); )
+       REG_RW(_LDR,           0x0d,          0, 0xff000000, if (x2apic_mode()) _LDR = ((_initial_apic_id & ~0xf) << 12) | ( 1 << (_initial_apic_id & 0xf)); )
        REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000,)
-       REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,)
+       REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,
+	      for (unsigned i=0; i < 6; i++)
+		if (_lvtds[i]) trigger_lvt(i);)
        REG_RW(_ESR,           0x28,          0, 0,          _ESR = Cpu::xchg(&_esr_shadow, 0); )
        REG_RW(_ICR,           0x30,          0, 0x000ccfff, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)
