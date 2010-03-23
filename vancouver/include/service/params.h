@@ -21,7 +21,7 @@
  * Defines strings and functions for a parameter with the given
  * name. The variadic part is used to store a help text.
  *
- * PARAM(example, { Logging::printf("example parameter function called!\n");}, 
+ * PARAM(example, { Logging::printf("example parameter function called!\n");},
  *       "example - this is just an example for parameter Passing",
  *       "Another help line...");
  */

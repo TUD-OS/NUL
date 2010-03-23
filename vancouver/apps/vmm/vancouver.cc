@@ -230,7 +230,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
     _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
 
-    // create devices from cmdline
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
   }

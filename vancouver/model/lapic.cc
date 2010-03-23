@@ -613,9 +613,11 @@ public:
 
 
 PARAM(lapci, {
+    static unsigned lapic_count;
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
+    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.clock(), ~argv[0] ? argv[0]: lapic_count);
+    lapic_count++;
     mb.bus_legacy.add(dev, &Lapic::receive_static<MessageLegacy>);
     mb.bus_apic.add(dev,     &Lapic::receive_static<MessageApic>);
     mb.bus_timeout.add(dev,  &Lapic::receive_static<MessageTimeout>);
@@ -626,7 +628,8 @@ PARAM(lapci, {
   },
   "lapic:inital_apic_id - provide an x2APIC for the last CPU",
   "Example: 'lapic:2'",
-  "The first Lapic is dedicated the BSP.");
+  "The first Lapic is dedicated the BSP.",
+  "If no inital_apic_id is given the lapic number is used.");
 
 
 #else
