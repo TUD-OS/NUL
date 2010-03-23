@@ -146,13 +146,3 @@ class Motherboard : public StaticReceiver<Motherboard>
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock), last_vcpu(0)  {}
 };
-
-static inline bool discovery_write_st(DBus<MessageDiscovery> &bus_discovery, const char *resource, unsigned offset, const void *value, unsigned count) {
-  MessageDiscovery msg(resource, offset, value, count);
-  return bus_discovery.send(msg);
-}
-
-static inline bool discovery_write_dw(DBus<MessageDiscovery> &bus_discovery, const char *resource, unsigned offset, unsigned value, unsigned count) {
-  return discovery_write_st(bus_discovery, resource, offset, &value, count);
-}
-

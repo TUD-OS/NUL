@@ -20,11 +20,12 @@
 
 /**
  * Virtual Bios reset routines.
- * Features: init of PIC, PIT
- * Missing: serial port, ACPI tables
+ * Features: init of PIC, PIT, bda+ebda, ACPI tables
+ * Missing: flexible ACPI table size
  */
 class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCommon
 {
+#include "model/simplediscovery.h"
   enum {
     MAX_RESOURCES = 32,
     SIZE_EBDA_KB  = 2,
@@ -102,7 +103,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     _mb.bus_discovery.send_fifo(msg1);
 
     // store what remains on memory in KB
-    discovery_write_dw(_mb.bus_discovery, "bda", 0x13, _mem_size >> 10, 2);
+    discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
   };
 
   unsigned alloc(unsigned size, unsigned alignment) {
@@ -137,13 +138,13 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
 
   void init_acpi_table(const char *name) {
-    discovery_write_st(_mb.bus_discovery, name,  0, name, 4);
-    discovery_write_dw(_mb.bus_discovery, name,  8, 1, 1);
-    discovery_write_st(_mb.bus_discovery, name, 10, ACPI_OEM_ID, 6);
-    discovery_write_st(_mb.bus_discovery, name, 16, ACPI_MANUFACTURER, 8);
-    discovery_write_dw(_mb.bus_discovery, name, 24, 1, 4);
-    discovery_write_dw(_mb.bus_discovery, name, 28, 0, 4);
-    discovery_write_dw(_mb.bus_discovery, name, 32, 0, 4);
+    discovery_write_st(name,  0, name, 4);
+    discovery_write_dw(name,  8, 1, 1);
+    discovery_write_st(name, 10, ACPI_OEM_ID, 6);
+    discovery_write_st(name, 16, ACPI_MANUFACTURER, 8);
+    discovery_write_dw(name, 24, 1, 4);
+    discovery_write_dw(name, 28, 0, 4);
+    discovery_write_dw(name, 32, 0, 4);
   }
 
 
@@ -155,16 +156,16 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     else if (!strcmp("ebda", name)) {
       unsigned ebda = alloc(SIZE_EBDA_KB << 10, 0x10);
       _resources[index] = Resource(name, ebda, SIZE_EBDA_KB << 10, false);
-      discovery_write_dw(_mb.bus_discovery, "bda", 0xe, ebda >> 4, 2);
-      discovery_write_dw(_mb.bus_discovery, name, 0, SIZE_EBDA_KB, 1);
+      discovery_write_dw("bda", 0xe, ebda >> 4, 2);
+      discovery_write_dw(name, 0, SIZE_EBDA_KB, 1);
     }
     else if (!strcmp("RSDP", name)) {
       Resource *r;
       check1(false, !(r = get_resource("ebda")));
       _resources[index] = Resource(name, r->offset, 36, false);
-      discovery_write_st(_mb.bus_discovery, name, 0,  "RSDP PTR", 8);
-      discovery_write_st(_mb.bus_discovery, name, 9,  ACPI_OEM_ID, 6);
-      discovery_write_dw(_mb.bus_discovery, name, 15, 2, 1);
+      discovery_write_st(name, 0,  "RSDP PTR", 8);
+      discovery_write_st(name, 9,  ACPI_OEM_ID, 6);
+      discovery_write_dw(name, 15, 2, 1);
       fix_acpi_checksum(_resources + index, 20, 8);
     }
     else {
@@ -173,7 +174,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       _resources[index] = Resource(name, table, 0x1000, true);
       init_acpi_table(name);
       if (!strcmp(name, "RSDT")) {
-	discovery_write_dw(_mb.bus_discovery, "RSDP", 16, table, 4);
+	discovery_write_dw("RSDP", 16, table, 4);
 
 	Resource *r;
 	check1(false, !(r = get_resource("RSDP")));
@@ -186,7 +187,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 	unsigned rsdt_length = acpi_tablesize(rsdt);
 
 	// and write the pointer to the RSDT
-	discovery_write_dw(_mb.bus_discovery, "RSDT", rsdt_length, table, 4);
+	discovery_write_dw("RSDT", rsdt_length, table, 4);
       }
     }
     return true;
@@ -219,7 +220,7 @@ public:
 	unsigned table_len = acpi_tablesize(r);
 	// increase the length of an ACPI table.
 	if (r->acpi_table && msg.offset >= 8 && needed_len < table_len) {
-	  discovery_write_dw(_mb.bus_discovery, r->name, 4, needed_len, 4);
+	  discovery_write_dw(r->name, 4, needed_len, 4);
 	  table_len = needed_len;
 	}
 
@@ -231,6 +232,14 @@ public:
       }
       break;
     case MessageDiscovery::DISCOVERY:
+    case MessageDiscovery::READ:
+      {
+	Resource *r;
+	unsigned needed_len = msg.offset + msg.count;
+	check1(false, !(r = get_resource(msg.resource)));
+	check1(false, needed_len > r->length);
+	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
+      }
     default:
       return false;
     }
@@ -238,7 +247,7 @@ public:
   }
 
 
-  VirtualBiosReset(Motherboard &mb) : BiosCommon(mb) {}
+  VirtualBiosReset(Motherboard &mb) : BiosCommon(mb), _bus_discovery(mb.bus_discovery) {}
 };
 
 PARAM(vbios_reset,

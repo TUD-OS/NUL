@@ -477,18 +477,22 @@ struct MessageDiscovery
   enum Type {
     DISCOVERY,
     WRITE,
+    READ,
   } type;
-  union {
-    struct {
-      const char * resource;
-      unsigned     offset;
+  struct {
+    const char * resource;
+    unsigned     offset;
+    union {
       const void * data;
-      unsigned     count;
+      unsigned   * dw;
     };
+    unsigned     count;
   };
   MessageDiscovery() : type(DISCOVERY) {}
   MessageDiscovery(const char * _resource, unsigned _offset, const void * _data, unsigned _count)
     : type(WRITE), resource(_resource), offset(_offset), data(_data), count(_count) {}
+  MessageDiscovery(const char * _resource, unsigned _offset, unsigned * _dw)
+    : type(READ), resource(_resource), offset(_offset), dw(_dw) {}
 };
 
 /****************************************************/

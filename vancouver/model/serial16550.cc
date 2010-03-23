@@ -31,6 +31,7 @@
  */
 class SerialDevice : public StaticReceiver<SerialDevice>
 {
+#include "model/simplediscovery.h"
   DBus<MessageIrq>    &_bus_irqlines;
   DBus<MessageSerial> &_bus_hostserial;
   unsigned short _base;
@@ -93,7 +94,7 @@ public:
   {
     if (msg.serial != _hostserial)   return false;
 
-    unsigned char or_lsr; 
+    unsigned char or_lsr;
     if (_regs[FCR] & 1)
       // fifo mode
       {
@@ -238,8 +239,26 @@ public:
     return true;
   }
 
-  SerialDevice(DBus<MessageIrq> &bus_irqlines, DBus<MessageSerial> &bus_hostserial, unsigned short base, unsigned char irq, unsigned hostserial)
-   : _bus_irqlines(bus_irqlines), _bus_hostserial(bus_hostserial), _base(base), _irq(irq), _hostserial(hostserial), _rfcount(0), _triggerlevel(1), _sendmask(0x1f)
+
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+
+    unsigned installed_hw = ~0u;
+    check1(false, !discovery_read_dw("bda", 0x10, installed_hw));
+    unsigned ioports      = (installed_hw >> 9) & 0x7;
+    if (ioports < 4) {
+      discovery_write_dw("bda", ioports * 2, _base, 2);
+      ioports++;
+      discovery_write_dw("bda", 0x10, (installed_hw & 0xfffff1ff) | (ioports << 9), 4);
+    }
+    return true;
+  }
+
+
+  SerialDevice(DBus<MessageDiscovery> & bus_discovery, DBus<MessageIrq> &bus_irqlines, DBus<MessageSerial> &bus_hostserial,
+	       unsigned short base, unsigned char irq, unsigned hostserial)
+    : _bus_discovery(bus_discovery), _bus_irqlines(bus_irqlines), _bus_hostserial(bus_hostserial),
+      _base(base), _irq(irq), _hostserial(hostserial), _rfcount(0), _triggerlevel(1), _sendmask(0x1f)
     {
       memset(_regs, 0, sizeof(_regs));
       _regs[LSR] = 0x60;
@@ -250,10 +269,11 @@ public:
 
 PARAM(serial,
       {
-	Device *dev = new SerialDevice(mb.bus_irqlines, mb.bus_serial, argv[0], argv[1], argv[2]);
+	Device *dev = new SerialDevice(mb.bus_discovery, mb.bus_irqlines, mb.bus_serial, argv[0], argv[1], argv[2]);
 	mb.bus_ioin.add(dev, &SerialDevice::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(dev, &SerialDevice::receive_static<MessageIOOut>);
 	mb.bus_serial.add(dev, &SerialDevice::receive_static<MessageSerial>);
+	mb.bus_discovery.add(dev, &SerialDevice::receive_static<MessageDiscovery>);
       },
       "serial:iobase,irq,hdev -  attach a virtual serial port that should use the given hostdev as backend.",
       "Example: 'serial:0x3f8,8,0x47'.",

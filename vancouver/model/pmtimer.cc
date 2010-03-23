@@ -22,8 +22,8 @@
  * Power Management Timer.
  *
  * State: unstable
- * Features: Read,
- * Missing: FADT, IRQ
+ * Features: Read, FADT
+ * Missing: IRQ on overflow
  * Documentation: ACPI spec 3.0b
  */
 class PmTimer : public StaticReceiver<PmTimer> {
@@ -46,11 +46,11 @@ public:
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
 
     // write our iobase to the FADT
-    discovery_write_dw("FADT",  76,    _iobase, 4);
-    discovery_write_dw("FADT",  91,          4, 1);
-    discovery_write_dw("FADT", 208, 0x04000401, 4);
-    discovery_write_dw("FADT", 212,    _iobase, 4);
-    discovery_write_dw("FADT", 216,          0, 4);
+    discovery_write_dw("FACP",  76,    _iobase, 4);
+    discovery_write_dw("FACP",  91,          4, 1);
+    discovery_write_dw("FACP", 208, 0x04000401, 4);
+    discovery_write_dw("FACP", 212,    _iobase, 4);
+    discovery_write_dw("FACP", 216,          0, 4);
     return true;
   }
 
