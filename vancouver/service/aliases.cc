@@ -19,19 +19,23 @@
 
 PARAM(PC_PS2,
       {
-	char param [] = "nullio:0x80 pic:0x20,,0x4d0 pic:0xa0,2,0x4d1 pit:0x40,0 scp:0x92,0x61 kbc:0x60,1,12 keyb:0,0x1 rtc:0x70,8 vcpu";
+#define PC_PS2_string "mem:0,0xa0000 mem:0x100000 ioio nullio:0x80 pic:0x20,,0x4d0 pic:0xa0,2,0x4d1 pit:0x40,0 scp:0x92,0x61 kbc:0x60,1,12 keyb:0,0x1 rtc:0x70,8 vcpu"
+	char param [] = PC_PS2_string;
 	mb.parse_args(param);
       },
       "PC_PS2 - an alias to create an PS2 compatible PC",
-      "value: \"nullio:0x80 pic:0x20,,0x4d0 pic:0xa0,2,0x4d1 pit:0x40,0 scp:0x92,0x61 kbc:0x60,1,12 keyb:0,0x1 rtc:0x70,8 vcpu\"");
+      "value:",
+      PC_PS2_string);
 
 PARAM(S0_DEFAULT,
       {
-	char param [] = "hostacpi ioio hostrtc pcicfg mmconfig atare";
+#define S0_DEFAULT_string "hostacpi ioio hostrtc pcicfg mmconfig atare"
+	char param [] = S0_DEFAULT_string;
 	mb.parse_args(param);
       },
       "S0_DEFAULT - an alias for the default sigma0 parameters",
-      "value: \"hostacpi ioio hostrtc pcicfg mmconfig\"");
+      "value:",
+      S0_DEFAULT_string);
 
 PARAM(help,
       {
