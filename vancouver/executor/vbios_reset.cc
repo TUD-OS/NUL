@@ -25,13 +25,15 @@
  */
 class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCommon
 {
-#include "model/simplediscovery.h"
   enum {
     MAX_RESOURCES = 32,
     SIZE_EBDA_KB  = 2,
   };
-#define ACPI_OEM_ID "_NOVA_"
+#define ACPI_OEM_ID        "_NOVA_"
 #define ACPI_MANUFACTURER "__VMMON_"
+
+
+#include "model/simplediscovery.h"
   char     *_mem_ptr;
   unsigned  _mem_size;
 
@@ -105,6 +107,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     // store what remains on memory in KB
     discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
   };
+
 
   unsigned alloc(unsigned size, unsigned alignment) {
     if ((size + alignment + 0x1000) > _mem_size) return 0;
@@ -209,7 +212,7 @@ public:
 
 
   /**
-   * React on device recovery.
+   * React on device discovery.
    */
   bool  receive(MessageDiscovery &msg) {
     switch (msg.type) {
@@ -234,7 +237,6 @@ public:
 	if (r->acpi_table)   fix_acpi_checksum(r, table_len);
       }
       break;
-    case MessageDiscovery::DISCOVERY:
     case MessageDiscovery::READ:
       {
 	Resource *r;
@@ -243,6 +245,7 @@ public:
 	check1(false, needed_len > r->length, "no idea how to increase the table size");
 	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
       }
+    case MessageDiscovery::DISCOVERY:
     default:
       return false;
     }
