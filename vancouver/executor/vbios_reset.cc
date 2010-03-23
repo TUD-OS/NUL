@@ -107,9 +107,10 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   };
 
   unsigned alloc(unsigned size, unsigned alignment) {
-    if ((size + 0x1000) > _mem_size) Logging::panic("EOM in discovery!");
+    if ((size + alignment + 0x1000) > _mem_size) Logging::panic("EOM in discovery!");
     _mem_size -= size;
     _mem_size &= ~alignment;
+
     // clear region
     memset(_mem_ptr + _mem_size, 0, size);
     return _mem_size;
