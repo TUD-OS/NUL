@@ -223,6 +223,18 @@ public:
     default:    return false;
     }
   }
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+
+    unsigned start = 0x1e001e;
+    unsigned end   = 0x2f001e;
+    MessageDiscovery msg1("bda", 0x1a, &start, 4);
+    MessageDiscovery msg2("bda", 0x80, &end,   4);
+    _mb.bus_discovery.send(msg1);
+    _mb.bus_discovery.send(msg2);
+    return true;
+  }
+
 
   VirtualBiosKeyboard(Motherboard &mb) : BiosCommon(mb) {
 
@@ -233,6 +245,7 @@ public:
       _hostmb->bus_hwioin .add(this, &VirtualBiosKeyboard::receive_static<MessageIOIn>);
       _hostmb->bus_hwioout.add(this, &VirtualBiosKeyboard::receive_static<MessageIOOut>);
       _mb.bus_legacy      .add(this, &VirtualBiosKeyboard::receive_static<MessageLegacy>);
+      _mb.bus_discovery   .add(this, &VirtualBiosKeyboard::receive_static<MessageDiscovery>);
 
       char args[] = "hostkeyb:0,0x60,1,,1";
       _hostmb->parse_args(args);

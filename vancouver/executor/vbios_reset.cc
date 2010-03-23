@@ -25,6 +25,25 @@
  */
 class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCommon
 {
+  enum {
+    MAX_RESOURCES = 32,
+    SIZE_EBDA_KB  = 2,
+  };
+#define ACPI_OEM_ID "VMMON"
+#define ACPI_MANUFACTURER "VANCOUVR"
+  char     *_mem_ptr;
+  unsigned  _mem_size;
+
+  struct Resource {
+    const char *name;
+    unsigned offset;
+    unsigned length;
+    bool     acpi_table;
+    Resource() {}
+    Resource(const char *_name, unsigned _offset, unsigned _length, bool _acpi_table) : name(_name), offset(_offset), length(_length), acpi_table(_acpi_table)  {}
+  } _resources[MAX_RESOURCES];
+
+
   /**
    * Out to IO-port.
    */
@@ -33,6 +52,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     MessageIOOut msg(MessageIOOut::TYPE_OUTB, port, value);
     _mb.bus_ioout.send(msg);
   }
+
 
   /**
    * called on reset.
@@ -65,14 +85,24 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
     outb(0xa0+1, 0xff);
 
+    memset(_resources, 0, sizeof(_resources));
 
-    // initilize bios data area
-    // we have 640k low memory
-    write_bda(0x13, 640, 2);
-    // keyboard buffer
-    write_bda(0x1a, 0x1e001e, 4);
-    write_bda(0x80, 0x2f001e, 4);
+    MessageMemRegion msg(0);
+    if (!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count) Logging::panic("no memory for page0");
 
+    // were we start to allocate stuff
+    _mem_ptr = msg.ptr;
+    _mem_size = msg.count << 12;
+
+    // we use the lower 640k of memory
+    if (_mem_size > 0xa0000) _mem_size = 0xa0000;
+
+    // trigger discovery
+    MessageDiscovery msg1;
+    _mb.bus_discovery.send_fifo(msg1);
+
+    // store what remains on memory in KB
+    discovery_write_dw(_mb.bus_discovery, "bda", 0x13, _mem_size >> 10, 2);
 
 #if 0
     // XXX announce number of serial ports
@@ -85,6 +115,91 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 #endif
   };
 
+  unsigned alloc(unsigned size, unsigned alignment) {
+    if ((size + 0x1000) > _mem_size) Logging::panic("EOM in discovery!");
+    _mem_size -= size;
+    _mem_size &= ~alignment;
+    // clear region
+    memset(_mem_ptr + _mem_size, 0, size);
+    return _mem_size;
+  }
+
+
+  Resource * get_resource(const char *name) {
+    for (unsigned i = 0; i < MAX_RESOURCES; i++) {
+      check1(false, !_resources[i].name && !create_resource(i, name));
+      if (!strcmp(_resources[i].name, name)) return _resources + i;
+    }
+    return 0;
+  }
+
+
+  unsigned acpi_tablesize(Resource *r) { return *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + 4); }
+
+
+  void fix_acpi_checksum(Resource *r, unsigned length, unsigned chksum_offset = 9) {
+    assert(r);
+    unsigned value = 0;
+    for (unsigned i=0; i < length && i < r->length; i++)
+      value += _mem_ptr[r->offset] & 0xff;
+    _mem_ptr[chksum_offset] -= value;
+  }
+
+  void init_acpi_table(const char *name) {
+    discovery_write_st(_mb.bus_discovery, name,  0, name, 4);
+    discovery_write_dw(_mb.bus_discovery, name,  8, 1, 1);
+    discovery_write_st(_mb.bus_discovery, name, 10, ACPI_OEM_ID, 6);
+    discovery_write_st(_mb.bus_discovery, name, 16, ACPI_MANUFACTURER, 8);
+    discovery_write_dw(_mb.bus_discovery, name, 24, 1, 4);
+    discovery_write_dw(_mb.bus_discovery, name, 28, 0, 4);
+    discovery_write_dw(_mb.bus_discovery, name, 32, 0, 4);
+  }
+
+
+  bool create_resource(unsigned index, const char *name) {
+    if (!strcmp("bda", name)) {
+	_resources[0] = Resource(name, 0x400, 0x200, false);
+    }
+    else if (!strcmp("ebda", name)) {
+      unsigned ebda = alloc(SIZE_EBDA_KB << 10, 0x10);
+      _resources[index] = Resource(name, ebda, SIZE_EBDA_KB << 10, false);
+      discovery_write_dw(_mb.bus_discovery, "bda", 0xe, ebda >> 4, 2);
+      discovery_write_dw(_mb.bus_discovery, name, 0, SIZE_EBDA_KB, 1);
+    }
+    else if (!strcmp("RSDP", name)) {
+      Resource *r;
+      check1(false, !(r = get_resource("ebda")));
+      _resources[index] = Resource(name, r->offset, 36, false);
+      discovery_write_st(_mb.bus_discovery, name, 0,  "RSDP PTR", 8);
+      discovery_write_st(_mb.bus_discovery, name, 9,  ACPI_OEM_ID, 6);
+      discovery_write_dw(_mb.bus_discovery, name, 15, 2, 1);
+      fix_acpi_checksum(_resources + index, 20, 8);
+    }
+    else {
+      // we create an ACPI table
+      unsigned table = alloc(0x1000, 0x10);
+      _resources[index] = Resource(name, table, 0x1000, true);
+      init_acpi_table(name);
+      if (!strcmp(name, "RSDT")) {
+	discovery_write_dw(_mb.bus_discovery, "RSDP", 16, table, 4);
+
+	Resource *r;
+	check1(false, !(r = get_resource("RSDP")));
+	fix_acpi_checksum(r, 20, 8);
+
+      }
+      else {
+	// add them to the RSDT
+	Resource *rsdt;
+	check1(false, !(rsdt = get_resource("RSDT")));
+	unsigned rsdt_length = acpi_tablesize(rsdt);
+
+	// and write the pointer to the RSDT
+	discovery_write_dw(_mb.bus_discovery, "RSDT", rsdt_length, table, 4);
+      }
+    }
+    return true;
+  }
 
 public:
 
@@ -97,11 +212,48 @@ public:
     }
   }
 
+
+  /**
+   * React on device recovery.
+   */
+  bool  receive(MessageDiscovery &msg) {
+    switch (msg.type) {
+    case MessageDiscovery::WRITE:
+      {
+	Resource *r;;
+	check1(false, !(r = get_resource(msg.resource)));
+	unsigned needed_len = msg.offset + msg.count;
+	check1(false, needed_len > r->length);
+
+	unsigned table_len = acpi_tablesize(r);
+	// increase the length of an ACPI table.
+	if (r->acpi_table && msg.offset >= 8 && needed_len < table_len) {
+	  discovery_write_dw(_mb.bus_discovery, r->name, 4, needed_len, 4);
+	  table_len = needed_len;
+	}
+
+	// write it
+	memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
+
+	// and fix the checksum
+	if (r->acpi_table)   fix_acpi_checksum(r, table_len);
+      }
+      break;
+    case MessageDiscovery::DISCOVERY:
+    default:
+      return false;
+    }
+    return true;
+  }
+
+
   VirtualBiosReset(Motherboard &mb) : BiosCommon(mb) {}
 };
 
 PARAM(vbios_reset,
-      mb.bus_bios.add(new VirtualBiosReset(mb), &VirtualBiosReset::receive_static<MessageBios>);
+      Device * dev = new VirtualBiosReset(mb);
+      mb.bus_bios.add(dev, &VirtualBiosReset::receive_static<MessageBios>);
+      mb.bus_discovery.add(dev, &VirtualBiosReset::receive_static<MessageDiscovery>);
       ,
       "vbios_reset - provide reset handling for virtual BIOS functions.");
 

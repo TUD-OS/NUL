@@ -38,12 +38,13 @@ class Motherboard : public StaticReceiver<Motherboard>
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;
-  DBus<MessageApic>         bus_apic;
   DBus<MessageAhciSetDrive> bus_ahcicontroller;
-  DBus<MessageDisk>         bus_disk;
-  DBus<MessageDiskCommit>   bus_diskcommit;
+  DBus<MessageApic>         bus_apic;
   DBus<MessageBios>         bus_bios;
   DBus<MessageConsole>      bus_console;
+  DBus<MessageDiscovery>    bus_discovery;
+  DBus<MessageDisk>         bus_disk;
+  DBus<MessageDiskCommit>   bus_diskcommit;
   DBus<MessageHostOp>       bus_hostop;
   DBus<MessageIOIn>         bus_hwioin;
   DBus<MessageIOIn>         bus_ioin;
@@ -57,16 +58,16 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageMem>          bus_mem;
   DBus<MessageMemRegion>    bus_memregion;
   DBus<MessageMouse>        bus_mouse;
+  DBus<MessageNetwork>      bus_network;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciConfig>    bus_hwpcicfg;
   DBus<MessagePciConfig>    bus_pcicfg;
   DBus<MessagePic>          bus_pic;
   DBus<MessagePit>          bus_pit;
   DBus<MessageSerial>       bus_serial;
-  DBus<MessageTimer>        bus_timer;
-  DBus<MessageTimeout>      bus_timeout;
   DBus<MessageTime>         bus_time;
-  DBus<MessageNetwork>      bus_network;
+  DBus<MessageTimeout>      bus_timeout;
+  DBus<MessageTimer>        bus_timer;
   DBus<MessageVesa>         bus_vesa;
 
   VCpu *last_vcpu;
@@ -145,3 +146,13 @@ class Motherboard : public StaticReceiver<Motherboard>
   void *operator new(unsigned size)  { return new(0x1000) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock), last_vcpu(0)  {}
 };
+
+static inline bool discovery_write_st(DBus<MessageDiscovery> &bus_discovery, const char *resource, unsigned offset, const void *value, unsigned count) {
+  MessageDiscovery msg(resource, offset, value, count);
+  return bus_discovery.send(msg);
+}
+
+static inline bool discovery_write_dw(DBus<MessageDiscovery> &bus_discovery, const char *resource, unsigned offset, unsigned value, unsigned count) {
+  return discovery_write_st(bus_discovery, resource, offset, &value, count);
+}
+

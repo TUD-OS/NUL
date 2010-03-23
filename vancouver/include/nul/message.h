@@ -443,11 +443,10 @@ struct MessageHostOp
 
 struct MessageAcpi
 {
-  enum  Type
-    {
-      ACPI_GET_TABLE,
-      ACPI_GET_IRQ,
-    } type;
+  enum  Type {
+    ACPI_GET_TABLE,
+    ACPI_GET_IRQ,
+  } type;
   union {
     struct {
       const char *name;
@@ -466,6 +465,31 @@ struct MessageAcpi
   MessageAcpi(unsigned _parent_bdf, unsigned _bdf, unsigned char _pin): type(ACPI_GET_IRQ), parent_bdf(_parent_bdf), bdf(_bdf), pin(_pin), gsi(~0u) {}
 };
 
+
+/**
+ * Resource discovery between device models is done by the virtual
+ * BIOS.
+ *
+ * Resources can be ACPI tables, BIOS BDA, EBDA,...
+ */
+struct MessageDiscovery
+{
+  enum Type {
+    DISCOVERY,
+    WRITE,
+  } type;
+  union {
+    struct {
+      const char * resource;
+      unsigned     offset;
+      const void * data;
+      unsigned     count;
+    };
+  };
+  MessageDiscovery() : type(DISCOVERY) {}
+  MessageDiscovery(const char * _resource, unsigned _offset, const void * _data, unsigned _count)
+    : type(WRITE), resource(_resource), offset(_offset), data(_data), count(_count) {}
+};
 
 /****************************************************/
 /* DISK messages                                    */

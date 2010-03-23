@@ -20,13 +20,12 @@
 
 /**
  * Virtual Bios mem routines.
- * Features: int
+ * Features: int15
  * Missing:
  */
 class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 {
   unsigned long _memsize;
-
 
   /**
    * Memory+PS2 INT.
