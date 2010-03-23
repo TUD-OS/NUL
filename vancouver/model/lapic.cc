@@ -101,6 +101,7 @@ class Lapic : public StaticReceiver<Lapic>
     bool was_x2apic_mode = x2apic_mode();
     if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
     if (_msr ^ value & 0x800) {
+      // update CPUID leaf 1 EDX
       CpuMessage msg(1, 3, 1 << 9, (_msr & 0x800) >> 2);
       _vcpu->executor.send(msg);
     }

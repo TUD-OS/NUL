@@ -133,10 +133,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX floating point
       // XXX MXCSR
       // XXX MTRR
-      // XXX APIC
       // XXX PERF
     }
 
+    // send LAPIC init
     LapicEvent msg2(reset ? LapicEvent::RESET : LapicEvent::INIT);
     bus_lapic.send(msg2);
   }
@@ -299,8 +299,10 @@ public:
       got_event(EVENT_RESET);
       return true;
     }
-    // only the BSP receives legacy signals
-    if (is_ap()) return false;
+
+    // only the BSP receives legacy signals if the LAPIC is disabled
+    if (is_ap() || CPUID_EDX1 & (1 << 9)) return false;
+
     if (msg.type == MessageLegacy::EXTINT)
       got_event(EVENT_EXTINT);
     else if (msg.type == MessageLegacy::NMI)

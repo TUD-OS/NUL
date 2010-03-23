@@ -181,7 +181,11 @@ struct MessagePic
 struct MessageApic
 {
   enum {
-    // the special address for an broadcast EOI
+    /**
+     * The HW uses a special cycle for broadcast EOIs. We model that
+     * by performing a write transaction to the first IOAPIC EOI
+     * registers that is snooped by all IOApics.
+     */
     IOAPIC_EOI = 0xfec00040,
     ICR_DM     = 1 << 11,
     ICR_ASSERT = 1 << 14,

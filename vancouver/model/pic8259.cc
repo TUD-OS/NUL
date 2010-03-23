@@ -165,7 +165,7 @@ class PicDevice : public StaticReceiver<PicDevice>
       if (!_virq) {
 	// send an ExtINT message to CPU0
 	MessageLegacy msg(MessageLegacy::EXTINT, 0);
-	_bus_legacy.send(msg, true);
+	_bus_legacy.send(msg);
       }
       else {
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
