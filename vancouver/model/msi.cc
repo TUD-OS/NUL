@@ -23,7 +23,7 @@
  * Forward Message Signaled IRQs to the local APICs.
  *
  * State: testing
- * Features: 16bit destination
+ * Features: LowestPrio: RoundRobin, 16bit dest
  */
 class Msi  : public StaticReceiver<Msi> {
   enum {
@@ -62,7 +62,8 @@ public:
 
   bool  receive(MessageMemRegion &msg)
   {
-    if (msg.page != (MSI_ADDRESS >> 12)) return false;
+    if (!in_range(msg.page, MSI_ADDRESS >> 12, MSI_SIZE >> 12) return false;
+
     /**
      * We return true without setting msg.ptr and thus nobody else can
      * claim this region.
