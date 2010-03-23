@@ -162,15 +162,8 @@ class X2Apic : public StaticReceiver<X2Apic>
     // no logical destination mode with shorthand
     if (shorthand) icr &= MessageApic::ICR_DM;
 
-    // self IPI?
-    if (shorthand == 1) dst = _ID;
-
-    // broadcast?
-    if (shorthand & 2) dst = ~0u;
-
     // LOWEST does not work in x2apic mode
     if (event == VCpu::EVENT_LOWEST && x2apic_mode()) return set_error(4);
-
 
     // self IPIs can only be fixed
     if (self && event != VCpu::EVENT_FIXED
@@ -190,6 +183,14 @@ class X2Apic : public StaticReceiver<X2Apic>
     // send vector error check
     if ((event & (VCpu::EVENT_FIXED | VCpu::EVENT_LOWEST)) && (icr & 0xff) < 16)
       return set_error(5);
+
+    // self IPI?
+    if (shorthand == 1) dst = _ID;
+
+    // broadcast?
+    if (shorthand & 2) dst = ~0u;
+
+    if (!x2apic_mode()) dst >>= 8;
 
     // level triggered IRQs are treated as edge triggered
     icr = icr & 0x4fff;
@@ -412,17 +413,19 @@ class X2Apic : public StaticReceiver<X2Apic>
       return !((_LDR ^ msg.dst) & 0xffff0000) && _LDR & (1 << (msg.dst & 0xf));
     }
 
+    unsigned dst = msg.dst << 24;
+
     // broadcast
-    if ((msg.dst >> 24) == 0xff)  return true;
+    if (dst == 0xff000000)  return true;
 
     // physical DM
-    if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
+    if (~msg.icr & MessageApic::ICR_DM) return dst == _ID;
 
     // flat mode
-    if ((_DFR >> 28) == 0xf) return _LDR & msg.dst;
+    if ((_DFR >> 28) == 0xf) return _LDR & dst;
 
     // cluster mode
-    return !((_LDR ^ msg.dst) & 0xf0000000) && _LDR & msg.dst & ~0xf0000000;
+    return !((_LDR ^ dst) & 0xf0000000) && _LDR & dst & ~0xf0000000;
   }
 
 
@@ -588,7 +591,7 @@ public:
 
     CpuMessage msg[] = {
       // propagate initial APIC id
-      CpuMessage(1,  1, 0xffffff, _ID),
+      CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
       CpuMessage(11, 3, 0, _initial_apic_id),
       // support for X2Apic
       CpuMessage(1, 2, 0, 1 << 21),
