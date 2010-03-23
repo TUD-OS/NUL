@@ -435,7 +435,7 @@ public:
    */
   bool  receive(MessageMem &msg)
   {
-    if (!in_range(_msr & ~0xfff, msg.phys, 0x1000) || hw_disabled() || x2apic_mode()) return false;
+    if (!in_range(msg.phys, _msr & ~0xfff, 0x1000) || hw_disabled() || x2apic_mode()) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4) return false;
     if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
@@ -610,7 +610,7 @@ public:
 };
 
 
-PARAM(x2apic, {
+PARAM(lapci, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
     Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
@@ -622,9 +622,9 @@ PARAM(x2apic, {
     mb.last_vcpu->memregion.add(dev, &Lapic::receive_static<MessageMemRegion>);
     mb.last_vcpu->bus_lapic.add(dev, &Lapic::receive_static<LapicEvent>);
   },
-  "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
-  "Example: 'x2apic:2'",
-  "The first x2apic is dedicated the BSP and connected to the legacy NMI+EXTINT pins.");
+  "lapic:inital_apic_id - provide an x2APIC for the last CPU",
+  "Example: 'lapic:2'",
+  "The first Lapic is dedicated the BSP.");
 
 
 #else

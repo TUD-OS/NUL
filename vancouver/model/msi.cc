@@ -18,6 +18,13 @@
 #include "nul/motherboard.h"
 #include "nul/vcpu.h"
 
+
+/**
+ * Forward Message Signaled IRQs to the local APICs.
+ *
+ * State: testing
+ * Features: 16bit destination
+ */
 class Msi  : public StaticReceiver<Msi> {
   enum {
     MSI_ADDRESS = 0xfee00000,
@@ -30,7 +37,7 @@ class Msi  : public StaticReceiver<Msi> {
 
 public:
   bool  receive(MessageMem &msg) {
-    if (!in_range(MSI_ADDRESS, msg.phys, MSI_SIZE)) return false;
+    if (!in_range(msg.phys, MSI_ADDRESS, MSI_SIZE)) return false;
     unsigned dst = (msg.phys >> 12) & 0xff | (msg.phys << 4) & 0xff00;
     unsigned icr = *msg.ptr & 0xc7ff;
     unsigned event = 1 << ((icr >> 8) & 7);
