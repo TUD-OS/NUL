@@ -103,16 +103,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
     // store what remains on memory in KB
     discovery_write_dw(_mb.bus_discovery, "bda", 0x13, _mem_size >> 10, 2);
-
-#if 0
-    // XXX announce number of serial ports
-    // announce port
-    write_bios_data_area(mb, serial_count * 2 - 2,      argv[0]);
-    write_bios_data_area(mb, serial_count * 2 - 2 + 1,  argv[0] >> 8);
-
-    // announce number of serial ports
-    write_bios_data_area(mb, 0x11, read_bios_data_area(mb, 0x11) & ~0xf1 | (serial_count*2));
-#endif
   };
 
   unsigned alloc(unsigned size, unsigned alignment) {
@@ -145,6 +135,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     _mem_ptr[chksum_offset] -= value;
   }
 
+
   void init_acpi_table(const char *name) {
     discovery_write_st(_mb.bus_discovery, name,  0, name, 4);
     discovery_write_dw(_mb.bus_discovery, name,  8, 1, 1);
@@ -158,7 +149,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
   bool create_resource(unsigned index, const char *name) {
     if (!strcmp("bda", name)) {
-	_resources[0] = Resource(name, 0x400, 0x200, false);
+      _resources[index] = Resource(name, 0x400, 0x200, false);
+      memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
     }
     else if (!strcmp("ebda", name)) {
       unsigned ebda = alloc(SIZE_EBDA_KB << 10, 0x10);
@@ -186,7 +178,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 	Resource *r;
 	check1(false, !(r = get_resource("RSDP")));
 	fix_acpi_checksum(r, 20, 8);
-
       }
       else {
 	// add them to the RSDT
