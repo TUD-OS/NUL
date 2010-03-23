@@ -89,7 +89,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     memset(_resources, 0, sizeof(_resources));
 
     MessageMemRegion msg(0);
-    if (!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count) Logging::panic("no memory for page0");
+    check0(!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count, "no low memory available");
 
     // were we start to allocate stuff
     _mem_ptr = msg.ptr;
@@ -107,7 +107,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   };
 
   unsigned alloc(unsigned size, unsigned alignment) {
-    if ((size + alignment + 0x1000) > _mem_size) Logging::panic("EOM in discovery!");
+    if ((size + alignment + 0x1000) > _mem_size) return 0;
     _mem_size -= size;
     _mem_size &= ~alignment;
 
@@ -119,7 +119,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
   Resource * get_resource(const char *name) {
     for (unsigned i = 0; i < MAX_RESOURCES; i++) {
-      check1(false, !_resources[i].name && !create_resource(i, name));
+      check1(false, !_resources[i].name && !create_resource(i, name), "could not create resource");
       if (!strcmp(_resources[i].name, name)) return _resources + i;
     }
     return 0;
@@ -155,7 +155,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
     }
     else if (!strcmp("ebda", name)) {
-      unsigned ebda = alloc(SIZE_EBDA_KB << 10, 0x10);
+      unsigned ebda;
+      check1(false, !(ebda = alloc(SIZE_EBDA_KB << 10, 0x10)));
       _resources[index] = Resource(name, ebda, SIZE_EBDA_KB << 10, false);
       discovery_write_dw("bda", 0xe, ebda >> 4, 2);
       discovery_write_dw(name, 0, SIZE_EBDA_KB, 1);
@@ -171,7 +172,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     }
     else {
       // we create an ACPI table
-      unsigned table = alloc(0x1000, 0x10);
+      unsigned table;
+      check1(false, !(table = alloc(0x1000, 0x10)), "allocate ACPI table failed");
       _resources[index] = Resource(name, table, 0x1000, true);
       init_acpi_table(name);
       if (!strcmp(name, "RSDT")) {
@@ -216,7 +218,7 @@ public:
 	Resource *r;;
 	check1(false, !(r = get_resource(msg.resource)));
 	unsigned needed_len = msg.offset + msg.count;
-	check1(false, needed_len > r->length);
+	check1(false, needed_len > r->length, "no idea how to increase the table size");
 
 	unsigned table_len = acpi_tablesize(r);
 	// increase the length of an ACPI table.
@@ -238,7 +240,7 @@ public:
 	Resource *r;
 	unsigned needed_len = msg.offset + msg.count;
 	check1(false, !(r = get_resource(msg.resource)));
-	check1(false, needed_len > r->length);
+	check1(false, needed_len > r->length, "no idea how to increase the table size");
 	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
       }
     default:
