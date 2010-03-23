@@ -42,6 +42,7 @@ class Lapic : public StaticReceiver<Lapic>
   };
 
   VCpu *    _vcpu;
+  DBus<MessageMem>   & _bus_mem;
   DBus<MessageApic>  & _bus_apic;
   DBus<MessageTimer> & _bus_timer;
   Clock *   _clock;
@@ -56,7 +57,7 @@ class Lapic : public StaticReceiver<Lapic>
   unsigned  _esr_shadow;
   unsigned  _isrv;
   bool      _lvtds[6];
-  bool      _lvtrirr[6];
+  bool      _rirr[6];
   unsigned  _lowest_rr;
 
 
@@ -75,7 +76,7 @@ class Lapic : public StaticReceiver<Lapic>
     if (init) _ID = old_id;
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
-    memset(_lvtrirr, 0, sizeof(_lvtrirr));
+    memset(_rirr, 0, sizeof(_rirr));
     _timer_dcr_shift = 2 + _timer_clock_shift;
 
     // RESET?
@@ -281,14 +282,14 @@ class Lapic : public StaticReceiver<Lapic>
     if (!Cpu::get_bit(_vector, OFS_TMR + _isrv)) return;
 
     // we clear our LVT entries first
-    if (vector == (_LINT0 & 0xff)) _lvtrirr[_LINT0_offset - LVT_BASE] = false;
-    if (vector == (_LINT1 & 0xff)) _lvtrirr[_LINT1_offset - LVT_BASE] = false;
+    if (vector == (_LINT0 & 0xff)) _rirr[_LINT0_offset - LVT_BASE] = false;
+    if (vector == (_LINT1 & 0xff)) _rirr[_LINT1_offset - LVT_BASE] = false;
 
     // broadcast suppression?
     if (_SVR & 0x1000) return;
 
-    MessageApic msg(vector);
-    _bus_apic.send(msg);
+    MessageMem msg(false, MessageApic::IOAPIC_EOI, &vector);
+    _bus_mem.send(msg);
   }
 
   /**
@@ -313,7 +314,7 @@ class Lapic : public StaticReceiver<Lapic>
     }
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE])    value |= 1 << 12;
-      if (_lvtrirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
+      if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
       if (sw_disabled())                value |= 1 << 16;
     }
     return res;
@@ -364,7 +365,7 @@ class Lapic : public StaticReceiver<Lapic>
     bool level =  (lvt & MessageApic::ICR_LEVEL && event == VCpu::EVENT_FIXED) || (event == VCpu::EVENT_EXTINT);
 
     // do not accept more IRQs if no EOI was performed
-    if (_lvtrirr[num]) return true;
+    if (_rirr[num]) return true;
 
     // masked or already pending?
     if (lvt & (1 << LVT_MASK_BIT) || sw_disabled()) {
@@ -378,7 +379,7 @@ class Lapic : public StaticReceiver<Lapic>
 
     if (event == VCpu::EVENT_FIXED) {
       // set Remote IRR on level triggered IRQs
-      _lvtrirr[num] = level;
+      _rirr[num] = level;
       accept_vector(lvt, level, true);
     }
     else if (event & (VCpu::EVENT_SMI | VCpu::EVENT_NMI | VCpu::EVENT_INIT | VCpu::EVENT_EXTINT)) {
@@ -473,7 +474,7 @@ public:
    * Receive an IPI.
    */
   bool  receive(MessageApic &msg) {
-    if (msg.type != MessageApic::IPI || !accept_message(msg)) return false;
+    if (!accept_message(msg)) return false;
     assert(!(msg.icr & ~0xcfff));
     unsigned event = 1 << ((msg.icr >> 8) & 7);
 
@@ -582,8 +583,8 @@ public:
   }
 
 
-  Lapic(VCpu *vcpu, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
-    : _vcpu(vcpu), _bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
+  Lapic(VCpu *vcpu, DBus<MessageMem> &bus_mem, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
+    : _vcpu(vcpu), _bus_mem(bus_mem),_bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
 
     // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 63; _timer_clock_shift++)
@@ -613,7 +614,7 @@ public:
 PARAM(lapci, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
+    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
     mb.bus_legacy.add(dev, &Lapic::receive_static<MessageLegacy>);
     mb.bus_apic.add(dev,     &Lapic::receive_static<MessageApic>);
     mb.bus_timeout.add(dev,  &Lapic::receive_static<MessageTimeout>);

@@ -142,7 +142,7 @@ struct MessageAhciSetDrive
  */
 struct MessageIrq
 {
-  enum MessageType
+  enum Type
     {
       ASSERT_IRQ,
       ASSERT_NOTIFY,
@@ -150,7 +150,7 @@ struct MessageIrq
     } type;
   unsigned char line;
 
-  MessageIrq(MessageType _type, unsigned char _line) :  type(_type), line(_line) {}
+  MessageIrq(Type _type, unsigned char _line) :  type(_type), line(_line) {}
 };
 
 
@@ -176,29 +176,21 @@ struct MessagePic
 };
 
 /**
- * Message on the APIC bus.
+ * IPI-Message on the APIC bus.
  */
 struct MessageApic
 {
   enum {
+    // the special address for an broadcast EOI
+    IOAPIC_EOI = 0xfec00040,
     ICR_DM     = 1 << 11,
     ICR_ASSERT = 1 << 14,
     ICR_LEVEL  = 1 << 15,
   };
-  enum {
-    EOI,
-    IPI,
-  } type;
-  union {
-    unsigned char vector;
-    struct {
-      unsigned icr; // only bits 0xcfff are used
-      unsigned dst; // 32bit APIC ID
-      void    *ptr;
-    };
-  };
-  MessageApic(unsigned char _vector) : type(EOI), vector(_vector) {};
-  MessageApic(unsigned _icr, unsigned _dst, void *_ptr) : type(IPI), icr(_icr), dst(_dst), ptr(_ptr) {};
+  unsigned icr; // only bits 0xcfff are used
+  unsigned dst; // 32bit APIC ID
+  void    *ptr; // to distinguish loops
+  MessageApic(unsigned _icr, unsigned _dst, void *_ptr) : icr(_icr), dst(_dst), ptr(_ptr) {};
 };
 
 /****************************************************/
