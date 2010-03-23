@@ -70,6 +70,11 @@ struct MessageIOOut {
  */
 struct MessageMem
 {
+  enum {
+    MSI_ADDRESS = 0xfee00000,
+    MSI_DM      = 1 << 2,
+    MSI_RH      = 1 << 3,
+  };
   bool read;
   unsigned long phys;
   unsigned *ptr;
