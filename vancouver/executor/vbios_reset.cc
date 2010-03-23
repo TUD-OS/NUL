@@ -30,8 +30,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     MAX_RESOURCES = 32,
     SIZE_EBDA_KB  = 2,
   };
-#define ACPI_OEM_ID "VMMON"
-#define ACPI_MANUFACTURER "VANCOUVR"
+#define ACPI_OEM_ID "_NOVA_"
+#define ACPI_MANUFACTURER "__VMMON_"
   char     *_mem_ptr;
   unsigned  _mem_size;
 
