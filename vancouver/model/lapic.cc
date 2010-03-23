@@ -20,7 +20,7 @@
 #include "nul/vcpu.h"
 
 /**
- * X2Apic model.
+ * Lapic model.
  *
  * State: unstable
  * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode
@@ -28,7 +28,7 @@
  * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
  * Documentation: Intel SDM Volume 3a Chapter 10 253668-033.
  */
-class X2Apic : public StaticReceiver<X2Apic>
+class Lapic : public StaticReceiver<Lapic>
 {
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
@@ -71,7 +71,7 @@ class X2Apic : public StaticReceiver<X2Apic>
   void reset(bool init) {
     // INIT preserves the APIC ID
     unsigned old_id = _ID;
-    X2Apic_reset();
+    Lapic_reset();
     if (init) _ID = old_id;
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
@@ -80,13 +80,13 @@ class X2Apic : public StaticReceiver<X2Apic>
 
     // RESET?
     if (!init) {
-      X2Apic_write(_ID_offset,  _initial_apic_id << 24);
+      Lapic_write(_ID_offset,  _initial_apic_id << 24);
       set_base_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
 
       // as we enable the APICs, we also perform the BIOS INIT
       if (!_vcpu->is_ap()) {
-	X2Apic_write(_LINT0_offset,  0x700);
-	X2Apic_write(_LINT1_offset,  0x400);
+	Lapic_write(_LINT0_offset,  0x700);
+	Lapic_write(_LINT1_offset,  0x400);
       }
     }
   }
@@ -308,7 +308,7 @@ class X2Apic : public StaticReceiver<X2Apic>
       value = get_ccr(_clock->time());
       break;
     default:
-      if (!(res = X2Apic_read(offset, value)))
+      if (!(res = Lapic_read(offset, value)))
 	set_error(7);
     }
     if (in_range(offset, LVT_BASE, 6)) {
@@ -338,7 +338,7 @@ class X2Apic : public StaticReceiver<X2Apic>
       }
       return true;
     default:
-      if (!(res = X2Apic_write(offset, value, strict)))
+      if (!(res = Lapic_write(offset, value, strict)))
 	set_error(7);
     }
 
@@ -357,7 +357,7 @@ class X2Apic : public StaticReceiver<X2Apic>
   bool trigger_lvt(unsigned num){
     assert(num < 6);
     unsigned lvt;
-    X2Apic_read(num + LVT_BASE, lvt);
+    Lapic_read(num + LVT_BASE, lvt);
 
 
     unsigned event = 1 << ((lvt >> 8) & 7);
@@ -582,7 +582,7 @@ public:
   }
 
 
-  X2Apic(VCpu *vcpu, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
+  Lapic(VCpu *vcpu, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
     : _vcpu(vcpu), _bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
 
     // find a FREQ that is not too high
@@ -593,7 +593,7 @@ public:
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
       CpuMessage(11, 3, 0, _initial_apic_id),
-      // support for X2Apic
+      // support for Lapic
       CpuMessage(1, 2, 0, 1 << 21),
       // support for APIC timer that does not sleep in C-states
       CpuMessage(6, 0, 0, 1 << 2),
@@ -613,14 +613,14 @@ public:
 PARAM(x2apic, {
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    X2Apic *dev = new X2Apic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
-    mb.bus_legacy.add(dev, &X2Apic::receive_static<MessageLegacy>);
-    mb.bus_apic.add(dev,     &X2Apic::receive_static<MessageApic>);
-    mb.bus_timeout.add(dev,  &X2Apic::receive_static<MessageTimeout>);
-    mb.last_vcpu->executor.add(dev, &X2Apic::receive_static<CpuMessage>);
-    mb.last_vcpu->mem.add(dev, &X2Apic::receive_static<MessageMem>);
-    mb.last_vcpu->memregion.add(dev, &X2Apic::receive_static<MessageMemRegion>);
-    mb.last_vcpu->bus_lapic.add(dev, &X2Apic::receive_static<LapicEvent>);
+    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_apic, mb.bus_timer, mb.clock(), argv[0]);
+    mb.bus_legacy.add(dev, &Lapic::receive_static<MessageLegacy>);
+    mb.bus_apic.add(dev,     &Lapic::receive_static<MessageApic>);
+    mb.bus_timeout.add(dev,  &Lapic::receive_static<MessageTimeout>);
+    mb.last_vcpu->executor.add(dev, &Lapic::receive_static<CpuMessage>);
+    mb.last_vcpu->mem.add(dev, &Lapic::receive_static<MessageMem>);
+    mb.last_vcpu->memregion.add(dev, &Lapic::receive_static<MessageMemRegion>);
+    mb.last_vcpu->bus_lapic.add(dev, &Lapic::receive_static<LapicEvent>);
   },
   "x2apic:inital_apic_id - provide an x2 APIC for every CPU",
   "Example: 'x2apic:2'",
@@ -628,7 +628,7 @@ PARAM(x2apic, {
 
 
 #else
-REGSET(X2Apic,
+REGSET(Lapic,
        REG_RW(_ID,            0x02,          0, 0xff000000, if (x2apic_mode()) _ID = _initial_apic_id; )
        REG_RO(_VERSION,       0x03, 0x01050014)
        REG_RW(_TPR,           0x08,          0, 0xff,)
