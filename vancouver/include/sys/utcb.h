@@ -24,8 +24,8 @@ struct Utcb
 
 
   struct head {
-    unsigned _pid;
-    Mtd mtr;
+    unsigned res;
+    Mtd      mtr;
     unsigned crd;
     unsigned res0;
     unsigned res1;
