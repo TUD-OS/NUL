@@ -114,15 +114,16 @@ private:
   /**
    * The putc on a console, removes multiple whitespaces.
    */
-  static void console_putc(void *data, int value)
-    {
-      putcdata *d = reinterpret_cast<putcdata *>(data);
-      if (value == '\n' || value == '\t' || value == '\r' || value == 0) value = ' ';
-      if (value == ' ' && d->lastchar == value) return;
-      d->lastchar = value;
-      d->ptr[d->pos++] = value;
-      d->ptr[d->pos++] = 0x1f;
-    }
+  static void console_putc(void *data, int value) {
+    if (value < 0) return;
+
+    putcdata *d = reinterpret_cast<putcdata *>(data);
+    if (value == '\n' || value == '\t' || value == '\r' || value == 0) value = ' ';
+    if (value == ' ' && d->lastchar == value) return;
+    d->lastchar = value;
+    d->ptr[d->pos++] = value;
+    d->ptr[d->pos++] = 0x1f;
+  }
 
 
   /**
