@@ -149,6 +149,7 @@ struct snprintf_data {
 
 static void snprintf_putc(void *data, int value)
 {
+  if (value < 0) return;
   snprintf_data *d = reinterpret_cast<snprintf_data *>(data);
   switch (d->size)
     {
@@ -178,6 +179,7 @@ void Vprintf::snprintf(char *dst, unsigned size, const char *format, ...)
 
 void Vprintf::vprintf(PutcFunction putc, void *data, const char *format, va_list &ap)
 {
+  putc(data, -1);
   while (*format)
     {
       switch (*format)
@@ -190,6 +192,7 @@ void Vprintf::vprintf(PutcFunction putc, void *data, const char *format, va_list
 	  putc(data, *format++);
 	}
     }
+  putc(data, -2);
 }
 
 

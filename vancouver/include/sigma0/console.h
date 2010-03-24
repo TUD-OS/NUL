@@ -12,6 +12,7 @@ class ProgramConsole
     VgaRegs *regs;
     unsigned short *screen_address;
     unsigned index;
+    Semaphore *sem;
     char buffer[100];
   };
 
@@ -19,6 +20,10 @@ class ProgramConsole
   static void putc(void *data, int value)
   {
     struct console_data *d = reinterpret_cast<struct console_data *>(data);
+    if (value == -1 && d->sem) d->sem->down();
+    if (value == -2 && d->sem) d->sem->up();
+    if (value < 0) return;
+
     if (d->screen_address)  Screen::vga_putc(0xf00 | value, d->screen_address, d->regs->cursor_pos);
     if (value == '\n' || d->index == sizeof(d->buffer) - 1)
       {
@@ -40,10 +45,11 @@ class ProgramConsole
   VgaRegs             _vga_regs;
   struct console_data _console_data;
   char                _vga_console[0x1000];
-  void console_init(const char *name)
+  void console_init(const char *name, Semaphore *sem=0)
   {
     _console_data.screen_address = reinterpret_cast<unsigned short *>(_vga_console);
     _console_data.regs = &_vga_regs;
+    _console_data.sem = sem;
     Logging::init(putc, &_console_data);
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;

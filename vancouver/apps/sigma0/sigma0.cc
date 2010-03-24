@@ -247,6 +247,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
   static void putc(void *data, int value)
   {
+    if (value < 0) return;
     if (data)
       {
 	PutcData *p = reinterpret_cast<PutcData *>(data);
