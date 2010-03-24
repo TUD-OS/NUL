@@ -78,6 +78,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 
   bool boot_from_disk(MessageBios &msg)
   {
+    Logging::printf("boot from disk\n");
     msg.cpu->cs.sel = 0;
     msg.cpu->cs.base = 0;
     msg.cpu->eip = 0x7c00;
