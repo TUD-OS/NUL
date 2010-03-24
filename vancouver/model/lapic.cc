@@ -612,7 +612,7 @@ public:
 };
 
 
-PARAM(lapci, {
+PARAM(lapic, {
     static unsigned lapic_count;
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
