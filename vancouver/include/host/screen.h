@@ -26,6 +26,7 @@ class Screen
    */
   static void vga_putc(long value, unsigned short *base, unsigned &pos)
   {
+    if (value < 0) return;
     bool visible = false;
     switch (value & 0xff)
       {
