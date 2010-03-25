@@ -389,6 +389,8 @@ public:
       // we handle it later on
       break;
     case CpuMessage::TYPE_SINGLE_STEP:
+    case CpuMessage::TYPE_WBINVD:
+    case CpuMessage::TYPE_INVD:
     default:
       return false;
     }
