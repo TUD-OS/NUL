@@ -143,7 +143,11 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
 
   bool create_resource(unsigned index, const char *name) {
-    if (!strcmp("bda", name)) {
+    if (!strcmp("realmode idt", name)) {
+      _resources[index] = Resource(name, 0, 0x400, false);
+      memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
+    }
+    else if (!strcmp("bda", name)) {
       _resources[index] = Resource(name, 0x400, 0x200, false);
       memset(_mem_ptr + _resources[index].offset, 0, _resources[index].length);
     }
