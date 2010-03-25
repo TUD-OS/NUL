@@ -89,8 +89,7 @@ private:
   /**
    * Initialize an MBI from the hip.
    */
-  unsigned long init_mbi(unsigned long &rip)
-  {
+  unsigned long init_mbi(unsigned long &rip) {
 
     MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
     if (!(_mb.bus_hostop.send(msg1))) Logging::panic("could not find base address %x\n", 0);
@@ -104,23 +103,22 @@ private:
     for (unsigned modcount = 0; ; modcount++)
       {
 	offset = (offset + 0xfff) & ~0xffful;
-	MessageHostOp msg(modcount + 1, physmem + offset);
-	if (!(_mb.bus_hostop.send(msg)) || !msg.size)  break;
-	Logging::printf("\tmodule %x start %p+%lx cmdline %40s\n", modcount, msg.start, msg.size, msg.cmdline);
-
+	MessageHostOp msg2(modcount + 1, physmem + offset);
+	if (!(_mb.bus_hostop.send(msg2)) || !msg2.size)  break;
+	Logging::printf("\tmodule %x start %p+%lx cmdline %40s\n", modcount, msg2.start, msg2.size, msg2.cmdline);
 	switch(modcount)
 	  {
 	  case 0:
-	    if (Elf::decode_elf(msg.start, physmem, rip, offset, memsize, 0)) return 0;
+	    if (Elf::decode_elf(msg2.start, physmem, rip, offset, memsize, 0)) return 0;
 	    offset = (offset + 0xfff) & ~0xffful;
 	    mbi = offset;
 	    offset += 0x1000;
 	    m = reinterpret_cast<Mbi*>(physmem + mbi);
 	    if (offset > memsize)  return 0;
 	    memset(m, 0, sizeof(*m));
-	    memmove(physmem + offset, msg.cmdline, msg.cmdlen);
+	    memmove(physmem + offset, msg2.cmdline, msg2.cmdlen);
 	    m->cmdline = offset;
-	    offset += msg.cmdlen;
+	    offset += msg2.cmdlen;
 	    m->flags |= MBI_FLAG_CMDLINE;
 	    Logging::printf("instr at eip: %x\n", *reinterpret_cast<unsigned *>(physmem + rip));
 	    break;
@@ -130,12 +128,12 @@ private:
 	      m->mods_addr = reinterpret_cast<char *>(m + 1) - physmem;
 	      Module *mod = reinterpret_cast<Module *>(physmem + m->mods_addr) + m->mods_count;
 	      m->mods_count++;
-	      mod->mod_start = msg.start - physmem;
-	      mod->mod_end = mod->mod_start + msg.size;
-	      mod->string = msg.cmdline - physmem;
-	      mod->reserved = msg.cmdlen;
+	      mod->mod_start = msg2.start - physmem;
+	      mod->mod_end = mod->mod_start + msg2.size;
+	      mod->string = msg2.cmdline - physmem;
+	      mod->reserved = msg2.cmdlen;
 	      if (offset < mod->mod_end) offset = mod->mod_end;
-	      if (offset < mod->string + msg.cmdlen) offset = mod->string + msg.cmdlen;
+	      if (offset < mod->string + msg2.cmdlen) offset = mod->string + msg2.cmdlen;
 	    }
 	    break;
 	  }
@@ -161,23 +159,22 @@ private:
 
 
  public:
-  bool  receive(MessageBios &msg)
-  {
+  bool  receive(MessageBios &msg) {
+
     if (msg.irq != 0x19) return false;
     Logging::printf(">\t%s rip %x ilen %x cr0 %x efl %x\n", __PRETTY_FUNCTION__,
 		    msg.cpu->eip, msg.cpu->inst_len, msg.cpu->cr0, msg.cpu->efl);
 
     unsigned long rip = 0xfffffff0;
     unsigned long mbi;
-
     if (!(mbi = init_mbi(rip)))  return false;
+    memset(msg.cpu->msg, 0, sizeof(msg.cpu->msg));
     msg.cpu->eip      = rip;
     msg.cpu->eax      = 0x2badb002;
     msg.cpu->ebx      = mbi;
     msg.cpu->cr0      = 0x11;
     msg.cpu->cs.ar    = 0xc9b;
     msg.cpu->cs.limit = 0xffffffff;
-    msg.cpu->cs.base  = 0x0;
     msg.cpu->ss.ar    = 0xc93;
     msg.cpu->efl      = 2;
     msg.cpu->ds.ar    = msg.cpu->es.ar = msg.cpu->fs.ar = msg.cpu->gs.ar = msg.cpu->ss.ar;
