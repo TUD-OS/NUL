@@ -88,6 +88,7 @@ class Lapic : public StaticReceiver<Lapic>
       if (!_vcpu->is_ap()) {
 	Lapic_write(_LINT0_offset,  0x700);
 	Lapic_write(_LINT1_offset,  0x400);
+	Lapic_write(_SVR_offset,  0x1ff);
       }
     }
   }
