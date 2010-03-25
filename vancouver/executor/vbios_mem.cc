@@ -69,11 +69,11 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 		{
 		case 0:
 		  mmap.base = 0;
-		  mmap.size = 0xa0000;
+		  mmap.size = read_bda(0x13) << 10;
 		  cpu->ebx++;
 		  break;
 		case 1:
-		  mmap.base = 1<<20;
+		  mmap.base = 1 << 20;
 		  mmap.size = _memsize - (1<<20);
 		  cpu->ebx = 0;
 		  break;

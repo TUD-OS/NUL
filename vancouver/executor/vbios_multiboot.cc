@@ -144,6 +144,9 @@ private:
     if (!m) return 0;
 
     // provide memory map
+    if (discovery_read_dw("bda", 0x13, _lowmem))
+      _lowmem = (_lowmem & 0xffff) << 10;
+
     MbiMmap mymap[] = {{20, 0, _lowmem, 0x1},
 		       {20, 1<<20, memsize - (1<<20), 0x1}};
     m->mem_lower = 640;
@@ -152,6 +155,7 @@ private:
     m->mmap_length = sizeof(mymap);
     m->flags |= MBI_FLAG_MMAP | MBI_FLAG_MEM;
     memcpy(physmem + m->mmap_addr, mymap, m->mmap_length);
+
     return mbi;
   };
 
