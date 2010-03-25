@@ -185,7 +185,10 @@ protected:
     if (entry) {
       assert(len <= entry->_len);
       memcpy(buffer, entry->_ptr + (virt & 3), len);
-    }
+    } else
+      // fix CR2 value as we rounded down
+      if (_fault == 0x80000b0e && _cpu->cr2 < virt)
+	_cpu->cr2 = virt;
     return _fault;
   }
 
