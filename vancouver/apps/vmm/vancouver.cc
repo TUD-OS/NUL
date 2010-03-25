@@ -125,7 +125,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	case KBFLAG_EXTEND0 | 0x7c: // printscr
 	  {
 	    // we send an empty event
-	    CpuEvent msg(0);
+	    CpuEvent msg(VCpu::EVENT_DEBUG);
 	    for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last())
 	      vcpu->bus_event.send(msg);
 	  }

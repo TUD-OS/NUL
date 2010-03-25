@@ -96,18 +96,19 @@ public:
 
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned mask=~0) {  CpuMessage msg(nr, reg, mask, value & mask); return executor.send(msg); }
   enum {
-    EVENT_FIXED  = 1 << 0,
-    EVENT_LOWEST = 1 << 1,
-    EVENT_SMI    = 1 << 2,
-    EVENT_RRD    = 1 << 3,
-    EVENT_RESET  = 1 << 3,
-    EVENT_NMI    = 1 << 4,
-    EVENT_INIT   = 1 << 5,
-    EVENT_SIPI   = 1 << 6,
-    EVENT_EXTINT = 1 << 7,
-    EVENT_MASK   = 0xff,
-    STATE_BLOCK  = 1 << 17,
-    STATE_WAKEUP = 1 << 18,
+    EVENT_FIXED  = 1 <<  0,
+    EVENT_LOWEST = 1 <<  1,
+    EVENT_SMI    = 1 <<  2,
+    EVENT_RRD    = 1 <<  3,
+    EVENT_RESET  = 1 <<  3,
+    EVENT_NMI    = 1 <<  4,
+    EVENT_INIT   = 1 <<  5,
+    EVENT_SIPI   = 1 <<  6,
+    EVENT_EXTINT = 1 <<  7,
+    EVENT_MASK   =   0x0ff,
+    EVENT_DEBUG  = 1 << 18,
+    STATE_BLOCK  = 1 << 16,
+    STATE_WAKEUP = 1 << 17,
   };
 
   VCpu (VCpu *last) : _last(last) {}

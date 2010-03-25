@@ -179,7 +179,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     CpuState *cpu = msg.cpu;
     unsigned and_mask = STATE_WAKEUP;
     unsigned old_event = _event;
-    if (!old_event)  return STATE_WAKEUP;
+    if (!old_event)  return and_mask;
+
+    if (old_event & EVENT_DEBUG) {
+      Logging::printf("DEBUG[%d] VCPU eip %x event %x\n", CPUID_EDXb, cpu->eip, old_event);
+      return and_mask | VCpu::EVENT_DEBUG;
+    }
 
     if (old_event & EVENT_RESET) {
       handle_cpu_init(msg, true);
@@ -308,13 +313,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
      * We received an asynchronous event. As code runs in many
      * threads, state updates have to be atomic!
      */
-    if (!((_event ^ value) & EVENT_MASK)) return;
+    if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
     if ((value & EVENT_MASK) == EVENT_SIPI)
       // try to claim the sipi field, if it is empty, we waiting for a sipi
       // if it fails, somebody else was faster and we do not wakeup the client
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
 
-    Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & EVENT_MASK));
+    Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
     MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }
