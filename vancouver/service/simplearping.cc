@@ -18,6 +18,7 @@
 
 /**
  * A simple arp ping to test the network infrastructure.
+ * State: testing
  */
 class SimpleArpPing : public StaticReceiver<SimpleArpPing>
 {
