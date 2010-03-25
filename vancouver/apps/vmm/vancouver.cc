@@ -343,10 +343,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
   static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
-    CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax);
+    CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->head.mtr.untyped());
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
-    if (!vcpu->executor.send(msg, true))
-      Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
+    //Logging::printf("\tio type %x eip %x efl %x\n", is_in, utcb->eip, utcb->efl, msg.);
+    {
+      SemaphoreGuard l(_lock);
+      if (!vcpu->executor.send(msg, true))
+	Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
+    }
     skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
   }
@@ -354,19 +358,23 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
+    //Logging::printf("\tvcpu %x utcb %p type %x eip %x efl %x\n", pid, utcb, type, utcb->eip, utcb->efl);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
-    if (!vcpu->executor.send(msg, true))
-      Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
-
+    {
+      SemaphoreGuard l(_lock);
+      if (!vcpu->executor.send(msg, true))
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+    }
     if (skip) skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
+    //Logging::printf("write back for pid %x type %x eip %x mtr %x cr0 %x\n", pid, type, utcb->eip, utcb->head.mtr.value(), mtr);
   }
 
 
   static bool map_memory_helper(Utcb *utcb)
   {
-    MessageMemRegion msg(utcb->qual[1] & ~0xfff);
+    MessageMemRegion msg(utcb->qual[1] >> 12);
 
     // XXX use a push model on _startup instead
 
@@ -465,7 +473,9 @@ public:
 	msg.vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
 	break;
       case MessageHostOp::OP_VCPU_BLOCK:
+	_lock.up();
 	semdown(msg.value);
+	_lock.down();
 	break;
       case MessageHostOp::OP_VCPU_RELEASE:
 	if (msg.len)
