@@ -280,7 +280,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i != 30) check1(2, create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
+      if (i!=14 && i != 30) check1(3, create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
@@ -306,11 +306,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _cap_free += 0x100;
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
-      Logging::printf("create pt %x\n", vm_caps[i].nr);
+      Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
       check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
     }
 
-    Logging::printf("create VCPU\n");
+    Logging::printf("\tcreate VCPU\n");
     unsigned cap_block = _cap_free;
     _cap_free += 3;
     if (create_sm(cap_block))
