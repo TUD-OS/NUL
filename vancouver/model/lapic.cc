@@ -315,9 +315,9 @@ class Lapic : public StaticReceiver<Lapic>
 	set_error(7);
     }
     if (in_range(offset, LVT_BASE, 6)) {
-      if (_lvtds[offset - LVT_BASE])    value |= 1 << 12;
+      if (_lvtds[offset - LVT_BASE]) value |= 1 << 12;
       if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
-      if (sw_disabled())                value |= 1 << 16;
+      if (sw_disabled())             value |= 1 << 16;
     }
     return res;
   }
@@ -344,7 +344,6 @@ class Lapic : public StaticReceiver<Lapic>
       if (!(res = Lapic_write(offset, value, strict)))
 	set_error(7);
     }
-
     // do side effects of a changed LVT entry
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
@@ -655,7 +654,8 @@ REGSET(Lapic,
        REG_RW(_ICT,           0x38,          0, ~0u,
 	      _timer_start = _clock->time();
 	      update_timer(_timer_start); )
-       REG_RW(_DCR,           0x3e,          0, 0xb,
+       REG_RW(_DCR,           0x3e,          0, 0xb
+,
 	      {
 		timevalue now = _clock->time();
 		unsigned  done = _ICT - get_ccr(now);
