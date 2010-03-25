@@ -77,7 +77,7 @@ class Lapic : public StaticReceiver<Lapic>
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
     memset(_rirr, 0, sizeof(_rirr));
-    _timer_dcr_shift = 2 + _timer_clock_shift;
+    _timer_dcr_shift = 1 + _timer_clock_shift;
 
     // RESET?
     if (!init) {
@@ -588,7 +588,7 @@ public:
     : _vcpu(vcpu), _bus_mem(bus_mem),_bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
 
     // find a FREQ that is not too high
-    for (_timer_clock_shift=0; _timer_clock_shift < 63; _timer_clock_shift++)
+    for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
 
     CpuMessage msg[] = {
@@ -658,7 +658,7 @@ REGSET(Lapic,
 	      {
 		timevalue now = _clock->time();
 		unsigned  done = _ICT - get_ccr(now);
-		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7) + 1;
+		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7);
 
 		/**
 		 * Move timer_start in the past, which what would be
