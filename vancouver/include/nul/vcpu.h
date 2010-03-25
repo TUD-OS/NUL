@@ -21,8 +21,8 @@
 
 struct CpuMessage {
   enum Type {
-    TYPE_CPUID,
     TYPE_CPUID_WRITE,
+    TYPE_CPUID,
     TYPE_RDTSC,
     TYPE_RDMSR,
     TYPE_WRMSR,
