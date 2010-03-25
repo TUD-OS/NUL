@@ -437,8 +437,8 @@ public:
    */
   bool  receive(MessageMem &msg)
   {
-    if (!in_range(msg.phys, _msr & ~0xfff, 0x1000) || hw_disabled() || x2apic_mode()) return false;
-    if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x40*4) return false;
+    if (!in_range(msg.phys, _msr & ~0xfffull, 0x1000) || hw_disabled() || x2apic_mode()) return false;
+    if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x400) return false;
     if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
     else
