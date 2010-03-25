@@ -316,6 +316,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 public:
+  /**
+   * Forward MEM requests to the motherboard.
+   */
+  bool receive(MessageMem &msg) { return _mb.bus_mem.send(msg, true); }
+  bool receive(MessageMemRegion &msg) { return _mb.bus_memregion.send(msg, true); }
+
+
   bool receive(CpuEvent &msg) { got_event(msg.value); return true; }
   bool receive(MessageLegacy &msg) {
     if (msg.type == MessageLegacy::RESET) {
