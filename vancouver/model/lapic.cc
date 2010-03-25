@@ -194,7 +194,7 @@ class Lapic : public StaticReceiver<Lapic>
     // broadcast?
     if (shorthand & 2) dst = ~0u;
 
-    if (!x2apic_mode()) dst >>= 8;
+    if (!x2apic_mode()) dst >>= 24;
 
     // level triggered IRQs are treated as edge triggered
     icr = icr & 0x4fff;
