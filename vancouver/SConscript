@@ -53,7 +53,9 @@ target_env = Environment()
 
 
 if ARGUMENTS.get('VERBOSE') != "1":
-    target_env.Append(CCCOMSTR  = "\tCC  $TARGET", CXXCOMSTR  = "\tCXX $TARGET", LINKCOMSTR = "\tLNK $TARGET")
+    target_env.Append(CCCOMSTR  = "\tCC  $TARGET", CXXCOMSTR  = "\tCXX $TARGET", LINKCOMSTR = "\tLNK $TARGET",
+                      ASCOMSTR  = "\tAS  $TARGET", ARCOMSTR  = "\tAR  $TARGET", RANLIBCOMSTR  = "\tLIB  $TARGET",
+                      )
 
 if target_cc:
     print("Target CC forced to '%s'." % target_cc)
@@ -101,10 +103,10 @@ def link(env, target, source, linkscript=None, **rest):
                     **rest)
     g = env.Command(target, p,
                     [ Copy("$TARGET", "$SOURCE"),
-                      "strip $TARGET",
-                      "size $TARGET",
+                      "@strip $TARGET",
+                      "@size $TARGET",
                       ])
-    z = env.Command(target + ".gz", g, ["gzip -c $SOURCE > $TARGET"])
+    z = env.Command(target + ".gz", g, ["@gzip -c $SOURCE > $TARGET"])
     # Explicitly add linkscript to the dependencies.
     if linkscript:
         env.Depends(p, linkscript)
