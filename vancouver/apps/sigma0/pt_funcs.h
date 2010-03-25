@@ -228,7 +228,7 @@ PT_FUNC(do_request,
 			memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
 			// build response
 			memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
-			utcb->head.mtr = Mtd(sizeof(unsigned) + sizeof(*msg), 0);
+			utcb->head.mtr = Mtd(1 + sizeof(*msg)/sizeof(unsigned), 0);
 			msg->start   = cstart;
 			msg->size    = mod->size;
 			msg->cmdline = cstart + msize;
