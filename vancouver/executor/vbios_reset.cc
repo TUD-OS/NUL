@@ -232,7 +232,7 @@ public:
     case MessageDiscovery::READ:
       {
 	Resource *r;
-	unsigned needed_len = msg.offset + msg.count;
+	unsigned needed_len = msg.offset + 4;
 	check1(false, !(r = get_resource(msg.resource)));
 	check1(false, needed_len > r->length, "no idea how to increase the table size");
 	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
