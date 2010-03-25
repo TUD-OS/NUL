@@ -610,9 +610,10 @@ public:
       vcpu->set_cpuid(1, 1, ebx_1, 0x0000ff00); // clflush size
       vcpu->set_cpuid(1, 2, ecx_1, 0x00000201); // +SSE3,+SSSE3
       vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
+      Logging::printf("SET cpuid edx %x mask %x\n", edx_1, 0x0f88a9bf);
     }
 
-    // RESET device state
+    Logging::printf("RESET device state\n");
     MessageLegacy msg2(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg2);
 
@@ -652,8 +653,16 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
+//VM_FUNC(PT_VMX +  9,  vmx_taskswitch, MTD_ALL,
+//	Logging::printf("TASK qual %llx eip %x cr0 %x cr3 %x inj %x\n", utcb->qual[0], utcb->eip, utcb->cr0, utcb->cr3, utcb->inj_info);
+//     	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+//	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
+	//Logging::printf("CPUID %x\n", utcb->eax);
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);
+	//Logging::printf("CPUID -> %x %x %x %x\n", utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
+	)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ | MTD_STATE,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
 	)
