@@ -38,6 +38,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     MSR_SYSENTER_EIP,
   };
 
+  void GP0(CpuMessage &msg) {
+    msg.cpu->inj_info = 0x80000b0d;
+    msg.cpu->inj_error = 0;
+    msg.mtr_out |= MTD_INJ;
+  }
+
   void handle_cpuid(CpuMessage &msg) {
     unsigned reg;
     if (msg.cpuid_index & 0x80000000u && msg.cpuid_index <= CPUID_EAX80)
@@ -81,8 +87,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       msg.cpu->edx_eax(0);
       break;
     default:
-      Logging::printf("unsupported rdmsr %x at %x",  msg.cpu->ecx, msg.cpu->eip);
-      msg.cpu->GP0();
+      Logging::printf("unsupported rdmsr %x at %x\n",  msg.cpu->ecx, msg.cpu->eip);
+      GP0(msg);
     }
     msg.mtr_out |= MTD_GPR_ACDB;
   }
@@ -104,13 +110,14 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 	msg.mtr_out |= MTD_SYSENTER;
 	break;
       default:
-	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
-	cpu->GP0();
+	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x\n",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
+	GP0(msg);
       }
   }
 
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
+    Logging::printf("handle CPU %s\n", reset ? "RESET" : "INIT");
     CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;

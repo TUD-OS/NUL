@@ -36,9 +36,4 @@ class CpuState : public Utcb
   };
 
   unsigned long long edx_eax() {  return union64(edx, eax); };
-  void GP0() {
-    assert(~inj_info & 0x80000000);
-    inj_info = 0x80000b0d | (inj_info & INJ_WIN);
-    inj_error = 0;
-  }
 };
