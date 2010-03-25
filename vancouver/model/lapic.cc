@@ -82,7 +82,7 @@ class Lapic : public StaticReceiver<Lapic>
     // RESET?
     if (!init) {
       Lapic_write(_ID_offset,  _initial_apic_id << 24);
-      set_base_msr(_vcpu->is_ap() ? 0xfee00800 : 0xfee00900);
+      set_base_msr(0xfee00800);
 
       // as we enable the APICs, we also perform the BIOS INIT
       if (!_vcpu->is_ap()) {
@@ -106,8 +106,8 @@ class Lapic : public StaticReceiver<Lapic>
       CpuMessage msg(1, 3, ~(1 << 9), (value & 0x800) >> 2);
       _vcpu->executor.send(msg);
     }
-    // make the BSP flag read-only
-    _msr = (value & ~0x100ull) | (_msr & 0x100);
+    // we threat the BSP flag as read-only
+    _msr = (value & ~0x100ull) | (_vcpu->is_ap() ? 0 : 0x100);
 
     if (!was_x2apic_mode && x2apic_mode()) {
       // init LDR + _ID
