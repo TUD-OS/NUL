@@ -112,9 +112,9 @@ template<unsigned operand_size> static void move(void *tmp_dst, void *tmp_src) {
 int helper_HLT ()    {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_HLT); }
 int helper_WBINVD () {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_WBINVD); }
 int helper_INVD ()   {  if (_cpu->cpl()) { GP0; } return send_message(CpuMessage::TYPE_INVD); }
-int helper_INT3() {  _oeip = _cpu->eip; return _fault = 0x80000603; }
+int helper_INT3() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; return _fault = 0x80000603; }
 int helper_UD2A() {  return _fault = 0x80000606; }
-int helper_INTO() {  _oeip = _cpu->eip; if (_cpu->efl & EFL_OF) _fault = 0x80000604; return _fault; }
+int helper_INTO() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; if (_cpu->efl & EFL_OF) _fault = 0x80000604; return _fault; }
 int helper_CLTS() {  if (_cpu->cpl()) GP0; _cpu->cr0 &= ~(1<<3); return _fault; }
 
 
@@ -224,7 +224,7 @@ helper_LOOPS(JECXZ, 3)
   /**
    * LGDT and LIDT helper.
    */
-#define helper_LDT(NAME, VAR)						\
+#define helper_LDT(NAME, VAR, MTD)						\
   template<unsigned operand_size>					\
   void __attribute__((regparm(3)))					\
   helper_##NAME()							\
@@ -237,22 +237,24 @@ helper_LOOPS(JECXZ, 3)
 	move<2>(&base, reinterpret_cast<char *>(addr)+2);		\
 	if (operand_size == 1) base &= 0x00ffffff;			\
 	_cpu->VAR.base = base;						\
+	_mtr_out |= MTD;						\
       }									\
     }
-helper_LDT(LIDT, id)
-helper_LDT(LGDT, gd)
+helper_LDT(LIDT, id, MTD_IDTR)
+helper_LDT(LGDT, gd, MTD_GDTR)
 #undef helper_LDT
 
   /**
    * SGDT and SIDT helper.
    */
-#define helper_SDT(NAME, VAR)						\
+#define helper_SDT(NAME, VAR, MTD)					\
   template<unsigned operand_size>					\
   void __attribute__((regparm(3)))					\
   helper_##NAME()							\
   {									\
+    _mtr_in |= MTD;							\
     void *addr;								\
-    if (!modrm2mem(addr, 6, user_access(TYPE_W)))		\
+    if (!modrm2mem(addr, 6, user_access(TYPE_W)))			\
       {									\
 	unsigned base = _cpu->VAR.base;					\
 	if (operand_size == 1) base &= 0x00ffffff;			\
@@ -260,8 +262,8 @@ helper_LDT(LGDT, gd)
 	move<2>(reinterpret_cast<char *>(addr)+2, &base);		\
       }									\
   }
-  helper_SDT(SIDT,id)
-  helper_SDT(SGDT,gd)
+helper_SDT(SIDT,id, MTD_IDTR)
+helper_SDT(SGDT,gd, MTD_GDTR)
 #undef helper_SDT
 
 
@@ -304,7 +306,7 @@ helper_LDT(LGDT, gd)
   void __attribute__((regparm(3)))  helper_IN(unsigned port, void *dst)
   {
     // XXX check IOPBM
-    CpuMessage msg(true, _cpu, operand_size, port, dst);
+    CpuMessage msg(true, _cpu, operand_size, port, dst, _mtr_in);
     _vcpu->executor.send(msg, true);
   }
 
@@ -313,7 +315,7 @@ helper_LDT(LGDT, gd)
   {
 
     // XXX check IOPBM
-    CpuMessage msg(false, _cpu, operand_size, port, dst);
+    CpuMessage msg(false, _cpu, operand_size, port, dst, _mtr_in);
     _vcpu->executor.send(msg, true);
   }
 
@@ -553,6 +555,7 @@ int helper_LLDT(unsigned short selector)
     }
   else
     _cpu->ld.ar = 0x1000;
+  _mtr_out |= MTD_LDTR;
   return _fault;
 }
 
@@ -602,6 +605,7 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 
 int helper_far_jmp(unsigned tmp_cs, unsigned tmp_eip, unsigned tmp_flag)
 {
+  _mtr_out |= MTD_CS_SS | MTD_RFLAGS;
   //Logging::printf("farjmp %x:%x efl %x\n", tmp_cs, tmp_eip, tmp_flag);
   if (!_cpu->pm() || _cpu->v86())
     // realmode + v86mode
@@ -663,12 +667,14 @@ int helper_LCALL(void *tmp_src)
 template<unsigned operand_size>
 int helper_IRET()
 {
+  _mtr_out |= MTD_CS_SS | MTD_DS_ES | MTD_FS_GS | MTD_RFLAGS;
   if (_cpu->v86())
     {
       if (_cpu->iopl() != 3) GP0;
     }
   else
     if (_cpu->pm() && _cpu->efl & (1<<14)) UNIMPLEMENTED(this); // task return
+
 
   // protected mode
   unsigned tmp_eip = 0, tmp_cs = 0, tmp_flag = 0;
@@ -737,6 +743,7 @@ int idt_traversal(unsigned event, unsigned error_code)
 {
   assert(event & 0x80000000);
   assert(event != 0x80000b0e || _cpu->pm() && _cpu->pg());
+  _mtr_out |= MTD_RFLAGS | MTD_CS_SS;
 
   // realmode
   if (!_cpu->pm())
@@ -808,7 +815,6 @@ int idt_traversal(unsigned event, unsigned error_code)
 		    _cpu->ss = oldss;
 		    return _fault;
 		  }
-
 		_cpu->efl &= ~(EFL_VM | EFL_TF | EFL_RF | EFL_NT);
 		if ((idt.ar0 & 0x1f) == 0xe)  _cpu->efl &= ~EFL_IF;
 		//Logging::printf("IDT %x -> %x\n", _cpu->eip, idt.offset());

@@ -390,6 +390,7 @@ public:
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "=g"(tmp_flag)
 		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	_cpu->efl = (_cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
+	_mtr_out |= MTD_RFLAGS;
 	break;
       case IC_LOADFLAGS:
 	tmp_flag = _cpu->efl & 0x8d5;
@@ -403,6 +404,7 @@ public:
 		      : "=a"(dummy1), "=d"(dummy2), "=c"(dummy3), "+g"(tmp_flag)
 		      : "m"(_entry->execute), "0"(this), "1"(tmp_src), "2"(tmp_dst) : "memory");
 	_cpu->efl = (_cpu->efl & ~0x8d5) | (tmp_flag  & 0x8d5);
+	_mtr_out |= MTD_RFLAGS;
 	break;
       default:
 	asm volatile ("call *%3;"
@@ -483,20 +485,22 @@ public:
     if (!_fault || _fault == FAULT_RETRY)
       {
 	// successfull
-	//invalidate(true);
+	_mtr_out |= MTD_RIP_LEN | MTD_GPR_ACDB | MTD_GPR_BSD;
+	if (_cpu->esp != _oesp) _mtr_out |= MTD_RSP;
+
+	// XXX bugs?
+	_mtr_out |= (_mtr_in & ~MTD_CR);
       }
     else
       {
-	// XXX this looks fishy invalidate(false);
 	_cpu->eip = _oeip;
 	if (~_fault & 0x80000000)
-	_cpu->esp = _oesp;
 	  {
 	    if (_entry)  _cpu->inst_len = _entry->inst_len; else _cpu->inst_len = 0;
 	    switch (_fault)
 	      {
 	      case FAULT_UNIMPLEMENTED:
-		Logging::printf("unimplemented at line %d eip %x\n", _debug_fault_line, _cpu->eip);
+		Logging::panic("unimplemented at line %d eip %x\n", _debug_fault_line, _cpu->eip);
 		// unimplemented
 		return false;
 	      default:
@@ -505,8 +509,7 @@ public:
 	  }
 	else
 	  {
-	    //XXX overwrite mtr_write to set only inj_info
-
+	    _mtr_out |= MTD_INJ;
 	    Logging::printf("fault: %x old %x error %x at eip %x line %d %x\n", _fault, _cpu->inj_info,
 			    _error_code, _cpu->eip, _debug_fault_line, _cpu->cr2);
 	    // consolidate two exceptions

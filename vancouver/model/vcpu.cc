@@ -92,6 +92,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       {
       case MSR_TSC:
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
+	msg.mtr_out |= MTD_TSC;
 	Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
       case MSR_SYSENTER_CS:
@@ -179,7 +180,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       cpu->cs.sel       = (_sipi & 0xff) << 8;
       cpu->cs.base      = cpu->cs.sel << 4;
       cpu->actv_state   = 0;
-      and_mask |= EVENT_SIPI;
+      msg.mtr_out      |= MTD_CS_SS;
+      and_mask         |= EVENT_SIPI;
       // fall through
     }
 

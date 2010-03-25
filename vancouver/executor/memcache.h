@@ -33,7 +33,7 @@
 #define SS0   { EXCEPTION(this, 0xc, 0); return _fault; }
 #define GP(X) { EXCEPTION(this, 0xd, X); return _fault; }
 #define GP0   { EXCEPTION(this, 0xd, 0); return _fault; }
-#define PF(ADDR, ERR) { _cpu->cr2 = ADDR; EXCEPTION(this, 0xe, ERR); return _fault; }
+#define PF(ADDR, ERR) { _cpu->cr2 = ADDR; _mtr_out |= MTD_CR; EXCEPTION(this, 0xe, ERR); return _fault; }
 
 
 /**

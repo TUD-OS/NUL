@@ -110,7 +110,7 @@ int helper_loadsegment(CpuState::Descriptor *desc)
   if (modrm2mem(addr, 2 + (1 << operand_size), TYPE_R)) return _fault;
   move<1>(&sel, reinterpret_cast<char *>(addr) + (1 << operand_size));
 
-  if (!set_segment( desc, sel))
+  if (!set_segment(desc, sel))
     move<operand_size>(get_reg32((_entry->data[_entry->offset_opcode] >> 3) & 0x7), addr);
   return _fault;
 }
