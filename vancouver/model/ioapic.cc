@@ -117,7 +117,7 @@ private:
    */
   void pin_assert(unsigned pin, MessageIrq::Type type) {
     if (pin >= PINS) return;
-    if (MessageIrq::DEASSERT_IRQ) _ds[pin] = false;
+    if (type == MessageIrq::DEASSERT_IRQ) _ds[pin] = false;
     else {
       // have we already send the message
       if (_rirr[pin]) return;
