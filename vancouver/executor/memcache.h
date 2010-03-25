@@ -123,6 +123,7 @@ private:
     assert(!(_buffers[index]._phys1 & 3));
 
     unsigned long address = _buffers[index]._phys1;
+    //Logging::printf("buffer IO %s %lx+%x\n", read ? "read" : "write", address, _buffers[index]._len);
     for (unsigned i=0; i < _buffers[index]._len; i += 4) {
       MessageMem msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
       _mem.send(msg2, true);

@@ -225,6 +225,9 @@ public:
 	}
 	memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
 
+	//Logging::printf("DW %s %x+%x count %d value %x\n",  msg.resource, r->offset, msg.offset, msg.count, *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + msg.offset));
+
+
 	// and fix the checksum
 	if (r->acpi_table)   fix_acpi_checksum(r, table_len);
       }

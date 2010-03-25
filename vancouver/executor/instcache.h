@@ -463,7 +463,7 @@ public:
      */
     if (_mtr_read & ~_mtr_in)
       {
-	Logging::printf("recall %x out of %x\n", _mtr_read, _mtr_in);
+	Logging::panic("recall %x out of %x\n", _mtr_read, _mtr_in);
 	// signal a recall
 	//COUNTER_INC("recall");
 	FAULT(this, FAULT_RECALL);

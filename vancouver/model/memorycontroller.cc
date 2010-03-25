@@ -39,6 +39,7 @@ public:
     unsigned *ptr = reinterpret_cast<unsigned *>(_physmem + msg.phys);
 
     if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
+    //Logging::printf("MEM %s %lx = %x\n", msg.read ? "read" : "write", msg.phys, *ptr);
     return true;
   }
 

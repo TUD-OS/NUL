@@ -122,6 +122,7 @@ private:
 	    m->cmdline = offset;
 	    offset += msg.cmdlen;
 	    m->flags |= MBI_FLAG_CMDLINE;
+	    Logging::printf("instr at eip: %x\n", *reinterpret_cast<unsigned *>(physmem + rip));
 	    break;
 	  default:
 	    {

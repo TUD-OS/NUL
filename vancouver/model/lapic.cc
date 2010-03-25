@@ -98,6 +98,7 @@ class Lapic : public StaticReceiver<Lapic>
    * Update the APIC base MSR.
    */
   bool set_base_msr(unsigned long long value) {
+    Logging::printf("%s %llx %d\n", __PRETTY_FUNCTION__, value, _vcpu->is_ap());
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
     bool was_x2apic_mode = x2apic_mode();
     if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
@@ -319,12 +320,14 @@ class Lapic : public StaticReceiver<Lapic>
       if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
       if (sw_disabled())             value |= 1 << 16;
     }
+    //Logging::printf("\t\tAPIC read %x value %x\n", offset, value);
     return res;
   }
 
 
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
+    Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
     switch (offset) {
     case 0x9: // APR
     case 0xc: // RRD
@@ -360,6 +363,7 @@ class Lapic : public StaticReceiver<Lapic>
     assert(num < 6);
     unsigned lvt;
     Lapic_read(num + LVT_BASE, lvt);
+    //Logging::printf("%s %x %x %d %d _SVR %x\n", __func__, num, lvt, _lvtds[num], _rirr[num], _SVR);
 
 
     unsigned event = 1 << ((lvt >> 8) & 7);
@@ -438,6 +442,7 @@ public:
   bool  receive(MessageMem &msg)
   {
     if (!in_range(msg.phys, _msr & ~0xfffull, 0x1000) || hw_disabled() || x2apic_mode()) return false;
+    //Logging::printf("\t\tLAPIC MEM %x %lx\n", msg.read, msg.phys);
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x400) return false;
     if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
@@ -575,6 +580,7 @@ public:
   bool  receive(MessageLegacy &msg) {
     if (hw_disabled())  return false;
 
+    //Logging::printf("Legacy %x\n", msg.type);
     // the BSP gets the legacy PIC output and NMI on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
       return trigger_lvt(_LINT0_offset - LVT_BASE);
@@ -591,6 +597,7 @@ public:
     for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
 
+    Logging::printf("LAPIC freq %lld\n", _clock->freq() >> _timer_clock_shift);
     CpuMessage msg[] = {
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
