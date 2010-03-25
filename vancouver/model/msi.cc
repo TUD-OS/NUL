@@ -32,6 +32,9 @@ class Msi  : public StaticReceiver<Msi> {
 public:
   bool  receive(MessageMem &msg) {
     if (!in_range(msg.phys, MessageMem::MSI_ADDRESS, 1 << 20)) return false;
+
+    COUNTER_INC("MSI");
+
     unsigned dst = (msg.phys >> 12) & 0xff | (msg.phys << 4) & 0xff00;
     unsigned icr = *msg.ptr & 0xc7ff;
     unsigned event = 1 << ((icr >> 8) & 7);

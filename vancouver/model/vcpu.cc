@@ -307,6 +307,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
   void got_event(unsigned value) {
+    COUNTER_INC("EVENT");
     //if (value != EVENT_EXTINT)
     //Logging::printf("got event value %x\n", value);
     /**
