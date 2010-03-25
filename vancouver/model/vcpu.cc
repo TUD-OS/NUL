@@ -194,7 +194,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     // SIPI pending?
     if (old_event & EVENT_SIPI) {
       cpu->eip          = 0;
-      cpu->cs.sel       = (_sipi & 0xff) << 8;
+      cpu->cs.sel       = _sipi & 0xff00;
       cpu->cs.base      = cpu->cs.sel << 4;
       cpu->actv_state   = 0;
       msg.mtr_out      |= MTD_CS_SS;

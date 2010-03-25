@@ -491,6 +491,7 @@ public:
       accept_vector(msg.icr, msg.icr & MessageApic::ICR_LEVEL, msg.icr & MessageApic::ICR_ASSERT);
     else {
       // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
+      if (event == VCpu::EVENT_SIPI) event |= (msg.icr & 0xff) << 8;
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
