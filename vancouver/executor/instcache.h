@@ -489,8 +489,8 @@ public:
       {
 	// XXX this looks fishy invalidate(false);
 	_cpu->eip = _oeip;
+	if (~_fault & 0x80000000)
 	_cpu->esp = _oesp;
-	if (_fault > 0)
 	  {
 	    if (_entry)  _cpu->inst_len = _entry->inst_len; else _cpu->inst_len = 0;
 	    switch (_fault)
@@ -505,7 +505,6 @@ public:
 	  }
 	else
 	  {
-	    assert(_fault & 0x80000000);
 	    //XXX overwrite mtr_write to set only inj_info
 
 	    Logging::printf("fault: %x old %x error %x at eip %x line %d %x\n", _fault, _cpu->inj_info,
