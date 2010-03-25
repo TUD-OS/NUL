@@ -248,13 +248,14 @@ public:
 	  _newest_write = entry;
 	}
 
-      // do we have to read the data into the cache?
-      if (type & TYPE_R) buffer_io(true, entry);
-
       // init entry
       _buffers[entry]._len   = len;
       _buffers[entry]._phys1 = phys1;
       _buffers[entry]._phys2 = phys2;
+
+      // do we have to read the data into the cache?
+      if (type & TYPE_R) buffer_io(true, entry);
+
       return_move_to_front(_buffers, _newest_buffer);
     }
   }
