@@ -72,7 +72,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     _regs.cursor_style = 0x0d0e;
 
     // clear screen
-    for (unsigned i=0; i < 25; i++) putchar_guest('\n');
+    memset(_framebuffer_ptr, 0, _framebuffer_size);
     puts_guest("    VgaBios booting...\n\n\n");
     write_bda(0x4a, 80, 1); // columns on screen
     write_bda(0x84, 24, 1); // rows - 1
