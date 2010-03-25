@@ -668,34 +668,43 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_RFLA
 	else
 	  {
 	    unsigned order = utcb->qual[0] & 7;
-	    if (order > 2)  order = 2;
+	    if (order > 2) order = 2;
 	    handle_io(utcb, utcb->qual[0] & 8, order, utcb->qual[0] >> 16);
 	  }
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
-VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);
+	Logging::printf("RDMSR addr %x eip %x %x:%8x\n", utcb->ecx, utcb->eip, utcb->edx, utcb->eax);
+)
+VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
+	Logging::printf("invalid %x ar %x\n", utcb->eip, utcb->ds.ar);
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	utcb->head.mtr.add(MTD_RFLAGS);
 	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
+	//Logging::printf("MMIO addr %llx eip %x cr0 %x cr3 %x\n", utcb->qual[1], utcb->eip, utcb->cr0, utcb->cr3);
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
 	 */
 	// make sure we do not inject the #PF!
-	utcb->inj_info = ~0x80000000;
+	utcb->inj_info &= ~0x80000000;
 	if (!map_memory_helper(utcb))
 	  // this is an access to MMIO
 	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
-VM_FUNC(PT_VMX + 0xfe,  vmx_startup, 0,  handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ); )
+VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
+	utcb->head.mtr.add(MTD_CTRL);
+	utcb->ctrl[0] = 1 << 3; // tscoffs
+	utcb->ctrl[1] = 0;
+	)
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
