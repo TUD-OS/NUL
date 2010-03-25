@@ -414,6 +414,9 @@ int helper_MOV__EDX__CR0()
   return init();
 }
 
+int helper_LMSW(unsigned short value) { _cpu->cr0 = _cpu->cr0 & ~0xeu | value & 0xfu; _mtr_out |= MTD_CR; return _fault; }
+
+
 
 struct Descriptor
 {

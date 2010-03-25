@@ -293,6 +293,7 @@ opcodes += [
     ("cltd",  ["ASM", "EAX", "EDX", "DIRECTION"],   ["mov (%edx), %eax", "[data16] cltd", "mov %edx, (%ecx)"]),
     ("str",   ["NO_OS", "OS1"], ["move<1>(tmp_dst, &cache->_cpu->tr.sel)"]),
     ("sldt",  ["NO_OS", "OS1"], ["move<1>(tmp_dst, &cache->_cpu->ld.sel)"]),
+    ("smsw",  ["NO_OS", "OS1"], ["move<1>(tmp_dst, &cache->_cpu->cr0)"]),
     ("nopl (%eax)",  ["NO_OS", "SKIPMODRM", "MODRM", "DROP1"], [" "]),
     ("lahf",  ["NO_OS"], ["cache->_cpu->ah = (cache->_cpu->efl & 0xd5) | 2"]),
     ("sahf",  ["NO_OS"], ["cache->_cpu->efl = (cache->_cpu->efl & ~0xd5) | (cache->_cpu->ah  & 0xd5)"]),
@@ -343,8 +344,9 @@ add_helper(["lea", "lgdt", "lidt"],                              ["MEMONLY", "DI
 add_helper(["sgdt", "sidt"],                                     ["MEMONLY", "SKIPMODRM"], "")
 
 add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
-add_helper(["ltr", "lldt"],                                      ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
+add_helper(["ltr", "lldt", "lmsw"],                              ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
 add_helper(["hlt", "sti", "cli", "clts", "int3", "into", "wbinvd",  "invd", "fwait", "ud2a", "sysenter", "sysexit"], ["NO_OS"], "")
+
 add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM"], "")
 add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
 add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "");
@@ -424,8 +426,8 @@ opcodes += [(x, [], []) for x in ["rdpmc"]]
 opcodes += [(x, ["RMW"], []) for x in ["cmpxchg8b"]]
 opcodes += [(x, [], []) for x in [
 	"aad", "aam","arpl", "bound", "enter",
-	"lar", "lmsw", "lsl",
-	"rsm", "smsw", "verr", "verw",
+	"lar",  "lsl",
+	"rsm", "verr", "verw",
 	"xlat",
 	"getsec"]]
 

@@ -180,6 +180,16 @@ static void __attribute__ ((regparm (3))) exec_0f0118_lidt_2 (InstructionCache *
   cache->helper_LIDT < 2 > ();
 }
 
+static void __attribute__ ((regparm (3))) exec_0f0120_smsw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  move < 1 > (tmp_dst, &cache->_cpu->cr0);
+}
+
+static void __attribute__ ((regparm (3))) exec_0f0130_lmsw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_LMSW (*reinterpret_cast < unsigned short *>(tmp_src));
+}
+
 static void __attribute__ ((regparm (3))) exec_0f0138_invlpg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   cache->helper_INVLPG ();
@@ -7407,14 +7417,22 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		  };
 		case 0x30 & 0x38:
 		  {;
-/* instruction 'lmsw' ['0f', '01', '30'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED (this);
+/* instruction 'lmsw' ['0f', '01', '30'] ['NO_OS', 'OS1', 'DIRECTION', 'OP1', 'MODRM', 'GRP', 'WORD'] */ ;
+		    entry->operand_size = 1;
+		    entry->flags = IC_DIRECTION | IC_MODRM;
+		    {
+		      entry->execute = exec_0f0130_lmsw_0;
+		    };
 		    break;
 		  };
 		case 0x20 & 0x38:
 		  {;
-/* instruction 'smsw' ['0f', '01', '20'] ['OP1', 'MODRM', 'GRP', 'WORD'] */ ;
-		    UNIMPLEMENTED (this);
+/* instruction 'smsw' ['0f', '01', '20'] ['NO_OS', 'OS1', 'OP1', 'MODRM', 'GRP', 'WORD'] */ ;
+		    entry->operand_size = 1;
+		    entry->flags = IC_MODRM;
+		    {
+		      entry->execute = exec_0f0120_smsw_0;
+		    };
 		    break;
 		  };
 		case 0x18 & 0x38:
