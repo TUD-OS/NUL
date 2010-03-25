@@ -539,30 +539,24 @@ public:
   }
 
 public:
-  bool enter(CpuMessage &msg) {
+
+  void step(CpuMessage &msg) {
     _cpu = msg.cpu;
     _mtr_in = msg.mtr_in;
-    _mtr_out =  0;
-    return init();
-  }
-
-
-  bool step() {
-
-    _entry = 0;
+    _mtr_out =  msg.mtr_out;
     _fault = 0;
-    _oeip = _cpu->eip;
-    _oesp = _cpu->esp;
-    _ointr_state = _cpu->intr_state;
-    // remove sti+movss blocking
-    _cpu->intr_state &= ~3;
-    event_injection() || get_instruction() || execute();
-    return commit();
-  }
-
-  bool leave() {
-    invalidate(true);
-    return true;
+    if (!init()) {
+      _entry = 0;
+      _oeip = _cpu->eip;
+      _oesp = _cpu->esp;
+      _ointr_state = _cpu->intr_state;
+      // remove sti+movss blocking
+      _cpu->intr_state &= ~3;
+      event_injection() || get_instruction() || execute();
+      if (commit())
+	invalidate(true);
+    }
+    msg.mtr_out = _mtr_out;
   }
 
  InstructionCache(VCpu *vcpu) : MemTlb(vcpu->mem, vcpu->memregion), _values(), _vcpu(vcpu) { }
