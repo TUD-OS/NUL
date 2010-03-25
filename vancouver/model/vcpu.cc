@@ -72,10 +72,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       break;
     case 0x8b: // microcode
       // MTRRs
+    case 0xfe:
     case 0x250:
     case 0x258:
     case 0x259:
     case 0x268 ... 0x26f:
+    case 0x2ff:
       msg.cpu->edx_eax(0);
       break;
     default:
