@@ -219,12 +219,10 @@ public:
 
 	unsigned table_len = acpi_tablesize(r);
 	// increase the length of an ACPI table.
-	if (r->acpi_table && msg.offset >= 8 && needed_len < table_len) {
+	if (r->acpi_table && msg.offset >= 8 && needed_len > table_len) {
 	  discovery_write_dw(r->name, 4, needed_len, 4);
 	  table_len = needed_len;
 	}
-
-	// write it
 	memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
 
 	// and fix the checksum
