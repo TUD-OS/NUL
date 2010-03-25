@@ -681,6 +681,7 @@ VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSE
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+	utcb->head.mtr.add(MTD_RFLAGS);
 	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
