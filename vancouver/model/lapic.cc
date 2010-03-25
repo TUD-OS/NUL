@@ -39,12 +39,14 @@ class Lapic : public StaticReceiver<Lapic>
     OFS_TMR   = 256,
     OFS_IRR   = 512,
     LVT_BASE  = _TIMER_offset,
+    APIC_ADDR = 0xfee00000,
   };
 
   VCpu *    _vcpu;
   DBus<MessageMem>   & _bus_mem;
   DBus<MessageApic>  & _bus_apic;
   DBus<MessageTimer> & _bus_timer;
+#include "model/simplediscovery.h"
   Clock *   _clock;
 
   unsigned  _initial_apic_id;
@@ -82,7 +84,7 @@ class Lapic : public StaticReceiver<Lapic>
     // RESET?
     if (!init) {
       Lapic_write(_ID_offset,  _initial_apic_id << 24);
-      set_base_msr(0xfee00800);
+      set_base_msr(APIC_ADDR | 0x800);
 
       // as we enable the APICs, we also perform the BIOS INIT
       if (!_vcpu->is_ap()) {
@@ -592,9 +594,27 @@ public:
   }
 
 
-  Lapic(VCpu *vcpu, DBus<MessageMem> &bus_mem, DBus<MessageApic> &bus_apic, DBus<MessageTimer> &bus_timer, Clock *clock, unsigned initial_apic_id)
-    : _vcpu(vcpu), _bus_mem(bus_mem),_bus_apic(bus_apic), _bus_timer(bus_timer), _clock(clock), _initial_apic_id(initial_apic_id) {
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
 
+    // write the default APIC address to the MADT
+    discovery_write_dw("APIC",  36,    APIC_ADDR, 4);    unsigned length;
+    check1(false, !discovery_read_dw("APIC", 4, length));
+    if (length < 44) length = 44;
+    discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
+    discovery_write_dw("APIC", length+4, 1, 4);
+    return true;
+  }
+
+
+  Lapic(VCpu *vcpu, DBus<MessageMem> &bus_mem, DBus<MessageApic> &bus_apic,
+	DBus<MessageTimer> &bus_timer, DBus<MessageDiscovery> &bus_discovery,
+	Clock *clock, unsigned initial_apic_id)
+    : _vcpu(vcpu), _bus_mem(bus_mem), _bus_apic(bus_apic), _bus_timer(bus_timer), _bus_discovery(bus_discovery),
+      _clock(clock), _initial_apic_id(initial_apic_id)
+  {
+
+    _ID = initial_apic_id << 24;
     // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
@@ -625,11 +645,12 @@ PARAM(lapic, {
     static unsigned lapic_count;
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.clock(), ~argv[0] ? argv[0]: lapic_count);
+    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.bus_discovery, mb.clock(), ~argv[0] ? argv[0]: lapic_count);
     lapic_count++;
     mb.bus_legacy.add(dev, &Lapic::receive_static<MessageLegacy>);
     mb.bus_apic.add(dev,     &Lapic::receive_static<MessageApic>);
     mb.bus_timeout.add(dev,  &Lapic::receive_static<MessageTimeout>);
+    mb.bus_discovery.add(dev,  &Lapic::receive_static<MessageDiscovery>);
     mb.last_vcpu->executor.add(dev, &Lapic::receive_static<CpuMessage>);
     mb.last_vcpu->mem.add(dev, &Lapic::receive_static<MessageMem>);
     mb.last_vcpu->memregion.add(dev, &Lapic::receive_static<MessageMemRegion>);

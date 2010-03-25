@@ -39,6 +39,7 @@ public:
 private:
   DBus<MessageMem>       &_bus_mem;
   DBus<MessageIrqNotify> &_bus_notify;
+#include "model/simplediscovery.h"
   unsigned _base;
   unsigned _gsibase;
 
@@ -210,8 +211,29 @@ public:
   }
 
 
-  IOApic(DBus<MessageMem> &bus_mem, DBus<MessageIrqNotify> &bus_notify, unsigned long base, unsigned gsibase) 
-    : _bus_mem(bus_mem), _bus_notify(bus_notify), _base(base), _gsibase(gsibase) {
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+
+    unsigned length;
+    check1(false, !discovery_read_dw("APIC", 4, length));
+    if (length < 44) length = 44;
+    if (!_gsibase) {
+      discovery_write_dw("APIC", length, 0x00000a02, 4);
+      discovery_write_dw("APIC", length+4,    2, 4);
+      discovery_write_dw("APIC", length+8,    0, 2);
+      length += 10;
+    }
+
+    discovery_write_dw("APIC", length,     0x0c01, 4);
+    discovery_write_dw("APIC", length+4,    _base, 4);
+    discovery_write_dw("APIC", length+8, _gsibase, 4);
+    return true;
+  }
+
+
+
+  IOApic(DBus<MessageMem> &bus_mem, DBus<MessageIrqNotify> &bus_notify, DBus<MessageDiscovery> &bus_discovery, unsigned long base, unsigned gsibase)
+    : _bus_mem(bus_mem), _bus_notify(bus_notify), _bus_discovery(bus_discovery), _base(base), _gsibase(gsibase) {
     reset();
   };
 };
@@ -220,9 +242,11 @@ public:
 PARAM(ioapic,
       static unsigned ioapic_count;
 
-      Device *dev = new IOApic(mb.bus_mem, mb.bus_irqnotify, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
+      Device *dev = new IOApic(mb.bus_mem, mb.bus_irqnotify, mb.bus_discovery, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
       mb.bus_mem.add(dev, IOApic::receive_static<MessageMem>);
+      mb.bus_irqlines.add(dev, IOApic::receive_static<MessageIrq>);
       mb.bus_legacy.add(dev, IOApic::receive_static<MessageLegacy>);
+      mb.bus_discovery.add(dev, IOApic::receive_static<MessageDiscovery>);
 
       ioapic_count++;
       ,
