@@ -38,10 +38,19 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     MSR_SYSENTER_EIP,
   };
 
+  void recalc_irqwindows(CpuMessage &msg) {
+    unsigned new_event = _event;
+    msg.cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
+    if (new_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
+    if (new_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
+  }
+
+
   void GP0(CpuMessage &msg) {
     msg.cpu->inj_info = 0x80000b0d;
     msg.cpu->inj_error = 0;
     msg.mtr_out |= MTD_INJ;
+    recalc_irqwindows(msg);
   }
 
   void handle_cpuid(CpuMessage &msg) {
@@ -153,26 +162,17 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   bool can_inject(CpuState *cpu) {  return !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
-  bool inject_interrupt(CpuState *cpu, unsigned vec) {
-    // spurious vector?
-    if (vec == ~0u) return true;
-
-    // already injection in progress?
-    if (~cpu->inj_info & 0x80000000 && can_inject(cpu)) {
-      cpu->inj_info = vec | 0x80000000;
-      return true;
-    }
-    return false;
-  }
 
   /**
    * Prioritize different events.
    * Returns the events to clear.
    */
-  unsigned prioritize_events(CpuMessage msg) {
+  unsigned prioritize_events(CpuMessage &msg) {
     CpuState *cpu = msg.cpu;
     unsigned and_mask = STATE_WAKEUP;
     unsigned old_event = _event;
+    if (!old_event)  return STATE_WAKEUP;
+
     if (old_event & EVENT_RESET) {
       handle_cpu_init(msg, true);
 
@@ -250,13 +250,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     assert(msg.mtr_in & MTD_INJ);
     assert(msg.mtr_in & MTD_RFLAGS);
 
+    recalc_irqwindows(msg);
+    msg.mtr_out |= MTD_INJ | MTD_STATE;
     Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
     unsigned old_event = _event;
-
-    // recalculate the IRQ windows
-    msg.cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
-    if (old_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
-    if (old_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
   }
 
 
