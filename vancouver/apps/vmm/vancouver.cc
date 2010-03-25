@@ -40,6 +40,7 @@ unsigned       _debug;
 const void *   _forward_pkt;
 long           _lockcount;
 Semaphore      _lock;
+long           _consolelock;
 TimeoutList<32>_timeouts;
 unsigned       _shared_sem[256];
 unsigned       _keyboard_modifier = KBFLAG_RWIN;
@@ -74,6 +75,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(got_exception) __attribute__((noreturn))
   {
+    // make sure we can print something
+    _consolelock = ~0;
     Logging::printf("%s() #%x ",  __func__, pid);
     Logging::printf("rip %x rsp %x  %x:%x %x:%x %x", utcb->eip, utcb->esp,
 		    utcb->edx, utcb->eax,
@@ -266,6 +269,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     _lock = Semaphore(&_lockcount, _cap_free++);
     check1(1, create_sm(_lock.sm()));
+
+    _consolelock = 1;
+    _console_data.sem = new Semaphore(&_consolelock, _cap_free++);
+    check1(2, create_sm(_console_data.sem->sm()));
+
 
     // create exception EC
     unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
