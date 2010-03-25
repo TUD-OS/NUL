@@ -198,7 +198,7 @@ class Lapic : public StaticReceiver<Lapic>
 
     // level triggered IRQs are treated as edge triggered
     icr = icr & 0x4fff;
-    if (event != VCpu::EVENT_LOWEST) {
+    if (event == VCpu::EVENT_LOWEST) {
 
       // we send them round-robin as EVENT_FIXED
       MessageApic msg((icr & ~0x700u), dst, 0);
