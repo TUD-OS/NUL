@@ -212,10 +212,10 @@ public:
     switch (msg.type) {
     case MessageDiscovery::WRITE:
       {
-	Resource *r;;
-	check1(false, !(r = get_resource(msg.resource)));
+	Resource *r;
 	unsigned needed_len = msg.offset + msg.count;
-	check1(false, needed_len > r->length, "no idea how to increase the table size");
+	check1(false, !(r = get_resource(msg.resource)));
+	check1(false, needed_len > r->length, "WRITE no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
 
 	unsigned table_len = acpi_tablesize(r);
 	// increase the length of an ACPI table.
@@ -234,9 +234,10 @@ public:
 	Resource *r;
 	unsigned needed_len = msg.offset + 4;
 	check1(false, !(r = get_resource(msg.resource)));
-	check1(false, needed_len > r->length, "no idea how to increase the table size");
+	check1(false, needed_len > r->length, "READ no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
 	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
       }
+      break;
     case MessageDiscovery::DISCOVERY:
     default:
       return false;
