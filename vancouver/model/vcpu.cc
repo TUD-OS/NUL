@@ -211,49 +211,56 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       and_mask |= EVENT_SMI;
       cpu->actv_state = 0;
       // fall trough
-      }
+    }
 
-      // NMI
-      if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && ~cpu->inj_info & 0x80000000 && !(cpu->intr_state & 3)) {
-	cpu->inj_info = 0x80000200;
-	cpu->actv_state = 0;
-	return and_mask | EVENT_NMI;
-      }
+    // NMI
+    if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
+      cpu->inj_info = 0x80000200;
+      cpu->actv_state = 0;
+      return and_mask | EVENT_NMI;
+    }
 
-      // interrupts are blocked in shutdown
-      if (cpu->actv_state == 2) return and_mask;
+    // interrupts are blocked in shutdown
+    if (cpu->actv_state == 2) return and_mask;
 
-      // ExtINT
-      if (old_event & EVENT_EXTINT) {
-	MessageLegacy msg2(MessageLegacy::INTA, ~0u);
-	_mb.bus_legacy.send(msg2);
-	if (inject_interrupt(cpu, msg2.value))
-	  and_mask |= EVENT_EXTINT;
-	cpu->actv_state = 0;
-	return and_mask;
+    // ExtINT
+    if (old_event & EVENT_EXTINT && can_inject(cpu)) {
+      MessageLegacy msg2(MessageLegacy::INTA, ~0u);
+      if (_mb.bus_legacy.send(msg2)) {
+	if (msg2.value >= 16)
+	  cpu->inj_info = msg2.value | 0x80000000;
+	and_mask |= EVENT_EXTINT;
       }
-
-      // APIC interrupt?
-      if (old_event & EVENT_FIXED) {
-	LapicEvent msg2(LapicEvent::INTA);
-	bus_lapic.send(msg2);
-	if (inject_interrupt(cpu, msg2.value))
-	  and_mask |= EVENT_FIXED;
-	cpu->actv_state = 0;
-	return and_mask;
-      }
+      cpu->actv_state = 0;
       return and_mask;
+    }
+
+    // APIC interrupt?
+    if (old_event & EVENT_FIXED && can_inject(cpu)) {
+      LapicEvent msg2(LapicEvent::INTA);
+      if (bus_lapic.send(msg2)) {
+	cpu->inj_info = msg2.value | 0x80000000;
+	and_mask |= EVENT_FIXED;
+      }
+      cpu->actv_state = 0;
+      return and_mask;
+    }
+    return and_mask;
   }
 
   void handle_irq(CpuMessage &msg) {
+    //if (_event != 0x80)
+    //Logging::printf("> handle_irq %x event %x\n", msg.mtr_out, _event);
     assert(msg.mtr_in & MTD_STATE);
     assert(msg.mtr_in & MTD_INJ);
     assert(msg.mtr_in & MTD_RFLAGS);
 
+    //unsigned old_event = _event;
+    if (~msg.cpu->inj_info & 0x80000000)
+      Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
     recalc_irqwindows(msg);
     msg.mtr_out |= MTD_INJ | MTD_STATE;
-    Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
-    unsigned old_event = _event;
+    //    Logging::printf("< handle_irq %x inj %x mtr %x/%x\n", old_event, msg.cpu->inj_info, msg.mtr_in, msg.mtr_out);
   }
 
 
