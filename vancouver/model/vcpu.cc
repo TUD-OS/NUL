@@ -385,20 +385,24 @@ public:
     return true;
   }
 
-  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb), _sipi(~0u) {
+  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb), _event(0), _sipi(~0u)  {
     MessageHostOp msg(this);
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;
+
+    // add to the busses
+    executor. add(this, &VirtualCpu::receive_static<CpuMessage>);
+    bus_event.add(this, &VirtualCpu::receive_static<CpuEvent>);
+    mem.      add(this, &VirtualCpu::receive_static<MessageMem>);
+    memregion.add(this, &VirtualCpu::receive_static<MessageMemRegion>);
     mb.bus_legacy.add(this, &VirtualCpu::receive_static<MessageLegacy>);
+
     CPUID_reset();
  }
 };
 
 PARAM(vcpu,
-      VirtualCpu *dev = new VirtualCpu(mb.last_vcpu, mb);
-      dev->executor.add(dev, &VirtualCpu::receive_static<CpuMessage>);
-      dev->bus_event.add(dev, &VirtualCpu::receive_static<CpuEvent>);
-      mb.last_vcpu = dev;
+      mb.last_vcpu = new VirtualCpu(mb.last_vcpu, mb);
       ,
       "vcpu - create a new VCPU");
 
