@@ -192,7 +192,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // are we an AP and should go to the wait-for-sipi state?
       if (is_ap()) cpu->actv_state = 3;
       _sipi = !is_ap();
-      return and_mask | EVENT_RESET;
+      return and_mask | (old_event & ~EVENT_SIPI);
     }
 
 
