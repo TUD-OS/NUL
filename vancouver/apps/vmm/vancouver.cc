@@ -123,8 +123,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
 	{
 	case KBFLAG_EXTEND0 | 0x7c: // printscr
-	  // XXX
-	  //recall(_mb->vcpustate(0)->cap_vcpu);
+	  {
+	    // we send an empty event
+	    CpuEvent msg(0);
+	    for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last())
+	      vcpu->bus_event.send(msg);
+	  }
 	  break;
 	case KBCODE_SCROLL: // scroll lock
 	  Logging::printf("toggle HLT\n");
