@@ -523,6 +523,7 @@ public:
    */
   bool  receive(CpuMessage &msg) {
     if (msg.type == CpuMessage::TYPE_RDMSR) {
+      msg.mtr_out |= MTD_GPR_ACDB;
 
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b) {
