@@ -648,8 +648,8 @@ REGSET(Lapic,
        REG_RW(_TIMER,         0x32, 0x00010000, 0x300ff, )
        REG_RW(_TERM,          0x33, 0x00010000, 0x107ff, )
        REG_RW(_PERF,          0x34, 0x00010000, 0x107ff, )
-       REG_RW(_LINT0,         0x35, 0x00010000, 0x1a7ff, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
-       REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);)
+       REG_RW(_LINT0,         0x35, 0x00010000, 0x1a7ff, )
+       REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, )
        REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff, )
        REG_RW(_ICT,           0x38,          0, ~0u,
 	      _timer_start = _clock->time();
