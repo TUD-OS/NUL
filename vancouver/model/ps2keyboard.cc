@@ -368,11 +368,15 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
     return true;
   }
 
+  bool  receive(MessageLegacy &msg) {
+    if (msg.type != MessageLegacy::RESET) return false;
+    reset();
+    return true;
+  }
+
  PS2Keyboard(DBus<MessagePS2>  &bus_ps2, unsigned ps2port, unsigned hostkeyboard)
    : _bus_ps2(bus_ps2), _ps2port(ps2port), _hostkeyboard(hostkeyboard)
-  {
-    reset();
-  }
+  {}
 };
 
 PARAM(keyb,
@@ -380,6 +384,7 @@ PARAM(keyb,
 	Device *dev = new PS2Keyboard(mb.bus_ps2, argv[0], argv[1]);
 	mb.bus_ps2.add(dev, &PS2Keyboard::receive_static<MessagePS2>);
 	mb.bus_keycode.add(dev, &PS2Keyboard::receive_static<MessageKeycode>);
+	mb.bus_legacy.add(dev, &PS2Keyboard::receive_static<MessageLegacy>);
       },
       "keyb:ps2port,hostkeyboard - attach a PS2 keyboard at the given PS2 port that gets input from the given hostkeyboard.",
       "Example: 'keyb:0,0x17'");
