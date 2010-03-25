@@ -124,10 +124,10 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
   void fix_acpi_checksum(Resource *r, unsigned length, unsigned chksum_offset = 9) {
     assert(r);
-    unsigned value = 0;
+    char value = 0;
     for (unsigned i=0; i < length && i < r->length; i++)
-      value += _mem_ptr[r->offset] & 0xff;
-    _mem_ptr[chksum_offset] -= value;
+      value += _mem_ptr[r->offset + i];
+    _mem_ptr[r->offset + chksum_offset] -= value;
   }
 
 
