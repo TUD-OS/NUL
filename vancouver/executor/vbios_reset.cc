@@ -32,8 +32,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 #define ACPI_OEM_ID        "_NOVA_"
 #define ACPI_MANUFACTURER "__VMMON_"
 
-
-#include "model/simplediscovery.h"
   char     *_mem_ptr;
   unsigned  _mem_size;
 
@@ -47,14 +45,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   } _resources[MAX_RESOURCES];
 
 
-  /**
-   * Out to IO-port.
-   */
-  void outb(unsigned short port, unsigned value)
-  {
-    MessageIOOut msg(MessageIOOut::TYPE_OUTB, port, value);
-    _mb.bus_ioout.send(msg);
-  }
 
 
   /**
@@ -253,7 +243,7 @@ public:
   }
 
 
-  VirtualBiosReset(Motherboard &mb) : BiosCommon(mb), _bus_discovery(mb.bus_discovery) {}
+  VirtualBiosReset(Motherboard &mb) : BiosCommon(mb) {}
 };
 
 PARAM(vbios_reset,

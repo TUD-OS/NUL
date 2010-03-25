@@ -27,7 +27,7 @@
  * Features: CPU init, elf-decoding, MBI creation, memory-map, request
  *           modules from sigma0, modaddr
  */
-class VirtualBiosMultiboot : public StaticReceiver<VirtualBiosMultiboot>
+class VirtualBiosMultiboot : public StaticReceiver<VirtualBiosMultiboot>, BiosCommon
 {
 public:
   enum mbi_enum
@@ -82,7 +82,6 @@ public:
     unsigned type;
   };
 private:
-  Motherboard &_mb;
   unsigned long _modaddr;
   unsigned _lowmem;
   const char *debug_getname() { return "VirtualBiosMultiboot"; };
@@ -186,7 +185,7 @@ private:
     return true;
   }
 
-  VirtualBiosMultiboot(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : _mb(mb), _modaddr(modaddr), _lowmem(lowmem) {}
+  VirtualBiosMultiboot(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : BiosCommon(mb), _modaddr(modaddr), _lowmem(lowmem) {}
 };
 
 PARAM(vbios_multiboot,

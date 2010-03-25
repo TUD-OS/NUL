@@ -32,6 +32,7 @@ public:
 protected:
   Motherboard &_mb;
 #include "model/simplemem.h"
+#include "model/simplediscovery.h"
 
 
   /**
@@ -79,5 +80,15 @@ protected:
     msg.mtr_out |= MTD_RFLAGS | MTD_GPR_ACDB;
   }
 
-  BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem) {}
+
+  /**
+   * Out to IO-port.
+   */
+  void outb(unsigned short port, unsigned value)
+  {
+    MessageIOOut msg(MessageIOOut::TYPE_OUTB, port, value);
+    _mb.bus_ioout.send(msg);
+  }
+
+ BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem), _bus_discovery(mb.bus_discovery) {}
 };
