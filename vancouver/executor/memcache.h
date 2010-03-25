@@ -218,6 +218,7 @@ public:
 	res->_len = len;
 	res->_phys1 = phys1;
 	res->_phys2 = phys2;
+	//Logging::printf("entry[%d] newest %d.%d phys %lx/%lx len %x ptr %p\n", entry, s,_sets[s]._newest, phys1, phys2, len, res->_ptr);
 	return_move_to_front(_sets[s]._values, _sets[s]._newest);
       }
     }

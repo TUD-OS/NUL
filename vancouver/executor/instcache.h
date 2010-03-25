@@ -510,8 +510,8 @@ public:
 	else
 	  {
 	    _mtr_out |= MTD_INJ;
-	    Logging::printf("fault: %x old %x error %x at eip %x line %d %x\n", _fault, _cpu->inj_info,
-			    _error_code, _cpu->eip, _debug_fault_line, _cpu->cr2);
+	    Logging::printf("fault: %x old %x error %x cr2 %x at eip %x line %d %x\n", _fault, _cpu->inj_info,
+			    _error_code, _cpu->cr2, _cpu->eip, _debug_fault_line, _cpu->cr2);
 	    // consolidate two exceptions
 
 	    // triple fault ?
@@ -555,8 +555,7 @@ public:
       // remove sti+movss blocking
       _cpu->intr_state &= ~3;
       event_injection() || get_instruction() || execute();
-      if (commit())
-	invalidate(true);
+      if (commit()) invalidate(true);
     }
     msg.mtr_out = _mtr_out;
   }

@@ -82,6 +82,7 @@ private:
       value = _id;
     else if (_index == 1)
       value = 0x00008020 | ((PINS - 1) << 16);
+    //Logging::printf("\t\tIOAPIC read %x value %x\n", _index, value);
   }
 
 
@@ -89,6 +90,7 @@ private:
    * Write to the data register.
    */
   void write_data(unsigned value) {
+    //Logging::printf("\t\tIOAPIC write %x value %x\n", _index, value);
     if (in_range(_index, 0x10, 0x3f)) {
       unsigned mask = (_index & 1) ? 0xffff0000 : 0x1afff;
       _redir[_index - 0x10] = value & mask;
@@ -124,6 +126,7 @@ private:
       unsigned dst   = _redir[2*pin+1];
       unsigned value = _redir[2*pin];
       bool level     = value & 0x8000;
+      //Logging::printf("IOAPIC %x assert %x %x\n", pin, dst, value);
       _notify[pin] = type == MessageIrq::ASSERT_NOTIFY;
       if (value & 0x10000) {
 	if (level)_ds[pin] = true;
@@ -134,6 +137,7 @@ private:
       unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
       if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
       if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
+      //Logging::printf("IOAPIC %lx dst %x\n", phys, value);
       MessageMem mem(false, phys, &value);
       _bus_mem.send(mem);
     }
@@ -163,9 +167,9 @@ private:
     for (unsigned i=0; i < PINS; i++) {
       _redir[2*i]   = 0x10000;
       _redir[2*i+1] = 0;
-      _notify[i] = false;
-      _ds[i] = false;
-      _rirr[i] = false;
+      _notify[i]    = false;
+      _ds[i]        = false;
+      _rirr[i]      = false;
     }
     _id = 0;
     _index = 0;
@@ -176,7 +180,6 @@ public:
     if (!in_range(msg.phys, _base, 0x100) &&
 	// all IOApics should get the broadcast EOI from the LAPIC
 	msg.phys != MessageApic::IOAPIC_EOI) return false;
-
     switch (msg.phys & 0xff) {
     case OFFSET_INDEX:
       if (msg.read)  *msg.ptr = _index; else  _index = *msg.ptr;
@@ -199,6 +202,7 @@ public:
 
   bool  receive(MessageIrq &msg) {
     if (!in_range(msg.line, _gsibase, PINS)) return false;
+    COUNTER_INC("GSI");
     pin_assert(irq_routing(msg.line), msg.type);
     return true;
   }

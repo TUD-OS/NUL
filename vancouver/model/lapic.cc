@@ -100,7 +100,7 @@ class Lapic : public StaticReceiver<Lapic>
    * Update the APIC base MSR.
    */
   bool set_base_msr(unsigned long long value) {
-    Logging::printf("%s %llx %d\n", __PRETTY_FUNCTION__, value, _vcpu->is_ap());
+    //Logging::printf("%s %llx %llx\n", __PRETTY_FUNCTION__, value, _msr);
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
     bool was_x2apic_mode = x2apic_mode();
     if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
@@ -161,6 +161,9 @@ class Lapic : public StaticReceiver<Lapic>
    * We send an IPI.
    */
   bool send_ipi(unsigned icr, unsigned dst) {
+    COUNTER_INC("IPI");
+
+    //Logging::printf("%s %x %x\n", __func__, icr, dst);
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
@@ -208,6 +211,7 @@ class Lapic : public StaticReceiver<Lapic>
       // we could set an send accept error here, but that is not supported in the P4...
       return _lowest_rr;
     }
+    //Logging::printf("%s %x %x\n", __func__, icr, dst);
 
     MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
     return _bus_apic.send(msg);
@@ -329,7 +333,7 @@ class Lapic : public StaticReceiver<Lapic>
 
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
-    Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
+    //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
     switch (offset) {
     case 0x9: // APR
     case 0xc: // RRD
@@ -422,6 +426,7 @@ class Lapic : public StaticReceiver<Lapic>
     }
 
     unsigned dst = msg.dst << 24;
+    //Logging::printf("IPI %x %x\n", msg.dst, msg.icr);
 
     // broadcast
     if (dst == 0xff000000)  return true;

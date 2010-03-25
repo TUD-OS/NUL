@@ -70,6 +70,7 @@ private:
 	if (entry) AD_ASSIST(0x20);
 	if (features & FEATURE_PAE)  entry = get((pte & ~0xfff) | ((virt >> l* 9) & 0xff8ul), ~0xffful, 8, TYPE_R);
 	else                         entry = get((pte & ~0xfff) | ((virt >> l*10) & 0xffcul), ~0xffful, 4, TYPE_R);
+	//Logging::printf("PTE virt %lx %x = %x\n", virt, pte, *reinterpret_cast<PTE_TYPE *>(entry->_ptr));
 	pte = *reinterpret_cast<PTE_TYPE *>(entry->_ptr);
 	if (~pte & 1)  PF(virt, type & ~1);
 	r &= pte | TYPE_X;

@@ -124,6 +124,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	{
 	case KBFLAG_EXTEND0 | 0x7c: // printscr
 	  {
+	    Logging::printf("DEBUG key\n");
 	    // we send an empty event
 	    CpuEvent msg(VCpu::EVENT_DEBUG);
 	    for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last())
@@ -310,7 +311,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _cap_free += 0x100;
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
-      Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
+      //Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
       check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
     }
 
@@ -359,6 +360,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
+    //if (type == CpuMessage::TYPE_WRMSR)
     //Logging::printf("\tvcpu %x utcb %p type %x eip %x efl %x\n", pid, utcb, type, utcb->eip, utcb->efl);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     if (skip) skip_instruction(msg);
@@ -369,8 +371,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
+    //if (type == CpuMessage::TYPE_WRMSR)
+      //Logging::printf("write back for pid %x type %x eip %x mtr %x/%x inj %x\n", pid, type, utcb->eip, utcb->head.mtr.value(), msg.mtr_out, msg.cpu->inj_info);
     utcb->head.mtr = msg.mtr_out;
-    //Logging::printf("write back for pid %x type %x eip %x mtr %x cr0 %x\n", pid, type, utcb->eip, utcb->head.mtr.value(), mtr);
   }
 
 
@@ -661,7 +664,7 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 //	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	//Logging::printf("CPUID %x\n", utcb->eax);
+	//Logging::printf("CPUID eip %x %x\n", utcb->eip, utcb->eax);
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);
 	//Logging::printf("CPUID -> %x %x %x %x\n", utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
 	)
@@ -685,20 +688,20 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STAT
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);
-	Logging::printf("RDMSR addr %x eip %x %x:%8x\n", utcb->ecx, utcb->eip, utcb->edx, utcb->eax);
+	//Logging::printf("RDMSR addr %x eip %x %x:%8x\n", utcb->ecx, utcb->eip, utcb->edx, utcb->eax);
 )
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
-	Logging::printf("invalid %x ar %x\n", utcb->eip, utcb->ds.ar);
+	//Logging::printf("invalid %x:%x\n", utcb->cs.sel, utcb->eip);
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	utcb->head.mtr.add(MTD_RFLAGS);
 	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
-	//Logging::printf("MMIO addr %llx eip %x cr0 %x cr3 %x\n", utcb->qual[1], utcb->eip, utcb->cr0, utcb->cr3);
+	//Logging::printf("MMIO addr %llx eip %x cr0 %x cr3 %x pte %x\n", utcb->qual[1], utcb->eip, utcb->cr0, utcb->cr3, *reinterpret_cast<unsigned *>(0x8080ccfc));
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
