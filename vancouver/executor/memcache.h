@@ -125,7 +125,7 @@ private:
     unsigned long address = _buffers[index]._phys1;
     //Logging::printf("buffer IO %s %lx+%x\n", read ? "read" : "write", address, _buffers[index]._len);
     for (unsigned i=0; i < _buffers[index]._len; i += 4) {
-      MessageMem msg2(true, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
+      MessageMem msg2(read, address, reinterpret_cast<unsigned *>(_buffers[index].data + i));
       _mem.send(msg2, true);
       if ((address & 0xfff) != 0xffc)
 	address += 4;
@@ -204,11 +204,15 @@ public:
        * two non-adjunct pages, where we have to map the two pages
        * into an 8k region and unmap them later on....
        */
-      if (phys2 != ~0xffful && (((phys1 >> 12) + 1) != (phys2 >> 12))) Logging::panic("joining two non-adjunct pages %lx,%lx is not supported", phys1 >> 12, phys2 >> 12);
+      bool supported = true;
+      if (phys2 != ~0xffful && (((phys1 >> 12) + 1) != (phys2 >> 12))) {
+	Logging::printf("joining two non-adjunct pages %lx,%lx is not supported\n", phys1 >> 12, phys2 >> 12);
+	supported = false;
+      }
 
       // try to get a direct memory reference
       MessageMemRegion msg1(phys1 >> 12);
-      if (_memregion.send(msg1, true) && msg1.ptr && ((phys1 + len) <= ((msg1.start_page + msg1.count) << 12))) {
+      if (supported && _memregion.send(msg1, true) && msg1.ptr && ((phys1 + len) <= ((msg1.start_page + msg1.count) << 12))) {
 	CacheEntry *res = _sets[s]._values + entry;
 	res->_ptr = msg1.ptr + (phys1 - (msg1.start_page << 12));
 	res->_len = len;
