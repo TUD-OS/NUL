@@ -28,6 +28,11 @@ DEFAULT_PARAM(PC_PS2, "an alias to create an PS2 compatible PC",
 DEFAULT_PARAM(vcpu_default, "an alias to create a default VCPU",          "vcpu halifax vbios lapic")
 DEFAULT_PARAM(S0_DEFAULT,   "an alias for the default sigma0 parameters", "hostacpi ioio hostrtc pcicfg mmconfig atare")
 
+PARAM(vcpus,
+      unsigned count = ~argv[0] ? argv[0] : 1;
+      while (count--) { char param[] = "vcpu_default"; mb.parse_args(param); }
+      ,
+      "vcpus:num - create num times 'vcpu_default'");
 
 PARAM(help,
       {
