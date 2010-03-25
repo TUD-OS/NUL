@@ -278,6 +278,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     Cpu::move(msg.dst, &msg2.value, msg.io_order);
     msg.mtr_out |= MTD_GPR_ACDB;
+    //Logging::printf("in<%d> %4x %8x mtr %x\n", msg2.type, msg2.port, msg2.value, msg.mtr_out);
 
     static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
@@ -290,6 +291,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void handle_ioout(CpuMessage &msg) {
     MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.port, 0);
     Cpu::move(&msg2.value, msg.dst, msg.io_order);
+    //Logging::printf("out<%d> %4x %8x\n", msg2.type, msg2.port, msg2.value);
     bool res = _mb.bus_ioout.send(msg2);
 
     static unsigned char debugioout[8192];
@@ -300,6 +302,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
   void got_event(unsigned value) {
+    //if (value != EVENT_EXTINT)
+    //Logging::printf("got event value %x\n", value);
     /**
      * We received an asynchronous event. As code runs in many
      * threads, state updates have to be atomic!
@@ -395,6 +399,7 @@ public:
       return false;
     }
 
+    //Logging::printf("CPU Message %d utcb %p eip %x\n", msg.type, msg.cpu, msg.cpu->eip);
     // handle IRQ injection
     for (handle_irq(msg); msg.cpu->actv_state & 0x3; handle_irq(msg)) {
       MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
