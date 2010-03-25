@@ -161,8 +161,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     else if (!strcmp("RSDP", name)) {
       Resource *r;
       check1(false, !(r = get_resource("ebda")));
-      _resources[index] = Resource(name, r->offset, 36, false);
-      discovery_write_st(name, 0,  "RSDP PTR", 8);
+      _resources[index] = Resource(name, r->offset + 0x200, 36, false);
+      discovery_write_st(name, 0,  "RSD PTR ", 8);
       discovery_write_st(name, 9,  ACPI_OEM_ID, 6);
       discovery_write_dw(name, 15, 2, 1);
       fix_acpi_checksum(_resources + index, 20, 8);
