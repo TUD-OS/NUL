@@ -21,7 +21,7 @@
 /**
  * Bridge between guest and host memory.
  *
- * State: unstable
+ * State: testing
  */
 class DirectMemDevice : public StaticReceiver<DirectMemDevice>
 {
