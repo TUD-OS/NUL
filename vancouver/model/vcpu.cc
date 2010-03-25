@@ -53,22 +53,30 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     recalc_irqwindows(msg);
   }
 
-  void handle_cpuid(CpuMessage &msg) {
+
+  bool handle_cpuid(CpuMessage &msg) {
+    bool res = true;
     unsigned reg;
     if (msg.cpuid_index & 0x80000000u && msg.cpuid_index <= CPUID_EAX80)
       reg = (msg.cpuid_index << 4) | 0x80000000u;
     else {
       reg = msg.cpuid_index << 4;
-      if (msg.cpuid_index > CPUID_EAX0) reg = CPUID_EAX0 << 4;
+      if (msg.cpuid_index > CPUID_EAX0) {
+	reg = CPUID_EAX0 << 4;
+	res = false;
+      }
     }
     if (!CPUID_read(reg | 0, msg.cpu->eax)) msg.cpu->eax = 0;
     if (!CPUID_read(reg | 1, msg.cpu->ebx)) msg.cpu->ebx = 0;
     if (!CPUID_read(reg | 2, msg.cpu->ecx)) msg.cpu->ecx = 0;
     if (!CPUID_read(reg | 3, msg.cpu->edx)) msg.cpu->edx = 0;
+    msg.mtr_out |= MTD_GPR_ACDB;
+    return res;
   }
 
 
   void handle_rdtsc(CpuMessage &msg) {
+    assert(msg.mtr_in & MTD_TSC);
     msg.cpu->edx_eax(msg.cpu->tsc_off + Cpu::rdtsc());
     msg.mtr_out |= MTD_GPR_ACDB;
   }
@@ -331,37 +339,40 @@ public:
 
 
   bool receive(CpuMessage &msg) {
+    //Logging::printf("CPU Message %d %x/%x\n", msg.type, msg.mtr_in, msg.mtr_out);
     switch (msg.type) {
-    case CpuMessage::TYPE_CPUID:
-      handle_cpuid(msg);
-      break;
+    case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
       {
 	unsigned reg = (msg.nr << 4) | msg.reg | msg.nr & 0x80000000;
 	unsigned old;
-	return CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value);
+	if (CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value)) {
+	  CPUID_read(reg, old);
+	  Logging::printf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
+	  return true;
+	}
+	return false;
       };
     case CpuMessage::TYPE_RDTSC:
       handle_rdtsc(msg);
-      break;
+      return true;
     case CpuMessage::TYPE_RDMSR:
       handle_rdmsr(msg);
-      break;
+      return true;
     case CpuMessage::TYPE_WRMSR:
       handle_wrmsr(msg);
-      break;
+      return true;
     case CpuMessage::TYPE_IOIN:
       handle_ioin(msg);
-      break;
+      return true;
     case CpuMessage::TYPE_IOOUT:
       handle_ioout(msg);
-      break;
-    case CpuMessage::TYPE_TRIPLE:
-      assert(!msg.cpu->actv_state);
-      msg.cpu->actv_state = 2;
-      break;
+      return true;
     case CpuMessage::TYPE_INIT:
       got_event(EVENT_INIT);
+      return true;
+    case CpuMessage::TYPE_TRIPLE:
+      msg.cpu->actv_state = 2;
       break;
     case CpuMessage::TYPE_HLT:
       assert(!msg.cpu->actv_state);
