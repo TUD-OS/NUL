@@ -344,6 +344,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->head.mtr.untyped());
+    skip_instruction(msg);
+
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     //Logging::printf("\tio type %x eip %x efl %x\n", is_in, utcb->eip, utcb->efl, msg.);
     {
@@ -351,7 +353,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
     }
-    skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
   }
 
@@ -360,13 +361,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     //Logging::printf("\tvcpu %x utcb %p type %x eip %x efl %x\n", pid, utcb, type, utcb->eip, utcb->efl);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+    if (skip) skip_instruction(msg);
+
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     {
       SemaphoreGuard l(_lock);
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
-    if (skip) skip_instruction(msg);
     utcb->head.mtr = msg.mtr_out;
     //Logging::printf("write back for pid %x type %x eip %x mtr %x cr0 %x\n", pid, type, utcb->eip, utcb->head.mtr.value(), mtr);
   }
