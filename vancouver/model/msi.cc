@@ -38,6 +38,7 @@ public:
     unsigned dst = (msg.phys >> 12) & 0xff | (msg.phys << 4) & 0xff00;
     unsigned icr = *msg.ptr & 0xc7ff;
     unsigned event = 1 << ((icr >> 8) & 7);
+    //Logging::printf("MSI %x dst %x\n", icr, dst);
 
     // do not forward RRD and SIPI
     if (event & (VCpu::EVENT_RRD | VCpu::EVENT_SIPI)) return false;

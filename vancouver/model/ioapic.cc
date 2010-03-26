@@ -121,6 +121,7 @@ private:
     if (pin >= PINS) return;
     if (type == MessageIrq::DEASSERT_IRQ) _ds[pin] = false;
     else {
+      //Logging::printf("IOAPIC %x rirr %d ds %d val %x\n", pin, _rirr[pin], _ds[pin], _redir[2*pin]);
       // have we already send the message
       if (_rirr[pin]) return;
       unsigned dst   = _redir[2*pin+1];
@@ -164,6 +165,7 @@ private:
    * Reset the registers.
    */
   void reset() {
+    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     for (unsigned i=0; i < PINS; i++) {
       _redir[2*i]   = 0x10000;
       _redir[2*i+1] = 0;
@@ -202,6 +204,7 @@ public:
 
   bool  receive(MessageIrq &msg) {
     if (!in_range(msg.line, _gsibase, PINS)) return false;
+    //Logging::printf("IRQ %x type %x\n", msg.line, msg.type);
     COUNTER_INC("GSI");
     pin_assert(irq_routing(msg.line), msg.type);
     return true;

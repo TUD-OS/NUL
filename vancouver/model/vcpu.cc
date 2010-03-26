@@ -340,7 +340,7 @@ public:
       return true;
     }
 
-    // only the BSP receives legacy signals if the LAPIC is disabled
+    // BSP receives only legacy signals if the LAPIC is disabled
     if (is_ap() || CPUID_EDX1 & (1 << 9)) return false;
 
     if (msg.type == MessageLegacy::EXTINT)
@@ -365,7 +365,7 @@ public:
 	unsigned old;
 	if (CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value)) {
 	  CPUID_read(reg, old);
-	  Logging::printf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
+	  //Logging::printf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
 	  return true;
 	}
 	return false;
