@@ -113,6 +113,14 @@ private:
       _id = value;
   }
 
+  void notify(unsigned pin) {
+    if (_notify[pin]) {
+      _notify[pin] = false;
+      unsigned gsi = reverse_routing(pin);
+      MessageIrqNotify msg(gsi >> 3, 1  << (gsi & 7));
+      _bus_notify.send(msg);
+    }
+  }
 
   /**
    * Assert a pin on this IO/APIC.
@@ -130,17 +138,18 @@ private:
       //Logging::printf("IOAPIC %x assert %x %x\n", pin, dst, value);
       _notify[pin] = type == MessageIrq::ASSERT_NOTIFY;
       if (value & 0x10000) {
-	if (level)_ds[pin] = true;
-	return;
-      }
-      _rirr[pin]= level;
+	if (level) _ds[pin] = true;
+      } else {
+	_rirr[pin]= level;
 
-      unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
-      if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
-      if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
-      //Logging::printf("IOAPIC %lx dst %x\n", phys, value);
-      MessageMem mem(false, phys, &value);
-      _bus_mem.send(mem);
+	unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
+	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
+	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
+	//Logging::printf("IOAPIC %lx dst %x\n", phys, value);
+	MessageMem mem(false, phys, &value);
+	_bus_mem.send(mem);
+      }
+      if (!level) notify(pin);
     }
   }
 
@@ -152,11 +161,7 @@ private:
     for (unsigned i=0; i < PINS; i++)
       if ((_redir[i*2] & 0xff) == vector && _rirr[i]) {
 	_rirr[i] = false;
-	if (_notify[i]) {
-	  unsigned gsi = reverse_routing(i);
-	  MessageIrqNotify msg(gsi & ~0x7, 1  << (gsi & 7));
-	  _bus_notify.send(msg);
-	}
+	notify(i);
       }
   }
 
