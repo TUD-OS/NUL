@@ -23,8 +23,8 @@
  * A PCI host bridge.
  *
  * State: unstable
- * Features: ConfigSpace, BusReset
- * Missing: LogicalPCI bus, MMConfig
+ * Features: ConfigSpace, BusReset, MMConfig
+ * Missing: LogicalPCI bus
  */
 
 #ifndef REGBASE
@@ -32,9 +32,11 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
 {
   DBus<MessagePciConfig> &_bus_pcicfg;
   DBus<MessageLegacy>    &_bus_legacy;
+#include "model/simplediscovery.h"
   unsigned _secondary;
   unsigned _subordinate;
   unsigned short _iobase;
+  unsigned long  _membase;
   unsigned _confaddress;
   unsigned char _cf9;
 
@@ -48,17 +50,15 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
    */
   bool send_bus(MessagePciConfig &msg)
   {
-    bool res = false;
     unsigned bus = msg.bdf >> 8;
-    if (_secondary == bus)
-      {
-	unsigned bdf = msg.bdf;
-	msg.bdf = 0;
-	res = _bus_pcicfg.send(msg, true, bdf);
-      }
-    else if (bus >= _secondary && bus <= _subordinate)
-	res = _bus_pcicfg.send(msg);
-    return res;
+    if (_secondary == bus) {
+      unsigned bdf = msg.bdf;
+      msg.bdf = 0;
+      return _bus_pcicfg.send(msg, true, bdf);
+    }
+    if (bus >= _secondary && bus <= _subordinate)
+      return _bus_pcicfg.send(msg);
+    return false;
   }
 
 
@@ -131,7 +131,33 @@ public:
   }
 
 
+  /**
+   * MMConfig access.
+   */
+  bool  receive(MessageMem &msg) {
+
+    if (!in_range(msg.phys, _membase, (_subordinate + 1) << 20)) return false;
+
+    unsigned bdf = (msg.phys - _membase) >> 12;
+    unsigned dword = (msg.phys & 0xfff) >> 2;
+
+    // write
+    if (!msg.read) {
+      MessagePciConfig msg1(bdf, dword, *msg.ptr);
+      return send_bus(msg1);
+    }
+
+    // read
+    MessagePciConfig msg2(bdf, dword);
+    if (!send_bus(msg2)) return false;
+    *msg.ptr = msg2.value;
+    return true;
+  }
+
+
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
+
+
   bool receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
     PCI_reset();
@@ -141,21 +167,49 @@ public:
   }
 
 
-  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageLegacy> &bus_legacy, unsigned secondary, unsigned subordinate, unsigned short iobase)
-    : _bus_pcicfg(bus_pcicfg), _bus_legacy(bus_legacy), _secondary(secondary), _subordinate(subordinate), _iobase(iobase) {}
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+    unsigned length = 0;
+    check1(false, !discovery_read_dw("MCFG", 4, length));
+    if (length < 44) length = 44;
+    discovery_write_dw("MCFG", length +  0, _membase, 4);
+    discovery_write_dw("MCFG", length +  4, static_cast<unsigned long long>(_membase) >> 32, 4);
+    discovery_write_dw("MCFG", length +  8, ((_secondary & 0xff) << 16) | ((_subordinate & 0xff) << 24) | ((_secondary >> 8) & 0xffff), 4);
+    discovery_write_dw("MCFG", length + 12, 0);
+    return true;
+  }
+
+
+  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageLegacy> &bus_legacy, DBus<MessageDiscovery> &bus_discovery,
+		unsigned secondary, unsigned subordinate, unsigned short iobase, unsigned long membase)
+    : _bus_pcicfg(bus_pcicfg), _bus_legacy(bus_legacy), _bus_discovery(bus_discovery),
+      _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _membase(membase) {}
 };
 
 PARAM(pcihostbridge,
       {
 	unsigned busnum = argv[0];
-	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, mb.bus_legacy, busnum, argv[1], ~argv[2] ? argv[2] : 0xcf8);
-	mb.bus_ioin.add(dev, &PciHostBridge::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, &PciHostBridge::receive_static<MessageIOOut>);
+	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, mb.bus_legacy, mb.bus_discovery, busnum, argv[1], argv[2], argv[3]);
+
+	// ioport interface
+	if (~argv[2]) {
+	  mb.bus_ioin.add(dev, &PciHostBridge::receive_static<MessageIOIn>);
+	  mb.bus_ioout.add(dev, &PciHostBridge::receive_static<MessageIOOut>);
+	}
+
+	// MMCFG interface
+	if (~argv[3]) {
+	  mb.bus_mem.add(dev, &PciHostBridge::receive_static<MessageMem>);
+	  mb.bus_discovery.add(dev, &PciHostBridge::receive_static<MessageDiscovery>);
+	}
+
 	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);
 	mb.bus_legacy.add(dev, &PciHostBridge::receive_static<MessageLegacy>);
       },
-      "pcihostbridge:secondary,subordinate,iobase=0xcf8 - attach a pci host bridge to the system.",
-      "Example: 'pcihostbridge:0,0xff'");
+      "pcihostbridge:secondary,subordinate,iobase,membase - attach a pci host bridge to the system.",
+      "Example: 'pcihostbridge:0,0xf,0xcf8,0xe0000000'",
+      "If not iobase is given, no io-accesses are performed.",
+      "Similar if membase is not given, MMCFG is disabled.");
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,  0x0, 0x27a08086)
