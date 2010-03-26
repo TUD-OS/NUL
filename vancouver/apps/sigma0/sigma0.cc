@@ -684,10 +684,12 @@ public:
 		if (!_mb->bus_disk.send(msg2))  Logging::printf("could not flush disk %d\n", i);
 	      }
 	    Logging::printf("reset System\n");
-	    MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0xcf9, 6);
-	    MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0x92, 1);
+	    MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0xcf9, 2);
+	    MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0xcf9, 6);
+	    MessageIOOut msg3(MessageIOOut::TYPE_OUTB,  0x92, 1);
 	    _mb->bus_hwioout.send(msg1);
 	    _mb->bus_hwioout.send(msg2);
+	    _mb->bus_hwioout.send(msg3);
 	    return true;
 	  }
 	break;
