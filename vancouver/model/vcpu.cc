@@ -216,6 +216,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       cpu->cs.sel       = _sipi & 0xff00;
       cpu->cs.base      = cpu->cs.sel << 4;
       cpu->actv_state   = 0;
+      Logging::printf("handle sipi %x event %x ip: %x:%x\n", _sipi, _event, cpu->cs.base, cpu->eip);
       msg.mtr_out      |= MTD_CS_SS;
       and_mask         |= EVENT_SIPI;
       // fall through
@@ -255,6 +256,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       MessageLegacy msg2(MessageLegacy::INTA, ~0u);
       if (_mb.bus_legacy.send(msg2))
 	cpu->inj_info = msg2.value | 0x80000000;
+
       and_mask |= EVENT_EXTINT;
       cpu->actv_state = 0;
     }
@@ -312,6 +314,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void got_event(unsigned value) {
     COUNTER_INC("EVENT");
     //if (value != EVENT_FIXED) Logging::printf("VCPU[%2d] got event value %x sipi %x event %x\n", CPUID_EDXb, value, _sipi, _event);
+
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state
