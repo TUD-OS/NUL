@@ -54,7 +54,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     dma.bytecount  = 512*count;
     dma.byteoffset = address;
 
-    //    Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, blocknr, write ? "write" : "read",  count, address);
+    //Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, blocknr, write ? "write" : "read",  count, address);
     MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, msg.cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
       {
@@ -229,10 +229,6 @@ public:
     if (msg.usertag == MAGIC_DISK_TAG) {
 	write_bda(DISK_COMPLETION_CODE, msg.status, 1);
 	_diskop_inprogress = false;
-
-	// send a disk IRQ
-	MessageIrq msg2(MessageIrq::ASSERT_IRQ, 14);
-	_mb.bus_irqlines.send(msg2);
 	return true;
       }
     return false;
@@ -244,14 +240,13 @@ public:
   bool  receive(MessageTimeout &msg)
   {
     if (msg.nr == _timer) {
-      // a timeout happened -> howto return error code?
-      Logging::printf("BIOS disk timeout\n");
-      write_bda(DISK_COMPLETION_CODE, 1, 1);
-      _diskop_inprogress = false;
+      if (_diskop_inprogress) {
+	// a timeout happened -> howto return error code?
+	Logging::printf("BIOS disk timeout\n");
+	write_bda(DISK_COMPLETION_CODE, 1, 1);
+	_diskop_inprogress = false;
+      }
 
-      // send a disk IRQ to wakeup the threads
-      MessageIrq msg2(MessageIrq::ASSERT_IRQ, 14);
-      _mb.bus_irqlines.send(msg2);
       return true;
     }
     return false;
@@ -263,7 +258,12 @@ public:
     case 0x19:  return boot_from_disk(msg);
     case 0x76:
       if (_diskop_inprogress) {
-	msg.cpu->inst_len = 0;
+	Logging::printf("disk op pending %x\n", msg.cpu->intr_state);
+
+	// make sure we are interruptible
+	msg.cpu->intr_state &= ~3;
+	msg.cpu->efl |= 0x200;
+
 	CpuMessage msg2(CpuMessage::TYPE_HLT, msg.cpu, MTD_RIP_LEN | MTD_IRQ);
 	msg.vcpu->executor.send(msg2);
 	return jmp_int(msg, 0x76);
