@@ -697,7 +697,7 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
-	//Logging::printf("MMIO addr %llx eip %x cr0 %x cr3 %x pte %x\n", utcb->qual[1], utcb->eip, utcb->cr0, utcb->cr3, *reinterpret_cast<unsigned *>(0x8080ccfc));
+	// Logging::printf("MMIO addr %llx eip %x instlen %x cr0 %x cr3 %x\n", utcb->qual[1], utcb->eip, utcb->inst_len, utcb->cr0, utcb->cr3);
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER

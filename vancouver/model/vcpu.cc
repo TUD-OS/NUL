@@ -180,6 +180,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     CpuState *cpu = msg.cpu;
     unsigned and_mask = STATE_WAKEUP;
     unsigned old_event = _event;
+    //Logging::printf("%s %x inj %x\n", __func__, old_event, cpu->inj_info);
+
     if (!old_event)  return and_mask;
 
     if (old_event & EVENT_DEBUG) {

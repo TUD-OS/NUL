@@ -32,9 +32,7 @@ public:
   bool  receive(CpuMessage &msg)
   {
     if (msg.type != CpuMessage::TYPE_SINGLE_STEP) return false;
-    //Logging::printf("> Halifax step eip %x esp %x\n", msg.cpu->eip, msg.cpu->esp);
     step(msg);
-    //Logging::printf("< Halifax step eip %x esp %x fault %x line %x\n", msg.cpu->eip, msg.cpu->esp, _fault, _debug_fault_line);
     return true;
   }
 

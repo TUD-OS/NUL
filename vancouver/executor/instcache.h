@@ -178,6 +178,7 @@ class InstructionCache : public MemTlb
    */
   int fetch_code(InstructionCacheEntry *entry, unsigned len)
   {
+    //Logging::printf("> fetch code %p %d\n", entry, len);
     unsigned virt = READ(eip) + entry->inst_len;
     unsigned limit = READ(cs).limit;
     if ((~limit && limit < (virt + len - 1)) || ((entry->inst_len + len) > InstructionCacheEntry::MAX_INSTLEN)) GP0;
@@ -185,6 +186,7 @@ class InstructionCache : public MemTlb
 
     read_code(virt, len, entry->data + entry->inst_len);
     entry->inst_len += len;
+    //Logging::printf("< fetch code %x eip %x\n", *reinterpret_cast<unsigned *>(entry->data), _cpu->eip);
     return _fault;
   }
 
@@ -290,11 +292,8 @@ public:
       }
     _entry = _values + index;
     _cpu->eip += _entry->inst_len;
-    if (debug)
-      {
+    if (debug) {
 	Logging::printf("eip %x:%x esp %x eax %x ebp %x prefix %x\n", _cpu->cs.sel, _oeip, _oesp, _cpu->eax, _cpu->ebp, _entry->prefixes);
-	if (_oeip == 0xf69)
-	  Logging::panic("done bp %x\n", _cpu->ebp);
 	Logging::printf(".byte ");
 	for (unsigned i = 0; i < _entry->inst_len; i++)
 	    Logging::printf("0x%02x%c", _entry->data[i], (i == _entry->inst_len - 1) ? '\n' : ',');
@@ -543,6 +542,9 @@ public:
 public:
 
   void step(CpuMessage &msg) {
+    //if (_vcpu->is_ap()) Logging::printf("> Halifax step eip %x esp %x\n", msg.cpu->eip, msg.cpu->esp);
+    //Logging::printf("< Halifax step eip %x esp %x fault %x line %x\n", msg.cpu->eip, msg.cpu->esp, _fault, _debug_fault_line);
+
     _cpu = msg.cpu;
     _mtr_in = msg.mtr_in;
     _mtr_out =  msg.mtr_out;
