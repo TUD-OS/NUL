@@ -32,6 +32,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     FREQ = 1000,
     DISK_TIMEOUT = 5000,
     DISK_COMPLETION_CODE = 0x79,
+    WAKEUP_IRQ = 1,
   };
   unsigned _timer;
   DiskParameter _disk_params;
@@ -228,9 +229,13 @@ public:
   {
     if (msg.usertag == MAGIC_DISK_TAG) {
 	write_bda(DISK_COMPLETION_CODE, msg.status, 1);
-	_diskop_inprogress = false;
-	return true;
-      }
+	if (_diskop_inprogress) {
+	  _diskop_inprogress = false;
+	  MessageIrq msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
+	  _mb.bus_irqlines.send(msg2);
+	  return true;
+	}
+    }
     return false;
   }
 
@@ -241,12 +246,16 @@ public:
   {
     if (msg.nr == _timer) {
       if (_diskop_inprogress) {
-	// a timeout happened -> howto return error code?
+
+	// a timeout happened
 	Logging::printf("BIOS disk timeout\n");
 	write_bda(DISK_COMPLETION_CODE, 1, 1);
 	_diskop_inprogress = false;
-      }
 
+	// send a message to wakeup the client
+	MessageIrq msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
+	_mb.bus_irqlines.send(msg2);
+      }
       return true;
     }
     return false;
