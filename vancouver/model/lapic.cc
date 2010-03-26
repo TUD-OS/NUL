@@ -613,7 +613,10 @@ public:
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
 
     // write the default APIC address to the MADT
-    discovery_write_dw("APIC",  36,    APIC_ADDR, 4);    unsigned length;
+    discovery_write_dw("APIC",  36,    APIC_ADDR, 4);
+
+    // add APIC field
+    unsigned length;
     check1(false, !discovery_read_dw("APIC", 4, length));
     if (length < 44) length = 44;
     discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
