@@ -213,20 +213,20 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 
 	// the pause key sends make and break together -> simulate another make
 	if (key == 0x62)  enqueue(key);
-	if (msg.keycode & KBFLAG_RELEASE)
-	  {
-	    if (_no_breakcode[key >> 3] & (1 << (key & 7)))
-	      return true;
-	    enqueue(0xf0);
-	  }
+	if (msg.keycode & KBFLAG_RELEASE) {
+
+	  if (_no_breakcode[key >> 3] & (1 << (key & 7)))
+	    return true;
+	  enqueue(0xf0);
+	}
 	enqueue(key);
       }
 
-    if (oldwrite == _pread)
-      {
-	MessagePS2 msg2(_ps2port, MessagePS2::NOTIFY, 0);
-	_bus_ps2.send(msg2);
-      }
+    if (oldwrite == _pread) {
+
+      MessagePS2 msg2(_ps2port, MessagePS2::NOTIFY, 0);
+      _bus_ps2.send(msg2);
+    }
 
     return true;
   }
