@@ -134,7 +134,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
-    Logging::printf("handle CPU %d %s\n", CPUID_EDXb, reset ? "RESET" : "INIT");
+    Logging::printf("handle CPU %d %s event %x\n", CPUID_EDXb, reset ? "RESET" : "INIT", _event);
     CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;
@@ -279,7 +279,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
     recalc_irqwindows(msg);
     msg.mtr_out |= MTD_INJ | MTD_STATE;
-    //    Logging::printf("< handle_irq %x inj %x mtr %x/%x\n", old_event, msg.cpu->inj_info, msg.mtr_in, msg.mtr_out);
+    //Logging::printf("< handle_irq %x inj %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.mtr_in, msg.mtr_out);
   }
 
 
@@ -336,6 +336,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
 
     Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
+    //Logging::printf("wakeup thread %x\n", _event);
     MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }

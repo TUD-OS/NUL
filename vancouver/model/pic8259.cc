@@ -191,7 +191,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 	}
     }
     else {
-      Logging::printf("PicDevice::%s() spurious IRQ? for irr %x isr %x %x\n", __func__, _irr, _isr, res);
+      Logging::printf("PicDevice::%s() spurious IRQ? for irr %x isr %x imr %x %x\n", __func__, _irr, _isr, res, _imr);
       res = 7;
     }
     res += _icw[ICW2];
