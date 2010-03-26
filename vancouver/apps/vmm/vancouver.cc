@@ -348,12 +348,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     skip_instruction(msg);
 
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
-    //Logging::printf("\tio type %x eip %x efl %x\n", is_in, utcb->eip, utcb->efl, msg.);
     {
       SemaphoreGuard l(_lock);
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
     }
+    //Logging::printf("\tio type %x port %x eax %x\n", is_in, port, utcb->eax);
     utcb->head.mtr = msg.mtr_out;
   }
 
