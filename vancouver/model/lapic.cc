@@ -326,8 +326,7 @@ class Lapic : public StaticReceiver<Lapic>
       value = get_ccr(_clock->time());
       break;
     default:
-      if (!(res = Lapic_read(offset, value)))
-	set_error(7);
+      if (!(res = Lapic_read(offset, value))) set_error(7);
     }
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) value |= 1 << 12;
@@ -353,13 +352,18 @@ class Lapic : public StaticReceiver<Lapic>
 	Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
 	broadcast_eoi(_isrv);
 
+	// if we eoi the timer IRQ, rearm the timer
+	if (_isrv == (_TIMER & 0xff)) update_timer(_clock->time());
+
 	_isrv = get_highest_bit(OFS_ISR);
 	update_irqs();
       }
       return true;
     default:
-      if (!(res = Lapic_write(offset, value, strict)))
+      if (!(res = Lapic_write(offset, value, strict))) {
+	Logging::printf("LAPIC write %x at offset %x failed\n", value, offset);
 	set_error(7);
+      }
     }
     // do side effects of a changed LVT entry
     if (in_range(offset, LVT_BASE, 6)) {
@@ -458,7 +462,6 @@ public:
   bool  receive(MessageMem &msg)
   {
     if (!in_range(msg.phys, _msr & ~0xfffull, 0x1000) || hw_disabled() || x2apic_mode()) return false;
-    //Logging::printf("\t\tLAPIC MEM %x %lx\n", msg.read, msg.phys);
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x400) return false;
     if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
@@ -487,8 +490,10 @@ public:
    */
   bool  receive(MessageTimeout &msg) {
     if (hw_disabled() || msg.nr != _timer) return false;
-    //COUNTER_INC("Lapic to");
-    update_timer(_clock->time());
+
+    // no need to call update timer here, as the CPU needs to do an
+    // EOI first
+    get_ccr(_clock->time());
     return true;
   }
 
