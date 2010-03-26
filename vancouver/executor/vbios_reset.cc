@@ -30,7 +30,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     SIZE_EBDA_KB  = 2,
   };
 #define ACPI_OEM_ID        " NOVA "
-#define ACPI_MANUFACTURER "BK@VMMON"
+#define ACPI_MANUFACTURER "bk@vmmon"
 
   char     *_mem_ptr;
   unsigned  _mem_size;
