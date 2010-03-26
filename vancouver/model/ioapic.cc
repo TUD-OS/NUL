@@ -101,9 +101,14 @@ private:
 	// if edge: clear ds bit
 	_ds[pin] = _redir[pin * 2] & MessageApic::ICR_LEVEL;
 
-	// if ds, level and unmasked - retrigger
-	if (_ds[pin] && ~_redir[pin * 2] & 0x10000)
-	  pin_assert(pin, _notify[pin] ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ);
+	// unmasked - retrigger and/or notify
+	if (~_redir[pin * 2] & 0x10000 && _ds[pin])
+	  pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
+      }
+      else {
+	// unmasked an edge triggered IRQ? -> notify
+	_notify[pin] = true;
+	notify(pin);
       }
     }
     else if (_index == 0)
