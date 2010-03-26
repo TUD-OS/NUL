@@ -35,11 +35,13 @@ public:
     if (msg.type != CpuMessage::TYPE_SINGLE_STEP) return false;
 
     CpuState *cpu = msg.cpu;
-    if (cpu->pm() && !cpu->v86() || !in_range(cpu->cs.base + cpu->eip, BIOS_BASE, BiosCommon::MAX_VECTOR)) return false;
+    if (cpu->pm() && !cpu->v86()
+	|| !in_range(cpu->cs.base + cpu->eip, BIOS_BASE, BiosCommon::MAX_VECTOR)
+	|| cpu->inj_info & 0x80000000) return false;
 
     COUNTER_INC("VB");
     unsigned irq =  (cpu->cs.base + cpu->eip) - BIOS_BASE;
-    Logging::printf("VB %x\n", irq);
+    //Logging::printf("VB %x\n", irq);
 
     /**
      * Normally we jump to the last instruction in the 16-byte reset
