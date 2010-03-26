@@ -107,7 +107,7 @@ public:
   unsigned  send_rr(M &msg, unsigned start)
   {
     for (unsigned i = 0; i < _list_count; i++)
-      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) return i + 1;
+      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) return (i + start + 1) % _list_count;
     return 0;
   }
 
