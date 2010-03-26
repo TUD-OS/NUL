@@ -291,10 +291,16 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	_irqaux = ~0u;
 
 	unsigned char  cmdbyte = 0;
+
 	#if 0
 	if (!disable_devices())
 	  Logging::printf("%s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
 	#endif
+
+	// clear keyboard buffer
+	while (inb(_base + 4) & 1) inb(_base);
+
+
 	if (!read_cmd(0x20, cmdbyte))
 	  Logging::printf("%s() failed at %d\n",__func__, __LINE__);
 
