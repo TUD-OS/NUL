@@ -294,7 +294,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
-      Logging::panic("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+      Logging::printf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
     }
   }
 
