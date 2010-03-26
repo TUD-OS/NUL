@@ -33,8 +33,8 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
   DBus<MessagePciConfig> &_bus_pcicfg;
   DBus<MessageLegacy>    &_bus_legacy;
 #include "model/simplediscovery.h"
-  unsigned _secondary;
-  unsigned _subordinate;
+  unsigned _busnum;
+  unsigned _buscount;
   unsigned short _iobase;
   unsigned long  _membase;
   unsigned _confaddress;
@@ -51,14 +51,17 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
   bool send_bus(MessagePciConfig &msg)
   {
     unsigned bus = msg.bdf >> 8;
-    if (_secondary == bus) {
+    if (!in_range(bus, _busnum, _buscount))  return false;
+
+    // is it our bus?
+    if (_busnum == bus) {
       unsigned bdf = msg.bdf;
       msg.bdf = 0;
       return _bus_pcicfg.send(msg, true, bdf);
     }
-    if (bus >= _secondary && bus <= _subordinate)
-      return _bus_pcicfg.send(msg);
-    return false;
+
+    // forward to subordinate busses
+    return _bus_pcicfg.send(msg);
   }
 
 
@@ -136,7 +139,7 @@ public:
    */
   bool  receive(MessageMem &msg) {
 
-    if (!in_range(msg.phys, _membase, (_subordinate + 1) << 20)) return false;
+    if (!in_range(msg.phys, _membase, _buscount << 20)) return false;
 
     unsigned bdf = (msg.phys - _membase) >> 12;
     unsigned dword = (msg.phys & 0xfff) >> 2;
@@ -174,16 +177,16 @@ public:
     if (length < 44) length = 44;
     discovery_write_dw("MCFG", length +  0, _membase, 4);
     discovery_write_dw("MCFG", length +  4, static_cast<unsigned long long>(_membase) >> 32, 4);
-    discovery_write_dw("MCFG", length +  8, ((_secondary & 0xff) << 16) | ((_subordinate & 0xff) << 24) | ((_secondary >> 8) & 0xffff), 4);
+    discovery_write_dw("MCFG", length +  8, ((_busnum & 0xff) << 16) | (((_buscount-1) & 0xff) << 24) | ((_busnum >> 8) & 0xffff), 4);
     discovery_write_dw("MCFG", length + 12, 0);
     return true;
   }
 
 
   PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageLegacy> &bus_legacy, DBus<MessageDiscovery> &bus_discovery,
-		unsigned secondary, unsigned subordinate, unsigned short iobase, unsigned long membase)
+		unsigned busnum, unsigned buscount, unsigned short iobase, unsigned long membase)
     : _bus_pcicfg(bus_pcicfg), _bus_legacy(bus_legacy), _bus_discovery(bus_discovery),
-      _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _membase(membase) {}
+      _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
 };
 
 PARAM(pcihostbridge,
@@ -206,8 +209,8 @@ PARAM(pcihostbridge,
 	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);
 	mb.bus_legacy.add(dev, &PciHostBridge::receive_static<MessageLegacy>);
       },
-      "pcihostbridge:secondary,subordinate,iobase,membase - attach a pci host bridge to the system.",
-      "Example: 'pcihostbridge:0,0xf,0xcf8,0xe0000000'",
+      "pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.",
+      "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",
       "If not iobase is given, no io-accesses are performed.",
       "Similar if membase is not given, MMCFG is disabled.");
 #else
