@@ -118,7 +118,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       case MSR_TSC:
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
 	msg.mtr_out |= MTD_TSC;
-	Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
+	//Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
       case MSR_SYSENTER_CS:
       case MSR_SYSENTER_ESP:
@@ -134,7 +134,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
-    Logging::printf("handle CPU %s\n", reset ? "RESET" : "INIT");
+    Logging::printf("handle CPU %d %s\n", CPUID_EDXb, reset ? "RESET" : "INIT");
     CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;
@@ -163,6 +163,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX PERF
     }
 
+    // do not wait for a SIPI
+    _sipi = 1;
+
     // send LAPIC init
     LapicEvent msg2(reset ? LapicEvent::RESET : LapicEvent::INIT);
     bus_lapic.send(msg2);
@@ -182,7 +185,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     if (!old_event)  return and_mask;
 
     if (old_event & EVENT_DEBUG) {
-      Logging::printf("DEBUG[%d] VCPU eip %x event %x\n", CPUID_EDXb, cpu->eip, old_event);
+      Logging::printf("VCPU[%2d] state %x event %8x eip %8x\n", CPUID_EDXb, cpu->actv_state, old_event, cpu->eip);
       return and_mask | VCpu::EVENT_DEBUG;
     }
 
@@ -190,8 +193,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       handle_cpu_init(msg, true);
 
       // are we an AP and should go to the wait-for-sipi state?
-      if (is_ap()) cpu->actv_state = 3;
-      _sipi = !is_ap();
+      if (is_ap()) {
+	cpu->actv_state = 3;
+	_sipi = 0;
+      }
       return and_mask | (old_event & ~EVENT_SIPI);
     }
 
@@ -316,8 +321,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
      */
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
     if ((value & EVENT_MASK) == EVENT_SIPI)
-      // try to claim the sipi field, if it is empty, we waiting for a sipi
-      // if it fails, somebody else was faster and we do not wakeup the client
+      /**
+       * try to claim the sipi field, if it is empty, we are waiting
+       * for a sipi if it fails, somebody else was faster and we do
+       * not wakeup the client.
+       */
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
 
     Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));

@@ -99,7 +99,7 @@ public:
       return true;
 
     /**
-     * cf9 reset method
+     * Reset via 0xcf9 method.
      */
     if (msg.port == _iobase + 1 && msg.type == MessageIOOut::TYPE_OUTB) {
       if (~_cf9 & 4 && msg.value & 4) {
