@@ -256,8 +256,12 @@ class Lapic : public StaticReceiver<Lapic>
    * Send upstream to the CPU that we have an IRQ.
    */
   void update_irqs() {
+    COUNTER_INC("update irqs");
     CpuEvent msg(VCpu::EVENT_FIXED);
-    if (prioritize_irq()) _vcpu->bus_event.send(msg);
+    if (prioritize_irq()) {
+      COUNTER_INC("upstream");
+      _vcpu->bus_event.send(msg);
+    }
   }
 
 
@@ -373,6 +377,7 @@ class Lapic : public StaticReceiver<Lapic>
     assert(num < 6);
     unsigned lvt;
     Lapic_read(num + LVT_BASE, lvt);
+    if (!num) COUNTER_INC("LVT0");
     //Logging::printf("%s %x %x %d %d _SVR %x\n", __func__, num, lvt, _lvtds[num], _rirr[num], _SVR);
 
 
@@ -625,6 +630,7 @@ public:
   {
 
     _ID = initial_apic_id << 24;
+
     // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
       if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
