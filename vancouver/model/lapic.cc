@@ -129,7 +129,7 @@ class Lapic : public StaticReceiver<Lapic>
    * counter value.
    */
   unsigned get_ccr(timevalue now) {
-    if (!_ICT)  return 0;
+    if (!_ICT || !_timer_start)  return 0;
 
     timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
     if (delta < _ICT)  return _ICT - delta;
@@ -138,11 +138,15 @@ class Lapic : public StaticReceiver<Lapic>
     trigger_lvt(_TIMER_offset - LVT_BASE);
 
     // one shot?
-    if (_TIMER & (1 << 17)) return 0;
+    if (~_TIMER & (1 << 17))  {
+      _timer_start = 0;
+      return 0;
+    }
 
     // add periods to the time we started to detect the next overflow
     unsigned done = Math::mod64(delta, _ICT);
     _timer_start += (delta - done) << _timer_dcr_shift;
+
     return _ICT - done;
   }
 
@@ -151,7 +155,7 @@ class Lapic : public StaticReceiver<Lapic>
    */
   void update_timer(timevalue now) {
     unsigned value = get_ccr(now);
-    if (!value || _TIMER & (1 << LVT_MASK_BIT)) return;
+    if (!value || _rirr[_TIMER_offset - LVT_BASE] || _TIMER & (1 << LVT_MASK_BIT)) return;
     MessageTimer msg(_timer, now + (value << _timer_dcr_shift));
     _bus_timer.send(msg);
   }
@@ -478,7 +482,8 @@ public:
    */
   bool  receive(MessageTimeout &msg) {
     if (hw_disabled() || msg.nr != _timer) return false;
-    get_ccr(_clock->time());
+    //COUNTER_INC("Lapic to");
+    update_timer(_clock->time());
     return true;
   }
 
