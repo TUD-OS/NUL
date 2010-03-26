@@ -6,5 +6,5 @@ Import('target_env')
 nul.App(target_env, 'vancouver',
         SOURCES = [ 'vancouver.cc'],
         LIBS    = [ 'hostkbd', 'executor', 'model', 'service', 'vsys' ],
-        MEMSIZE = 1<<20)
+        MEMSIZE = 2<<20)
 # EOF
