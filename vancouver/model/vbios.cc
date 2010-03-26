@@ -49,6 +49,7 @@ public:
     cpu->cs.sel  = BIOS_BASE >> 4;
     cpu->cs.base = BIOS_BASE;
     cpu->eip = 0xffff;
+    msg.mtr_out |= MTD_CS_SS | MTD_RIP_LEN;
 
     MessageBios msg1(_vcpu, cpu, irq);
     if (!_bus_bios.send(msg1, irq != BiosCommon::RESET_VECTOR)) return false;
