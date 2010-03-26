@@ -78,7 +78,7 @@ class Lapic : public StaticReceiver<Lapic>
     if (init) _ID = old_id;
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
-    memset(_rirr, 0, sizeof(_rirr));
+    memset(_rirr,    0, sizeof(_rirr));
     _timer_dcr_shift = 1 + _timer_clock_shift;
 
     // RESET?
@@ -88,8 +88,8 @@ class Lapic : public StaticReceiver<Lapic>
 
       // as we enable the APICs, we also perform the BIOS INIT
       if (!_vcpu->is_ap()) {
-	Lapic_write(_LINT0_offset,  0x700);
-	Lapic_write(_LINT1_offset,  0x400);
+	Lapic_write(_LINT0_offset, 0x700);
+	Lapic_write(_LINT1_offset, 0x400);
 	Lapic_write(_SVR_offset,  0x1ff);
       }
     }
@@ -319,7 +319,7 @@ class Lapic : public StaticReceiver<Lapic>
     case 0x0a:
       value = processor_prio();
       break;
-    case 0x10 ... 0x18:
+    case 0x10 ... 0x27:
       value = _vector[offset - 0x10];
       break;
     case 0x39:
