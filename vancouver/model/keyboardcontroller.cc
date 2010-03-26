@@ -240,7 +240,7 @@ public:
 	      }
 	  }
 	_ram[RAM_STATUS] &= ~STATUS_CMD;
-	if (!handled) 
+	if (!handled)
 	  {
 	    MessagePS2 msg2(_ps2ports, MessagePS2::SEND_COMMAND, msg.value);
 	    _bus_ps2.send(msg2);
