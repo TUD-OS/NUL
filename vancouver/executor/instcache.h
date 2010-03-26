@@ -153,7 +153,7 @@ class InstructionCache : public MemTlb
   unsigned _ointr_state;
   unsigned _dr6;
   unsigned _dr[4];
-  unsigned _fpustate[512/sizeof(unsigned)] __attribute__((aligned(16)));
+  unsigned _fpustate [512/sizeof(unsigned)] __attribute__((aligned(16)));
 
   int send_message(CpuMessage::Type type)
   {

@@ -2763,7 +2763,7 @@ static void __attribute__ ((regparm (3))) exec_dbe3_fninit_0 (InstructionCache *
 {
   if (cache->_cpu->cr0 & 0xc)
     EXCEPTION (cache, 0x7, 0);
-  asm volatile ("fxrstor (%%eax);fninit; fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
+  asm volatile ("fninit; fxsave (%%eax);":"+d" (tmp_src), "+c" (tmp_dst):"a" (cache->_fpustate));
 }
 
 static void __attribute__ ((regparm (3))) exec_dbe4__byte_0xdb__0xe4__0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
@@ -9205,7 +9205,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	  {
 	  case 0xe3:
 	    {
-/* instruction2 'fninit' ['db', 'e3'] ['FPU', 'NO_OS'] */ ;
+/* instruction2 'fninit' ['db', 'e3'] ['FPU', 'FPUNORESTORE', 'NO_OS'] */ ;
 	      {
 		entry->execute = exec_dbe3_fninit_0;
 	      };

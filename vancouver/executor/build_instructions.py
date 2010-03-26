@@ -130,8 +130,10 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
 	l2.append("UNIMPLEMENTED(this)")
 	return
     if "ASM" in flags and not "asm volatile" in ";".join(snippet):     snippet = ['asm volatile("'+ ";".join(snippet)+'")']
-    if "FPU" in flags:     snippet = ["if (cache->_cpu->cr0 & 0xc) EXCEPTION(cache, 0x7, 0)",
-				      'asm volatile("fxrstor (%%eax);'+ ";".join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(cache->_fpustate))']
+    if "FPU" in flags:
+        if "FPUNORESTORE" not in flags:  snippet = ['fxrstor (%%eax)'] + snippet
+        snippet = ['if (cache->_cpu->cr0 & 0xc) EXCEPTION(cache, 0x7, 0)',
+                   'asm volatile("' + ';'.join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(cache->_fpustate))']
     # parameter handling
     imm = ";entry->%s = &entry->immediate"%("DIRECTION" in flags and "dst" or "src")
     additions = [("MEMONLY", "if (~entry->modrminfo & MRM_REG) {"),
@@ -408,7 +410,7 @@ for x in segment_list:
     opcodes += [("push %"+x, [], ["cache->helper_PUSH<[os]>(&cache->_cpu->%s.sel)"%x]),
 		("pop %"+x, [], ["unsigned sel", "cache->helper_POP<[os]>(&sel) || cache->set_segment(&cache->_cpu->%s, sel)"%x, x == "ss" and "cache->_cpu->intr_state |= 2" or ""]),
 		("l"+x, ["SKIPMODRM", "MODRM", "MEMONLY"], ["cache->helper_loadsegment<[os]>(&cache->_cpu->%s)"%x])]
-opcodes += [(x, ["FPU", "NO_OS"], [x]) for x in ["fninit"]]
+opcodes += [(x, ["FPU", "FPUNORESTORE", "NO_OS"], [x]) for x in ["fninit"]]
 opcodes += [(x, ["FPU", "NO_OS"], [x+" (%%ecx)"]) for x in ["fnstsw", "fnstcw", "ficom", "ficomp"]]
 opcodes += [(x, ["FPU", "NO_OS", "EAX"], ["fnstsw (%%ecx)"]) for x in ["fnstsw %ax"]]
 opcodes += [(".byte 0xdb, 0xe4 ", ["NO_OS", "COMPLETE"], ["/* fnsetpm, on 287 only, noop afterwards */"])]
