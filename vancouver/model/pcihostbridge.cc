@@ -23,18 +23,20 @@
  * A PCI host bridge.
  *
  * State: unstable
- * Features: ConfigSpace
- * Missing: BusReset, LogicalPCI bus, MMConfig
+ * Features: ConfigSpace, BusReset
+ * Missing: LogicalPCI bus, MMConfig
  */
 
 #ifndef REGBASE
 class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
   DBus<MessagePciConfig> &_bus_pcicfg;
+  DBus<MessageLegacy>    &_bus_legacy;
   unsigned _secondary;
   unsigned _subordinate;
   unsigned short _iobase;
   unsigned _confaddress;
+  unsigned char _cf9;
 
 #define  REGBASE "../model/pcihostbridge.cc"
 #include "model/reg.h"
@@ -95,6 +97,20 @@ public:
      */
     if (msg.port == _iobase + 3 && msg.type == MessageIOOut::TYPE_OUTB)
       return true;
+
+    /**
+     * cf9 reset method
+     */
+    if (msg.port == _iobase + 1 && msg.type == MessageIOOut::TYPE_OUTB) {
+      if (~_cf9 & 4 && msg.value & 4) {
+	MessageLegacy msg2(MessageLegacy::RESET);
+	_bus_legacy.send(msg2);
+      }
+      else _cf9 = msg.value;
+      return true;
+    }
+
+
     // handle conf access
     else if (msg.port == _iobase && msg.type == MessageIOOut::TYPE_OUTL)
       // PCI spec: the lower two bits are hardwired and must return 0 when read
@@ -116,19 +132,27 @@ public:
 
 
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
+  bool receive(MessageLegacy &msg) {
+    if (msg.type != MessageLegacy::RESET) return false;
+    PCI_reset();
+    _confaddress = 0;
+    _cf9 = 0;
+    return true;
+  }
 
-  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, unsigned secondary, unsigned subordinate, unsigned short iobase)
-    : _bus_pcicfg(bus_pcicfg), _secondary(secondary), _subordinate(subordinate), _iobase(iobase), _confaddress(0) 
-  { PCI_reset(); }
+
+  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageLegacy> &bus_legacy, unsigned secondary, unsigned subordinate, unsigned short iobase)
+    : _bus_pcicfg(bus_pcicfg), _bus_legacy(bus_legacy), _secondary(secondary), _subordinate(subordinate), _iobase(iobase) {}
 };
 
 PARAM(pcihostbridge,
       {
 	unsigned busnum = argv[0];
-	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, busnum, argv[1], ~argv[2] ? argv[2] : 0xcf8);
+	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, mb.bus_legacy, busnum, argv[1], ~argv[2] ? argv[2] : 0xcf8);
 	mb.bus_ioin.add(dev, &PciHostBridge::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(dev, &PciHostBridge::receive_static<MessageIOOut>);
 	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);
+	mb.bus_legacy.add(dev, &PciHostBridge::receive_static<MessageLegacy>);
       },
       "pcihostbridge:secondary,subordinate,iobase=0xcf8 - attach a pci host bridge to the system.",
       "Example: 'pcihostbridge:0,0xff'");
