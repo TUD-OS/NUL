@@ -193,15 +193,24 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       handle_cpu_init(msg, true);
 
       // are we an AP and should go to the wait-for-sipi state?
-      if (is_ap()) {
-	cpu->actv_state = 3;
-	_sipi = 0;
-      }
-      return and_mask | (old_event & ~EVENT_SIPI);
+      if (is_ap()) old_event |= EVENT_INIT;
+
+      // delete all latched events except for SIPI and INIT
+      and_mask |= old_event & ~(EVENT_SIPI | EVENT_INIT);
+      // fall through as we could have got an INIT or SIPI already
+    }
+
+    // INIT
+    if (old_event & EVENT_INIT) {
+      handle_cpu_init(msg, false);
+      cpu->actv_state = 3;
+      and_mask |= EVENT_INIT;
+      // fall through as we could have got an SIPI already
     }
 
 
-    // SIPI pending?
+
+    // SIPI received?
     if (old_event & EVENT_SIPI) {
       cpu->eip          = 0;
       cpu->cs.sel       = _sipi & 0xff00;
@@ -212,16 +221,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // fall through
     }
 
-    // do block everything until we got an SIPI
+    // do block all other IRQs until we got an SIPI
     if (cpu->actv_state == 3)  return and_mask;
-
-    // INIT
-    if (old_event & EVENT_INIT) {
-      handle_cpu_init(msg, false);
-      cpu->actv_state = 3;
-      _sipi = 0;
-      return and_mask | EVENT_INIT;
-    }
 
     // SMI
     if (old_event & EVENT_SMI && ~cpu->intr_state & 4) {
@@ -238,8 +239,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       return and_mask | EVENT_NMI;
     }
 
-    // interrupts are blocked in shutdown
-    if (cpu->actv_state == 2) return and_mask;
+    // if we can not inject interrupts or if we are in shutdown state return
+    if (!can_inject(cpu) || cpu->actv_state == 2) return and_mask;
 
     // ExtINT
     if (old_event & EVENT_EXTINT && can_inject(cpu)) {
@@ -311,19 +312,25 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     }
   }
 
+  /**
+   * We received an asynchronous event. As code runs in many
+   * threads, state updates have to be atomic!
+   */
   void got_event(unsigned value) {
     COUNTER_INC("EVENT");
-    //if (value != EVENT_EXTINT)
-    //Logging::printf("got event value %x\n", value);
-    /**
-     * We received an asynchronous event. As code runs in many
-     * threads, state updates have to be atomic!
-     */
+    //if (value != EVENT_FIXED) Logging::printf("VCPU[%2d] got event value %x sipi %x event %x\n", CPUID_EDXb, value, _sipi, _event);
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
+
+    // INIT or AP RESET - go to the wait-for-sipi state
+    if ((value & EVENT_MASK) == EVENT_INIT ||
+	(value & EVENT_MASK) == EVENT_RESET && is_ap())
+      _sipi = 0;
+
+
     if ((value & EVENT_MASK) == EVENT_SIPI)
       /**
-       * try to claim the sipi field, if it is empty, we are waiting
-       * for a sipi if it fails, somebody else was faster and we do
+       * try to claim the SIPI field, if it is empty, we are waiting
+       * for a SIPI. If it fails, somebody else was faster and we do
        * not wakeup the client.
        */
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
