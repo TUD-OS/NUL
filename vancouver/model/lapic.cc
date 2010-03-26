@@ -155,7 +155,8 @@ class Lapic : public StaticReceiver<Lapic>
    */
   void update_timer(timevalue now) {
     unsigned value = get_ccr(now);
-    if (!value || _rirr[_TIMER_offset - LVT_BASE] || _TIMER & (1 << LVT_MASK_BIT)) return;
+    //if (_initial_apic_id) Logging::printf("update timer %x time %llx\n", value,  now + (value << _timer_dcr_shift));
+    if (!value || _TIMER & (1 << LVT_MASK_BIT)) return;
     MessageTimer msg(_timer, now + (value << _timer_dcr_shift));
     _bus_timer.send(msg);
   }
