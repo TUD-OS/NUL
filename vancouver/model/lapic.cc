@@ -604,8 +604,7 @@ public:
   bool  receive(MessageLegacy &msg) {
     if (hw_disabled())  return false;
 
-    //Logging::printf("Legacy %x\n", msg.type);
-    // the BSP gets the legacy PIC output and NMI on LINT0/1
+    // the legacy PIC output and NMI are on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
       return trigger_lvt(_LINT0_offset - LVT_BASE);
     if (msg.type == MessageLegacy::NMI)
@@ -619,6 +618,8 @@ public:
 
     // write the default APIC address to the MADT
     discovery_write_dw("APIC",  36,    APIC_ADDR, 4);
+    // and that we have legacy PICs
+    discovery_write_dw("APIC",  40,    1, 4);
 
     // add the LAPIC structure to the MADT
     unsigned length = discovery_length("APIC", 44);
