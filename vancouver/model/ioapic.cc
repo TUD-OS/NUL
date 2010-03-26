@@ -90,7 +90,7 @@ private:
    * Write to the data register.
    */
   void write_data(unsigned value) {
-    //Logging::printf("\t\tIOAPIC write %x value %x inj %x\n", _index, value, _injected);
+    //Logging::printf("\t\tIOAPIC write %x value %x\n", _index, value);
     if (in_range(_index, 0x10, 0x3f)) {
       unsigned mask = (_index & 1) ? 0xffff0000 : 0x1afff;
       _redir[_index - 0x10] = value & mask;
@@ -126,13 +126,13 @@ private:
   /**
    * Assert a pin on this IO/APIC.
    */
-  void pin_assert(unsigned pin, MessageIrq::Type type) {
-    if (pin >= PINS) return;
+  bool pin_assert(unsigned pin, MessageIrq::Type type) {
+    if (pin >= PINS) return false;
     if (type == MessageIrq::DEASSERT_IRQ) _ds[pin] = false;
     else {
       //Logging::printf("IOAPIC %x rirr %d ds %d val %x\n", pin, _rirr[pin], _ds[pin], _redir[2*pin]);
       // have we already send the message
-      if (_rirr[pin]) return;
+      if (_rirr[pin]) return true;
       unsigned dst   = _redir[2*pin+1];
       unsigned value = _redir[2*pin];
       bool level     = value & 0x8000;
@@ -149,7 +149,6 @@ private:
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
 	//Logging::printf("IOAPIC %lx dst %x notify %x\n", phys, value, _notify[pin]);
 
-	_injected++;
 	MessageMem mem(false, phys, &value);
 	_bus_mem.send(mem);
 	if (!level) notify(pin);
@@ -183,6 +182,13 @@ private:
       _ds[i]        = false;
       _rirr[i]      = false;
     }
+#if 0
+    // enable virtual wire mode?
+    if (!_gsibase) {
+      _redir[2*0]     = 0x700;
+      _redir[2*23]    = 0x400;
+    }
+#endif
     _id = 0;
     _index = 0;
   }
@@ -222,9 +228,10 @@ public:
 
 
   bool  receive(MessageLegacy &msg) {
-    if (msg.type != MessageLegacy::RESET)  return false;
-    reset();
-    return true;
+    //if (msg.type == MessageLegacy::EXTINT) return pin_assert(_gsibase + 0,  MessageIrq::ASSERT_IRQ);
+    //if (msg.type == MessageLegacy::NMI)    return pin_assert(_gsibase + 23, MessageIrq::ASSERT_IRQ);
+    if (msg.type == MessageLegacy::RESET)  { reset(); return true; }
+    return false;
   }
 
 
