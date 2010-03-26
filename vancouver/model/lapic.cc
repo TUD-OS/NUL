@@ -696,7 +696,7 @@ REGSET(Lapic,
        REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,
 	      for (unsigned i=0; i < 6; i++)
 		if (_lvtds[i]) trigger_lvt(i);)
-       REG_RW(_ESR,           0x28,          0, 0,          _ESR = Cpu::xchg(&_esr_shadow, 0); )
+       REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0); return !value; )
        REG_RW(_ICR,           0x30,          0, 0x000ccfff, send_ipi(_ICR, _ICR1))
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)
        REG_RW(_TIMER,         0x32, 0x00010000, 0x300ff, )
