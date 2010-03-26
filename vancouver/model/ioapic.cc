@@ -226,19 +226,20 @@ public:
   bool  receive(MessageDiscovery &msg) {
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
 
-    unsigned length;
-    check1(false, !discovery_read_dw("APIC", 4, length));
-    if (length < 44) length = 44;
+    unsigned length = discovery_length("APIC", 44);
+
+    // override IRQ 0->2
     if (!_gsibase) {
-      discovery_write_dw("APIC", length, 0x00000a02, 4);
-      discovery_write_dw("APIC", length+4,    2, 4);
-      discovery_write_dw("APIC", length+8,    0, 2);
+      discovery_write_dw("APIC", length + 0, 0x00000a02, 4);
+      discovery_write_dw("APIC", length + 4,          2, 4);
+      discovery_write_dw("APIC", length + 8,          0, 2);
       length += 10;
     }
 
-    discovery_write_dw("APIC", length,     0x0c01, 4);
-    discovery_write_dw("APIC", length+4,    _base, 4);
-    discovery_write_dw("APIC", length+8, _gsibase, 4);
+    // the I/O APIC structure
+    discovery_write_dw("APIC", length + 0,   0x0c01, 4);
+    discovery_write_dw("APIC", length + 4,    _base, 4);
+    discovery_write_dw("APIC", length + 8, _gsibase, 4);
     return true;
   }
 

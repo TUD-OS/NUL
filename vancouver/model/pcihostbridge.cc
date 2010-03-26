@@ -163,6 +163,7 @@ public:
 
   bool receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
+
     PCI_reset();
     _confaddress = 0;
     _cf9 = 0;
@@ -172,9 +173,8 @@ public:
 
   bool  receive(MessageDiscovery &msg) {
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
-    unsigned length = 0;
-    check1(false, !discovery_read_dw("MCFG", 4, length));
-    if (length < 44) length = 44;
+
+    unsigned length = discovery_length("MCFG", 44);
     discovery_write_dw("MCFG", length +  0, _membase, 4);
     discovery_write_dw("MCFG", length +  4, static_cast<unsigned long long>(_membase) >> 32, 4);
     discovery_write_dw("MCFG", length +  8, ((_busnum & 0xff) << 16) | (((_buscount-1) & 0xff) << 24) | ((_busnum >> 8) & 0xffff), 4);

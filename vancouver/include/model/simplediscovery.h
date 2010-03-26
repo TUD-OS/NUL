@@ -42,3 +42,11 @@ bool discovery_read_dw(const char *resource, unsigned offset, unsigned &value)  
   return _bus_discovery.send(msg);
 }
 
+/**
+ * Return the length of an ACPI table or minlen if it is smaller.
+ */
+unsigned discovery_length(const char *resource, unsigned minlen) {
+  unsigned res;
+  if (!discovery_read_dw(resource, 4, res) || res < minlen) return minlen;
+  return res;
+}
