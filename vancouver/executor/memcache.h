@@ -192,6 +192,8 @@ public:
   {
     assert(!(phys1 & 3));
     assert(!(len & 3));
+
+    // XXX simplify it by relying on memory ranges
     {
       unsigned s = slot(phys1);
       search_entry(_sets[s]._values, _sets[s]._newest);

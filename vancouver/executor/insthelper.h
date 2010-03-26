@@ -609,7 +609,7 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 int helper_far_jmp(unsigned tmp_cs, unsigned tmp_eip, unsigned tmp_flag)
 {
   _mtr_out |= MTD_CS_SS | MTD_RFLAGS;
-  Logging::printf("farjmp %x:%x efl %x\n", tmp_cs, tmp_eip, tmp_flag);
+  //Logging::printf("farjmp %x:%x efl %x\n", tmp_cs, tmp_eip, tmp_flag);
   if (!_cpu->pm() || _cpu->v86())
     // realmode + v86mode
     {
@@ -670,6 +670,7 @@ int helper_LCALL(void *tmp_src)
 template<unsigned operand_size>
 int helper_IRET()
 {
+  //Logging::printf("IRET eip %x:%x\n", _cpu->cs.sel, _cpu->eip);
   _mtr_out |= MTD_CS_SS | MTD_DS_ES | MTD_FS_GS | MTD_RFLAGS;
   if (_cpu->v86())
     {

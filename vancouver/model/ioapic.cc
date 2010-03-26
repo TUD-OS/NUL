@@ -90,7 +90,7 @@ private:
    * Write to the data register.
    */
   void write_data(unsigned value) {
-    //Logging::printf("\t\tIOAPIC write %x value %x\n", _index, value);
+    //Logging::printf("\t\tIOAPIC write %x value %x inj %x\n", _index, value, _injected);
     if (in_range(_index, 0x10, 0x3f)) {
       unsigned mask = (_index & 1) ? 0xffff0000 : 0x1afff;
       _redir[_index - 0x10] = value & mask;
@@ -117,6 +117,7 @@ private:
     if (_notify[pin]) {
       _notify[pin] = false;
       unsigned gsi = reverse_routing(pin);
+      //Logging::printf("send notify to gsi %x\n", gsi);
       MessageIrqNotify msg(gsi >> 3, 1  << (gsi & 7));
       _bus_notify.send(msg);
     }
@@ -140,17 +141,21 @@ private:
       if (value & 0x10000) {
 	if (level) _ds[pin] = true;
       } else {
+
 	_rirr[pin]= level;
 
 	unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
 	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
-	//Logging::printf("IOAPIC %lx dst %x\n", phys, value);
+	//Logging::printf("IOAPIC %lx dst %x notify %x\n", phys, value, _notify[pin]);
+
+	_injected++;
 	MessageMem mem(false, phys, &value);
 	_bus_mem.send(mem);
+	if (!level) notify(pin);
       }
-      if (!level) notify(pin);
     }
+    return true;
   }
 
 
