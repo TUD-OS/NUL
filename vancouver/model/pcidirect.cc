@@ -242,32 +242,32 @@ private:
     for (unsigned i = 0; i < _irq_count; i++)
       if (_host_irqs[i] == msg.line) {
 	//Logging::printf("Irq message #%x  %x\n", msg.line, msg.type);
-	unsigned long long msi_address = 0;
-	unsigned           msi_data   = 0;
 
 	// MSI enabled?
 	if (_cfgspace[_msi_cap] & 0x10000) {
 	  unsigned idx = _msi_cap;
+	  unsigned long long msi_address;
 	  msi_address = _cfgspace[++idx];
 	  if (_cfgspace[_msi_cap] & 0x800000)
 	    msi_address |= static_cast<unsigned long long>(_cfgspace[++idx]) << 32;
-	  msi_data = _cfgspace[++idx] & 0xffff;
+	  unsigned msi_data = _cfgspace[++idx] & 0xffff;
 	  unsigned multiple_msgs = 1 << ((_cfgspace[_msi_cap] >> 20) & 0x7);
 	  if (i < multiple_msgs) msi_data |= i;
+
+	  MessageMem msg2(false, msi_address, &msi_data);
+	  return _mb.bus_mem.send(msg2);
+
 	  //Logging::printf("Direct MSI %llx %x\n", msi_address, msi_data);
 	}
+
 	// MSI-X enabled?
-	else if (_cfgspace[_msix_cap] >> 31 && _msix_table) {
-	  msi_address = _msix_table[i].address;
-	  msi_data = _msix_table[i].data;
+	if (_cfgspace[_msix_cap] >> 31 && _msix_table) {
+	  MessageMem msg2(false, _msix_table[i].address, &_msix_table[i].data);
+	  return _mb.bus_mem.send(msg2);
 	}
-	else if (!i) {
+
+	if (!i) {
 	  MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
-	  return _mb.bus_irqlines.send(msg2);
-	}
-	if (msi_address) {
-	  // XXX FSB delivery
-	  MessageIrq msg2(msg.type, msi_data & 0xff);
 	  return _mb.bus_irqlines.send(msg2);
 	}
       }

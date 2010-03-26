@@ -297,6 +297,7 @@ class AhciController : public ParentIrqProvider,
     MAX_PORTS = 32,
   };
   DBus<MessageIrq> &_bus_irqlines;
+  DBus<MessageMem> &_bus_mem;
   unsigned char _irq;
   AhciPort _ports[MAX_PORTS];
 
@@ -319,17 +320,17 @@ class AhciController : public ParentIrqProvider,
     if (~REG_IS & (1 << index))
       {
 	REG_IS |= 1 << index;
-	if (REG_GHC & 0x2)
-	  {
-	    unsigned irq = _irq;
-	    if (PCI_MSI_CTRL & 0x10000) {
-	      Logging::printf("MSI %x %x\n", PCI_MSI_ADDR, PCI_MSI_DATA);
-	      // XXX FSB delivery
-	      irq = PCI_MSI_DATA & 0xff;
-	    }
+	if (REG_GHC & 0x2) {
 
-	    MessageIrq msg(MessageIrq::ASSERT_IRQ, irq);
-	    _bus_irqlines.send(msg);
+	    // MSI?
+	    if (PCI_MSI_CTRL & 0x10000) {
+	      MessageMem msg(false, PCI_MSI_ADDR, &PCI_MSI_DATA);
+	      _bus_mem.send(msg);
+
+	    } else {
+	      MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+	      _bus_irqlines.send(msg);
+	    }
 	  }
       }
   };
@@ -377,7 +378,7 @@ class AhciController : public ParentIrqProvider,
   }
 
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<AhciController>::receive(msg); }
-  AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _irq(irq)
+  AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _bus_mem(mb.bus_mem), _irq(irq)
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memregion, &mb.bus_mem);
     PCI_reset();
