@@ -520,14 +520,12 @@ public:
   {
     timevalue now = _mb->clock()->time();
     unsigned nr;
-    bool reprogram = false;
-    while ((nr = _timeouts.trigger(now)))
-      {
-	reprogram |= _timeouts.cancel(nr) == 0;
-	MessageTimeout msg(nr);
-	_mb->bus_timeout.send(msg);
-      }
-    if (reprogram &&  _timeouts.timeout() != ~0ull) {
+    while ((nr = _timeouts.trigger(now))) {
+      _timeouts.cancel(nr);
+      MessageTimeout msg(nr);
+      _mb->bus_timeout.send(msg);
+    }
+    if (_timeouts.timeout() != ~0ull) {
       // update timeout in sigma0
       MessageTimer msg2(0, _timeouts.timeout());
       Sigma0Base::timer(msg2);
@@ -538,23 +536,17 @@ public:
   bool  receive(MessageTimer &msg)
   {
     COUNTER_INC("requestTO");
-    int res = 1;
     switch (msg.type)
       {
       case MessageTimer::TIMER_NEW:
 	msg.nr = _timeouts.alloc();
 	return true;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
-	res = _timeouts.request(msg.nr, msg.abstime);
+	_timeouts.request(msg.nr, msg.abstime);
+	timeout_trigger();
 	break;
       default:
 	return false;
-      }
-    if (res == 0 && _timeouts.timeout() != ~0ull)
-      {
-	// update timeout in sigma0
-	MessageTimer msg2(0, _timeouts.timeout());
-	Sigma0Base::timer(msg2);
       }
     return true;
   }
