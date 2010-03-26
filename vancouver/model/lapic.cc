@@ -129,6 +129,7 @@ class Lapic : public StaticReceiver<Lapic>
    * counter value.
    */
   unsigned get_ccr(timevalue now) {
+    //if (_initial_apic_id) Logging::printf("ccr %llx start %llx ict %x timer %x\n",  _clock->time(), _timer_start, _ICT, _TIMER);
     if (!_ICT || !_timer_start)  return 0;
 
     timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
@@ -168,7 +169,7 @@ class Lapic : public StaticReceiver<Lapic>
   bool send_ipi(unsigned icr, unsigned dst) {
     COUNTER_INC("IPI");
 
-    //Logging::printf("%s %x %x\n", __func__, icr, dst);
+    //Logging::printf("[%x] %s %x %x\n", _initial_apic_id, __func__, icr, dst);
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
@@ -248,7 +249,7 @@ class Lapic : public StaticReceiver<Lapic>
    */
   unsigned prioritize_irq() {
     unsigned irrv = get_highest_bit(OFS_IRR);
-    if ((irrv & 0xf0) > processor_prio()) return irrv;
+    if (irrv && (irrv & 0xf0) > processor_prio()) return irrv;
     return 0;
   }
 
@@ -329,25 +330,28 @@ class Lapic : public StaticReceiver<Lapic>
     default:
       if (!(res = Lapic_read(offset, value))) set_error(7);
     }
+
+    // LVT bits
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) value |= 1 << 12;
       if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
-      if (sw_disabled())             value |= 1 << 16;
     }
-    //Logging::printf("\t\tAPIC read %x value %x\n", offset, value);
+    //if (_initial_apic_id)  Logging::printf("\t\tAPIC read %x value %x\n", offset, value);
     return res;
   }
 
 
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
-    //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
+    if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31) Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
+    if (sw_disabled() && in_range(offset, LVT_BASE, 6))  value |= 1 << 16;
     switch (offset) {
     case 0x9: // APR
     case 0xc: // RRD
       // the accesses are ignored
       return true;
     case 0xb: // EOI
+      COUNTER_INC("lapic eoi");
       if (strict && value) return false;
       if (_isrv) {
 	Cpu::set_bit(_vector, OFS_ISR + _isrv, false);
@@ -366,6 +370,14 @@ class Lapic : public StaticReceiver<Lapic>
 	set_error(7);
       }
     }
+
+    // mask all entries on SVR writes
+    if (offset == _SVR_offset && sw_disabled())
+      for (unsigned i=0; i < 6; i++) {
+	register_read (i + LVT_BASE, value);
+	register_write(i + LVT_BASE, value, false);
+      }
+
     // do side effects of a changed LVT entry
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
@@ -393,7 +405,7 @@ class Lapic : public StaticReceiver<Lapic>
     if (_rirr[num]) return true;
 
     // masked or already pending?
-    if (lvt & (1 << LVT_MASK_BIT) || sw_disabled()) {
+    if (lvt & (1 << LVT_MASK_BIT)) {
       // level && masked - set delivery status bit
       if (level) _lvtds[num] = true;
       return true;
@@ -440,7 +452,7 @@ class Lapic : public StaticReceiver<Lapic>
     }
 
     unsigned dst = msg.dst << 24;
-    //Logging::printf("IPI %x %x\n", msg.dst, msg.icr);
+    //Logging::printf("IPI[%d] %x %x LDR %x DFR %x\n", _initial_apic_id, dst, msg.icr, _LDR, _DFR);
 
     // broadcast
     if (dst == 0xff000000)  return true;
@@ -506,6 +518,8 @@ public:
     if (!accept_message(msg)) return false;
     assert(!(msg.icr & ~0xcfff));
     unsigned event = 1 << ((msg.icr >> 8) & 7);
+
+    //Logging::printf("LAPIC received event %x\n", event);
 
     assert(event != VCpu::EVENT_RRD);
     assert(event != VCpu::EVENT_LOWEST);
