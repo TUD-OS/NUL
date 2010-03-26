@@ -448,10 +448,10 @@ class Lapic : public StaticReceiver<Lapic>
     if (~msg.icr & MessageApic::ICR_DM) return dst == _ID;
 
     // flat mode
-    if ((_DFR >> 28) == 0xf) return _LDR & dst;
+    if ((_DFR >> 28) == 0xf) return !!(_LDR & dst);
 
     // cluster mode
-    return !((_LDR ^ dst) & 0xf0000000) && _LDR & dst & ~0xf0000000;
+    return !((_LDR ^ dst) & 0xf0000000) && _LDR & dst & 0x0fffffff;
   }
 
 
