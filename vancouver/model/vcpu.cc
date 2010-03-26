@@ -29,7 +29,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   Motherboard &_mb;
 
   volatile unsigned _event;
-  unsigned _sipi;
+  volatile unsigned _sipi;
 
   enum {
     MSR_TSC = 0x10,
@@ -163,8 +163,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // XXX PERF
     }
 
-    // do not wait for a SIPI
-    _sipi = 1;
 
     // send LAPIC init
     LapicEvent msg2(reset ? LapicEvent::RESET : LapicEvent::INIT);
@@ -172,7 +170,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  bool can_inject(CpuState *cpu) {  return !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
+  bool can_inject(CpuState *cpu) {  return ~cpu->inj_info & 0x80000000 && !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
 
   /**
    * Prioritize different events.
@@ -242,27 +240,21 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     // if we can not inject interrupts or if we are in shutdown state return
     if (!can_inject(cpu) || cpu->actv_state == 2) return and_mask;
 
-    // ExtINT
-    if (old_event & EVENT_EXTINT && can_inject(cpu)) {
-      MessageLegacy msg2(MessageLegacy::INTA, ~0u);
-      if (_mb.bus_legacy.send(msg2)) {
-	if (msg2.value >= 16)
-	  cpu->inj_info = msg2.value | 0x80000000;
-	and_mask |= EVENT_EXTINT;
-      }
-      cpu->actv_state = 0;
-      return and_mask;
-    }
 
     // APIC interrupt?
-    if (old_event & EVENT_FIXED && can_inject(cpu)) {
+    if (old_event & EVENT_FIXED) {
       LapicEvent msg2(LapicEvent::INTA);
-      if (bus_lapic.send(msg2)) {
+      if (bus_lapic.send(msg2))
 	cpu->inj_info = msg2.value | 0x80000000;
-	and_mask |= EVENT_FIXED;
-      }
+      and_mask |= EVENT_FIXED;
       cpu->actv_state = 0;
-      return and_mask;
+    }
+    else if (old_event & EVENT_EXTINT) {
+      MessageLegacy msg2(MessageLegacy::INTA, ~0u);
+      if (_mb.bus_legacy.send(msg2))
+	cpu->inj_info = msg2.value | 0x80000000;
+      and_mask |= EVENT_EXTINT;
+      cpu->actv_state = 0;
     }
     return and_mask;
   }
@@ -275,8 +267,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     assert(msg.mtr_in & MTD_RFLAGS);
 
     //unsigned old_event = _event;
-    if (~msg.cpu->inj_info & 0x80000000)
-      Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
+    Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
     recalc_irqwindows(msg);
     msg.mtr_out |= MTD_INJ | MTD_STATE;
     //Logging::printf("< handle_irq %x inj %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.mtr_in, msg.mtr_out);
