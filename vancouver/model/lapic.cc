@@ -345,7 +345,8 @@ class Lapic : public StaticReceiver<Lapic>
 
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
-    if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31) Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
+    //if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31)
+    //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
     if (sw_disabled() && in_range(offset, LVT_BASE, 6))  value |= 1 << 16;
     switch (offset) {
     case 0x9: // APR
@@ -580,6 +581,7 @@ public:
       }
 
       // check whether the register is available
+      //Logging::printf("RDMSR %x mode %d\n", msg.cpu->ecx, x2apic_mode());
       if (!in_range(msg.cpu->ecx, 0x800, 64)
 	  || !x2apic_mode()
 	  || msg.cpu->ecx == 0x831
@@ -603,6 +605,7 @@ public:
 	  || msg.cpu->ecx == 0x831
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
+      //Logging::printf("WRMSR %x\n", msg.cpu->ecx);
 
       // self IPI?
       if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx)
