@@ -44,11 +44,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 {
   uint64 _mac;
   DBus<MessageNetwork>  &_net;
-  DBus<MessageIrq>      &_irqlines;
-  DBus<MessageMemWrite> &_memwrite;
-  DBus<MessageMemRead>  &_memread;
-  DBus<MessageMemAlloc> &_memalloc;
-
+#include "model/simplemem.h"
   Clock                 *_clock;
   DBus<MessageTimer>    &_timer;
   unsigned               _timer_nr;
@@ -148,12 +144,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	tx_desc desc;
 
 	Logging::printf("TX descriptor at %llx\n", addr);
-	MessageMemRead msg(addr, desc.raw, sizeof(desc));
-	if (!parent->_memread.send(msg)) {
-	  Logging::printf("TX descriptor fetch failed.\n");
+	if (!parent->copy_in(addr, desc.raw, sizeof(desc)))
 	  return;
-	}
-	
 	if ((desc.raw[1] & (1<<29)) == 0) {
 	  Logging::printf("TX legacy descriptor: XXX\n");
 	  // XXX Not implemented!
@@ -172,7 +164,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	    // raw[1] = 0000000020200c00
 	    // XXX Not implemented!
 	    break;
-	  case 3: 
+	  case 3:
 	    {
 	      uint8 context = (desc.advanced.pay >> 4) & 0x7;
 	      uint32 payload_len = desc.advanced.pay >> 14;
@@ -221,11 +213,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	    done:
 	      // Descriptor is done
 	      desc.advanced.pay |= 1;
-	      MessageMemWrite msg(addr, desc.raw, sizeof(desc));
-	      if (!parent->_memwrite.send(msg)) {
-		Logging::printf("TX descriptor writeback failed.\n");
-		return;
-	      }
+	      parent->copy_out(addr, desc.raw, sizeof(desc));
 	      if ((dcmd & (1<<3) /* Report Status */) != 0)
 		parent->TX_irq(n);
 	    }
@@ -325,7 +313,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       rxdctl_old = rxdctl_new;
     }
 
-    void receive_packet(const uint8 *buf, size_t size)
+    void receive_packet(uint8 *buf, size_t size)
     {
       rxdctl_poll();
 
@@ -338,7 +326,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 rxdctl = regs[RXDCTL];
 
       //Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
-      if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */) 
+      if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */)
 	  || (rdlen == 0) || (rdt == rdh)) {
 	// Drop
       	return;
@@ -349,20 +337,16 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       rx_desc desc;
 
       //Logging::printf("RX descriptor at %llx\n", addr);
-      MessageMemRead msg(addr, desc.raw, sizeof(desc));
-      if (!parent->_memread.send(msg)) {
-       	Logging::printf("RX descriptor fetch failed.\n");
+      if (!parent->copy_in(addr, desc.raw, sizeof(desc)))
 	return;
-      }
 
       // Which descriptor type?
       uint8 desc_type = (srrctl >> 25) & 0xF;
       switch (desc_type) {
       case 0:			// Legacy
        	{
-       	  MessageMemWrite m(desc.legacy.buffer, buf, size);
        	  desc.legacy.status = 0;
-       	  if (!parent->_memwrite.send(m))
+       	  if(!parent->copy_out(desc.legacy.buffer, buf, size))
        	    desc.legacy.status |= 0x8000; // RX error
        	  desc.legacy.status |= 0x3; // EOP, DD
        	  desc.legacy.sumlen = size;
@@ -370,13 +354,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
        	break;
       case 1:			// Advanced, one buffer
 	{
-	  MessageMemWrite m(desc.advanced_read.pbuffer, buf, size);
 	  desc.advanced_write.rss_hash = 0;
 	  desc.advanced_write.info = 0;
 	  desc.advanced_write.vlan = 0;
 	  desc.advanced_write.len = size;
 	  desc.advanced_write.status = 0x3; // EOP, DD
-       	  if (!parent->_memwrite.send(m))
+	  if (!parent->copy_out(desc.advanced_read.pbuffer, buf, size))
        	    desc.advanced_write.status |= 0x80000000U; // RX error
 	}
 	break;
@@ -385,9 +368,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	 break;
       }
       
-      MessageMemWrite m(addr, desc.raw, sizeof(desc));
-      if (!parent->_memwrite.send(m))
-       	Logging::printf("RX descriptor writeback failed.\n");
+      if (!parent->copy_out(addr, desc.raw, sizeof(desc)))
+	Logging::printf("RX descriptor writeback failed.\n");
 
       // Advance queue head
       asm ( "" ::: "memory");
@@ -431,14 +413,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
   void *guestmem(uint64 addr)
   {
-    void *r;
-    //Logging::printf("Trying to get pointer to %llx.\n", addr);
-    // XXX Don't panic here
-    // XXX We don't use the interface the way it is intended...
-    MessageMemAlloc m(&r, addr, ~0xFFFUL);
-    if (!_memalloc.send(m))
+    MessageMemRegion msg(addr >> 12);
+    if (!_bus_memregion->send(msg) || !msg.ptr)
       Logging::panic("Address translation failed.\n");
-    return r;
+    return msg.ptr + addr - (msg.start_page << 12);
   }
 
   // Generate a MSI-X IRQ.
@@ -453,9 +431,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     if ((mask & rVTEIMS) != 0) {
       if ((_msix.table[nr].vector_control & 1) == 0) {
 	// Logging::printf("Generating MSI-X IRQ %d (%02x)\n", nr, _msix.table[nr].msg_data & 0xFF);
-	// XXX Proper MSI delivery. ASSERT_IRQ or ASSERT_NOTIFY?
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _msix.table[nr].msg_data & 0xFF);
-	_irqlines.send(msg);
+	MessageMem msg(false, _msix.table[nr].msg_addr, &_msix.table[nr].msg_data);
+	_bus_mem->send(msg);
 
 	// Auto-Clear
 	// XXX Do we auto-clear even if the interrupt cause was masked?
@@ -579,33 +556,26 @@ public:
     return _msix.raw[offset/4] = val & (((offset & 0xF) == 0xC) ? 1 : ~0U);
   }
 
-  bool receive(MessageMemRead &msg)
+  bool receive(MessageMem &msg)
   {
     // Memory decode disabled?
     if ((rPCISTSCTRL & 2) == 0) return false;
 
-    if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
-      uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
-      // RX
-      if ((offset >> 12) == 0x2) Logging::panic("RX read? Shouldn't happen.");
-      // TX
-      if ((offset >> 12) == 0x3) 
-	*(reinterpret_cast<uint32 *>(msg.ptr)) = _tx_queues[(offset & 0x100) ? 1 : 0].read(offset);
-      else
-	*(reinterpret_cast<uint32 *>(msg.ptr)) = MMIO_read(offset);
-    } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
-      *(reinterpret_cast<uint32 *>(msg.ptr)) = MSIX_read(msg.phys - (rPCIBAR3 & ~0xFFF));
-    } else return false;
-
-    return true;
-  }
-
-  bool receive(MessageMemWrite &msg)
-  {
-    // Memory decode disabled?
-    if ((rPCISTSCTRL & 2) == 0) return false;
-
-    // XXX Assert msg.count == 4
+    if (msg.read) {
+      if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
+	uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
+	// RX
+	if ((offset >> 12) == 0x2) Logging::panic("RX read? Shouldn't happen.");
+	// TX
+	if ((offset >> 12) == 0x3)
+	  *msg.ptr = _tx_queues[(offset & 0x100) ? 1 : 0].read(offset);
+	else
+	  *msg.ptr = MMIO_read(offset);
+      } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
+	*msg.ptr = MSIX_read(msg.phys - (rPCIBAR3 & ~0xFFF));
+      } else return false;
+      return true;
+    }
     // Logging::printf("PCIWRITE %lx (%d) %x \n", msg.phys, msg.count,
     //              *reinterpret_cast<unsigned *>(msg.ptr));
     if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
@@ -613,14 +583,13 @@ public:
       // RX
       if ((offset >> 12) == 0x2) Logging::panic("RX write? Shouldn't happen.");
       // TX
-      if ((offset >> 12) == 0x3) 
-	_tx_queues[(offset & 0x100) ? 1 : 0].write(offset, *(reinterpret_cast<uint32 *>(msg.ptr)));
+      if ((offset >> 12) == 0x3)
+	_tx_queues[(offset & 0x100) ? 1 : 0].write(offset, *msg.ptr);
       else
-	MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
+	MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *msg.ptr);
     } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
-      MSIX_write(msg.phys - (rPCIBAR3 & ~0xFFF), *(reinterpret_cast<uint32 *>(msg.ptr)));
+      MSIX_write(msg.phys - (rPCIBAR3 & ~0xFFF), *msg.ptr);
     } else return false;
-
     return true;
   }
 
@@ -629,7 +598,7 @@ public:
     // XXX Hack. Avoid our own packets.
     if (msg.client == 23) return false;
 
-    _rx_queues[0].receive_packet(msg.buffer, msg.len);
+    _rx_queues[0].receive_packet(const_cast<uint8 *>(msg.buffer), msg.len);
     return true;
   }
 
@@ -641,18 +610,19 @@ public:
       Logging::panic("%s could not program timer.", __PRETTY_FUNCTION__);
   }
 
-  bool receive(MessageMemMap &msg)
+  bool receive(MessageMemRegion &msg)
   {
-    switch ((msg.phys & ~0xFFF) - _mem_mmio) {
-    case 0x2000:
-      msg.ptr = _local_rx_regs;
-      msg.count = 0x1000;
+    switch ((msg.page) - (_mem_mmio >> 12)) {
+    case 0x2:
+      msg.ptr =  reinterpret_cast<char *>(_local_rx_regs);
+      msg.start_page = msg.page;
+      msg.count = 1;
       break;
-    case 0x3000:
+    case 0x3:
       if (_txpoll_us != 0) {
-	msg.ptr = _local_tx_regs;
-	msg.count = 0x1000;
-	
+	msg.ptr =  reinterpret_cast<char *>(_local_tx_regs);
+	msg.start_page = msg.page;
+	msg.count = 1;
 	// If TX memory is mapped, we need to poll it periodically.
 	reprogram_timer();
 
@@ -666,7 +636,7 @@ public:
       return false;
     }
 
-    Logging::printf("82576VF MAP %lx+%x from %p\n", msg.phys, msg.count, msg.ptr);
+    Logging::printf("82576VF MAP %lx+%x from %p\n", msg.page, msg.count, msg.ptr);
     return true;
   }
 
@@ -684,12 +654,11 @@ public:
   }
     
 
-  Model82576vf(uint64 mac, DBus<MessageNetwork> &net, DBus<MessageIrq> &irqlines,
-	       DBus<MessageMemWrite> &memwrite, DBus<MessageMemRead> &memread, DBus<MessageMemAlloc> &memalloc,
+  Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
+	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 	       Clock *clock, DBus<MessageTimer> &timer,
 	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us)
-    : _mac(mac), _net(net), _irqlines(irqlines),
-      _memwrite(memwrite), _memread(memread),  _memalloc(memalloc),
+    : _mac(mac), _net(net), _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
       _txpoll_us(txpoll_us)
@@ -738,13 +707,11 @@ PARAM(82576vf,
 					     //0xe8e24d211b00ULL,
 					     static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
 
-					     mb.bus_network, mb.bus_irqlines,
-					     mb.bus_memwrite, mb.bus_memread, mb.bus_memalloc,
+					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
 					     argv[0], argv[1], (argv[2] == ~0U) ? 0 : argv[2] );
-	mb.bus_memwrite.add(dev, &Model82576vf::receive_static<MessageMemWrite>);
-	mb.bus_memread. add(dev, &Model82576vf::receive_static<MessageMemRead>);
-	mb.bus_memmap.  add(dev, &Model82576vf::receive_static<MessageMemMap>);
+	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
+	mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
 	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>,
 			    PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
 	mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);

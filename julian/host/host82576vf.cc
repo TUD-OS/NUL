@@ -252,8 +252,8 @@ PARAM(host82576vf, {
       return;
     }
 
-    unsigned long long size;
-    unsigned long long base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
+    unsigned long size;
+    unsigned long base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
 
     MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 

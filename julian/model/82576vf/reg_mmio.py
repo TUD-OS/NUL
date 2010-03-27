@@ -47,8 +47,8 @@ rset = [
       'initial' : 0 },
     { 'name' : 'rVMMB',
       'offset' : 0xC40,
-      'rc' : 0b1011<<4,
-      'mutable' : ~0b11,        # These bits are handled in VMMB_cb
+      'rc' :     11<<4,
+      'mutable' : ~3,        # These bits are handled in VMMB_cb
       'initial' : 0x80,         # RSTD (PF has completed reset)
       'callback' : 'VMMB_cb',
       },
