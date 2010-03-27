@@ -656,7 +656,7 @@ public:
 
     // NMI is connected to LINT1
     discovery_write_dw("APIC", length +  8, 0x00ff0604, 4);
-    discovery_write_dw("APIC", length + 10,     0x0100, 2);
+    discovery_write_dw("APIC", length + 12,     0x0100, 2);
     return true;
   }
 
