@@ -35,6 +35,7 @@ public:
     OFFSET_PAR  = 0x20,
     OFFSET_EOI  = 0x40,
     PINS        = 24,
+    NMI_PIN     = 23,
   };
 private:
   DBus<MessageMem>       &_bus_mem;
@@ -157,7 +158,6 @@ private:
       } else {
 
 	_rirr[pin]= level;
-
 	unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
 	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
@@ -242,8 +242,10 @@ public:
 
 
   bool  receive(MessageLegacy &msg) {
-    //if (msg.type == MessageLegacy::EXTINT) return pin_assert(_gsibase + 0,  MessageIrq::ASSERT_IRQ);
-    //if (msg.type == MessageLegacy::NMI)    return pin_assert(_gsibase + 23, MessageIrq::ASSERT_IRQ);
+    if (msg.type == MessageLegacy::NMI && !_gsibase) return pin_assert(NMI_PIN, MessageIrq::ASSERT_IRQ);
+    #if 0
+    if (msg.type == MessageLegacy::EXTINT) return pin_assert(_gsibase + 0,  MessageIrq::ASSERT_IRQ);
+    #endif
     if (msg.type == MessageLegacy::RESET)  { reset(); return true; }
     return false;
   }
@@ -254,12 +256,16 @@ public:
 
     unsigned length = discovery_length("APIC", 44);
 
-    // override IRQ 0->2
     if (!_gsibase) {
+      // override IRQ 0->2
       discovery_write_dw("APIC", length + 0, 0x00000a02, 4);
       discovery_write_dw("APIC", length + 4,          2, 4);
       discovery_write_dw("APIC", length + 8,          0, 2);
-      length += 10;
+      // NMI connection is edge high
+      discovery_write_dw("APIC", length + 10,  0x0803, 4);
+      discovery_write_dw("APIC", length + 14, NMI_PIN, 4);
+      length += 18;
+
     }
 
     // the I/O APIC structure

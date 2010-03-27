@@ -337,7 +337,6 @@ public:
     return false;
   }
 
-
   KeyboardController(DBus<MessageIrq> &bus_irqlines, DBus<MessagePS2> &bus_ps2, DBus<MessageLegacy> &bus_legacy,
 		     unsigned short base, unsigned irqkbd, unsigned irqaux, unsigned ps2ports)
    : _bus_irqlines(bus_irqlines), _bus_ps2(bus_ps2), _bus_legacy(bus_legacy), _base(base), _irqkbd(irqkbd), _irqaux(irqaux), _ps2ports(ps2ports)
