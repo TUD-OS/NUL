@@ -640,7 +640,7 @@ public:
 };
 
 extern "C" void __attribute__((noreturn)) start(Hip *hip, Utcb *utcb);
-ASMFUNCS(Vancouver, Vancouver);
+ASMFUNCS(Vancouver, Vancouver)
 
 #else // !VM_FUNC
 

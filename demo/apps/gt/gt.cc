@@ -103,4 +103,4 @@ public:
   }
 };
 
-ASMFUNCS(Gt, NovaProgram);
+ASMFUNCS(Gt, NovaProgram)

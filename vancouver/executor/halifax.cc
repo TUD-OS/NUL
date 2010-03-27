@@ -47,4 +47,4 @@ PARAM(halifax,
 	if (!mb.last_vcpu) Logging::panic("no VCPU for this Halifax");
 	new Halifax(mb.last_vcpu);
       },
-      "halifax - create a halifax that emulatates instructions.");
+      "halifax - create a halifax that emulatates instructions.")

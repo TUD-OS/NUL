@@ -29,4 +29,4 @@ public:
   }
 };
 
-ASMFUNCS(Hello, NovaProgram);
+ASMFUNCS(Hello, NovaProgram)

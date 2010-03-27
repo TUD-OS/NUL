@@ -108,4 +108,4 @@ PARAM(scp,
 	mb.bus_ioout.add(scp, &SystemControlPort::receive_static<MessageIOOut>);
       },
       "scp:porta,portb - provide the system control ports A+B.",
-      "Example: 'scp:0x92,0x61'");
+      "Example: 'scp:0x92,0x61'")

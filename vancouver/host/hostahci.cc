@@ -472,4 +472,4 @@ PARAM(hostahci,
       },
       "hostahci:mask - provide a hostdriver for all AHCI controller.",
       "Example: Use 'hostahci:5' to have a driver for the first and third AHCI controller.",
-      "The mask allows to ignore certain controllers. The default is to use all controllers.");
+      "The mask allows to ignore certain controllers. The default is to use all controllers.")

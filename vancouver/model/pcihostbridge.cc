@@ -219,11 +219,11 @@ PARAM(pcihostbridge,
       "pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.",
       "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",
       "If not iobase is given, no io-accesses are performed.",
-      "Similar if membase is not given, MMCFG is disabled.");
+      "Similar if membase is not given, MMCFG is disabled.")
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,  0x0, 0x27a08086)
        REG_RW(PCI_CMD, 0x1, 0x000900106, 0x0106,)
        REG_RO(PCI_CC,  0x2, 0x06000000)
-       REG_RO(PCI_SS,  0xb, 0x27a08086));
+       REG_RO(PCI_SS,  0xb, 0x27a08086))
 #endif

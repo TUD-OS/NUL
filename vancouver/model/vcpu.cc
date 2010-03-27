@@ -448,7 +448,7 @@ public:
 PARAM(vcpu,
       mb.last_vcpu = new VirtualCpu(mb.last_vcpu, mb);
       ,
-      "vcpu - create a new VCPU");
+      "vcpu - create a new VCPU")
 
 #else
 REGSET(CPUID,

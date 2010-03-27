@@ -33,7 +33,7 @@ void *mymemalign(unsigned long size, unsigned long align)
   // XXX we assume here that BSS is cleared
   //memset(s, 0, size);
   return s;
-};
+}
 
 
 extern "C" void *malloc(unsigned long size);

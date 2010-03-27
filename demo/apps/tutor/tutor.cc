@@ -29,6 +29,6 @@ struct Tutor : public NovaProgram,
 };
 
 extern "C" void __attribute__((noreturn)) start(Hip *hip, Utcb *utcb);
-ASMFUNCS(Tutor, NovaProgram);
+ASMFUNCS(Tutor, NovaProgram)
 
 // EOF

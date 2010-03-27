@@ -206,4 +206,4 @@ public:
   }
 };
 
-ASMFUNCS(Rocknshine, NovaProgram);
+ASMFUNCS(Rocknshine, NovaProgram)

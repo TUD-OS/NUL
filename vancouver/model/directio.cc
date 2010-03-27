@@ -66,4 +66,4 @@ PARAM(dio,
       "dio:<range> - directly assign ioports to the VM.",
       "Example: 'dio:0x3f8+8'.",
       "Forward access to given ioports to the hardware ones.",
-      "Please note that a 'ioio' as backend for this device is needed too.");
+      "Please note that a 'ioio' as backend for this device is needed too.")

@@ -30,10 +30,10 @@ unsigned  forcestart;
 unsigned  repeat;
 unsigned  console_id;
 
-PARAM(startlate,  startlate = true;, "startlate - do not start all domains at bootup" );
-PARAM(forcestart,  forcestart = argv[0];, "forcestart - force a module to be started (ignoring startlate)" );
-PARAM(repeat,  repeat = argv[0],     "repeat the domain start" );
-PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" );
+PARAM(startlate,  startlate = true;, "startlate - do not start all domains at bootup" )
+PARAM(forcestart,  forcestart = argv[0];, "forcestart - force a module to be started (ignoring startlate)" )
+PARAM(repeat,  repeat = argv[0],     "repeat the domain start" )
+PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" )
 
 Motherboard *global_mb;
 class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
