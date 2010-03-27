@@ -126,7 +126,7 @@ class HostIde : public StaticReceiver<HostIde>
   unsigned  identify_drive(unsigned short *buffer, HostGenericAta &params, bool slave)
   {
     // select drive
-    unsigned char packet_select[] = { 0x40, (unsigned char)(slave ? 0xb0 : 0xa0)};
+    unsigned char packet_select[] = { 0x40, static_cast<unsigned char>(slave ? 0xb0 : 0xa0)};
     send_packet(packet_select);
     // select used and device ready
     if ((inb(_iobase + 6) & 0x10) != (slave ? 0x10 : 0) || ~inb(_iobase + 7) & 0x40)  return -1;
@@ -139,7 +139,7 @@ class HostIde : public StaticReceiver<HostIde>
     if (((res & 0x401) == 0x401) && ((res & 0x7f) != 0x7f))
       if (inb(_iobase + 4) == 0x14 && inb(_iobase + 5) == 0xeb)
 	{
-	  unsigned char atapi_packet[] = { 0xc0, (unsigned char)(slave ? 0xb0 : 0xa0), 0xa1 };
+	  unsigned char atapi_packet[] = { 0xc0, static_cast<unsigned char>(slave ? 0xb0 : 0xa0), 0xa1 };
 	  res = ata_command(atapi_packet, buffer, 512, true);
 	  Logging::printf("ATA: identify packet err %x\n", res);
 	}
