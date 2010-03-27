@@ -80,7 +80,7 @@ public:
       unsigned bar = conf_read(bdf, BAR0 + i);
       if (old & BAR_IO) {
 	size[i] = ((bar & BAR_IO_MASK) ^ 0xFFFFU) + 1;
-	base[i] = old & BAR_IO_MASK;
+	base[i] = old;
       }
       else {
 	size[i] = ((bar & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
@@ -311,9 +311,9 @@ private:
 
   bool  receive(MessageMemRegion &msg) {
     for (unsigned i=0; i < _bar_count; i++) {
-      if (_barinfo[i].io || !in_range(msg.page << 12, _cfgspace[BAR0 + i] & BAR_MEM_MASK, _barinfo[i].size)) continue;
+      if (_barinfo[i].io || ! _barinfo[i].size || !in_range(msg.page, _cfgspace[BAR0 + i] >> 12, _barinfo[i].size >> 12)) continue;
 
-      msg.start_page = (_cfgspace[BAR0 + i] & BAR_MEM_MASK) >> 12;
+      msg.start_page = _cfgspace[BAR0 + i] >> 12;
       msg.count = _barinfo[i].size >> 12;
       msg.ptr = _barinfo[i].ptr;
 
@@ -331,7 +331,7 @@ private:
 	  msg.ptr += shift;
 	}
       }
-      Logging::printf(" MAP %lx+%x from %p\n", msg.start_page << 12, msg.count << 12, msg.ptr);
+      Logging::printf(" MAP %d %lx+%x from %p size %lx page %lx %x\n", i, msg.start_page << 12, msg.count << 12, msg.ptr, _barinfo[i].size, msg.page, _cfgspace[BAR0 + i]);
       return true;
     }
     return false;
