@@ -78,6 +78,33 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
     return 0;
   }
 
+  void check_key(unsigned &status, unsigned key, unsigned bit, unsigned keycode) {
+    if ((key & (0xff | KBFLAG_EXTEND0 | KBFLAG_EXTEND1)) == keycode) {
+      if (~key & KBFLAG_RELEASE)  status |=  (1 << bit);
+      else                        status &= ~(1 << bit);
+    }
+  }
+
+
+  void update_status(unsigned key) {
+    unsigned status = read_bda(0x17) & ~0x2f;
+    if (key & KBFLAG_RSHIFT)                 status |= 1 << 0;
+    if (key & KBFLAG_LSHIFT)                 status |= 1 << 1;
+    if (key & (KBFLAG_LCTRL | KBFLAG_RCTRL)) status |= (1 << 2) | (1 << 8);
+    if (key & (KBFLAG_LALT | KBFLAG_RALT))   status |= (1 << 3) | (1 << 9);
+    if (key & KBFLAG_NUM)                    status |= 1 << 5;
+    if ((key & (0xff | KBFLAG_RELEASE)) == KBCODE_SCROLL) status ^= 1 << 4;
+    if ((key & (0xff | KBFLAG_RELEASE)) == KBCODE_CAPS)   status ^= 1 << 6;
+    if ((key & (0xff | KBFLAG_RELEASE)) == KBCODE_NUM)    status ^= 1 << 7;
+    check_key(status, key, 10, KBCODE_SYSREQ);
+    check_key(status, key, 11, KBCODE_PAUSE);
+    check_key(status, key, 12, KBCODE_SCROLL);
+    check_key(status, key, 13, KBCODE_NUM);
+    check_key(status, key, 14, KBCODE_CAPS);
+    check_key(status, key, 15, KBCODE_INSERT);
+    write_bda(0x17, status, 2);
+  }
+
 
   /**
    * Handle the Keyboard IRQ.
@@ -132,12 +159,7 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
 	break;
 	}
       case 0x02: // get shift flag
-	cpu->al = 0;
-	if (_lastkey & KBFLAG_NUM)                    cpu->al |= 1 << 5;
-	if (_lastkey & (KBFLAG_LALT | KBFLAG_RALT))   cpu->al |= 1 << 3;
-	if (_lastkey & (KBFLAG_LCTRL | KBFLAG_RCTRL)) cpu->al |= 1 << 2;
-	if (_lastkey & KBFLAG_LSHIFT)                 cpu->al |= 1 << 1;
-	if (_lastkey & KBFLAG_RSHIFT)                 cpu->al |= 1 << 0;
+	cpu->al = read_bda(0x17);
 	break;
       case 0x03: // set typematic
 	// ignored
@@ -157,7 +179,7 @@ public:
   {
     if (msg.keyboard == 0)
       {
-	_lastkey = msg.keycode;
+	update_status(msg.keycode);
 	unsigned value = keycode2bios(msg.keycode);
 	unsigned short next  = read_bda(0x1a);
 	unsigned short first = read_bda(0x1c);

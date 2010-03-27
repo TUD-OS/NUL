@@ -233,7 +233,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
       case 0x27:
 	nflag = _flags & KBFLAG_EXTEND0 ? KBFLAG_RWIN : 0;
 	break;
-      case 0x77:       // num lock
+      case KBCODE_NUM:
 	if (!(_flags & (KBFLAG_EXTEND1 | KBFLAG_RELEASE)))
 	  {
 	    _flags ^= KBFLAG_NUM;
@@ -243,11 +243,11 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	;
       }
 
-    // sysctrl?
+    // the-break-key - drop the break keycodes
     if (_flags & KBFLAG_EXTEND0 && ~_flags & KBFLAG_RELEASE && key == 0x7e)
       return;
 
-    // the normal pause key?
+    // the normal pause key - drop the break keycodes
     if (_flags & KBFLAG_EXTEND1 && ((key == 0x14) || (key==0x77 && ~_flags & KBFLAG_RELEASE)))
       return;
 
