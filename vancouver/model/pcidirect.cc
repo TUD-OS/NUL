@@ -337,7 +337,7 @@ private:
     return false;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
     vf = parent_bdf != 0;
@@ -346,7 +346,7 @@ private:
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
 
     MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _bdf, parent_bdf ? _bdf : 0);
-    check0(!mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
+    check0(assign && !mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
 
     unsigned long bases[HostPci::MAX_BAR];
     unsigned long sizes[HostPci::MAX_BAR];
@@ -413,13 +413,13 @@ PARAM(dpci,
 	check0(!bdf, "search_device(%lx,%lx,%lx) failed", argv[0], argv[1], argv[2]);
 	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], bdf);
 
-	new DirectPciDevice(mb, bdf, argv[3]);
-	Logging::printf("dpci done\n");
+	new DirectPciDevice(mb, bdf, argv[3], argv[4]);
       },
-      "dpci:class,subclass,instance,bdf - makes the specified hostdevice directly accessible to the guest.",
+      "dpci:class,subclass,instance,bdf,assign=1 - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
-      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.");
+      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.",
+      "if assign is zero, the BDF is not assigned via the IOMMU and can not do DMA and MSIs.");
 
 
 #include "host/hostvf.h"
@@ -435,7 +435,7 @@ PARAM(vfpci,
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], parent_bdf, vf_no, false);
+	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, false);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.");
