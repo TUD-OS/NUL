@@ -28,6 +28,5 @@ class Logging : public Vprintf
   static void panic(const char *format, ...) __attribute__((noreturn))  __attribute__ ((format(printf, 1, 2)));
   static void printf(const char *format, ...) __attribute__ ((format(printf, 1, 2)));
   static void vprintf(const char *format, va_list &ap);
-  static void hexdump(const void *p, unsigned len);
   static void init(void (*putcf)(void *, int), void *data) { _putcf = putcf; _data = data; }
 };
