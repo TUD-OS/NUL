@@ -24,7 +24,7 @@ void  do_exit(const char *msg) __attribute__((noreturn));
  * Assert.
  */
 #ifdef NDEBUG
-#define assert(X) do { X; } while (0)
+#define assert(X)
 #else
 #define do_string2(x) do_string(x)
 #define do_string(x) #x
