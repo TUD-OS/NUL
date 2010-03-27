@@ -695,6 +695,11 @@ VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	utcb->head.mtr.add(MTD_RFLAGS);
 	)
+VM_FUNC(PT_VMX + 40,  vmx_pause, MTD_RIP_LEN | MTD_STATE,
+	CpuMessage msg(CpuMessage::TYPE_SINGLE_STEP, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+	skip_instruction(msg);
+	COUNTER_INC("pause");
+	)
 VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
 	// Logging::printf("MMIO addr %llx eip %x instlen %x cr0 %x cr3 %x\n", utcb->qual[1], utcb->eip, utcb->inst_len, utcb->cr0, utcb->cr3);
@@ -709,9 +714,10 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
+	Logging::printf("startup\n");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
 	utcb->head.mtr.add(MTD_CTRL);
-	utcb->ctrl[0] = 1 << 3; // tscoffs
+	utcb->ctrl[0] = (1 << 3) | (1 << 30); // tscoffs+pause
 	utcb->ctrl[1] = 0;
 	)
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,

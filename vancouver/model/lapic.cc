@@ -102,7 +102,10 @@ class Lapic : public StaticReceiver<Lapic>
     //Logging::printf("%s %llx %llx\n", __PRETTY_FUNCTION__, value, _msr);
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
     bool was_x2apic_mode = x2apic_mode();
+    // check
     if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
+
+
     if ((_msr ^ value) & 0x800) {
       // update CPUID leaf 1 EDX
       CpuMessage msg(1, 3, ~(1 << 9), (value & 0x800) >> 2);
