@@ -5,9 +5,9 @@ import nul
 Import('target_env')
 
 nul.App(target_env, 'cycleburner',
-        SOURCES = [ 'cycleburner.cc' ],
+        SOURCES = [ 'cycleburner.cc'],
         INCLUDE = [ 'sigma0' ],
-        LIBS    = [ 'vsys' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<19)
 
 # EOF

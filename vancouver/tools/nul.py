@@ -28,12 +28,12 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [],
-        LINKSCRIPT = "#vsys/linker.ld", MEMSIZE = 1<<23):
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[],
+        LINKSCRIPT = "#service/linker.ld", MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)
     return env.Link(output + '/apps/%s.nul' % name,
-                    SOURCES,
+                    SOURCES + OBJS,
                     linkscript = LINKSCRIPT)
 
 def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = []):

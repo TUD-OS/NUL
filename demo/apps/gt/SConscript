@@ -6,6 +6,6 @@ Import('target_env')
 
 nul.App(target_env, 'gt',
         SOURCES = [ 'gt.cc' ],
-        LIBS    = [ 'vsys' ])
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'])
 
 # EOF

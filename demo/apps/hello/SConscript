@@ -6,7 +6,7 @@ Import('target_env')
 
 nul.App(target_env, 'hello',
         SOURCES = [ 'hello.cc' ],
-        LIBS    = [ 'vsys' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<16)
 
 # EOF
