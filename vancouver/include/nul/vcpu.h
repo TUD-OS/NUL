@@ -105,8 +105,9 @@ public:
     EVENT_INIT   = 1 <<  5,
     EVENT_SIPI   = 1 <<  6,
     EVENT_EXTINT = 1 <<  7,
+    EVENT_DEBUG  = 1 <<  8,
     EVENT_MASK   =   0x0ff,
-    EVENT_DEBUG  = 1 << 18,
+    DEASS_EXTINT = 1 <<  9,
     STATE_BLOCK  = 1 << 16,
     STATE_WAKEUP = 1 << 17,
   };

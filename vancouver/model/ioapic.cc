@@ -90,9 +90,9 @@ private:
    * Write to the data register.
    */
   void write_data(unsigned value) {
-    //Logging::printf("\t\tIOAPIC write %x value %x\n", _index, value);
     if (in_range(_index, 0x10, 0x3f)) {
       unsigned mask = (_index & 1) ? 0xffff0000 : 0x1afff;
+      unsigned old  = _redir[_index - 0x10];
       _redir[_index - 0x10] = value & mask;
       unsigned pin = (_index - 0x10) / 2;
 
@@ -104,6 +104,15 @@ private:
 	// unmasked - retrigger and/or notify
 	if (~_redir[pin * 2] & 0x10000 && _ds[pin])
 	  pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
+
+	// was unmasked EXTINT and is it not anymore
+	if (!(_index & 1) && (old & 0x10700) == 0x700 && (_redir[pin * 2] & 0x10700) != 0x700) {
+	  // we send a broadcast EXTINT level deassert message
+	  value = 0x8700;
+	  MessageMem mem(false, MessageMem::MSI_ADDRESS | 0xffff0, &value);
+	  _bus_mem.send(mem);
+	}
+
       }
       else {
 	// unmasked an edge triggered IRQ? -> notify

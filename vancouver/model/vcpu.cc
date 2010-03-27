@@ -315,6 +315,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     COUNTER_INC("EVENT");
     //if (value != EVENT_FIXED) Logging::printf("VCPU[%2d] got event value %x sipi %x event %x\n", CPUID_EDXb, value, _sipi, _event);
 
+    if (value & DEASS_EXTINT) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_EXTINT);
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state

@@ -384,6 +384,12 @@ class Lapic : public StaticReceiver<Lapic>
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
       if (offset == _TIMER_offset)   update_timer(_clock->time());
+
+      // send EXTINT deassert messages when LINT0 was masked
+      if (offset == _LINT0_offset && (value & (1 << LVT_MASK_BIT))) {
+	CpuEvent msg(VCpu::DEASS_EXTINT);
+	_vcpu->bus_event.send(msg);
+      }
     }
     return res;
   }
@@ -529,8 +535,10 @@ public:
     if (event == VCpu::EVENT_FIXED)
       accept_vector(msg.icr, msg.icr & MessageApic::ICR_LEVEL, msg.icr & MessageApic::ICR_ASSERT);
     else {
-      // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
       if (event == VCpu::EVENT_SIPI) event |= (msg.icr & 0xff) << 8;
+      if (event == VCpu::EVENT_EXTINT && (msg.icr & 0xc000) == 0x8000) event = VCpu::DEASS_EXTINT;
+
+      // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
