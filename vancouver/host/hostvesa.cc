@@ -238,7 +238,7 @@ public:
       Logging::panic("%s could not map the first megabyte", __PRETTY_FUNCTION__);
     _mem = msg.ptr;
 
-    char args[] = "mem pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0xcf8 dpci:3,0,0 dio:0x3c0+0x20 dio:0x3b0+0x10 vcpu halifax";
+    char args[] = "mem pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0x100,0xcf8 dpci:3,0,0,0,0 dio:0x3c0+0x20 dio:0x3b0+0x10 vcpu halifax";
     _mb.parse_args(args);
 
     // check for VBE
