@@ -639,19 +639,26 @@ public:
   bool  receive(MessageDiscovery &msg) {
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
 
-    // write the default APIC address to the MADT
-    discovery_write_dw("APIC",  36,    APIC_ADDR, 4);
-    // and that we have legacy PICs
-    discovery_write_dw("APIC",  40,    1, 4);
+
+    unsigned value = 0;
+    discovery_read_dw("APIC", 36, value);
+    unsigned length = discovery_length("APIC", 44);
+    if (value == 0) {
+      // NMI is connected to LINT1 on all LAPICs
+      discovery_write_dw("APIC", length + 0, 0x00ff0604 | (_initial_apic_id << 24), 4);
+      discovery_write_dw("APIC", length + 4,     0x0100, 2);
+      length += 6;
+
+      // write the default APIC address to the MADT
+      discovery_write_dw("APIC",  36,    APIC_ADDR, 4);
+
+      // and that we have legacy PICs
+      discovery_write_dw("APIC",  40,    1, 4);
+    }
 
     // add the LAPIC structure to the MADT
-    unsigned length = discovery_length("APIC", 44);
     discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
     discovery_write_dw("APIC", length + 4, 1, 4);
-
-    // NMI is connected to LINT1
-    discovery_write_dw("APIC", length +  8, 0x00ff0604, 4);
-    discovery_write_dw("APIC", length + 12,     0x0100, 2);
     return true;
   }
 
