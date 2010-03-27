@@ -33,6 +33,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     LOW_BASE  = 0xa0000,
     LOW_SIZE  = 1<<17,
     TEXT_OFFSET = 0x18000 >> 1,
+    EBDA_FONT_OFFSET = 0x1000,
   };
   unsigned short _view;
   unsigned short _iobase;
@@ -41,14 +42,13 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   unsigned long  _framebuffer_size;
   VgaRegs        _regs;
   unsigned char  _crt_index;
+  unsigned       _ebda_segment;
 
   void debug_dump() {
     Device::debug_dump();
     Logging::printf("    iobase %x+32 fbphys %lx fbsize %lx", _iobase, _framebuffer_phys, _framebuffer_size);
   };
   const char *debug_getname() { return "VGA"; };
-
- public:
 
   void putchar_guest(unsigned short value)
   {
@@ -73,14 +73,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     // and clear the screen
     memset(_framebuffer_ptr, 0, _framebuffer_size);
     puts_guest("    VgaBios booting...\n\n\n");
-
-    // init bda
-    write_bda(0x49,    3, 1); // current videomode
-    write_bda(0x4a,   80, 1); // columns on screen
-    write_bda(0x4c, 4000, 2); // screenbytes: 80*25*2
-    write_bda(0x84,   24, 1); // rows - 1
-    write_bda(0x85,   16, 1); // character height in scan-lines
-    write_bda(0x63, _iobase + 0x14, 2); // crt address
     return true;
   }
 
@@ -112,7 +104,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     return ~0u;
   }
 
-public:
   bool  handle_vesa(CpuState *cpu)
   {
     static const char *oemstring = "Vancouver VESA BIOS";
@@ -253,12 +244,30 @@ public:
 	switch (cpu->ax)
 	  {
 	  case 0x1130:        // get font information
-	    // XXX fake the pointers?
-	    #if 1
-	    cpu->es.sel      = 0xc000;
-	    cpu->es.base     = 0xc0000;
-	    cpu->bp          = cpu->bx*100;
-	    #endif
+	    switch (cpu->bh) {
+	    case 0:
+	      cpu->es.sel   = read_bda(4*0x1f);
+	      cpu->bp       = cpu->es.sel >> 16;
+	      cpu->es.sel  &= 0xffff;
+	      cpu->es.base  = cpu->es.sel << 4;
+	      break;
+	    case 1:
+	      cpu->es.sel   = read_bda(4*0x43);
+	      cpu->bp       = cpu->es.sel >> 16;
+	      cpu->es.sel  &= 0xffff;
+	      cpu->es.base  = cpu->es.sel << 4;
+	      break;
+	    case 5 ... 7:
+	      cpu->es.sel      = _ebda_segment;
+	      cpu->es.base     = cpu->es.sel << 4;
+	      cpu->bp          = EBDA_FONT_OFFSET;
+	      // we let the alternate tables start just before the
+	      // font, as this byte would be zero, we are fine
+	      if (cpu->bh == 7 || cpu->bh == 5) cpu->bp--;
+	      break;
+	    default:
+	      DEBUG(cpu);
+	    }
 	    cpu->cx = read_bda(0x85) & 0xff;
 	    cpu->dl = read_bda(0x84);
 	    break;
@@ -278,6 +287,7 @@ public:
     return true;
   }
 
+public:
 
   bool  receive(MessageBios &msg)
   {
@@ -425,6 +435,27 @@ public:
     return true;
   }
 
+  bool  receive(MessageDiscovery &msg) {
+    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+    discovery_write_dw("bda",  0x49,    3, 1); // current videomode
+    discovery_write_dw("bda",  0x4a,   80, 1); // columns on screen
+    discovery_write_dw("bda",  0x4c, 4000, 2); // screenbytes: 80*25*2
+    discovery_write_dw("bda",  0x84,   24, 1); // rows - 1
+    discovery_write_dw("bda",  0x85,   16, 1); // character height in scan-lines
+    discovery_write_dw("bda",  0x63, _iobase + 0x14, 2); // crt address
+
+
+    MessageConsole msg2(MessageConsole::TYPE_GET_FONT);
+    msg2.ptr = _framebuffer_ptr;
+    if (_mb.bus_console.send(msg2)) {
+      // write it to the EBDA
+      discovery_write_st("ebda", EBDA_FONT_OFFSET, _framebuffer_ptr, 0x1000);
+      discovery_read_dw("bda", 0xe, _ebda_segment);
+      // set font vector
+      discovery_write_dw("realmode idt", 0x43 * 4, (_ebda_segment << 16) | EBDA_FONT_OFFSET);
+    }
+    return true;
+  }
 
 
   Vga(Motherboard &mb, unsigned short iobase, char *framebuffer_ptr, unsigned long framebuffer_phys, unsigned long framebuffer_size)
@@ -449,8 +480,9 @@ public:
 PARAM(vga,
       {
 	unsigned long fbsize = argv[1];
-	if (fbsize < (1<<7) || fbsize == ~0ul)
-	  fbsize = 128;
+
+	// we need at least 128k for 0xa0000-0xbffff
+	if (fbsize < 128 || fbsize == ~0ul)  fbsize = 128;
 	fbsize <<= 10;
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
 	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0);
@@ -458,11 +490,13 @@ PARAM(vga,
 	  Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
 
 	Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
-	mb.bus_ioin.  add(dev, &Vga::receive_static<MessageIOIn>);
-	mb.bus_ioout. add(dev, &Vga::receive_static<MessageIOOut>);
-	mb.bus_bios.  add(dev, &Vga::receive_static<MessageBios>);
-	mb.bus_mem.add(dev, &Vga::receive_static<MessageMem>);
+	mb.bus_ioin     .add(dev, &Vga::receive_static<MessageIOIn>);
+	mb.bus_ioout    .add(dev, &Vga::receive_static<MessageIOOut>);
+	mb.bus_bios     .add(dev, &Vga::receive_static<MessageBios>);
+	mb.bus_mem      .add(dev, &Vga::receive_static<MessageMem>);
 	mb.bus_memregion.add(dev, &Vga::receive_static<MessageMemRegion>);
+	mb.bus_discovery.add(dev, &Vga::receive_static<MessageDiscovery>);
+
       },
       "vga:iobase,fbsize=128 - attach a VGA controller.",
       "Example: 'vga:0x3c0,4096'",

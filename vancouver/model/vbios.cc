@@ -85,7 +85,9 @@ public:
     // initialize realmode idt
     unsigned value = (BIOS_BASE >> 4) << 16;
     for (unsigned i=0; i < 256; i++) {
-      discovery_write_dw("realmode idt", i*4, value, 4);
+      // XXX init only whats needed and done on compatible BIOSes
+      if (i != 0x43)
+	discovery_write_dw("realmode idt", i*4, value, 4);
       value++;
     }
     return true;

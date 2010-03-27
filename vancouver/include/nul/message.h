@@ -324,6 +324,8 @@ struct MessageConsole
       TYPE_ALLOC_VIEW,
       // get information about a mode
       TYPE_GET_MODEINFO,
+      // get a FONT
+      TYPE_GET_FONT,
       // switch to another view
       TYPE_SWITCH_VIEW,
       // the user pressed a key

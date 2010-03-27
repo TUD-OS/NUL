@@ -713,6 +713,7 @@ public:
       case MessageConsole::TYPE_ALLOC_VIEW:
       case MessageConsole::TYPE_SWITCH_VIEW:
       case MessageConsole::TYPE_GET_MODEINFO:
+      case MessageConsole::TYPE_GET_FONT:
       default:
 	break;
       }

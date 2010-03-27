@@ -32,16 +32,17 @@ public:
   enum {
     MAXVIEWS   = 16,
     MAXCLIENTS = 64,
-    TIME_TAG   = 3,       // time in HZ to display the tag
+    TIME_TAG   = 3,       // time in seconds to display the tag
     TEXTMODE   = 0,
-    BACKEND_OFFSET = 0x3000,
-    BACKEND_SIZE  = 1 << 15,
+    BACKEND_OFFSET =   0x3000,
+    BACKEND_SIZE   = 8*0x1000,
   };
 
 private:
   Motherboard &_mb;
   char    *_backend;
   char     _saved[BACKEND_SIZE];
+  char     _font [256*16];
   unsigned _modifier_switch;
   unsigned _modifier_system;
   unsigned _refresh_freq;
@@ -52,7 +53,7 @@ private:
   unsigned short _last_cursor_style;
   Vbe::ModeInfoBlock _modeinfo;
   unsigned _timer;
-  unsigned long long _lastswitchtime;
+  timevalue _lastswitchtime;
   char *_graphic_ptr;
   bool _measure;
 
@@ -382,6 +383,9 @@ public:
 	    switch_client();
 	  }
 	break;
+      case MessageConsole::TYPE_GET_FONT:
+	memcpy(msg.ptr, _font, sizeof(_font));
+	break;
       case MessageConsole::TYPE_KEY:
       case MessageConsole::TYPE_RESET:
       case MessageConsole::TYPE_START:
@@ -406,14 +410,11 @@ public:
 
 
   HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system, unsigned refresh_freq) :
-    _mb(mb), _backend(backend), _modifier_switch(modifier_switch), _modifier_system(modifier_system), _refresh_freq(refresh_freq),
-    _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0)
+    _mb(mb), _backend(backend), _saved(), _font(), _modifier_switch(modifier_switch), _modifier_system(modifier_system), _refresh_freq(refresh_freq),
+    _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0), _clients()
   {
-    memset(_clients, 0, sizeof(_clients));
-    _mb.bus_keycode.add(this, &HostVga::receive_static<MessageKeycode>);
-    _mb.bus_console.add(this, &HostVga::receive_static<MessageConsole>);
-    _mb.bus_timeout.add(this, &HostVga::receive_static<MessageTimeout>);
 
+    // get a timer
     MessageTimer msg0;
     if (!_mb.bus_timer.send(msg0))
       Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
@@ -426,10 +427,24 @@ public:
     _active_mode = TEXTMODE;
     MessageVesa msg1(_active_mode, &_modeinfo);
     if (!_mb.bus_vesa.send(msg1))
-      {
-	// its a textmode
+	// its a textmode, belief me
 	_modeinfo.attr = 1;
+
+    MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0, 0x1000);
+    if (_mb.bus_hostop.send(msg2) && msg2.ptr) {
+      unsigned vec = reinterpret_cast<unsigned *>(msg2.ptr)[0x43];
+      unsigned ofs = (vec & 0xffff) + ((vec >> 12) & 0xffff0);
+      MessageHostOp msg3(MessageHostOp::OP_ALLOC_IOMEM, ofs & ~0xfff, sizeof(_font)*2);
+      if (_mb.bus_hostop.send(msg3) && msg3.ptr) {
+	Logging::printf("got the font at %x -> %x\n", vec, ofs);
+	memcpy(_font, msg3.ptr + (ofs & 0xfff), sizeof(_font));
       }
+    }
+
+    _mb.bus_keycode.add(this, &HostVga::receive_static<MessageKeycode>);
+    _mb.bus_console.add(this, &HostVga::receive_static<MessageConsole>);
+    _mb.bus_timeout.add(this, &HostVga::receive_static<MessageTimeout>);
+
     Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
   }
 };
@@ -439,8 +454,10 @@ PARAM(hostvga,
 	unsigned modifier_switch = ~argv[0] ? argv[0] : (0 + KBFLAG_LWIN);
 	unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
 	unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
+
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");
+
 	new HostVga(mb, msg.ptr, modifier_switch, modifier_system, refresh_freq);
       },
       "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.",

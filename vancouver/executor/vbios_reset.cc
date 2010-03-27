@@ -27,7 +27,13 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 {
   enum {
     MAX_RESOURCES = 32,
-    SIZE_EBDA_KB  = 2,
+    SIZE_EBDA_KB  = 5,
+    /**
+     * EBDA Layout
+     * 0x0000 - 0x0200 compatible EBDA
+     * 0x0200 - 0x0220 rsdp
+     * 0x1000 - 0x2000 8x16 font
+     */
   };
 #define ACPI_OEM_ID        " NOVA "
 #define ACPI_MANUFACTURER "bk@vmmon"

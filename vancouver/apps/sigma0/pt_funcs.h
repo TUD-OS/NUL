@@ -177,17 +177,18 @@ PT_FUNC(do_request,
 		  if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
 		  {
 		    MessageConsole msg2 = *msg;
-		    if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW &&
-			 msg2.type != MessageConsole::TYPE_SWITCH_VIEW &&
-			 msg2.type != MessageConsole::TYPE_GET_MODEINFO)
-			||
-			(msg2.type == MessageConsole::TYPE_ALLOC_VIEW &&
-			 (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
-			  || convert_client_ptr(modinfo, msg2.name, 4096)
-			  || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
-			||
-			(msg2.type == MessageConsole::TYPE_GET_MODEINFO &&
-			 (convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info))))
+		    if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
+			 && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
+			 && msg2.type != MessageConsole::TYPE_GET_MODEINFO
+			 && msg2.type != MessageConsole::TYPE_GET_FONT)
+			|| (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
+			    && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
+				|| convert_client_ptr(modinfo, msg2.name, 4096)
+				|| convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
+			|| (msg2.type == MessageConsole::TYPE_GET_FONT
+			    &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
+			|| (msg2.type == MessageConsole::TYPE_GET_MODEINFO
+			    && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
 			|| !modinfo->console)
 		      break;
 		    msg2.id = modinfo->console;
