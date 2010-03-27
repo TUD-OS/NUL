@@ -7,6 +7,7 @@ nul.Lib(target_env, 'host',
         SOURCES = filter(lambda x: x.name != 'hostvesa.cc',Glob('*.cc')))
 nul.Lib(target_env, 'hostvesa', SOURCES = ['hostvesa.cc',
                                            '../model/memorycontroller.o',
+                                           '../model/vcpu.o',
                                            '../executor/halifax.o',
                                            '../model/pit8254.o',
                                            '../model/sysctrlport.o',

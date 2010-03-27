@@ -303,7 +303,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     static unsigned char debugioout[8192];
     if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
-      Logging::printf("could not write to ioport %x eip %x\n", msg.port, msg.cpu->eip);
+      Logging::printf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
     }
   }
 

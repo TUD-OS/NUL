@@ -17,7 +17,7 @@
 
 #include "nul/motherboard.h"
 #include "host/vesa.h"
-#include "executor/cpustate.h"
+#include "nul/vcpu.h"
 
 /**
  * A Vesa console.
@@ -89,28 +89,18 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.eip      = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 0];
     _cpu.cs.sel   = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 1];
     _cpu.cs.base  = _cpu.cs.sel << 4;
-#if 0
-    MessageExecutor msg(&_cpu, _mb.vcpustate(0));
 
-
-    _cpu.head._pid = MessageExecutor::DO_ENTER;
-    _mb.bus_executor.send(msg, false, _cpu.head._pid);
-    _cpu.head._pid = 0;
-
-    while (_cpu.head._pid != 12)
+    CpuMessage msg(CpuMessage::TYPE_SINGLE_STEP, &_cpu, MTD_ALL);
+    while (!_cpu.actv_state)
       {
 	_instructions++;
-	if (!_cpu.head._pid) _cpu.head._pid = 33;
 	if (_debug & 2)
 	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
 			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp);
-	if (!_mb.bus_executor.send(msg, true, _cpu.head._pid))
+	if (!_mb.last_vcpu->executor.send(msg))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
       }
-    _cpu.head._pid = MessageExecutor::DO_LEAVE;
-    _mb.bus_executor.send(msg, false, _cpu.head._pid);
-    _mb.dump_counters();
-#endif
+
 
     if ((_cpu.eax & 0xffff) == 0x004f)  return false;
     Logging::printf("VBE call(%x, %x, %x, %x) returned %x\n", eax, ecx, edx, ebx, _cpu.eax);
@@ -168,14 +158,17 @@ public:
       case MessageHostOp::OP_ATTACH_MSI:
 	// forward to the host
 	return _hostmb.bus_hostop.send(msg);
+      case MessageHostOp::OP_VCPU_BLOCK:
+	// invalid value, to abort the loop
+	_cpu.actv_state = 0x80000000;
+      case MessageHostOp::OP_VCPU_CREATE_BACKEND:
+	return true;
+      case MessageHostOp::OP_VCPU_RELEASE:
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
-      case MessageHostOp::OP_VCPU_CREATE_BACKEND:
-      case MessageHostOp::OP_VCPU_BLOCK:
-      case MessageHostOp::OP_VCPU_RELEASE:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
@@ -202,9 +195,7 @@ public:
 
   bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(msg); }
   bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(msg); }
-  bool  receive(MessagePciConfig &msg) {  return  _hostmb.bus_hwpcicfg.send(msg, true); }
-
-
+  bool  receive(MessagePciConfig &msg) {  return _hostmb.bus_hwpcicfg.send(msg, true); }
   bool  receive(MessageVesa   &msg)
   {
     if (msg.index < _modecount)
@@ -247,7 +238,7 @@ public:
       Logging::panic("%s could not map the first megabyte", __PRETTY_FUNCTION__);
     _mem = msg.ptr;
 
-    char args[] = "mem novahalifax pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0xcf8 dpci:3,0,0 dio:0x3c0+0x20 dio:0x3b0+0x10";
+    char args[] = "mem pit:0x40,0 scp:0x92,0x61 pcihostbridge:0,0xcf8 dpci:3,0,0 dio:0x3c0+0x20 dio:0x3b0+0x10 vcpu halifax";
     _mb.parse_args(args);
 
     // check for VBE
@@ -302,8 +293,7 @@ public:
 
 PARAM(hostvesa,
       {
-	new HostVesa(mb, !argv[0]);
-
+	new HostVesa(mb, ~argv[0] ? argv[0] : 0);
       },
-      "hostvesa:nodebug=1 - provide a VESA console as backend for a VESA model.",
-      "Use 'hostvesa:0' for debug output.")
+      "hostvesa:debug=0 - provide a VESA console as backend for a VESA model.",
+      "Use 'hostvesa:3' for debug output.")
