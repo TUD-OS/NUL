@@ -218,8 +218,6 @@ class Lapic : public StaticReceiver<Lapic>
       // we could set an send accept error here, but that is not supported in the P4...
       return _lowest_rr;
     }
-    //Logging::printf("%s %x %x\n", __func__, icr, dst);
-
     MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
     return _bus_apic.send(msg);
   }
@@ -526,8 +524,6 @@ public:
     if (!accept_message(msg)) return false;
     assert(!(msg.icr & ~0xcfff));
     unsigned event = 1 << ((msg.icr >> 8) & 7);
-
-    //Logging::printf("LAPIC received event %x\n", event);
 
     assert(event != VCpu::EVENT_RRD);
     assert(event != VCpu::EVENT_LOWEST);
