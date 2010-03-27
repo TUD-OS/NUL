@@ -65,7 +65,7 @@ class Lapic : public StaticReceiver<Lapic>
 
   bool sw_disabled() { return ~_SVR & 0x100; }
   bool hw_disabled() { return ~_msr & 0x800; }
-  bool x2apic_mode() { return  (_msr & 0xc00) == 0xc000; }
+  bool x2apic_mode() { return  (_msr & 0xc00) == 0xc00; }
 
 
   /**
