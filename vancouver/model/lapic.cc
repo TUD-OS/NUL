@@ -83,15 +83,14 @@ class Lapic : public StaticReceiver<Lapic>
 
     // RESET?
     if (!init) {
-      Lapic_write(_ID_offset,  _initial_apic_id << 24);
+      _msr = 0;
+      _ID = _initial_apic_id << 24;
       set_base_msr(APIC_ADDR | 0x800);
 
       // as we enable the APICs, we also perform the BIOS INIT
-      if (!_vcpu->is_ap()) {
-	Lapic_write(_LINT0_offset, 0x700);
-	Lapic_write(_LINT1_offset, 0x400);
-	Lapic_write(_SVR_offset,  0x1ff);
-      }
+      Lapic_write(_LINT0_offset, 0x700);
+      Lapic_write(_LINT1_offset, 0x400);
+      Lapic_write(_SVR_offset,  0x1ff);
     }
   }
 
@@ -114,7 +113,7 @@ class Lapic : public StaticReceiver<Lapic>
 
     if (!was_x2apic_mode && x2apic_mode()) {
       // init LDR + _ID
-      register_write(_LDR_offset, _ID, false);
+      register_write( _ID_offset, _ID,  false);
       register_write(_LDR_offset, _LDR, false);
       _ICR1 = 0;
     }
