@@ -99,6 +99,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   };
 
 
+
   unsigned alloc(unsigned size, unsigned alignment) {
     if ((size + alignment + 0x1000) > _mem_size) return 0;
     _mem_size -= size;

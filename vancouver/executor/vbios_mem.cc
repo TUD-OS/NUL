@@ -58,7 +58,6 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 	{
 	  if ((cpu->edx == 0x534D4150 && cpu->ecx >= 20))
 	    {
-	      Logging::printf("%s() ebx %x sizeof(mymap) %x rdi %x memsize %lx\n", __func__, cpu->ebx, 2, cpu->edi, _memsize);
 	      struct mmap{
 		unsigned long long base;
 		unsigned long long size;
@@ -73,6 +72,12 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 		  cpu->ebx++;
 		  break;
 		case 1:
+		  mmap.base = read_bda(0x13) << 10;
+		  mmap.size = 0xa0000 - mmap.base;
+		  mmap.type = 2;
+		  cpu->ebx++;
+		  break;
+		case 2:
 		  mmap.base = 1 << 20;
 		  mmap.size = _memsize - (1<<20);
 		  cpu->ebx = 0;

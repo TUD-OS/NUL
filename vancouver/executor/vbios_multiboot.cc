@@ -146,6 +146,7 @@ private:
       _lowmem = (_lowmem & 0xffff) << 10;
 
     MbiMmap mymap[] = {{20, 0, _lowmem, 0x1},
+		       {20, _lowmem, 0xa0000 - _lowmem, 2},
 		       {20, 1<<20, memsize - (1<<20), 0x1}};
     m->mem_lower = 640;
     m->mem_upper = (memsize >> 10) - 1024;
