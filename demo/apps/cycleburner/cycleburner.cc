@@ -22,7 +22,7 @@ static void
 gen_sinlut(void)
 {
   for (int i = 0; i < SIN_LUTSIZE/2; i++) {
-    sinlut[i] = (int8_t)(fsin(M_PI*2*((float)i)/SIN_LUTSIZE)*127);
+    sinlut[i] = static_cast<int8_t>(fsin(M_PI*2*static_cast<float>(i)/SIN_LUTSIZE)*127);
     sinlut[i + SIN_LUTSIZE/2] = -sinlut[i];
   }
 }
@@ -95,7 +95,7 @@ class PlasmaAnimator : public TextAnimator<ROW, COL> {
   void
   plasma_put(unsigned row, unsigned col, int8_t color)
   {
-    int icol = (((int)color) + 128) >> 4;
+    int icol = (static_cast<int>(color) + 128) >> 4;
     uint16_t coltab[8] = { ' ' | 0x0000, ' ' | 0x0000,
 			   ':' | 0x0200, ':' | 0x0A00,
 			   'o' | 0x0200, 'O' | 0x0200,
@@ -155,8 +155,8 @@ public:
       _start_init = true;
     }
 
-    unsigned t = ((unsigned)((now - _start) >> 22)) % 10000;
-    unsigned cycle = ((unsigned)((now - _start) >> 22)) / 10000;
+    unsigned t = (static_cast<unsigned>((now - _start) >> 22)) % 10000;
+    unsigned cycle = (static_cast<unsigned>((now - _start) >> 22)) / 10000;
 
     if (t < 800) {
       // 0-799: Bar in
@@ -305,7 +305,7 @@ class Cycleburner : public NovaProgram,
   const char *debug_getname() { return "Cycleburner"; };
 
 public:
-  void run(Utcb *utcb, Hip *hip)
+  void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     console_init("CYC");
 
@@ -346,6 +346,7 @@ public:
   }
 };
 
+extern "C" void __attribute__((noreturn)) start(Hip *hip, Utcb *utcb);
 ASMFUNCS(Cycleburner, NovaProgram);
 
 // EOF

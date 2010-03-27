@@ -45,7 +45,7 @@ class Rocknshine : public NovaProgram, ProgramConsole, GenericKeyboard
   {
     unsigned int dest_len = sizeof(_scratch);
 
-    unsigned char *compressed = _header->offset[page] + (unsigned char *)_header;
+    unsigned char *compressed = _header->offset[page] + reinterpret_cast<unsigned char *>(_header);
     unsigned size = _header->offset[page+1] - _header->offset[page];
 
     Logging::printf("Compressed page %d at %p (offset %x, 0x%x bytes).\n",

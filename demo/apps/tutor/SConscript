@@ -12,6 +12,6 @@ nul.App(target_env, 'tutor',
         MEMSIZE = 1<<16)
 
 host_env.Command('screen1.cc', ['screen.py', 'screen1.txt'],
-                 '${SOURCES[0]} screen1 < ${SOURCES[1:]} > ${TARGET}')
+                 '@${SOURCES[0]} screen1 < ${SOURCES[1:]} > ${TARGET}')
 
 # EOF

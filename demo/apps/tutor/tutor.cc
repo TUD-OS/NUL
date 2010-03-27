@@ -15,7 +15,7 @@ void print_screen1(unsigned short *dst);
 struct Tutor : public NovaProgram,
 	       public ProgramConsole
 {
-  void run(Utcb *utcb, Hip *hip)
+  void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     console_init("TUT");
 
@@ -28,6 +28,7 @@ struct Tutor : public NovaProgram,
   }
 };
 
+extern "C" void __attribute__((noreturn)) start(Hip *hip, Utcb *utcb);
 ASMFUNCS(Tutor, NovaProgram);
 
 // EOF

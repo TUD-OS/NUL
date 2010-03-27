@@ -21,12 +21,11 @@
 class Hello : public ProgramConsole
 {
 public:
-  int run(Utcb *utcb, Hip *hip)
+  void run(Utcb *utcb, Hip *hip)
   {
     console_init("Hello");
-    for (unsigned i=0; ; i++)
-      Logging::printf("%8x Hello World!\n", i);
-    return 0;
+    for (unsigned i=1; i; i++)
+      Logging::printf("%8x Hello World!\n", i++);
   }
 };
 
