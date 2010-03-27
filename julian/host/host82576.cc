@@ -194,7 +194,7 @@ private:
       break;
     default:
       msg(VF, "Unrecognized message %04x.\n", mbxmsg[0] & 0xFFFF);
-      Logging::hexdump(mbxmsg, 16); // Dump control world plus some data (if any)
+      hexdump(mbxmsg, 16); // Dump control world plus some data (if any)
       // Send NACK for unrecognized messages.
       _hwreg[pfmbxmem] = mbxmsg[0] | CMD_NACK;
     };
