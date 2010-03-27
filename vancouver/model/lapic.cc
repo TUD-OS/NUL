@@ -23,8 +23,8 @@
  * Lapic model.
  *
  * State: unstable
- * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode
- * Missing:  focus checking, CR8/TPR setting, BIOS ACPI tables
+ * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode, BIOS ACPI tables
+ * Missing:  focus checking, CR8/TPR setting
  * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
  * Documentation: Intel SDM Volume 3a Chapter 10 253668-033.
  */
