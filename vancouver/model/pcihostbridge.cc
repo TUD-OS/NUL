@@ -179,6 +179,13 @@ public:
     discovery_write_dw("MCFG", length +  4, static_cast<unsigned long long>(_membase) >> 32, 4);
     discovery_write_dw("MCFG", length +  8, ((_busnum & 0xff) << 16) | (((_buscount-1) & 0xff) << 24) | ((_busnum >> 8) & 0xffff), 4);
     discovery_write_dw("MCFG", length + 12, 0);
+
+    // reset via 0xcf9
+    discovery_write_dw("FACP", 116, 0x01000801, 4);
+    discovery_write_dw("FACP", 120, 0xcf9, 4);
+    discovery_write_dw("FACP", 124, 0, 4);
+    discovery_write_dw("FACP", 128, 6, 1);
+
     return true;
   }
 
