@@ -171,13 +171,12 @@ class Lapic : public StaticReceiver<Lapic>
   bool send_ipi(unsigned icr, unsigned dst) {
     COUNTER_INC("IPI");
 
-    //Logging::printf("[%x] %s %x %x\n", _initial_apic_id, __func__, icr, dst);
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
 
     // no logical destination mode with shorthand
-    if (shorthand) icr &= MessageApic::ICR_DM;
+    if (shorthand) icr &= ~MessageApic::ICR_DM;
 
     // LOWEST does not work in x2apic mode
     if (event == VCpu::EVENT_LOWEST && x2apic_mode()) return set_error(4);
