@@ -328,7 +328,7 @@ helper_SDT(SGDT,gd, MTD_GDTR)
     SH_SAVE_EAX = 1 << 3,
     SH_DOOP_CMP = 1 << 4,
     SH_DOOP_IN  = 1 << 5,
-    SH_DOOP_OUT = 1 << 6,
+    SH_DOOP_OUT = 1 << 6
   };
 
 #define NCHECK(X)  { if (X) break; }

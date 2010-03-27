@@ -58,7 +58,7 @@ private:
     // Number of buffers, we need two for movs, push and similar instructions...
     BUFFERS = 6,
     // The maximum size of a buffer, the minmum is 16+dword (cmpxchg16b+instruction-reread).
-    BUFFER_SIZE = 16 + 4,
+    BUFFER_SIZE = 16 + 4
   };
 
   // the hash function for the cache
@@ -73,7 +73,7 @@ public:
     TYPE_RMW = TYPE_R | TYPE_W,
     TYPE_U   = 1u << 2,
     TYPE_RES = 1u << 3,
-    TYPE_X   = 1u << 4,
+    TYPE_X   = 1u << 4
   };
 
 

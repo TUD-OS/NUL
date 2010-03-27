@@ -73,7 +73,7 @@ struct DiskParameter
 {
   enum {
     FLAG_HARDDISK = 1,
-    FLAG_ATAPI    = 2,
+    FLAG_ATAPI    = 2
   };
   unsigned flags;
   unsigned long long sectors;

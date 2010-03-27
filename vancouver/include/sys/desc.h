@@ -23,14 +23,14 @@ enum
     MTD_STATE           = 1ul << 18,
     MTD_TSC             = 1ul << 19,
     MTD_IRQ             = MTD_RFLAGS | MTD_STATE | MTD_INJ,
-    MTD_ALL             = (~0U >> 13) & ~MTD_CTRL,
+    MTD_ALL             = (~0U >> 13) & ~MTD_CTRL
   };
 
 enum
   {
     INJ_IRQWIN = 0x1000,
     INJ_NMIWIN = 0x0000, // XXX missing
-    INJ_WIN    = INJ_IRQWIN | INJ_NMIWIN,
+    INJ_WIN    = INJ_IRQWIN | INJ_NMIWIN
   };
 
 

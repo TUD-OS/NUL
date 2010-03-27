@@ -18,7 +18,6 @@
 
 struct Config {
   enum {
-    NUM_VCPUS = 1,
-    PHYS_ADDR_SIZE = 40,
+    PHYS_ADDR_SIZE = 40
   };
 };

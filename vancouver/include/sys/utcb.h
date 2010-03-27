@@ -32,7 +32,7 @@ struct Utcb
     unsigned tls;
   } head;
   enum {
-    HEADER_SIZE = sizeof(struct head),
+    HEADER_SIZE = sizeof(struct head)
   };
 
 #define GREG(NAME)				\
@@ -42,12 +42,12 @@ struct Utcb
     };						\
     unsigned short          NAME##x;			\
     unsigned           e##NAME##x;		\
-  };
+  }
 #define GREG16(NAME)				\
   union {					\
     unsigned short          NAME;			\
     unsigned           e##NAME;			\
-  };
+  }
 
   union {
     struct {
@@ -91,7 +91,7 @@ struct Utcb
     unsigned msg[1024 - sizeof(struct head) / sizeof(unsigned)];
   };
 
-  enum { MINSHIFT = 12, };
+  enum { MINSHIFT = 12 };
   unsigned long add_mappings(bool exception, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
   {
     while (size > 0)

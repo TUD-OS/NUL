@@ -31,13 +31,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   volatile unsigned _event;
   volatile unsigned _sipi;
 
-  enum {
-    MSR_TSC = 0x10,
-    MSR_SYSENTER_CS = 0x174,
-    MSR_SYSENTER_ESP,
-    MSR_SYSENTER_EIP,
-  };
-
   void recalc_irqwindows(CpuMessage &msg) {
     unsigned new_event = _event;
     msg.cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
@@ -84,14 +77,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
   void handle_rdmsr(CpuMessage &msg) {
     switch (msg.cpu->ecx) {
-    case MSR_TSC:
+    case 0x10:
       handle_rdtsc(msg);
       break;
-    case MSR_SYSENTER_CS:
-    case MSR_SYSENTER_ESP:
-    case MSR_SYSENTER_EIP:
+    case 0x174 ... 0x176:
       assert(msg.mtr_in & MTD_SYSENTER);
-      msg.cpu->edx_eax((&msg.cpu->sysenter_cs)[msg.cpu->ecx - MSR_SYSENTER_CS]);
+      msg.cpu->edx_eax((&msg.cpu->sysenter_cs)[msg.cpu->ecx - 0x174]);
       break;
     case 0x8b: // microcode
       // MTRRs
@@ -115,15 +106,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     CpuState *cpu = msg.cpu;
     switch (cpu->ecx)
       {
-      case MSR_TSC:
+      case 0x10:
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
 	msg.mtr_out |= MTD_TSC;
 	//Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
-      case MSR_SYSENTER_CS:
-      case MSR_SYSENTER_ESP:
-      case MSR_SYSENTER_EIP:
-	(&cpu->sysenter_cs)[cpu->ecx - MSR_SYSENTER_CS] = cpu->edx_eax();
+      case 0x174 ... 0x176:
+	(&cpu->sysenter_cs)[cpu->ecx - 0x174] = cpu->edx_eax();
 	msg.mtr_out |= MTD_SYSENTER;
 	break;
       default:

@@ -28,7 +28,7 @@ struct MessageIOIn
   enum Type {
     TYPE_INB = 0,
     TYPE_INW = 1,
-    TYPE_INL = 2,
+    TYPE_INL = 2
   } type;
   unsigned short port;
   unsigned count;
@@ -48,7 +48,7 @@ struct MessageIOOut {
   enum Type {
     TYPE_OUTB = 0,
     TYPE_OUTW = 1,
-    TYPE_OUTL = 2,
+    TYPE_OUTL = 2
   } type;
   unsigned short port;
   unsigned count;
@@ -73,7 +73,7 @@ struct MessageMem
   enum {
     MSI_ADDRESS = 0xfee00000,
     MSI_DM      = 1 << 2,
-    MSI_RH      = 1 << 3,
+    MSI_RH      = 1 << 3
   };
   bool read;
   unsigned long phys;
@@ -151,7 +151,7 @@ struct MessageIrq
     {
       ASSERT_IRQ,
       ASSERT_NOTIFY,
-      DEASSERT_IRQ,
+      DEASSERT_IRQ
     } type;
   unsigned char line;
 
@@ -194,7 +194,7 @@ struct MessageApic
     IOAPIC_EOI = 0xfec00040,
     ICR_DM     = 1 << 11,
     ICR_ASSERT = 1 << 14,
-    ICR_LEVEL  = 1 << 15,
+    ICR_LEVEL  = 1 << 15
   };
   unsigned icr; // only bits 0xcfff are used
   unsigned dst; // 32bit APIC ID
@@ -219,7 +219,7 @@ struct MessageLegacy
       INIT,
       NMI,
       EXTINT,
-      INTA,
+      INTA
     } type;
   unsigned value;
   MessageLegacy(Type _type, unsigned _value=0) : type(_type), value(_value) {}
@@ -233,7 +233,7 @@ struct MessagePit
   enum Type
     {
       GET_OUT,
-      SET_GATE,
+      SET_GATE
     } type;
   unsigned pit;
   bool value;
@@ -254,7 +254,7 @@ struct MessagePS2
     {
       NOTIFY,
       READ_KEY,
-      SEND_COMMAND,
+      SEND_COMMAND
     }  type;
   unsigned char value;
   MessagePS2(unsigned char _port, Type _type, unsigned char _value) : port(_port), type(_type), value(_value) {}
@@ -335,7 +335,7 @@ struct MessageConsole
       // the user requests to start a new domain
       TYPE_START,
       // the user requests a debug feature
-      TYPE_DEBUG,
+      TYPE_DEBUG
     } type;
   unsigned short id;
   unsigned short view;
@@ -376,7 +376,7 @@ struct MessageVesa
       // return available modes
       TYPE_GET_MODEINFO,
       // switch mode
-      TYPE_SWITCH_MODE,
+      TYPE_SWITCH_MODE
     } type;
   unsigned index;
   Vbe::ModeInfoBlock *info;
@@ -409,7 +409,7 @@ struct MessageHostOp
       OP_ALLOC_FROM_GUEST,
       OP_VCPU_CREATE_BACKEND,
       OP_VCPU_BLOCK,
-      OP_VCPU_RELEASE,
+      OP_VCPU_RELEASE
     } type;
   unsigned long value;
   union {
@@ -447,7 +447,7 @@ struct MessageAcpi
 {
   enum  Type {
     ACPI_GET_TABLE,
-    ACPI_GET_IRQ,
+    ACPI_GET_IRQ
   } type;
   union {
     struct {
@@ -479,7 +479,7 @@ struct MessageDiscovery
   enum Type {
     DISCOVERY,
     WRITE,
-    READ,
+    READ
   } type;
   struct {
     const char * resource;
@@ -514,7 +514,7 @@ struct MessageDisk
       DISK_GET_PARAMS,
       DISK_READ,
       DISK_WRITE,
-      DISK_FLUSH_CACHE,
+      DISK_FLUSH_CACHE
     } type;
   unsigned disknr;
   union
@@ -536,7 +536,7 @@ struct MessageDisk
     DISK_STATUS_DMA,
     DISK_STATUS_USERTAG,
     DISK_STATUS_SHIFT = 4,
-    DISK_STATUS_MASK = (1 << DISK_STATUS_SHIFT) -1,
+    DISK_STATUS_MASK = (1 << DISK_STATUS_SHIFT) -1
   } error;
   MessageDisk(unsigned _disknr, DiskParameter *_params) : type(DISK_GET_PARAMS), disknr(_disknr), params(_params) {}
   MessageDisk(Type _type, unsigned _disknr, unsigned long _usertag, unsigned long long _sector,
@@ -592,7 +592,7 @@ struct MessageTimer
   enum Type
     {
       TIMER_NEW,
-      TIMER_REQUEST_TIMEOUT,
+      TIMER_REQUEST_TIMEOUT
     } type;
   unsigned  nr;
   timevalue abstime;
@@ -606,7 +606,7 @@ struct MessageTimer
  */
 struct MessageTimeout
 {
-  enum { HOST_TIMEOUT = ~0u, };
+  enum { HOST_TIMEOUT = ~0u };
   unsigned  nr;
   MessageTimeout(unsigned  _nr) : nr(_nr) {}
 };
@@ -621,9 +621,7 @@ struct MessageTimeout
  */
 struct MessageTime
 {
-  enum {
-    FREQUENCY = 1000000,
-  };
+  enum { FREQUENCY = 1000000 };
   timevalue wallclocktime;
   timevalue timestamp;
   MessageTime() :  wallclocktime(0), timestamp(0) {}

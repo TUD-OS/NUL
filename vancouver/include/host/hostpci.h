@@ -37,7 +37,7 @@ class HostPci
     BAR_MEM_MASK  = 0xFFFFFFF0U,
 
     CAP_MSI       = 0x05U,
-    CAP_MSIX      = 0x11U,
+    CAP_MSIX      = 0x11U
   };
 
 

@@ -115,7 +115,7 @@ class InstructionCache : public MemTlb
     EFL_VM  = 1 << 17,
     EFL_AC  = 1 << 18,
     EFL_VIF = 1 << 19,
-    EFL_VIP = 1 << 20,
+    EFL_VIP = 1 << 20
   };
 
 
@@ -130,13 +130,13 @@ class InstructionCache : public MemTlb
     IC_LOCK      = 1 <<  7,
     IC_BITS      = 1 <<  8,
     IC_RMW       = 1 <<  9,
-    IC_MOFS      = 1 << 10,
+    IC_MOFS      = 1 << 10
   };
 
 
   enum {
     SIZE = 64,
-    ASSOZ = 4,
+    ASSOZ = 4
   };
 
   unsigned _pos;

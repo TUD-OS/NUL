@@ -26,7 +26,7 @@ public:
 
   enum {
     RESET_VECTOR = 0x100,
-    MAX_VECTOR,
+    MAX_VECTOR
   };
 
 protected:

@@ -22,7 +22,7 @@ struct Vbe
   enum {
     TAG_VBE2 = 0x32454256,
     TAG_VESA = 0x41534556,
-    MAX_VESA_MODES = 222/2,
+    MAX_VESA_MODES = 222/2
   };
 
   struct InfoBlock

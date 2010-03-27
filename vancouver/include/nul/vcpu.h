@@ -34,7 +34,7 @@ struct CpuMessage {
     TYPE_INVD,
     TYPE_WBINVD,
     TYPE_CHECK_IRQ,
-    TYPE_SINGLE_STEP,
+    TYPE_SINGLE_STEP
   } type;
   union {
     struct {
@@ -74,7 +74,7 @@ struct LapicEvent {
   enum Type{
     INTA,
     RESET,
-    INIT,
+    INIT
   } type;
   unsigned value;
   LapicEvent(Type _type) : type(_type) { if (type == INTA) value = ~0u; }
@@ -110,7 +110,7 @@ public:
     DEASS_EXTINT = 1 << 16,
     EVENT_DEBUG  = 1 << 17,
     STATE_BLOCK  = 1 << 18,
-    STATE_WAKEUP = 1 << 19,
+    STATE_WAKEUP = 1 << 19
   };
 
   VCpu (VCpu *last) : _last(last) {}

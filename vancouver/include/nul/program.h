@@ -53,7 +53,7 @@ class NovaProgram : public BaseProgram
 
   enum {
     VIRT_START       = 0x1000,
-    UTCB_PAD         = 0x1000,
+    UTCB_PAD         = 0x1000
   };
  protected:
 

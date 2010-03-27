@@ -32,7 +32,7 @@ class HostVesa : public StaticReceiver<HostVesa>
     SS_SEG   = 0x1000,
     ES_SEG0  = 0x2000,
     ES_SEG1  = 0x3000,
-    TIMER_NR = 2,
+    TIMER_NR = 2
   };
 
   Motherboard  & _hostmb;

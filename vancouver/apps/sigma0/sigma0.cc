@@ -42,7 +42,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     MAXCPUS = 256,
     CPUGSI  = 0,
     HIP_ADDRESS = 0xbffff000,
-    MAXPCIDIRECT = 64,
+    MAXPCIDIRECT = 64
   };
 
   // a mapping from virtual cpus to the physical numbers
