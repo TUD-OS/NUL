@@ -398,7 +398,7 @@ public:
     if (msg.type != CpuMessage::TYPE_CPUID) return false;
 
     // XXX locking?
-    // XXX use reserved CPUID regions
+    // XXX use the reserved CPUID regions
     switch (msg.cpuid_index) {
       case 0x40000000:
 	//syscall(254, msg.cpu->ebx, 0, 0, 0);
@@ -418,7 +418,11 @@ public:
 	}
 	break;
       default:
-	return false;
+	/*
+	 * We have to return true here, to make handle_vcpu happy.
+	 * The values are already set in VCpu.
+	 */
+	return true;
     }
     return true;
   }
