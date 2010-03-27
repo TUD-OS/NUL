@@ -90,8 +90,6 @@ inline unsigned char  idc_send0(unsigned idx_pt, Mtd mtd_send)
 {  return syscall(NOVA_IPC_SEND0, idx_pt, mtd_send.value(), 0, 0); }
 
 
-extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
-
 inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, bool vcpus, unsigned char cpunr, bool dma)
 {  return syscall(NOVA_CREATE_PD | (vcpus ? NOVA_PD_VM : 0) | (dma ? NOVA_PD_DMA : 0),
 		  idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }

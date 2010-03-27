@@ -42,8 +42,46 @@
       asm volatile ("ud2a" : : "a"(msg));				\
   }
 
+/**
+ * The startup function and the initial stack.  Called with the HIP in
+ * %esp and the UTCB a page below the HIP.
+ */
+asm volatile (".global __start;"
+	      ".section .text.__start;"
+	      "__start:;"
+	      "mov	$stack, %eax;"
+	      "xchg	%eax, %esp;"
+	      "mov	%eax, %edx;"
+	      "sub	$0x1000, %edx;"
+	      "push	%edx;"           // push UTCB -- needed for myutcb()
+	      "call	start;"
+	      "ud2a;"
+	      ".section .bss.stack;"
+	      ".align 0x1000;"
+	      ".space 0x1000;"
+	      "stack:;"
+	      );
 
 
+
+/**
+ * A fast reply to our client, called by a return to a portal
+ * function.
+ */
+extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
+asm volatile (".section .text.idc_reply_and_wait_fast;"
+	      ".global idc_reply_and_wait_fast;"
+	      "idc_reply_and_wait_fast:;"
+	      // w2: mtr
+	      "mov	%eax, %esi;"
+	      // w0: NOVA_IPC_REPLY
+	      "mov	$1, %al;"
+	      // keep a pointer to ourself on the stack
+	      "sub	$4, %esp;"
+	      // ecx: stack
+	      "mov	%esp, %ecx;"
+	      "sysenter;"
+	      );
 
 /**
  * Contains common code for nova programms.
@@ -82,7 +120,7 @@ class NovaProgram : public BaseProgram
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_size / sizeof(void *)];
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
-    stack[stack_size/sizeof(void *) - 1] = utcb;
+    stack[stack_size/sizeof(void *) - 1] = utcb; // push UTCB -- needed for myutcb()
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n",
 		    cpunr, _cap_free, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
