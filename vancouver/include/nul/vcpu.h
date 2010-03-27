@@ -105,11 +105,12 @@ public:
     EVENT_INIT   = 1 <<  5,
     EVENT_SIPI   = 1 <<  6,
     EVENT_EXTINT = 1 <<  7,
-    EVENT_DEBUG  = 1 <<  8,
     EVENT_MASK   =   0x0ff,
-    DEASS_EXTINT = 1 <<  9,
-    STATE_BLOCK  = 1 << 16,
-    STATE_WAKEUP = 1 << 17,
+    // SIPI vector bits 8-15
+    DEASS_EXTINT = 1 << 16,
+    EVENT_DEBUG  = 1 << 17,
+    STATE_BLOCK  = 1 << 18,
+    STATE_WAKEUP = 1 << 19,
   };
 
   VCpu (VCpu *last) : _last(last) {}
