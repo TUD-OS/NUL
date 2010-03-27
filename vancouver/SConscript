@@ -37,6 +37,11 @@ if int(debug):
 else:
     debug_opts = ' -g -Os -fomit-frame-pointer '
 
+ndebug = ARGUMENTS.get('ndebug', 0)
+if int(ndebug):
+    debug_opts += ' -DNDEBUG '
+
+
 # Installation flags
 
 tftp_dir = ARGUMENTS.get('tftp', '')
