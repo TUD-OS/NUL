@@ -1,8 +1,0 @@
-#-*- mode: python -*-
-
-goals.append(
-    NulApp("example",
-           env = config["nulenv"],
-           include = ["../", "../../include/", "../../lib/nova/include", "../../include/libc", "/usr/lib/gcc/i486-linux-gnu/4.3.4/include"],
-           linkfile= "roottask.ld",
-           src     = ["start.S", "main.c"]))
