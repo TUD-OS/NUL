@@ -992,10 +992,10 @@ int ficlParseFloatNumber( FICL_VM *pVM, STRINGINFO si )
 **************************************************************************/
 void ficlCompileFloat(FICL_SYSTEM *pSys)
 {
+#if FICL_WANT_FLOAT
     FICL_DICT *dp = pSys->dp;
     assert(dp);
 
-#if FICL_WANT_FLOAT
     dictAppendWord(dp, ">float",    ToF,            FW_DEFAULT);
     /* d>f */
     dictAppendWord(dp, "f!",        Fstore,         FW_DEFAULT);

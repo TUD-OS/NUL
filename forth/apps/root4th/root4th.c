@@ -5,9 +5,12 @@
 
 int putchar(int c) { return c; }
 
+__attribute__ ((noreturn))
 void __exit(unsigned long status) { *(volatile char *)(0xF00 | (status & 0xFF)) = 0; while (1) { }}
 
 void free(void *p) { }
+
+__attribute__ ((noreturn))
 void *realloc(void *p, size_t size) { __exit(1); }
 
 extern char _early_heap_start[];
