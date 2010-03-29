@@ -23,8 +23,8 @@ class Cpu
  public:
   static  void  pause() { asm volatile("pause"); }
   static  void  hlt()   { asm volatile("hlt"); }
-  template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" :: "r"(ptr), "q"(value)); }
-  template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" :: "r"(ptr), "q"(value)); }
+  template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" : : "r"(ptr), "q"(value) : "memory"); }
+  template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" : : "r"(ptr), "q"(value) : "memory"); }
 
   static void atomic_set_bit(unsigned *vector, unsigned bit, bool value=true) {
     unsigned index = bit >> 5;
@@ -63,7 +63,7 @@ class Cpu
     return  union64(ohigh, olow);
   }
 
-  static  long  atomic_xadd(long *ptr, long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr)); return value; }
+  static  long  atomic_xadd(long *ptr, long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr) : "memory"); return value; }
 
   static unsigned long long rdtsc() {
     unsigned low, high;
