@@ -39,6 +39,7 @@
 // - interrupt thresholds
 // - don't copy packet on TX path if offloading is not used
 // - offloads
+// - CSO support with TX legacy descriptors
 // 
 // - scatter/gather support in MessageNetwork to avoid packet copy in
 //   TX path.
@@ -145,8 +146,95 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       Logging::printf("raw[1] = %016llx\n", desc.raw[1]);
     }
 
+    uint16 bswap(uint16 v)
+    {
+      asm ("xchg %b0, %h0\n": "+Q" (v));
+      return v;
+    }
+
+    static void  hexdump(const void *p, unsigned len)
+    {
+      const unsigned chars_per_row = 16;
+      const char *data = reinterpret_cast<const char *>(p);
+      const char *data_end = data + len;
+
+      for (unsigned cur = 0; cur < len; cur += chars_per_row) {
+	Logging::printf("%08x:", cur);
+	for (unsigned i = 0; i < chars_per_row; i++)
+	  if (data+i < data_end)
+	    Logging::printf(" %02x", ((const unsigned char *)data)[i]);
+	  else
+	    Logging::printf("   ");
+	Logging::printf(" | ");
+	for (unsigned i = 0; i < chars_per_row; i++) {
+	  if (data < data_end)
+	    Logging::printf("%c", ((data[0] >= 32) && (data[0] > 0)) ? data[0] : '.');
+	  else
+	    Logging::printf(" ");
+	  data++;
+	}
+	Logging::printf("\n");
+      }
+    }
+
+    
+    uint16 comp16sum(uint16 *buf, unsigned len)
+    {
+      uint32 sum = 0;
+      for (unsigned i = 0; i < (len&~1); i += 2)
+	sum += bswap(buf[i/2]);
+      if ((len&1) != 0)
+	sum += bswap(buf[len-1]<<8);
+      return bswap(~(sum + (sum>>16)));
+    }
+    
     void apply_offload(uint8 *packet, uint32 packet_len, const tx_desc &ctx_desc)
     {
+      uint8 tucmd = (ctx_desc.raw[1]>>9) & 0x3FF;
+      uint16 iplen = ctx_desc.raw[0];
+      uint8 maclen = iplen >> 9;
+      iplen &= 0x1FF;
+
+      hexdump(packet, maclen+iplen);
+      
+      if ((tucmd & 2 /* IPv4 CSO */) != 0) {
+	// Test if this is an IPv4 packet.
+	if (reinterpret_cast<uint16 *>(packet)[6] != 0x8) {
+	  Logging::printf("IPv4 CSO not done: Not an IPv4 packet.\n");
+	  // Skip rest of offloading, since this is not an IP packet.
+	  return;
+	}
+
+	// Sanity check maclen and iplen.
+	Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
+	if ((maclen < 12) || (maclen > 127) || (iplen > 511) ||
+	    (maclen >= iplen) || (maclen+iplen > packet_len))
+	  // Skip rest because of malformed context descriptor.
+	  return;
+
+	// XXX Aliasing?
+	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
+
+	ipv4_sum = 0;
+	ipv4_sum = comp16sum(reinterpret_cast<uint16 *>(packet + maclen), iplen);
+	Logging::printf("IPv4 CSO -> %02x\n", ipv4_sum);
+      }
+
+      uint8 l4t = (tucmd >> 2) & 3;
+      if (l4t != 3) {
+	if (l4t == 2)
+	  // XXX SCTP checksum
+	  return;
+
+	uint16 cstart = maclen + iplen;
+	
+	uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + cstart + ((tucmd == 0) ? 6 : 16));
+	l4_sum = 0;
+	l4_sum = comp16sum(reinterpret_cast<uint16 *>(packet + cstart), packet_len - cstart);
+	Logging::printf("%s CSO -> %02x\n", (tucmd == 0) ? "UDP" : "TCP", l4_sum);
+      }
+      
+
       // XXX Implement me
     }
 
@@ -204,12 +292,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void tdt_poll()
     {
       if ((regs[TXDCTL] & (1<<25)) == 0) {
-	if (n == 0) Logging::printf("TX: Queue %u not enabled.\n", n);
+	//if (n == 0) Logging::printf("TX: Queue %u not enabled.\n", n);
 	return;
       }
       uint32 tdlen = regs[TDLEN];
       if (tdlen == 0) {
-	if (n == 0) Logging::printf("TX: Queue %u has zero size.\n", n);
+	//if (n == 0) Logging::printf("TX: Queue %u has zero size.\n", n);
 	return;
       }
 
@@ -231,12 +319,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	} else {
 	  uint8 dtyp = (desc.raw[1] >> 20) & 0xF;
 	  switch (dtyp) {
-	  case 2:
-            handle_ctx(addr, desc);
-	    break;
-	  case 3:
-            handle_dta(addr, desc);
-	    break;
+	  case 2: handle_ctx(addr, desc); break;
+	  case 3: handle_dta(addr, desc); break;
 	  default:
 	    Logging::printf("TX unknown descriptor?\n");
 	  }
@@ -338,14 +422,13 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 rdt    = regs[RDT];
       uint32 rxdctl = regs[RXDCTL];
 
-      //Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
       if (((rxdctl & (1<<25)) == 0 /* Queue disabled? */)
 	  || (rdlen == 0) || (rdt == rdh)) {
 	// Drop
       	return;
       }
 
-      // assert(rdbah == 0);
+      //Logging::printf("RECV %08x %08x %04x %04x\n", rdbal, rdlen, rdt, rdh);
       uint64 addr = (static_cast<uint64>(rdbah)<<32 | rdbal) + ((rdh*16) % rdlen);
       rx_desc desc;
 
@@ -718,8 +801,8 @@ PARAM(82576vf,
 	Logging::printf("Our UID is %lx\n", msg.value);
 
 	Model82576vf *dev = new Model82576vf( // XXX Change me 
-					     //0xe8e24d211b00ULL,
-					     static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+					     0xe9e24d211b00ULL,
+					     //static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
 
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
