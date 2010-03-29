@@ -5,6 +5,4 @@ Import('target_env')
 
 nul.Lib(target_env, 'model', SOURCES = Glob('*.cc'))
 
-SConscript(Glob('*/SConscript'))
-
 # EOF
