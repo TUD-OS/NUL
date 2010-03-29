@@ -219,6 +219,7 @@ struct MessageLegacy
       INIT,
       NMI,
       EXTINT,
+      DEASS_EXTINT,
       INTA
     } type;
   unsigned value;

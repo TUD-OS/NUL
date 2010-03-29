@@ -344,6 +344,8 @@ public:
 
     if (msg.type == MessageLegacy::EXTINT)
       got_event(EVENT_EXTINT);
+    else if (msg.type == MessageLegacy::DEASS_EXTINT)
+      got_event(DEASS_EXTINT);
     else if (msg.type == MessageLegacy::NMI)
       got_event(EVENT_NMI);
     else if (msg.type == MessageLegacy::INIT)

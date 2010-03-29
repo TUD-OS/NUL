@@ -82,7 +82,7 @@ class PicDevice : public StaticReceiver<PicDevice>
   // helper functions
   bool is_slave()                      { return (_icw[ICW4] & ICW4_BUF) ? (~_icw[ICW4] & ICW4_MS) : _virq; }
   void rotate_prios()                  { _prio_lowest = (_prio_lowest+1) & 7; }
-  void specific_eoi(unsigned char irq) { _isr &= ~irq; propagate_irq(); }
+  void specific_eoi(unsigned char irq) { _isr &= ~irq; propagate_irq(false); }
   void non_specific_eoi()
   {
     for (unsigned i=0; i<8; i++)
@@ -111,7 +111,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     _poll_mode = false;
     _elcr = (_icw[ICW1] & ICW1_LTIM) ? 0xff : 0;
     _notify = 0;
-    propagate_irq();
+    propagate_irq(true);
   }
 
 
@@ -158,12 +158,11 @@ class PicDevice : public StaticReceiver<PicDevice>
   /**
    * Propagate an irq upstream.
    */
-  void propagate_irq()
+  void propagate_irq(bool send_deassert)
   {
     unsigned char dummy;
     if (prioritize_irq(dummy, false)) {
       if (!_virq) {
-	// send an ExtINT message to CPU0
 	MessageLegacy msg(MessageLegacy::EXTINT, 0);
 	_bus_legacy.send(msg);
       }
@@ -171,6 +170,10 @@ class PicDevice : public StaticReceiver<PicDevice>
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
 	_bus_irq.send(msg);
       }
+    }
+    else if (send_deassert && !_virq) {
+      MessageLegacy msg(MessageLegacy::DEASS_EXTINT, 0);
+      _bus_legacy.send(msg);
     }
   }
 
@@ -209,7 +212,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     unsigned char vec;
     get_irqvector(vec);
     msg.value = vec;
-    propagate_irq();
+    propagate_irq(false);
     return true;
   }
 
@@ -222,7 +225,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     // get irq vector if slave and addr match
     if (is_slave() && (msg.slave == (_icw[ICW3] & 7))) {
       get_irqvector(msg.vector);
-      propagate_irq();
+      propagate_irq(false);
       return true;
     }
     return false;
@@ -318,7 +321,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 		}
 	    case OCW1:
 	      _imr = msg.value;
-	      propagate_irq();
+	      propagate_irq(true);
 	      break;
 	    default:
 	      Logging::panic("invalid icw_mode: %x", _icw_mode);
@@ -345,7 +348,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 	      if ((_irr & irq) && (_elcr & irq))
 		{
 		  Cpu::atomic_and<unsigned char>(&_irr, ~irq);
-		  propagate_irq();
+		  propagate_irq(true);
 		}
 	    }
 	  else if (!(_irr & irq))
@@ -353,7 +356,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 	      if (msg.line == 0) COUNTER_INC("pirq0"); else COUNTER_INC("pirqN");
 
 	      Cpu::atomic_or(&_irr, irq);
-	      propagate_irq();
+	      propagate_irq(false);
 	    }
 	  return true;
 	}

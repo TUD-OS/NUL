@@ -171,6 +171,7 @@ class Lapic : public StaticReceiver<Lapic>
   bool send_ipi(unsigned icr, unsigned dst) {
     COUNTER_INC("IPI");
 
+    //Logging::printf("%s %d %x %x\n", __func__, _initial_apic_id, icr, dst);
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
@@ -632,6 +633,10 @@ public:
       return trigger_lvt(_LINT0_offset - LVT_BASE);
     if (msg.type == MessageLegacy::NMI)
       return trigger_lvt(_LINT1_offset - LVT_BASE);
+    if (msg.type == MessageLegacy::DEASS_EXTINT) {
+	CpuEvent msg(VCpu::DEASS_EXTINT);
+	return _vcpu->bus_event.send(msg);
+    }
     return false;
   }
 
