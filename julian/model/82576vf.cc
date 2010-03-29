@@ -36,9 +36,12 @@
 // - RXDCTL.enable (bit 25) may be racy
 // - receive path does not set packet type in RX descriptor
 // - TX legacy descriptors
-// - TX context descriptors
 // - interrupt thresholds
-
+// - don't copy packet on TX path if offloading is not used
+// - offloads
+// 
+// - scatter/gather support in MessageNetwork to avoid packet copy in
+//   TX path.
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
@@ -95,6 +98,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       } advanced;
     } tx_desc;
 
+    tx_desc ctx[8];
+
     enum {
       TDBAL   = 0x800/4,
       TDBAH   = 0x804/4,
@@ -120,6 +125,80 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       }
       regs[TXDCTL] &= ~(1<<26);	// Clear SWFLUSH
       txdctl_old = txdctl_new;
+    }
+
+    void handle_ctx(uint64 addr, tx_desc &desc)
+    {
+      // ping: (dns? -> udp?)
+      // raw[0] = 0000000000001c14
+      // raw[1] = 0000000020200400
+      // netcat (tcp)
+      // raw[0] = 0000000000001c14
+      // raw[1] = 0000000020200c00
+
+      // Store context descriptor as is, evaluate it when we need it.
+      uint8 ctx_idx = (desc.raw[1]>>36) & 0x7;
+      ctx[ctx_idx] = desc;
+
+      Logging::printf("TX ctx %u\n", ctx_idx);
+      Logging::printf("raw[0] = %016llx\n", desc.raw[0]);
+      Logging::printf("raw[1] = %016llx\n", desc.raw[1]);
+    }
+
+    void apply_offload(uint8 *packet, uint32 packet_len, const tx_desc &ctx_desc)
+    {
+      // XXX Implement me
+    }
+
+    void handle_dta(uint64 addr, tx_desc &desc)
+    {
+      uint8  ctx_idx = (desc.advanced.pay >> 4) & 0x7;
+      uint32 payload_len = desc.advanced.pay >> 14;
+      uint32 data_len = desc.advanced.dtalen;
+      uint8  dcmd = desc.advanced.dcmd;
+      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
+                      dcmd, data_len, payload_len, ctx_idx);
+      if ((dcmd & (1<<5)) == 0)
+        Logging::printf("TX bad descriptor\n");
+
+      enum {
+        EOP = 1,
+        IFCS = 2,
+        RS = 8,
+        VLE = 64,
+        TSE = 128,
+      };
+
+      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
+                      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
+      const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
+
+      if (dcmd&TSE) {
+        Logging::printf("XXX We don't support TCP Segmentation Offload.\n");
+        goto done;
+      }
+      if ((dcmd & IFCS) == 0)
+        Logging::printf("IFCS not set, but we append FCS anyway in host82576vf.\n");
+
+      // XXX Check if offloading is used. If not -> send directly from
+      // guestmem.
+      memcpy(packet_buf + packet_cur, data, data_len);
+      packet_cur += data_len;
+
+      if (dcmd & EOP) {
+        apply_offload(packet_buf, payload_len, ctx[ctx_idx]);
+        // XXX Set client ID to 23 to avoid our own packets on the RX paths
+        MessageNetwork m(packet_buf, payload_len, 23);
+        parent->_net.send(m);
+        packet_cur = 0;
+      }
+
+    done:
+      // Descriptor is done
+      desc.advanced.pay |= 1;
+      parent->copy_out(addr, desc.raw, sizeof(desc));
+      if ((dcmd & (1<<3) /* Report Status */) != 0)
+        parent->TX_irq(n);
     }
 
     void tdt_poll()
@@ -153,70 +232,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  uint8 dtyp = (desc.raw[1] >> 20) & 0xF;
 	  switch (dtyp) {
 	  case 2:
-	    Logging::printf("TX advanced context descriptor XXX\n");
-	    Logging::printf("raw[0] = %016llx\n", desc.raw[0]);
-	    Logging::printf("raw[1] = %016llx\n", desc.raw[1]);
-	    // ping: (dns? -> udp?)
-	    // raw[0] = 0000000000001c14
-	    // raw[1] = 0000000020200400
-	    // netcat (tcp)
-	    // raw[0] = 0000000000001c14
-	    // raw[1] = 0000000020200c00
-	    // XXX Not implemented!
+            handle_ctx(addr, desc);
 	    break;
 	  case 3:
-	    {
-	      uint8 context = (desc.advanced.pay >> 4) & 0x7;
-	      uint32 payload_len = desc.advanced.pay >> 14;
-	      uint32 data_len = desc.advanced.dtalen;
-	      uint8 dcmd = desc.advanced.dcmd;
-	      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
-			      dcmd, data_len, payload_len, context);
-	      if ((dcmd & (1<<5)) == 0)
-		Logging::printf("TX bad descriptor\n");
-
-	      enum {
-		EOP = 1,
-		IFCS = 2,
-		RS = 8,
-		VLE = 64,
-		TSE = 128,
-	      };
-
-	      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
-			      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
-	      const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
-
-	      if (dcmd&TSE) {
-		Logging::printf("XXX We don't support TCP Segmentation Offload.\n");
-		goto done;
-	      }
-	      if ((dcmd&IFCS) == 0) Logging::printf("IFCS not set, but we append FCS anyway in host82576vf.\n");
-
-	      if ((dcmd & EOP) && (payload_len == data_len)) {
-		// "Fast path": Complete packet, send as-is.
-		MessageNetwork m(data, payload_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
-		parent->_net.send(m);
-		packet_cur = 0;
-		goto done;
-	      }
-
-	      memcpy(packet_buf + packet_cur, data, data_len);
-	      packet_cur += data_len;
-
-	      if (dcmd & EOP) {
-		MessageNetwork m(data, payload_len, 23); // XXX Set client ID to 23 to avoid our own packets on the RX paths
-		parent->_net.send(m);
-		packet_cur = 0;
-	      }
-
-	    done:
-	      // Descriptor is done
-	      desc.advanced.pay |= 1;
-	      parent->copy_out(addr, desc.raw, sizeof(desc));
-	      if ((dcmd & (1<<3) /* Report Status */) != 0)
-		parent->TX_irq(n);
-	    }
+            handle_dta(addr, desc);
 	    break;
 	  default:
 	    Logging::printf("TX unknown descriptor?\n");
@@ -227,9 +246,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	asm ( "" ::: "memory");
 	regs[TDH] = (((tdh+1)*16 ) % tdlen) / 16;
       }
-
     }
- 
 
     void reset()
     {
@@ -279,10 +296,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	uint16 vlan;
       } advanced_write;
     } rx_desc;
-
-    struct {
-      
-    } context[8];
 
     enum {
       RDBAL  = 0x800/4,
