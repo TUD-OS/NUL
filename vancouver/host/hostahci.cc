@@ -143,11 +143,17 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
     // link command list and tables
     addr2phys(_ct + _tag*(128+MAX_PRD_COUNT*16)/4, _cl + _tag*CL_DWORDS + 2);
-    unsigned char cfis[20] = {0x27,    0x80 | (pmp & 0xf),      command,      features,
-			      sector >>  0,  sector >>  8, sector >> 16,          0x40,
-			      sector >> 24,  sector >> 32, sector >> 40, features >> 8,
-			      count,         count >>   8,            0,             0,
-			      0,                        0,            0,             0};
+
+    // XXX Does any one know how to avoid these type casts in C++0x mode?
+#define UC(x) static_cast<unsigned char>(x)
+    unsigned char cfis[20] = {0x27, UC(0x80 | (pmp & 0xf)),
+                              command, UC(features), UC(sector),
+                              UC(sector >> 8), UC(sector >> 16),
+                              0x40, UC(sector >> 24), UC(sector >> 32),
+                              UC(sector >> 40), UC(features >> 8),
+                              UC(count), UC(count >> 8), 0, 0,
+                              0, 0, 0, 0};
+
     memcpy(_ct + _tag*(128 + MAX_PRD_COUNT*16)/4, cfis, sizeof(cfis));
   }
 
