@@ -360,8 +360,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
-    //if (type == CpuMessage::TYPE_WRMSR)
-    //Logging::printf("\tvcpu %x utcb %p type %x eip %x efl %x\n", pid, utcb, type, utcb->eip, utcb->efl);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     if (skip) skip_instruction(msg);
 
@@ -371,8 +369,15 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
-    //if (type == CpuMessage::TYPE_WRMSR)
-      //Logging::printf("write back for pid %x type %x eip %x mtr %x/%x inj %x\n", pid, type, utcb->eip, utcb->head.mtr.value(), msg.mtr_out, msg.cpu->inj_info);
+
+    /**
+     * If the IRQ injection is performed, recalc the IRQ window.
+     */
+    if (msg.mtr_out & MTD_INJ) {
+      msg.type = CpuMessage::TYPE_CALC_IRQWINDOW;
+      if (!vcpu->executor.send(msg, true))
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+    }
     utcb->head.mtr = msg.mtr_out;
   }
 
@@ -695,7 +700,6 @@ VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD
 	COUNTER_INC("wrmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
-	//Logging::printf("invalid %x:%x\n", utcb->cs.sel, utcb->eip);
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	utcb->head.mtr.add(MTD_RFLAGS);
@@ -705,15 +709,12 @@ VM_FUNC(PT_VMX + 40,  vmx_pause, MTD_RIP_LEN | MTD_STATE,
 	skip_instruction(msg);
 	COUNTER_INC("pause");
 	)
-VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
+VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL & ~MTD_INJ,
 	COUNTER_INC("MMIO");
-	// Logging::printf("MMIO addr %llx eip %x instlen %x cr0 %x cr3 %x\n", utcb->qual[1], utcb->eip, utcb->inst_len, utcb->cr0, utcb->cr3);
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
 	 */
-	// make sure we do not inject the #PF!
-	utcb->inj_info &= ~0x80000000;
 	if (!map_memory_helper(utcb))
 	  // this is an access to MMIO
 	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
@@ -722,7 +723,7 @@ VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 	Logging::printf("startup\n");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
 	utcb->head.mtr.add(MTD_CTRL);
-	utcb->ctrl[0] = (1 << 3) | (1 << 30); // tscoffs+pause
+	utcb->ctrl[0] = (1 << 3); // tscoffs
 	utcb->ctrl[1] = 0;
 	)
 VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,

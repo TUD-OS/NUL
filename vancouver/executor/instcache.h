@@ -164,11 +164,10 @@ class InstructionCache : public MemTlb
 
   int event_injection()
   {
-    if ((_cpu->inj_info & 0x80000000) && !idt_traversal(_cpu->inj_info, _cpu->inj_error))
-      {
-	_cpu->inj_info &= ~0x80000000;
-	RETRY;
-      }
+    if (_mtr_in & MTD_INJ && _cpu->inj_info & 0x80000000 && !idt_traversal(_cpu->inj_info, _cpu->inj_error)) {
+      _cpu->inj_info &= ~0x80000000;
+      RETRY;
+    }
     return _fault;
   };
 
@@ -488,7 +487,7 @@ public:
 	if (_cpu->esp != _oesp) _mtr_out |= MTD_RSP;
 
 	// XXX bugs?
-	_mtr_out |= (_mtr_in & ~MTD_CR);
+	_mtr_out |= _mtr_in & ~MTD_CR;
       }
     else
       {
@@ -514,10 +513,10 @@ public:
 	    // consolidate two exceptions
 
 	    // triple fault ?
-	    unsigned old_info = _cpu->inj_info & INJ_WIN;
+	    unsigned old_info = _cpu->inj_info & ~INJ_WIN;
 	    if (old_info == 0x80000b08)
 	      {
-		_cpu->inj_info &= INJ_WIN;
+		_cpu->inj_info = 0;
 		// triple fault
 		CpuMessage msg(CpuMessage::TYPE_TRIPLE, _cpu, _mtr_in);
 		_vcpu->executor.send(msg, true);
@@ -531,7 +530,7 @@ public:
 		      _fault = 0x80000b08;
 		      _error_code = 0;
 		    }
-		_cpu->inj_info = _fault | (_cpu->inj_info & INJ_WIN);
+		_cpu->inj_info = _fault;
 		_cpu->inj_error = _error_code;
 	      }
 	  }

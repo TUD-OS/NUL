@@ -31,19 +31,19 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   volatile unsigned _event;
   volatile unsigned _sipi;
 
-  void recalc_irqwindows(CpuMessage &msg) {
-    unsigned new_event = _event;
-    msg.cpu->inj_info &= ~(INJ_IRQWIN | INJ_NMIWIN);
-    if (new_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
-    if (new_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
-  }
+  void dprintf(const char *format, ...) {
+    Logging::printf("[%2d] ", CPUID_EDXb);
+    va_list ap;
+    va_start(ap, format);
+    Logging::vprintf(format, ap);
+    va_end(ap);
 
+  }
 
   void GP0(CpuMessage &msg) {
     msg.cpu->inj_info = 0x80000b0d;
     msg.cpu->inj_error = 0;
     msg.mtr_out |= MTD_INJ;
-    recalc_irqwindows(msg);
   }
 
 
@@ -95,7 +95,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       msg.cpu->edx_eax(0);
       break;
     default:
-      Logging::printf("unsupported rdmsr %x at %x\n",  msg.cpu->ecx, msg.cpu->eip);
+      dprintf("unsupported rdmsr %x at %x\n",  msg.cpu->ecx, msg.cpu->eip);
       GP0(msg);
     }
     msg.mtr_out |= MTD_GPR_ACDB;
@@ -109,21 +109,21 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       case 0x10:
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
 	msg.mtr_out |= MTD_TSC;
-	//Logging::printf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
+	//dprintf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
       case 0x174 ... 0x176:
 	(&cpu->sysenter_cs)[cpu->ecx - 0x174] = cpu->edx_eax();
 	msg.mtr_out |= MTD_SYSENTER;
 	break;
       default:
-	Logging::printf("unsupported wrmsr %x <-(%x:%x) at %x\n",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
+	dprintf("unsupported wrmsr %x <-(%x:%x) at %x\n",  cpu->ecx, cpu->edx, cpu->eax, cpu->eip);
 	GP0(msg);
       }
   }
 
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
-    Logging::printf("handle CPU %d %s event %x\n", CPUID_EDXb, reset ? "RESET" : "INIT", _event);
+    //dprintf("handle CPU %s event %x\n", reset ? "RESET" : "INIT", _event);
     CpuState *cpu = msg.cpu;
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;
@@ -159,44 +159,42 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   }
 
 
-  bool can_inject(CpuState *cpu) {  return ~cpu->inj_info & 0x80000000 && !(cpu->intr_state & 0x3) && cpu->efl & 0x200; }
-
   /**
    * Prioritize different events.
    * Returns the events to clear.
    */
-  unsigned prioritize_events(CpuMessage &msg) {
+  void prioritize_events(CpuMessage &msg) {
     CpuState *cpu = msg.cpu;
-    unsigned and_mask = STATE_WAKEUP;
     unsigned old_event = _event;
-    //Logging::printf("%s %x inj %x\n", __func__, old_event, cpu->inj_info);
+    //dprintf("%s %x inj %x\n", __func__, old_event, cpu->inj_info);
 
-    if (!old_event)  return and_mask;
+    if (!old_event)  return;
+    msg.mtr_out  |= MTD_INJ;
 
     if (old_event & EVENT_DEBUG) {
-      Logging::printf("VCPU[%2d] state %x event %8x eip %8x\n", CPUID_EDXb, cpu->actv_state, old_event, cpu->eip);
-      return and_mask | VCpu::EVENT_DEBUG;
+      dprintf("state %x event %8x eip %8x\n", cpu->actv_state, old_event, cpu->eip);
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_DEBUG);
+      return;
     }
 
     if (old_event & EVENT_RESET) {
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_RESET);
       handle_cpu_init(msg, true);
 
       // are we an AP and should go to the wait-for-sipi state?
       if (is_ap()) old_event |= EVENT_INIT;
 
-      // delete all latched events except for SIPI and INIT
-      and_mask |= old_event & ~(EVENT_SIPI | EVENT_INIT);
       // fall through as we could have got an INIT or SIPI already
     }
 
+
     // INIT
     if (old_event & EVENT_INIT) {
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_INIT);
       handle_cpu_init(msg, false);
       cpu->actv_state = 3;
-      and_mask |= EVENT_INIT;
       // fall through as we could have got an SIPI already
     }
-
 
 
     // SIPI received?
@@ -205,19 +203,19 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       cpu->cs.sel       = _sipi & 0xff00;
       cpu->cs.base      = cpu->cs.sel << 4;
       cpu->actv_state   = 0;
-      Logging::printf("handle sipi %x event %x ip: %x:%x\n", _sipi, _event, cpu->cs.base, cpu->eip);
+      //dprintf("handle sipi %x event %x ip: %x:%x\n", _sipi, _event, cpu->cs.sel, cpu->eip);
       msg.mtr_out      |= MTD_CS_SS;
-      and_mask         |= EVENT_SIPI;
-      // fall through
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_SIPI);
+      return;
     }
 
-    // do block all other IRQs until we got an SIPI
-    if (cpu->actv_state == 3)  return and_mask;
+    // do block all other IRQs until we got a SIPI
+    if (cpu->actv_state == 3)  return;
 
     // SMI
     if (old_event & EVENT_SMI && ~cpu->intr_state & 4) {
-      Logging::printf("SMI received\n");
-      and_mask |= EVENT_SMI;
+      dprintf("SMI received\n");
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_SMI);
       cpu->actv_state = 0;
       // fall trough
     }
@@ -226,44 +224,43 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
       cpu->inj_info = 0x80000200;
       cpu->actv_state = 0;
-      return and_mask | EVENT_NMI;
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_NMI);
+      return;
     }
 
     // if we can not inject interrupts or if we are in shutdown state return
-    if (!can_inject(cpu) || cpu->actv_state == 2) return and_mask;
+    if (cpu->inj_info & 0x80000000 || cpu->intr_state & 0x3 || ~cpu->efl & 0x200 || cpu->actv_state == 2) return;
 
 
     // APIC interrupt?
     if (old_event & EVENT_FIXED) {
       LapicEvent msg2(LapicEvent::INTA);
-      if (bus_lapic.send(msg2))
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_FIXED);
+      if (bus_lapic.send(msg2)) {
 	cpu->inj_info = msg2.value | 0x80000000;
-      and_mask |= EVENT_FIXED;
+      }
       cpu->actv_state = 0;
     }
     else if (old_event & EVENT_EXTINT) {
+      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_EXTINT);
       MessageLegacy msg2(MessageLegacy::INTA, ~0u);
-      if (_mb.bus_legacy.send(msg2))
+      if (_mb.bus_legacy.send(msg2)) {
 	cpu->inj_info = msg2.value | 0x80000000;
-
-      and_mask |= EVENT_EXTINT;
+      }
       cpu->actv_state = 0;
     }
-    return and_mask;
   }
 
   void handle_irq(CpuMessage &msg) {
     //if (_event != 0x80)
-    //Logging::printf("> handle_irq %x event %x\n", msg.mtr_out, _event);
+    //dprintf("> handle_irq %x event %x\n", msg.mtr_out, _event);
     assert(msg.mtr_in & MTD_STATE);
     assert(msg.mtr_in & MTD_INJ);
     assert(msg.mtr_in & MTD_RFLAGS);
 
-    //unsigned old_event = _event;
-    Cpu::atomic_and<volatile unsigned>(&_event, ~prioritize_events(msg));
-    recalc_irqwindows(msg);
-    msg.mtr_out |= MTD_INJ | MTD_STATE;
-    //Logging::printf("< handle_irq %x inj %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.mtr_in, msg.mtr_out);
+    prioritize_events(msg);
+    msg.mtr_out |= MTD_STATE;
+    //if (debug || CPUID_EDXb) dprintf("< handle_irq %x inj %x actv %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.cpu->actv_state, msg.mtr_in, msg.mtr_out);
   }
 
 
@@ -273,12 +270,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     Cpu::move(msg.dst, &msg2.value, msg.io_order);
     msg.mtr_out |= MTD_GPR_ACDB;
-    //Logging::printf("in<%d> %4x %8x mtr %x\n", msg2.type, msg2.port, msg2.value, msg.mtr_out);
+    //dprintf("in<%d> %4x %8x mtr %x\n", msg2.type, msg2.port, msg2.value, msg.mtr_out);
 
     static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
-      Logging::printf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+      dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
     }
   }
 
@@ -286,13 +283,13 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void handle_ioout(CpuMessage &msg) {
     MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.port, 0);
     Cpu::move(&msg2.value, msg.dst, msg.io_order);
-    //Logging::printf("out<%d> %4x %8x\n", msg2.type, msg2.port, msg2.value);
+    //dprintf("out<%d> %4x %8x\n", msg2.type, msg2.port, msg2.value);
     bool res = _mb.bus_ioout.send(msg2);
 
     static unsigned char debugioout[8192];
     if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
-      Logging::printf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
+      dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
     }
   }
 
@@ -302,8 +299,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
    */
   void got_event(unsigned value) {
     COUNTER_INC("EVENT");
-    //if (value != EVENT_FIXED) Logging::printf("VCPU[%2d] got event value %x sipi %x event %x\n", CPUID_EDXb, value, _sipi, _event);
 
+    //if (debug) dprintf("got event %x old %x\n", value, _event);
     if (value & DEASS_EXTINT) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_EXTINT);
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
 
@@ -320,9 +317,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
        * not wakeup the client.
        */
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
-
     Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
-    //Logging::printf("wakeup thread %x\n", _event);
+    //if ((value & EVENT_MASK) == EVENT_SIPI)
+    //dprintf("wakeup thread %x sipi %x\n", _event, _sipi);
     MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }
@@ -358,7 +355,7 @@ public:
 
 
   bool receive(CpuMessage &msg) {
-    //Logging::printf("CPU Message %d %x/%x\n", msg.type, msg.mtr_in, msg.mtr_out);
+    //dprintf("CPU Message %d %x/%x\n", msg.type, msg.mtr_in, msg.mtr_out);
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -367,7 +364,7 @@ public:
 	unsigned old;
 	if (CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value)) {
 	  CPUID_read(reg, old);
-	  //Logging::printf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
+	  //dprintf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
 	  return true;
 	}
 	return false;
@@ -398,8 +395,19 @@ public:
       msg.cpu->actv_state = 1;
       break;
     case CpuMessage::TYPE_CHECK_IRQ:
+      //if (debug) dprintf("CHECK IRQ %x\n", _event);
       // we handle it later on
       break;
+    case CpuMessage::TYPE_CALC_IRQWINDOW:
+      {
+	assert(msg.mtr_out & MTD_INJ);
+	unsigned new_event = _event;
+	msg.cpu->inj_info &= ~INJ_WIN;
+	if (new_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
+	if (new_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
+	//if (debug) dprintf("CHECK IRQ %x inj %x\n", _event, msg.cpu->inj_info);
+      }
+      return true;
     case CpuMessage::TYPE_SINGLE_STEP:
     case CpuMessage::TYPE_WBINVD:
     case CpuMessage::TYPE_INVD:
@@ -407,7 +415,7 @@ public:
       return false;
     }
 
-    //Logging::printf("CPU Message %d utcb %p eip %x\n", msg.type, msg.cpu, msg.cpu->eip);
+    //dprintf("CPU Message %d utcb %p eip %x\n", msg.type, msg.cpu, msg.cpu->eip);
     // handle IRQ injection
     for (handle_irq(msg); msg.cpu->actv_state & 0x3; handle_irq(msg)) {
       MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
@@ -415,6 +423,7 @@ public:
       if (~_event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
       Cpu::atomic_and<volatile unsigned>(&_event, ~(STATE_BLOCK | STATE_WAKEUP));
     }
+    //if (debug) dprintf("CPU Message %d utcb %p eip %x event %x inj %x\n", msg.type, msg.cpu, msg.cpu->eip, _event, msg.cpu->inj_info);
     return true;
   }
 
