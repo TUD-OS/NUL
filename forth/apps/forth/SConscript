@@ -6,7 +6,7 @@ Import('target_env')
 
 nul.App(target_env, 'forth',
         SOURCES = [ 'forth.cc' ],
-        LIBS    = [ 'ficl', 'vsys', 'crun', 'longjmp' ],
+        LIBS    = [ 'ficl', 'service', 'crun', 'longjmp' ],
         MEMSIZE = 1<<19)
 
 # EOF
