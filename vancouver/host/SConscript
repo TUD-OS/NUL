@@ -5,6 +5,7 @@ Import('target_env')
 
 nul.Lib(target_env, 'host',
         SOURCES = filter(lambda x: x.name != 'hostvesa.cc',Glob('*.cc')))
+
 nul.Lib(target_env, 'hostvesa', SOURCES = ['hostvesa.cc',
                                            '../model/memorycontroller.o',
                                            '../model/vcpu.o',
@@ -14,5 +15,7 @@ nul.Lib(target_env, 'hostvesa', SOURCES = ['hostvesa.cc',
                                            '../model/pcihostbridge.o',
                                            '../model/pcidirect.o',
                                            '../model/directio.o'])
+
 nul.Lib(target_env, 'hostkbd', SOURCES = ['hostkeyboard.o','hostio.o'])
+
 # EOF
