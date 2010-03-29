@@ -233,7 +233,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    cpu->bx = 0x0000;  //  color mode, 64 kb
 	    cpu->cx = 0x0007;  //  0-features, mode: 7 (80x25)
 	    break;
-	  case 0x01: // unkown windows boot
+	  case 0x01: // unknown windows boot
 	    DEBUG(cpu);
 	    break;
 	  default:
@@ -268,6 +268,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    default:
 	      DEBUG(cpu);
 	    }
+	    DEBUG(cpu);
 	    cpu->cx = read_bda(0x85) & 0xff;
 	    cpu->dl = read_bda(0x84);
 	    break;
