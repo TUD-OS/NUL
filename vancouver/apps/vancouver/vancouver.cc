@@ -492,10 +492,8 @@ public:
 	_lock.down();
 	break;
       case MessageHostOp::OP_VCPU_RELEASE:
-	if (msg.len)
-	  semup(msg.value);
-	else
-	  recall(msg.value + 1);
+	if (msg.len)  semup(msg.value);
+	recall(msg.value + 1);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       default:
