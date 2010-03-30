@@ -83,6 +83,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   // TX queue polling interval in µs.
   unsigned _txpoll_us;
 
+  // Map RX registers?
+  bool _map_rx;
+
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
@@ -368,6 +371,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       regs[RXDCTL] = 1<<16 | ((n == 0) ? (1<<24) : 0);
       regs[SRRCTL] = 0x400 | ((n != 0) ? 0x80000000U : 0);
       rxdctl_old = regs[RXDCTL];
+    }
+
+    uint32 read(uint32 offset)
+    {
+      return regs[(offset & 0x8FF)/4];
+    }
+
+    void write(uint32 offset, uint32 val)
+    {
+      unsigned i = (offset & 0x8FF) / 4;
+      regs[i] = val;
+      if (i == RXDCTL) rxdctl_poll();
     }
 
     void rxdctl_poll()
@@ -666,6 +681,7 @@ public:
     return _msix.raw[offset/4] = val & (((offset & 0xF) == 0xC) ? 1 : ~0U);
   }
 
+  // XXX Clean up!
   bool receive(MessageMem &msg)
   {
     // Memory decode disabled?
@@ -674,29 +690,26 @@ public:
     if (msg.read) {
       if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
 	uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
-	// RX
-	if ((offset >> 12) == 0x2) Logging::panic("RX read? Shouldn't happen.");
-	// TX
-	if ((offset >> 12) == 0x3)
-	  *msg.ptr = _tx_queues[(offset & 0x100) ? 1 : 0].read(offset);
-	else
-	  *msg.ptr = MMIO_read(offset);
+	//Logging::printf("MMIO READ  %lx\n", offset);
+	switch (offset >> 12) {
+	case 2:  *msg.ptr = _rx_queues[(offset & 0x100) ? 1 : 0].read(offset); break;
+	case 3:  *msg.ptr = _tx_queues[(offset & 0x100) ? 1 : 0].read(offset); break;
+	default: *msg.ptr = MMIO_read(offset); break;
+	}
       } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
 	*msg.ptr = MSIX_read(msg.phys - (rPCIBAR3 & ~0xFFF));
       } else return false;
       return true;
     }
-    // Logging::printf("PCIWRITE %lx (%d) %x \n", msg.phys, msg.count,
-    //              *reinterpret_cast<unsigned *>(msg.ptr));
+
     if ((msg.phys & ~0x3FFF) == (rPCIBAR0 & ~0x3FFF)) {
       uint32 offset = msg.phys - (rPCIBAR0 & ~0x3FFF);
-      // RX
-      if ((offset >> 12) == 0x2) Logging::panic("RX write? Shouldn't happen.");
-      // TX
-      if ((offset >> 12) == 0x3)
-	_tx_queues[(offset & 0x100) ? 1 : 0].write(offset, *msg.ptr);
-      else
-	MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *msg.ptr);
+      //Logging::printf("MMIO WRITE %lx\n", offset);
+      switch (offset >> 12) {
+      case 2: _rx_queues[(offset & 0x100) ? 1 : 0].write(offset, *msg.ptr); break;
+      case 3: _tx_queues[(offset & 0x100) ? 1 : 0].write(offset, *msg.ptr); break;
+      default: MMIO_write(msg.phys - (rPCIBAR0 & ~0x3FFF), *msg.ptr); break;
+      }
     } else if ((msg.phys & ~0xFFF) == (rPCIBAR3 & ~0xFFF)) {
       MSIX_write(msg.phys - (rPCIBAR3 & ~0xFFF), *msg.ptr);
     } else return false;
@@ -727,6 +740,7 @@ public:
   {
     switch ((msg.page) - (_mem_mmio >> 12)) {
     case 0x2:
+      if (!_map_rx) return false;
       msg.ptr =  reinterpret_cast<char *>(_local_rx_regs);
       msg.start_page = msg.page;
       msg.count = 1;
@@ -772,11 +786,11 @@ public:
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
 	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 	       Clock *clock, DBus<MessageTimer> &timer,
-	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us)
+	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx)
     : _mac(mac), _net(net), _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
-      _txpoll_us(txpoll_us)
+      _txpoll_us(txpoll_us), _map_rx(map_rx)
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -824,7 +838,9 @@ PARAM(82576vf,
 
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
-					     argv[0], argv[1], (argv[2] == ~0U) ? 0 : argv[2] );
+					     argv[0], argv[1],
+					     (argv[2] == ~0U) ? 0 : argv[2],
+					     argv[3]);
 	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
 	mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
 	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>,
@@ -833,7 +849,9 @@ PARAM(82576vf,
 	mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
 
       },
-      "82576vf:mem_mmio,mem_msix[,txpoll_us] - attach an Intel 82576VF to the PCI bus."
+      "82576vf:mem_mmio,mem_msix[,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
+      "txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)",
+      "rx_map    - if !=0, map RX registers to guest. (Default: Yes)",
       "Example: 82576vf:0xf7ce0000,0xf7cc0000"
       );
 
