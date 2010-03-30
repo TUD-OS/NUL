@@ -159,7 +159,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       iplen &= 0x1FF;
 
       // Sanity check maclen and iplen.
-      Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
+      //Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
       if ((maclen < 12) || (maclen > 127) || (iplen > 511) ||
 	  (maclen >= iplen) || (maclen+iplen > packet_len))
 	// Skip rest because of malformed context descriptor.
@@ -168,7 +168,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       if ((tucmd & 2 /* IPv4 CSO */) != 0) {
 	// Test if this is an IPv4 packet.
 	if (reinterpret_cast<uint16 *>(packet)[6] != 0x8) {
-	  Logging::printf("IPv4 CSO not done: Not an IPv4 packet.\n");
+	  //Logging::printf("IPv4 CSO not done: Not an IPv4 packet.\n");
 	  // Skip rest of offloading, since this is not an IP packet.
 	  return;
 	}
@@ -178,7 +178,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
 	ipv4_sum = 0;
 	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
-	Logging::printf("IPv4 CSO -> %02x\n", ipv4_sum);
+	//Logging::printf("IPv4 CSO -> %02x\n", ipv4_sum);
       }
 
       uint8 l4t = (tucmd >> 2) & 3;
@@ -201,12 +201,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + cstart + ((tucmd == 0) ? 6 : 16));
 	l4_sum = 0;
 	l4_sum = IPChecksum::tcpudpsum(packet, (tucmd == 0) ? 17 : 6, maclen, iplen, packet_len);
-
-	Logging::printf("%s CSO -> %02x\n", (tucmd == 0) ? "UDP" : "TCP", l4_sum);
+	//Logging::printf("%s CSO -> %02x\n", (tucmd == 0) ? "UDP" : "TCP", l4_sum);
       }
-      
-
-      // XXX Implement me
     }
 
     void handle_dta(uint64 addr, tx_desc &desc)
@@ -215,10 +211,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 payload_len = desc.advanced.pay >> 14;
       uint32 data_len = desc.advanced.dtalen;
       uint8  dcmd = desc.advanced.dcmd;
-      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
-                      dcmd, data_len, payload_len, ctx_idx);
-      if ((dcmd & (1<<5)) == 0)
-        Logging::printf("TX bad descriptor\n");
+      // Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
+      //                 dcmd, data_len, payload_len, ctx_idx);
+      if ((dcmd & (1<<5)) == 0) {
+        //Logging::printf("TX bad descriptor\n");
+	return;
+      }
 
       enum {
         EOP = 1,
@@ -228,8 +226,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         TSE = 128,
       };
 
-      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
-                      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
+      // Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
+      //                 (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
       const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
 
       if (dcmd&TSE) {
@@ -281,7 +279,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	uint64 addr = (static_cast<uint64>(tdbah)<<32 | tdbal) + ((tdh*16) % tdlen);
 	tx_desc desc;
 
-	Logging::printf("TX descriptor at %llx\n", addr);
+	//Logging::printf("TX descriptor at %llx\n", addr);
 	if (!parent->copy_in(addr, desc.raw, sizeof(desc)))
 	  return;
 	if ((desc.raw[1] & (1<<29)) == 0) {
