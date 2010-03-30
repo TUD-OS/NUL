@@ -269,7 +269,7 @@ public:
   Host82576(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
     : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
   {
-    msg(INFO, "Found Intel 82576-style controller. Attaching IRQ %u.\n", _hostirq);
+    msg(INFO, "Found Intel 82576-style controller at %x. Attaching IRQ %u.\n", bdf, _hostirq);
 
     // Scan BARs and discover our register windows.
     _hwreg   = 0;
