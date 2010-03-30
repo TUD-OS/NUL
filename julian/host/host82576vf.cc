@@ -247,7 +247,7 @@ PARAM(host82576vf, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     uint16 parent_bdf = argv[0];
     unsigned vf_no    = argv[1];
-    uint32 itr_us     = (argv[2] == ~0U) ? 0 : argv[3] ;
+    uint32 itr_us     = (argv[2] == ~0U) ? 0 : argv[2] ;
     uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
 
