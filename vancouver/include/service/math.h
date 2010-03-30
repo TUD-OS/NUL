@@ -17,8 +17,8 @@
 #pragma once
 
 
-#define union64(HIGH, LOW)          ({ unsigned long long res; asm volatile ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; })
-#define split64(INPUT, HIGH, LOW)   asm volatile ("" : "=d"(HIGH), "=a"(LOW) : "A"(INPUT));
+#define union64(HIGH, LOW)          ({ unsigned long long res; asm ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; })
+#define split64(INPUT, HIGH, LOW)   asm ("" : "=d"(HIGH), "=a"(LOW) : "A"(INPUT));
 
 class Math
 {
@@ -49,7 +49,7 @@ class Math
     split64(value, vhigh, vlow);
     unsigned rem  = vhigh % divisor;
     vhigh = vhigh / divisor;
-    asm volatile ("divl %2" : "+a"(vlow), "+d"(rem) : "rm"(divisor));
+    asm ("divl %2" : "+a"(vlow), "+d"(rem) : "rm"(divisor));
     value = union64(vhigh, vlow);
     return rem;
   }
@@ -76,6 +76,6 @@ class Math
   static unsigned mod64(unsigned long long value, int divisor) {  return div64(value, divisor); }
   static void from_bcd(unsigned char &value)  {  value = (value & 0xf) + (value >> 4) * 10; }
   static void to_bcd(unsigned char &value)  {  value =  ((value / 10) << 4) + (value % 10); }
-  static unsigned long  htonl(unsigned long value)  { asm volatile ("bswap %0" : "+r"(value)); return value; }
-  static unsigned short htons(unsigned short value) { asm volatile ("xchg %%al, %%ah" : "+a"(value)); return value; }
+  static unsigned long  htonl(unsigned long value)  { asm ("bswap %0" : "+r"(value)); return value; }
+  static unsigned short htons(unsigned short value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
 };
