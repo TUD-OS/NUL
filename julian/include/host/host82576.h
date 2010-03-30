@@ -39,6 +39,9 @@ protected:
     VTEIAC      = 0x152C/4,
     VTEIAM      = 0x1530/4,
     VTEICR      = 0x1580/4,
+    VTEITR0     = 0x1680/4,
+    VTEITR1     = 0x1684/4,
+    VTEITR2     = 0x1688/4,
     VTIVAR      = 0x1700/4,
     VTIVAR_MISC = 0x1740/4,
 

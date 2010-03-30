@@ -163,8 +163,7 @@ public:
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
-              Clock *clock, unsigned bdf, unsigned irqs[3],
-              void *reg)
+              Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
     : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
@@ -187,6 +186,17 @@ public:
     _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF::handle_rx;
     _hostirqs[1].vec = irqs[1]; _hostirqs[1].handle = &Host82576VF::handle_tx;
     _hostirqs[2].vec = irqs[2]; _hostirqs[2].handle = &Host82576VF::handle_mbx;
+
+    // Set IRQ throttling
+    uint32 itr = (itr_us & 0xFFF) << 2;
+    _hwreg[VTEITR0] = itr;
+    _hwreg[VTEITR1] = itr;
+    _hwreg[VTEITR2] = 0;
+
+    if (itr == 0)
+      msg(INFO, "Interrupt throttling DISABLED.\n");
+    else
+      msg(INFO, "Minimum IRQ interval is %dus.\n", itr>>2);
 
     // Enable IRQs
     _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
@@ -236,7 +246,8 @@ public:
 PARAM(host82576vf, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     uint16 parent_bdf = argv[0];
-    unsigned vf_no      = argv[1];
+    unsigned vf_no    = argv[1];
+    uint32 itr_us     = (argv[2] == ~0U) ? 0 : argv[3] ;
     uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
 
@@ -280,12 +291,12 @@ PARAM(host82576vf, {
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
                                        mb.clock(), vf_bdf,
-                                       irqs, reg_msg.ptr);
+                                       irqs, reg_msg.ptr, itr_us);
 
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
     mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
   },
-  "host82576vf:parent,vf - provide driver for Intel 82576 virtual function.",
+  "host82576vf:parent,vf[,throttle_us] - provide driver for Intel 82576 virtual function.",
   "Example: 'host82576vf:0x100,0'");
 
 // EOF
