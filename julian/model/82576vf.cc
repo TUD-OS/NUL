@@ -52,8 +52,7 @@
 // - RXDCTL.enable (bit 25) may be racy
 // - receive path does not set packet type in RX descriptor
 // - TX legacy descriptors
-// - interrupt throttling (replace broken version that is currently
-//   implemented)
+// - interrupt thresholds
 // - don't copy packet on TX path if offloading is not used
 // - fancy offloads (SCTP CSO, IPsec, ...)
 // - CSO support with TX legacy descriptors
@@ -457,7 +456,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       // Advance queue head
       asm ( "" ::: "memory");
       regs[RDH] = (((rdh+1)*16 ) % rdlen) / 16;
-      
+
       parent->RX_irq(n);
     }
   };
@@ -488,12 +487,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     uint32 raw[3*4];
   } _msix;
 
-  struct irq_info {
-    uint32 last_us;
-    bool pending;
-  } _irq_info[3];
-
-
   uint32 VTFRTIMER_compute()
   {
     // XXX
@@ -508,50 +501,14 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     return msg.ptr + addr - (msg.start_page << 12);
   }
 
-  uint32 &ITR_get(unsigned nr)
-  {
-    // XXX Uh...
-    switch (nr) {
-    case 0: return rVTEITR0;
-    case 1: return rVTEITR1;
-    case 2: return rVTEITR2;
-    }
-    __builtin_trap();
-  }
-
-  void MSIX_check()
-  {
-    uint32 now = _clock->clock(1000000);
-    for (unsigned i = 0; i < 3; i++)
-      if (_irq_info[i].pending && (_irq_info[i].last_us + ((ITR_get(i)>>2)&0xFFF) <= now))
-	MSIX_irq(i);
-  }
-
   // Generate a MSI-X IRQ.
   void MSIX_irq(unsigned nr)
   {
     // Logging::printf("MSI-X IRQ %d | EIMS %02x | EIAC %02x | EIAM %02x | C %02x\n", nr,
     // 		    rVTEIMS, rVTEIAC, rVTEIAM, _msix.table[nr].vector_control);
-
-    // IRQ throttle
-    uint32 &itr = ITR_get(nr);;
-    
-    uint16 interval = (itr >> 2) & 0xFFF;
-    if (interval != 0) {
-      uint32 now = _clock->clock(1000000);
-      if (_irq_info[nr].last_us + interval > now) {
-	_irq_info[nr].pending = true;
-	// Not enough time has passed to inject an IRQ.
-	return;
-      }
-    }
-    // IRQ throttle done.
-    
     uint32 mask = 1<<nr;
     // Set interrupt cause.
     rVTEICR |= mask;
-
-    _irq_info[nr].pending = false; // XXX Here?
 
     if ((mask & rVTEIMS) != 0) {
       if ((_msix.table[nr].vector_control & 1) == 0) {
@@ -722,9 +679,6 @@ public:
     if (msg.client == 23) return false;
 
     _rx_queues[0].receive_packet(const_cast<uint8 *>(msg.buffer), msg.len);
-
-    MSIX_check();
-
     return true;
   }
 
@@ -775,8 +729,6 @@ public:
       _tx_queues[i].txdctl_poll();
       _tx_queues[i].tdt_poll();
     }
-
-    MSIX_check();
 
     reprogram_timer();
     return true;
