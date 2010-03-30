@@ -34,7 +34,7 @@ public:
       sum += Math::htons(*reinterpret_cast<uint16*>(buf+i));
     if ((len&1) != 0)
       // XXX Endianess
-      sum += buf[len-1];
+      sum += buf[len-1]<<8;
     return sum;
   }
 
