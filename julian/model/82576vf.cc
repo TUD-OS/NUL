@@ -158,6 +158,13 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint8 maclen = iplen >> 9;
       iplen &= 0x1FF;
 
+      // Sanity check maclen and iplen.
+      Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
+      if ((maclen < 12) || (maclen > 127) || (iplen > 511) ||
+	  (maclen >= iplen) || (maclen+iplen > packet_len))
+	// Skip rest because of malformed context descriptor.
+	return;
+
       if ((tucmd & 2 /* IPv4 CSO */) != 0) {
 	// Test if this is an IPv4 packet.
 	if (reinterpret_cast<uint16 *>(packet)[6] != 0x8) {
@@ -165,13 +172,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  // Skip rest of offloading, since this is not an IP packet.
 	  return;
 	}
-
-	// Sanity check maclen and iplen.
-	Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
-	if ((maclen < 12) || (maclen > 127) || (iplen > 511) ||
-	    (maclen >= iplen) || (maclen+iplen > packet_len))
-	  // Skip rest because of malformed context descriptor.
-	  return;
 
 	// XXX Aliasing?
 	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
@@ -186,6 +186,15 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	if (l4t == 2)
 	  // XXX SCTP checksum
 	  return;
+
+	// XXX Is this really neccessary?
+	if ((reinterpret_cast<uint16 *>(packet)[6] != 0x8) &&
+	    !((packet[maclen + 9] == 6) || (packet[maclen + 9] == 17)) ) {
+	  //Logging::printf("TCP/UDP CSO not done: Not an IPv4 packet.\n");
+	  // Skip rest of offloading, since this is not an TCP/UDP packet.
+	  return;
+	}
+
 
 	uint16 cstart = maclen + iplen;
 	
