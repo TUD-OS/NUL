@@ -135,7 +135,7 @@ class HostPci
   {
     unsigned msix_offset = find_cap(bdf, CAP_MSIX);
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
-    if (!(msix_offset || msi_offset)) Logging::panic("No MSI support.");
+    if (!(msix_offset || msi_offset)) Logging::panic("No MSI support in %x for %x", bdf, nr);
 
     MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
     if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);

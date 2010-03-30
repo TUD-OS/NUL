@@ -295,14 +295,14 @@ private:
     if (!match_bars(msg.phys, 4, ptr))  return false;
     if (msg.read) {
       *msg.ptr = *ptr;
-      Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
+      //Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
     else {
       *ptr = *msg.ptr;
       // write msix control trough
       if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
 	_msix_host_table[(ptr - reinterpret_cast<unsigned *>(_msix_table)) / 16].control = *msg.ptr;
-      Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
+      //Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
 
     return true;

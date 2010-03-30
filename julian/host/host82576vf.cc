@@ -196,7 +196,7 @@ public:
     if (itr == 0)
       msg(INFO, "Interrupt throttling DISABLED.\n");
     else
-      msg(INFO, "Minimum IRQ interval is %dus.\n", itr>>2);
+      msg(INFO, "Minimum IRQ interval is %dus.\n", itr_us);
 
     // Enable IRQs
     _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
