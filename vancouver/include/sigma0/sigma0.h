@@ -151,7 +151,7 @@ enum {
   STDIN_SIZE = 32,
   DISKS_SIZE = 32,
   TIMER_SIZE = 32,
-  NETWORK_SIZE = 1 << (16 - 2)
+  NETWORK_SIZE = 1 << (21 - 2)
 };
 
 /**
