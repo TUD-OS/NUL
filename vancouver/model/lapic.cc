@@ -79,6 +79,8 @@ class Lapic : public StaticReceiver<Lapic>
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
     memset(_rirr,    0, sizeof(_rirr));
+    _isrv = 0;
+    _esr_shadow = 0;
     _timer_dcr_shift = 1 + _timer_clock_shift;
 
     // RESET?
