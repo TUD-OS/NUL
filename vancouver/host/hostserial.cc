@@ -111,12 +111,13 @@ PARAM(hostserial,
 
 	if (iobase == ~0u)
 	  {
-	    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0, 0x1000);
+	    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
 	    if (mb.bus_hostop.send(msg) && msg.ptr)
 	      {
-		iobase = *reinterpret_cast<unsigned short *>(msg.ptr + 0x400);
+		iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
 		//XXX unmap(msg.ptr, 1<<12);
 	      }
+	    Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
 	  }
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (iobase << 8) |  3);
 	if (!mb.bus_hostop.send(msg1))
