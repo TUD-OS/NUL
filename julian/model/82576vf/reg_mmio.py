@@ -62,4 +62,9 @@ for n in range(0x10):
                  'offset' : 0x800 + 4*n,
                  'initial' : 0})
 
+for n in range(3):
+    rset.append({'name' : 'rVTEITR%d' % n,
+                 'offset' : 0x1680 + 4*n,
+                 'initial' : 0})
+
 # EOF
