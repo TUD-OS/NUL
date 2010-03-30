@@ -56,9 +56,10 @@
 // - don't copy packet on TX path if offloading is not used
 // - fancy offloads (SCTP CSO, IPsec, ...)
 // - CSO support with TX legacy descriptors
-// 
 // - scatter/gather support in MessageNetwork to avoid packet copy in
 //   TX path.
+// - check whether we need all the sanity checking in
+//   apply_offload. Why does Linux program CSO for ICMP packets?
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
