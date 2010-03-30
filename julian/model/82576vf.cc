@@ -1,9 +1,25 @@
-// -*- Mode: C++ -*-
+/** -*- Mode: C++ -*-
+ * Intel 82576 VF device model.
+ *
+ * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Vancouver is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
 #include <service/math.h>
 #include <service/time.h>
+#include <service/net.h>
 #include <model/pci.h>
 
 // Status: INCOMPLETE
@@ -38,7 +54,7 @@
 // - TX legacy descriptors
 // - interrupt thresholds
 // - don't copy packet on TX path if offloading is not used
-// - offloads
+// - fancy offloads (SCTP CSO, IPsec, ...)
 // - CSO support with TX legacy descriptors
 // 
 // - scatter/gather support in MessageNetwork to avoid packet copy in
@@ -127,67 +143,14 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       regs[TXDCTL] &= ~(1<<26);	// Clear SWFLUSH
       txdctl_old = txdctl_new;
     }
-
+    
     void handle_ctx(uint64 addr, tx_desc &desc)
     {
-      // ping: (dns? -> udp?)
-      // raw[0] = 0000000000001c14
-      // raw[1] = 0000000020200400
-      // netcat (tcp)
-      // raw[0] = 0000000000001c14
-      // raw[1] = 0000000020200c00
-
       // Store context descriptor as is, evaluate it when we need it.
       uint8 ctx_idx = (desc.raw[1]>>36) & 0x7;
       ctx[ctx_idx] = desc;
-
-      Logging::printf("TX ctx %u\n", ctx_idx);
-      Logging::printf("raw[0] = %016llx\n", desc.raw[0]);
-      Logging::printf("raw[1] = %016llx\n", desc.raw[1]);
     }
 
-    uint16 bswap(uint16 v)
-    {
-      asm ("xchg %b0, %h0\n": "+Q" (v));
-      return v;
-    }
-
-    static void  hexdump(const void *p, unsigned len)
-    {
-      const unsigned chars_per_row = 16;
-      const char *data = reinterpret_cast<const char *>(p);
-      const char *data_end = data + len;
-
-      for (unsigned cur = 0; cur < len; cur += chars_per_row) {
-	Logging::printf("%08x:", cur);
-	for (unsigned i = 0; i < chars_per_row; i++)
-	  if (data+i < data_end)
-	    Logging::printf(" %02x", ((const unsigned char *)data)[i]);
-	  else
-	    Logging::printf("   ");
-	Logging::printf(" | ");
-	for (unsigned i = 0; i < chars_per_row; i++) {
-	  if (data < data_end)
-	    Logging::printf("%c", ((data[0] >= 32) && (data[0] > 0)) ? data[0] : '.');
-	  else
-	    Logging::printf(" ");
-	  data++;
-	}
-	Logging::printf("\n");
-      }
-    }
-
-    
-    uint16 comp16sum(uint16 *buf, unsigned len)
-    {
-      uint32 sum = 0;
-      for (unsigned i = 0; i < (len&~1); i += 2)
-	sum += bswap(buf[i/2]);
-      if ((len&1) != 0)
-	sum += bswap(buf[len-1]<<8);
-      return bswap(~(sum + (sum>>16)));
-    }
-    
     void apply_offload(uint8 *packet, uint32 packet_len, const tx_desc &ctx_desc)
     {
       uint8 tucmd = (ctx_desc.raw[1]>>9) & 0x3FF;
@@ -195,8 +158,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint8 maclen = iplen >> 9;
       iplen &= 0x1FF;
 
-      hexdump(packet, maclen+iplen);
-      
       if ((tucmd & 2 /* IPv4 CSO */) != 0) {
 	// Test if this is an IPv4 packet.
 	if (reinterpret_cast<uint16 *>(packet)[6] != 0x8) {
@@ -216,7 +177,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
 
 	ipv4_sum = 0;
-	ipv4_sum = comp16sum(reinterpret_cast<uint16 *>(packet + maclen), iplen);
+	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
 	Logging::printf("IPv4 CSO -> %02x\n", ipv4_sum);
       }
 
@@ -230,7 +191,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	
 	uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + cstart + ((tucmd == 0) ? 6 : 16));
 	l4_sum = 0;
-	l4_sum = comp16sum(reinterpret_cast<uint16 *>(packet + cstart), packet_len - cstart);
+	l4_sum = IPChecksum::tcpudpsum(packet, (tucmd == 0) ? 17 : 6, maclen, iplen, packet_len);
+
 	Logging::printf("%s CSO -> %02x\n", (tucmd == 0) ? "UDP" : "TCP", l4_sum);
       }
       
