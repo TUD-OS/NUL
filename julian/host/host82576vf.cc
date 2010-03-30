@@ -5,7 +5,7 @@
 #include <host/hostvf.h>
 #include <host/host82576.h>
 
-static const unsigned desc_ring_len = 64;
+static const unsigned desc_ring_len = 512;
 
 typedef uint8 packet_buffer[2048];
 

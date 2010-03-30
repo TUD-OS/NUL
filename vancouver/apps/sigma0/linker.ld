@@ -45,7 +45,7 @@ SECTIONS
     *(.bss .bss.* .gnu.linkonce.b.*);
     *(COMMON);
     __mempoolstart = .;
-    . += 0x80000;
+    . += 0x800000;
     __mempoolend = .;
   } : data
    __image_end = .;
