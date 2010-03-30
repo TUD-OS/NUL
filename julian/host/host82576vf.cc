@@ -60,7 +60,7 @@ public:
       uint16 plen = cur->hi >> 32;
       //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
-        msg(INFO, "Too many packets. Exit handle_rx for now.\n");
+        //msg(INFO, "Too many packets. Exit handle_rx for now.\n");
         _hwreg[VTEICS] = 1;	// XXX Needed?
         return;
       }
