@@ -110,7 +110,7 @@ public:
 	Logging::printf("PIO setup fis\n");
 	break;
       default:
-	assert(!"Invalid D2H FIS!");
+	Logging::panic("Invalid D2H FIS!");
       }
 
     // copy to user
