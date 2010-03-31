@@ -26,24 +26,22 @@
  * Missing: IRQ on overflow
  * Documentation: ACPI spec 3.0b
  */
-class PmTimer : public StaticReceiver<PmTimer> {
-#include "model/simplediscovery.h"
-  Clock *  _clock;
+class PmTimer : public DiscoveryHelper<PmTimer>, public StaticReceiver<PmTimer> {
+public:
+  Motherboard &_mb;
+private:
   unsigned _iobase;
-  enum {
-    FREQ = 3579545,
-  };
+  enum { FREQ = 3579545 };
 public:
   bool  receive(MessageIOIn &msg) {
 
     if (msg.port != _iobase || msg.type != MessageIOIn::TYPE_INL)  return false;
-    msg.value = _clock->clock(FREQ);
+    msg.value = _mb.clock()->clock(FREQ);
     return true;
   }
 
 
-  bool  receive(MessageDiscovery &msg) {
-    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+  void discovery() {
 
     // write our iobase to the FADT
     discovery_write_dw("FACP",  76,    _iobase, 4);
@@ -51,19 +49,20 @@ public:
     discovery_write_dw("FACP", 208, 0x04000401, 4);
     discovery_write_dw("FACP", 212,    _iobase, 4);
     discovery_write_dw("FACP", 216,          0, 4);
+
     // the ACPI IRQ is 9
     discovery_write_dw("FACP",  46,          9, 2);
-
-    return true;
   }
 
-  PmTimer(DBus<MessageDiscovery> &bus_discovery, Clock *clock, unsigned iobase) : _bus_discovery(bus_discovery), _clock(clock), _iobase(iobase) {}
+  PmTimer(Motherboard &mb, unsigned iobase) : _mb(mb), _iobase(iobase) {
+
+    _mb.bus_ioin.add(this, PmTimer::receive_static<MessageIOIn>);
+    _mb.bus_discovery.add(this, DiscoveryHelper<PmTimer>::receive);
+  }
 };
 
 PARAM(pmtimer,
-      Device *dev = new PmTimer(mb.bus_discovery, mb.clock(), argv[0]);
-      mb.bus_ioin.add(dev, PmTimer::receive_static<MessageIOIn>);
-      mb.bus_discovery.add(dev, PmTimer::receive_static<MessageDiscovery>);
+      new PmTimer(mb, argv[0]);
       ,
       "pmtimer:ioport - provide an PMTimer at the given ioport.",
       "Example: 'pmtimer:0x8000'."

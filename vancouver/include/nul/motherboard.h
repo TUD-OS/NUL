@@ -24,6 +24,9 @@
 #include "bus.h"
 #include "message.h"
 #include "timer.h"
+#include "templates.h"
+
+
 class VCpu;
 
 /**

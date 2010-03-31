@@ -19,16 +19,14 @@
 #include "nul/vcpu.h"
 #include "executor/bios.h"
 
-class VBios : public StaticReceiver<VBios>
+class VBios : public DiscoveryHelper<VBios>, public StaticReceiver<VBios>
 {
+public:
+  Motherboard &_mb;
+private:
   VCpu *_vcpu;
-  DBus<MessageBios> &_bus_bios;
-#include "model/simplediscovery.h"
-
   unsigned char _resetvector[16];
-  enum {
-    BIOS_BASE = 0xf0000,
-  };
+  enum {  BIOS_BASE = 0xf0000 };
 
 public:
   bool receive(CpuMessage &msg) {
@@ -54,7 +52,7 @@ public:
     msg.mtr_out |= MTD_CS_SS | MTD_RIP_LEN;
 
     MessageBios msg1(_vcpu, cpu, irq);
-    if (!_bus_bios.send(msg1, irq != BiosCommon::RESET_VECTOR)) return false;
+    if (!_mb.bus_bios.send(msg1, irq != BiosCommon::RESET_VECTOR)) return false;
 
     // we have to propagate the flags to the user stack!
     unsigned flags;
@@ -95,7 +93,7 @@ public:
 
 
 
-  VBios(VCpu *vcpu, DBus<MessageBios> &bus_bios, DBus<MessageDiscovery> & bus_discovery) : _vcpu(vcpu), _bus_bios(bus_bios), _bus_discovery(bus_discovery) {
+  VBios(Motherboard &mb, VCpu *vcpu) : _mb(mb), _vcpu(vcpu) {
 
     // initialize the reset vector with noops
     memset(_resetvector, 0x90, sizeof(_resetvector));
@@ -108,17 +106,17 @@ public:
 
     // the iret for do_iret()
     _resetvector[0xf] = 0xcf;
+    _vcpu->executor.add(this,   &VBios::receive_static<CpuMessage>);
+    _vcpu->mem.add(this,        &VBios::receive_static<MessageMem>);
+    _mb.bus_discovery.add(this, &VBios::receive_static<MessageDiscovery>);
+
   }
 
 };
 
 PARAM(vbios,
       if (!mb.last_vcpu) Logging::panic("no VCPU for this VBIOS");
-
-      VBios *dev = new VBios(mb.last_vcpu, mb.bus_bios, mb.bus_discovery);
-      mb.last_vcpu->executor.add(dev, &VBios::receive_static<CpuMessage>);
-      mb.last_vcpu->mem.add(dev,      &VBios::receive_static<MessageMem>);
-      mb.bus_discovery.add(dev,       &VBios::receive_static<MessageDiscovery>);
+      new VBios(mb, mb.last_vcpu);
       ,
       "vbios - create a bridge between VCPU and the BIOS bus.");
 

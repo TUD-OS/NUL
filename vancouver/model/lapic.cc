@@ -28,7 +28,7 @@
  * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
  * Documentation: Intel SDM Volume 3a Chapter 10 253668-033.
  */
-class Lapic : public StaticReceiver<Lapic>
+class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
 {
 #define REGBASE "../model/lapic.cc"
 #include "model/reg.h"
@@ -43,12 +43,9 @@ class Lapic : public StaticReceiver<Lapic>
   };
 
   VCpu *    _vcpu;
-  DBus<MessageMem>   & _bus_mem;
-  DBus<MessageApic>  & _bus_apic;
-  DBus<MessageTimer> & _bus_timer;
-#include "model/simplediscovery.h"
-  Clock *   _clock;
-
+public:
+  Motherboard &_mb;
+private:
   unsigned  _initial_apic_id;
   unsigned long long _msr;
   unsigned  _timer;
@@ -66,7 +63,6 @@ class Lapic : public StaticReceiver<Lapic>
   bool sw_disabled() { return ~_SVR & 0x100; }
   bool hw_disabled() { return ~_msr & 0x800; }
   bool x2apic_mode() { return  (_msr & 0xc00) == 0xc00; }
-
 
   /**
    * Reset the APIC to some default state.
@@ -89,11 +85,12 @@ class Lapic : public StaticReceiver<Lapic>
       _ID = _initial_apic_id << 24;
       set_base_msr(APIC_ADDR | 0x800);
 
-      // as we enable the APICs, we also perform the BIOS INIT
+      // XXX bogus -> move this to vbios_reset! as we enable the APICs, we also perform the BIOS INIT
       Lapic_write(_LINT0_offset, 0x700);
       Lapic_write(_LINT1_offset, 0x400);
       Lapic_write(_SVR_offset,  0x1ff);
     }
+    // XXX notify the PIC
   }
 
 
@@ -101,7 +98,6 @@ class Lapic : public StaticReceiver<Lapic>
    * Update the APIC base MSR.
    */
   bool set_base_msr(unsigned long long value) {
-    //Logging::printf("%s %llx %llx\n", __PRETTY_FUNCTION__, value, _msr);
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
     bool was_x2apic_mode = x2apic_mode();
     // check
@@ -109,9 +105,17 @@ class Lapic : public StaticReceiver<Lapic>
 
 
     if ((_msr ^ value) & 0x800) {
-      // update CPUID leaf 1 EDX
-      CpuMessage msg(1, 3, ~(1 << 9), (value & 0x800) >> 2);
-      _vcpu->executor.send(msg);
+      bool apic_enabled = value & 0x800;
+      CpuMessage msg[] = {
+	// update CPUID leaf 1 EDX
+	CpuMessage (1, 3, ~(1 << 9), apic_enabled << 9),
+	// support for X2Apic
+	CpuMessage(1,  2, ~(1 << 21), apic_enabled << 21),
+	// support for APIC timer that does not sleep in C-states
+	CpuMessage(6, 0, ~(1 << 2), apic_enabled << 2),
+      };
+      for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
+	_vcpu->executor.send(msg[i]);
     }
     // we threat the BSP flag as read-only
     _msr = (value & ~0x100ull) | (_vcpu->is_ap() ? 0 : 0x100);
@@ -163,7 +167,7 @@ class Lapic : public StaticReceiver<Lapic>
     //if (_initial_apic_id) Logging::printf("update timer %x time %llx\n", value,  now + (value << _timer_dcr_shift));
     if (!value || _TIMER & (1 << LVT_MASK_BIT)) return;
     MessageTimer msg(_timer, now + (value << _timer_dcr_shift));
-    _bus_timer.send(msg);
+    _mb.bus_timer.send(msg);
   }
 
 
@@ -217,12 +221,12 @@ class Lapic : public StaticReceiver<Lapic>
 
       // we send them round-robin as EVENT_FIXED
       MessageApic msg((icr & ~0x700u), dst, 0);
-      _lowest_rr = _bus_apic.send_rr(msg, _lowest_rr);
+      _lowest_rr = _mb.bus_apic.send_rr(msg, _lowest_rr);
       // we could set an send accept error here, but that is not supported in the P4...
       return _lowest_rr;
     }
     MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
-    return _bus_apic.send(msg);
+    return _mb.bus_apic.send(msg);
   }
 
 
@@ -277,6 +281,7 @@ class Lapic : public StaticReceiver<Lapic>
      * Make sure we do not loop, if the ERROR LVT has also an invalid
      * vector programmed.
      */
+    //Logging::printf("set error %x\n", bit);
     if (_esr_shadow & (1<< bit)) return true;
     Cpu::atomic_set_bit(&_esr_shadow, bit);
     return trigger_lvt(_ERROR_offset - LVT_BASE);
@@ -310,7 +315,7 @@ class Lapic : public StaticReceiver<Lapic>
     if (_SVR & 0x1000) return;
 
     MessageMem msg(false, MessageApic::IOAPIC_EOI, &vector);
-    _bus_mem.send(msg);
+    _mb.bus_mem.send(msg);
   }
 
   /**
@@ -327,7 +332,7 @@ class Lapic : public StaticReceiver<Lapic>
       value = _vector[offset - 0x10];
       break;
     case 0x39:
-      value = get_ccr(_clock->time());
+      value = get_ccr(_mb.clock()->time());
       break;
     default:
       if (!(res = Lapic_read(offset, value))) set_error(7);
@@ -361,7 +366,7 @@ class Lapic : public StaticReceiver<Lapic>
 	broadcast_eoi(_isrv);
 
 	// if we eoi the timer IRQ, rearm the timer
-	if (_isrv == (_TIMER & 0xff)) update_timer(_clock->time());
+	if (_isrv == (_TIMER & 0xff)) update_timer(_mb.clock()->time());
 
 	_isrv = get_highest_bit(OFS_ISR);
 	update_irqs();
@@ -384,7 +389,7 @@ class Lapic : public StaticReceiver<Lapic>
     // do side effects of a changed LVT entry
     if (in_range(offset, LVT_BASE, 6)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
-      if (offset == _TIMER_offset)   update_timer(_clock->time());
+      if (offset == _TIMER_offset)   update_timer(_mb.clock()->time());
 
       // send EXTINT deassert messages when LINT0 was masked
       if (offset == _LINT0_offset && (value & (1 << LVT_MASK_BIT))) {
@@ -413,7 +418,7 @@ class Lapic : public StaticReceiver<Lapic>
     // do not accept more IRQs if no EOI was performed
     if (_rirr[num]) return true;
 
-    // masked or already pending?
+    // masked irq?
     if (lvt & (1 << LVT_MASK_BIT)) {
       // level && masked - set delivery status bit
       if (level) _lvtds[num] = true;
@@ -437,6 +442,7 @@ class Lapic : public StaticReceiver<Lapic>
      * It is not defined how invalid Delivery Modes are handled. We
      * simply drop SIPI, RRD and LOWEST here.
      */
+
 
     // we have delivered it
     _lvtds[num] = false;
@@ -489,6 +495,7 @@ public:
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
     else
       register_write((msg.phys >> 4) & 0x3f, *msg.ptr, false);
+    //if (msg.phys != 0xfee000b0) Logging::printf("%s %lx = %x ccr %x\n", msg.read ? "READ" : "WRITE", msg.phys, *msg.ptr, get_ccr(_mb.clock()->time()));
     return true;
   }
 
@@ -515,7 +522,7 @@ public:
 
     // no need to call update timer here, as the CPU needs to do an
     // EOI first
-    get_ccr(_clock->time());
+    get_ccr(_mb.clock()->time());
     return true;
   }
 
@@ -593,6 +600,8 @@ public:
       return true;
     }
     if (msg.type == CpuMessage::TYPE_WRMSR) {
+      //Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
+
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b)  return set_base_msr(msg.cpu->edx_eax());
 
@@ -603,7 +612,6 @@ public:
 	  || msg.cpu->ecx == 0x831
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
-      //Logging::printf("WRMSR %x\n", msg.cpu->ecx);
 
       // self IPI?
       if (msg.cpu->ecx == 0x83f && msg.cpu->eax < 0x100 && !msg.cpu->edx)
@@ -616,6 +624,7 @@ public:
       // write lower half in strict mode with reserved bit checking
       if (!register_write(msg.cpu->ecx & 0x3f, msg.cpu->eax, true)) {
 	_ICR1 = old_ICR1;
+	Logging::printf("FAILED %x strict\n", msg.cpu->ecx);
 	return false;
       }
       return true;
@@ -628,29 +637,32 @@ public:
    * Legacy pins.
    */
   bool  receive(MessageLegacy &msg) {
+
     if (hw_disabled())  return false;
 
     // the legacy PIC output and NMI are on LINT0/1
     if (msg.type == MessageLegacy::EXTINT)
       return trigger_lvt(_LINT0_offset - LVT_BASE);
+
     if (msg.type == MessageLegacy::NMI)
       return trigger_lvt(_LINT1_offset - LVT_BASE);
+
     if (msg.type == MessageLegacy::DEASS_EXTINT) {
-	CpuEvent msg(VCpu::DEASS_EXTINT);
-	return _vcpu->bus_event.send(msg);
+
+      CpuEvent msg(VCpu::DEASS_EXTINT);
+      return _vcpu->bus_event.send(msg);
     }
     return false;
   }
 
 
-  bool  receive(MessageDiscovery &msg) {
-    if (msg.type != MessageDiscovery::DISCOVERY) return false;
-
+  void discovery() {
 
     unsigned value = 0;
     discovery_read_dw("APIC", 36, value);
     unsigned length = discovery_length("APIC", 44);
     if (value == 0) {
+
       // NMI is connected to LINT1 on all LAPICs
       discovery_write_dw("APIC", length + 0, 0x00ff0604 | (_initial_apic_id << 24), 4);
       discovery_write_dw("APIC", length + 4,     0x0100, 2);
@@ -666,41 +678,37 @@ public:
     // add the LAPIC structure to the MADT
     discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
     discovery_write_dw("APIC", length + 4, 1, 4);
-    return true;
   }
 
 
-  Lapic(VCpu *vcpu, DBus<MessageMem> &bus_mem, DBus<MessageApic> &bus_apic,
-	DBus<MessageTimer> &bus_timer, DBus<MessageDiscovery> &bus_discovery,
-	Clock *clock, unsigned initial_apic_id)
-    : _vcpu(vcpu), _bus_mem(bus_mem), _bus_apic(bus_apic), _bus_timer(bus_timer), _bus_discovery(bus_discovery),
-      _clock(clock), _initial_apic_id(initial_apic_id)
+  Lapic(VCpu *vcpu, Motherboard &mb, unsigned initial_apic_id, unsigned timer) : _vcpu(vcpu), _mb(mb), _initial_apic_id(initial_apic_id), _timer(timer)
   {
 
     _ID = initial_apic_id << 24;
 
     // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
-      if ((_clock->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
+      if ((_mb.clock()->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
 
-    Logging::printf("LAPIC freq %lld\n", _clock->freq() >> _timer_clock_shift);
+    Logging::printf("LAPIC freq %lld\n", _mb.clock()->freq() >> _timer_clock_shift);
     CpuMessage msg[] = {
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
       CpuMessage(11, 3, 0, _initial_apic_id),
-      // support for Lapic
-      CpuMessage(1, 2, 0, 1 << 21),
-      // support for APIC timer that does not sleep in C-states
-      CpuMessage(6, 0, 0, 1 << 2),
     };
     for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
       _vcpu->executor.send(msg[i]);
 
-    // allocate a timer
-    MessageTimer msg0;
-    if (!_bus_timer.send(msg0))
-      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
-    _timer = msg0.nr;
+
+    mb.bus_legacy.add(this, &Lapic::receive_static<MessageLegacy>);
+    mb.bus_apic.add(this,     &Lapic::receive_static<MessageApic>);
+    mb.bus_timeout.add(this,  &Lapic::receive_static<MessageTimeout>);
+    mb.bus_discovery.add(this,  &DiscoveryHelper<Lapic>::receive);
+    vcpu->executor.add(this, &Lapic::receive_static<CpuMessage>);
+    vcpu->mem.add(this, &Lapic::receive_static<MessageMem>);
+    vcpu->memregion.add(this, &Lapic::receive_static<MessageMemRegion>);
+    vcpu->bus_lapic.add(this, &Lapic::receive_static<LapicEvent>);
+
   }
 };
 
@@ -709,16 +717,13 @@ PARAM(lapic, {
     static unsigned lapic_count;
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    Lapic *dev = new Lapic(mb.last_vcpu, mb.bus_mem, mb.bus_apic, mb.bus_timer, mb.bus_discovery, mb.clock(), ~argv[0] ? argv[0]: lapic_count);
+    // allocate a timer
+    MessageTimer msg0;
+    if (!mb.bus_timer.send(msg0))
+      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+
+    new Lapic(mb.last_vcpu, mb, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
     lapic_count++;
-    mb.bus_legacy.add(dev, &Lapic::receive_static<MessageLegacy>);
-    mb.bus_apic.add(dev,     &Lapic::receive_static<MessageApic>);
-    mb.bus_timeout.add(dev,  &Lapic::receive_static<MessageTimeout>);
-    mb.bus_discovery.add(dev,  &Lapic::receive_static<MessageDiscovery>);
-    mb.last_vcpu->executor.add(dev, &Lapic::receive_static<CpuMessage>);
-    mb.last_vcpu->mem.add(dev, &Lapic::receive_static<MessageMem>);
-    mb.last_vcpu->memregion.add(dev, &Lapic::receive_static<MessageMemRegion>);
-    mb.last_vcpu->bus_lapic.add(dev, &Lapic::receive_static<LapicEvent>);
   },
   "lapic:inital_apic_id - provide an x2APIC for the last CPU",
   "Example: 'lapic:2'",
@@ -746,12 +751,12 @@ REGSET(Lapic,
        REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, )
        REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff, )
        REG_RW(_ICT,           0x38,          0, ~0u,
-	      _timer_start = _clock->time();
+	      _timer_start = _mb.clock()->time();
 	      update_timer(_timer_start); )
        REG_RW(_DCR,           0x3e,          0, 0xb
 ,
 	      {
-		timevalue now = _clock->time();
+		timevalue now = _mb.clock()->time();
 		unsigned  done = _ICT - get_ccr(now);
 		_timer_dcr_shift = _timer_clock_shift + ((((_DCR & 0x3) | ((_DCR >> 1) & 4)) + 1) & 7);
 

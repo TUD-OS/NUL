@@ -28,11 +28,12 @@
  */
 
 #ifndef REGBASE
-class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
+
+class PciHostBridge : public PciConfigHelper<PciHostBridge>, public DiscoveryHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
-  DBus<MessagePciConfig> &_bus_pcicfg;
-  DBus<MessageLegacy>    &_bus_legacy;
-#include "model/simplediscovery.h"
+public:
+  Motherboard &_mb;
+private:
   unsigned _busnum;
   unsigned _buscount;
   unsigned short _iobase;
@@ -55,13 +56,12 @@ class PciHostBridge : public PciConfigHelper<PciHostBridge>, public StaticReceiv
 
     // is it our bus?
     if (_busnum == bus) {
-      unsigned bdf = msg.bdf;
-      msg.bdf = 0;
-      return _bus_pcicfg.send(msg, true, bdf);
+      unsigned bdf = msg.bdf; msg.bdf = 0;
+      return _mb.bus_pcicfg.send(msg, true, bdf);
     }
 
     // forward to subordinate busses
-    return _bus_pcicfg.send(msg);
+    return _mb.bus_pcicfg.send(msg);
   }
 
 
@@ -107,7 +107,7 @@ public:
     if (msg.port == _iobase + 1 && msg.type == MessageIOOut::TYPE_OUTB) {
       if (~_cf9 & 4 && msg.value & 4) {
 	MessageLegacy msg2(MessageLegacy::RESET);
-	_bus_legacy.send(msg2);
+	_mb.bus_legacy.send(msg2);
       }
       else _cf9 = msg.value;
       return true;
@@ -171,9 +171,7 @@ public:
   }
 
 
-  bool  receive(MessageDiscovery &msg) {
-    if (msg.type != MessageDiscovery::DISCOVERY) return false;
-
+  void discovery() {
     unsigned length = discovery_length("MCFG", 44);
     discovery_write_dw("MCFG", length +  0, _membase, 4);
     discovery_write_dw("MCFG", length +  4, static_cast<unsigned long long>(_membase) >> 32, 4);
@@ -185,21 +183,17 @@ public:
     discovery_write_dw("FACP", 120, 0xcf9, 4);
     discovery_write_dw("FACP", 124, 0, 4);
     discovery_write_dw("FACP", 128, 6, 1);
-
-    return true;
   }
 
 
-  PciHostBridge(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageLegacy> &bus_legacy, DBus<MessageDiscovery> &bus_discovery,
-		unsigned busnum, unsigned buscount, unsigned short iobase, unsigned long membase)
-    : _bus_pcicfg(bus_pcicfg), _bus_legacy(bus_legacy), _bus_discovery(bus_discovery),
-      _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
+  PciHostBridge(Motherboard &mb, unsigned busnum, unsigned buscount, unsigned short iobase, unsigned long membase)
+    :  _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
 };
 
 PARAM(pcihostbridge,
       {
 	unsigned busnum = argv[0];
-	PciHostBridge *dev = new PciHostBridge(mb.bus_pcicfg, mb.bus_legacy, mb.bus_discovery, busnum, argv[1], argv[2], argv[3]);
+	PciHostBridge *dev = new PciHostBridge(mb, busnum, argv[1], argv[2], argv[3]);
 
 	// ioport interface
 	if (~argv[2]) {
@@ -209,8 +203,8 @@ PARAM(pcihostbridge,
 
 	// MMCFG interface
 	if (~argv[3]) {
-	  mb.bus_mem.add(dev, &PciHostBridge::receive_static<MessageMem>);
-	  mb.bus_discovery.add(dev, &PciHostBridge::receive_static<MessageDiscovery>);
+	  mb.bus_mem.add(dev,       &PciHostBridge::receive_static<MessageMem>);
+	  mb.bus_discovery.add(dev, &DiscoveryHelper<PciHostBridge>::receive);
 	}
 
 	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);

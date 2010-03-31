@@ -19,10 +19,10 @@
 
 #define DEBUG(cpu)   Logging::printf("\t%s eax %x ebx %x ecx %x edx %x eip %x efl %x\n", __func__, cpu->eax, cpu->ebx, cpu->ecx, cpu->edx, cpu->eip, cpu->efl)
 
-class BiosCommon
+class BiosCommon : public DiscoveryHelper<BiosCommon>
 {
-
 public:
+  Motherboard &_mb;
 
   enum {
     RESET_VECTOR = 0x100,
@@ -30,9 +30,7 @@ public:
   };
 
 protected:
-  Motherboard &_mb;
 #include "model/simplemem.h"
-#include "model/simplediscovery.h"
 
 
   /**
@@ -90,5 +88,5 @@ protected:
     _mb.bus_ioout.send(msg);
   }
 
- BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem), _bus_discovery(mb.bus_discovery) {}
+ BiosCommon(Motherboard &mb) : _mb(mb), _bus_memregion(&mb.bus_memregion), _bus_mem(&mb.bus_mem) {}
 };

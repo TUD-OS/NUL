@@ -26,7 +26,7 @@
  * Difference: no APIC bus
  * Documentation: Intel ICH4.
  */
-class IOApic : public StaticReceiver<IOApic> {
+class IOApic : public DiscoveryHelper<IOApic>, public StaticReceiver<IOApic> {
 public:
   enum {
     IOAPIC_BASE = 0xfec00000,
@@ -37,10 +37,9 @@ public:
     PINS        = 24,
     NMI_PIN     = 23,
   };
+  Motherboard &_mb;
+
 private:
-  DBus<MessageMem>       &_bus_mem;
-  DBus<MessageIrqNotify> &_bus_notify;
-#include "model/simplediscovery.h"
   unsigned _base;
   unsigned _gsibase;
 
@@ -111,7 +110,7 @@ private:
 	  // we send a broadcast EXTINT level deassert message
 	  value = 0x8700;
 	  MessageMem mem(false, MessageMem::MSI_ADDRESS | 0xffff0, &value);
-	  _bus_mem.send(mem);
+	  _mb.bus_mem.send(mem);
 	}
 
       }
@@ -134,7 +133,7 @@ private:
       unsigned gsi = reverse_routing(pin);
       //Logging::printf("send notify to gsi %x\n", gsi);
       MessageIrqNotify msg(gsi >> 3, 1  << (gsi & 7));
-      _bus_notify.send(msg);
+      _mb.bus_irqnotify.send(msg);
     }
   }
 
@@ -164,7 +163,7 @@ private:
 	//Logging::printf("IOAPIC %lx dst %x notify %x\n", phys, value, _notify[pin]);
 
 	MessageMem mem(false, phys, &value);
-	_bus_mem.send(mem);
+	_mb.bus_mem.send(mem);
 	if (!level) notify(pin);
       }
     }
@@ -250,9 +249,7 @@ public:
     return false;
   }
 
-
-  bool  receive(MessageDiscovery &msg) {
-    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+  void discovery() {
 
     unsigned length = discovery_length("APIC", 44);
 
@@ -272,13 +269,16 @@ public:
     discovery_write_dw("APIC", length + 0,   0x0c01, 4);
     discovery_write_dw("APIC", length + 4,    _base, 4);
     discovery_write_dw("APIC", length + 8, _gsibase, 4);
-    return true;
   }
 
 
 
-  IOApic(DBus<MessageMem> &bus_mem, DBus<MessageIrqNotify> &bus_notify, DBus<MessageDiscovery> &bus_discovery, unsigned long base, unsigned gsibase)
-    : _bus_mem(bus_mem), _bus_notify(bus_notify), _bus_discovery(bus_discovery), _base(base), _gsibase(gsibase) {
+  IOApic(Motherboard &mb, unsigned long base, unsigned gsibase) : _mb(mb), _base(base), _gsibase(gsibase)
+  {
+    _mb.bus_mem.add(this, IOApic::receive_static<MessageMem>);
+    _mb.bus_irqlines.add(this, IOApic::receive_static<MessageIrq>);
+    _mb.bus_legacy.add(this, IOApic::receive_static<MessageLegacy>);
+    _mb.bus_discovery.add(this, &DiscoveryHelper<IOApic>::receive);
     reset();
   };
 };
@@ -286,13 +286,7 @@ public:
 
 PARAM(ioapic,
       static unsigned ioapic_count;
-
-      Device *dev = new IOApic(mb.bus_mem, mb.bus_irqnotify, mb.bus_discovery, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
-      mb.bus_mem.add(dev, IOApic::receive_static<MessageMem>);
-      mb.bus_irqlines.add(dev, IOApic::receive_static<MessageIrq>);
-      mb.bus_legacy.add(dev, IOApic::receive_static<MessageLegacy>);
-      mb.bus_discovery.add(dev, IOApic::receive_static<MessageDiscovery>);
-
+      new IOApic(mb, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
       ioapic_count++;
       ,
       "ioapic - create an ioapic.",

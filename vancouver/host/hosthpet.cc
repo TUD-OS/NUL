@@ -86,6 +86,7 @@ public:
     return 0xfed00000;
   }
 
+
   /**
    * Check whether some address points to an hpet.
    */

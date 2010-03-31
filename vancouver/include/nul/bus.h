@@ -128,16 +128,3 @@ public:
     Logging::printf("\n");
   }
 };
-
-
-
-/**
- * This template converts from static receive to member functions.
- */
-template<typename Y>
-class StaticReceiver : public Device
-{
-public:
-  template<class M>
-    static bool receive_static(Device *o, M& msg) { return static_cast<Y*>(o)->receive(msg); }
-};
