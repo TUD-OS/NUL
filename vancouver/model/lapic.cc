@@ -323,6 +323,7 @@ private:
    */
 
   bool register_read(unsigned offset, unsigned &value) {
+    COUNTER_INC("lapic read");
     bool res = true;
     switch (offset) {
     case 0x0a:
@@ -332,6 +333,7 @@ private:
       value = _vector[offset - 0x10];
       break;
     case 0x39:
+      COUNTER_INC("lapic ccr");
       value = get_ccr(_mb.clock()->time());
       break;
     default:
@@ -350,6 +352,7 @@ private:
 
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
+    COUNTER_INC("lapic write");
     //if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31)
     //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
     if (sw_disabled() && in_range(offset, LVT_BASE, 6))  value |= 1 << 16;
@@ -668,6 +671,14 @@ public:
       discovery_write_dw("APIC", length + 4,     0x0100, 2);
       length += 6;
 
+
+      // NMI is connected to LINT1 on all x2APICs
+      discovery_write_dw("APIC", length + 0, 0x00000c0a | (_initial_apic_id << 24), 4);
+      discovery_write_dw("APIC", length + 4, 0xffffffff, 4);
+      discovery_write_dw("APIC", length + 8,          1, 4);
+      length += 12;
+
+
       // write the default APIC address to the MADT
       discovery_write_dw("APIC",  36,    APIC_ADDR, 4);
 
@@ -676,8 +687,17 @@ public:
     }
 
     // add the LAPIC structure to the MADT
-    discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
-    discovery_write_dw("APIC", length + 4, 1, 4);
+    if (_initial_apic_id  < 255) {
+
+      discovery_write_dw("APIC", length, (_initial_apic_id << 24) | 0x0800, 4);
+      discovery_write_dw("APIC", length + 4, 1, 4);
+    }
+    else {
+      discovery_write_dw("APIC", length +  0, 0x1009, 4);
+      discovery_write_dw("APIC", length +  4, _initial_apic_id, 4);
+      discovery_write_dw("APIC", length +  8, 1, 4);
+      discovery_write_dw("APIC", length + 12, _initial_apic_id, 4);
+    }
   }
 
 
@@ -751,6 +771,7 @@ REGSET(Lapic,
        REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, )
        REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff, )
        REG_RW(_ICT,           0x38,          0, ~0u,
+	      COUNTER_INC("lapic ict");
 	      _timer_start = _mb.clock()->time();
 	      update_timer(_timer_start); )
        REG_RW(_DCR,           0x3e,          0, 0xb
