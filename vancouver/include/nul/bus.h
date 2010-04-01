@@ -47,7 +47,6 @@ class DBus
     ReceiveFunction _func;
   };
 
-  bool _debug;
   unsigned _list_count;
   unsigned _list_size;
   struct Entry *_list;
@@ -79,7 +78,6 @@ public:
   bool  send(M &msg, bool earlyout = false, unsigned tag = ~0u)
   {
     bool res = false;
-    if (_debug) Logging::printf("%s count %d tag %x\n", __PRETTY_FUNCTION__, _list_count, tag);
     for (unsigned i = _list_count; i-- && !(earlyout && res);)
       {
 	if (tag == ~0u || _list[i]._tag == tag)
@@ -94,7 +92,6 @@ public:
   bool  send_fifo(M &msg)
   {
     bool res = false;
-    if (_debug) Logging::printf("%s count %d\n", __PRETTY_FUNCTION__, _list_count);
     for (unsigned i = 0; i < _list_count; i++)
       res |= _list[i]._func(_list[i]._dev, msg);
     return 0;
@@ -118,7 +115,6 @@ public:
    * Return the number of entries in the list.
    */
   unsigned count() { return _list_count; };
-  void debug() { _debug = true; };
   void debug_dump()
   {
     for (unsigned i = 0; i < _list_count; i++)
