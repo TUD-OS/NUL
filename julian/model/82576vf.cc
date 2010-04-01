@@ -28,15 +28,6 @@
 // 
 // The model's MAC should match the host driver's MAC. Otherwise you
 // might run into trouble. See XXX Change me below.
-// 
-// What works:
-// - udhcpc
-// - nc -u -l
-// - nc -l
-// 
-// What doesn't:
-// - DNS queries    (UDP segmentation offload?)
-// - echo foo | nc  (TCP segmentation offload?)
 
 // This model supports two modes of operation for the TX path:
 //  - trap&emulate mode (default):
@@ -58,8 +49,6 @@
 // - CSO support with TX legacy descriptors
 // - scatter/gather support in MessageNetwork to avoid packet copy in
 //   TX path.
-// - check whether we need all the sanity checking in
-//   apply_offload. Why does Linux program CSO for ICMP packets?
 
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
