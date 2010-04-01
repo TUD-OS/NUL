@@ -59,7 +59,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     bool     io;
     unsigned short port;
   } _barinfo[MAX_BAR];
-  bool vf;
+  bool _vf;
 
 public:
   void read_all_bars(unsigned bdf, unsigned long *base, unsigned long *size) {
@@ -147,7 +147,7 @@ private:
     COUNTER_INC("PCIDirect::match");
 
     // mem decode is disabled?
-    if (!vf && ~_cfgspace[1] & 2)  return 0;
+    if (!_vf && ~_cfgspace[1] & 2)  return 0;
 
     for (unsigned i=0; i < _bar_count; i++) {
 
@@ -338,7 +338,7 @@ private:
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
-    vf = parent_bdf != 0;
+    _vf = parent_bdf != 0;
     if (parent_bdf)
       _bdf = bdf = vf_bdf(parent_bdf, vf_no);
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
