@@ -63,8 +63,6 @@ class DBus
   };
 public:
 
- DBus() : _debug(false), _list_count(0), _list_size(0), _list(0) {};
-
   void add(Device *dev, ReceiveFunction func, unsigned tag = ~0u)
   {
     if (_list_count >= _list_size)
