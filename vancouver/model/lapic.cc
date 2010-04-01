@@ -221,9 +221,10 @@ private:
 
       // we send them round-robin as EVENT_FIXED
       MessageApic msg((icr & ~0x700u), dst, 0);
-      _lowest_rr = _mb.bus_apic.send_rr(msg, _lowest_rr);
-      // we could set an send accept error here, but that is not supported in the P4...
-      return _lowest_rr;
+
+      // we could set an send accept error here if nobody got the
+      // message, but that is not supported in the P4...
+      return _mb.bus_apic.send_rr(msg, _lowest_rr);
     }
     MessageApic msg(icr, dst, shorthand == 3 ? this : 0);
     return _mb.bus_apic.send(msg);
@@ -762,7 +763,7 @@ REGSET(Lapic,
 	      for (unsigned i=0; i < 6; i++)
 		if (_lvtds[i]) trigger_lvt(i);)
        REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0); return !value; )
-       REG_RW(_ICR,           0x30,          0, 0x000ccfff, send_ipi(_ICR, _ICR1))
+       REG_RW(_ICR,           0x30,          0, 0x000ccfff, if (!send_ipi(_ICR, _ICR1)) COUNTER_INC("IPI missed");)
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)
        REG_RW(_TIMER,         0x32, 0x00010000, 0x300ff, )
        REG_RW(_TERM,          0x33, 0x00010000, 0x107ff, )
