@@ -58,9 +58,7 @@ class Atare : public StaticReceiver<Atare>
       : next(_next), ptr(_ptr), len(_len), name(_name), namelen(_namelen), routing(0) {}
   };
 
-
   NamedRef *_head;
-  const char *debug_getname() {  return "Atare"; }
 
 
   void debug_show_items() {

@@ -30,11 +30,6 @@ class NullIODevice : public StaticReceiver<NullIODevice>
   unsigned _size;
   unsigned _value;
 
-  const char *debug_getname() { return "NullIODevice"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf("   %4x+%x", _base, _size);
-  };
  public:
   NullIODevice(unsigned base, unsigned size, unsigned value) : _base(base), _size(size), _value(value) {}
   bool  receive(MessageIOOut &msg) { return in_range(msg.port, _base, _size); }

@@ -37,11 +37,6 @@ class HostRtc : public StaticReceiver<HostRtc>
   timevalue _wallclocktime;
   timevalue _timestamp;
 
-  const char *debug_getname() {  return "HostRTC"; }
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" iobase %x", _iobase);
-  };
 
   unsigned char rtc_read (unsigned index)  {  outb(index, _iobase);  return inb(_iobase + 1);  };
 public:

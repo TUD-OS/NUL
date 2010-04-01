@@ -37,10 +37,9 @@ struct AcpiMCFG {
 
 } __attribute__((packed));
 
+
 class PciMMConfigAccess : public StaticReceiver<PciMMConfigAccess>
 {
-  const char *debug_getname() { return "PciMMConfigAccess"; };
-
   unsigned  _start_bdf;
   unsigned  _bdf_size;
   unsigned *_mmconfig;

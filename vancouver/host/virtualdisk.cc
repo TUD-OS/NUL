@@ -25,12 +25,6 @@ class VirtualDisk : public StaticReceiver<VirtualDisk>
   char *        _data;
   unsigned long _length;
   char *        _cmdline;
-  const char *debug_getname() {  return "VirtualDisk"; }
-  void debug_dump()
-  {
-    Device::debug_dump();
-    Logging::printf(" size %8lx name '%s'", _length, _cmdline);
-  }
 
 public:
   bool  receive(MessageDisk &msg)

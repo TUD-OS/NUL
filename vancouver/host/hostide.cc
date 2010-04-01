@@ -39,12 +39,6 @@ class HostIde : public StaticReceiver<HostIde>
   unsigned _disk_count;
   static unsigned const FREQ=1000; // millisecond
 
-  const char *debug_getname() { return "HostIde"; };
-  void debug_dump() {
-    Logging::printf("IDE ");
-    for (unsigned i=0; i < _disk_count; i++) _params[i].dump_description();
-  }
-
 
   /**
    * Wait with timeout for the right disk state.

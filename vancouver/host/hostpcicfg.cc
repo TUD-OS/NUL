@@ -29,7 +29,6 @@ class PciConfigAccess : public StaticReceiver<PciConfigAccess>
   static const unsigned BASE = 0xcf8;
   DBus<MessageIOIn>  _hwioin;
   DBus<MessageIOOut> _hwioout;
-  const char *debug_getname() { return "PCIAccess"; };
 public:
 
   PciConfigAccess(DBus<MessageIOIn> hwioin, DBus<MessageIOOut> hwioout) : _hwioin(hwioin), _hwioout(hwioout) {};

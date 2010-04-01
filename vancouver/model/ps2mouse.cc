@@ -55,13 +55,6 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
   } _param;
 
 
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf("    ps2port %x hdev %x", _ps2port, _hostmouse);
-  };
-  const char *debug_getname() { return "PS2Mouse"; };
-
-
   int scale_coord(bool report, int value)
   {
     if (_resolution < HOST_RESOLUTION_SHIFT)

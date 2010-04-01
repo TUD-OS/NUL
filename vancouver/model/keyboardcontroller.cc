@@ -71,11 +71,6 @@ class KeyboardController : public StaticReceiver<KeyboardController>
   unsigned _irqaux;
   unsigned _ps2ports;
   unsigned char _ram[32];
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %4x,%x irqs %x,%x ps2ports %x+2 cmd %x", _base, _base+4, _irqkbd, _irqaux, _ps2ports, _ram[RAM_CMDBYTE]);
-  };
-  const char *debug_getname() { return "PS2KeyboardController"; };
 
 
   void read_from_device(unsigned char port)

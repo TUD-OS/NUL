@@ -54,7 +54,6 @@ class HostHpet : public StaticReceiver<HostHpet>
   unsigned  _irq;
   timevalue _freq;
 
-  const char *debug_getname() {  return "HostHPET"; }
 public:
 
   /**
@@ -85,6 +84,7 @@ public:
     Logging::printf("Warning: no HPET ACPI table, trying default value 0xfed00000\n");
     return 0xfed00000;
   }
+
 
   /**
    * Check whether some address points to an hpet.

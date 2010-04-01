@@ -47,12 +47,11 @@
 * Drivers
   - Driver PDs. Interface?
   - ATAPI support
-  - Linux driver VMs (ideally without IO-MMUs)
+  - Linux driver VMs without IO-MMUs
 
 ** USB
   - EHCI/OHCI/UHCI/XHCI
   - USB passthrough
-
 ** USB HID
   - USB keyboard and mice speak a simplified BOOT protocol, normally used by the BIOS
   - need UHCI/OHCI low level drivers to scan the bus and request keycodes
@@ -73,3 +72,4 @@
  - IP over 1394
  - TCP/IP stack (uIP6)
  - optimized software switch (zero copy)
+ - PXE booting

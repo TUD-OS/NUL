@@ -45,12 +45,6 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   static unsigned const FREQ = 1000;
   static unsigned const TIMEOUT = 50;
 
-  const char *debug_getname() { return "HostKeyboard"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %4x,%x irq %x,%x", _base, _base+4, _irq, _irqaux);
-  };
-
 
   bool wait_status(unsigned char mask, unsigned char value)
   {

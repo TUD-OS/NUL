@@ -28,7 +28,6 @@ class PitCounter : public StaticReceiver<PitCounter>
 {
   friend class PitTest;
 
-  const char *debug_getname() { return "PitCounter"; };
   enum Modes
   {
     BCD          = 0x001,
@@ -368,14 +367,6 @@ class PitDevice : public StaticReceiver<PitDevice>
   unsigned       _addr;
   static const unsigned COUNTER = 3;
   PitCounter _c[COUNTER];
-
-
-  // debug functions
-  const char *debug_getname() { return "Pit8254"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %x+2", _base);
-  };
 
  public:
 

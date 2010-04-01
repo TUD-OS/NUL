@@ -66,19 +66,6 @@ class PicDevice : public StaticReceiver<PicDevice>
   unsigned char  _elcr;
   unsigned char  _notify;
 
-
-  // debug functions
-  const char *debug_getname() { return "Pic8259"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %x+2", _base);
-    Logging::printf(" lines %2x+8 _irr %02x _imr %02x _isr %02x vec %02x", _virq, _irr, _imr, _isr, _icw[ICW2]);
-      Logging::printf(is_slave() ? " slave " : " master");
-    Logging::printf(" irq %2x", _upstream_irq);
-    if (_elcr_base != 0xffff) Logging::printf(" elcr %x", _elcr_base);
-
-  };
-
   // helper functions
   bool is_slave()                      { return (_icw[ICW4] & ICW4_BUF) ? (~_icw[ICW4] & ICW4_MS) : _virq; }
   void rotate_prios()                  { _prio_lowest = (_prio_lowest+1) & 7; }

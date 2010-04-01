@@ -25,7 +25,6 @@
  */
 class DirectMemDevice : public StaticReceiver<DirectMemDevice>
 {
-  const char *debug_getname() { return "DirectMemDevice"; };
   char *_ptr;
   unsigned long _phys;
   unsigned long _size;

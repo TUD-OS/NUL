@@ -40,7 +40,6 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
   unsigned char         _ram[128];
   timevalue             _offset;
   timevalue             _last;
-  const char *debug_getname() { return "Rtc146818"; };
 
   /**
    * Timing:

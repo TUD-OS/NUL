@@ -30,12 +30,6 @@ class IRQRouting : public StaticReceiver<IRQRouting>
   unsigned _guest_irq;
   unsigned _msi_vector;
 
-  const char* debug_getname() { return "IRQRouting"; }
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" (%x) -> (%x)", _host_irq, _guest_irq);
-  };
-
 
  public:
   bool  receive(MessageIrq &msg)

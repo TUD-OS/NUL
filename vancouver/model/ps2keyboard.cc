@@ -51,12 +51,6 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
   };
   unsigned char _mode;
 
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf("    ps2port %x hdev %x scset %x mode %x", _ps2port, _hostkeyboard, _scset, _mode);
-  };
-  const char *debug_getname() { return "PS2Keyboard"; };
-
 
   /**
    * Enqueue a single scancode in the buffer.

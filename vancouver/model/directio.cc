@@ -31,11 +31,6 @@ class DirectIODevice : public StaticReceiver<DirectIODevice>
   unsigned _base;
   unsigned _size;
 
-  const char *debug_getname() { return "DirectIODevice"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %4x+%x", _base, _size);
-  };
  public:
   bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(msg);  return false; }
   bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(msg); return false; }

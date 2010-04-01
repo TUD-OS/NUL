@@ -24,6 +24,9 @@
 #include "bus.h"
 #include "message.h"
 #include "timer.h"
+#include "templates.h"
+
+
 class VCpu;
 
 /**
@@ -34,7 +37,6 @@ class VCpu;
  */
 class Motherboard : public StaticReceiver<Motherboard>
 {
-  const char *debug_getname() { return "Motherboard"; };
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;

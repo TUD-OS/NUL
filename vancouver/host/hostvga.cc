@@ -71,8 +71,6 @@ private:
     View views[MAXVIEWS];
   } _clients[MAXCLIENTS];
 
-  const char *debug_getname() { return "HostVga"; };
-
 
   void set_vga_reg(unsigned short offset, unsigned char index, unsigned char value)
   {

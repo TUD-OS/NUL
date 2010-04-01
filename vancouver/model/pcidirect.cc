@@ -59,9 +59,7 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
     bool     io;
     unsigned short port;
   } _barinfo[MAX_BAR];
-  bool vf;
-
-  const char *debug_getname() { return "DirectPciDevice"; }
+  bool _vf;
 
 public:
   void read_all_bars(unsigned bdf, unsigned long *base, unsigned long *size) {
@@ -149,7 +147,7 @@ private:
     COUNTER_INC("PCIDirect::match");
 
     // mem decode is disabled?
-    if (!vf && ~_cfgspace[1] & 2)  return 0;
+    if (!_vf && ~_cfgspace[1] & 2)  return 0;
 
     for (unsigned i=0; i < _bar_count; i++) {
 
@@ -266,10 +264,9 @@ private:
 	  return _mb.bus_mem.send(msg2);
 	}
 
-	if (!i) {
-	  MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
-	  return _mb.bus_irqlines.send(msg2);
-	}
+	// we send a single GSI
+	MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
+	return _mb.bus_irqlines.send(msg2);
       }
     return false;
   }
@@ -294,14 +291,18 @@ private:
     unsigned *ptr;
     if (!match_bars(msg.phys, 4, ptr))  return false;
     if (msg.read) {
+      COUNTER_INC("PCID::READ");
       *msg.ptr = *ptr;
       //Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
     else {
+      COUNTER_INC("PCID::WRITE");
       *ptr = *msg.ptr;
       // write msix control trough
-      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
+      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc) {
 	_msix_host_table[(ptr - reinterpret_cast<unsigned *>(_msix_table)) / 16].control = *msg.ptr;
+	COUNTER_INC("PCID::MSI-X");
+      }
       //Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
 
@@ -340,7 +341,7 @@ private:
   DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
-    vf = parent_bdf != 0;
+    _vf = parent_bdf != 0;
     if (parent_bdf)
       _bdf = bdf = vf_bdf(parent_bdf, vf_no);
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
@@ -435,7 +436,7 @@ PARAM(vfpci,
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, false);
+	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, true);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.")

@@ -24,9 +24,12 @@
  */
 class Device
 {
- public:
-  virtual const char *debug_getname() { return 0; };
-  virtual void debug_dump() {  Logging::printf("%s",debug_getname()); }
+  const char *_debug_name;
+public:
+  void debug_dump() {
+    Logging::printf("\t%s\n", _debug_name);
+  }
+  Device(const char *debug_name) :_debug_name(debug_name) {}
 };
 
 
@@ -44,7 +47,7 @@ class DBus
     ReceiveFunction _func;
   };
 
-  bool _debug;
+  unsigned long _debug_counter;
   unsigned _list_count;
   unsigned _list_size;
   struct Entry *_list;
@@ -59,8 +62,6 @@ class DBus
     _list_size = new_size;
   };
 public:
-
- DBus() : _debug(false), _list_count(0), _list_size(0), _list(0) {};
 
   void add(Device *dev, ReceiveFunction func, unsigned tag = ~0u)
   {
@@ -77,8 +78,8 @@ public:
    */
   bool  send(M &msg, bool earlyout = false, unsigned tag = ~0u)
   {
+    _debug_counter++;
     bool res = false;
-    if (_debug) Logging::printf("%s count %d tag %x\n", __PRETTY_FUNCTION__, _list_count, tag);
     for (unsigned i = _list_count; i-- && !(earlyout && res);)
       {
 	if (tag == ~0u || _list[i]._tag == tag)
@@ -92,8 +93,8 @@ public:
    */
   bool  send_fifo(M &msg)
   {
+    _debug_counter++;
     bool res = false;
-    if (_debug) Logging::printf("%s count %d\n", __PRETTY_FUNCTION__, _list_count);
     for (unsigned i = 0; i < _list_count; i++)
       res |= _list[i]._func(_list[i]._dev, msg);
     return 0;
@@ -104,11 +105,15 @@ public:
    * Send message first hit round robin and return the number of the
    * next one that accepted the message.
    */
-  unsigned  send_rr(M &msg, unsigned start)
+  bool  send_rr(M &msg, unsigned &start)
   {
+    _debug_counter++;
     for (unsigned i = 0; i < _list_count; i++)
-      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) return (i + start + 1) % _list_count;
-    return 0;
+      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) {
+	start = (i + start + 1) % _list_count;
+	return true;
+      }
+    return false;
   }
 
 
@@ -117,9 +122,13 @@ public:
    * Return the number of entries in the list.
    */
   unsigned count() { return _list_count; };
-  void debug() { _debug = true; };
+
+  /**
+   * Debugging output.
+   */
   void debug_dump()
   {
+    Logging::printf("%s: Bus used %ld times.", __PRETTY_FUNCTION__, _debug_counter);
     for (unsigned i = 0; i < _list_count; i++)
       {
 	Logging::printf("\n%2d:   (%2d)\t", i, _list[i]._tag);
@@ -127,17 +136,4 @@ public:
       }
     Logging::printf("\n");
   }
-};
-
-
-
-/**
- * This template converts from static receive to member functions.
- */
-template<typename Y>
-class StaticReceiver : public Device
-{
-public:
-  template<class M>
-    static bool receive_static(Device *o, M& msg) { return static_cast<Y*>(o)->receive(msg); }
 };

@@ -29,11 +29,11 @@
  * Ignored bits: FCR2-3, LCR2-6, LSR2-4,7
  * Documentation: NSC 16550D - PC16550D.pdf
  */
-class SerialDevice : public StaticReceiver<SerialDevice>
+class SerialDevice : public StaticReceiver<SerialDevice>, public DiscoveryHelper<SerialDevice>
 {
-#include "model/simplediscovery.h"
-  DBus<MessageIrq>    &_bus_irqlines;
-  DBus<MessageSerial> &_bus_hostserial;
+public:
+  Motherboard &_mb;
+private:
   unsigned short _base;
   unsigned char _irq;
   unsigned _hostserial;
@@ -60,10 +60,6 @@ class SerialDevice : public StaticReceiver<SerialDevice>
   unsigned char _triggerlevel;
   unsigned char _sendmask;
 
-  // debug functions
-  const char *debug_getname() { return "Serial16550"; };
-  void debug_dump() { Device::debug_dump(); Logging::printf("  %4x+8 irq %x hdev %x", _base, _irq, _hostserial); }
-
   /**
    * Returns the IIR and thereby prioritize the interrupts.
    */
@@ -85,7 +81,7 @@ class SerialDevice : public StaticReceiver<SerialDevice>
   {
     MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
     if (~get_iir() & 1 && _regs[MCR] & 8)
-      _bus_irqlines.send(msg);
+      _mb.bus_irqlines.send(msg);
   }
 
 
@@ -186,7 +182,7 @@ public:
 	    {
 	      // write directly, no write fifo here
 	      msg2.serial++;
-	      _bus_hostserial.send(msg2);
+	      _mb.bus_serial.send(msg2);
 	      update_irq();
 	    }
 	}
@@ -240,41 +236,36 @@ public:
   }
 
 
-  bool  receive(MessageDiscovery &msg) {
-    if (msg.type != MessageDiscovery::DISCOVERY) return false;
+  void discovery() {
 
     unsigned installed_hw = ~0u;
-    check1(false, !discovery_read_dw("bda", 0x10, installed_hw));
+    check0(!discovery_read_dw("bda", 0x10, installed_hw));
     unsigned ioports      = (installed_hw >> 9) & 0x7;
     if (ioports < 4) {
+
       discovery_write_dw("bda", ioports * 2, _base, 2);
       ioports++;
       discovery_write_dw("bda", 0x10, (installed_hw & 0xfffff1ff) | (ioports << 9), 4);
     }
-    return true;
   }
 
 
-  SerialDevice(DBus<MessageDiscovery> & bus_discovery, DBus<MessageIrq> &bus_irqlines, DBus<MessageSerial> &bus_hostserial,
-	       unsigned short base, unsigned char irq, unsigned hostserial)
-    : _bus_discovery(bus_discovery), _bus_irqlines(bus_irqlines), _bus_hostserial(bus_hostserial),
-      _base(base), _irq(irq), _hostserial(hostserial), _rfcount(0), _triggerlevel(1), _sendmask(0x1f)
+  SerialDevice(Motherboard &mb, unsigned short base, unsigned char irq, unsigned hostserial)
+    : _mb(mb), _base(base), _irq(irq), _hostserial(hostserial), _rfcount(0), _triggerlevel(1), _sendmask(0x1f)
     {
       memset(_regs, 0, sizeof(_regs));
       _regs[LSR] = 0x60;
       _regs[MSR] = 0xb0;
+      _mb.bus_ioin.add(this, &SerialDevice::receive_static<MessageIOIn>);
+      _mb.bus_ioout.add(this, &SerialDevice::receive_static<MessageIOOut>);
+      _mb.bus_serial.add(this, &SerialDevice::receive_static<MessageSerial>);
+      _mb.bus_discovery.add(this, &DiscoveryHelper<SerialDevice>::receive);
     }
 };
 
 
 PARAM(serial,
-      {
-	Device *dev = new SerialDevice(mb.bus_discovery, mb.bus_irqlines, mb.bus_serial, argv[0], argv[1], argv[2]);
-	mb.bus_ioin.add(dev, &SerialDevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, &SerialDevice::receive_static<MessageIOOut>);
-	mb.bus_serial.add(dev, &SerialDevice::receive_static<MessageSerial>);
-	mb.bus_discovery.add(dev, &SerialDevice::receive_static<MessageDiscovery>);
-      },
+      new SerialDevice(mb, argv[0], argv[1], argv[2]);,
       "serial:iobase,irq,hdev -  attach a virtual serial port that should use the given hostdev as backend.",
       "Example: 'serial:0x3f8,8,0x47'.",
       "The input comes from hdev and the output is redirected to hdev+1.");

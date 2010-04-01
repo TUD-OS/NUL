@@ -50,8 +50,7 @@ public:
     if (msg.phys & MessageMem::MSI_RH || event & VCpu::EVENT_LOWEST) {
       // we send them round-robin as EVENT_FIXED
       MessageApic msg1(icr & ~0x700, dst, 0);
-      _lowest_rr = _bus_apic.send_rr(msg1, _lowest_rr);
-      return _lowest_rr;
+      return _bus_apic.send_rr(msg1, _lowest_rr);
     }
     MessageApic msg1(icr, dst, 0);
     return _bus_apic.send(msg1);

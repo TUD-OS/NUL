@@ -31,7 +31,6 @@ class KbdSerialBridge : public StaticReceiver<KbdSerialBridge>
   DBus<MessageSerial> &_bus_serial;
   unsigned _keyboard;
   unsigned _serial;
-  const char *debug_getname() { return "KbdSerialBridge"; };
 
   const char *keycode2ansi(unsigned value)
   {

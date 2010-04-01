@@ -51,8 +51,6 @@ class HostVesa : public StaticReceiver<HostVesa>
   unsigned             _instructions;
   bool                 _debug;
 
-  const char *debug_getname() { return "HostVesa"; };
-
 
   bool vbe_call(unsigned eax, unsigned short es_seg, unsigned ecx=0, unsigned edx=0, unsigned ebx=0)
   {

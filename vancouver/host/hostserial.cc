@@ -35,12 +35,6 @@ class HostSerial : public StaticReceiver<HostSerial>
   unsigned _speed;
   unsigned _lcr;
 
-  const char *debug_getname() { return "HostSerial"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %4x+8 irq %x speed %x _lcr %x", _base, _irq, _speed, _lcr);
-  }
-
 
   bool get_char(unsigned char &value)
   {
