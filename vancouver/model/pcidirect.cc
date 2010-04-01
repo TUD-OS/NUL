@@ -264,10 +264,9 @@ private:
 	  return _mb.bus_mem.send(msg2);
 	}
 
-	if (!i) {
-	  MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
-	  return _mb.bus_irqlines.send(msg2);
-	}
+	// we send a single GSI
+	MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
+	return _mb.bus_irqlines.send(msg2);
       }
     return false;
   }
