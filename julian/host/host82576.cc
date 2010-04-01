@@ -95,7 +95,7 @@ private:
       Logging::printf("%08x:", cur);
       for (unsigned i = 0; i < chars_per_row; i++)
 	if (data+i < data_end)
-	  Logging::printf(" %02x", ((const unsigned char *)data)[i]);
+	  Logging::printf(" %02x", reinterpret_cast<const unsigned char *>(data)[i]);
 	else
 	  Logging::printf("   ");
       Logging::printf(" | ");
