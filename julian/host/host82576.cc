@@ -11,7 +11,7 @@
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
-#include <host/hostvf.h>
+#include <host/hostpci.h>
 #include <host/host82576.h>
 
 // lspci -v:
@@ -266,7 +266,7 @@ public:
     return true;
   };
 
-  Host82576(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
+  Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
     : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
   {
     msg(INFO, "Found Intel 82576-style controller at %x. Attaching IRQ %u.\n", bdf, _hostirq);
@@ -404,7 +404,7 @@ public:
 };
 
 PARAM(host82576, {
-    HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     unsigned found = 0;
 
     for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
@@ -425,6 +425,6 @@ PARAM(host82576, {
     }
   },
   "host82576:instance - provide driver for Intel 82576 Ethernet controller.",
-  "Example: 'host82576:0;");
+  "Example: host82576:0");
 
 // EOF
