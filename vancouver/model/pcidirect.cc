@@ -292,14 +292,18 @@ private:
     unsigned *ptr;
     if (!match_bars(msg.phys, 4, ptr))  return false;
     if (msg.read) {
+      COUNTER_INC("PCID::READ");
       *msg.ptr = *ptr;
       //Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
     else {
+      COUNTER_INC("PCID::WRITE");
       *ptr = *msg.ptr;
       // write msix control trough
-      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc)
+      if (_msix_host_table && ptr >= reinterpret_cast<unsigned *>(_msix_table) && ptr < reinterpret_cast<unsigned *>(_msix_table + _irq_count) && (msg.phys & 0xf) == 0xc) {
 	_msix_host_table[(ptr - reinterpret_cast<unsigned *>(_msix_table)) / 16].control = *msg.ptr;
+	COUNTER_INC("PCID::MSI-X");
+      }
       //Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
 
@@ -433,7 +437,7 @@ PARAM(vfpci,
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, false);
+	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, true);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.")
