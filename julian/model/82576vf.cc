@@ -119,6 +119,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       } advanced;
     } tx_desc;
 
+    // The driver can program 8 different offload contexts. We buffer
+    // them as-is until they are needed.
     tx_desc ctx[8];
 
     enum {
@@ -151,67 +153,67 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void handle_ctx(uint64 addr, tx_desc &desc)
     {
       // Store context descriptor as is, evaluate it when we need it.
-      uint8 ctx_idx = (desc.raw[1]>>36) & 0x7;
-      ctx[ctx_idx] = desc;
+      unsigned cc = (desc.advanced.pay>>4) & 0x7;
+      ctx[cc] = desc;
     }
 
-    void apply_offload(uint8 *packet, uint32 packet_len, const tx_desc &ctx_desc)
+    void apply_offload(uint8 *packet, uint32 packet_len,
+                       const tx_desc &tx_desc)
     {
-      uint8 tucmd = (ctx_desc.raw[1]>>9) & 0x3FF;
-      uint16 iplen = ctx_desc.raw[0];
+      uint8 popts = (tx_desc.advanced.pay >> 8) & 0x3F;
+      // Short-Circuit return, if no interesting offloads are to be done.
+      if ((popts & 7) == 0) return;
+
+      unsigned cc = (tx_desc.advanced.pay>>4) & 0x7;
+      uint8 tucmd = (ctx[cc].raw[1]>>9) & 0x3FF;
+      uint16 iplen = ctx[cc].raw[0];
       uint8 maclen = iplen >> 9;
       iplen &= 0x1FF;
 
-      // Sanity check maclen and iplen.
-      //Logging::printf("IPv4 CSO len %d iplen %d maclen %d\n", packet_len, iplen, maclen);
-      if ((maclen < 12) || (maclen > 127) || (iplen > 511) ||
-	  (maclen >= iplen) || (maclen+iplen > packet_len))
-	// Skip rest because of malformed context descriptor.
+      // Sanity check maclen and iplen. We only cover the case that is
+      // harmful to us.
+      if ((maclen+iplen > packet_len)) 
 	return;
 
-      if ((tucmd & 2 /* IPv4 CSO */) != 0) {
-	// Test if this is an IPv4 packet.
-	if (reinterpret_cast<uint16 *>(packet)[6] != 0x8) {
-	  //Logging::printf("IPv4 CSO not done: Not an IPv4 packet.\n");
-	  // Skip rest of offloading, since this is not an IP packet.
-	  return;
-	}
-
-	// XXX Aliasing?
-	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
-
-	ipv4_sum = 0;
-	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
-	//Logging::printf("IPv4 CSO -> %02x\n", ipv4_sum);
+      if ((popts & 4) != 0 /* IPSEC */) {
+        Logging::printf("XXX IPsec offload requested. Not implemented!\n");
+        // Since we don't do IPsec, we can skip the rest, too.
+        return;
       }
 
-      uint8 l4t = (tucmd >> 2) & 3;
-      if (l4t != 3) {
-	if (l4t == 2)
-	  // XXX SCTP checksum
-	  return;
+      if (((popts & 1 /* IXSM     */) != 0) &&
+          ((tucmd & 2 /* IPv4 CSO */) != 0)) {
+	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
+	ipv4_sum = 0;
+	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
+      }
 
-	// XXX Is this really neccessary?
-	if ((reinterpret_cast<uint16 *>(packet)[6] != 0x8) &&
-	    !((packet[maclen + 9] == 6) || (packet[maclen + 9] == 17)) ) {
-	  //Logging::printf("TCP/UDP CSO not done: Not an IPv4 packet.\n");
-	  // Skip rest of offloading, since this is not an TCP/UDP packet.
-	  return;
-	}
+      if ((popts & 2 /* TXSM */) != 0) {
+        // L4 offload requested. Figure out packet type.
+        uint8 l4t = (tucmd >> 2) & 3;
 
-
-	uint16 cstart = maclen + iplen;
-	
-	uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + cstart + ((tucmd == 0) ? 6 : 16));
-	l4_sum = 0;
-	l4_sum = IPChecksum::tcpudpsum(packet, (tucmd == 0) ? 17 : 6, maclen, iplen, packet_len);
-	//Logging::printf("%s CSO -> %02x\n", (tucmd == 0) ? "UDP" : "TCP", l4_sum);
+        switch (l4t) {
+        case 0:                 // UDP
+        case 1:                 // TCP
+          {
+            uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + maclen + iplen + ((tucmd == 0) ? 6 : 16));
+            l4_sum = 0;
+            l4_sum = IPChecksum::tcpudpsum(packet, (tucmd == 0) ? 17 : 6, maclen, iplen, packet_len);
+          }
+          break;
+        case 2:                 // SCTP
+          // XXX Not implemented.
+          Logging::printf("XXX SCTP CSO requested. Not implemented!\n");
+          break;
+        case 3:
+          // Invalid. Nothing to be done.
+          break;
+        }
       }
     }
 
     void handle_dta(uint64 addr, tx_desc &desc)
     {
-      uint8  ctx_idx = (desc.advanced.pay >> 4) & 0x7;
       uint32 payload_len = desc.advanced.pay >> 14;
       uint32 data_len = desc.advanced.dtalen;
       uint8  dcmd = desc.advanced.dcmd;
@@ -247,7 +249,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       packet_cur += data_len;
 
       if (dcmd & EOP) {
-        apply_offload(packet_buf, payload_len, ctx[ctx_idx]);
+        apply_offload(packet_buf, payload_len, desc);
         // XXX Set client ID to 23 to avoid our own packets on the RX paths
         MessageNetwork m(packet_buf, payload_len, 23);
         parent->_net.send(m);
