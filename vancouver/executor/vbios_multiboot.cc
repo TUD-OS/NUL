@@ -84,7 +84,6 @@ public:
 private:
   unsigned long _modaddr;
   unsigned _lowmem;
-  const char *debug_getname() { return "VirtualBiosMultiboot"; };
 
   /**
    * Initialize an MBI from the hip.

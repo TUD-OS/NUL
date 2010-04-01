@@ -44,8 +44,6 @@ private:
 #define  REGBASE "../model/pcihostbridge.cc"
 #include "model/reg.h"
 
-  const char *debug_getname() { return "PciHostBridge"; };
-
   /**
    * Send a message downstream.
    */

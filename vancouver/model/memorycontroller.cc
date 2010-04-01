@@ -23,11 +23,6 @@ class MemoryController : public StaticReceiver<MemoryController>
   unsigned long _start;
   unsigned long _end;
 
-  const char *debug_getname() { return "MemoryController"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %lx - %lx", _start, _end);
-  };
 
 public:
   /****************************************************/

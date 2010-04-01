@@ -32,11 +32,6 @@ class HostSink : public StaticReceiver<HostSink>
   unsigned _head_char;
   unsigned _cont_char;
   unsigned char *_buffer;
-  const char *debug_getname() { return "HostSink"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" hdev %x buffer %x", _hdev, _size);
-  };
 
  public:
   bool  receive(MessageSerial &msg)

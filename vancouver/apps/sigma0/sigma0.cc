@@ -111,8 +111,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
   unsigned _uid;
 
-  const char *debug_getname() { return "Sigma0"; };
-
 
   /**
    * Find a free tag for a client.

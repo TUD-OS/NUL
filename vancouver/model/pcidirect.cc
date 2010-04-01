@@ -61,8 +61,6 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   } _barinfo[MAX_BAR];
   bool vf;
 
-  const char *debug_getname() { return "DirectPciDevice"; }
-
 public:
   void read_all_bars(unsigned bdf, unsigned long *base, unsigned long *size) {
 

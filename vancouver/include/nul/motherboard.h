@@ -37,7 +37,6 @@ class VCpu;
  */
 class Motherboard : public StaticReceiver<Motherboard>
 {
-  const char *debug_getname() { return "Motherboard"; };
   Clock *_clock;
  public:
   DBus<MessageAcpi>         bus_acpi;

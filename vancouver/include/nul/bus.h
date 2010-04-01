@@ -24,9 +24,12 @@
  */
 class Device
 {
- public:
-  virtual const char *debug_getname() { return 0; };
-  virtual void debug_dump() {  Logging::printf("%s",debug_getname()); }
+  const char *_debug_name;
+public:
+  void debug_dump() {
+    Logging::printf("\t%s\n", _debug_name);
+  }
+  Device(const char *debug_name) :_debug_name(debug_name) {}
 };
 
 

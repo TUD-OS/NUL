@@ -44,12 +44,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   unsigned char  _crt_index;
   unsigned       _ebda_segment;
 
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf("    iobase %x+32 fbphys %lx fbsize %lx", _iobase, _framebuffer_phys, _framebuffer_size);
-  };
-  const char *debug_getname() { return "VGA"; };
-
   void putchar_guest(unsigned short value)
   {
     unsigned pos = _regs.cursor_pos - TEXT_OFFSET;

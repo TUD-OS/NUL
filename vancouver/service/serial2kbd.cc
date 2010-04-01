@@ -31,7 +31,6 @@ class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
   unsigned _keyboard;
   unsigned char _escape;
   unsigned char _escape_chars[5];
-  const char *debug_getname() { return "SerialKbdBridge"; };
 
 
   /**

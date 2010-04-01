@@ -27,7 +27,6 @@
  */
 class SimpleBootp : public StaticReceiver<SimpleBootp>
 {
-  const char* debug_getname() { return "SimpleBootp"; }
   DBus<MessageNetwork> &_bus_network;
   typedef struct{
     struct {

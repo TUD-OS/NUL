@@ -60,10 +60,6 @@ private:
   unsigned char _triggerlevel;
   unsigned char _sendmask;
 
-  // debug functions
-  const char *debug_getname() { return "Serial16550"; };
-  void debug_dump() { Device::debug_dump(); Logging::printf("  %4x+8 irq %x hdev %x", _base, _irq, _hostserial); }
-
   /**
    * Returns the IIR and thereby prioritize the interrupts.
    */

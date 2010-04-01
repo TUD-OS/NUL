@@ -60,7 +60,6 @@ PARAM(kbmodifier,
 class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiver<Vancouver>
 {
 
-  const char *debug_getname() { return "Vancouver"; };
   unsigned long  _physmem;
   unsigned long  _physsize;
   unsigned long  _iomem_start;

@@ -33,11 +33,6 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
   unsigned _port_b;
   unsigned char _last_porta;
   unsigned char _last_portb;
-  const char *debug_getname() { return "SYSCTRL"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" %x, %x", _port_a, _port_b);
-  }
 
  public:
 

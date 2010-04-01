@@ -26,7 +26,6 @@
 class HostAcpi : public StaticReceiver<HostAcpi>
 {
 
-  const char *debug_getname() {  return "HostACPI"; }
   DBus<MessageHostOp> &_bus_hostop;
 
   char *map_self(unsigned long address, unsigned size)

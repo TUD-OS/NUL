@@ -54,7 +54,6 @@ class HostHpet : public StaticReceiver<HostHpet>
   unsigned  _irq;
   timevalue _freq;
 
-  const char *debug_getname() {  return "HostHPET"; }
 public:
 
   /**

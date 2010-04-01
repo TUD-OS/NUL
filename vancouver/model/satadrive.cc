@@ -31,8 +31,6 @@
  */
 class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 {
-  const char *debug_getname() { return "SataDrive"; };
-
 #include "model/simplemem.h"
   DBus<MessageDisk>     &_bus_disk;
   unsigned _hostdisk;
@@ -310,6 +308,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
       case 0xec: // IDENTIFY
 	{
 	  Logging::printf("IDENTIFY\n");
+
 	  // start pio command
 	  send_pio_setup_fis(512);
 

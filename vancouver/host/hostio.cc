@@ -25,8 +25,6 @@
  */
 class IOAccess : public StaticReceiver<IOAccess>
 {
-  const char *debug_getname() { return "IOAccess"; };
-
 public:
   /**
    * Access the hardware.

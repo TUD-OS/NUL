@@ -26,8 +26,6 @@
  */
 class Halifax : public InstructionCache, public StaticReceiver<Halifax>
 {
-  const char *debug_getname() { return "Halifax"; };
-
 public:
   bool  receive(CpuMessage &msg)
   {

@@ -30,11 +30,6 @@ class HostPit : public StaticReceiver<HostPit>
   unsigned _period;
   unsigned _iobase;
   unsigned _irq;
-  const char *debug_getname() {  return "HostPIT"; }
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf(" iobase %x period %x irq %x", _iobase, _period, _irq);
-  };
 
 
  public:

@@ -111,12 +111,6 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     return (*reg & mask) != value;
   }
 
-  const char *debug_getname() { return "HostAhciPort"; }
-  void debug_dump()
-  {
-    Device::debug_dump();
-    _params.dump_description();
-  }
 
   /**
    * Translate a virtual to a physical address.
@@ -375,7 +369,6 @@ class HostAhci : public StaticReceiver<HostAhci>
   HostAhciRegister     *_regs;
   HostAhciPortRegister *_regs_high;
   HostAhciPort *_ports[32];
-  const char *debug_getname() { return "HostAhci"; }
 
   void create_ahci_port(unsigned nr, HostAhciPortRegister *portreg, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, bool dmar)
   {

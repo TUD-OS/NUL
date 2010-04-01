@@ -312,7 +312,6 @@ class AhciController : public ParentIrqProvider,
   }
 
 
-  const char* debug_getname() { return "AHCI"; }
  public:
 
   void trigger_irq (void * child) {

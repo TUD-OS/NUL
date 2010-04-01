@@ -28,11 +28,6 @@ class NullMemDevice : public StaticReceiver<NullMemDevice>
   unsigned long _base;
   unsigned long _size;
 
-  const char *debug_getname() { return "NullMemDevice"; };
-  void debug_dump() {
-    Device::debug_dump();
-    Logging::printf("   %4lx+%lx", _base, _size);
-  };
 public:
   NullMemDevice(unsigned long base, unsigned long size) : _base(base), _size(size) {}
   bool  receive(MessageMem &msg)
