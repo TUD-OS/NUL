@@ -16,7 +16,9 @@
  */
 
 #pragma once
-#include "nul/motherboard.h"
+
+#include <nul/types.h>
+#include <nul/motherboard.h>
 
 /**
  * A helper for PCI config space access.
@@ -31,6 +33,10 @@ class HostPci
   enum {
     BAR0          = 4,
     MAX_BAR       = 6,
+
+    BAR_TYPE_MASK = 0x6,
+    BAR_TYPE_32B  = 0x0,
+    BAR_TYPE_64B  = 0x4,
 
     BAR_IO        = 0x1,
     BAR_IO_MASK   = 0xFFFFFFFCU,
@@ -209,8 +215,6 @@ class HostPci
     return msg3.gsi;
   }
 
-
-
   /**
    * Find the position of a legacy PCI capability.
    */
@@ -223,6 +227,64 @@ class HostPci
 	if ((conf_read(bdf, offset >> 2) & 0xFF) == id)
 	  return offset >> 2;
     return 0;
+  }
+
+  uint64 bar_base(unsigned bdf, unsigned bar)
+  {
+    unsigned val = conf_read(bdf, bar);
+    if ((val & BAR_IO) == BAR_IO)  return val;
+
+    switch (val & BAR_TYPE_MASK) {
+    case BAR_TYPE_32B: return val & BAR_MEM_MASK;
+    case BAR_TYPE_64B: return (static_cast<unsigned long long>(conf_read(bdf, bar + 1))<<32) | (val & BAR_MEM_MASK);
+    default: return ~0ULL;
+    };
+  }
+
+
+  /**
+   * Determines BAR size. You should probably disable interrupt
+   * delivery from this device, while querying BAR sizes.
+   */
+  uint64 bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
+  {
+    uint32 old = conf_read(bdf, bar);
+    uint64 size = 0;
+
+    if (is64bit) *is64bit = false;
+    if ((old & BAR_IO) == 1) {
+
+      // I/O BAR
+      conf_write(bdf, bar, 0xFFFFFFFFU);
+      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFU) + 1;
+
+    } else {
+
+      // Memory BAR
+      switch (old & BAR_TYPE_MASK) {
+      case BAR_TYPE_32B:
+	conf_write(bdf, bar, 0xFFFFFFFFU);
+	size = ((conf_read(bdf, bar) & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
+	break;
+      case BAR_TYPE_64B: {
+	if (is64bit) *is64bit = true;
+	uint32 old_hi = conf_read(bdf, bar + 1);
+	conf_write(bdf, bar, 0xFFFFFFFFU);
+	conf_write(bdf, bar + 1, 0xFFFFFFFFU);
+	uint64 bar_size = static_cast<uint64>(conf_read(bdf, bar + 1))<<32;
+	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
+	size = bar_size;
+	conf_write(bdf, bar + 1, old_hi);
+	break;
+      }
+      default:
+	// Not Supported. Return 0.
+	return 0;
+      }
+    }
+
+    conf_write(bdf, bar, old);
+    return size;
   }
 
  HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};

@@ -27,10 +27,6 @@ class HostVfPci : public HostPci
 {
 public:
   enum {
-    BAR_TYPE_MASK = 0x6,
-    BAR_TYPE_32B  = 0x0,
-    BAR_TYPE_64B  = 0x4,
-
     SRIOV_VF_BAR0           = 9,
 
     CAP_PCI_EXPRESS         = 0x10U,
@@ -48,65 +44,6 @@ public:
     size =  bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no, is64bit);
     return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no) + vf_no * size;
   }
-
-  uint64 bar_base(unsigned bdf, unsigned bar)
-  {
-    unsigned val = conf_read(bdf, bar);
-    if ((val & BAR_IO) == BAR_IO)  return val;
-
-    switch (val & BAR_TYPE_MASK) {
-    case BAR_TYPE_32B: return val & BAR_MEM_MASK;
-    case BAR_TYPE_64B: return (static_cast<unsigned long long>(conf_read(bdf, bar + 1))<<32) | (val & BAR_MEM_MASK);
-    default: return ~0ULL;
-    };
-  }
-
-
-  /**
-   * Determines BAR size. You should probably disable interrupt
-   * delivery from this device, while querying BAR sizes.
-   */
-  uint64 bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
-  {
-    uint32 old = conf_read(bdf, bar);
-    uint64 size = 0;
-
-    if (is64bit) *is64bit = false;
-    if ((old & BAR_IO) == 1) {
-
-      // I/O BAR
-      conf_write(bdf, bar, 0xFFFFFFFFU);
-      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFU) + 1;
-
-    } else {
-
-      // Memory BAR
-      switch (old & BAR_TYPE_MASK) {
-      case BAR_TYPE_32B:
-	conf_write(bdf, bar, 0xFFFFFFFFU);
-	size = ((conf_read(bdf, bar) & BAR_MEM_MASK) ^ 0xFFFFFFFFU) + 1;
-	break;
-      case BAR_TYPE_64B: {
-	if (is64bit) *is64bit = true;
-	uint32 old_hi = conf_read(bdf, bar + 1);
-	conf_write(bdf, bar, 0xFFFFFFFFU);
-	conf_write(bdf, bar + 1, 0xFFFFFFFFU);
-	uint64 bar_size = static_cast<uint64>(conf_read(bdf, bar + 1))<<32;
-	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
-	size = bar_size;
-	conf_write(bdf, bar + 1, old_hi);
-	break;
-      }
-      default:
-	// Not Supported. Return 0.
-	return 0;
-      }
-    }
-
-    conf_write(bdf, bar, old);
-    return size;
-  }
-
 
   /**
    * Read all vf bars.
