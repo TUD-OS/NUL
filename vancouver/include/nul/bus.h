@@ -47,6 +47,7 @@ class DBus
     ReceiveFunction _func;
   };
 
+  unsigned long _debug_counter;
   unsigned _list_count;
   unsigned _list_size;
   struct Entry *_list;
@@ -77,6 +78,7 @@ public:
    */
   bool  send(M &msg, bool earlyout = false, unsigned tag = ~0u)
   {
+    _debug_counter++;
     bool res = false;
     for (unsigned i = _list_count; i-- && !(earlyout && res);)
       {
@@ -91,6 +93,7 @@ public:
    */
   bool  send_fifo(M &msg)
   {
+    _debug_counter++;
     bool res = false;
     for (unsigned i = 0; i < _list_count; i++)
       res |= _list[i]._func(_list[i]._dev, msg);
@@ -102,11 +105,15 @@ public:
    * Send message first hit round robin and return the number of the
    * next one that accepted the message.
    */
-  unsigned  send_rr(M &msg, unsigned start)
+  bool  send_rr(M &msg, unsigned &start)
   {
+    _debug_counter++;
     for (unsigned i = 0; i < _list_count; i++)
-      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) return (i + start + 1) % _list_count;
-    return 0;
+      if (_list[i]._func(_list[(i + start) % _list_count]._dev, msg)) {
+	start = (i + start + 1) % _list_count;
+	return true;
+      }
+    return false;
   }
 
 
@@ -115,8 +122,13 @@ public:
    * Return the number of entries in the list.
    */
   unsigned count() { return _list_count; };
+
+  /**
+   * Debugging output.
+   */
   void debug_dump()
   {
+    Logging::printf("%s: Bus used %ld times.", __PRETTY_FUNCTION__, _debug_counter);
     for (unsigned i = 0; i < _list_count; i++)
       {
 	Logging::printf("\n%2d:   (%2d)\t", i, _list[i]._tag);
