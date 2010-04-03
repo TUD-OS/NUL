@@ -25,7 +25,7 @@
  * State: unstable
  * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode, BIOS ACPI tables
  * Missing:  focus checking, CR8/TPR setting
- * Difference:  read-only BSP flag, no interrupt polarity, lowest prio is round-robin
+ * Difference:  no interrupt polarity, lowest prio is round-robin
  * Documentation: Intel SDM Volume 3a Chapter 10 253668-033.
  */
 class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
@@ -42,16 +42,18 @@ class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
     APIC_ADDR = 0xfee00000,
   };
 
-  VCpu *    _vcpu;
 public:
   Motherboard &_mb;
 private:
+  VCpu *    _vcpu;
   unsigned  _initial_apic_id;
-  unsigned long long _msr;
   unsigned  _timer;
   unsigned  _timer_clock_shift;
+
+  // dynamic state
   unsigned  _timer_dcr_shift;
   timevalue _timer_start;
+  unsigned long long _msr;
   unsigned  _vector[8*3];
   unsigned  _esr_shadow;
   unsigned  _isrv;
@@ -63,34 +65,41 @@ private:
   bool sw_disabled() { return ~_SVR & 0x100; }
   bool hw_disabled() { return ~_msr & 0x800; }
   bool x2apic_mode() { return  (_msr & 0xc00) == 0xc00; }
+  unsigned x2apic_ldr() { return ((_initial_apic_id & ~0xf) << 12) | ( 1 << (_initial_apic_id & 0xf)); }
+
 
   /**
-   * Reset the APIC to some default state.
+   * Handle an INIT signal.
    */
-  void reset(bool init) {
+  void init() {
     // INIT preserves the APIC ID
     unsigned old_id = _ID;
     Lapic_reset();
-    if (init) _ID = old_id;
+    _ID = old_id;
+
+    // init dynamic state
+    _timer_dcr_shift = 1 + _timer_clock_shift;
     memset(_vector,  0, sizeof(_vector));
     memset(_lvtds,   0, sizeof(_lvtds));
     memset(_rirr,    0, sizeof(_rirr));
     _isrv = 0;
     _esr_shadow = 0;
-    _timer_dcr_shift = 1 + _timer_clock_shift;
+    _lowest_rr = 0;
 
-    // RESET?
-    if (!init) {
-      _msr = 0;
-      _ID = _initial_apic_id << 24;
-      set_base_msr(APIC_ADDR | 0x800);
+    // we deassert EXTINT as we masked LINT0
+    CpuEvent msg(VCpu::DEASS_EXTINT);
+    _vcpu->bus_event.send(msg);
+  }
 
-      // XXX bogus -> move this to vbios_reset! as we enable the APICs, we also perform the BIOS INIT
-      Lapic_write(_LINT0_offset, 0x700);
-      Lapic_write(_LINT1_offset, 0x400);
-      Lapic_write(_SVR_offset,  0x1ff);
-    }
-    // XXX notify the PIC
+
+  /**
+   * Reset the APIC to some default state.
+   */
+  void reset() {
+    init();
+    _ID = _initial_apic_id << 24;
+    _msr = 0;
+    set_base_msr(APIC_ADDR | 0x800);
   }
 
 
@@ -100,35 +109,31 @@ private:
   bool set_base_msr(unsigned long long value) {
     const unsigned long long mask = ((1ull << (Config::PHYS_ADDR_SIZE)) - 1) &  ~0x2ffull;
     bool was_x2apic_mode = x2apic_mode();
-    // check
+
+    // check reserved bits and invalid state transitions
     if (value & ~mask || (value & 0xc00) == 0x400 || was_x2apic_mode && (value & 0xc00) == 0x800) return false;
 
-
+    // disabled bit?
     if ((_msr ^ value) & 0x800) {
       bool apic_enabled = value & 0x800;
       CpuMessage msg[] = {
 	// update CPUID leaf 1 EDX
 	CpuMessage (1, 3, ~(1 << 9), apic_enabled << 9),
-	// support for X2Apic
-	CpuMessage(1,  2, ~(1 << 21), apic_enabled << 21),
-	// support for APIC timer that does not sleep in C-states
-	CpuMessage(6, 0, ~(1 << 2), apic_enabled << 2),
       };
       for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
 	_vcpu->executor.send(msg[i]);
     }
-    // we threat the BSP flag as read-only
-    _msr = (value & ~0x100ull) | (_vcpu->is_ap() ? 0 : 0x100);
 
+    _msr = value;
+
+    // init _ID on mode switches
     if (!was_x2apic_mode && x2apic_mode()) {
-      // init LDR + _ID
-      register_write( _ID_offset, _ID,  false);
-      register_write(_LDR_offset, _LDR, false);
+      _ID = _initial_apic_id;
       _ICR1 = 0;
     }
 
-    // set them to default state
-    if (hw_disabled()) reset(false);
+    // set them to default state if disabled
+    if (hw_disabled()) init();
     return true;
   }
 
@@ -464,10 +469,13 @@ private:
     if (x2apic_mode()) {
       // broadcast?
       if (msg.dst == ~0u)    return true;
+
       // physical DM
       if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
+
       // logical DM
-      return !((_LDR ^ msg.dst) & 0xffff0000) && _LDR & (1 << (msg.dst & 0xf));
+      unsigned ldr = x2apic_ldr();
+      return !((ldr ^ msg.dst) & 0xffff0000) && ldr & (1 << (msg.dst & 0xf));
     }
 
     unsigned dst = msg.dst << 24;
@@ -493,8 +501,10 @@ public:
    */
   bool  receive(MessageMem &msg)
   {
-    if (!in_range(msg.phys, _msr & ~0xfffull, 0x1000) || hw_disabled() || x2apic_mode()) return false;
+    if (((_msr & 0xc00) != 0x800) || !in_range(msg.phys, _msr & ~0xfffull, 0x1000)) return false;
     if ((msg.phys & 0xf) || (msg.phys & 0xfff) >= 0x400) return false;
+
+
     if (msg.read)
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
     else
@@ -570,8 +580,10 @@ public:
       } else
 	msg.value = _SVR & 0xff;
     }
-    else if (msg.type == LapicEvent::RESET || msg.type == LapicEvent::INIT)
-      reset(msg.type == LapicEvent::INIT);
+    else if (msg.type == LapicEvent::RESET)
+      reset();
+    else if (msg.type == LapicEvent::INIT)
+      init();
     return true;
   }
 
@@ -584,10 +596,7 @@ public:
       msg.mtr_out |= MTD_GPR_ACDB;
 
       // handle APIC base MSR
-      if (msg.cpu->ecx == 0x1b) {
-	msg.cpu->edx_eax(_msr);
-	return true;
-      }
+      if (msg.cpu->ecx == 0x1b) { msg.cpu->edx_eax(_msr); return true; }
 
       // check whether the register is available
       //Logging::printf("RDMSR %x mode %d\n", msg.cpu->ecx, x2apic_mode());
@@ -596,6 +605,8 @@ public:
 	  || msg.cpu->ecx == 0x831
 	  || msg.cpu->ecx == 0x80e) return false;
 
+      if (msg.cpu->ecx == 0x80d) {  msg.cpu->edx_eax(x2apic_ldr()); return true;  }
+
       // read register
       if (!register_read(msg.cpu->ecx & 0x3f, msg.cpu->eax)) return false;
 
@@ -603,6 +614,8 @@ public:
       msg.cpu->edx = (msg.cpu->ecx == 0x830) ? _ICR1 : 0;
       return true;
     }
+
+    // WRMSR
     if (msg.type == CpuMessage::TYPE_WRMSR) {
       //Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
 
@@ -614,6 +627,8 @@ public:
       if (!in_range(msg.cpu->ecx, 0x800, 64)
 	  || !x2apic_mode()
 	  || msg.cpu->ecx == 0x831
+	  || msg.cpu->ecx == 0x802
+	  || msg.cpu->ecx == 0x80d
 	  || msg.cpu->ecx == 0x80e
 	  || msg.cpu->edx && msg.cpu->ecx != 0x830) return false;
 
@@ -702,11 +717,8 @@ public:
   }
 
 
-  Lapic(VCpu *vcpu, Motherboard &mb, unsigned initial_apic_id, unsigned timer) : _vcpu(vcpu), _mb(mb), _initial_apic_id(initial_apic_id), _timer(timer)
+  Lapic(Motherboard &mb, VCpu *vcpu, unsigned initial_apic_id, unsigned timer) : _mb(mb), _vcpu(vcpu), _initial_apic_id(initial_apic_id), _timer(timer)
   {
-
-    _ID = initial_apic_id << 24;
-
     // find a FREQ that is not too high
     for (_timer_clock_shift=0; _timer_clock_shift < 32; _timer_clock_shift++)
       if ((_mb.clock()->freq() >> _timer_clock_shift) <= MAX_FREQ) break;
@@ -716,10 +728,15 @@ public:
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
       CpuMessage(11, 3, 0, _initial_apic_id),
+      // support for X2Apic
+      CpuMessage(1,  2, ~(1 << 21), 1 << 21),
+      // support for APIC timer that does not sleep in C-states
+      CpuMessage(6, 0, ~(1 << 2), 1 << 2),
     };
     for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
       _vcpu->executor.send(msg[i]);
 
+    reset();
 
     mb.bus_legacy.add(this, &Lapic::receive_static<MessageLegacy>);
     mb.bus_apic.add(this,     &Lapic::receive_static<MessageApic>);
@@ -735,7 +752,6 @@ public:
 
 
 PARAM(lapic, {
-    static unsigned lapic_count;
     if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
     // allocate a timer
@@ -743,21 +759,21 @@ PARAM(lapic, {
     if (!mb.bus_timer.send(msg0))
       Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
 
-    new Lapic(mb.last_vcpu, mb, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
+    static unsigned lapic_count;
+    new Lapic(mb, mb.last_vcpu, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
     lapic_count++;
   },
-  "lapic:inital_apic_id - provide an x2APIC for the last CPU",
+  "lapic:inital_apic_id - provide an x2APIC for the last VCPU",
   "Example: 'lapic:2'",
-  "The first Lapic is dedicated the BSP.",
   "If no inital_apic_id is given the lapic number is used.");
 
 
 #else
 REGSET(Lapic,
-       REG_RW(_ID,            0x02,          0, 0xff000000, if (x2apic_mode()) _ID = _initial_apic_id; )
+       REG_RW(_ID,            0x02,          0, 0xff000000,)
        REG_RO(_VERSION,       0x03, 0x01050014)
        REG_RW(_TPR,           0x08,          0, 0xff,)
-       REG_RW(_LDR,           0x0d,          0, 0xff000000, if (x2apic_mode()) _LDR = ((_initial_apic_id & ~0xf) << 12) | ( 1 << (_initial_apic_id & 0xf)); )
+       REG_RW(_LDR,           0x0d,          0, 0xff000000,)
        REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000,)
        REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,
 	      for (unsigned i=0; i < 6; i++)

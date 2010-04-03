@@ -56,53 +56,74 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   /**
    * called on reset.
    */
-  void reset_helper()
+  void reset_helper(CpuState *state, VCpu *vcpu)
   {
+    bool bsp = !vcpu->get_last();
 
-    // initialize PIT0
-    // let counter0 count with minimal freq of 18.2hz
-    outb(0x40+3, 0x24);
-    outb(0x40+0, 0);
+    // the APIC
+    state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
+    state->edx = 0;
+    state->ecx = 0x1b;
+    CpuMessage msg1(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
+    vcpu->executor.send(msg1);
 
-    // let counter1 generate 15usec refresh cycles
-    outb(0x40+3, 0x56);
-    outb(0x40+1, 0x12);
+    // enable LINT0, LINT1 and SVR
+    unsigned m[] = { 0x700, 0x400, 0x1ff};
+    MessageMem msg[] = {
+      MessageMem(false, 0xfee00350, m+0),
+      MessageMem(false, 0xfee00360, m+1),
+      MessageMem(false, 0xfee000f0, m+2),
+    };
+    for (unsigned j=0; j < sizeof(msg) / sizeof(*msg); j++)  vcpu->mem.send(msg[j]);
+
+    // init platform
+    if (bsp) {
+      // initialize PIT0
+      // let counter0 count with minimal freq of 18.2hz
+      outb(0x40+3, 0x24);
+      outb(0x40+0, 0);
+
+      // let counter1 generate 15usec refresh cycles
+      outb(0x40+3, 0x56);
+      outb(0x40+1, 0x12);
 
 
-    // the master PIC
-    // ICW1-4+IMR
-    outb(0x20+0, 0x11);
-    outb(0x20+1, 0x08); // offset 0x08
-    outb(0x20+1, 0x04); // has slave on 2
-    outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
-    outb(0x20+1, 0xfc);
+      // the master PIC
+      // ICW1-4+IMR
+      outb(0x20+0, 0x11);
+      outb(0x20+1, 0x08); // offset 0x08
+      outb(0x20+1, 0x04); // has slave on 2
+      outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
+      outb(0x20+1, 0xfc);
 
-    // the slave PIC + IMR
-    outb(0xa0+0, 0x11);
-    outb(0xa0+1, 0x70); // offset 0x70
-    outb(0xa0+1, 0x02); // is slave on 2
-    outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
-    outb(0xa0+1, 0xff);
+      // the slave PIC + IMR
+      outb(0xa0+0, 0x11);
+      outb(0xa0+1, 0x70); // offset 0x70
+      outb(0xa0+1, 0x02); // is slave on 2
+      outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
+      outb(0xa0+1, 0xff);
 
-    memset(_resources, 0, sizeof(_resources));
+      // INIT resources
+      memset(_resources, 0, sizeof(_resources));
 
-    MessageMemRegion msg(0);
-    check0(!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count, "no low memory available");
+      MessageMemRegion msg(0);
+      check0(!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count, "no low memory available");
 
-    // were we start to allocate stuff
-    _mem_ptr = msg.ptr;
-    _mem_size = msg.count << 12;
+      // were we start to allocate stuff
+      _mem_ptr = msg.ptr;
+      _mem_size = msg.count << 12;
 
-    // we use the lower 640k of memory
-    if (_mem_size > 0xa0000) _mem_size = 0xa0000;
+      // we use the lower 640k of memory
+      if (_mem_size > 0xa0000) _mem_size = 0xa0000;
 
-    // trigger discovery
-    MessageDiscovery msg1;
-    _mb.bus_discovery.send_fifo(msg1);
+      // trigger discovery
+      MessageDiscovery msg1;
+      _mb.bus_discovery.send_fifo(msg1);
 
-    // store what remains on memory in KB
-    discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
-  };
+      // store what remains on memory in KB
+      discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
+    }
+  }
 
 
 
@@ -181,20 +202,20 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       _resources[index] = Resource(name, table, 0x1000, true);
       init_acpi_table(name);
       if (!strcmp(name, "RSDT")) {
-	discovery_write_dw("RSDP", 16, table, 4);
+        discovery_write_dw("RSDP", 16, table, 4);
 
-	Resource *r;
-	check1(false, !(r = get_resource("RSDP")));
-	fix_acpi_checksum(r, 20, 8);
+        Resource *r;
+        check1(false, !(r = get_resource("RSDP")));
+        fix_acpi_checksum(r, 20, 8);
       }
       else {
-	// add them to the RSDT
-	Resource *rsdt;
-	check1(false, !(rsdt = get_resource("RSDT")));
-	unsigned rsdt_length = acpi_tablesize(rsdt);
+        // add them to the RSDT
+        Resource *rsdt;
+        check1(false, !(rsdt = get_resource("RSDT")));
+        unsigned rsdt_length = acpi_tablesize(rsdt);
 
-	// and write the pointer to the RSDT
-	discovery_write_dw("RSDT", rsdt_length, table, 4);
+        // and write the pointer to the RSDT
+        discovery_write_dw("RSDT", rsdt_length, table, 4);
       }
     }
     return true;
@@ -205,7 +226,7 @@ public:
   bool  receive(MessageBios &msg) {
     switch(msg.irq) {
     case RESET_VECTOR:
-      reset_helper();
+      reset_helper(msg.cpu, msg.vcpu);
       return jmp_int(msg, 0x19);
     default:    return false;
     }
@@ -219,33 +240,33 @@ public:
     switch (msg.type) {
     case MessageDiscovery::WRITE:
       {
-	Resource *r;
-	unsigned needed_len = msg.offset + msg.count;
-	check1(false, !(r = get_resource(msg.resource)));
-	check1(false, needed_len > r->length, "WRITE no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
+        Resource *r;
+        unsigned needed_len = msg.offset + msg.count;
+        check1(false, !(r = get_resource(msg.resource)));
+        check1(false, needed_len > r->length, "WRITE no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
 
-	unsigned table_len = acpi_tablesize(r);
-	// increase the length of an ACPI table.
-	if (r->acpi_table && msg.offset >= 8 && needed_len > table_len) {
-	  discovery_write_dw(r->name, 4, needed_len, 4);
-	  table_len = needed_len;
-	}
-	memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
+        unsigned table_len = acpi_tablesize(r);
+        // increase the length of an ACPI table.
+        if (r->acpi_table && msg.offset >= 8 && needed_len > table_len) {
+          discovery_write_dw(r->name, 4, needed_len, 4);
+          table_len = needed_len;
+        }
+        memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
 
-	//Logging::printf("DW %s %x+%x count %d value %x\n",  msg.resource, r->offset, msg.offset, msg.count, *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + msg.offset));
+        //Logging::printf("DW %s %x+%x count %d value %x\n",  msg.resource, r->offset, msg.offset, msg.count, *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + msg.offset));
 
 
-	// and fix the checksum
-	if (r->acpi_table)   fix_acpi_checksum(r, table_len);
+        // and fix the checksum
+        if (r->acpi_table)   fix_acpi_checksum(r, table_len);
       }
       break;
     case MessageDiscovery::READ:
       {
-	Resource *r;
-	unsigned needed_len = msg.offset + 4;
-	check1(false, !(r = get_resource(msg.resource)));
-	check1(false, needed_len > r->length, "READ no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
-	memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
+        Resource *r;
+        unsigned needed_len = msg.offset + 4;
+        check1(false, !(r = get_resource(msg.resource)));
+        check1(false, needed_len > r->length, "READ no idea how to increase the table %s size from %d to %d", msg.resource, r->length, needed_len);
+        memcpy(msg.dw, _mem_ptr + r->offset + msg.offset, 4);
       }
       break;
     case MessageDiscovery::DISCOVERY:
@@ -265,4 +286,3 @@ PARAM(vbios_reset,
       mb.bus_discovery.add(dev, &VirtualBiosReset::receive_static<MessageDiscovery>);
       ,
       "vbios_reset - provide reset handling for virtual BIOS functions.");
-
