@@ -5,6 +5,7 @@
 #include <host/hostvf.h>
 #include <host/host82576.h>
 
+static const unsigned max_clients   = 32;
 static const unsigned desc_ring_len = 512;
 
 typedef uint8 packet_buffer[2048];
@@ -19,7 +20,6 @@ class Host82576VF : public Base82576, public StaticReceiver<Host82576VF>
 private:
 
   DBus<MessageHostOp> &_bus_hostop;
-  DBus<MessageNetwork> &_bus_network;
 
   struct {
     unsigned vec;
@@ -65,8 +65,8 @@ public:
         return;
       }
 
-      MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
-      _bus_network.send(nmsg);
+      //MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
+      //_bus_network.send(nmsg);
 
       cur->lo = reinterpret_cast<uint64>(_rx_buf[last_rx]);
       cur->hi = reinterpret_cast<uint64>(_rx_buf[last_rx])>>32;
@@ -134,37 +134,22 @@ public:
     return false;
   }
 
-  bool receive(MessageNetwork &nmsg)
+  bool receive(MessageQueueOp &nmsg)
   {
-    // Protect against our own packets. WTF?
-    if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
-        (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
-    //msg(INFO, "Send packet (size %u)\n", nmsg.len);
+    switch (nmsg.op) {
+    case MessageQueueOp::ANNOUNCE:
+      
 
-    // XXX Lock?
-    unsigned tail = _hwreg[TDT0];
-    memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
-
-    // If the dma descriptor is not zero, it is still in use.
-    if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
-
-    _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
-    _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
-      | (3U<<20 /* adv descriptor */)
-      | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
-      | (1U<<25 /* Append MAC FCS */)
-      | (1U<<27 /* Report Status = IRQ */);
-    //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
-
-    asm volatile ("sfence" ::: "memory");
-    _hwreg[TDT0] = (tail+1) % desc_ring_len;
-
-    return true;
+    case MessageQueueOp::SET_MAC:
+    default:
+      return false;
+    };
+    return false;
   }
 
-  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
+  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
               Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
-    : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
+    : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
   {
@@ -289,12 +274,12 @@ PARAM(host82576vf_rio, {
     for (unsigned i = 0; i < 3; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
+    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop,
                                        mb.clock(), vf_bdf,
                                        irqs, reg_msg.ptr, itr_us);
 
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
-    mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
+    mb.bus_queueop.add(dev, &Host82576VF::receive_static<MessageQueueOp>);
   },
   "host82576vf:parent,vf[,throttle_us] - provide driver for Intel 82576 virtual function.",
   "Example: 'host82576vf:0x100,0'");

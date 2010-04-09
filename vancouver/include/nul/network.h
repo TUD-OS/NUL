@@ -5,8 +5,11 @@
 // Size of DMA descriptor and layout of context area depends on type
 // of queue.
 enum QueueType {
-  SIMPLE_TX,
-  INTEL82576_TX,
+  TX = 0,
+  RX = 1,
+  SIMPLE     = (1<<1),
+  INTEL82576 = (2<<1),
+  // foo = (3<<1),
 };
 
 
@@ -16,10 +19,10 @@ struct QueueContext {
   union {
     struct {
       
-    } simple_tx;
+    } simple;
     struct {
-      
-    } intel82576_tx;
+      uint64 context[8];
+    } intel82576;
   };
 };
 
