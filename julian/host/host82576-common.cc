@@ -1,10 +1,10 @@
 // -*- Mode: C++
-// Common routines for 82576 PF and VFs.
+// Common routines for drivers
 
-#include <host/host82576.h>
+#include <host/jsdriver.h>
 
 void
-Base82576::spin(unsigned micros)
+PciDriver::spin(unsigned micros)
 {
   timevalue done = _clock->abstime(micros, 1000000);
   while (_clock->time() < done)
@@ -12,7 +12,7 @@ Base82576::spin(unsigned micros)
 }
 
 bool
-Base82576::wait(volatile uint32 &reg, uint32 mask, uint32 value,
+PciDriver::wait(volatile uint32 &reg, uint32 mask, uint32 value,
 		unsigned timeout_micros)
 {
   timevalue timeout = _clock->abstime(timeout_micros, 1000000);
@@ -26,7 +26,7 @@ Base82576::wait(volatile uint32 &reg, uint32 mask, uint32 value,
 }
 
 void
-Base82576::msg(unsigned level, const char *msg, ...)
+PciDriver::msg(unsigned level, const char *msg, ...)
 {
   if ((level & _msg_level) != 0) {
     va_list ap;

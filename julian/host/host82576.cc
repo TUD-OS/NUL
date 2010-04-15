@@ -13,6 +13,7 @@
 #include <nul/motherboard.h>
 #include <host/hostpci.h>
 #include <host/host82576.h>
+#include <host/jsdriver.h>
 
 // lspci -v:
 // 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
@@ -52,7 +53,9 @@
 // 00:1b:21:4d:e2:e8
 // 00:1b:21:4d:e2:e9
 
-class Host82576 : public Base82576, public StaticReceiver<Host82576>
+class Host82576 : public PciDriver,
+                  public Base82576,
+                  public StaticReceiver<Host82576>
 {
 private:
   DBus<MessageHostOp> &_bus_hostop;
@@ -267,7 +270,7 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
-    : Base82576(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
+    : PciDriver(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
   {
     msg(INFO, "Found Intel 82576-style controller at %x. Attaching IRQ %u.\n", bdf, _hostirq);
 

@@ -4,6 +4,7 @@
 #include <nul/motherboard.h>
 #include <host/hostvf.h>
 #include <host/host82576.h>
+#include <host/jsdriver.h>
 
 static const unsigned max_clients   = 32;
 static const unsigned desc_ring_len = 512;
@@ -15,7 +16,9 @@ struct dma_desc {
   uint64 hi;
 };
 
-class Host82576VF : public Base82576, public StaticReceiver<Host82576VF>
+class Host82576VF : public PciDriver,
+                    public Base82576,
+                    public StaticReceiver<Host82576VF>
 {
 private:
 
@@ -149,7 +152,7 @@ public:
 
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
               Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
-    : Base82576(clock, ALL, bdf), _bus_hostop(bus_hostop),
+    : PciDriver(clock, ALL, bdf), _bus_hostop(bus_hostop),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
   {
