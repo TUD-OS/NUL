@@ -150,7 +150,7 @@ class HostPci
     if (msix_offset) {
       if (!msix_table) {
 	unsigned ctrl1 = conf_read(bdf, msix_offset + 1);
-	unsigned long base = conf_read(bdf, BAR0 + (ctrl1 & 0x7)) & BAR_MEM_MASK + (ctrl1 & ~0x7u);
+	unsigned long base = conf_read(bdf, (BAR0 + (ctrl1 & 0x7)) & BAR_MEM_MASK) + (ctrl1 & ~0x7u);
 
 	// map the MSI-X bar
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
@@ -256,7 +256,7 @@ class HostPci
 
       // I/O BAR
       conf_write(bdf, bar, 0xFFFFFFFFU);
-      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFU) + 1;
+      size = ((conf_read(bdf, bar) & BAR_IO_MASK) ^ 0xFFFFFFFFU) + 1;
 
     } else {
 
