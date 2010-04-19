@@ -7,14 +7,20 @@
 enum QueueType {
   TX = 0,
   RX = 1,
+  RXTX_MASK  = 1,
   SIMPLE     = (1<<1),
   INTEL82576 = (2<<1),
   // foo = (3<<1),
 };
 
+// Terminology:
+// driver - the thing that drives the hardware and DMA queues
+// client - the thing that wants to send/receive packets (IP stack, VM, ...)
 
 struct QueueContext {
   QueueType queue_type;
+  unsigned  queue_irq; // Driver up's this semaphore if DMA descriptors were consumed. Filled in by client.
+  unsigned  queue_sem; // Notify driver that client prepared DMA descriptors and updated tail pointer. Filled in by driver.
 
   union {
     struct {
@@ -24,6 +30,8 @@ struct QueueContext {
       uint64 context[8];
     } intel82576;
   };
+  
+  QueueContext(QueueType qt) : queue_type(qt) {}
 };
 
 // Comments on new network interface:
@@ -42,11 +50,12 @@ struct MessageQueueOp
 
   union {
     struct {
-      unsigned      vnet;       // Virtual Net (1 per host driver)
-      void         *queue;
-      unsigned      queue_sem;	// Notify driver that client prepared DMA descriptors and updated tail pointer.
-      unsigned      queue_irq;	// Driver up's this semaphore if DMA descriptors were consumed.
+      unsigned      vnet;       // Virtual Net (1 per host driver -> is used to address host device)
+
+      // The following two are here, because the addresses might need to be translated?
+      void         *queue;	// Filled in by client.
       size_t        queue_len;	// Bytes
+
       QueueContext *context;    // Stores state of the queue. Must include tail pointer.
     };
     struct {
@@ -54,10 +63,9 @@ struct MessageQueueOp
     };
   };
 
-  MessageQueueOp(unsigned vnet, void *queue, unsigned queue_irq, unsigned queue_len,
-                 QueueContext *context) :
-    op(ANNOUNCE), vnet(vnet), queue(queue), queue_irq(queue_irq),
-    queue_len(queue_len), context(context)
+  MessageQueueOp(unsigned vnet, void *queue, unsigned queue_len, QueueContext *context) :
+    op(ANNOUNCE), vnet(vnet), queue(queue), queue_len(queue_len),
+    context(context)
   {};
 
   explicit
