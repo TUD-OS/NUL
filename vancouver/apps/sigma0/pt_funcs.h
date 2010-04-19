@@ -28,7 +28,8 @@ PT_FUNC(do_map,
 	assert(~utcb->head.mtr.untyped() & 1);
 	return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	)
-PT_FUNC(do_gsi_boot,
+PT_FUNC(do_thread_startup,
+	// XXX Make this generic.
 	utcb->eip = reinterpret_cast<unsigned long>(&do_gsi_wrapper);
 	)
 PT_FUNC_NORETURN(do_gsi,
