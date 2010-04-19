@@ -5,6 +5,9 @@
 #include <host/hostvf.h>
 #include <host/host82576.h>
 
+// TODO
+// - when it works, factor out generic queue driving stuff.
+
 static const unsigned max_clients   = 32;
 static const unsigned desc_ring_len = 512;
 
