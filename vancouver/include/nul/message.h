@@ -402,7 +402,6 @@ struct MessageHostOp
       OP_ATTACH_MSI,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
-      OP_ALLOC_SEM,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
@@ -411,7 +410,8 @@ struct MessageHostOp
       OP_ALLOC_FROM_GUEST,
       OP_VCPU_CREATE_BACKEND,
       OP_VCPU_BLOCK,
-      OP_VCPU_RELEASE
+      OP_VCPU_RELEASE,
+      OP_ALLOC_SEM,
     } type;
   unsigned long value;
   union {
