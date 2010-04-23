@@ -774,12 +774,12 @@ public:
 	msg.value = ++_uid;
 	break;
       case MessageHostOp::OP_ALLOC_SEM:
-      	{
-      	  unsigned initial = msg.value;
-      	  msg.value = _cap_free++;
-      	  res = (create_sm(msg.value, initial) == 0);
-      	}
-      	break;
+	{
+	  unsigned initial = msg.value;
+	  msg.value = _cap_free++;
+	  res = (create_sm(msg.value, initial) == 0);
+	}
+	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
