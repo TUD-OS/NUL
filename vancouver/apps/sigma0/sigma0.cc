@@ -303,10 +303,9 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,        Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
-    check1(5, create_pt(30, _percpu[gsi].cap_ec_echo, do_gsi_boot_wrapper,  Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
-
+    check1(5, create_pt(30, _percpu[gsi].cap_ec_echo, do_thread_startup_wrapper, Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
 
     // map vga memory
     Logging::printf("map vga memory\n");
@@ -774,6 +773,13 @@ public:
       case MessageHostOp::OP_GET_UID:
 	msg.value = ++_uid;
 	break;
+      case MessageHostOp::OP_ALLOC_SEM:
+      	{
+      	  unsigned initial = msg.value;
+      	  msg.value = _cap_free++;
+      	  res = (create_sm(msg.value, initial) == 0);
+      	}
+      	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:

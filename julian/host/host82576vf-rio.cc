@@ -6,9 +6,13 @@
 #include <host/host82576.h>
 #include <host/jsdriver.h>
 
+// TODO
+// - when it works, factor out generic queue driving stuff.
+
 static const unsigned max_clients   = 32;
 static const unsigned desc_ring_len = 512;
 
+typedef unsigned cap_idx;
 typedef uint8 packet_buffer[2048];
 
 struct dma_desc {
@@ -16,17 +20,17 @@ struct dma_desc {
   uint64 hi;
 };
 
-class Host82576VF : public PciDriver,
-                    public Base82576,
-                    public StaticReceiver<Host82576VF>
+class Host82576VF_RIO : public PciDriver,
+                        public Base82576,
+                        public StaticReceiver<Host82576VF_RIO>
 {
 private:
-
+  unsigned _vnet;
   DBus<MessageHostOp> &_bus_hostop;
 
   struct {
     unsigned vec;
-    void (Host82576VF::*handle)();
+    void (Host82576VF_RIO::*handle)();
   } _hostirqs[3];
 
   volatile uint32 *_hwreg;     // Device MMIO registers (16K)
@@ -42,7 +46,28 @@ private:
   dma_desc _tx_ring[desc_ring_len] __attribute__((aligned(128)));
 
   packet_buffer _rx_buf[desc_ring_len];
-  packet_buffer _tx_buf[desc_ring_len];
+
+  struct Client {
+    QueueContext *ctx;
+    void         *queue;
+    unsigned      queue_len;
+
+    bool valid() const { return ctx != NULL; }
+  };
+
+  Client _rx_client[max_clients];
+  Client _tx_client[max_clients];
+  
+  cap_idx _tx_sem;
+  cap_idx _rx_sem;
+
+  cap_idx alloc_sm()
+  {
+    MessageHostOp sop(MessageHostOp::OP_ALLOC_SEM, 0);
+    bool res = _bus_hostop.send(sop);
+    assert(res);
+    return sop.value;
+  }
 
 public:
 
@@ -139,10 +164,40 @@ public:
 
   bool receive(MessageQueueOp &nmsg)
   {
-    switch (nmsg.op) {
-    case MessageQueueOp::ANNOUNCE:
-      
+    if (nmsg.vnet != _vnet) return false;
 
+    switch (nmsg.op) {
+    case MessageQueueOp::ANNOUNCE: {
+      QueueContext *ctx = nmsg.context;
+      bool is_rx = (ctx->queue_type & RXTX_MASK) == RX;
+      Client *client = is_rx ? _rx_client : _tx_client;
+      int idx = -1;
+
+      // So why is this so complicated in C?
+      // (position-if-not #'valid clients)
+      for (unsigned i = 0; i < max_clients; i++)
+	if (!client[i].valid()) {
+	  idx = i;
+	  break;
+	}
+
+      if (idx < 0) {
+	Logging::printf("No more clients possible.\n");
+	return false;
+      }
+
+      client[idx].ctx       = ctx;
+      client[idx].queue     = nmsg.queue;
+      client[idx].queue_len = nmsg.queue_len;
+
+      ctx->queue_sem = is_rx ? _rx_sem : _tx_sem;
+
+      Logging::printf("New client %d ctx %p queue %p queue_len %x\n", idx,
+		      ctx, nmsg.queue, nmsg.queue_len);
+
+    }
+      // XXX Do something
+      return true;
     case MessageQueueOp::SET_MAC:
     default:
       return false;
@@ -150,13 +205,27 @@ public:
     return false;
   }
 
-  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
-              Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
-    : PciDriver(clock, ALL, bdf), _bus_hostop(bus_hostop),
+  Host82576VF_RIO(unsigned vnet, HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
+                  Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
+    : PciDriver(clock, ALL, bdf), _vnet(vnet), _bus_hostop(bus_hostop),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
   {
-    msg(INFO, "Found Intel 82576VF-style controller.\n");
+    msg(INFO, "Found Intel 82576VF-style controller.\n"
+	"Driving vnet %u.\n", vnet);
+
+    /// Initialize client interface
+
+    // Sanity...
+    for (unsigned i = 0; i < max_clients; i++) {
+      assert(!_rx_client[i].valid());
+      assert(!_tx_client[i].valid());
+    }
+
+    _tx_sem = alloc_sm();
+    _rx_sem = alloc_sm();
+
+    /// Initialize Hardware
 
     // Disable IRQs
     _hwreg[VTEIMC] = ~0U;
@@ -171,9 +240,9 @@ public:
     _hwreg[VTIVAR]      = 0x00008180;
     _hwreg[VTIVAR_MISC] = 0x82;
 
-    _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF::handle_rx;
-    _hostirqs[1].vec = irqs[1]; _hostirqs[1].handle = &Host82576VF::handle_tx;
-    _hostirqs[2].vec = irqs[2]; _hostirqs[2].handle = &Host82576VF::handle_mbx;
+    _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF_RIO::handle_rx;
+    _hostirqs[1].vec = irqs[1]; _hostirqs[1].handle = &Host82576VF_RIO::handle_tx;
+    _hostirqs[2].vec = irqs[2]; _hostirqs[2].handle = &Host82576VF_RIO::handle_mbx;
 
     // Set IRQ throttling
     uint32 itr = (itr_us & 0xFFF) << 2;
@@ -235,7 +304,7 @@ PARAM(host82576vf_rio, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     uint16 parent_bdf = argv[0];
     unsigned vf_no    = argv[1];
-    uint32 itr_us     = (argv[2] == ~0U) ? 0 : argv[2] ;
+    uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
     uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
 
@@ -277,14 +346,14 @@ PARAM(host82576vf_rio, {
     for (unsigned i = 0; i < 3; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop,
+    Host82576VF_RIO *dev = new Host82576VF_RIO(argv[2], pci, mb.bus_hostop,
                                        mb.clock(), vf_bdf,
                                        irqs, reg_msg.ptr, itr_us);
 
-    mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
-    mb.bus_queueop.add(dev, &Host82576VF::receive_static<MessageQueueOp>);
+    mb.bus_hostirq.add(dev, &Host82576VF_RIO::receive_static<MessageIrq>);
+    mb.bus_queueop.add(dev, &Host82576VF_RIO::receive_static<MessageQueueOp>);
   },
-  "host82576vf:parent,vf[,throttle_us] - provide driver for Intel 82576 virtual function.",
-  "Example: 'host82576vf:0x100,0'");
+  "host82576vf:parent,vf,vnet,[,throttle_us] - provide driver for Intel 82576 virtual function.",
+  "Example: 'host82576vf:0x100,0,0'");
 
 // EOF

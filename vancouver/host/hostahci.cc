@@ -294,8 +294,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
       }
 
 
-    if (_regs->tfd & 1)
-      {
+    if (_regs->tfd & 1 && ~_regs->tfd & 0x400) {
 	Logging::printf("command failed with %x\n", _regs->tfd);
 	unsigned short buffer[256];
 	init(buffer);

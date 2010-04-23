@@ -62,8 +62,6 @@ asm volatile (".global __start;"
 	      "stack:;"
 	      );
 
-
-
 /**
  * A fast reply to our client, called by a return to a portal
  * function.
