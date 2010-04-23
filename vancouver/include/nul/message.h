@@ -402,7 +402,6 @@ struct MessageHostOp
       OP_ATTACH_MSI,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
-      OP_ALLOC_SEM,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
