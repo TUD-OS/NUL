@@ -20,7 +20,7 @@ enum QueueType {
 struct QueueContext {
   QueueType queue_type;
   unsigned  queue_irq; // Driver up's this semaphore if DMA descriptors were consumed. Filled in by client.
-  unsigned  queue_sem; // Notify driver that client prepared DMA descriptors and updated tail pointer. Filled in by driver.
+  //unsigned  queue_sem; // Notify driver that client prepared DMA descriptors and updated tail pointer. Filled in by driver.
 
   union {
     struct {

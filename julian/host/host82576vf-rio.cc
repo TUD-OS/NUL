@@ -58,17 +58,6 @@ private:
   Client _rx_client[max_clients];
   Client _tx_client[max_clients];
   
-  cap_idx _tx_sem;
-  cap_idx _rx_sem;
-
-  cap_idx alloc_sm()
-  {
-    MessageHostOp sop(MessageHostOp::OP_ALLOC_SEM, 0);
-    bool res = _bus_hostop.send(sop);
-    assert(res);
-    return sop.value;
-  }
-
 public:
 
   void reset_complete()
@@ -190,8 +179,6 @@ public:
       client[idx].queue     = nmsg.queue;
       client[idx].queue_len = nmsg.queue_len;
 
-      ctx->queue_sem = is_rx ? _rx_sem : _tx_sem;
-
       Logging::printf("New client %d ctx %p queue %p queue_len %x\n", idx,
 		      ctx, nmsg.queue, nmsg.queue_len);
 
@@ -221,9 +208,6 @@ public:
       assert(!_rx_client[i].valid());
       assert(!_tx_client[i].valid());
     }
-
-    _tx_sem = alloc_sm();
-    _rx_sem = alloc_sm();
 
     /// Initialize Hardware
 
