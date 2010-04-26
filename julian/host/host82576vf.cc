@@ -126,8 +126,6 @@ public:
   {
     for (unsigned i = 0; i < 3; i++)
       if (irq_msg.line == _hostirqs[i].vec) {
-        unsigned eicr = _hwreg[VTEICR];
-        _hwreg[VTEICR] = eicr;
         // msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
         //     _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
         (this->*(_hostirqs[i].handle))();
