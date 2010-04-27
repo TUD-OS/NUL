@@ -184,8 +184,10 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   /**
    * Graphic INT.
    */
-  bool handle_int10(CpuState *cpu)
+  bool handle_int10(MessageBios &msg)
   {
+    CpuState *cpu = msg.cpu;
+    //DEBUG(cpu);
     COUNTER_INC("int10");
     switch (cpu->ah)
       {
@@ -265,6 +267,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    DEBUG(cpu);
 	    cpu->cx = read_bda(0x85) & 0xff;
 	    cpu->dl = read_bda(0x84);
+	    msg.mtr_out |= MTD_DS_ES | MTD_GPR_BSD;
 	    break;
 	  case 0x1a00:        // display combination code
 	    cpu->al = 0x1a;   // function supported
@@ -272,6 +275,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    break;
 	  case 0x2000: // unknown during windows boot
 	    cpu->efl |= 1;
+	    msg.mtr_out |= MTD_RFLAGS;
 	    // unsupported
 	    break;
 	  default:
@@ -279,6 +283,8 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      DEBUG(cpu);
 	  }
       }
+    DEBUG(cpu);
+    msg.mtr_out |= MTD_GPR_ACDB;
     return true;
   }
 
@@ -288,7 +294,7 @@ public:
   {
     switch(msg.irq)
       {
-      case 0x10: return handle_int10(msg.cpu);
+      case 0x10: return handle_int10(msg);
       case RESET_VECTOR: return handle_reset();
       default:
 	return false;
