@@ -121,8 +121,6 @@ public:
 
   bool  receive(MessageBios &msg) {
     switch(msg.irq) {
-    case 0x0f:  return true;
-    case 0x10:  return true;
     case 0x11: // BIOS equipment word
       msg.cpu->ax = 0x34; // 80x25, ps2-mouse, no-floppy
       msg.mtr_out |= MTD_GPR_ACDB;
