@@ -187,26 +187,36 @@ static void __attribute__ ((regparm (3))) exec_0f0120_smsw_0 (InstructionCache *
 
 static void __attribute__ ((regparm (3))) exec_0f0130_lmsw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_LMSW (*reinterpret_cast < unsigned short *>(tmp_src));
 }
 
 static void __attribute__ ((regparm (3))) exec_0f0138_invlpg_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_INVLPG ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f06_clts_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_CLTS ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f08_invd_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_INVD ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f09_wbinvd_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_WBINVD ();
 }
 
@@ -222,21 +232,29 @@ static void __attribute__ ((regparm (3))) exec_0f1f_nopl___eax__0 (InstructionCa
 
 static void __attribute__ ((regparm (3))) exec_0f20_mov__cr0__edx_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_MOV__CR0__EDX ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f21_mov__db0__edx_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_MOV__DB0__EDX ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f22_mov__edx__cr0_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_MOV__EDX__CR0 ();
 }
 
 static void __attribute__ ((regparm (3))) exec_0f23_mov__edx__db0_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_MOV__EDX__DB0 ();
 }
 
@@ -2946,6 +2964,8 @@ static void __attribute__ ((regparm (3))) exec_ef_out_2 (InstructionCache * cach
 
 static void __attribute__ ((regparm (3))) exec_f4_hlt_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
+  if (cache->cpl0_test ())
+    return;
   cache->helper_HLT ();
 }
 
@@ -6927,7 +6947,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0xf4:
 	    {
-/* instruction2 'hlt' ['f4'] ['NO_OS'] */ ;
+/* instruction2 'hlt' ['f4'] ['NO_OS', 'CPL0'] */ ;
 	      {
 		entry->execute = exec_f4_hlt_0;
 	      };
@@ -7400,7 +7420,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		{;
 		case 0x38 & 0x38:
 		  {;
-/* instruction 'invlpg' ['0f', '01', '38'] ['NO_OS', 'MEMONLY', 'SKIPMODRM', 'OP1', 'MODRM', 'GRP'] */ ;
+/* instruction 'invlpg' ['0f', '01', '38'] ['NO_OS', 'MEMONLY', 'SKIPMODRM', 'CPL0', 'OP1', 'MODRM', 'GRP'] */ ;
 		    if (~entry->modrminfo & MRM_REG)
 		      {;
 			{
@@ -7417,7 +7437,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		  };
 		case 0x30 & 0x38:
 		  {;
-/* instruction 'lmsw' ['0f', '01', '30'] ['NO_OS', 'OS1', 'DIRECTION', 'OP1', 'MODRM', 'GRP', 'WORD'] */ ;
+/* instruction 'lmsw' ['0f', '01', '30'] ['NO_OS', 'OS1', 'DIRECTION', 'CPL0', 'OP1', 'MODRM', 'GRP', 'WORD'] */ ;
 		    entry->operand_size = 1;
 		    entry->flags = IC_DIRECTION | IC_MODRM;
 		    {
@@ -7549,7 +7569,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x06:
 	    {
-/* instruction2 'clts' ['0f', '06'] ['NO_OS'] */ ;
+/* instruction2 'clts' ['0f', '06'] ['NO_OS', 'CPL0'] */ ;
 	      {
 		entry->execute = exec_0f06_clts_0;
 	      };
@@ -7557,7 +7577,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x08:
 	    {
-/* instruction2 'invd' ['0f', '08'] ['NO_OS'] */ ;
+/* instruction2 'invd' ['0f', '08'] ['NO_OS', 'CPL0'] */ ;
 	      {
 		entry->execute = exec_0f08_invd_0;
 	      };
@@ -7565,7 +7585,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x09:
 	    {
-/* instruction2 'wbinvd' ['0f', '09'] ['NO_OS'] */ ;
+/* instruction2 'wbinvd' ['0f', '09'] ['NO_OS', 'CPL0'] */ ;
 	      {
 		entry->execute = exec_0f09_wbinvd_0;
 	      };
@@ -7591,7 +7611,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x20:
 	    {
-/* instruction2 'mov %cr0,%edx' ['0f', '20'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS'] */ ;
+/* instruction2 'mov %cr0,%edx' ['0f', '20'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'CPL0'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
@@ -7611,7 +7631,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x21:
 	    {
-/* instruction2 'mov %db0,%edx' ['0f', '21'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS'] */ ;
+/* instruction2 'mov %db0,%edx' ['0f', '21'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'CPL0'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
@@ -7631,7 +7651,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x22:
 	    {
-/* instruction2 'mov %edx,%cr0' ['0f', '22'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS'] */ ;
+/* instruction2 'mov %edx,%cr0' ['0f', '22'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'CPL0'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)
@@ -7651,7 +7671,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0x23:
 	    {
-/* instruction2 'mov %edx,%db0' ['0f', '23'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS'] */ ;
+/* instruction2 'mov %edx,%db0' ['0f', '23'] ['MODRM', 'DROP1', 'REGONLY', 'NO_OS', 'CPL0'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      if (entry->modrminfo & MRM_REG)

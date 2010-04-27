@@ -134,6 +134,8 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
         if "FPUNORESTORE" not in flags:  snippet = ['fxrstor (%%eax)'] + snippet
         snippet = ['if (cache->_cpu->cr0 & 0xc) EXCEPTION(cache, 0x7, 0)',
                    'asm volatile("' + ';'.join(snippet)+'; fxsave (%%eax);" : "+d"(tmp_src), "+c"(tmp_dst) : "a"(cache->_fpustate))']
+    if "CPL0" in flags:
+        snippet = ["if (cache->cpl0_test()) return"] + snippet
     # parameter handling
     imm = ";entry->%s = &entry->immediate"%("DIRECTION" in flags and "dst" or "src")
     additions = [("MEMONLY", "if (~entry->modrminfo & MRM_REG) {"),
@@ -345,12 +347,14 @@ add_helper(["pop"],                                              [], "tmp_dst")
 add_helper(["lea", "lgdt", "lidt"],                              ["MEMONLY", "DIRECTION", "SKIPMODRM"], "")
 add_helper(["sgdt", "sidt"],                                     ["MEMONLY", "SKIPMODRM"], "")
 
-add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
-add_helper(["ltr", "lldt", "lmsw"],                              ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
-add_helper(["hlt", "sti", "cli", "clts", "int3", "into", "wbinvd",  "invd", "fwait", "ud2a", "sysenter", "sysexit"], ["NO_OS"], "")
+add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
+add_helper(["ltr", "lldt"],                                      ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
+add_helper(["lmsw"],                                             ["NO_OS", "OS1", "DIRECTION", "CPL0"], "*reinterpret_cast<unsigned short *>(tmp_src)")
+add_helper(["hlt", "clts", "wbinvd",  "invd"], ["NO_OS", "CPL0"], "")
+add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit"], ["NO_OS"], "")
 
-add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM"], "")
-add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS"], "")
+add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM", "CPL0"], "")
+add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
 add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "");
 
 stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
