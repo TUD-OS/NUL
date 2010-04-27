@@ -34,10 +34,11 @@
 #ifndef __CONTIKI_CONF_H__
 #define __CONTIKI_CONF_H__
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifndef NULL
-# error Your compiler sucks! (Should have included stddef.h in our version of stdint.h)
+# error Your compiler sucks!
 #endif
 
 #define CC_CONF_REGISTER_ARGS          0 
