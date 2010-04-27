@@ -123,7 +123,7 @@ private:
   }
 
 
-  bool match_iobars(unsigned short port, unsigned short &newport) {
+  bool match_iobars(unsigned short port, unsigned short &newport, unsigned size) {
 
     // optimize access
     if (port < 0x100) return false;
@@ -131,7 +131,7 @@ private:
     // check whether io decode is disabled
     if (~_cfgspace[1] & 1) return false;
     for (unsigned i=0; i < _bar_count; i++) {
-      if (!_barinfo[i].io || (_cfgspace[4 + i] ^ port) & ~0x3u) continue;
+      if (!_barinfo[i].io || !in_range(port, _cfgspace[BAR0 + i] & BAR_IO_MASK, _barinfo[i].size - size + 1)) continue;
       newport = _barinfo[i].port;
       return true;
     }
@@ -169,7 +169,7 @@ private:
   bool receive(MessageIOIn &msg)
   {
     unsigned old_port = msg.port;
-    if (!match_iobars(old_port, msg.port))  return false;
+    if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
     bool res = _mb.bus_hwioin.send(msg);
     msg.port = old_port;
     return res;
@@ -179,9 +179,7 @@ private:
   bool receive(MessageIOOut &msg)
   {
     unsigned old_port = msg.port;
-    unsigned new_port = msg.port;
-    if (!match_iobars(old_port, msg.port))  return false;
-    msg.port = new_port;
+    if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
     bool res = _mb.bus_hwioout.send(msg);
     msg.port = old_port;
     return res;
