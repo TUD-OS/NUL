@@ -24,15 +24,13 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 
-bool      noswitch;
 unsigned  startlate;
 unsigned  repeat;
 unsigned  console_id;
 
 PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
-      "Example: 'startlate:0xfffffffe' - starts only the first module")
-PARAM(repeat,     repeat = argv[0],    "repeat the domain start" )
-PARAM(noswitch,   noswitch = true;,    "do not switch to sigma0 console" )
+      "Example: 'startlate:0xfffffffc' - starts only the first and second module")
+PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times" )
 
 Motherboard *global_mb;
 class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
@@ -220,7 +218,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     msg2.name = "boot";
     msg2.ptr += 0x1000;
     _mb->bus_console.send(msg2);
-    if (!noswitch) switch_view(_mb, 0);
+    switch_view(_mb, 0);
 
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
