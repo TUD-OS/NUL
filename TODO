@@ -37,7 +37,13 @@
   - provide service on many CPUs
   - virtual PCI bus per domain
   - get files to boot from disk
-
+  - multithreaded booting
+    - have a thread pool that executes param-functions in parallel
+    - synchronization of different parameters via barrier / wait
+    - logging: log to tracebuffer and show only filtered output
+      - filtered after time
+      - filtered after parameter
+      - change filter per key and per cmdline for serial output
 * HV Features
   - kill domain           -> full restart possible
   - unmap                 -> direct FB mapping and join-pages
