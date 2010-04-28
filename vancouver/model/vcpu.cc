@@ -222,7 +222,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     // NMI
     if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
-      cpu->inj_info = 0x80000200;
+      cpu->inj_info = 0x80000202;
       cpu->actv_state = 0;
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_NMI);
       return;
