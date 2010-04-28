@@ -499,7 +499,7 @@ PARAM(vga,
 	mb.bus_discovery.add(dev, &Vga::receive_static<MessageDiscovery>);
 
       },
-      "vga:iobase,fbsize=128 - attach a VGA controller.",
+      "vga:iobase,fbsize=128 - attach a virtual VGA controller.",
       "Example: 'vga:0x3c0,4096'",
       "The framebuffersize is given in kilobyte and the minimum is 128k.",
-      "This also adds support for VGA and VESA graphics bios support.");
+      "This also adds support for VGA and VESA graphics BIOS.");

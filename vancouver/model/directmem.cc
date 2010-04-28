@@ -78,5 +78,5 @@ PARAM(mio,
 	mb.bus_mem.add(dev, &DirectMemDevice::receive_static<MessageMem>);
 
       },
-      "mio:base,size,dest=base - map hostmemory directly into the VM."
+      "mio:base,size,dest=base - map hostmemory directly into the VM.",
       "Example: 'mio:0xa0000,0x10000'.");

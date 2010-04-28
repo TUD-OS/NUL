@@ -446,5 +446,5 @@ PARAM(pit,
 	mb.bus_ioout.add(dev, &PitDevice::receive_static<MessageIOOut>);
 	mb.bus_pit.add(dev,   &PitDevice::receive_static<MessagePit>);
       },
-      "pit:iobase,irq - attach a PIT8254 to the system."
+      "pit:iobase,irq - attach a PIT8254 to the system.",
       "Example: 'pit:0x40,0'")

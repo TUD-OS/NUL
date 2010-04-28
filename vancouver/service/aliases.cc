@@ -17,7 +17,7 @@
 #include "nul/motherboard.h"
 
 
-#define DEFAULT_PARAM(NAME, DESC, VALUE) PARAM(NAME, { char param [] = VALUE; mb.parse_args(param); }, #NAME " - " DESC, "value:", DESC)
+#define DEFAULT_PARAM(NAME, DESC, VALUE) PARAM(NAME, { char param [] = VALUE; mb.parse_args(param); }, #NAME " - " DESC, "value: "  VALUE)
 
 DEFAULT_PARAM(PC_PS2, "an alias to create an PS2 compatible PC",
 	      " mem:0,0xa0000 mem:0x100000 ioio nullio:0x80 pic:0x20,,0x4d0 pic:0xa0,2,0x4d1" \
