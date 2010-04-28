@@ -24,16 +24,15 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 
-bool      startlate;
 bool      noswitch;
-unsigned  forcestart;
+unsigned  startlate;
 unsigned  repeat;
 unsigned  console_id;
 
-PARAM(startlate,  startlate = true;, "startlate - do not start all domains at bootup" )
-PARAM(forcestart,  forcestart = argv[0];, "forcestart - force a module to be started (ignoring startlate)" )
-PARAM(repeat,  repeat = argv[0],     "repeat the domain start" )
-PARAM(noswitch,  noswitch = true;,   "do not switch to sigma0 console" )
+PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
+      "Example: 'startlate:0xfffffffe' - starts only the first module")
+PARAM(repeat,     repeat = argv[0],    "repeat the domain start" )
+PARAM(noswitch,   noswitch = true;,    "do not switch to sigma0 console" )
 
 Motherboard *global_mb;
 class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
@@ -822,12 +821,8 @@ public:
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
     Logging::printf("start modules\n");
-    if (!startlate)
-      for (unsigned i=0; i <= repeat; i++)
-	if ((res = start_modules(utcb, ~1U)))    Logging::printf("start modules failed %x\n", res);
-
-    if (forcestart && startlate)
-      start_modules(utcb, 1<<forcestart);
+    for (unsigned i=0; i <= repeat; i++)
+      if ((res = start_modules(utcb, ~startlate << 1)))    Logging::printf("start modules failed %x\n", res);
 
     Logging::printf("INIT done\n");
 
