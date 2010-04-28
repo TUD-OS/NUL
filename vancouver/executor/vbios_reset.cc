@@ -65,7 +65,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     state->edx = 0;
     state->ecx = 0x1b;
     CpuMessage msg1(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
-    vcpu->executor.send(msg1);
+    vcpu->executor.send(msg1, true);
 
     // enable LINT0, LINT1 and SVR
     unsigned m[] = { 0x700, 0x400, 0x1ff};
@@ -74,7 +74,16 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       MessageMem(false, 0xfee00360, m+1),
       MessageMem(false, 0xfee000f0, m+2),
     };
-    for (unsigned j=0; j < sizeof(msg) / sizeof(*msg); j++)  vcpu->mem.send(msg[j]);
+    for (unsigned j=0; j < sizeof(msg) / sizeof(*msg); j++)  vcpu->mem.send(msg[j], true);
+
+
+    // lapic mode
+    state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
+    state->edx = 0;
+    state->ecx = 0x1b;
+    CpuMessage msg3(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
+    vcpu->executor.send(msg3, true);
+
 
     // init platform
     if (bsp) {
