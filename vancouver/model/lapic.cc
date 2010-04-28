@@ -781,12 +781,12 @@ REGSET(Lapic,
        REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0); return !value; )
        REG_RW(_ICR,           0x30,          0, 0x000ccfff, if (!send_ipi(_ICR, _ICR1)) COUNTER_INC("IPI missed");)
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)
-       REG_RW(_TIMER,         0x32, 0x00010000, 0x300ff, )
-       REG_RW(_TERM,          0x33, 0x00010000, 0x107ff, )
-       REG_RW(_PERF,          0x34, 0x00010000, 0x107ff, )
-       REG_RW(_LINT0,         0x35, 0x00010000, 0x1a7ff, )
-       REG_RW(_LINT1,         0x36, 0x00010000, 0x1a7ff, )
-       REG_RW(_ERROR,         0x37, 0x00010000, 0x100ff, )
+       REG_RW(_TIMER,         0x32, 0x00010000, 0x310ff, )
+       REG_RW(_TERM,          0x33, 0x00010000, 0x117ff, )
+       REG_RW(_PERF,          0x34, 0x00010000, 0x117ff, )
+       REG_RW(_LINT0,         0x35, 0x00010000, 0x1b7ff, )
+       REG_RW(_LINT1,         0x36, 0x00010000, 0x1b7ff, )
+       REG_RW(_ERROR,         0x37, 0x00010000, 0x110ff, )
        REG_RW(_ICT,           0x38,          0, ~0u,
 	      COUNTER_INC("lapic ict");
 	      _timer_start = _mb.clock()->time();
