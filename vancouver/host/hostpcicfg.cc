@@ -27,11 +27,11 @@
 class PciConfigAccess : public StaticReceiver<PciConfigAccess>
 {
   static const unsigned BASE = 0xcf8;
-  DBus<MessageIOIn>  _hwioin;
-  DBus<MessageIOOut> _hwioout;
+  DBus<MessageIOIn>  &_hwioin;
+  DBus<MessageIOOut> &_hwioout;
 public:
 
-  PciConfigAccess(DBus<MessageIOIn> hwioin, DBus<MessageIOOut> hwioout) : _hwioin(hwioin), _hwioout(hwioout) {};
+  PciConfigAccess(DBus<MessageIOIn> &hwioin, DBus<MessageIOOut> &hwioout) : _hwioin(hwioin), _hwioout(hwioout) {};
   bool  receive(MessagePciConfig &msg)
   {
     //Logging::printf("PCI CFG %x %x %x\n", msg.bdf, msg.dword, msg.value);

@@ -52,6 +52,8 @@ class DBus
   unsigned _list_size;
   struct Entry *_list;
 
+  /** Don't allow copying. */
+  DBus(const DBus<M> &bus) { __builtin_trap(); }
 
   void set_size(unsigned new_size)
   {
@@ -136,4 +138,7 @@ public:
       }
     Logging::printf("\n");
   }
+
+  /** Default constructor. */
+  DBus() {}
 };

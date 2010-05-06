@@ -39,6 +39,10 @@ class VCpu;
 class Motherboard : public StaticReceiver<Motherboard>
 {
   Clock *_clock;
+
+  /** Don't allow copying. */
+  Motherboard(const Motherboard &bus) { __builtin_trap(); }
+
  public:
   DBus<MessageAcpi>         bus_acpi;
   DBus<MessageAhciSetDrive> bus_ahcicontroller;
