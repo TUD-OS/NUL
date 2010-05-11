@@ -97,6 +97,7 @@ public:
 
   bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned mask=~0) {  CpuMessage msg(nr, reg, mask, value & mask); return executor.send(msg); }
   enum {
+    EVENT_INTR   = 1 <<  0,
     EVENT_FIXED  = 1 <<  0,
     EVENT_LOWEST = 1 <<  1,
     EVENT_SMI    = 1 <<  2,
@@ -107,8 +108,8 @@ public:
     EVENT_SIPI   = 1 <<  6,
     EVENT_EXTINT = 1 <<  7,
     EVENT_MASK   =   0x0ff,
-    // SIPI vector bits 8-15
-    DEASS_EXTINT = 1 << 16,
+    // SIPI vector: bits 8-15
+    DEASS_INTR   = 1 << 16,
     EVENT_DEBUG  = 1 << 17,
     STATE_BLOCK  = 1 << 18,
     STATE_WAKEUP = 1 << 19

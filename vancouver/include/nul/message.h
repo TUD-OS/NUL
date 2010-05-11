@@ -218,9 +218,9 @@ struct MessageLegacy
       RESET,
       INIT,
       NMI,
-      EXTINT,
-      DEASS_EXTINT,
-      INTA
+      INTR,
+      DEASS_INTR,
+      INTA,
     } type;
   unsigned value;
   MessageLegacy(Type _type, unsigned _value=0) : type(_type), value(_value) {}

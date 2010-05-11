@@ -39,7 +39,8 @@ class Lapic : public DiscoveryHelper<Lapic>, public StaticReceiver<Lapic>
     OFS_TMR   = 256,
     OFS_IRR   = 512,
     LVT_BASE  = _TIMER_offset,
-    APIC_ADDR = 0xfee00000,
+    NUM_LVT   = 6,
+    APIC_ADDR = 0xfee00000
   };
 
 public:
@@ -57,8 +58,8 @@ private:
   unsigned  _vector[8*3];
   unsigned  _esr_shadow;
   unsigned  _isrv;
-  bool      _lvtds[6];
-  bool      _rirr[6];
+  bool      _lvtds[NUM_LVT];
+  bool      _rirr[NUM_LVT];
   unsigned  _lowest_rr;
 
 
@@ -72,6 +73,7 @@ private:
    * Handle an INIT signal.
    */
   void init() {
+    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     // INIT preserves the APIC ID
     unsigned old_id = _ID;
     Lapic_reset();
@@ -86,9 +88,7 @@ private:
     _esr_shadow = 0;
     _lowest_rr = 0;
 
-    // we deassert EXTINT as we masked LINT0
-    CpuEvent msg(VCpu::DEASS_EXTINT);
-    _vcpu->bus_event.send(msg);
+    update_irqs();
   }
 
 
@@ -96,6 +96,7 @@ private:
    * Reset the APIC to some default state.
    */
   void reset() {
+    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     init();
     _ID = _initial_apic_id << 24;
     _msr = 0;
@@ -257,9 +258,19 @@ private:
   }
 
   /**
-   * Check whether there is an IRQ above the processor prio to inject.
+   * Check whether there is an EXTINT in the LVTs or an IRQ above the
+   * processor prio to inject.
    */
   unsigned prioritize_irq() {
+
+    // EXTINT pending?
+    for (unsigned i=0; i < NUM_LVT; i++) {
+      unsigned lvt;
+      Lapic_read(i + LVT_BASE, lvt);
+      if (_lvtds[i] && ((1 << ((lvt >> 8) & 7)) == VCpu::EVENT_EXTINT))
+	return 0x100 | i;
+    }
+
     unsigned irrv = get_highest_bit(OFS_IRR);
     if (irrv && (irrv & 0xf0) > processor_prio()) return irrv;
     return 0;
@@ -271,11 +282,14 @@ private:
    */
   void update_irqs() {
     COUNTER_INC("update irqs");
-    CpuEvent msg(VCpu::EVENT_FIXED);
-    if (prioritize_irq()) {
-      COUNTER_INC("upstream");
-      _vcpu->bus_event.send(msg);
-    }
+
+
+    if (hw_disabled()) return;
+
+    // send our output line level upstream
+    CpuEvent msg(VCpu::EVENT_INTR);
+    if (!prioritize_irq()) msg.value = VCpu::DEASS_INTR;
+    _vcpu->bus_event.send(msg);
   }
 
 
@@ -347,7 +361,8 @@ private:
     }
 
     // LVT bits
-    if (in_range(offset, LVT_BASE, 6)) {
+    if (in_range(offset, LVT_BASE, NUM_LVT)) {
+      value &= ~(1 << 12);
       if (_lvtds[offset - LVT_BASE]) value |= 1 << 12;
       if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
     }
@@ -361,7 +376,7 @@ private:
     COUNTER_INC("lapic write");
     //if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31)
     //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
-    if (sw_disabled() && in_range(offset, LVT_BASE, 6))  value |= 1 << 16;
+    if (sw_disabled() && in_range(offset, LVT_BASE, NUM_LVT))  value |= 1 << 16;
     switch (offset) {
     case 0x9: // APR
     case 0xc: // RRD
@@ -390,21 +405,16 @@ private:
 
     // mask all entries on SVR writes
     if (offset == _SVR_offset && sw_disabled())
-      for (unsigned i=0; i < 6; i++) {
+      for (unsigned i=0; i < NUM_LVT; i++) {
 	register_read (i + LVT_BASE, value);
 	register_write(i + LVT_BASE, value, false);
       }
 
     // do side effects of a changed LVT entry
-    if (in_range(offset, LVT_BASE, 6)) {
+    if (in_range(offset, LVT_BASE, NUM_LVT)) {
       if (_lvtds[offset - LVT_BASE]) trigger_lvt(offset - LVT_BASE);
       if (offset == _TIMER_offset)   update_timer(_mb.clock()->time());
-
-      // send EXTINT deassert messages when LINT0 was masked
-      if (offset == _LINT0_offset && (value & (1 << LVT_MASK_BIT))) {
-	CpuEvent msg(VCpu::DEASS_EXTINT);
-	_vcpu->bus_event.send(msg);
-      }
+      update_irqs();
     }
     return res;
   }
@@ -414,7 +424,7 @@ private:
    * Trigger an LVT entry.
    */
   bool trigger_lvt(unsigned num){
-    assert(num < 6);
+    assert(num < NUM_LVT);
     unsigned lvt;
     Lapic_read(num + LVT_BASE, lvt);
     if (!num) COUNTER_INC("LVT0");
@@ -427,12 +437,12 @@ private:
     // do not accept more IRQs if no EOI was performed
     if (_rirr[num]) return true;
 
+    // level - set delivery status bit
+    if (level) _lvtds[num] = true;
+
     // masked irq?
-    if (lvt & (1 << LVT_MASK_BIT)) {
-      // level && masked - set delivery status bit
-      if (level) _lvtds[num] = true;
-      return true;
-    }
+    if (lvt & (1 << LVT_MASK_BIT))  return true;
+
 
     // perf IRQs are auto masked
     if (num == (_PERF_offset - LVT_BASE)) Cpu::atomic_set_bit(&_PERF, LVT_MASK_BIT);
@@ -441,8 +451,14 @@ private:
       // set Remote IRR on level triggered IRQs
       _rirr[num] = level;
       accept_vector(lvt, level, true);
+
+      // we have delivered it
+      _lvtds[num] = false;
     }
-    else if (event & (VCpu::EVENT_SMI | VCpu::EVENT_NMI | VCpu::EVENT_INIT | VCpu::EVENT_EXTINT)) {
+    else if (event & VCpu::EVENT_EXTINT)
+      // _lvtds is set, thus update_irqs will propagate this upstream
+      update_irqs();
+    else if (event & (VCpu::EVENT_SMI | VCpu::EVENT_NMI | VCpu::EVENT_INIT)) {
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
@@ -451,10 +467,6 @@ private:
      * It is not defined how invalid Delivery Modes are handled. We
      * simply drop SIPI, RRD and LOWEST here.
      */
-
-
-    // we have delivered it
-    _lvtds[num] = false;
     return true;
   }
 
@@ -556,9 +568,9 @@ public:
       accept_vector(msg.icr, msg.icr & MessageApic::ICR_LEVEL, msg.icr & MessageApic::ICR_ASSERT);
     else {
       if (event == VCpu::EVENT_SIPI) event |= (msg.icr & 0xff) << 8;
-      if (event == VCpu::EVENT_EXTINT && (msg.icr & 0xc000) == 0x8000) event = VCpu::DEASS_EXTINT;
 
       // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
+      //Logging::printf("LAPIC::got event %x\n", event);
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
@@ -571,7 +583,15 @@ public:
   bool  receive(LapicEvent &msg) {
     if (!hw_disabled() && msg.type == LapicEvent::INTA) {
       unsigned irrv = prioritize_irq();
-      if (irrv) {
+
+      // EXTINT from some LVT entry? -> we have delivered them
+      if (irrv & 0x100) {
+	_lvtds[irrv & 0xff] = false;
+
+	// the VCPU will send the INTA to the PIC itself, so nothing todo for us
+	return false;
+      }
+      else if (irrv) {
 	assert(irrv > _isrv);
 	Cpu::atomic_set_bit(_vector, OFS_IRR + irrv, false);
 	Cpu::set_bit(_vector, OFS_ISR + irrv);
@@ -579,6 +599,7 @@ public:
 	msg.value = irrv;
       } else
 	msg.value = _SVR & 0xff;
+      update_irqs();
     }
     else if (msg.type == LapicEvent::RESET)
       reset();
@@ -617,7 +638,7 @@ public:
 
     // WRMSR
     if (msg.type == CpuMessage::TYPE_WRMSR) {
-      //Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
+      Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
 
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b)  return set_base_msr(msg.cpu->edx_eax());
@@ -657,21 +678,21 @@ public:
    */
   bool  receive(MessageLegacy &msg) {
 
-    if (hw_disabled())  return false;
-
-    // the legacy PIC output and NMI are on LINT0/1
-    if (msg.type == MessageLegacy::EXTINT)
-      return trigger_lvt(_LINT0_offset - LVT_BASE);
-
-    if (msg.type == MessageLegacy::NMI)
-      return trigger_lvt(_LINT1_offset - LVT_BASE);
-
-    if (msg.type == MessageLegacy::DEASS_EXTINT) {
-
-      CpuEvent msg(VCpu::DEASS_EXTINT);
-      return _vcpu->bus_event.send(msg);
+    // the legacy PIC output is level triggered and wired to LINT0
+    if (msg.type == MessageLegacy::INTR) {
+      _lvtds[_LINT0_offset - LVT_BASE] = true;
+      if (!hw_disabled()) trigger_lvt(_LINT0_offset - LVT_BASE);
     }
-    return false;
+    else if (msg.type == MessageLegacy::DEASS_INTR) {
+      _lvtds[_LINT0_offset - LVT_BASE] = false;
+      update_irqs();
+    }
+    // NMIs are received on LINT1
+    else if (!hw_disabled() && msg.type == MessageLegacy::NMI)
+      return trigger_lvt(_LINT1_offset - LVT_BASE);
+    else
+      return false;
+    return true;
   }
 
 
@@ -775,9 +796,7 @@ REGSET(Lapic,
        REG_RW(_TPR,           0x08,          0, 0xff,)
        REG_RW(_LDR,           0x0d,          0, 0xff000000,)
        REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000,)
-       REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,
-	      for (unsigned i=0; i < 6; i++)
-		if (_lvtds[i]) trigger_lvt(i);)
+       REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,     update_irqs();)
        REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0); return !value; )
        REG_RW(_ICR,           0x30,          0, 0x000ccfff, if (!send_ipi(_ICR, _ICR1)) COUNTER_INC("IPI missed");)
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)

@@ -150,7 +150,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     unsigned char dummy;
     if (prioritize_irq(dummy, false)) {
       if (!_virq) {
-	MessageLegacy msg(MessageLegacy::EXTINT, 0);
+	MessageLegacy msg(MessageLegacy::INTR, 0);
 	_bus_legacy.send(msg);
       }
       else {
@@ -159,7 +159,7 @@ class PicDevice : public StaticReceiver<PicDevice>
       }
     }
     else if (send_deassert && !_virq) {
-      MessageLegacy msg(MessageLegacy::DEASS_EXTINT, 0);
+      MessageLegacy msg(MessageLegacy::DEASS_INTR, 0);
       _bus_legacy.send(msg);
     }
   }
@@ -199,7 +199,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     unsigned char vec;
     get_irqvector(vec);
     msg.value = vec;
-    propagate_irq(false);
+    propagate_irq(true);
     return true;
   }
 

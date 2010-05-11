@@ -155,7 +155,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     // send LAPIC init
     LapicEvent msg2(reset ? LapicEvent::RESET : LapicEvent::INIT);
-    bus_lapic.send(msg2);
+    bus_lapic.send(msg2, true);
   }
 
 
@@ -222,6 +222,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     // NMI
     if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
+      Logging::printf("inject NMI %x\n", old_event);
       cpu->inj_info = 0x80000202;
       cpu->actv_state = 0;
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_NMI);
@@ -231,24 +232,20 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     // if we can not inject interrupts or if we are in shutdown state return
     if (cpu->inj_info & 0x80000000 || cpu->intr_state & 0x3 || ~cpu->efl & 0x200 || cpu->actv_state == 2) return;
 
-
-    // APIC interrupt?
-    if (old_event & EVENT_FIXED) {
-      LapicEvent msg2(LapicEvent::INTA);
-      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_FIXED);
-      if (bus_lapic.send(msg2)) {
-	cpu->inj_info = msg2.value | 0x80000000;
-      }
-      cpu->actv_state = 0;
-    }
-    else if (old_event & EVENT_EXTINT) {
+    LapicEvent msg2(LapicEvent::INTA);
+    if (old_event & EVENT_EXTINT) {
+      // EXTINT IRQ via MSI or IPI: INTA directly from the PIC
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_EXTINT);
-      MessageLegacy msg2(MessageLegacy::INTA, ~0u);
-      if (_mb.bus_legacy.send(msg2)) {
-	cpu->inj_info = msg2.value | 0x80000000;
-      }
-      cpu->actv_state = 0;
+      receive(msg2);
     }
+    else if (old_event & EVENT_INTR) {
+      // interrupt from the APIC or directly via INTR line - INTA via LAPIC
+      // do not clear EVENT_INTR here, as the PIC and the LAPIC will do this for us
+      bus_lapic.send(msg2, true);
+    } else return;
+
+    cpu->inj_info = msg2.value | 0x80000000;
+    cpu->actv_state = 0;
   }
 
   void handle_irq(CpuMessage &msg) {
@@ -300,8 +297,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void got_event(unsigned value) {
     COUNTER_INC("EVENT");
 
-    //if (debug) dprintf("got event %x old %x\n", value, _event);
-    if (value & DEASS_EXTINT) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_EXTINT);
+    if (value & DEASS_INTR) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_INTR);
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state
@@ -317,9 +313,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
        * not wakeup the client.
        */
       if (Cpu::cmpxchg(&_sipi, 0, value)) return;
+
     Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
-    //if ((value & EVENT_MASK) == EVENT_SIPI)
-    //dprintf("wakeup thread %x sipi %x\n", _event, _sipi);
+
+
     MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
     _mb.bus_hostop.send(msg);
   }
@@ -342,10 +339,10 @@ public:
     // BSP receives only legacy signals if the LAPIC is disabled
     if (is_ap() || CPUID_EDX1 & (1 << 9)) return false;
 
-    if (msg.type == MessageLegacy::EXTINT)
-      got_event(EVENT_EXTINT);
-    else if (msg.type == MessageLegacy::DEASS_EXTINT)
-      got_event(DEASS_EXTINT);
+    if (msg.type == MessageLegacy::INTR)
+      got_event(EVENT_INTR);
+    else if (msg.type == MessageLegacy::DEASS_INTR)
+      got_event(DEASS_INTR);
     else if (msg.type == MessageLegacy::NMI)
       got_event(EVENT_NMI);
     else if (msg.type == MessageLegacy::INIT)
@@ -354,6 +351,19 @@ public:
     return true;
   }
 
+  /**
+   * Handle the INTA ourself in the case that there is no LAPIC or it
+   * is HW disabled.
+   */
+  bool  receive(LapicEvent &msg) {
+    if (msg.type == LapicEvent::INTA) {
+      MessageLegacy msg2(MessageLegacy::INTA, msg.value);
+      if (_mb.bus_legacy.send(msg2))
+	msg.value = msg2.value;
+      return true;
+    }
+    return false;
+  }
 
 
   bool receive(CpuMessage &msg) {
@@ -405,7 +415,7 @@ public:
 	assert(msg.mtr_out & MTD_INJ);
 	unsigned new_event = _event;
 	msg.cpu->inj_info &= ~INJ_WIN;
-	if (new_event & (EVENT_EXTINT | EVENT_FIXED))  msg.cpu->inj_info |= INJ_IRQWIN;
+	if (new_event & EVENT_INTR)                    msg.cpu->inj_info |= INJ_IRQWIN;
 	if (new_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
 	//if (debug) dprintf("CHECK IRQ %x inj %x\n", _event, msg.cpu->inj_info);
       }
@@ -440,6 +450,7 @@ public:
     mem.      add(this, &VirtualCpu::receive_static<MessageMem>);
     memregion.add(this, &VirtualCpu::receive_static<MessageMemRegion>);
     mb.bus_legacy.add(this, &VirtualCpu::receive_static<MessageLegacy>);
+    bus_lapic.add(this, &VirtualCpu::receive_static<LapicEvent>);
 
     CPUID_reset();
  }

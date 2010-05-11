@@ -87,6 +87,13 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
     // init platform
     if (bsp) {
+      // LAPIC->LINT0 as ExtInt
+      unsigned lint0 = 0x700;
+      MessageMem msg0(false, 0xfee00350, &lint0);
+      vcpu->mem.send(msg0);
+
+
+
       // initialize PIT0
       // let counter0 count with minimal freq of 18.2hz
       outb(0x40+3, 0x24);
@@ -95,7 +102,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       // let counter1 generate 15usec refresh cycles
       outb(0x40+3, 0x56);
       outb(0x40+1, 0x12);
-
 
       // the master PIC
       // ICW1-4+IMR
@@ -112,22 +118,24 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
       outb(0xa0+1, 0xff);
 
+
+
       // INIT resources
       memset(_resources, 0, sizeof(_resources));
 
-      MessageMemRegion msg(0);
-      check0(!_mb.bus_memregion.send(msg) || !msg.ptr || !msg.count, "no low memory available");
+      MessageMemRegion msg1(0);
+      check0(!_mb.bus_memregion.send(msg1) || !msg1.ptr || !msg1.count, "no low memory available");
 
       // were we start to allocate stuff
-      _mem_ptr = msg.ptr;
-      _mem_size = msg.count << 12;
+      _mem_ptr = msg1.ptr;
+      _mem_size = msg1.count << 12;
 
       // we use the lower 640k of memory
       if (_mem_size > 0xa0000) _mem_size = 0xa0000;
 
       // trigger discovery
-      MessageDiscovery msg1;
-      _mb.bus_discovery.send_fifo(msg1);
+      MessageDiscovery msg2;
+      _mb.bus_discovery.send_fifo(msg2);
 
       // store what remains on memory in KB
       discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
