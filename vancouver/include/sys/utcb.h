@@ -62,7 +62,7 @@ struct Utcb
 	  GREG16(si);
 	  GREG16(di);
 	};
-	unsigned gpr[];
+	unsigned gpr[8];
       };
       unsigned     efl;
       unsigned     eip;
@@ -86,7 +86,7 @@ struct Utcb
       unsigned long long tsc_off;
       unsigned     inst_len;
       unsigned     sysenter_cs, sysenter_esp, sysenter_eip;
-      unsigned     items[];
+      unsigned     items[1];
     };
     unsigned msg[1024 - sizeof(struct head) / sizeof(unsigned)];
   };
