@@ -87,7 +87,7 @@ class Cpu
     unsigned shift = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
     if (shift < minshift) minshift = shift;
     shift = Cpu::bsr(size | 1);
-    if (shift < minshift) minshift = shift;
+    if (shift < minshift) return shift;
     return minshift;
   }
 
