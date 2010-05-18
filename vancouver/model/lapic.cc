@@ -127,6 +127,9 @@ private:
       CpuMessage msg[] = {
 	// update CPUID leaf 1 EDX
 	CpuMessage (1, 3, ~(1 << 9), apic_enabled << 9),
+	// support for X2Apic
+	CpuMessage(1,  2, ~(1 << 21), apic_enabled << 21),
+
       };
       for (unsigned i=0; i < sizeof(msg) / sizeof(*msg); i++)
 	_vcpu->executor.send(msg[i]);
@@ -766,8 +769,6 @@ public:
       // propagate initial APIC id
       CpuMessage(1,  1, 0xffffff, _initial_apic_id << 24),
       CpuMessage(11, 3, 0, _initial_apic_id),
-      // support for X2Apic
-      CpuMessage(1,  2, ~(1 << 21), 1 << 21),
       // support for APIC timer that does not sleep in C-states
       CpuMessage(6, 0, ~(1 << 2), 1 << 2),
     };
