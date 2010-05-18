@@ -93,8 +93,8 @@ class HostVesa : public StaticReceiver<HostVesa>
       {
 	_instructions++;
 	if (_debug & 2)
-	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
-			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp);
+	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x efl %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
+			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp, _cpu.efl);
 	if (!_mb.last_vcpu->executor.send(msg))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
       }
@@ -110,6 +110,7 @@ class HostVesa : public StaticReceiver<HostVesa>
   void add_mode(unsigned short mode, unsigned seg, unsigned min_attributes)
   {
     Vbe::ModeInfoBlock *modeinfo = reinterpret_cast<Vbe::ModeInfoBlock *>(_mem + (seg << 4));
+    //Logging::printf("[%2x] %03x attr %x res %dx%d\n", _modecount, mode, modeinfo->attr, modeinfo->resolution[0], modeinfo->resolution[1]);
     if ((modeinfo->attr & min_attributes) == min_attributes)
       {
 	// keeep vesa modenumber for further reference
@@ -247,8 +248,9 @@ public:
 
     // we need only the version from the InfoBlock
     _version = p->version;
-    Logging::printf("VBE version %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n",
+    Logging::printf("VBE version %x tag %x memsize %x oem '%s' vendor '%s' product '%s' version '%s'\n",
 		    p->version,
+		    p->tag,
 		    p->memory << 16,
 		    vbe_to_ptr<char *>(p->oem_string),
 		    vbe_to_ptr<char *>(p->oem_vendor),

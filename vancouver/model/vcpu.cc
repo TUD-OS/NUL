@@ -237,7 +237,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     }
     else if (old_event & EVENT_INTR) {
       // interrupt from the APIC or directly via INTR line - INTA via LAPIC
-      // do not clear EVENT_INTR here, as the PIC and the LAPIC will do this for us
+      // do not clear EVENT_INTR here, as the PIC or the LAPIC will do this for us
       bus_lapic.send(msg2, true);
     } else return;
 

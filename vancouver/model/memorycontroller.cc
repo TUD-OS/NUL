@@ -41,6 +41,8 @@ public:
 
   bool  receive(MessageMemRegion &msg)
   {
+    //if (msg.page >= 0x30 && msg.page < 0xa0) return false;
+    //Logging::printf("MEM region %lx\n", msg.page);
     if ((msg.page < (_start >> 12)) || (msg.page >= (_end >> 12)))  return false;
     msg.start_page = _start >> 12;
     msg.count = (_end - _start) >> 12;

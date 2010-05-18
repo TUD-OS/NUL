@@ -383,6 +383,8 @@ private:
     COUNTER_INC("lapic write");
     //if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31)
     //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
+
+    // XXX
     if (sw_disabled() && in_range(offset, LVT_BASE, NUM_LVT))  value |= 1 << 16;
     switch (offset) {
     case 0x9: // APR
@@ -460,6 +462,7 @@ private:
       accept_vector(lvt, level, true);
 
       // we have delivered it
+      // XXX what about level triggered LVT0 DS?
       _lvtds[num] = false;
     }
     else if (event & VCpu::EVENT_EXTINT)
@@ -488,7 +491,12 @@ private:
     if (x2apic_mode()) {
       // broadcast?
       if (msg.dst == ~0u)    return true;
-
+#if 0
+      Logging::printf("IPI2[%d] %x %x LDR %x _ID %x %x %x %x\n", _initial_apic_id, msg.dst, msg.icr, x2apic_ldr(), _ID,
+		      1 << (msg.dst & 0xf),
+		      x2apic_ldr() & (1 << (msg.dst & 0xf)),
+		      !((x2apic_ldr() ^ msg.dst) & 0xffff0000));
+#endif
       // physical DM
       if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
 
@@ -565,6 +573,7 @@ public:
    */
   bool  receive(MessageApic &msg) {
     if (!accept_message(msg)) return false;
+    //Logging::printf("LAPIC accept IPI %x dst %x\n", msg.icr, msg.dst);
     assert(!(msg.icr & ~0xcfff));
     unsigned event = 1 << ((msg.icr >> 8) & 7);
 
@@ -591,8 +600,9 @@ public:
     if (!hw_disabled() && msg.type == LapicEvent::INTA) {
       unsigned irrv = prioritize_irq();
 
-      // EXTINT from some LVT entry? -> we have delivered them
       if (irrv & 0x100) {
+	// EXTINT from some LVT entry? -> we have delivered them
+	// XXX what about level triggered _LINT0-ds?
 	_lvtds[irrv & 0xff] = false;
 
 	// the VCPU will send the INTA to the PIC itself, so nothing todo for us
@@ -645,7 +655,7 @@ public:
 
     // WRMSR
     if (msg.type == CpuMessage::TYPE_WRMSR) {
-      Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
+      //Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
 
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b)  return set_base_msr(msg.cpu->edx_eax());
