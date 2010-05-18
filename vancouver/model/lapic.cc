@@ -494,7 +494,7 @@ private:
 
       // logical DM
       unsigned ldr = x2apic_ldr();
-      return !((ldr ^ msg.dst) & 0xffff0000) && ldr & (1 << (msg.dst & 0xf));
+      return !((ldr ^ msg.dst) & 0xffff0000) && ldr & msg.dst & 0xffff;
     }
 
     unsigned dst = msg.dst << 24;
