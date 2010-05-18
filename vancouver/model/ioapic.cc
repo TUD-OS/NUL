@@ -35,6 +35,7 @@ public:
     OFFSET_PAR  = 0x20,
     OFFSET_EOI  = 0x40,
     PINS        = 24,
+    EXTINT_PIN  = 0,
     NMI_PIN     = 23,
   };
   Motherboard &_mb;
@@ -92,7 +93,6 @@ private:
   void write_data(unsigned value) {
     if (in_range(_index, 0x10, 0x3f)) {
       unsigned mask = (_index & 1) ? 0xffff0000 : 0x1afff;
-      unsigned old  = _redir[_index - 0x10];
       _redir[_index - 0x10] = value & mask;
       unsigned pin = (_index - 0x10) / 2;
 
@@ -104,15 +104,6 @@ private:
 	// unmasked - retrigger and/or notify
 	if (~_redir[pin * 2] & 0x10000 && _ds[pin])
 	  pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
-
-	// was unmasked EXTINT and is it not anymore
-	if (!(_index & 1) && (old & 0x10700) == 0x700 && (_redir[pin * 2] & 0x10700) != 0x700) {
-	  // we send a broadcast EXTINT level deassert message
-	  value = 0x8700;
-	  MessageMem mem(false, MessageMem::MSI_ADDRESS | 0xffff0, &value);
-	  _mb.bus_mem.send(mem);
-	}
-
       }
       else {
 	// unmasked an edge triggered IRQ? -> notify
@@ -195,13 +186,11 @@ private:
       _ds[i]        = false;
       _rirr[i]      = false;
     }
-#if 0
     // enable virtual wire mode?
     if (!_gsibase) {
-      _redir[2*0]     = 0x700;
-      _redir[2*23]    = 0x400;
+      _redir[2*0]     = 0x10700;
+      _redir[2*23]    = 0x10400;
     }
-#endif
     _id = 0;
     _index = 0;
   }
@@ -233,7 +222,7 @@ public:
 
   bool  receive(MessageIrq &msg) {
     if (!in_range(msg.line, _gsibase, PINS)) return false;
-    //Logging::printf("IRQ %x type %x\n", msg.line, msg.type);
+    //if (msg.line) Logging::printf("IRQ %x type %x\n", msg.line, msg.type);
     COUNTER_INC("GSI");
     pin_assert(irq_routing(msg.line), msg.type);
     return true;
@@ -241,10 +230,10 @@ public:
 
 
   bool  receive(MessageLegacy &msg) {
-    if (msg.type == MessageLegacy::NMI && !_gsibase) return pin_assert(NMI_PIN, MessageIrq::ASSERT_IRQ);
-    #if 0
-    if (msg.type == MessageLegacy::EXTINT) return pin_assert(_gsibase + 0,  MessageIrq::ASSERT_IRQ);
-    #endif
+    if (!_gsibase) {
+      if (msg.type == MessageLegacy::INTR)   return pin_assert(EXTINT_PIN,  MessageIrq::ASSERT_IRQ);
+      if (msg.type == MessageLegacy::NMI)    return pin_assert(NMI_PIN,     MessageIrq::ASSERT_IRQ);
+    }
     if (msg.type == MessageLegacy::RESET)  { reset(); return true; }
     return false;
   }
