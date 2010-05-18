@@ -87,9 +87,9 @@ const char * Vprintf::handle_formatstring(PutcFunction putc, void *data, const c
 	  break;
 	case 's':
 	  {
-	    const char *s = va_arg(ap, const char *);
+	    const unsigned char *s = va_arg(ap, const unsigned char *);
 	    if (!s)
-	      s = "<null>";
+	      s = reinterpret_cast<const unsigned char *>("<null>");
 	    if (!pad)
 	      pad = -1;
 	    pad>>=1;
@@ -125,10 +125,10 @@ const char * Vprintf::handle_formatstring(PutcFunction putc, void *data, const c
 	    put_number(putc, data, va_arg(ap, unsigned long), 10, pad);
 	  return ++format;
 	case 'c':
-	  putc(data, va_arg(ap, int));
+	  putc(data, va_arg(ap, unsigned));
 	  return ++format;
 	case '%':
-	  putc(data, *format);
+	  putc(data, *format & 0xff);
 	  return ++format;
 	case 0:
 	  return format;
