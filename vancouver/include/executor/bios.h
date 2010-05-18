@@ -68,6 +68,13 @@ protected:
     return true;
   }
 
+  bool jmp_hlt(MessageBios &msg)
+  {
+    msg.cpu->eip--;
+    return true;
+  }
+
+
   /**
    * Set the usual error indication.
    */

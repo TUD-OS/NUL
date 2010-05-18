@@ -104,7 +104,10 @@ public:
     _resetvector[0x3] = (BIOS_BASE >> 4) & 0xff;
     _resetvector[0x4] = BIOS_BASE >> 12;
 
-    // the iret for do_iret()
+    // the hlt for do_hlt()
+    _resetvector[0xe] = 0xf4;
+
+    // the iret that is the default operation
     _resetvector[0xf] = 0xcf;
     _vcpu->executor.add(this,   &VBios::receive_static<CpuMessage>);
     _vcpu->mem.add(this,        &VBios::receive_static<MessageMem>);

@@ -56,9 +56,13 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
   /**
    * called on reset.
    */
-  void reset_helper(CpuState *state, VCpu *vcpu)
+  bool reset_helper(MessageBios &msg)
   {
+    CpuState *state = msg.cpu;
+    VCpu *vcpu = msg.vcpu;
+
     bool bsp = !vcpu->get_last();
+    Logging::printf("%s %x\n", __func__, bsp);
 
     // the APIC
     state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
@@ -67,79 +71,71 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     CpuMessage msg1(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
     vcpu->executor.send(msg1, true);
 
-    // enable LINT0, LINT1 and SVR
-    unsigned m[] = { 0x700, 0x400, 0x1ff};
-    MessageMem msg[] = {
-      MessageMem(false, 0xfee00350, m+0),
-      MessageMem(false, 0xfee00360, m+1),
-      MessageMem(false, 0xfee000f0, m+2),
+
+    // enable SVR, LINT0, LINT1
+    unsigned m[] = { 0x1ff, bsp ? 0x700 : 0x10700, 0x400};
+    MessageMem msg2[] = {
+      MessageMem(false, 0xfee000f0, m+0),
+      MessageMem(false, 0xfee00350, m+1),
+      MessageMem(false, 0xfee00360, m+2),
     };
-    for (unsigned j=0; j < sizeof(msg) / sizeof(*msg); j++)  vcpu->mem.send(msg[j], true);
+    for (unsigned j=0; j < sizeof(msg2) / sizeof(*msg2); j++)  vcpu->mem.send(msg2[j], true);
 
 
-    // lapic mode
-    state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
-    state->edx = 0;
-    state->ecx = 0x1b;
-    CpuMessage msg3(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
-    vcpu->executor.send(msg3, true);
+    // switch to x2apic mode
+    state->eax = 0xfee00c00 | (bsp ? 0x100 : 0);
+    vcpu->executor.send(msg1, true);
 
+    if (!bsp) return jmp_hlt(msg);
 
-    // init platform
-    if (bsp) {
-      // LAPIC->LINT0 as ExtInt
-      unsigned lint0 = 0x700;
-      MessageMem msg0(false, 0xfee00350, &lint0);
-      vcpu->mem.send(msg0);
+    // we are a BSP and init the platform
 
+    // initialize PIT0
+    // let counter0 count with minimal freq of 18.2hz
+    outb(0x40+3, 0x24);
+    outb(0x40+0, 0);
 
+    // let counter1 generate 15usec refresh cycles
+    outb(0x40+3, 0x56);
+    outb(0x40+1, 0x12);
 
-      // initialize PIT0
-      // let counter0 count with minimal freq of 18.2hz
-      outb(0x40+3, 0x24);
-      outb(0x40+0, 0);
+    // the master PIC
+    // ICW1-4+IMR
+    outb(0x20+0, 0x11);
+    outb(0x20+1, 0x08); // offset 0x08
+    outb(0x20+1, 0x04); // has slave on 2
+    outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
+    outb(0x20+1, 0xfc);
 
-      // let counter1 generate 15usec refresh cycles
-      outb(0x40+3, 0x56);
-      outb(0x40+1, 0x12);
-
-      // the master PIC
-      // ICW1-4+IMR
-      outb(0x20+0, 0x11);
-      outb(0x20+1, 0x08); // offset 0x08
-      outb(0x20+1, 0x04); // has slave on 2
-      outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
-      outb(0x20+1, 0xfc);
-
-      // the slave PIC + IMR
-      outb(0xa0+0, 0x11);
-      outb(0xa0+1, 0x70); // offset 0x70
-      outb(0xa0+1, 0x02); // is slave on 2
-      outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
-      outb(0xa0+1, 0xff);
+    // the slave PIC + IMR
+    outb(0xa0+0, 0x11);
+    outb(0xa0+1, 0x70); // offset 0x70
+    outb(0xa0+1, 0x02); // is slave on 2
+    outb(0xa0+1, 0x0b); // is buffer, slave, AEOI and x86
+    outb(0xa0+1, 0xff);
 
 
 
-      // INIT resources
-      memset(_resources, 0, sizeof(_resources));
+    // INIT resources
+    memset(_resources, 0, sizeof(_resources));
 
-      MessageMemRegion msg1(0);
-      check0(!_mb.bus_memregion.send(msg1) || !msg1.ptr || !msg1.count, "no low memory available");
+    MessageMemRegion msg3(0);
+    check1(false, !_mb.bus_memregion.send(msg3) || !msg3.ptr || !msg3.count, "no low memory available");
 
-      // were we start to allocate stuff
-      _mem_ptr = msg1.ptr;
-      _mem_size = msg1.count << 12;
+    // were we start to allocate stuff
+    _mem_ptr = msg3.ptr;
+    _mem_size = msg3.count << 12;
 
-      // we use the lower 640k of memory
-      if (_mem_size > 0xa0000) _mem_size = 0xa0000;
+    // we use the lower 640k of memory
+    if (_mem_size > 0xa0000) _mem_size = 0xa0000;
 
-      // trigger discovery
-      MessageDiscovery msg2;
-      _mb.bus_discovery.send_fifo(msg2);
+    // trigger discovery
+    MessageDiscovery msg4;
+    _mb.bus_discovery.send_fifo(msg4);
 
-      // store what remains on memory in KB
-      discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
-    }
+    // store what remains on memory in KB
+    discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
+    return jmp_int(msg, 0x19);
   }
 
 
@@ -243,8 +239,7 @@ public:
   bool  receive(MessageBios &msg) {
     switch(msg.irq) {
     case RESET_VECTOR:
-      reset_helper(msg.cpu, msg.vcpu);
-      return jmp_int(msg, 0x19);
+      return reset_helper(msg);
     default:    return false;
     }
   }

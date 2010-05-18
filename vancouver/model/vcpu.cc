@@ -181,9 +181,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_RESET);
       handle_cpu_init(msg, true);
 
-      // are we an AP and should go to the wait-for-sipi state?
-      if (is_ap()) old_event |= EVENT_INIT;
-
       // fall through as we could have got an INIT or SIPI already
     }
 
@@ -301,8 +298,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state
-    if ((value & EVENT_MASK) == EVENT_INIT ||
-	(value & EVENT_MASK) == EVENT_RESET && is_ap())
+    if ((value & EVENT_MASK) == EVENT_INIT)
       _sipi = 0;
 
 
