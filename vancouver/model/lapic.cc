@@ -74,10 +74,12 @@ private:
    */
   void init() {
     Logging::printf("%s\n", __PRETTY_FUNCTION__);
-    // INIT preserves the APIC ID
+    // INIT preserves the APIC ID and the LINT0 level
+    bool lint0 = _lvtds[_LINT0_offset - LVT_BASE];
     unsigned old_id = _ID;
+
+    // reset regs
     Lapic_reset();
-    _ID = old_id;
 
     // init dynamic state
     _timer_dcr_shift = 1 + _timer_clock_shift;
@@ -87,6 +89,11 @@ private:
     _isrv = 0;
     _esr_shadow = 0;
     _lowest_rr = 0;
+
+
+    _ID = old_id;
+    _lvtds[_LINT0_offset - LVT_BASE] = lint0;
+
 
     update_irqs();
   }
