@@ -18,6 +18,9 @@
 #include "nul/motherboard.h"
 #include "executor/bios.h"
 
+bool use_x2apic_mode;
+PARAM(x2apic_mode, use_x2apic_mode = true, "x2apic_mode - enable x2apic mode in the LAPICs")
+
 /**
  * Virtual Bios reset routines.
  * Features: init of PIC, PIT, bda+ebda, ACPI tables
@@ -82,9 +85,12 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     for (unsigned j=0; j < sizeof(msg2) / sizeof(*msg2); j++)  vcpu->mem.send(msg2[j], true);
 
 
-    // switch to x2apic mode
-    state->eax = 0xfee00c00 | (bsp ? 0x100 : 0);
-    vcpu->executor.send(msg1, true);
+    // switch to x2apic mode?
+    if (use_x2apic_mode) {
+      state->eax = 0xfee00c00 | (bsp ? 0x100 : 0);
+      vcpu->executor.send(msg1, true);
+    }
+
 
     if (!bsp) return jmp_hlt(msg);
 
