@@ -95,7 +95,7 @@ public:
   VCpu *get_last() { return _last; }
   bool is_ap()     { return _last; }
 
-  bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned mask=~0) {  CpuMessage msg(nr, reg, mask, value & mask); return executor.send(msg); }
+  bool set_cpuid(unsigned nr, unsigned reg, unsigned value, unsigned mask=~0) {  CpuMessage msg(nr, reg, ~mask, value & mask); return executor.send(msg); }
   enum {
     EVENT_INTR   = 1 <<  0,
     EVENT_FIXED  = 1 <<  0,
