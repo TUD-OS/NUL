@@ -240,7 +240,7 @@ private:
 	//Logging::printf("Irq message #%x  %x\n", msg.line, msg.type);
 
 	// MSI enabled?
-	if (_cfgspace[_msi_cap] & 0x10000) {
+	if (_msi_cap && _cfgspace[_msi_cap] & 0x10000) {
 	  unsigned idx = _msi_cap;
 	  unsigned long long msi_address;
 	  msi_address = _cfgspace[++idx];
@@ -334,7 +334,7 @@ private:
     return false;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
+  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, bool use_irqs=true, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
   {
     _vf = parent_bdf != 0;
@@ -364,12 +364,12 @@ private:
 	_cfgspace[i + BAR0] = bases[i];
     }
 
-    _msi_cap  = find_cap(_bdf, CAP_MSI);
+    _msi_cap  = use_irqs ? find_cap(_bdf, CAP_MSI) : 0;
     _msi_64bit = false;
-    _msix_cap = find_cap(_bdf, CAP_MSIX);
+    _msix_cap = use_irqs ? find_cap(_bdf, CAP_MSIX) : 0;
     _msix_bar = ~0;
-    _irq_count = 1;
-    if (_msi_cap)  {
+    _irq_count = use_irqs ? 1 : 0;
+   if (_msi_cap)  {
       _irq_count = 1 << ((_cfgspace[_msi_cap] >> 1) & 0x7);
       _msi_64bit = _cfgspace[_msi_cap] & 0x800000;
       // disable MSI
@@ -388,7 +388,7 @@ private:
     _host_irqs = new unsigned[_irq_count];
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
-      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _bdf, i, i ? false : true, _msix_host_table);
+      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _bdf, i, false, _msix_host_table);
     dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
     mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
     mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
@@ -397,7 +397,7 @@ private:
     if (map)
       mb.bus_memregion.add(this, &DirectPciDevice::receive_static<MessageMemRegion>);
     mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);
-    mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
+    //mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
   }
 };
 
@@ -410,13 +410,14 @@ PARAM(dpci,
 	check0(!bdf, "search_device(%lx,%lx,%lx) failed", argv[0], argv[1], argv[2]);
 	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], bdf);
 
-	new DirectPciDevice(mb, bdf, argv[3], argv[4]);
+	new DirectPciDevice(mb, bdf, argv[3], argv[4], argv[5]);
       },
-      "dpci:class,subclass,instance,bdf,assign=1 - makes the specified hostdevice directly accessible to the guest.",
+      "dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
       "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.",
-      "if assign is zero, the BDF is not assigned via the IOMMU and can not do DMA and MSIs.")
+      "if assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.",
+      "if irq is zero, IRQs are disabled.")
 
 
 #include "host/hostvf.h"
@@ -432,7 +433,7 @@ PARAM(vfpci,
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], true, parent_bdf, vf_no, true);
+	new DirectPciDevice(mb, 0, argv[2], true, true, parent_bdf, vf_no, true);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "if no guest_bdf is given, a free one is used.")
