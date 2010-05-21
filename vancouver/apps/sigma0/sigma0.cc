@@ -128,21 +128,22 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     return MessageDisk::DISK_STATUS_BUSY;
   }
 
-
-  bool attach_irq(unsigned gsi)
+  bool attach_irq(unsigned gsi, unsigned sm_cap)
   {
     Logging::printf("create ec for gsi %x\n", gsi);
     Utcb *u;
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
-    u->msg[0] =  _hip->cfg_exc + (gsi & 0xff);
+    u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
     return !create_sc(_cap_free++, cap, Qpd(3, 10000));
   }
 
 
-  void attach_msi(MessageHostOp *msg, unsigned cpunr) {
+  unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
-    assign_gsi(_hip->cfg_exc + msg->msi_gsi, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
+    unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
+    assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
+    return irq_cap;
   }
 
 
@@ -320,7 +321,17 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
     // get all ioports
-    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), 2);
+    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), 0x1c | 2);
+
+    // map all IRQs
+    utcb->head.crd = Crd(0, 31).value();
+    for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
+      utcb->msg[gsi * 2 + 0] = hip->cfg_exc + 3 + gsi;
+      utcb->msg[gsi * 2 + 1] = Crd(gsi, 0, 0x1c | 3).value();
+    }
+    unsigned res;
+    if ((res = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(hip->cfg_gsi * 2, 0))))
+      Logging::panic("map IRQ semaphore() failed = %x", res);
     return 0;
   };
 
@@ -721,16 +732,19 @@ public:
     switch (msg.type)
       {
       case MessageHostOp::OP_ATTACH_MSI:
-	attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
-	res = attach_irq(msg.msi_gsi);
+	{
+	  unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
+	  res = attach_irq(msg.msi_gsi, cap);
+	}
 	break;
       case MessageHostOp::OP_ATTACH_IRQ:
 	{
 	  unsigned gsi = msg.value & 0xff;
 	  if (_gsi & (1 << gsi)) return true;
 	  _gsi |=  1 << gsi;
-	  assign_gsi(_hip->cfg_exc + gsi, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(gsi);
+	  unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
+	  assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
+	  res = attach_irq(gsi, irq_cap);
 	}
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:

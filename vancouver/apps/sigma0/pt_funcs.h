@@ -33,22 +33,27 @@ PT_FUNC(do_thread_startup,
 	utcb->eip = reinterpret_cast<unsigned long>(&do_gsi_wrapper);
 	)
 PT_FUNC_NORETURN(do_gsi,
-		 bool shared = utcb->msg[1] >> 8;
 		 unsigned char res;
-		 unsigned irq = utcb->msg[0];
+		 unsigned gsi = utcb->msg[1] & 0xff;
+		 bool shared = utcb->msg[1] >> 8;
+		 unsigned cap_irq = utcb->msg[0];
 		 {
 		   SemaphoreGuard s(_lock);
-		   Logging::printf("%s(%x) initial vec %x\n", __func__, irq,  utcb->msg[1]);
+		   Logging::printf("%s(%x) initial vec %x\n", __func__, cap_irq,  gsi);
 		 }
-		 MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
-		 while (!(res = semdown(irq)))
+		 MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
+		 while (!(res = semdown(cap_irq)))
 		   {
 		     SemaphoreGuard s(_lock);
 		     _mb->bus_hostirq.send(msg);
 		     if (msg.line == 1)
 		       COUNTER_SET("absto", _timeouts.timeout());
 		   }
-		 Logging::panic("%s(%x) request failed with %x\n", __func__, irq, res);
+		 {
+		   SemaphoreGuard s(_lock);
+		   Logging::printf("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
+		 }
+		 Logging::panic("failed");
 		 )
 PT_FUNC(do_startup,
 	unsigned short client = (pid & 0xffe0) >> 5;
@@ -125,8 +130,10 @@ PT_FUNC(do_request,
 		  Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
 		break;
 	      case REQUEST_IRQ:
-		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= _hip->cfg_exc && (utcb->msg[2] >> Utcb::MINSHIFT) <  _hip->cfg_exc + _hip->cfg_gsi)
+		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= (_hip->cfg_exc + 3)
+		    && (utcb->msg[2] >> Utcb::MINSHIFT) <  (_hip->cfg_exc + _hip->cfg_gsi + 3))
 		  {
+		    // XXX map_self is missing
 		    Logging::printf("[%02x] irq %x granted\n", client, utcb->msg[2]);
 		    utcb->head.mtr = Mtd(1, 1);
 		  }
@@ -260,7 +267,7 @@ PT_FUNC(do_request,
 			}
 		    case MessageHostOp::OP_ATTACH_IRQ:
 		      Logging::printf("assign_gsi PD %x gsi %lx\n", client, msg->value);
-		      assign_gsi(_hip->cfg_exc + (msg->value & 0xff), modinfo->cpunr);
+		      assign_gsi(_hip->cfg_exc + 3 + (msg->value & 0xff), modinfo->cpunr);
 		      utcb->msg[0] = 0;
 		      break;
 		    case MessageHostOp::OP_ATTACH_MSI:

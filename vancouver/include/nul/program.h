@@ -137,7 +137,7 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
-    _cap_free = hip->cfg_exc + hip->cfg_gsi + 3;
+    _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
     create_sm(_cap_block = _cap_free++);
 
     // prepopulate phys+virt memory
