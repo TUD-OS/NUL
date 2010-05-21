@@ -779,7 +779,7 @@ public:
 	}
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !assign_pci_device(_hip->cfg_exc + _hip->cfg_gsi + 0, msg.value, msg.len);
+	res = !assign_pci_device(_hip->cfg_exc + 0, msg.value, msg.len);
 	break;
       case MessageHostOp::OP_GET_UID:
 	msg.value = ++_uid;
