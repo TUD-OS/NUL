@@ -123,7 +123,7 @@ private:
       _notify[pin] = false;
       unsigned gsi = reverse_routing(pin);
       //Logging::printf("send notify to gsi %x\n", gsi);
-      MessageIrqNotify msg(gsi >> 3, 1  << (gsi & 7));
+      MessageIrqNotify msg(gsi & ~7, 1  << (gsi & 7));
       _mb.bus_irqnotify.send(msg);
     }
   }

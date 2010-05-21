@@ -321,7 +321,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 
   bool  receive(MessageIrqNotify &msg)
   {
-    if (msg.baseirq != (_irq >> 3) || !(msg.mask & (1 << (_irq & 7)))) return false;
+    if (msg.baseirq != (_irq & ~7) || !(msg.mask & (1 << (_irq & 7)))) return false;
     if (feature(FPERIODIC))  update_timer();
     return true;
   }

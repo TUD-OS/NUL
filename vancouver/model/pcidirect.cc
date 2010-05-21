@@ -272,14 +272,12 @@ private:
 
   bool receive(MessageIrqNotify &msg)
   {
-    // XXX adopt for _msi cases
+    // XXX MSIs are edge triggered!
     unsigned irq = _cfgspace[15] & 0xff;
-    if (in_range(irq, msg.baseirq, 8) && msg.mask & (1 << (irq & 0x7))) {
-      //Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
-      MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
-      return _mb.bus_hostop.send(msg2);
-    }
-    return false;
+    if (msg.baseirq != (irq & ~7) || !(msg.mask & (1 << (irq & 7)))) return false;
+    Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
+    MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
+    return _mb.bus_hostop.send(msg2);
   }
 
 

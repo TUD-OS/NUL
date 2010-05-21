@@ -397,7 +397,7 @@ public:
 
   bool  receive(MessageIrqNotify &msg)
   {
-    if (msg.baseirq != (_irq >> 3) || !(msg.mask & (1 << (_irq & 7)))) return false;
+    if (msg.baseirq != (_irq & ~7) || !(msg.mask & (1 << (_irq & 7)))) return false;
     update_timer(get_ram_time(), get_counter());
     return true;
   }
