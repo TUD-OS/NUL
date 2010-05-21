@@ -494,7 +494,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
       {
 	unsigned long s = _virt_phys.find_phys(physmem, size);
 	if (s)  return reinterpret_cast<char *>(s) + ofs;
-	virt = _free_virt.alloc(size, Cpu::minshift(s, size, 22));
+	virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
 	if (!virt) return 0;
       }
     unsigned old = utcb->head.crd;
