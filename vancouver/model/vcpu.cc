@@ -168,7 +168,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void prioritize_events(CpuMessage &msg) {
     CpuState *cpu = msg.cpu;
     unsigned old_event = _event;
-    //dprintf("%s %x inj %x\n", __func__, old_event, cpu->inj_info);
+
+    assert(msg.mtr_in & MTD_STATE);
+    assert(msg.mtr_in & MTD_INJ);
+    assert(msg.mtr_in & MTD_RFLAGS);
+    msg.mtr_out |= MTD_STATE | MTD_INJ;
 
     if (!old_event)  return;
     if (old_event & EVENT_DEBUG) {
@@ -247,21 +251,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->inj_info = msg2.value | 0x80000000;
     cpu->actv_state = 0;
   }
-
-  void handle_irq(CpuMessage &msg) {
-    //if (_event != 0x80)
-    //dprintf("> handle_irq %x event %x\n", msg.mtr_out, _event);
-    assert(msg.mtr_in & MTD_STATE);
-    assert(msg.mtr_in & MTD_INJ);
-    assert(msg.mtr_in & MTD_RFLAGS);
-
-    prioritize_events(msg);
-    if (msg.cpu->inj_info & 0x80000000) msg.mtr_out |= MTD_INJ;
-    msg.mtr_out |= MTD_STATE;
-
-    //if (debug || CPUID_EDXb) dprintf("< handle_irq %x inj %x actv %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.cpu->actv_state, msg.mtr_in, msg.mtr_out);
-  }
-
 
   void handle_ioin(CpuMessage &msg) {
     MessageIOIn msg2(MessageIOIn::Type(msg.io_order), msg.port);
@@ -430,7 +419,7 @@ public:
 
     //dprintf("CPU Message %d utcb %p eip %x\n", msg.type, msg.cpu, msg.cpu->eip);
     // handle IRQ injection
-    for (handle_irq(msg); msg.cpu->actv_state & 0x3; handle_irq(msg)) {
+    for (prioritize_events(msg); msg.cpu->actv_state & 0x3; prioritize_events(msg)) {
       MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
       Cpu::atomic_or<volatile unsigned>(&_event, STATE_BLOCK);
       if (~_event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
