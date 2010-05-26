@@ -139,6 +139,9 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     MessageDiscovery msg4;
     _mb.bus_discovery.send_fifo(msg4);
 
+    // the ACPI IRQ is 9
+    discovery_write_dw("FACP",  46,          9, 2);
+
     // store what remains on memory in KB
     discovery_write_dw("bda", 0x13, _mem_size >> 10, 2);
     return jmp_int(msg, 0x19);

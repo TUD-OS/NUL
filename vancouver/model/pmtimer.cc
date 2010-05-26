@@ -49,9 +49,6 @@ public:
     discovery_write_dw("FACP", 208, 0x04000401, 4);
     discovery_write_dw("FACP", 212,    _iobase, 4);
     discovery_write_dw("FACP", 216,          0, 4);
-
-    // the ACPI IRQ is 9
-    discovery_write_dw("FACP",  46,          9, 2);
   }
 
   PmTimer(Motherboard &mb, unsigned iobase) : _mb(mb), _iobase(iobase) {
