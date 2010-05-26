@@ -125,6 +125,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void handle_cpu_init(CpuMessage &msg, bool reset) {
     //dprintf("handle CPU %s event %x\n", reset ? "RESET" : "INIT", _event);
     CpuState *cpu = msg.cpu;
+
+    // this also clears inj_info
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;
     cpu->eip      = 0xfff0;
@@ -169,8 +171,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     //dprintf("%s %x inj %x\n", __func__, old_event, cpu->inj_info);
 
     if (!old_event)  return;
-    msg.mtr_out  |= MTD_INJ;
-
     if (old_event & EVENT_DEBUG) {
       dprintf("state %x event %8x eip %8x\n", cpu->actv_state, old_event, cpu->eip);
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_DEBUG);
@@ -217,6 +217,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       // fall trough
     }
 
+    // if we have injections pending - return
+    if (cpu->inj_info & 0x80000000) return;
+
     // NMI
     if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
       Logging::printf("inject NMI %x\n", old_event);
@@ -227,7 +230,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     }
 
     // if we can not inject interrupts or if we are in shutdown state return
-    if (cpu->inj_info & 0x80000000 || cpu->intr_state & 0x3 || ~cpu->efl & 0x200 || cpu->actv_state == 2) return;
+    if (cpu->intr_state & 0x3 || ~cpu->efl & 0x200 || cpu->actv_state == 2) return;
 
     LapicEvent msg2(LapicEvent::INTA);
     if (old_event & EVENT_EXTINT) {
@@ -253,7 +256,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     assert(msg.mtr_in & MTD_RFLAGS);
 
     prioritize_events(msg);
+    if (msg.cpu->inj_info & 0x80000000) msg.mtr_out |= MTD_INJ;
     msg.mtr_out |= MTD_STATE;
+
     //if (debug || CPUID_EDXb) dprintf("< handle_irq %x inj %x actv %x mtr %x/%x\n", _event, msg.cpu->inj_info, msg.cpu->actv_state, msg.mtr_in, msg.mtr_out);
   }
 

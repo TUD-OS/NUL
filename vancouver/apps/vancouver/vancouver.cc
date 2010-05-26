@@ -706,7 +706,7 @@ VM_FUNC(PT_VMX + 40,  vmx_pause, MTD_RIP_LEN | MTD_STATE,
 	skip_instruction(msg);
 	COUNTER_INC("pause");
 	)
-VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL & ~MTD_INJ,
+VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	COUNTER_INC("MMIO");
 	/**
 	 * Idea: optimize the default case - mmio to general purpose register
@@ -750,8 +750,6 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, utcb); )
 VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, utcb); )
 VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
-	// make sure we do not inject the #PF!
-	utcb->inj_info &= ~0x80000000;
 	if (!map_memory_helper(utcb))
 	  svm_invalid(pid, utcb);
 	)
