@@ -68,8 +68,7 @@ PT_FUNC(do_startup,
 	utcb->esp = HIP_ADDRESS;
 	utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 
-	utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-	utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, utcb->esp, 0x1c | 1);
+	_modinfo->needmemmap = true;
 	)
 
 PT_FUNC(do_request,
@@ -77,7 +76,7 @@ PT_FUNC(do_request,
 	ModuleInfo *modinfo = _modinfo + client;
 	COUNTER_INC("request");
 
-	// Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
+	//Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
 	// XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	SemaphoreGuard l(_lock);
 	if (utcb->head.mtr.untyped() < 0x1000)
@@ -133,7 +132,6 @@ PT_FUNC(do_request,
 		if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= (_hip->cfg_exc + 3)
 		    && (utcb->msg[2] >> Utcb::MINSHIFT) <  (_hip->cfg_exc + _hip->cfg_gsi + 3))
 		  {
-		    // XXX map_self is missing
 		    Logging::printf("[%02x] irq %x granted\n", client, utcb->msg[2]);
 		    utcb->head.mtr = Mtd(1, 1);
 		  }
@@ -358,11 +356,19 @@ PT_FUNC(do_request,
 	  }
 	else
 	  {
-	    Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
-	    if (revoke(Crd(client, 4), true))
-	      {
-		_lock.up();
-		Logging::panic("kill connection to %x failed", client);
-	      }
+	    if (_modinfo->needmemmap) {
+	      Logging::printf("[%02x] map for %x for %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
+	      utcb->head.mtr = Mtd(0, 0);
+	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
+	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000,  HIP_ADDRESS, 0x1c | 1);
+	    }
+	    else {
+	      Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
+	      if (revoke(Crd(client, 4), true))
+		{
+		  _lock.up();
+		  Logging::panic("kill connection to %x failed", client);
+		}
+	    }
 	  }
 	)

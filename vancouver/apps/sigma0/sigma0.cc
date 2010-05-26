@@ -80,6 +80,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned      cpunr;
     unsigned long rip;
     char          tag[256];
+    bool          needmemmap;
     char *        mem;
     unsigned long pmem;
     unsigned long physsize;
@@ -482,6 +483,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = 0x1c | 1)
   {
     assert(size);
+    //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
 
     // make sure we align physmem + size to a pagesize
     unsigned long ofs = physmem & 0xfff;
@@ -505,12 +507,11 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
       {
 	utcb->head.mtr = Mtd();
 	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
-	//Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx\n", physmem, virt, size, offset, s);
+	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
 	offset = size - s;
 	unsigned err;
 	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
 	  {
-	    asm volatile("ud2a" : : "a"(err) );
 	    Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
 	    res = 0;
 	    break;
@@ -538,6 +539,26 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     } while (strnlen(res, size - offset) == (size - offset));
     return res;
   }
+
+
+  /**
+   * Revoke all memory at the given address.
+   */
+  void revoke_all_mem(void *address, unsigned long size, unsigned rights, bool myself)
+  {
+    unsigned long page = reinterpret_cast<unsigned long>(address);
+    Logging::printf("%s(%lx,%lx)\n", __func__, page, size);
+    size += page & 0xfff;
+    page >>= 12;
+    size = (size + 0xfff) >> 12;
+    while (size) {
+      unsigned order = Cpu::minshift(page, size);
+      check0(revoke(Crd(page, order, rights | 1), myself));
+      size -= 1 << order;
+      page += 1 << order;
+    }
+  }
+
 
   /**
    * Check whether timeouts have fired.
@@ -712,6 +733,14 @@ public:
 	  {
 	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	  }
+	if (in_range(msg.id, 3, 4)) {
+	  for (unsigned i=1; i <= _modcount; i++) {
+	    _modinfo[i].needmemmap = true;
+	    unsigned rights = 0x1c;
+	    if (msg.id >= 4)  rights = (1 << (msg.id - 4)) << 2;
+	    revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
+	  }
+	}
 	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
 	return true;
       case MessageConsole::TYPE_ALLOC_CLIENT:
