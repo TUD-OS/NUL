@@ -85,6 +85,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
+  PT_FUNC(do_gsi_pf)
+  {
+
+    Logging::printf("%s eip %x qual %llx\n", __func__, utcb->eip, utcb->qual[1]);
+    asm volatile("orl $0, (%0)": : "r"(utcb->qual[1]) : "memory");
+    return 0;
+  }
+
   PT_FUNC(do_gsi_boot)
   {
     utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
@@ -287,6 +295,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (i!=14 && i != 30) check1(3, create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
+    create_pt(PT_IRQ + 14, cap_ex, do_gsi_pf,    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
     create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
     return 0;
   }
@@ -378,6 +387,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
     utcb->head.mtr = msg.mtr_out;
+    //Logging::printf("> %s pid %p,%d eip %x:%x out %x inj %x\n", __func__, utcb, pid, utcb->cs.sel, utcb->eip, utcb->head.mtr.untyped(), utcb->inj_info);
   }
 
 
@@ -386,11 +396,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     MessageMemRegion msg(utcb->qual[1] >> 12);
 
     // XXX use a push model on _startup instead
-
     // do we have not mapped physram yet?
     if (_mb->bus_memregion.send(msg, true) && msg.ptr) {
-      Logging::printf("%s(%llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
-      utcb->head.mtr = Mtd();
+      asm volatile("orl $0, (%0)": : "r"(msg.ptr) : "memory");
+      Logging::printf("%s(%llx) phys %lx ptr %p pages %x eip %x inj %x\n", __func__, utcb->qual[1], msg.start_page << 12, msg.ptr, msg.count, utcb->eip, utcb->inj_info);
+      handle_vcpu(0, utcb, CpuMessage::TYPE_CHECK_IRQ);
       utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count << 12, msg.start_page << 12, 0x1c | 1);
       return true;
     }
