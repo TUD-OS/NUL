@@ -420,8 +420,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
        	  desc.legacy.status = 0;
        	  if(!parent->copy_out(desc.legacy.buffer, buf, size))
        	    desc.legacy.status |= 0x8000; // RX error
-       	  desc.legacy.status |= 0x3; // EOP, DD
        	  desc.legacy.sumlen = size;
+	  asm ("" ::: "memory");
+       	  desc.legacy.status |= 0x3; // EOP, DD
        	}
        	break;
       case 1:			// Advanced, one buffer
@@ -431,9 +432,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  desc.advanced_write.info = 0;
 	  desc.advanced_write.vlan = 0;
 	  desc.advanced_write.len = size;
-	  desc.advanced_write.status = 0x3; // EOP, DD
 	  if (!parent->copy_out(target_buf, buf, size))
        	    desc.advanced_write.status |= 0x80000000U; // RX error
+	  asm ("" ::: "memory");
+	  desc.advanced_write.status = 0x3; // EOP, DD
 	}
 	break;
       default:
