@@ -222,7 +222,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     }
 
     // if we have injections pending - return
-    if (cpu->inj_info & 0x80000000) return;
+    if (cpu->inj_info & 0x80000000) { cpu->actv_state = 0; return; }
 
     // NMI
     if (old_event & EVENT_NMI && ~cpu->intr_state & 8 && !(cpu->intr_state & 3)) {
