@@ -24,62 +24,9 @@
 #include "baseprogram.h"
 
 
-/**
- * Define the functions needed by asm.s.
- * Unfortunately this can not be a template.
- */
-#define ASMFUNCS(X, Y)							\
-  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))); \
-  void start(Hip *hip, Utcb *utcb)					\
-  {									\
-    static X x;								\
-    x.run(utcb, hip);							\
-  }									\
-  void do_exit(const char *msg)						\
-  {									\
-    Y::exit(msg);							\
-    while (1)								\
-      asm volatile ("ud2a" : : "a"(msg));				\
-  }
-
-/**
- * The startup function and the initial stack.  Called with the HIP in
- * %esp and the UTCB a page below the HIP.
- */
-asm volatile (".global __start;"
-	      ".section .text.__start;"
-	      "__start:;"
-	      "mov	$stack, %eax;"
-	      "xchg	%eax, %esp;"
-	      "mov	%eax, %edx;"
-	      "sub	$0x1000, %edx;"
-	      "push	%edx;"           // push UTCB -- needed for myutcb()
-	      "call	start;"
-	      "ud2a;"
-	      ".section .bss.stack;"
-	      ".align 0x1000;"
-	      ".space 0x1000;"
-	      "stack:;"
-	      );
-
-/**
- * A fast reply to our client, called by a return to a portal
- * function.
- */
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
-asm volatile (".section .text.idc_reply_and_wait_fast;"
-	      ".global idc_reply_and_wait_fast;"
-	      "idc_reply_and_wait_fast:;"
-	      // w2: mtr
-	      "mov	%eax, %esi;"
-	      // w0: NOVA_IPC_REPLY
-	      "mov	$1, %al;"
-	      // keep a pointer to ourself on the stack
-	      "sub	$4, %esp;"
-	      // ecx: stack
-	      "mov	%esp, %ecx;"
-	      "sysenter;"
-	      );
+
+
 
 /**
  * Contains common code for nova programms.
@@ -195,3 +142,60 @@ public:
     Logging::printf("%s() - %s\n", __func__, msg);
   }
 };
+
+
+/**
+ * Define the functions needed by asm.s.
+ * Unfortunately this can not be a template.
+ */
+#define ASMFUNCS(X, Y)							\
+  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))); \
+  void start(Hip *hip, Utcb *utcb)					\
+  {									\
+    static X x;								\
+    x.run(utcb, hip);							\
+  }									\
+  void do_exit(const char *msg)						\
+  {									\
+    Y::exit(msg);							\
+    while (1)								\
+      asm volatile ("ud2a" : : "a"(msg));				\
+  }
+
+/**
+ * The startup function and the initial stack.  Called with the HIP in
+ * %esp and the UTCB a page below the HIP.
+ */
+asm volatile (".global __start;"
+	      ".section .text.__start;"
+	      "__start:;"
+	      "mov	$stack, %eax;"
+	      "xchg	%eax, %esp;"
+	      "mov	%eax, %edx;"
+	      "sub	$0x1000, %edx;"
+	      "push	%edx;"           // push UTCB -- needed for myutcb()
+	      "call	start;"
+	      "ud2a;"
+	      ".section .bss.stack;"
+	      ".align 0x1000;"
+	      ".space 0x1000;"
+	      "stack:;"
+	      );
+
+/**
+ * A fast reply to our client, called by a return to a portal
+ * function.
+ */
+asm volatile (".section .text.idc_reply_and_wait_fast;"
+	      ".global idc_reply_and_wait_fast;"
+	      "idc_reply_and_wait_fast:;"
+	      // w2: mtr
+	      "mov	%eax, %esi;"
+	      // w0: NOVA_IPC_REPLY
+	      "mov	$1, %al;"
+	      // keep a pointer to ourself on the stack
+	      "sub	$4, %esp;"
+	      // ecx: stack
+	      "mov	%esp, %ecx;"
+	      "sysenter;"
+	      );
