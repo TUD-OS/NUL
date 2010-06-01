@@ -311,7 +311,7 @@ public:
 
     init(hip);
 
-    TimerConsumer *timerconsumer = new TimerConsumer(_cap_free++);
+    TimerConsumer *timerconsumer = new TimerConsumer(alloc_cap());
     Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
 
     gen_sinlut();

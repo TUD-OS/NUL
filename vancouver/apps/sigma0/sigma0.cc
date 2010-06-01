@@ -136,7 +136,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
-    return !create_sc(_cap_free++, cap, Qpd(3, 10000));
+    return !create_sc(alloc_cap(), cap, Qpd(3, 10000));
   }
 
 
@@ -179,7 +179,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
     //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
     // alloc new cap for next request
-    utcb->head.crd = (_cap_free++ << Utcb::MINSHIFT) | 3;
+    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
     utcb->head.mtr = Mtd(1, 0);
   }
 
@@ -278,7 +278,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     check1(1, init(hip));
 
     Logging::printf("create lock\n");
-    _lock = Semaphore(&_lockcount, _cap_free++);
+    _lock = Semaphore(&_lockcount, alloc_cap());
     check1(2, create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");
@@ -290,14 +290,14 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
 	_percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
-	_percpu[i].cap_pt_echo = _cap_free++;
+	_percpu[i].cap_pt_echo = alloc_cap();
 	check1(3, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
 
 	Utcb *utcb;
 	_percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
 
 	// initialize the receive window
-	utcb->head.crd = (_cap_free++ << Utcb::MINSHIFT) | 3;
+	utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
       }
 
     // create pf and gsi boot wrapper on this CPU
@@ -467,12 +467,12 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
 	    // create special portal for every module, we start at 64k, to have enough space for static fields
-	    unsigned pt = ((_cap_free+0xffff) & ~0xffff) + (_modcount << 5);
+	    unsigned pt = 0x10000 + (_modcount << 5);
 	    check1(6, create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	    check1(7, create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
 	    Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", cpunr);
-	    modinfo->cap_pd = _cap_free++;
+	    modinfo->cap_pd = alloc_cap();
 	    check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr, modinfo->dma));
 	  }
       }

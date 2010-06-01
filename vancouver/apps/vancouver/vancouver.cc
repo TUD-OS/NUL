@@ -121,7 +121,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_stdin) __attribute__((noreturn))
   {
-    StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
     assert(stdinconsumer);
     Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
@@ -168,7 +168,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
     assert(diskconsumer);
     Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
     while (1) {
@@ -182,7 +182,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
     assert(timerconsumer);
     Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
     while (1) {
@@ -198,7 +198,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_network) __attribute__((noreturn))
   {
-    NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->_cap_free++);
+    NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
     Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
     while (1) {
       unsigned char *buf;
@@ -262,9 +262,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 
-    check1(~1u, create_sm(_shared_sem[hostirq & 0xff] = _cap_free++));
+    check1(~1u, create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
 
-    unsigned cap_ec =  _cap_free++;
+    unsigned cap_ec =  alloc_cap();
     check1(~2u, create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
     utcb->head.tls = reinterpret_cast<unsigned>(this);
     utcb->msg[0] = (hostirq & 0xff) + _hip->cfg_exc; // the caps for irq threads start here
@@ -272,18 +272,18 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
     // XXX How many time should an IRQ thread get?
-    check1(~3u, create_sc(_cap_free++, cap_ec, Qpd(2, 10000)));
+    check1(~3u, create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
     return cap_ec;
   }
 
 
   unsigned init_caps(Hip *hip)
   {
-    _lock = Semaphore(&_lockcount, _cap_free++);
+    _lock = Semaphore(&_lockcount, alloc_cap());
     check1(1, create_sm(_lock.sm()));
 
     _consolelock = 1;
-    _console_data.sem = new Semaphore(&_consolelock, _cap_free++);
+    _console_data.sem = new Semaphore(&_consolelock, alloc_cap());
     check1(2, create_sm(_console_data.sem->sm()));
 
 
@@ -315,8 +315,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     } vm_caps[] = {
 #include "vancouver.cc"
     };
-    unsigned cap_start = _cap_free;
-    _cap_free += 0x100;
+    unsigned cap_start = alloc_cap(0x100);
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
       //Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
@@ -324,8 +323,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     }
 
     Logging::printf("\tcreate VCPU\n");
-    unsigned cap_block = _cap_free;
-    _cap_free += 3;
+    unsigned cap_block = alloc_cap(3);
     if (create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
     if (create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)

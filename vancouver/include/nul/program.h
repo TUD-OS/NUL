@@ -91,10 +91,11 @@ class NovaProgram : public BaseProgram
     VIRT_START       = 0x1000,
     UTCB_PAD         = 0x1000
   };
+  unsigned  _cap_free;
+
  protected:
 
   Hip *     _hip;
-  unsigned  _cap_free;
   unsigned  _cap_block;
 
   // memory map
@@ -109,24 +110,30 @@ class NovaProgram : public BaseProgram
   Utcb * alloc_utcb() { return reinterpret_cast<Utcb *>(_free_virt.alloc(2*UTCB_PAD + sizeof(Utcb), 12) + UTCB_PAD); }
 
   /**
+   * Alloc free caps. Can be overrided by derived classes.
+   */
+  virtual unsigned alloc_cap(unsigned count=1) {  _cap_free += count;  return _cap_free - count; }
+
+  /**
    * Create an ec and setup the stack.
    */
   unsigned  create_ec_helper(unsigned tls, Utcb **utcb_out=0, bool worker = false, unsigned excbase = 0, unsigned cpunr=~0)
   {
     const unsigned STACK_FRAME = 2;
 
+    unsigned cap = alloc_cap(1);
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_size / sizeof(void *)];
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
     stack[stack_size/sizeof(void *) - 1] = utcb; // push UTCB -- needed for myutcb()
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n",
-		    cpunr, _cap_free, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
-    check1(0, create_ec(_cap_free, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
+		    cpunr, cap, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
+    check1(0, create_ec(cap, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
     utcb->head.tls = tls;
     if (utcb_out)
       *utcb_out = utcb;
-    return _cap_free++;
+    return cap;
   }
 
 
@@ -138,7 +145,7 @@ class NovaProgram : public BaseProgram
     check1(1, hip->calc_checksum());
     _hip = hip;
     _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
-    create_sm(_cap_block = _cap_free++);
+    create_sm(_cap_block = alloc_cap());
 
     // prepopulate phys+virt memory
     extern char __image_start, __image_end;

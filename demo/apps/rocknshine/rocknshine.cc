@@ -148,7 +148,7 @@ public:
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-    StdinConsumer stdinconsumer(_cap_free++);
+    StdinConsumer stdinconsumer(alloc_cap());
     Sigma0Base::request_stdin(utcb, &stdinconsumer, stdinconsumer.sm());
 
     // switch to our view
