@@ -54,7 +54,7 @@ class Sigma0Base : public BaseProgram
 
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
-      utcb->head.mtr    = Mtd(3, 0);
+      utcb->head.mtr    = Mtd(2, 0);
       utcb->add_mappings(false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
       check1(1, idc_call(14, utcb->head.mtr));
       return utcb->msg[0];
@@ -92,8 +92,8 @@ class Sigma0Base : public BaseProgram
     Utcb *utcb = myutcb();
     TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
 
-    utcb->head.mtr = Mtd(1, 0);
     utcb->msg[0] = REQUEST_IRQ;
+    utcb->head.mtr = Mtd(1, 0);
     utcb->add_mappings(false, irq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
     utcb->head.crd = utcb->msg[2];
     return idc_call(14, Mtd(3, 0));
