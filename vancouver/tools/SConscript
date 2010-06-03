@@ -1,5 +1,0 @@
-# -*- Mode: Python -*-
-
-SConscript(Glob('*/SConscript'))
-
-# EOF
