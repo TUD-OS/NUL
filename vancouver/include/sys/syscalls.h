@@ -58,6 +58,18 @@ enum ERROR
     NOVA_ECPU
   };
 
+static inline
+unsigned char
+syscall2(unsigned w0, unsigned w1)
+{
+  asm volatile ( 
+		"mov %%esp, %%ecx;"
+		"mov $1f, %%edx;"
+		"sysenter; 1: ;"
+		: "+a" (w0) :  "D" (w1)
+		: "ecx", "edx", "memory");
+  return w0;
+}
 
 static inline
 unsigned char
@@ -101,8 +113,8 @@ inline unsigned char  create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned
 inline unsigned char  create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 {  return syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
 
-
-inline unsigned char  create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long __attribute__((regparm(1))) (*eip)(unsigned, Utcb *), Mtd mtd)
+typedef unsigned long __attribute__((regparm(1))) (*pt_func)(unsigned, Utcb *);
+inline unsigned char  create_pt(unsigned idx_pt, unsigned idx_ec, pt_func eip, Mtd mtd)
 {  return syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value(), reinterpret_cast<unsigned>(eip)); }
 
 
@@ -115,15 +127,15 @@ inline unsigned char  revoke(Crd crd, bool myself)
 
 
 inline unsigned char  recall(unsigned idx_ec)
-{  return syscall(NOVA_RECALL, idx_ec, 0, 0, 0); }
+{  return syscall2(NOVA_RECALL, idx_ec); }
 
 
 inline unsigned char  semup(unsigned idx_sm)
-{  return syscall(NOVA_SEMCTL_UP, idx_sm, 0, 0, 0); }
+{  return syscall2(NOVA_SEMCTL_UP, idx_sm); }
 
 
 inline unsigned char  semdown(unsigned idx_sm)
-{  return syscall(NOVA_SEMCTL_DOWN, idx_sm, 0, 0, 0); }
+{  return syscall2(NOVA_SEMCTL_DOWN, idx_sm); }
 
 
 inline unsigned char  assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
