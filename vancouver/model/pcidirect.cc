@@ -90,6 +90,32 @@ public:
 	i++;
       }
     }
+
+    // reenable device
+    conf_write(bdf, 1, cmd);
+  }
+
+  /**
+   * Read all vf bars.
+   */
+  void read_all_vf_bars(unsigned bdf, unsigned vf_no, unsigned long *base, unsigned long *size) {
+
+    memset(base, 0, MAX_BAR*sizeof(*base));
+    memset(size, 0, MAX_BAR*sizeof(*size));
+
+    // disable device
+    uint32 cmd = conf_read(bdf, 1);
+    conf_write(bdf, 1, cmd & ~0x7);
+
+    // read bars
+    for (unsigned i=0; i < count_bars(bdf); i++) {
+      bool is64bit;
+      uint64 lsize = 0;
+      base[i] = vf_bar_base_size(bdf, vf_no, i, lsize, &is64bit);
+      size[i] = lsize;
+      if (is64bit) i++;
+    }
+
     // reenable device
     conf_write(bdf, 1, cmd);
   }

@@ -37,7 +37,7 @@ public:
   /**
    * Return the base and size of a VF BAR (inside a SR-IOV capability).
    */
-  uint64 vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, mword &size, bool *is64bit=0) {
+  uint64 vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, uint64 &size, bool *is64bit=0) {
 
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
@@ -45,21 +45,6 @@ public:
     return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no) + vf_no * size;
   }
 
-  /**
-   * Read all vf bars.
-   */
-  void read_all_vf_bars(unsigned bdf, unsigned vf_no, mword *base, mword *size) {
-
-    memset(base, 0, MAX_BAR*sizeof(*base));
-    memset(size, 0, MAX_BAR*sizeof(*size));
-
-    // read bars
-    for (unsigned i=0; i < count_bars(bdf); i++) {
-      bool is64bit;
-      base[i] = vf_bar_base_size(bdf, vf_no, i, size[i], &is64bit);
-      if (is64bit) i++;
-    }
-  }
 
   /**
    * Find the position of an extended PCI capability.
@@ -76,7 +61,6 @@ public:
 	  return offset >> 2;
     return 0;
   }
-
 
 
   /** Compute BDF of a particular VF. */
