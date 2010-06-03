@@ -568,15 +568,13 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     COUNTER_INC("check_to");
     timevalue now = _mb->clock()->time();
     unsigned nr;
-    bool reprogram = false;
     while ((nr = _timeouts.trigger(now)))
       {
-	reprogram = true;
 	_timeouts.cancel(nr);
 	MessageTimeout msg1(nr);
 	_mb->bus_timeout.send(msg1);
       }
-    if (reprogram)
+    if (_timeouts.timeout() != ~0ULL)
       {
 	// update timeout upstream
 	MessageTimer msg(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());

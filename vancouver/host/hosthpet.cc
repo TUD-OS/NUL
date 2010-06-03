@@ -142,6 +142,7 @@ public:
   {
     if (msg.abstime == ~0ull || msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
 
+    // delta is truncated, should be rounded "upwards" :-)
     unsigned delta = _clock->delta(msg.abstime, _freq);
     unsigned oldvalue = _regs->counter[0];
 
