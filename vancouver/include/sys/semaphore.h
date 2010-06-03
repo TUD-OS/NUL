@@ -27,7 +27,7 @@ class KernelSemaphore
 {
   unsigned _sm;
 public:
-  KernelSemaphore(unsigned cap_sm) : _sm(cap_sm) {}
+  KernelSemaphore(unsigned cap_sm = 0) : _sm(cap_sm) {}
   void down()
   {
     unsigned res = semdown(_sm);
