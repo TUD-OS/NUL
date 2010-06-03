@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <nul/types.h>
+
 static inline void *
-memcpy(void *dst, const void *src, unsigned long count) {
+memcpy(void *dst, const void *src, size_t count) {
   void *res = dst;
   if (count & 3) {
       unsigned long x = count & 3;
@@ -26,24 +28,24 @@ memcpy(void *dst, const void *src, unsigned long count) {
   }
   count /= 4;
   asm volatile ("rep movsl" : "+D"(dst), "+S"(src), "+c" (count) : : "memory");
-  return res;
+  return res; 
 }
 
 
 static inline int
-memcmp(const void *dst, const void *src, long count) {
+memcmp(const void *dst, const void *src, size_t count) {
   return __builtin_memcmp(dst, src, count);
 }
 
 
-static inline unsigned long
+static inline size_t
 strlen(const char *src) {
   return __builtin_strlen(src);
 }
 
 
 static inline void *
-memmove(void *dst, const void *src, long count) {
+memmove(void *dst, const void *src, size_t count) {
 
   char *d = reinterpret_cast<char *>(dst);
   const char *s = reinterpret_cast<const char *>(src);
@@ -60,7 +62,7 @@ memmove(void *dst, const void *src, long count) {
 
 
 static inline void *
-memset(void *dst, char n, long count) {
+memset(void *dst, char n, size_t count) {
   void *res = dst;
   unsigned long x = count & 3;
   if (x) asm volatile ("1: stosb; loop 1b;" : "+D"(dst), "+c" (x) : "a"(n) : "memory");
@@ -73,8 +75,8 @@ memset(void *dst, char n, long count) {
 }
 
 
-static inline unsigned long
-strnlen(const char *src, unsigned long maxlen) {
+static inline size_t
+strnlen(const char *src, size_t maxlen) {
 
   unsigned long count = maxlen;
   unsigned char ch = 0;
