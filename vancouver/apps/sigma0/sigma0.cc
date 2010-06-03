@@ -132,13 +132,18 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   bool attach_irq(unsigned gsi, unsigned sm_cap)
   {
     Logging::printf("create ec for gsi %x\n", gsi);
-    Utcb *u;
+    Utcb *u = 0;
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
     return !create_sc(alloc_cap(), cap, Qpd(3, 10000));
   }
 
+  bool reraise_irq(unsigned gsi)
+  {
+    // XXX Is there a better way to get from GSI to semaphore capability?
+    return !semup(_hip->cfg_exc + 3 + (gsi & 0xFF));
+  }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
@@ -163,6 +168,19 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
   /**
+   * Prepare UTCB for receiving a new cap.
+   */
+  void
+  prepare_cap_recv(Utcb *utcb)
+  {
+    //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
+    // alloc new cap for next request
+    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+    utcb->head.mtr = Mtd(1, 0);
+  }
+
+
+  /**
    * Handle an attach request.
    */
   template <class CONSUMER, class PRODUCER>
@@ -177,10 +195,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	utcb->msg[0] = 0;
       }
 
-    //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
-    // alloc new cap for next request
-    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
-    utcb->head.mtr = Mtd(1, 0);
+    prepare_cap_recv(utcb);
   }
 
 
@@ -293,7 +308,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	_percpu[i].cap_pt_echo = alloc_cap();
 	check1(3, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
 
-	Utcb *utcb;
+	Utcb *utcb = 0;
 	_percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
 
 	// initialize the receive window
@@ -896,6 +911,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 			attach_msi(msg, modinfo->cpunr);
 			utcb->msg[0] = 0;
 			break;
+		      case MessageHostOp::OP_RERAISE_IRQ:
 		      case MessageHostOp::OP_ALLOC_IOIO_REGION:
 		      case MessageHostOp::OP_ALLOC_IOMEM:
 		      case MessageHostOp::OP_GUEST_MEM:
@@ -1141,6 +1157,9 @@ public:
 	  assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
 	  res = attach_irq(gsi, irq_cap);
 	}
+	break;
+      case MessageHostOp::OP_RERAISE_IRQ:
+	res = reraise_irq(msg.value & 0xFF);
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	break;
