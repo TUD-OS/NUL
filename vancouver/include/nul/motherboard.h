@@ -26,8 +26,6 @@
 #include "timer.h"
 #include "templates.h"
 
-#include <nul/network.h>
-
 class VCpu;
 
 /**
@@ -66,7 +64,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageMemRegion>    bus_memregion;
   DBus<MessageMouse>        bus_mouse;
   DBus<MessageNetwork>      bus_network;
-  DBus<MessageQueueOp>      bus_queueop;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciConfig>    bus_hwpcicfg;
   DBus<MessagePciConfig>    bus_pcicfg;
