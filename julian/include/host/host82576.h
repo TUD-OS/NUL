@@ -50,8 +50,11 @@ protected:
     TDBAH0      = 0x3804/4,
     TDLEN0      = 0x3808/4,
     TDH0        = 0x3810/4,
+    TXCTL0      = 0x3814/4,
     TDT0        = 0x3818/4,
     TXDCTL0     = 0x3828/4,
+    TDWBAL0     = 0x3838/4,
+    TDWBAH0     = 0x383C/4,
 
     VMB         = 0x0C40/4, 	// 8.14.3
     VBMEM       = 0x0800/4,	// 8.14.4
@@ -122,6 +125,7 @@ protected:
     
     // Filtering
     UTA0      = 0x0A000/4,
+    MTA0      = 0x05200/4,
   };
 
   enum TCPTimer {
@@ -150,6 +154,7 @@ protected:
     VMOLR_ROMPE         = 1U << 25, // Accept packets that match the MTA
     VMOLR_ROPE          = 1U << 26, // Accept packets that match the UTA
     VMOLR_BAM           = 1U << 27, // Broadcast Accept
+    VMOLR_MPE           = 1U << 28, // Multicast Promiscuous Enable
     VMOLR_STRVLAN       = 1U << 30, // Strip VLAN Tag
     VMOLR_DEFAULT       = 1U << 31, // Default value. Must always be set.
   };
@@ -261,6 +266,8 @@ protected:
     VF_SET_MAC_ADDR  = 0x0002U,
     VF_SET_MULTICAST = 0x0003U,
     VF_SET_LPE       = 0x0005U,
+
+    VF_PROMISCUOUS   = 0x0020U,
 
     PF_CONTROL_MSG   = 0x0100U,
 
