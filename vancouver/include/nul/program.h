@@ -94,37 +94,28 @@ class NovaProgram : public BaseProgram
     _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
     create_sm(_cap_block = alloc_cap());
 
-    // prepopulate phys+virt memory
+    // prepopulate the virt memory lists
     extern char __image_start, __image_end;
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
-    _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, hip->get_mod(0)->addr));
     return 0;
   };
 
 
   /**
-   * Init the memory map from the hip.
+   * Init the memory map from the HIP as we get them from sigma0.
    */
   void init_mem(Hip *hip) {
 
-    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
-	if (hmem->type == 1)  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
-    }
+    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
 
-    for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
-      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
-      if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
-      // make sure to remove the cmdline
-      if (hmem->type == -2 && hmem->aux)  {
-	_free_phys.del(Region(hmem->aux, (strlen(reinterpret_cast<char *>(hmem->aux)) + 0xfff) & ~0xffful));
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
+      if (hmem->type == 1) {
+	_free_virt.del(Region(hmem->addr, hmem->size));
+	_virt_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
       }
     }
-    // remove our binary from the free phys region.
-    extern char __image_start, __image_end;
-    _free_phys.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
   }
 
 

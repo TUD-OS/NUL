@@ -358,6 +358,12 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   unsigned init_memmap(Utcb *utcb)
   {
     Logging::printf("init memory map\n");
+
+    // our image
+    extern char __image_start, __image_end;
+    _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, _hip->get_mod(0)->addr));
+
+
     for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
       {
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
@@ -369,10 +375,10 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
       {
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
 	if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
-	// make sure to remove the cmdline
-	if (hmem->type == -2 && hmem->aux)  {
+
+	// make sure to remove the cmdline as well
+	if (hmem->type == -2 && hmem->aux)
 	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
-	}
       }
 
     // reserve the very first 1MB
