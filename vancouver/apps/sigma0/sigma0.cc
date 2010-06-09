@@ -112,7 +112,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned        uid;
   } _modinfo[MAXMODULES];
   TimeoutList<MAXMODULES+2> _timeouts;
-  unsigned _modcount;
 
   // backing store for the HIPs
   char _hips[0x1000 * (1+MAXMODULES)];
@@ -419,18 +418,20 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	char *cmdline = map_string(utcb, mod->aux);
 	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
 	  {
-	    if (++_modcount >= MAXMODULES)
-	      {
-		Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
-		_modcount--;
-		return __LINE__;
-	      }
+	    // search for a free module
+	    unsigned module;
+	    for (module = 1; module < MAXMODULES; module++)
+	      if (!_modinfo[module].mem) break;
+	    if (module >= MAXMODULES) {
+	      Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+	      return __LINE__;
+	    }
 
 	    char *p = strstr(cmdline, "sigma0::cpu");
 	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
 	    assert(_percpu[cpunr].cap_ec_worker);
 
-	    ModuleInfo *modinfo = _modinfo + _modcount;
+	    ModuleInfo *modinfo = _modinfo + module;
 	    memset(modinfo, 0, sizeof(*modinfo));
 	    modinfo->mod_nr    = i;
 	    modinfo->mod_count = 1;
@@ -438,7 +439,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    modinfo->dma  = strstr(cmdline, "sigma0::dma");
 	    modinfo->log = strstr(cmdline, "sigma0::log");
 	    bool vcpus   = strstr(cmdline, "sigma0::vmm");
-	    Logging::printf("module(%x) '", _modcount);
+	    Logging::printf("module(%x) '", module);
 	    fancy_output(cmdline, 4096);
 
 	    // alloc memory
@@ -455,11 +456,10 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 		|| !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
 	      {
 		_free_phys.debug_dump("free phys");
-		Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", _modcount, modinfo->physsize >> 20, psize_needed >> 20);
-		_modcount--;
+		Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
 		return __LINE__;
 	      }
-	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->physsize, pmem);
+	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
 	    // format the tag
 	    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", cpunr, modinfo->physsize >> 20, cmdline);
@@ -484,7 +484,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    unsigned  slen = strlen(cmdline) + 1;
 	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	    Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * _modcount) & ~0xfff);
+	    Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * module) & ~0xfff);
 	    memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
 
 	    memcpy(modhip, _hip, _hip->mem_offs);
@@ -501,7 +501,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
 	    // create special portal for every module, we start at 64k, to have enough space for static fields
-	    unsigned pt = 0x10000 + (_modcount << 5);
+	    unsigned pt = 0x10000 + (module << 5);
 	    check1(6, create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	    check1(7, create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
@@ -1136,12 +1136,13 @@ public:
 	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	  }
 	if (in_range(msg.id, 3, 4)) {
-	  for (unsigned i=1; i <= _modcount; i++) {
-	    _modinfo[i].needmemmap = true;
-	    unsigned rights = 0x1c;
-	    if (msg.id >= 4)  rights = (1 << (msg.id - 4)) << 2;
-	    revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
-	  }
+	  for (unsigned i=1; i <= MAXMODULES; i++)
+	    if (_modinfo[i].mem) {
+	      _modinfo[i].needmemmap = true;
+	      unsigned rights = 0x1c;
+	      if (msg.id >= 4)  rights = (1 << (msg.id - 4)) << 2;
+	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
+	    }
 	}
 	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
 	return true;
@@ -1280,7 +1281,7 @@ public:
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
 
-  Sigma0() :  _numcpus(0), _modcount(0), _gsi(0), _pcidirect() {}
+  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
 
