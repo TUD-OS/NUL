@@ -73,19 +73,18 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   static const unsigned MAXDISKREQUESTS = DISKS_SIZE; // max number of outstanding disk requests per client
   struct ModuleInfo
   {
-    Hip *           hip;
     unsigned        mod_nr;
     unsigned        mod_count;
     unsigned        cap_pd;
     unsigned        cpunr;
     unsigned long   rip;
     char            tag[256];
+    bool            log;
+    bool            dma;
     bool            needmemmap;
     char *          mem;
     unsigned long   physsize;
     unsigned long   console;
-    bool            log;
-    bool            dma;
     StdinProducer   prod_stdin;
     DiskProducer    prod_disk;
     unsigned char   disks[MAXDISKS];
@@ -100,6 +99,9 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   } _modinfo[MAXMODULES];
   TimeoutList<MAXMODULES+2> _timeouts;
   unsigned _modcount;
+
+  // backing store for the HIPs
+  char _hips[0x1000 * (1+MAXMODULES)];
 
   // IRQ handling
   unsigned  _msivector;        // next gsi vector
@@ -436,6 +438,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	      modinfo->physsize = strtoul(p+12, 0, 0) << 20;
 	    else
 	      modinfo->physsize = psize_needed;
+
 	    unsigned long pmem;
 	    if ((psize_needed > modinfo->physsize)
 		|| !(pmem = _free_phys.alloc(modinfo->physsize, 22))
@@ -471,15 +474,15 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    unsigned  slen = strlen(cmdline) + 1;
 	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	    modinfo->hip = reinterpret_cast<Hip *>(new(0x1000) char[0x1000]);
-	    memcpy(reinterpret_cast<char *>(modinfo->hip) + 0x1000 - slen, cmdline, slen);
+	    Hip * hip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * _modcount) & ~0xfff);
+	    memcpy(reinterpret_cast<char *>(hip) + 0x1000 - slen, cmdline, slen);
 
-	    memcpy(modinfo->hip, _hip, _hip->mem_offs);
-	    modinfo->hip->length = modinfo->hip->mem_offs;
-	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-	    modinfo->hip->append_mem(0, 0, -2, HIP_ADDRESS + 0x1000 - slen);
-	    modinfo->hip->fix_checksum();
-	    assert(_hip->length > modinfo->hip->length);
+	    memcpy(hip, _hip, _hip->mem_offs);
+	    hip->length = hip->mem_offs;
+	    hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
+	    hip->append_mem(0, 0, -2, HIP_ADDRESS + 0x1000 - slen);
+	    hip->fix_checksum();
+	    assert(_hip->length > hip->length);
 
 	    // count attached modules
 	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
@@ -704,8 +707,8 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  ModuleInfo *modinfo = _modinfo + client;
 	  {
 	    SemaphoreGuard s(_lock);
-	    Logging::printf("[%02x] eip %lx hip %p mem %p size %lx\n",
-			    client, modinfo->rip, modinfo->hip, modinfo->mem, modinfo->physsize);
+	    Logging::printf("[%02x] eip %lx mem %p size %lx\n",
+			    client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  }
 
 	  utcb->eip = modinfo->rip;
@@ -1004,9 +1007,10 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    {
 	      if (_modinfo->needmemmap) {
 		Logging::printf("[%02x] map for %x for %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
+		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000,  HIP_ADDRESS, 0x1c | 1);
+		utcb->add_mappings(true, hip, 0x1000,  HIP_ADDRESS, 0x1c | 1);
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
