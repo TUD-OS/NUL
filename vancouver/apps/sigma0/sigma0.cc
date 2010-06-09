@@ -413,103 +413,103 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned long maxptr;
     Hip_mem *mod;
     unsigned mods = 0;
-    for (unsigned i=1; mod = _hip->get_mod(i); i++)
-      {
+    for (unsigned i=1; mod = _hip->get_mod(i); i++) {
+
 	char *cmdline = map_string(utcb, mod->aux);
-	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
-	  {
-	    // search for a free module
-	    unsigned module;
-	    for (module = 1; module < MAXMODULES; module++)
-	      if (!_modinfo[module].mem) break;
-	    if (module >= MAXMODULES) {
-	      Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++)) {
+
+	  // search for a free module
+	  unsigned module = 1;
+	  while (module < MAXMODULES && _modinfo[module].mem)  module++;
+
+	  if (module >= MAXMODULES) {
+	    Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+	    return __LINE__;
+	  }
+
+	  // init module parameters
+	  ModuleInfo *modinfo = _modinfo + module;
+	  memset(modinfo, 0, sizeof(*modinfo));
+	  modinfo->mod_nr    = i;
+	  modinfo->mod_count = 1;
+	  char *p = strstr(cmdline, "sigma0::cpu");
+	  modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
+	  modinfo->dma       = strstr(cmdline, "sigma0::dma");
+	  modinfo->log       = strstr(cmdline, "sigma0::log");
+	  bool vcpus         = strstr(cmdline, "sigma0::vmm");
+
+	  Logging::printf("module(%x) '", module);
+	  fancy_output(cmdline, 4096);
+
+	  // alloc memory
+	  unsigned long psize_needed = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
+	  p = strstr(cmdline, "sigma0::mem:");
+	  if (p)
+	    modinfo->physsize = strtoul(p+12, 0, 0) << 20;
+	  else
+	    modinfo->physsize = psize_needed;
+
+	  unsigned long pmem;
+	  if ((psize_needed > modinfo->physsize)
+	      || !(pmem = _free_phys.alloc(modinfo->physsize, 22))
+	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
+	    {
+	      _free_phys.debug_dump("free phys");
+	      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
 	      return __LINE__;
 	    }
+	  Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
-	    char *p = strstr(cmdline, "sigma0::cpu");
-	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
-	    assert(_percpu[cpunr].cap_ec_worker);
+	  // format the tag
+	  Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
 
-	    ModuleInfo *modinfo = _modinfo + module;
-	    memset(modinfo, 0, sizeof(*modinfo));
-	    modinfo->mod_nr    = i;
-	    modinfo->mod_count = 1;
-	    modinfo->cpunr = cpunr;
-	    modinfo->dma  = strstr(cmdline, "sigma0::dma");
-	    modinfo->log = strstr(cmdline, "sigma0::log");
-	    bool vcpus   = strstr(cmdline, "sigma0::vmm");
-	    Logging::printf("module(%x) '", module);
-	    fancy_output(cmdline, 4096);
-
-	    // alloc memory
-	    unsigned long psize_needed = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
-	    p = strstr(cmdline, "sigma0::mem:");
-	    if (p)
-	      modinfo->physsize = strtoul(p+12, 0, 0) << 20;
-	    else
-	      modinfo->physsize = psize_needed;
-
-	    unsigned long pmem;
-	    if ((psize_needed > modinfo->physsize)
-		|| !(pmem = _free_phys.alloc(modinfo->physsize, 22))
-		|| !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
-	      {
-		_free_phys.debug_dump("free phys");
-		Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
-		return __LINE__;
-	      }
-	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
-
-	    // format the tag
-	    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", cpunr, modinfo->physsize >> 20, cmdline);
-
-	    // allocate a console for it
-	    MessageConsole msg1;
-	    msg1.clientname = modinfo->tag;
-	    if (_mb->bus_console.send(msg1))  modinfo->console = msg1.id;
+	  // allocate a console for it
+	  MessageConsole msg1;
+	  msg1.clientname = modinfo->tag;
+	  if (_mb->bus_console.send(msg1))  modinfo->console = msg1.id;
 
 
-	    /**
-	     * We memset the client memory to make sure we get an
-	     * deterministic run and not leak any information between
-	     * clients.
-	     */
-	    memset(modinfo->mem, 0, modinfo->physsize);
+	  /**
+	   * We memset the client memory to make sure we get an
+	   * deterministic run and not leak any information between
+	   * clients.
+	   */
+	  memset(modinfo->mem, 0, modinfo->physsize);
 
-	    // decode elf
-	    maxptr = 0;
-	    Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
-	    attach_drives(cmdline, modinfo);
+	  // decode elf
+	  maxptr = 0;
+	  Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
+	  attach_drives(cmdline, modinfo);
 
-	    unsigned  slen = strlen(cmdline) + 1;
-	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	    Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * module) & ~0xfff);
-	    memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
+	  unsigned  slen = strlen(cmdline) + 1;
+	  assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
+	  Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * module) & ~0xfff);
+	  memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
 
-	    memcpy(modhip, _hip, _hip->mem_offs);
-	    modhip->length = modhip->mem_offs;
-	    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-	    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
-	    modhip->fix_checksum();
-	    assert(_hip->length > modhip->length);
+	  memcpy(modhip, _hip, _hip->mem_offs);
+	  modhip->length = modhip->mem_offs;
+	  modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
+	  modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
+	  modhip->fix_checksum();
+	  assert(_hip->length > modhip->length);
 
-	    // count attached modules
-	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
-	      modinfo->mod_count++;
-	    i--;
+	  // count attached modules
+	  while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
+	    modinfo->mod_count++;
+	  i--;
 
 
-	    // create special portal for every module, we start at 64k, to have enough space for static fields
-	    unsigned pt = 0x10000 + (module << 5);
-	    check1(6, create_pt(pt+14, _percpu[cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-	    check1(7, create_pt(pt+30, _percpu[cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
+	  // create special portal for every module, we start at 64k, to have enough space for static fields
+	  unsigned pt = 0x10000 + (module << 5);
+	  assert(_percpu[modinfo->cpunr].cap_ec_worker);
+	  check1(6, create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+	  check1(7, create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
-	    Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", cpunr);
-	    modinfo->cap_pd = alloc_cap();
-	    check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, cpunr, modinfo->dma));
-	  }
-      }
+	  Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+	  modinfo->cap_pd = alloc_cap();
+	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, modinfo->cpunr, modinfo->dma));
+	}
+    }
     return 0;
   }
 
