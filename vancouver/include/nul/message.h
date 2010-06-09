@@ -571,7 +571,7 @@ struct MessageBios
   CpuState *cpu;
   unsigned irq;
   unsigned mtr_out;
-  MessageBios(VCpu *_vcpu, CpuState *_cpu, unsigned _irq) : vcpu(_vcpu), cpu(_cpu), irq(_irq) {}
+  MessageBios(VCpu *_vcpu, CpuState *_cpu, unsigned _irq) : vcpu(_vcpu), cpu(_cpu), irq(_irq), mtr_out(0) {}
 };
 
 
