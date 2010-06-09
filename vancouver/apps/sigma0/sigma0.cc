@@ -55,13 +55,14 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
   unsigned  _last_affinity;
 
-  // synchronisation of gsis+worker
+  // synchronisation of GSIs+worker
   long      _lockcount;
   Semaphore _lock;
 
   // vga
   char    * _vga;
   VgaRegs   _vga_regs;
+
   // device data
   Motherboard *_mb;
   volatile unsigned _disk_requests_completed;
@@ -405,7 +406,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned long maxptr;
     Hip_mem *mod;
     unsigned mods = 0;
-    for (unsigned i=0; mod = _hip->get_mod(i); i++)
+    for (unsigned i=1; mod = _hip->get_mod(i); i++)
       {
 	char *cmdline = map_string(utcb, mod->aux);
 	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
@@ -1109,7 +1110,7 @@ public:
 	break;
       case MessageConsole::TYPE_START:
 	{
-	  unsigned res = start_modules(myutcb(), 1 << (msg.id+1));
+	  unsigned res = start_modules(myutcb(), 1 << msg.id);
 	  if (res)
 	    Logging::printf("start modules(%d) = %x\n", msg.id, res);
 	  return true;
@@ -1254,7 +1255,7 @@ public:
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
     Logging::printf("start modules\n");
     for (unsigned i=0; i <= repeat; i++)
-      if ((res = start_modules(utcb, ~startlate << 1)))    Logging::printf("start modules failed %x\n", res);
+      if ((res = start_modules(utcb, ~startlate)))    Logging::printf("start modules failed %x\n", res);
 
     Logging::printf("INIT done\n");
 
