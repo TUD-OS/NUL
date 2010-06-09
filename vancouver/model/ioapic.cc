@@ -96,19 +96,19 @@ private:
       _redir[_index - 0x10] = value & mask;
       unsigned pin = (_index - 0x10) / 2;
 
-      // delivery pending?
-      if (_ds[pin]) {
-	// if edge: clear ds bit
-	_ds[pin] = _redir[pin * 2] & MessageApic::ICR_LEVEL;
+      // if edge: clear ds bit
+      _ds[pin] = _redir[pin * 2] & MessageApic::ICR_LEVEL;
 
-	// unmasked - retrigger and/or notify
-	if (~_redir[pin * 2] & 0x10000 && _ds[pin])
-	  pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
-      }
-      else {
-	// unmasked an edge triggered IRQ? -> notify
-	_notify[pin] = true;
-	notify(pin);
+      // unmasked - retrigger and/or notify
+      if (~_redir[pin * 2] & 0x10000) {
+	if (_ds[pin]) pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
+	else {
+	  //if (pin == 2) _debug = true;
+	  //if (_debug) Logging::printf("unmask pin %x value %x\n", pin, _redir[pin * 2]);
+	  // unmasked an edge triggered IRQ? -> notify
+	  _notify[pin] = true;
+	  notify(pin);
+	}
       }
     }
     else if (_index == 0)
