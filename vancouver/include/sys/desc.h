@@ -51,7 +51,7 @@ class Crd : public Desc
 public:
   unsigned order() { return ((_value >> 7) & 0x1f); }
   unsigned size() { return 1 << (order() + 12); }
-  Crd(unsigned offset, unsigned order, unsigned type = 3) : Desc((offset << 12) | (order << 7) | type) { }
+  Crd(unsigned offset, unsigned order, unsigned type = 0x1c | 3) : Desc((offset << 12) | (order << 7) | type) { }
   Crd(unsigned v) : Desc(v) {}
 };
 
