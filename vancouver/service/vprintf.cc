@@ -149,8 +149,10 @@ struct snprintf_data {
 
 static void snprintf_putc(void *data, int value)
 {
-  if (value < 0) return;
   snprintf_data *d = reinterpret_cast<snprintf_data *>(data);
+
+  if (value == -2 && d->size) *d->ptr = 0;
+  if (value < 0) return;
   switch (d->size)
     {
     case 1:
