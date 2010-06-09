@@ -46,14 +46,19 @@ PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multipl
 class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
-    MAXCPUS = 256,
-    CPUGSI  = 0,
-    MAXPCIDIRECT = 64
+    MAXCPUS            = 256,
+    CPUGSI             = 0,
+    MAXPCIDIRECT       = 64,
+    MAXDISKS           = 32,
+    MEM_OFFSET         = 1ul << 31,
+    MAXMODULES         = 64,
+    MAXDISKREQUESTS    = DISKS_SIZE  // max number of outstanding disk requests per client
   };
 
   // a mapping from virtual cpus to the physical numbers
   unsigned  _cpunr[MAXCPUS];
   unsigned  _numcpus;
+  unsigned  _last_affinity;
 
   // data per physical CPU number
   struct {
@@ -62,24 +67,24 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     unsigned  cap_pt_echo;
   } _percpu[MAXCPUS];
 
-  unsigned  _last_affinity;
 
   // synchronisation of GSIs+worker
   long      _lockcount;
   Semaphore _lock;
 
-  // vga
+  // putc+vga
   char    * _vga;
   VgaRegs   _vga_regs;
+  struct PutcData
+  {
+    VgaRegs        *regs;
+    unsigned short *screen;
+  } putcd;
 
   // device data
   Motherboard *_mb;
 
   // module data
-  static const unsigned MAXDISKS = 32;
-  static const unsigned long MEM_OFFSET = 1 << 31;
-  static const unsigned MAXMODULES = 64;
-  static const unsigned MAXDISKREQUESTS = DISKS_SIZE; // max number of outstanding disk requests per client
   struct ModuleInfo
   {
     unsigned        mod_nr;
@@ -260,11 +265,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	global_mb->bus_serial.send(msg);
       }
   }
-  struct PutcData
-  {
-    VgaRegs        *regs;
-    unsigned short *screen;
-  };
 
 
   static void putc(void *data, int value)
@@ -338,7 +338,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     // keep the boot screen
     memcpy(_vga + 0x1a000, _vga + 0x18000, 0x1000);
 
-    static PutcData putcd;
     putcd.screen = reinterpret_cast<unsigned short *>(_vga + 0x18000);
     putcd.regs = &_vga_regs;
     _vga_regs.cursor_pos = 24*80*2;
@@ -1293,8 +1292,6 @@ void Sigma0::start(Hip *hip, Utcb *utcb) {
 
 void  do_exit(const char *msg)
 {
-  //Motherboard *mb = global_mb;
-  //global_mb = 0;
   Logging::printf("__exit(%s)\n", msg);
   if (global_mb) Sigma0::switch_view(global_mb);
 
