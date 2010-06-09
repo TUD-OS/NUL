@@ -179,6 +179,16 @@ private:
     unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_switch;
     switch (keycode)
       {
+      case 0x42: // k - kill active module
+	{
+	  // switch to view 0
+	  _clients[_active_client].active_view = 0;
+
+	  // send kill message
+	  MessageConsole msg1(MessageConsole::TYPE_KILL, _active_client);
+	  _mb.bus_console.send(msg1);
+	  break;
+	}
       case KBCODE_RIGHT:
 	_active_client = (_active_client + 1) % MAXCLIENTS;
 	break;
@@ -387,6 +397,7 @@ public:
       case MessageConsole::TYPE_KEY:
       case MessageConsole::TYPE_RESET:
       case MessageConsole::TYPE_START:
+      case MessageConsole::TYPE_KILL:
       case MessageConsole::TYPE_DEBUG:
       default:
 	break;

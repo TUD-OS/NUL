@@ -333,8 +333,10 @@ struct MessageConsole
       TYPE_KEY,
       // the user requests a reset
       TYPE_RESET,
-      // the user requests to start a new domain
+      // the user requests to start a new PD
       TYPE_START,
+      // the user requests to kill a PD
+      TYPE_KILL,
       // the user requests a debug feature
       TYPE_DEBUG
     } type;
