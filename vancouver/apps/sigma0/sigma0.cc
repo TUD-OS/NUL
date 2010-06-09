@@ -65,7 +65,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
   // device data
   Motherboard *_mb;
-  volatile unsigned _disk_requests_completed;
 
   // module data
   static const unsigned MAXDISKS = 32;
@@ -1232,7 +1231,6 @@ public:
 	Logging::panic("produce disk (%x, %x) failed\n", client, index);
       _modinfo[client].tags[index-1].disk = 0;
     }
-    _disk_requests_completed++;
     return true;
   }
 
