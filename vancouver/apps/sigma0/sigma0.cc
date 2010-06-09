@@ -514,6 +514,38 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
 
+  /**
+   * Kill the given module.
+   */
+  unsigned kill_module(unsigned module) {
+    if (module < 1 || module > MAXMODULES || !_modinfo[module].mem || !_modinfo[module].physsize) return __LINE__;
+
+    ModuleInfo *modinfo = _modinfo + module;
+
+    // unmap the service portal
+    revoke(Crd(0x10000 + (module << 5), 5), false); // XXX kill it
+
+    // and the memory
+    revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
+
+    // change the tag
+    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+
+    // free resources
+    Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
+    assert(r);
+    assert(r->size >= modinfo->physsize);
+    _free_phys.add(Region(r->phys, modinfo->physsize));
+    modinfo->physsize = 0;
+    // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
+
+
+    // XXX mark module as free -> we can not do this currently as we can not free the request portals
+    //modinfo->mem = 0;
+    return __LINE__;
+  }
+
+
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = 0x1c | 1)
   {
     assert(size);
@@ -567,7 +599,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     src &= ~0xfffull;
     char *res = 0;
     do {
-      //if (res) unmap(res, size);
+      //XXX if (res) unmap_self(res, size);
       size += 0x1000;
       res = map_self(utcb, src, size) + offset;
     } while (strnlen(res, size - offset) == (size - offset));
@@ -581,7 +613,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   void revoke_all_mem(void *address, unsigned long size, unsigned rights, bool myself)
   {
     unsigned long page = reinterpret_cast<unsigned long>(address);
-    Logging::printf("%s(%lx,%lx)\n", __func__, page, size);
+    Logging::printf("%s(%lx,%lx,%x)\n", __func__, page, size, rights);
     size += page & 0xfff;
     page >>= 12;
     size = (size + 0xfff) >> 12;
@@ -1021,14 +1053,11 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
 		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
+		_modinfo->needmemmap = false;
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
-		if (revoke(Crd(client, 4), true))
-		  {
-		    _lock.up();
-		    Logging::panic("kill connection to %x failed", client);
-		  }
+		kill_module(client);
 	      }
 	    }
 	  )
@@ -1128,6 +1157,12 @@ public:
 	    Logging::printf("start modules(%d) = %x\n", msg.id, res);
 	  return true;
 	}
+      case MessageConsole::TYPE_KILL:
+	{
+	  unsigned res = kill_module(msg.id);
+	  if (res)   Logging::printf("kill module(%d) = %x\n", msg.id, res);
+	  return true;
+	}
       case MessageConsole::TYPE_DEBUG:
 	if (!msg.id) _mb->dump_counters();
 	if (msg.id == 1) check_timeouts();
@@ -1136,7 +1171,7 @@ public:
 	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	  }
 	if (in_range(msg.id, 3, 4)) {
-	  for (unsigned i=1; i <= MAXMODULES; i++)
+	  for (unsigned i = 1; i <= MAXMODULES; i++)
 	    if (_modinfo[i].mem) {
 	      _modinfo[i].needmemmap = true;
 	      unsigned rights = 0x1c;
