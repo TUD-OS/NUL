@@ -73,31 +73,30 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   static const unsigned MAXDISKREQUESTS = DISKS_SIZE; // max number of outstanding disk requests per client
   struct ModuleInfo
   {
-    Hip *         hip;
-    unsigned      mod_nr;
-    unsigned      mod_count;
-    unsigned      cap_pd;
-    unsigned      cpunr;
-    unsigned long rip;
-    char          tag[256];
-    bool          needmemmap;
-    char *        mem;
-    unsigned long pmem;
-    unsigned long physsize;
-    unsigned long console;
-    bool          log;
-    bool          dma;
-    StdinProducer prod_stdin;
-    unsigned char disks[MAXDISKS];
-    unsigned char disk_count;
+    Hip *           hip;
+    unsigned        mod_nr;
+    unsigned        mod_count;
+    unsigned        cap_pd;
+    unsigned        cpunr;
+    unsigned long   rip;
+    char            tag[256];
+    bool            needmemmap;
+    char *          mem;
+    unsigned long   physsize;
+    unsigned long   console;
+    bool            log;
+    bool            dma;
+    StdinProducer   prod_stdin;
+    DiskProducer    prod_disk;
+    unsigned char   disks[MAXDISKS];
+    unsigned char   disk_count;
     struct {
       unsigned char disk;
       unsigned long usertag;
     } tags [MAXDISKREQUESTS];
-    DiskProducer  prod_disk;
-    TimerProducer prod_timer;
+    TimerProducer   prod_timer;
     NetworkProducer prod_network;
-    unsigned      uid;
+    unsigned        uid;
   } _modinfo[MAXMODULES];
   TimeoutList<MAXMODULES+2> _timeouts;
   unsigned _modcount;
@@ -437,16 +436,17 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	      modinfo->physsize = strtoul(p+12, 0, 0) << 20;
 	    else
 	      modinfo->physsize = psize_needed;
+	    unsigned long pmem;
 	    if ((psize_needed > modinfo->physsize)
-		|| !(modinfo->pmem = _free_phys.alloc(modinfo->physsize, 22))
-		|| !((modinfo->mem = map_self(utcb, modinfo->pmem, modinfo->physsize))))
+		|| !(pmem = _free_phys.alloc(modinfo->physsize, 22))
+		|| !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
 	      {
 		_free_phys.debug_dump("free phys");
 		Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", _modcount, modinfo->physsize >> 20, psize_needed >> 20);
 		_modcount--;
 		return __LINE__;
 	      }
-	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->physsize, modinfo->pmem);
+	    Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", _modcount, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
 	    // format the tag
 	    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", cpunr, modinfo->physsize >> 20, cmdline);
@@ -476,7 +476,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    memcpy(modinfo->hip, _hip, _hip->mem_offs);
 	    modinfo->hip->length = modinfo->hip->mem_offs;
-	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, modinfo->pmem);
+	    modinfo->hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
 	    modinfo->hip->append_mem(0, 0, -2, HIP_ADDRESS + 0x1000 - slen);
 	    modinfo->hip->fix_checksum();
 	    assert(_hip->length > modinfo->hip->length);
