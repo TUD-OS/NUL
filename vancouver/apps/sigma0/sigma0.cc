@@ -24,21 +24,30 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 
-unsigned  startlate;
-unsigned  repeat;
-unsigned  console_id;
+// global VARs
+unsigned     startlate;
+unsigned     repeat;
+unsigned     console_id;
+Motherboard *global_mb;
 
+
+
+// extra params
 PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
       "Example: 'startlate:0xfffffffc' - starts only the first and second module")
-PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times" )
 
-Motherboard *global_mb;
+PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times")
+
+
+
+/**
+ * Sigma0 application class.
+ */
 class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
     MAXCPUS = 256,
     CPUGSI  = 0,
-    HIP_ADDRESS = 0xbffff000,
     MAXPCIDIRECT = 64
   };
 
@@ -401,7 +410,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
 
-  unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned mask)
+  unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned long mask)
   {
     unsigned long maxptr;
     Hip_mem *mod;
@@ -411,15 +420,17 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	char *cmdline = map_string(utcb, mod->aux);
 	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++))
 	  {
-	    char *p = strstr(cmdline, "sigma0::cpu");
-	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
-	    assert(_percpu[cpunr].cap_ec_worker);
 	    if (++_modcount >= MAXMODULES)
 	      {
 		Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
 		_modcount--;
 		return __LINE__;
 	      }
+
+	    char *p = strstr(cmdline, "sigma0::cpu");
+	    unsigned cpunr = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
+	    assert(_percpu[cpunr].cap_ec_worker);
+
 	    ModuleInfo *modinfo = _modinfo + _modcount;
 	    memset(modinfo, 0, sizeof(*modinfo));
 	    modinfo->mod_nr    = i;
@@ -474,15 +485,15 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 	    unsigned  slen = strlen(cmdline) + 1;
 	    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	    Hip * hip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * _modcount) & ~0xfff);
-	    memcpy(reinterpret_cast<char *>(hip) + 0x1000 - slen, cmdline, slen);
+	    Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * _modcount) & ~0xfff);
+	    memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
 
-	    memcpy(hip, _hip, _hip->mem_offs);
-	    hip->length = hip->mem_offs;
-	    hip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-	    hip->append_mem(0, 0, -2, HIP_ADDRESS + 0x1000 - slen);
-	    hip->fix_checksum();
-	    assert(_hip->length > hip->length);
+	    memcpy(modhip, _hip, _hip->mem_offs);
+	    modhip->length = modhip->mem_offs;
+	    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
+	    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
+	    modhip->fix_checksum();
+	    assert(_hip->length > modhip->length);
 
 	    // count attached modules
 	    while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
@@ -712,7 +723,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  }
 
 	  utcb->eip = modinfo->rip;
-	  utcb->esp = HIP_ADDRESS;
+	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 
 	  _modinfo->needmemmap = true;
@@ -1010,7 +1021,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-		utcb->add_mappings(true, hip, 0x1000,  HIP_ADDRESS, 0x1c | 1);
+		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
