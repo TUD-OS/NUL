@@ -95,7 +95,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     char            tag[256];
     bool            log;
     bool            dma;
-    bool            needmemmap;
+    unsigned        allowedmemmap;
     char *          mem;
     unsigned long   physsize;
     unsigned long   console;
@@ -757,7 +757,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 
-	  modinfo->needmemmap = true;
+	  modinfo->allowedmemmap = 1;
 	  )
 
 
@@ -1047,13 +1047,18 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    }
 	  else
 	    {
-	      if (modinfo->needmemmap) {
+	      if (modinfo->allowedmemmap) {
 		Logging::printf("[%02x] map for %x for %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
 		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
+
+		// we can not overmap -> thus remove all rights first
+		revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
+		revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
+
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
 		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
-		modinfo->needmemmap = false;
+		modinfo->allowedmemmap--;
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
@@ -1170,15 +1175,14 @@ public:
 	  {
 	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	  }
-	if (in_range(msg.id, 3, 4)) {
+	if (msg.id == 3)
 	  for (unsigned i = 1; i <= MAXMODULES; i++)
 	    if (_modinfo[i].mem) {
-	      _modinfo[i].needmemmap = true;
-	      unsigned rights = 0x1c;
-	      if (msg.id >= 4)  rights = (1 << (msg.id - 4)) << 2;
+	      _modinfo[i].allowedmemmap += 8; // XXX arbitary value for debug reasons
+	      static unsigned unmap_count;
+	      unsigned rights = (--unmap_count & 7) << 2;
 	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
 	    }
-	}
 	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
 	return true;
       case MessageConsole::TYPE_ALLOC_CLIENT:
