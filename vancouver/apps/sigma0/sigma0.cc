@@ -1175,14 +1175,16 @@ public:
 	  {
 	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	  }
-	if (msg.id == 3)
+	static unsigned unmap_count;
+	if (msg.id == 3) {
+	  unmap_count--;
 	  for (unsigned i = 1; i <= MAXMODULES; i++)
 	    if (_modinfo[i].mem) {
 	      _modinfo[i].allowedmemmap += 8; // XXX arbitary value for debug reasons
-	      static unsigned unmap_count;
-	      unsigned rights = (--unmap_count & 7) << 2;
+	      unsigned rights = (unmap_count & 7) << 2;
 	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
 	    }
+	}
 	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
 	return true;
       case MessageConsole::TYPE_ALLOC_CLIENT:
