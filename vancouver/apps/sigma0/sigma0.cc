@@ -757,7 +757,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 
-	  _modinfo->needmemmap = true;
+	  modinfo->needmemmap = true;
 	  )
 
 
@@ -1047,13 +1047,13 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    }
 	  else
 	    {
-	      if (_modinfo->needmemmap) {
+	      if (modinfo->needmemmap) {
 		Logging::printf("[%02x] map for %x for %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
 		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
 		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
-		_modinfo->needmemmap = false;
+		modinfo->needmemmap = false;
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
