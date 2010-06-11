@@ -608,25 +608,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 
 
   /**
-   * Revoke all memory at the given address.
-   */
-  void revoke_all_mem(void *address, unsigned long size, unsigned rights, bool myself)
-  {
-    unsigned long page = reinterpret_cast<unsigned long>(address);
-    Logging::printf("%s(%lx,%lx,%x)\n", __func__, page, size, rights);
-    size += page & 0xfff;
-    page >>= 12;
-    size = (size + 0xfff) >> 12;
-    while (size) {
-      unsigned order = Cpu::minshift(page, size);
-      check0(revoke(Crd(page, order, rights | 1), myself));
-      size -= 1 << order;
-      page += 1 << order;
-    }
-  }
-
-
-  /**
    * Check whether timeouts have fired.
    */
   void check_timeouts()
@@ -1048,17 +1029,19 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  else
 	    {
 	      if (modinfo->allowedmemmap) {
-		Logging::printf("[%02x] map for %x for %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
+		Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
 		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
 
-		// we can not overmap -> thus remove all rights first
-		revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
-		revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
+		// we can not overmap -> thus remove all rights first if they were present
+		if (utcb->qual[0] & 1) {
+		  revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
+		  revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
+		}
 
 		utcb->head.mtr = Mtd(0, 0);
 		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
 		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
-		modinfo->allowedmemmap--;
+		//modinfo->allowedmemmap--;
 	      }
 	      else {
 		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);

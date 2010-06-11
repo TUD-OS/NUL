@@ -28,11 +28,29 @@ struct BaseProgram {
   static const unsigned stack_size = (1U << stack_size_shift);
 
   /**
-   * Get the UTCB pointer from the top of the stack. This is a hack, as long we do not have a myself systemcall!
+   * Get the UTCB pointer from the top of the stack.
    */
   static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp));
     return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
   };
+
+
+  /**
+   * Revoke all memory for a given virtual region.
+   */
+  static void revoke_all_mem(void *address, unsigned long size, unsigned rights, bool myself) {
+
+    unsigned long page = reinterpret_cast<unsigned long>(address);
+    size += page & 0xfff;
+    page >>= 12;
+    size = (size + 0xfff) >> 12;
+    while (size) {
+      unsigned order = Cpu::minshift(page, size);
+      check0(revoke(Crd(page, order, rights | 1), myself));
+      size -= 1 << order;
+      page += 1 << order;
+    }
+  }
 };
 
 

@@ -124,6 +124,7 @@ class NovaProgram : public BaseProgram
    */
   void __attribute__((noreturn)) block_forever() { while (1) semdown(_cap_block); };
 
+
 public:
   /**
    * Default exit function.
