@@ -141,11 +141,12 @@ public:
  * Unfortunately this can not be a template.
  */
 #define ASMFUNCS(X, Y)							\
-  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))); \
+  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))) __attribute__((noreturn)); \
   void start(Hip *hip, Utcb *utcb)					\
   {									\
     static X x;								\
     x.run(utcb, hip);							\
+    do_exit("run returned");						\
   }									\
   void do_exit(const char *msg)						\
   {									\

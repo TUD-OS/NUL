@@ -346,7 +346,6 @@ public:
   }
 };
 
-extern "C" void __attribute__((noreturn)) start(Hip *hip, Utcb *utcb);
 ASMFUNCS(Cycleburner, NovaProgram)
 
 // EOF
