@@ -124,7 +124,6 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
   {
     CpuState *cpu = msg.cpu;
     //COUNTER_INC("int16");
-    //DEBUG;
     unsigned short next  = read_bda(0x1a);
     unsigned short first = read_bda(0x1c);
     unsigned short start = read_bda(0x80);
@@ -177,7 +176,7 @@ public:
    */
   bool  receive(MessageKeycode &msg)
   {
-    if (msg.keyboard == 0)
+    if (msg.keyboard == 0x10)
       {
 	update_status(msg.keycode);
 	unsigned value = keycode2bios(msg.keycode);
@@ -185,7 +184,6 @@ public:
 	unsigned short first = read_bda(0x1c);
 	unsigned short start = read_bda(0x80);
 	unsigned short end   = read_bda(0x82);
-	//Logging::printf("%s() %x key %x bios %x\n", __PRETTY_FUNCTION__, msg.keyboard, msg.keycode, value);
 
 	first += 0x2;
 	if (first >= end)   first = start;
@@ -235,13 +233,17 @@ public:
    */
   bool  receive(MessageIOIn &msg)  { return _mb.bus_ioin.send(msg); }
   bool  receive(MessageIOOut &msg) { return _mb.bus_ioout.send(msg); }
-  bool  receive(MessageLegacy &msg) { return _hostmb->bus_legacy.send_fifo(msg); }
-
 
   bool  receive(MessageBios &msg) {
     switch(msg.irq) {
     case 0x09:  return handle_int09(msg.cpu);
     case 0x16:  return handle_int16(msg);
+    case RESET_VECTOR:
+      {
+	MessageLegacy msg2(MessageLegacy::RESET);
+	_hostmb->bus_legacy.send(msg2);
+	return false;
+      }
     default:    return false;
     }
   }
@@ -261,22 +263,21 @@ public:
   VirtualBiosKeyboard(Motherboard &mb) : BiosCommon(mb) {
 
     // create hostmb and hostkeyb
-      _hostmb = new Motherboard(mb.clock());
-      _hostmb->bus_keycode.add(this, &VirtualBiosKeyboard::receive_static<MessageKeycode>);
-      _hostmb->bus_hostop .add(this, &VirtualBiosKeyboard::receive_static<MessageHostOp>);
-      _hostmb->bus_hwioin .add(this, &VirtualBiosKeyboard::receive_static<MessageIOIn>);
-      _hostmb->bus_hwioout.add(this, &VirtualBiosKeyboard::receive_static<MessageIOOut>);
-      _mb.bus_legacy      .add(this, &VirtualBiosKeyboard::receive_static<MessageLegacy>);
-      _mb.bus_discovery   .add(this, &VirtualBiosKeyboard::receive_static<MessageDiscovery>);
-
-      char args[] = "hostkeyb:0,0x60,1,,1";
-      _hostmb->parse_args(args);
+    _hostmb = new Motherboard(mb.clock());
+    _hostmb->bus_keycode.add(this, &VirtualBiosKeyboard::receive_static<MessageKeycode>);
+    _hostmb->bus_hostop .add(this, &VirtualBiosKeyboard::receive_static<MessageHostOp>);
+    _hostmb->bus_hwioin .add(this, &VirtualBiosKeyboard::receive_static<MessageIOIn>);
+    _hostmb->bus_hwioout.add(this, &VirtualBiosKeyboard::receive_static<MessageIOOut>);
+    _mb.bus_bios        .add(this, &VirtualBiosKeyboard::receive_static<MessageBios>);
+    _mb.bus_discovery   .add(this, &VirtualBiosKeyboard::receive_static<MessageDiscovery>);
+    char args[] = "hostkeyb:0x10,0x60,1,,1";
+    _hostmb->parse_args(args);
 
 
   }
 };
 
 PARAM(vbios_keyboard,
-      mb.bus_bios.add(new VirtualBiosKeyboard(mb), &VirtualBiosKeyboard::receive_static<MessageBios>);
+      new VirtualBiosKeyboard(mb);
       ,
       "vbios_keyboard - provide keyboard related virtual BIOS functions.");
