@@ -279,11 +279,9 @@ public:
     case 0x19:  return boot_from_disk(msg);
     case 0x76:
       if (_diskop_inprogress) {
-	Logging::printf("disk op pending %x\n", msg.cpu->intr_state);
 
 	// make sure we are interruptible
 	msg.cpu->efl |= 0x200;
-
 	return jmp_int(msg, 0x76);
       }
       msg.cpu->ah = read_bda(DISK_COMPLETION_CODE);
