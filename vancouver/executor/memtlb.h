@@ -152,7 +152,7 @@ protected:
 	for (unsigned i=0; i < 4; i++)
 	  {
 	    values[i] = *reinterpret_cast<unsigned long long *>(get((READ(cr3) &~0x1f) + i*8, ~0xffful, 8, TYPE_R)->_ptr);
-	    if ((values[i] & 0x1e6) || (values[i] >> (Config::PHYS_ADDR_SIZE - 32)))  GP0;
+	    if ((values[i] & 0x1e6) || (values[i] >> Config::PHYS_ADDR_SIZE))  GP0;
 	  }
 	memcpy(_pdpt, values, sizeof(_pdpt));
       }
