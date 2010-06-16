@@ -43,22 +43,22 @@ class HostIde : public StaticReceiver<HostIde>
   /**
    * Wait with timeout for the right disk state.
    */
-  unsigned  wait_disk_state(unsigned char mask, unsigned char value, unsigned msec)
+  unsigned  wait_disk_state(unsigned char mask, unsigned char value, unsigned msec, bool check_error)
   {
     unsigned char status;
     timevalue timeout = _clock->clock(FREQ) + msec;
+
     do {
-      status = inb(_iobase + 7);
-      if (status & 0x21) return (inb(_iobase + 1) << 8) | status;
-      Cpu::pause();
-    }
-    while ((status & mask) != value && _clock->clock(FREQ) < timeout);
+	status = inb(_iobase + 7);
+	if (check_error && status & 0x21) return (inb(_iobase + 1) << 8) | status;
+	Cpu::pause();
+    } while ((status & mask) != value && _clock->clock(FREQ) < timeout);
     return (status & mask) != value;
   }
 
   unsigned send_packet(unsigned char *packet)
   {
-    unsigned res = wait_disk_state(0x80, 0, 10); // wait 10ms that BSY clears
+    unsigned res = wait_disk_state(0x80, 0, 10, false); // wait 10ms that BSY clears
     if (res)  return res;
 
     unsigned index = 0;
@@ -79,15 +79,15 @@ class HostIde : public StaticReceiver<HostIde>
 	outlen /= 2;
 	if (read)
 	  {
-	    if (wait_disk_state(0x88, 0x08, 10000)) return ~0x3ffU | inb(_iobase + 7); // wait 10seconds that we got the data
+	    if (wait_disk_state(0x88, 0x08, 10000, true)) return ~0x3ffU | inb(_iobase + 7); // wait 10seconds that we got the data
 	    insw(output, outlen, _iobase);
 	  }
 	else
 	  {
-	    if (wait_disk_state(0x88, 0x08, 100)) return ~0x4ffU | inb(_iobase + 7); // wait 100ms that we can send the data
+	    if (wait_disk_state(0x88, 0x08, 100, true)) return ~0x4ffU | inb(_iobase + 7); // wait 100ms that we can send the data
 	    outsw(output, outlen, _iobase);
 	  }
-	if (wait_disk_state(0x88, 0, 20)) return ~0x5ffU | inb(_iobase + 7); // wait 20ms to let status settle and make sure there is no data left to transfer
+	if (wait_disk_state(0x88, 0, 20, true)) return ~0x5ffU | inb(_iobase + 7); // wait 20ms to let status settle and make sure there is no data left to transfer
       }
     return res;
   }
