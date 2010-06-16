@@ -28,6 +28,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 {
   enum
   {
+    MAX_DISKS  = 8,
     MAGIC_DISK_TAG = ~0u,
     FREQ = 1000,
     DISK_TIMEOUT = 5000,
@@ -35,13 +36,15 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     WAKEUP_IRQ = 1,
   };
   unsigned _timer;
-  DiskParameter _disk_params;
+  DiskParameter _disk_params[MAX_DISKS];
+  unsigned _disk_count;
   bool _diskop_inprogress;
 
 
-  bool check_drive(MessageBios &msg)
+  bool check_drive(MessageBios &msg, unsigned &disk_nr)
   {
-    if (msg.cpu->dl == 0x80) return true;
+    disk_nr = msg.cpu->dl & 0x7f;
+    if (msg.cpu->dl & 0x80 && disk_nr < _disk_count) return true;
     error(msg, 0x01); // invalid parameter
     return false;
   }
@@ -49,14 +52,14 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
   /**
    * Read/Write disk helper.
    */
-  bool disk_op(MessageBios &msg, unsigned long long blocknr, unsigned long address, unsigned count, bool write)
+  bool disk_op(MessageBios &msg, unsigned disk_nr, unsigned long long blocknr, unsigned long address, unsigned count, bool write)
   {
     DmaDescriptor dma;
     dma.bytecount  = 512*count;
     dma.byteoffset = address;
 
+    MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, disk_nr, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     //Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, blocknr, write ? "write" : "read",  count, address);
-    MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, msg.cpu->dl & 0x7f, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
       {
 	Logging::printf("msg2.error %x\n", msg2.error);
@@ -80,17 +83,22 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
   bool boot_from_disk(MessageBios &msg)
   {
     Logging::printf("boot from disk\n");
-    msg.cpu->cs.sel = 0;
-    msg.cpu->cs.base = 0;
-    msg.cpu->eip = 0x7c00;
-    msg.cpu->efl = 2;
-
-    // we push an iret frame on the stack
     msg.cpu->ss.sel  = 0;
     msg.cpu->ss.base = 0;
     msg.cpu->esp     = 0x7000;
-    msg.cpu->edx = 0x80; // booting from first disk
-    if (!disk_op(msg, 0, 0x7c00, 1, false) || msg.cpu->ah)
+    msg.cpu->edx     = 0x80; // booting from first disk
+
+    msg.cpu->cs.sel  = 0;
+    msg.cpu->cs.base = 0;
+    msg.cpu->eip     = 0x7c00;
+    msg.cpu->efl     = 0x202;
+
+    // we push a real-mode iret frame onto the users stack
+    unsigned short frame[] = {0x7c00, 0x0000, 0x0202};
+    msg.cpu->esp -= sizeof(frame);
+    copy_out(msg.cpu->esp, frame, sizeof(frame));
+
+    if (!disk_op(msg, 0, 0, 0x7c00, 1, false) || msg.cpu->ah)
       Logging::panic("VB: could not read MBR from boot disk");
     msg.mtr_out |= MTD_CS_SS | MTD_RIP_LEN | MTD_RSP | MTD_RFLAGS | MTD_GPR_ACDB;
     return true;
@@ -112,6 +120,9 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
       unsigned long long block;
     } da;
 
+
+    unsigned disk_nr;
+
     // default clears CF
     msg.cpu->efl &= ~1;
 
@@ -121,7 +132,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 	goto reset_disk;
       case 0x02: // read
       case 0x03: // write
-	if (check_drive(msg))
+	if (check_drive(msg,  disk_nr))
 	  {
 	    unsigned cylinders = msg.cpu->ch | (msg.cpu->cl << 2) & 0x300;
 	    unsigned heads =  msg.cpu->dh;
@@ -131,29 +142,29 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 	      blocknr = (cylinders * 255 + heads) * 63 + sectors - 1;
 	    else
 	      blocknr = (cylinders * 2 + heads) * 18 + sectors - 1;
-	    return disk_op(msg, blocknr, msg.cpu->es.base + msg.cpu->bx, msg.cpu->al, msg.cpu->ah & 1);
+	    return disk_op(msg, disk_nr, blocknr, msg.cpu->es.base + msg.cpu->bx, msg.cpu->al, msg.cpu->ah & 1);
 	  }
 	break;
       case 0x08: // get drive params
-	// we report a single drive with maximum parameters
-	if (check_drive(msg))
+	// we report maximum parameters
+	if (check_drive(msg,  disk_nr))
 	  {
 	    msg.cpu->cx = 0xfeff;
-	    msg.cpu->dx = 0xfe01;
+	    msg.cpu->dx = 0xfe00 | _disk_count;
 	    msg.cpu->ah = 0;  // successful
 	  }
 	break;
       case 0x15: // get disk type
-	if (check_drive(msg))
+	if (check_drive(msg, disk_nr))
 	  {
 	    msg.cpu->ah = 0x03;  // we report a harddisk
-	    unsigned sectors = (_disk_params.sectors >> 32) ? 0xffffffff : _disk_params.sectors;
+	    unsigned sectors = (_disk_params[disk_nr].sectors >> 32) ? 0xffffffff : _disk_params[disk_nr].sectors;
 	    msg.cpu->dx = sectors & 0xffff;
 	    msg.cpu->cx = sectors >> 16;
 	  }
 	break;
       case 0x41:  // int13 extension supported?
-	if (check_drive(msg))
+	if (check_drive(msg, disk_nr))
 	  switch (msg.cpu->bx)
 	    {
 	    case 0x55aa:
@@ -168,18 +179,18 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 	break;
       reset_disk:
       case 0x0d: // reset disk
-	if (check_drive(msg))  msg.cpu->ah = 0x00; // successful
+	if (check_drive(msg, disk_nr))  msg.cpu->ah = 0x00; // successful
 	break;
       case 0x42: // extended read
       case 0x43: // extended write
-	if (check_drive(msg))
+	if (check_drive(msg, disk_nr))
 	  {
 	    copy_in(msg.cpu->ds.base + msg.cpu->si, &da, sizeof(da));
-	    return disk_op(msg, da.block, (da.segment << 4) + da.offset, da.count, msg.cpu->ah & 1);
+	    return disk_op(msg, disk_nr, da.block, (da.segment << 4) + da.offset, da.count, msg.cpu->ah & 1);
 	  }
 	break;
       case 0x48: // get drive params extended
-	if (check_drive(msg))
+	if (check_drive(msg, disk_nr))
 	  {
 	    struct drive_parameters
 	    {
@@ -192,17 +203,18 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
 	      unsigned short sectorsize;
 	    } params;
 	    params.flags = 2;
-	    params.sectors = _disk_params.sectors;
+	    params.sectors = _disk_params[disk_nr].sectors;
 	    params.pheads = 255;
 	    params.psectors = 63;
-	    unsigned long long sectors =  _disk_params.sectors;
+	    unsigned long long sectors =  _disk_params[disk_nr].sectors;
 	    Math::div64(sectors, params.psectors*params.pheads);
 	    params.pcylinders = sectors;
 	    params.size = 0x1a;
 	    params.sectorsize = 512;
 	    copy_out(msg.cpu->ds.base + msg.cpu->si, &params, params.size);
-	    Logging::printf("VB: driveparam size %x sectors %llx\n", params.size, params.sectors);
 	    msg.cpu->ah = 0; // function supported
+	    Logging::printf("VB: driveparam[%d] size %x sectors %llx efl %x eax %x\n", disk_nr, params.size, params.sectors, msg.cpu->efl, msg.cpu->eax);
+	    //msg.cpu->head.res1 = 0x100;
 	  }
 	break;
       default:
@@ -270,11 +282,8 @@ public:
 	Logging::printf("disk op pending %x\n", msg.cpu->intr_state);
 
 	// make sure we are interruptible
-	msg.cpu->intr_state &= ~3;
 	msg.cpu->efl |= 0x200;
 
-	CpuMessage msg2(CpuMessage::TYPE_HLT, msg.cpu, MTD_RIP_LEN | MTD_IRQ);
-	msg.vcpu->executor.send(msg2);
 	return jmp_int(msg, 0x76);
       }
       msg.cpu->al = read_bda(DISK_COMPLETION_CODE);
@@ -290,10 +299,9 @@ public:
     mb.bus_timeout.add(this,     &VirtualBiosDisk::receive_static<MessageTimeout>);
 
     // get sectors of the disk
-    MessageDisk msg2(0, &_disk_params);
-    if (!_mb.bus_disk.send(msg2)) {
-      _disk_params.flags = 0;
-      _disk_params.sectors = 0;
+    for (_disk_count = 0; _disk_count < MAX_DISKS; _disk_count++) {
+      MessageDisk msg2(_disk_count, &_disk_params[_disk_count]);
+      if (!_mb.bus_disk.send(msg2) || msg2.error) break;
     }
 
     // get timer
