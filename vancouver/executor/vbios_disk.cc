@@ -286,7 +286,7 @@ public:
 
 	return jmp_int(msg, 0x76);
       }
-      msg.cpu->al = read_bda(DISK_COMPLETION_CODE);
+      msg.cpu->ah = read_bda(DISK_COMPLETION_CODE);
       msg.mtr_out |= MTD_GPR_ACDB;
       return true;
     default:    return false;
