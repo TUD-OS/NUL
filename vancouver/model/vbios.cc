@@ -58,7 +58,7 @@ public:
     unsigned flags;
     MessageMem msg2(true, cpu->ss.base + cpu->esp + 4, &flags);
     _vcpu->mem.send(msg2);
-    flags = flags & ~0xffffu | cpu->efl & 0xffffu;
+    flags = flags & ~0xffffu | cpu->efl & 0xffffu | flags & 0x200;
     msg2.read = false;
     _vcpu->mem.send(msg2);
     msg.mtr_out |= msg1.mtr_out;
