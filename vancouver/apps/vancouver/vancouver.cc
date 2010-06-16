@@ -518,6 +518,7 @@ public:
 	recall(msg.value + 1);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
+      case MessageHostOp::OP_RERAISE_IRQ:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

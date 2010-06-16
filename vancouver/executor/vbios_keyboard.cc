@@ -223,6 +223,7 @@ public:
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
       case MessageHostOp::OP_VCPU_BLOCK:
       case MessageHostOp::OP_VCPU_RELEASE:
+      case MessageHostOp::OP_RERAISE_IRQ:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
