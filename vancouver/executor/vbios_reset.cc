@@ -111,7 +111,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     outb(0x20+1, 0x08); // offset 0x08
     outb(0x20+1, 0x04); // has slave on 2
     outb(0x20+1, 0x0f); // is buffer, master, AEOI and x86
-    outb(0x20+1, 0xfc);
+    outb(0x20+1, 0xfc); // TIMER+keyboard IRQ needed
 
     // the slave PIC + IMR
     outb(0xa0+0, 0x11);
