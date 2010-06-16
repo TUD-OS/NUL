@@ -1,7 +1,7 @@
 /**
  * HostKeyboard driver.
  *
- * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -176,8 +176,9 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
    */
   void handle_scancode(unsigned char key)
   {
+
     /**
-     * There are some bad BIOS around which does not emulate SC2.
+     * There are some bad BIOSes around which do not emulate SC2.
      * We have to convert from SC1.
      */
     if (_scset1)
@@ -185,8 +186,9 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	if (key & 0x80 && key != 0xe0 && key != 0xe1)  _flags |= KBFLAG_RELEASE;
 	key = GenericKeyboard::translate_sc1_to_sc2(key);
       }
+
     /**
-     * we have a small state machine here, as the keyboard runs with
+     * We have a small state machine here, as the keyboard runs with
      * scancode set 2. SCS3 would be much nicer but is not available
      * everywhere.
      */
