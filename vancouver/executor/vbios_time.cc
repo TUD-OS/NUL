@@ -28,7 +28,7 @@ class VirtualBiosTime : public StaticReceiver<VirtualBiosTime>, public BiosCommo
   bool handle_int08(MessageBios &msg)
   {
     // Note: no need for EOI since we run in AEOI mode!
-    Logging::printf("%s\n", __func__);
+    //Logging::printf("%s\n", __func__);
     // increment BIOS tick counter
     unsigned ticks = read_bda(0x6c);
     ticks++;
