@@ -61,6 +61,10 @@ public:
     flags = flags & ~0xffffu | cpu->efl & 0xffffu | flags & 0x200;
     msg2.read = false;
     _vcpu->mem.send(msg2);
+
+    // we can be sure that we are not blocking irqs
+    assert(!cpu->actv_state);
+    assert(!(cpu->intr_state & 3));
     msg.mtr_out |= msg1.mtr_out;
     return true;
 
