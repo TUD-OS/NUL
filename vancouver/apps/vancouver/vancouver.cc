@@ -139,7 +139,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	  }
 	  break;
 	case KBCODE_SCROLL: // scroll lock
-	  Logging::printf("toggle HLT\n");
+	  Logging::printf("revoke all memory\n");
+	  extern char __freemem;
+	  revoke_all_mem(&__freemem, 0x30000000, 0x1c, true);
 	  break;
 	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
 	  _debug = true;
