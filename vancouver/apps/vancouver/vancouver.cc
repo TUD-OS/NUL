@@ -407,7 +407,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     // do we have not mapped physram yet?
     if (_mb->bus_memregion.send(msg, true) && msg.ptr) {
       asm volatile("orl $0, (%0)": : "r"(msg.ptr) : "memory");
-      Logging::printf("%s(%llx) phys %lx ptr %p pages %x eip %x inj %x\n", __func__, utcb->qual[1], msg.start_page << 12, msg.ptr, msg.count, utcb->eip, utcb->inj_info);
+
+      Logging::printf("%s(%llx, %llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], utcb->qual[0], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
+      if (utcb->qual[0] & 0x38) revoke_all_mem(msg.ptr, msg.count << 12, 0x1c, false);
+
       handle_vcpu(0, utcb, CpuMessage::TYPE_CHECK_IRQ);
       utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count << 12, msg.start_page << 12, 0x1c | 1);
       return true;
