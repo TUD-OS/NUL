@@ -377,6 +377,16 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     }
 
     /**
+     * check whether we should inject something
+     */
+    if (msg.mtr_in & MTD_INJ) {
+      msg.type = CpuMessage::TYPE_CHECK_IRQ;
+      if (!vcpu->executor.send(msg, true))
+	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
+    }
+
+
+    /**
      * If the IRQ injection is performed, recalc the IRQ window.
      */
     if (msg.mtr_out & MTD_INJ) {
