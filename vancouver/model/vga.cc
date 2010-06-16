@@ -283,7 +283,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      DEBUG(cpu);
 	  }
       }
-    DEBUG(cpu);
+    //DEBUG(cpu);
     msg.mtr_out |= MTD_GPR_ACDB;
     return true;
   }
