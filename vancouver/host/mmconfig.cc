@@ -68,9 +68,9 @@ PARAM(mmconfig,
 	check0(!mb.bus_acpi.send(msg, true) || !msg.table, "XXX No MCFG table found.");
 
 	AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
-	void *mcfg_end = reinterpret_cast<char *>(mcfg) + mcfg->len;
 
-	for (AcpiMCFG::Entry *entry = mcfg->entries; entry < mcfg_end; entry++) {
+	for (unsigned i = 0; i < (mcfg->len - sizeof(AcpiMCFG)) / sizeof(AcpiMCFG::Entry); i++) {
+	  AcpiMCFG::Entry *entry = mcfg->entries + i;
 	  Logging::printf("mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
 			  entry->base, entry->pci_seg,
 			  entry->pci_bus_start, entry->pci_bus_end);
