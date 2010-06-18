@@ -47,12 +47,13 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 {
   enum {
     MAXCPUS            = 256,
-    CPUGSI             = 0,
     MAXPCIDIRECT       = 64,
     MAXDISKS           = 32,
-    MEM_OFFSET         = 1ul << 31,
     MAXMODULES         = 64,
-    MAXDISKREQUESTS    = DISKS_SIZE  // max number of outstanding disk requests per client
+    MAXDISKREQUESTS    = DISKS_SIZE,  // max number of outstanding disk requests per client
+
+    CPUGSI             = 0,
+    MEM_OFFSET         = 1ul << 31
   };
 
   // a mapping from virtual cpus to the physical numbers
@@ -95,7 +96,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     char            tag[256];
     bool            log;
     bool            dma;
-    unsigned        allowedmemmap;
     char *          mem;
     unsigned long   physsize;
     unsigned long   console;
@@ -455,6 +455,8 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
 	    {
 	      _free_phys.debug_dump("free phys");
+	      _virt_phys.debug_dump("virt phys");
+	      _free_virt.debug_dump("free virt");
 	      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
 	      return __LINE__;
 	    }
@@ -737,8 +739,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
-
-	  modinfo->allowedmemmap = 1;
 	  )
 
 
@@ -759,7 +759,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 		    char * buffer = reinterpret_cast<PutsRequest *>(utcb->msg+1)->buffer;
 		    if (convert_client_ptr(modinfo, buffer, 4096)) goto fail;
 		    if (modinfo->log)
-		      Logging::printf("[%02x, %lx] %4096s\n",  client, modinfo->console, buffer);
+		      Logging::printf("[%02x, %lx] %.*s\n",  client, modinfo->console, sizeof(utcb->msg)-1, buffer);
 		    utcb->msg[0] = 0;
 		    break;
 		  }
@@ -1028,25 +1028,18 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    }
 	  else
 	    {
-	      if (modinfo->allowedmemmap) {
-		Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
-		unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
-
-		// we can not overmap -> thus remove all rights first if they were present
-		if (utcb->qual[0] & 1) {
-		  revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
-		  revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
-		}
-
-		utcb->head.mtr = Mtd(0, 0);
-		utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-		utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
-		//modinfo->allowedmemmap--;
+	      Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
+	      unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
+	      
+	      // we can not overmap -> thus remove all rights first if they were present
+	      if (utcb->qual[0] & 1) {
+		revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
+		revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
 	      }
-	      else {
-		Logging::printf("[%02x] second request %x for %llx at %x -> killing\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->eip);
-		kill_module(client);
-	      }
+
+	      utcb->head.mtr = Mtd(0, 0);
+	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
+	      utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
 	    }
 	  )
 
@@ -1163,7 +1156,6 @@ public:
 	  unmap_count--;
 	  for (unsigned i = 1; i <= MAXMODULES; i++)
 	    if (_modinfo[i].mem) {
-	      _modinfo[i].allowedmemmap += 8; // XXX arbitary value for debug reasons
 	      unsigned rights = (unmap_count & 7) << 2;
 	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
 	    }
