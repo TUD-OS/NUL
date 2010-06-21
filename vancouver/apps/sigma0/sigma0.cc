@@ -162,6 +162,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
+    Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
     assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
     return irq_cap;
   }

@@ -396,7 +396,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
     utcb->head.mtr = msg.mtr_out;
-    //Logging::printf("> %s pid %p,%d eip %x:%x out %x inj %x\n", __func__, utcb, pid, utcb->cs.sel, utcb->eip, utcb->head.mtr.untyped(), utcb->inj_info);
+    if (utcb->head.mtr.typed())
+      Logging::printf("> %s pid %p,%d eip %x:%x out %x inj %x typed %x\n", __func__, utcb, pid, utcb->cs.sel, utcb->eip, utcb->head.mtr.untyped(), utcb->inj_info, utcb->head.mtr.typed());
   }
 
 
