@@ -408,17 +408,20 @@ int helper_MOV__EDX__CR0()
   unsigned *tmp_src = get_reg32(_entry->data[_entry->offset_opcode] & 0x7);
   unsigned *tmp_dst;
   unsigned tmp = *tmp_src;
+  // XXX missing invalid transition checks
+  // XXX cr0 has no reserved bit checking
   switch ((_entry->data[_entry->offset_opcode] >> 3) & 0x7)
     {
-    case 0: if (tmp & 0x1ffaffc0U) GP0;  tmp_dst = &_cpu->cr0; break;
+    case 0: if (tmp & 0x1ffaffc0U) GP0;  tmp_dst = &_cpu->cr0; tmp |= 0x10; break;
     case 2: tmp_dst = &_cpu->cr2; break;
     case 3: tmp_dst = &_cpu->cr3; break;
     case 4: if (tmp & 0xffff9800U) GP0;  tmp_dst = &_cpu->cr4; break;
     default: UD0;
     }
-  *tmp_dst = *tmp_src;
+  *tmp_dst = tmp;
   _mtr_out |= MTD_CR;
 
+  // XXX flush only if paging-bits change
   // update TLB
   return init();
 }

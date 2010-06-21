@@ -303,7 +303,7 @@ private:
     // XXX MSIs are edge triggered!
     unsigned irq = _cfgspace[15] & 0xff;
     if (msg.baseirq != (irq & ~7) || !(msg.mask & (1 << (irq & 7)))) return false;
-    Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
+    //Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
     MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
     return _mb.bus_hostop.send(msg2);
   }

@@ -366,6 +366,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
+
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     if (skip) skip_instruction(msg);
 

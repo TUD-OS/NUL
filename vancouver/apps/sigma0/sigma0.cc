@@ -1032,8 +1032,8 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	    {
 	      Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
 	      unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
-	      
-	      // we can not overmap -> thus remove all rights first if they were present
+
+	      // we can not overmap -> thus remove all rights first if the PTE was present
 	      if (utcb->qual[0] & 1) {
 		revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
 		revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
