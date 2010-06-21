@@ -42,18 +42,18 @@ class DirectIODevice : public StaticReceiver<DirectIODevice>
 PARAM(dio,
       {
 	unsigned short base = argv[0];
-	unsigned short size;
+	unsigned short order;
 	if ( argv[1] == ~0UL)
-	  size = 1;
+	  order = 1;
 	else
-	  size = Cpu::bsr(argv[1] | 1);
+	  order = Cpu::bsr(argv[1] | 1);
 
 	// request the io ports
-	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOIO_REGION, (base << 8) |  size);
+	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOIO_REGION, (base << 8) |  order);
 	if (!mb.bus_hostop.send(msg))
 	  Logging::panic("%s() failed to allocate port 0xcf8\n", __PRETTY_FUNCTION__);
 
-	Device *dev = new DirectIODevice(mb.bus_hwioin, mb.bus_hwioout, base, 1 << size);
+	Device *dev = new DirectIODevice(mb.bus_hwioin, mb.bus_hwioout, base, 1 << order);
 	mb.bus_ioin.add(dev, &DirectIODevice::receive_static<MessageIOIn>);
 	mb.bus_ioout.add(dev, &DirectIODevice::receive_static<MessageIOOut>);
 
