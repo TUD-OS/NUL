@@ -411,7 +411,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       Logging::printf("%s(%llx, %llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], utcb->qual[0], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
       if (utcb->qual[0] & 0x38) revoke_all_mem(msg.ptr, msg.count << 12, 0x1c, false);
 
-      handle_vcpu(0, utcb, CpuMessage::TYPE_CHECK_IRQ);
+      utcb->head.mtr = Mtd();
       utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count << 12, msg.start_page << 12, 0x1c | 1);
       return true;
     }
