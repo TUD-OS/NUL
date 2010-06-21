@@ -43,15 +43,12 @@ PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multipl
 /**
  * Sigma0 application class.
  */
-class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
+struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
     MAXCPUS            = 256,
     MAXPCIDIRECT       = 64,
-    MAXDISKS           = 32,
     MAXMODULES         = 64,
-    MAXDISKREQUESTS    = DISKS_SIZE,  // max number of outstanding disk requests per client
-
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31
   };
@@ -98,20 +95,9 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
     bool            dma;
     char *          mem;
     unsigned long   physsize;
-    unsigned long   console;
-    StdinProducer   prod_stdin;
-    DiskProducer    prod_disk;
-    unsigned char   disks[MAXDISKS];
-    unsigned char   disk_count;
-    struct {
-      unsigned char disk;
-      unsigned long usertag;
-    } tags [MAXDISKREQUESTS];
-    TimerProducer   prod_timer;
     NetworkProducer prod_network;
     unsigned        uid;
   } _modinfo[MAXMODULES];
-  TimeoutList<MAXMODULES+2> _timeouts;
 
   // backing store for the HIPs
   char _hips[0x1000 * (1+MAXMODULES)];
@@ -124,24 +110,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   unsigned _uid;
 
 
-  /**
-   * Find a free tag for a client.
-   */
-  unsigned long find_free_tag(unsigned short client, unsigned char disknr, unsigned long usertag, unsigned long &tag)
-  {
-    struct ModuleInfo *module = _modinfo + client;
-
-    assert (disknr < module->disk_count);
-    for (unsigned i = 0; i < MAXDISKREQUESTS; i++)
-      if (!module->tags[i].disk)
-	{
-	  module->tags[i].disk = disknr + 1;
-	  module->tags[i].usertag = usertag;
-	  tag = ((i+1) << 16) | client;
-	  return MessageDisk::DISK_OK;
-	}
-    return MessageDisk::DISK_STATUS_BUSY;
-  }
 
   bool attach_irq(unsigned gsi, unsigned sm_cap)
   {
@@ -220,38 +188,14 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   unsigned create_host_devices(Utcb *utcb, Hip *hip)
   {
 
-    // prealloc timeouts for every module
-    _timeouts.init();
-    for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
-
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
+    init_timeouts();
+    init_disks();
     _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
-    _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>);
-    _mb->bus_console.add(this, &Sigma0::receive_static<MessageConsole>);
-    _mb->bus_timer.add(this,   &Sigma0::receive_static<MessageTimer>);
-    _mb->bus_timeout.add(this, &Sigma0::receive_static<MessageTimeout>);
     _mb->bus_network.add(this, &Sigma0::receive_static<MessageNetwork>);
     _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
-
-    // alloc consoles for ourself
-    MessageConsole msg1;
-    msg1.clientname = 0;
-    _mb->bus_console.send(msg1);
-    console_id = msg1.id;
-
-    // open 3 views
-    MessageConsole msg2("sigma0",  _vga + 0x18000, 0x1000, &_vga_regs);
-    msg2.id = console_id;
-    _mb->bus_console.send(msg2);
-    msg2.name = "HV";
-    msg2.ptr += 0x1000;
-    _mb->bus_console.send(msg2);
-    msg2.name = "boot";
-    msg2.ptr += 0x1000;
-    _mb->bus_console.send(msg2);
-    switch_view(_mb, 0);
-
+    init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
     _mb->bus_disk.debug_dump();
@@ -396,18 +340,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
 
-  void attach_drives(char *cmdline, ModuleInfo *modinfo)
-  {
-    for (char *p; p = strstr(cmdline,"sigma0::drive:"); cmdline = p + 1)
-      {
-	unsigned long  nr = strtoul(p+14, 0, 0);
-	if (nr < _mb->bus_disk.count() && modinfo->disk_count < MAXDISKS)
-	  modinfo->disks[modinfo->disk_count++] = nr;
-	else
-	  Logging::printf("Sigma0: ignore drive %lx during attach!\n", nr);
-      }
-  }
-
 
   unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned long mask)
   {
@@ -467,10 +399,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
 
 	  // allocate a console for it
-	  MessageConsole msg1;
-	  msg1.clientname = modinfo->tag;
-	  if (_mb->bus_console.send(msg1))  modinfo->console = msg1.id;
-
+	  alloc_console(module, modinfo->tag);
 
 	  /**
 	   * We memset the client memory to make sure we get an
@@ -482,7 +411,7 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  // decode elf
 	  maxptr = 0;
 	  Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
-	  attach_drives(cmdline, modinfo);
+	  attach_drives(cmdline, module);
 
 	  unsigned  slen = strlen(cmdline) + 1;
 	  assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
@@ -610,27 +539,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
   }
 
 
-  /**
-   * Check whether timeouts have fired.
-   */
-  void check_timeouts()
-  {
-    COUNTER_INC("check_to");
-    timevalue now = _mb->clock()->time();
-    unsigned nr;
-    while ((nr = _timeouts.trigger(now)))
-      {
-	_timeouts.cancel(nr);
-	MessageTimeout msg1(nr);
-	_mb->bus_timeout.send(msg1);
-      }
-    if (_timeouts.timeout() != ~0ULL)
-      {
-	// update timeout upstream
-	MessageTimer msg(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
-	_mb->bus_timer.send(msg);
-      }
-  }
 
 
   /**
@@ -753,277 +661,181 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.mtr.untyped() < 0x1000)
 	    {
-	      switch (utcb->msg[0])
-		{
-		case REQUEST_PUTS:
+	      if (!request_timeouts(client, utcb) && !request_disks(client, utcb) && !request_console(client, utcb))
+		switch (utcb->msg[0])
 		  {
-		    char * buffer = reinterpret_cast<PutsRequest *>(utcb->msg+1)->buffer;
-		    if (convert_client_ptr(modinfo, buffer, 4096)) goto fail;
-		    if (modinfo->log)
-		      Logging::printf("[%02x, %lx] %.*s\n",  client, modinfo->console, sizeof(utcb->msg)-1, buffer);
-		    utcb->msg[0] = 0;
+		  case REQUEST_PUTS:
+		    {
+		      char * buffer = reinterpret_cast<PutsRequest *>(utcb->msg+1)->buffer;
+		      if (convert_client_ptr(modinfo, buffer, 4096)) return false;;
+		      if (modinfo->log)
+			Logging::printf("[%02x, %lx] %.*s\n",  client, _console_data[client].console, sizeof(utcb->msg)-1, buffer);
+		      utcb->msg[0] = 0;
+		      break;
+		    }
+		  case REQUEST_NETWORK_ATTACH:
+		    handle_attach<NetworkConsumer>(modinfo, modinfo->prod_network, utcb);
 		    break;
-		  }
-		case REQUEST_STDIN_ATTACH:
-		  handle_attach<StdinConsumer>(modinfo, modinfo->prod_stdin, utcb);
-		  break;
-		case REQUEST_DISKS_ATTACH:
-		  handle_attach<DiskConsumer>(modinfo, modinfo->prod_disk, utcb);
-		  break;
-		case REQUEST_TIMER_ATTACH:
-		  handle_attach<TimerConsumer>(modinfo, modinfo->prod_timer, utcb);
-		  break;
-		case REQUEST_NETWORK_ATTACH:
-		  handle_attach<NetworkConsumer>(modinfo, modinfo->prod_network, utcb);
-		  break;
-		case REQUEST_IOIO:
-		  if ((utcb->msg[2] & 0x3) == 2)
-		    {
-		      // XXX check permissions
-		      // XXX move to hostops
-		      Logging::printf("[%02x] ioports %x granted\n", client, utcb->msg[2]);
-		      utcb->head.mtr = Mtd(1, 1);
-		    }
-		  else
-		    Logging::printf("[%02x] ioport request dropped %x ports %x\n", client, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
-		  break;
-		case REQUEST_IOMEM:
-		  if ((utcb->msg[2] & 0x3) == 1)
-		    {
-		      unsigned long addr = utcb->msg[2] & ~0xfff;
-		      char *ptr = map_self(utcb, addr, Crd(utcb->msg[2]).size());
-		      utcb->msg[1] = 0;
-		      utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
-		      utcb->head.mtr = Mtd(1, 1);
-		      Logging::printf("[%02x] iomem %lx+%x o %d granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), Crd(utcb->msg[2]).order(), utcb->msg[2]);
-		    }
-		  else
-		    Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
-		  break;
-		case REQUEST_DISK:
-		  {
-		    MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-		      goto fail;
-		    else
+		  case REQUEST_IOIO:
+		    if ((utcb->msg[2] & 0x3) == 2)
 		      {
-			MessageDisk msg2 = *msg;
+			// XXX check permissions
+			// XXX move to hostops
+			Logging::printf("[%02x] ioports %x granted\n", client, utcb->msg[2]);
+			utcb->head.mtr = Mtd(1, 1);
+		      }
+		    else
+		      Logging::printf("[%02x] ioport request dropped %x ports %x\n", client, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
+		    break;
+		  case REQUEST_IOMEM:
+		    if ((utcb->msg[2] & 0x3) == 1)
+		      {
+			unsigned long addr = utcb->msg[2] & ~0xfff;
+			char *ptr = map_self(utcb, addr, Crd(utcb->msg[2]).size());
+			utcb->msg[1] = 0;
+			utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
+			utcb->head.mtr = Mtd(1, 1);
+			Logging::printf("[%02x] iomem %lx+%x o %d granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), Crd(utcb->msg[2]).order(), utcb->msg[2]);
+		      }
+		    else
+		      Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
+		    break;
+		  case REQUEST_HOSTOP:
+		    {
+		      MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
+		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
 
-			if (msg2.disknr >= modinfo->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return Mtd(utcb->head.mtr.untyped(), 0).value(); }
-			switch (msg2.type)
+		      switch (msg->type)
+			{
+			case MessageHostOp::OP_GET_MODULE:
 			  {
-			  case MessageDisk::DISK_GET_PARAMS:
-			    if (convert_client_ptr(modinfo, msg2.params, sizeof(*msg2.params))) goto fail;
-			    break;
-			  case MessageDisk::DISK_WRITE:
-			  case MessageDisk::DISK_READ:
-			    if (convert_client_ptr(modinfo, msg2.dma, sizeof(*msg2.dma)*msg2.dmacount)) goto fail;
+			    if (modinfo->mod_count <= msg->module)  break;
+			    Hip_mem *mod  = _hip->get_mod(modinfo->mod_nr + msg->module);
+			    char *cstart  = msg->start;
+			    char *s   = cstart;
+			    char *cmdline = map_string(utcb, mod->aux);
+			    unsigned slen = strlen(cmdline) + 1;
+			    // msg destroyed!
 
-			    if (msg2.physoffset - MEM_OFFSET > modinfo->physsize) goto fail;
-			    if (msg2.physsize > (modinfo->physsize - msg2.physoffset + MEM_OFFSET))
-			      msg2.physsize = modinfo->physsize - msg2.physoffset + MEM_OFFSET;
-			    msg2.physoffset += reinterpret_cast<unsigned long>(modinfo->mem) - MEM_OFFSET;
+			    // align the end of the module to get the cmdline on a new page.
+			    unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
+			    if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
 
-			    utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
-			    if (utcb->msg[0]) break;
-			    assert(msg2.usertag);
-			    break;
-			  case MessageDisk::DISK_FLUSH_CACHE:
-			    break;
-			  default:
+			    memcpy(s, map_self(utcb, mod->addr, (mod->size | 0xfff)+1), mod->size);
+			    s += msize;
+			    char *p = strstr(cmdline, "sigma0::attach");
+			    unsigned clearsize = 14;
+			    if (!p) { p = cmdline + slen - 1; clearsize = 0; }
+			    memcpy(s, cmdline, p - cmdline);
+			    memset(s + (p - cmdline), ' ', clearsize);
+			    memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
+			    // build response
+			    memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
+			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/sizeof(unsigned), 0);
+			    msg->start   = cstart;
+			    msg->size    = mod->size;
+			    msg->cmdline = cstart + msize;
+			    msg->cmdlen  = slen;
+			  }
+			  break;
+			case MessageHostOp::OP_GET_UID:
+			  {
+			    /**
+			     * A client needs a uniq-ID for shared
+			     * identification, such as MAC addresses.
+			     * For simplicity we use our client number.
+			     * Using a random number would also be
+			     * possible.  For debugging reasons we
+			     * simply increment and add the client number.
+			     */
+			    msg->value = (client << 8) + ++modinfo->uid;
+			    utcb->msg[0] = 0;
+			  }
+			  break;
+			case MessageHostOp::OP_ASSIGN_PCI:
+			  if (modinfo->dma)
+			    {
+			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
+			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			      break;
+			    }
+			case MessageHostOp::OP_ATTACH_IRQ:
+			  if ((msg->value & 0xff) < _hip->cfg_gsi) {
+			    // XXX make sure only one gets it
+			    Logging::printf("[%02x] gsi %lx granted\n", client, msg->value);
+			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
+			    assign_gsi(gsi_cap, modinfo->cpunr);
+			    utcb->head.mtr = Mtd(1);
+			    utcb->msg[0] = 0;
+			    utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			  }
+			  else {
+			    Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
 			    goto fail;
 			  }
-			msg2.disknr = modinfo->disks[msg2.disknr];
-			msg->error = _mb->bus_disk.send(msg2) ? MessageDisk::DISK_OK : MessageDisk::DISK_STATUS_DEVICE;
-			utcb->msg[0] = 0;
-		      }
-		  }
-		  break;
-		case REQUEST_CONSOLE:
-		  {
-		    MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
-		    {
-		      MessageConsole msg2 = *msg;
-		      if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
-			   && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
-			   && msg2.type != MessageConsole::TYPE_GET_MODEINFO
-			   && msg2.type != MessageConsole::TYPE_GET_FONT)
-			  || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
-			      && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
-				  || convert_client_ptr(modinfo, msg2.name, 4096)
-				  || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
-			  || (msg2.type == MessageConsole::TYPE_GET_FONT
-			      &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
-			  || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
-			      && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
-			  || !modinfo->console)
-			break;
-		      msg2.id = modinfo->console;
-		      // alloc a new console and set the name from the commandline
-		      utcb->msg[0] = !_mb->bus_console.send(msg2);
-		      if (!utcb->msg[0])      msg->view = msg2.view;
-		    }
-		  }
-		  break;
-		case REQUEST_HOSTOP:
-		  {
-		    MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
-
-		    switch (msg->type)
-		      {
-		      case MessageHostOp::OP_GET_MODULE:
-			{
-			  if (modinfo->mod_count <= msg->module)  break;
-			  Hip_mem *mod  = _hip->get_mod(modinfo->mod_nr + msg->module);
-			  char *cstart  = msg->start;
-			  char *s   = cstart;
-			  char *cmdline = map_string(utcb, mod->aux);
-			  unsigned slen = strlen(cmdline) + 1;
-			  // msg destroyed!
-
-			  // align the end of the module to get the cmdline on a new page.
-			  unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
-			  if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
-
-			  memcpy(s, map_self(utcb, mod->addr, (mod->size | 0xfff)+1), mod->size);
-			  s += msize;
-			  char *p = strstr(cmdline, "sigma0::attach");
-			  unsigned clearsize = 14;
-			  if (!p) { p = cmdline + slen - 1; clearsize = 0; }
-			  memcpy(s, cmdline, p - cmdline);
-			  memset(s + (p - cmdline), ' ', clearsize);
-			  memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
-			  // build response
-			  memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
-			  utcb->head.mtr = Mtd(1 + sizeof(*msg)/sizeof(unsigned), 0);
-			  msg->start   = cstart;
-			  msg->size    = mod->size;
-			  msg->cmdline = cstart + msize;
-			  msg->cmdlen  = slen;
-			}
-			break;
-		      case MessageHostOp::OP_GET_UID:
-			{
-			  /**
-			   * A client needs a uniq-ID for shared
-			   * identification, such as MAC addresses.
-			   * For simplicity we use our client number.
-			   * Using a random number would also be
-			   * possible.  For debugging reasons we
-			   * simply increment and add the client number.
-			   */
-			  msg->value = (client << 8) + ++modinfo->uid;
-			  utcb->msg[0] = 0;
-			}
-			break;
-		      case MessageHostOp::OP_ASSIGN_PCI:
-			if (modinfo->dma)
+			  break;
+			case MessageHostOp::OP_ATTACH_MSI:
 			  {
-			    utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
-			    Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
-			    break;
-			  }
-		      case MessageHostOp::OP_ATTACH_IRQ:
-			if ((msg->value & 0xff) < _hip->cfg_gsi) {
-			  // XXX make sure only one gets it
-			  Logging::printf("[%02x] gsi %lx granted\n", client, msg->value);
-			  unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
-			  assign_gsi(gsi_cap, modinfo->cpunr);
-			  utcb->head.mtr = Mtd(1);
-			  utcb->msg[0] = 0;
-			  utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
-			}
-			else
-			  Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
-			break;
-		      case MessageHostOp::OP_ATTACH_MSI:
-			{
-			  unsigned cap = attach_msi(msg, modinfo->cpunr);
-			  utcb->msg[0] = 0;
-			  utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
-			  utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
-			}
-			break;
-		      case MessageHostOp::OP_RERAISE_IRQ:
-		      case MessageHostOp::OP_ALLOC_IOIO_REGION:
-		      case MessageHostOp::OP_ALLOC_IOMEM:
-		      case MessageHostOp::OP_GUEST_MEM:
-		      case MessageHostOp::OP_ALLOC_FROM_GUEST:
-		      case MessageHostOp::OP_VIRT_TO_PHYS:
-		      case MessageHostOp::OP_NOTIFY_IRQ:
-		      case MessageHostOp::OP_VCPU_CREATE_BACKEND:
-		      case MessageHostOp::OP_VCPU_BLOCK:
-		      case MessageHostOp::OP_VCPU_RELEASE:
-		      default:
-			// unhandled
-			Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
-		      }
-		  }
-		  break;
-		case REQUEST_TIMER:
-		  {
-		    MessageTimer *msg = reinterpret_cast<MessageTimer *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-		      utcb->msg[0] = ~0x10u;
-		    else
-		      if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
-			{
-			  msg->nr = client;
-			  if (_mb->bus_timer.send(*msg))
+			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    utcb->msg[0] = 0;
+			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
+			    utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			  }
+			  break;
+			case MessageHostOp::OP_RERAISE_IRQ:
+			case MessageHostOp::OP_ALLOC_IOIO_REGION:
+			case MessageHostOp::OP_ALLOC_IOMEM:
+			case MessageHostOp::OP_GUEST_MEM:
+			case MessageHostOp::OP_ALLOC_FROM_GUEST:
+			case MessageHostOp::OP_VIRT_TO_PHYS:
+			case MessageHostOp::OP_NOTIFY_IRQ:
+			case MessageHostOp::OP_VCPU_CREATE_BACKEND:
+			case MessageHostOp::OP_VCPU_BLOCK:
+			case MessageHostOp::OP_VCPU_RELEASE:
+			default:
+			  // unhandled
+			  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+			  goto fail;
 			}
-		  }
-		  break;
-		case REQUEST_TIME:
-		  {
-		    MessageTime msg;
-		    if (_mb->bus_time.send(msg))
-		      {
-			// we assume the same mb->clock() source here
-			*reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
-			utcb->head.mtr = Mtd((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
-			utcb->msg[0] = 0;
-		      }
-		  }
-		  break;
-		case REQUEST_NETWORK:
-		  {
-		    MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-		      utcb->msg[0] = ~0x10u;
-		    else
-		      {
-			MessageNetwork msg2 = *msg;
-			if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) goto fail;
-			msg2.client = client;
-			_mb->bus_network.send(msg2);
-		      }
-		  }
-		  break;
-		case REQUEST_PCICFG:
-		  {
-		    MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-		      utcb->msg[0] = ~0x10u;
-		    else
-		      utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
-		  }
-		  break;
-		case REQUEST_ACPI:
-		  {
-		    MessageAcpi *msg = reinterpret_cast<MessageAcpi *>(utcb->msg+1);
-		    if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-		      utcb->msg[0] = ~0x10u;
-		    else
-		      if (msg->type == MessageAcpi::ACPI_GET_IRQ)
-			utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
+		    }
 		    break;
+		  case REQUEST_NETWORK:
+		    {
+		      MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
+		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+			utcb->msg[0] = ~0x10u;
+		      else
+			{
+			  MessageNetwork msg2 = *msg;
+			  if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) goto fail;
+			  msg2.client = client;
+			  _mb->bus_network.send(msg2);
+			}
+		    }
+		    break;
+		  case REQUEST_PCICFG:
+		    {
+		      MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
+		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+			utcb->msg[0] = ~0x10u;
+		      else
+			utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
+		    }
+		    break;
+		  case REQUEST_ACPI:
+		    {
+		      MessageAcpi *msg = reinterpret_cast<MessageAcpi *>(utcb->msg+1);
+		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+			utcb->msg[0] = ~0x10u;
+		      else
+			if (msg->type == MessageAcpi::ACPI_GET_IRQ)
+			  utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
+		      break;
+		    }
+		  default:
+		    Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		    goto fail;
 		  }
-		default:
-		  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
-		}
 	      return utcb->head.mtr.value();
 	    fail:
 	      utcb->msg[0] = ~0x10u;
@@ -1047,134 +859,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 	  )
 
 
-public:
-
-  /**
-   * Switch to our view.
-   */
-  static void switch_view(Motherboard *mb, int view=0)
-  {
-    MessageConsole msg;
-    msg.type = MessageConsole::TYPE_SWITCH_VIEW;
-    msg.id = console_id;
-    msg.view = view;
-    mb->bus_console.send(msg);
-  }
-
-
-  bool  receive(MessageTimer &msg)
-  {
-    switch (msg.type)
-      {
-      case MessageTimer::TIMER_NEW:
-	msg.nr = _timeouts.alloc();
-	return true;
-      case MessageTimer::TIMER_REQUEST_TIMEOUT:
-	if (msg.nr != MessageTimeout::HOST_TIMEOUT)
-	  {
-	    if (!_timeouts.request(msg.nr, msg.abstime))
-	      {
-		MessageTimer msg2(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
-		_mb->bus_timer.send(msg2);
-	      }
-	  }
-	break;
-      default:
-	return false;
-      }
-    return true;
-  }
-
-
-  bool  receive(MessageTimeout &msg)
-  {
-    if (msg.nr < MAXMODULES)
-      {
-	TimerItem item(Cpu::rdtsc());
-	_modinfo[msg.nr].prod_timer.produce(item);
-	return true;
-      }
-    if (msg.nr == MessageTimeout::HOST_TIMEOUT)  check_timeouts();
-    return false;
-  }
-
-
-
-  bool  receive(MessageConsole &msg)
-  {
-    switch (msg.type)
-      {
-      case MessageConsole::TYPE_KEY:
-	// forward the key to the named console
-	for (unsigned i=1; i < MAXMODULES; i++)
-	  if (_modinfo[i].console == msg.id)
-	    {
-	      MessageKeycode item(msg.view, msg.keycode);
-	      _modinfo[i].prod_stdin.produce(item);
-	      return true;
-	    }
-	Logging::printf("drop key %x at console %x.%x\n", msg.keycode, msg.id, msg.view);
-	break;
-      case MessageConsole::TYPE_RESET:
-	if (msg.id == 0)
-	  {
-	    Logging::printf("flush disk caches for reboot\n");
-	    for (unsigned i=0; i <  _mb->bus_disk.count(); i++)
-	      {
-		MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, i, 0, 0, 0, 0, 0, 0);
-		if (!_mb->bus_disk.send(msg2))  Logging::printf("could not flush disk %d\n", i);
-	      }
-	    Logging::printf("reset System\n");
-	    MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0xcf9, 2);
-	    MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0xcf9, 6);
-	    MessageIOOut msg3(MessageIOOut::TYPE_OUTB,  0x92, 1);
-	    _mb->bus_hwioout.send(msg1);
-	    _mb->bus_hwioout.send(msg2);
-	    _mb->bus_hwioout.send(msg3);
-	    return true;
-	  }
-	break;
-      case MessageConsole::TYPE_START:
-	{
-	  unsigned res = start_modules(myutcb(), 1 << msg.id);
-	  if (res)
-	    Logging::printf("start modules(%d) = %x\n", msg.id, res);
-	  return true;
-	}
-      case MessageConsole::TYPE_KILL:
-	{
-	  unsigned res = kill_module(msg.id);
-	  if (res)   Logging::printf("kill module(%d) = %x\n", msg.id, res);
-	  return true;
-	}
-      case MessageConsole::TYPE_DEBUG:
-	if (!msg.id) _mb->dump_counters();
-	if (msg.id == 1) check_timeouts();
-	if (msg.id == 2)
-	  {
-	    Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
-	  }
-	static unsigned unmap_count;
-	if (msg.id == 3) {
-	  unmap_count--;
-	  for (unsigned i = 1; i <= MAXMODULES; i++)
-	    if (_modinfo[i].mem) {
-	      unsigned rights = (unmap_count & 7) << 2;
-	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
-	    }
-	}
-	Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
-	return true;
-      case MessageConsole::TYPE_ALLOC_CLIENT:
-      case MessageConsole::TYPE_ALLOC_VIEW:
-      case MessageConsole::TYPE_SWITCH_VIEW:
-      case MessageConsole::TYPE_GET_MODEINFO:
-      case MessageConsole::TYPE_GET_FONT:
-      default:
-	break;
-      }
-    return false;
-  }
 
 
   bool  receive(MessageHostOp &msg)
@@ -1251,6 +935,137 @@ public:
   }
 
 
+  bool  receive(MessageNetwork &msg)
+  {
+    for (unsigned i=0; i < MAXMODULES; i++)
+      if (i != msg.client) _modinfo[i].prod_network.produce(msg.buffer, msg.len);
+    return true;
+  }
+
+
+  /************************************************************
+   *   DISK support                                           *
+   ************************************************************/
+
+  enum {
+    MAXDISKS           = 32,
+    MAXDISKREQUESTS    = DISKS_SIZE  // max number of outstanding disk requests per client
+  };
+
+  // per client data
+  struct DiskData {
+    DiskProducer    prod_disk;
+    unsigned char   disks[MAXDISKS];
+    unsigned char   disk_count;
+    struct {
+      unsigned char disk;
+      unsigned long usertag;
+    } tags [MAXDISKREQUESTS];
+  } _disk_data[MAXMODULES];
+
+
+  /**
+   * Global init.
+   */
+  void init_disks() {
+    _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>);
+  }
+
+  /**
+   * Attach drives to a module.
+   */
+  void attach_drives(char *cmdline, unsigned client)
+  {
+    for (char *p; p = strstr(cmdline,"sigma0::drive:"); cmdline = p + 1)
+      {
+	unsigned long  nr = strtoul(p+14, 0, 0);
+	if (nr < _mb->bus_disk.count() && _disk_data[client].disk_count < MAXDISKS)
+	  _disk_data[client].disks[_disk_data[client].disk_count++] = nr;
+	else
+	  Logging::printf("Sigma0: ignore drive %lx during attach!\n", nr);
+      }
+  }
+
+
+  /**
+   * Find a free disk tag for a client.
+   */
+  unsigned long find_free_tag(unsigned short client, unsigned char disknr, unsigned long usertag, unsigned long &tag) {
+
+    DiskData *disk_data = _disk_data + client;
+
+    assert (disknr < disk_data->disk_count);
+    for (unsigned i = 0; i < MAXDISKREQUESTS; i++)
+      if (!disk_data->tags[i].disk)
+	{
+	  disk_data->tags[i].disk = disknr + 1;
+	  disk_data->tags[i].usertag = usertag;
+	  tag = ((i+1) << 16) | client;
+	  return MessageDisk::DISK_OK;
+	}
+    return MessageDisk::DISK_STATUS_BUSY;
+  }
+
+
+
+  /**
+   * Handle disk requests from other PDs.
+   */
+  bool request_disks(unsigned client, Utcb *utcb) {
+
+    ModuleInfo *modinfo = _modinfo + client;
+    DiskData  *disk_data = _disk_data + client;
+
+    switch(utcb->msg[0]) {
+    case REQUEST_DISKS_ATTACH:
+      handle_attach<DiskConsumer>(modinfo, disk_data->prod_disk, utcb);
+      break;
+    case REQUEST_DISK:
+      {
+	MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
+	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	  return false;
+	else
+	  {
+	    MessageDisk msg2 = *msg;
+
+	    if (msg2.disknr >= disk_data->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return Mtd(utcb->head.mtr.untyped(), 0).value(); }
+	    switch (msg2.type)
+	      {
+	      case MessageDisk::DISK_GET_PARAMS:
+		if (convert_client_ptr(modinfo, msg2.params, sizeof(*msg2.params))) return false;
+		break;
+	      case MessageDisk::DISK_WRITE:
+	      case MessageDisk::DISK_READ:
+		if (convert_client_ptr(modinfo, msg2.dma, sizeof(*msg2.dma)*msg2.dmacount)) return false;
+
+		if (msg2.physoffset - MEM_OFFSET > modinfo->physsize) return false;
+		if (msg2.physsize > (modinfo->physsize - msg2.physoffset + MEM_OFFSET))
+		  msg2.physsize = modinfo->physsize - msg2.physoffset + MEM_OFFSET;
+		msg2.physoffset += reinterpret_cast<unsigned long>(modinfo->mem) - MEM_OFFSET;
+
+		utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
+		if (utcb->msg[0]) break;
+		assert(msg2.usertag);
+		break;
+	      case MessageDisk::DISK_FLUSH_CACHE:
+		break;
+	      default:
+		return false;
+	      }
+	    msg2.disknr = disk_data->disks[msg2.disknr];
+	    msg->error = _mb->bus_disk.send(msg2) ? MessageDisk::DISK_OK : MessageDisk::DISK_STATUS_DEVICE;
+	    utcb->msg[0] = 0;
+	  }
+      }
+      break;
+    default:
+      return false;
+    }
+    return true;
+  }
+
+
   bool  receive(MessageDiskCommit &msg)
   {
     // user provided write?
@@ -1260,22 +1075,320 @@ public:
       assert(client <  MAXMODULES);
       assert(index);
       assert(index <= MAXDISKREQUESTS);
-      MessageDiskCommit item(_modinfo[client].tags[index-1].disk-1, _modinfo[client].tags[index-1].usertag, msg.status);
-      if (!_modinfo[client].prod_disk.produce(item))
+      MessageDiskCommit item( _disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
+      if (!_disk_data[client].prod_disk.produce(item))
 	Logging::panic("produce disk (%x, %x) failed\n", client, index);
-      _modinfo[client].tags[index-1].disk = 0;
+      _disk_data[client].tags[index-1].disk = 0;
     }
     return true;
   }
 
 
-  bool  receive(MessageNetwork &msg)
+
+  /************************************************************
+   *   CONSOLE support                                        *
+   ************************************************************/
+
+  struct ConsoleData {
+    unsigned long   console;
+    StdinProducer   prod_stdin;
+  } _console_data[MAXMODULES];
+
+  /**
+   * Init the console subsystem
+   */
+  void init_console() {
+
+    _mb->bus_console.add(this, &Sigma0::receive_static<MessageConsole>);
+    // alloc consoles for ourself
+    MessageConsole msg1;
+    msg1.clientname = 0;
+    _mb->bus_console.send(msg1);
+    console_id = msg1.id;
+
+    // open 3 views
+    MessageConsole msg2("sigma0",  _vga + 0x18000, 0x1000, &_vga_regs);
+    msg2.id = console_id;
+    _mb->bus_console.send(msg2);
+    msg2.name = "HV";
+    msg2.ptr += 0x1000;
+    _mb->bus_console.send(msg2);
+    msg2.name = "boot";
+    msg2.ptr += 0x1000;
+    _mb->bus_console.send(msg2);
+    switch_view(_mb, 0);
+  }
+
+
+  void alloc_console(unsigned client, const char *tag) {
+    MessageConsole msg1;
+    msg1.clientname = tag;
+    if (_mb->bus_console.send(msg1))  _console_data[client].console = msg1.id;
+
+  };
+
+  /**
+   * Switch to our view.
+   */
+  static void switch_view(Motherboard *mb, int view=0)
   {
-    for (unsigned i=0; i < MAXMODULES; i++)
-      if (i != msg.client) _modinfo[i].prod_network.produce(msg.buffer, msg.len);
+    MessageConsole msg;
+    msg.type = MessageConsole::TYPE_SWITCH_VIEW;
+    msg.id = console_id;
+    msg.view = view;
+    mb->bus_console.send(msg);
+  }
+
+
+  /**
+   * Handle console requests from other PDs.
+   */
+  bool request_console(unsigned client, Utcb *utcb) {
+    ModuleInfo *modinfo = _modinfo + client;
+    switch(utcb->msg[0]) {
+    case REQUEST_STDIN_ATTACH:
+      handle_attach<StdinConsumer>(modinfo, _console_data[client].prod_stdin, utcb);
+      break;
+    case REQUEST_CONSOLE:
+      {
+	MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
+	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
+	{
+	  MessageConsole msg2 = *msg;
+	  if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
+	       && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
+	       && msg2.type != MessageConsole::TYPE_GET_MODEINFO
+	       && msg2.type != MessageConsole::TYPE_GET_FONT)
+	      || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
+		  && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
+		      || convert_client_ptr(modinfo, msg2.name, 4096)
+		      || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
+	      || (msg2.type == MessageConsole::TYPE_GET_FONT
+		  &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
+	      || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
+		  && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
+	      || !_console_data[client].console)
+	    break;
+	  msg2.id = _console_data[client].console;
+	  // alloc a new console and set the name from the commandline
+	  utcb->msg[0] = !_mb->bus_console.send(msg2);
+	  if (!utcb->msg[0])      msg->view = msg2.view;
+	}
+      }
+      break;
+    default: return false;
+    }
     return true;
   }
 
+
+
+  bool  receive(MessageConsole &msg) {
+
+    switch (msg.type) {
+    case MessageConsole::TYPE_KEY:
+      // forward the key to the named console
+      for (unsigned i=1; i < MAXMODULES; i++)
+	if (_console_data[i].console == msg.id)
+	  {
+	    MessageKeycode item(msg.view, msg.keycode);
+	    _console_data[i].prod_stdin.produce(item);
+	    return true;
+	  }
+      Logging::printf("drop key %x at console %x.%x\n", msg.keycode, msg.id, msg.view);
+      break;
+    case MessageConsole::TYPE_RESET:
+      if (msg.id == 0)
+	{
+	  Logging::printf("flush disk caches for reboot\n");
+	  for (unsigned i=0; i <  _mb->bus_disk.count(); i++)
+	    {
+	      MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, i, 0, 0, 0, 0, 0, 0);
+	      if (!_mb->bus_disk.send(msg2))  Logging::printf("could not flush disk %d\n", i);
+	    }
+	  Logging::printf("reset System\n");
+	  MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0xcf9, 2);
+	  MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0xcf9, 6);
+	  MessageIOOut msg3(MessageIOOut::TYPE_OUTB,  0x92, 1);
+	  _mb->bus_hwioout.send(msg1);
+	  _mb->bus_hwioout.send(msg2);
+	  _mb->bus_hwioout.send(msg3);
+	  return true;
+	}
+      break;
+    case MessageConsole::TYPE_START:
+      {
+	unsigned res = start_modules(myutcb(), 1 << msg.id);
+	if (res)
+	  Logging::printf("start modules(%d) = %x\n", msg.id, res);
+	return true;
+      }
+    case MessageConsole::TYPE_KILL:
+      {
+	unsigned res = kill_module(msg.id);
+	if (res)   Logging::printf("kill module(%d) = %x\n", msg.id, res);
+	return true;
+      }
+    case MessageConsole::TYPE_DEBUG:
+      switch (msg.id) {
+      case 0:  _mb->dump_counters(); break;
+      case 1:  check_timeouts(); break;
+      case 2:
+	Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
+	break;
+      case 3:
+	if (msg.id == 3) {
+	  static unsigned unmap_count;
+	  unmap_count--;
+	  for (unsigned i = 1; i <= MAXMODULES; i++)
+	    if (_modinfo[i].mem) {
+	      unsigned rights = (unmap_count & 7) << 2;
+	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
+	    }
+	}
+	break;
+      }
+      Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
+      return true;
+    case MessageConsole::TYPE_ALLOC_CLIENT:
+    case MessageConsole::TYPE_ALLOC_VIEW:
+    case MessageConsole::TYPE_SWITCH_VIEW:
+    case MessageConsole::TYPE_GET_MODEINFO:
+    case MessageConsole::TYPE_GET_FONT:
+    default:
+      break;
+    }
+    return false;
+  }
+
+
+
+
+  /************************************************************
+   *   TIMEOUT support                                        *
+   ************************************************************/
+
+  TimeoutList<MAXMODULES+2> _timeouts;
+  TimerProducer             _prod_timer[MAXMODULES];
+
+
+  void init_timeouts() {
+    // prealloc timeouts for every module
+
+    _timeouts.init();
+    for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
+    _mb->bus_timer.add(this,   &Sigma0::receive_static<MessageTimer>);
+    _mb->bus_timeout.add(this, &Sigma0::receive_static<MessageTimeout>);
+  }
+
+
+  /**
+   * Handle timeout requests from other PDs.
+   */
+  bool request_timeouts(unsigned client, Utcb *utcb) {
+
+    ModuleInfo *modinfo = _modinfo + client;
+    switch(utcb->msg[0]) {
+    case REQUEST_TIMER_ATTACH:
+      assert(client < sizeof(_prod_timer)/sizeof(_prod_timer[0]));
+      handle_attach<TimerConsumer>(modinfo, _prod_timer[client], utcb);
+      break;
+    case REQUEST_TIMER:
+      {
+	MessageTimer *msg = reinterpret_cast<MessageTimer *>(utcb->msg+1);
+	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	  utcb->msg[0] = ~0x10u;
+	else
+	  if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
+	    {
+	      msg->nr = client;
+	      if (_mb->bus_timer.send(*msg))
+		utcb->msg[0] = 0;
+	    }
+      }
+      break;
+    case REQUEST_TIME:
+      {
+	MessageTime msg;
+	if (_mb->bus_time.send(msg))
+	  {
+	    // we assume the same mb->clock() source here
+	    *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
+	    utcb->head.mtr = Mtd((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
+	    utcb->msg[0] = 0;
+	  }
+      }
+      break;
+    default:
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Check whether timeouts have fired.
+   */
+  void check_timeouts() {
+
+    COUNTER_INC("check_to");
+    timevalue now = _mb->clock()->time();
+    unsigned nr;
+    while ((nr = _timeouts.trigger(now)))
+      {
+	_timeouts.cancel(nr);
+	MessageTimeout msg1(nr);
+	_mb->bus_timeout.send(msg1);
+      }
+    if (_timeouts.timeout() != ~0ULL)
+      {
+	// update timeout upstream
+	MessageTimer msg(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
+	_mb->bus_timer.send(msg);
+      }
+  }
+
+
+  bool  receive(MessageTimer &msg)
+  {
+    switch (msg.type)
+      {
+      case MessageTimer::TIMER_NEW:
+	msg.nr = _timeouts.alloc();
+	return true;
+      case MessageTimer::TIMER_REQUEST_TIMEOUT:
+	if (msg.nr != MessageTimeout::HOST_TIMEOUT)
+	  {
+	    if (!_timeouts.request(msg.nr, msg.abstime))
+	      {
+		MessageTimer msg2(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
+		_mb->bus_timer.send(msg2);
+	      }
+	  }
+	break;
+      default:
+	return false;
+      }
+    return true;
+  }
+
+
+  bool  receive(MessageTimeout &msg)
+  {
+    if (msg.nr < MAXMODULES)
+      {
+	TimerItem item(Cpu::rdtsc());
+	assert(msg.nr < sizeof(_prod_timer)/sizeof(_prod_timer[0]));
+	_prod_timer[msg.nr].produce(item);
+	return true;
+      }
+    if (msg.nr == MessageTimeout::HOST_TIMEOUT)  check_timeouts();
+    return false;
+  }
+
+
+  /************************************************************
+   * Application                                              *
+   ************************************************************/
 
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
