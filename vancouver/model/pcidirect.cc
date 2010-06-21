@@ -229,7 +229,9 @@ private:
 	      msg.value = conf_read(_bdf, msg.dword);
 
 	    // disable multi-function devices
-	    if (msg.dword == 3)   msg.value &= ~0x800000;
+	    if (msg.dword == 3)         msg.value &= ~0x800000;
+	    // we support only a single MSI vector
+	    if (msg.dword == _msi_cap)  msg.value &= ~0xe0000;
 	    //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, msg.value);
 	    return true;
 	  }
@@ -239,7 +241,7 @@ private:
 	    if (!msg.dword) mask = 0;
 	    if (in_range(msg.dword, BAR0, MAX_BAR)) mask = ~(_barinfo[msg.dword - BAR0].size - 1);
 	    if (_msi_cap) {
-	      if (msg.dword == _msi_cap) mask = 0x710000;
+	      if (msg.dword == _msi_cap) mask = 0x10000;  // only the MSI enable bit can be toggled
 	      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
 	      if (msg.dword == (_msi_cap + 2)) mask = ~0u;
 	      if (msg.dword == (_msi_cap + (_msi_64bit ? 3 : 2))) mask = 0xffff;
@@ -396,7 +398,7 @@ private:
     _msix_bar = ~0;
     _irq_count = use_irqs ? 1 : 0;
    if (_msi_cap)  {
-      _irq_count = 1 << ((_cfgspace[_msi_cap] >> 1) & 0x7);
+      _irq_count = 1;
       _msi_64bit = _cfgspace[_msi_cap] & 0x800000;
       // disable MSI
       _cfgspace[_msi_cap] &= ~0x10000;
