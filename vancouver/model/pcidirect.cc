@@ -77,7 +77,7 @@ public:
       conf_write(bdf, BAR0 + i, 0xFFFFFFFFU);
       unsigned bar = conf_read(bdf, BAR0 + i);
       if (old & BAR_IO) {
-	size[i] = ((bar & BAR_IO_MASK) ^ 0xFFFFU) + 1;
+	size[i] = (((bar & BAR_IO_MASK) ^ 0xFFFFU) + 1) & 0xffff;
 	base[i] = old;
       }
       else {
