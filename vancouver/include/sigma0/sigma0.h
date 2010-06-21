@@ -41,7 +41,6 @@ class Sigma0Base : public BaseProgram
     REQUEST_NETWORK,
     REQUEST_IOIO,
     REQUEST_IOMEM,
-    REQUEST_IRQ,
     REQUEST_PCICFG,
     REQUEST_ACPI
   };
@@ -86,18 +85,6 @@ class Sigma0Base : public BaseProgram
   static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
 
-
-  static unsigned request_irq(unsigned irq)
-  {
-    Utcb *utcb = myutcb();
-    TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
-
-    utcb->msg[0] = REQUEST_IRQ;
-    utcb->head.mtr = Mtd(1, 0);
-    utcb->add_mappings(false, irq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
-    utcb->head.crd = utcb->msg[2];
-    return idc_call(14, Mtd(3, 0));
-  }
 
   static unsigned request_io(unsigned long base, unsigned long size, bool io, unsigned long &iomem_start)
   {

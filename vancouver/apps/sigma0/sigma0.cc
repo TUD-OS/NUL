@@ -799,16 +799,6 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 		  else
 		    Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
 		  break;
-		case REQUEST_IRQ:
-		  if ((utcb->msg[2] & 0x3) == 3 && (utcb->msg[2] >> Utcb::MINSHIFT) >= (_hip->cfg_exc + 3)
-		      && (utcb->msg[2] >> Utcb::MINSHIFT) <  (_hip->cfg_exc + _hip->cfg_gsi + 3))
-		    {
-		      Logging::printf("[%02x] irq %x granted\n", client, utcb->msg[2]);
-		      utcb->head.mtr = Mtd(1, 1);
-		    }
-		  else
-		    Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
-		  break;
 		case REQUEST_DISK:
 		  {
 		    MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
@@ -935,13 +925,25 @@ class Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigm
 			    break;
 			  }
 		      case MessageHostOp::OP_ATTACH_IRQ:
-			Logging::printf("assign_gsi PD %x gsi %lx\n", client, msg->value);
-			assign_gsi(_hip->cfg_exc + 3 + (msg->value & 0xff), modinfo->cpunr);
-			utcb->msg[0] = 0;
+			if ((msg->value & 0xff) < _hip->cfg_gsi) {
+			  // XXX make sure only one gets it
+			  Logging::printf("[%02x] gsi %lx granted\n", client, msg->value);
+			  unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
+			  assign_gsi(gsi_cap, modinfo->cpunr);
+			  utcb->head.mtr = Mtd(1);
+			  utcb->msg[0] = 0;
+			  utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			}
+			else
+			  Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
 			break;
 		      case MessageHostOp::OP_ATTACH_MSI:
-			attach_msi(msg, modinfo->cpunr);
-			utcb->msg[0] = 0;
+			{
+			  unsigned cap = attach_msi(msg, modinfo->cpunr);
+			  utcb->msg[0] = 0;
+			  utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
+			  utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			}
 			break;
 		      case MessageHostOp::OP_RERAISE_IRQ:
 		      case MessageHostOp::OP_ALLOC_IOIO_REGION:

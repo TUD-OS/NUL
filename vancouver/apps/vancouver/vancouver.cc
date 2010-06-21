@@ -252,11 +252,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *))
+  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
-
-    if (hostirq != ~0u) check1(~0u, Sigma0Base::request_irq((hostirq & 0xff) + _hip->cfg_exc));
 
     unsigned stack_size = 0x1000;
     Utcb *utcb = alloc_utcb();
@@ -269,7 +267,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     unsigned cap_ec =  alloc_cap();
     check1(~2u, create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
     utcb->head.tls = reinterpret_cast<unsigned>(this);
-    utcb->msg[0] = (hostirq & 0xff) + _hip->cfg_exc; // the caps for irq threads start here
+    utcb->msg[0] = irq_cap;
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
@@ -279,7 +277,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned init_caps(Hip *hip)
+  unsigned init_caps()
   {
     _lock = Semaphore(&_lockcount, alloc_cap());
     check1(1, create_sm(_lock.sm()));
@@ -491,16 +489,19 @@ public:
 	semup(_shared_sem[msg.value & 0xff]);
 	res = true;
 	break;
-      case MessageHostOp::OP_ATTACH_IRQ:
-	create_irq_thread(msg.value, do_gsi);
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_ASSIGN_PCI:
       case MessageHostOp::OP_GET_UID:
 	res = Sigma0Base::hostop(msg);
 	break;
       case MessageHostOp::OP_ATTACH_MSI:
-	res  = Sigma0Base::hostop(msg);
-	create_irq_thread(msg.msi_gsi, do_gsi);
+      case MessageHostOp::OP_ATTACH_IRQ:
+	{
+	  unsigned irq_cap = alloc_cap();
+	  myutcb()->head.crd = Crd(irq_cap, 0, 0x1c | 3).value();
+	  res  = Sigma0Base::hostop(msg);
+	  create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
+	}
 	break;
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
 	msg.value = create_vcpu(msg.vcpu, _hip->has_svm());
@@ -607,16 +608,16 @@ public:
 	}
     }
 
-    if (init_caps(hip))
+    if (init_caps())
       Logging::panic("init_caps() failed\n");
 
     create_devices(hip, args);
 
     // create backend connections
-    create_irq_thread(~0u, do_stdin);
-    create_irq_thread(~0u, do_disk);
-    create_irq_thread(~0u, do_timer);
-    create_irq_thread(~0u, do_network);
+    create_irq_thread(~0u, 0, do_stdin);
+    create_irq_thread(~0u, 0, do_disk);
+    create_irq_thread(~0u, 0, do_timer);
+    create_irq_thread(~0u, 0, do_network);
 
 
     // init VCPUs
