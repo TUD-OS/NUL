@@ -461,12 +461,22 @@ public:
     switch (msg.type)
       {
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
-	res = ! Sigma0Base::request_io(msg.value >> 8, 1 << (msg.value & 0xff), true, _iomem_start);
-	Logging::printf("alloc ioio region %lx %s\n", msg.value, res ? "done" :  "failed");
+	{
+	  myutcb()->head.crd = Crd(msg.value >> 8, msg.value & 0xff, 0x1c | 2).value();
+	  res = ! Sigma0Base::hostop(msg);
+	  Logging::printf("alloc ioio region %lx %s\n", msg.value, res ? "done" :  "failed");
+	}
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
-	msg.ptr = reinterpret_cast<char *>(Sigma0Base::request_io(msg.value, msg.len, false, _iomem_start));
-	res = msg.value;
+	{
+	  _iomem_start = (_iomem_start + msg.len - 1) & ~(msg.len-1);
+	  myutcb()->head.crd = Crd(_iomem_start >> 12, Cpu::bsr(msg.len) - 12, 1).value();
+	  res = ! Sigma0Base::hostop(msg);
+	  if (res) {
+	    msg.ptr = reinterpret_cast<char *>(_iomem_start);
+	    _iomem_start += msg.len;
+	  }
+	}
 	break;
       case MessageHostOp::OP_GUEST_MEM:
 	if (msg.value >= _physsize)
@@ -749,9 +759,18 @@ VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 	utcb->ctrl[0] = (1 << 3); // tscoffs
 	utcb->ctrl[1] = 0;
 	)
-VM_FUNC(PT_VMX + 0xff,  do_recall, MTD_IRQ,
+#define EXPERIMENTAL
+VM_FUNC(PT_VMX + 0xff,  do_recall,
+#ifdef EXPERIMENTAL
+MTD_IRQ | MTD_RIP_LEN,
+#else
+MTD_IRQ,
+#endif
+	COUNTER_INC("recall");
+	COUNTER_SET("REIP", utcb->eip);
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
+
 
 // and now the SVM portals
 VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, utcb); )

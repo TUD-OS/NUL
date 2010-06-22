@@ -39,8 +39,6 @@ class Sigma0Base : public BaseProgram
     REQUEST_CONSOLE,
     REQUEST_HOSTOP,
     REQUEST_NETWORK,
-    REQUEST_IOIO,
-    REQUEST_IOMEM,
     REQUEST_PCICFG,
     REQUEST_ACPI
   };
@@ -84,41 +82,6 @@ class Sigma0Base : public BaseProgram
   static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
-
-
-  static unsigned request_io(unsigned long base, unsigned long size, bool io, unsigned long &iomem_start)
-  {
-    Utcb *utcb = myutcb();
-    TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
-    utcb->head.mtr = Mtd(1, 0);
-    if (io)
-      {
-	utcb->msg[0] = REQUEST_IOIO;
-	size <<= Utcb::MINSHIFT;
-	base <<= Utcb::MINSHIFT;
-      }
-    else
-      {
-	if (size < 0x1000)  size = 0x1000;
-	utcb->msg[0] = REQUEST_IOMEM;
-      }
-    // align iomem to new size
-    iomem_start = (iomem_start + size - 1) & ~(size-1);
-
-    utcb->add_mappings(false, base, size, 0, 0x1c | (io ? 2 : 1));
-    utcb->head.crd = io ? utcb->msg[2] : Crd(iomem_start >> 12, Cpu::bsr(size) - 12, 1).value();
-    Logging::printf("request_io(%lx, %lx, utcb %p) crd %x\n", base, size, utcb, utcb->head.crd);
-
-    unsigned res = idc_call(14, Mtd(3,0));
-    if (!res && !io)
-      {
-	res = iomem_start;
-	iomem_start += size;
-	return res;
-      }
-    else
-      return 0;
-  }
   static bool disk   (MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
   static bool console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
   static bool hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }

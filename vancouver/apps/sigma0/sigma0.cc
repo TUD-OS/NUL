@@ -676,30 +676,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		  case REQUEST_NETWORK_ATTACH:
 		    handle_attach<NetworkConsumer>(modinfo, modinfo->prod_network, utcb);
 		    break;
-		  case REQUEST_IOIO:
-		    if ((utcb->msg[2] & 0x3) == 2)
-		      {
-			// XXX check permissions
-			// XXX move to hostops
-			Logging::printf("[%02x] ioports %x granted\n", client, utcb->msg[2]);
-			utcb->head.mtr = Mtd(1, 1);
-		      }
-		    else
-		      Logging::printf("[%02x] ioport request dropped %x ports %x\n", client, utcb->msg[2], utcb->msg[2]>>Utcb::MINSHIFT);
-		    break;
-		  case REQUEST_IOMEM:
-		    if ((utcb->msg[2] & 0x3) == 1)
-		      {
-			unsigned long addr = utcb->msg[2] & ~0xfff;
-			char *ptr = map_self(utcb, addr, Crd(utcb->msg[2]).size());
-			utcb->msg[1] = 0;
-			utcb->msg[2] = Crd(reinterpret_cast<unsigned long>(ptr) >> 12, Crd(utcb->msg[2]).order(),  0x1c | 1).value();
-			utcb->head.mtr = Mtd(1, 1);
-			Logging::printf("[%02x] iomem %lx+%x o %d granted from %x\n", client, addr, Crd(utcb->msg[2]).size(), Crd(utcb->msg[2]).order(), utcb->msg[2]);
-		      }
-		    else
-		      Logging::printf("[%02x] iomem request dropped %x\n", client, utcb->msg[2]);
-		    break;
 		  case REQUEST_HOSTOP:
 		    {
 		      MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
@@ -782,9 +758,24 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
 			  }
 			  break;
-			case MessageHostOp::OP_RERAISE_IRQ:
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
+			  // XXX make sure only one gets it
+			  utcb->head.mtr = Mtd(1);
+			  utcb->msg[0] = 0;
+			  utcb->add_mappings(false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, 0x1c | 3);
+			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
+			  {
+			    // XXX make sure it is not physmem and only one gets it
+			    unsigned long addr = msg->value & ~0xffful;
+			    char *ptr = map_self(utcb, addr, msg->len);
+			    utcb->head.mtr = Mtd(1);
+			    utcb->msg[1] = 0;
+			    utcb->add_mappings(false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, 0x1c | 1);
+			    Logging::printf("[%02x] iomem %lx+%x granted from %p\n", client, addr, msg->len, ptr);
+			  }
+			  break;
+			case MessageHostOp::OP_RERAISE_IRQ:
 			case MessageHostOp::OP_GUEST_MEM:
 			case MessageHostOp::OP_ALLOC_FROM_GUEST:
 			case MessageHostOp::OP_VIRT_TO_PHYS:
