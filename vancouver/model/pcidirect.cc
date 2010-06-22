@@ -196,7 +196,7 @@ private:
   {
     unsigned old_port = msg.port;
     if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
-    bool res = _mb.bus_hwioin.send(msg);
+    bool res = _mb.bus_hwioin.send(msg, true);
     msg.port = old_port;
     return res;
   }
@@ -206,7 +206,7 @@ private:
   {
     unsigned old_port = msg.port;
     if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
-    bool res = _mb.bus_hwioout.send(msg);
+    bool res = _mb.bus_hwioout.send(msg, true);
     msg.port = old_port;
     return res;
   }

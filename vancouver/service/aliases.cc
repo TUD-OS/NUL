@@ -26,7 +26,7 @@ DEFAULT_PARAM(PC_PS2, "an alias to create an PS2 compatible PC",
 	      " vbios_disk vbios_keyboard vbios_mem vbios_time vbios_reset"                   \
 	      " msi ioapic pcihostbridge:0,0x10,0xcf8,0xe0000000 pmtimer:0x8000")
 DEFAULT_PARAM(vcpu_default, "an alias to create a default VCPU",          "vcpu halifax vbios lapic")
-DEFAULT_PARAM(S0_DEFAULT,   "an alias for the default sigma0 parameters", "hostacpi ioio hostserial hostrtc pcicfg mmconfig atare")
+DEFAULT_PARAM(S0_DEFAULT,   "an alias for the default sigma0 parameters", "ioio hostacpi hostrtc pcicfg mmconfig atare")
 
 PARAM(vcpus,
       unsigned count = ~argv[0] ? argv[0] : 1;

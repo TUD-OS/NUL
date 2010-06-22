@@ -90,12 +90,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned        cap_pd;
     unsigned        cpunr;
     unsigned long   rip;
-    char            tag[256];
     bool            log;
     bool            dma;
     char *          mem;
     unsigned long   physsize;
-    NetworkProducer prod_network;
     unsigned        uid;
   } _modinfo[MAXMODULES];
 
@@ -108,6 +106,69 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned _pcidirect[MAXPCIDIRECT];
 
   unsigned _uid;
+
+
+  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = 0x1c | 1)
+  {
+    assert(size);
+    //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
+
+    // make sure we align physmem + size to a pagesize
+    unsigned long ofs = physmem & 0xfff;
+    physmem -= ofs;
+    size    += ofs;
+    if (size & 0xfff) size += 0x1000 - (size & 0xfff);
+
+    unsigned long virt = 0;
+    if ((rights & 3) == 1)
+      {
+	unsigned long s = _virt_phys.find_phys(physmem, size);
+	if (s)  return reinterpret_cast<char *>(s) + ofs;
+	virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
+	if (!virt) return 0;
+      }
+    unsigned old = utcb->head.crd;
+    utcb->head.crd = Crd(0, 20, rights).value();
+    char *res = reinterpret_cast<char *>(virt);
+    unsigned long offset = 0;
+    while (size > offset)
+      {
+	utcb->head.mtr = Mtd();
+	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
+	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
+	offset = size - s;
+	unsigned err;
+	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
+	  {
+	    Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
+	    res = 0;
+	    break;
+	  }
+      }
+    utcb->head.crd = old;
+    if ((rights & 3) == 1)  _virt_phys.add(Region(virt, size, physmem));
+    return res ? res + ofs : 0;
+  }
+
+
+  /**
+   * Command lines need to be mapped.
+   */
+  char *map_string(Utcb *utcb, unsigned long src)
+  {
+    unsigned size = 0;
+    unsigned offset = src & 0xfffull;
+    src &= ~0xfffull;
+    char *res = 0;
+    do {
+      //XXX if (res) unmap_self(res, size);
+      size += 0x1000;
+      res = map_self(utcb, src, size) + offset;
+    } while (strnlen(res, size - offset) == (size - offset));
+    return res;
+  }
+
+
 
 
 
@@ -192,8 +253,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     global_mb = _mb;
     init_timeouts();
     init_disks();
+    init_network();
     _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
-    _mb->bus_network.add(this, &Sigma0::receive_static<MessageNetwork>);
     _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
@@ -395,11 +456,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    }
 	  Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
-	  // format the tag
-	  Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
-
 	  // allocate a console for it
-	  alloc_console(module, modinfo->tag);
+	  alloc_console(module, cmdline);
 
 	  /**
 	   * We memset the client memory to make sure we get an
@@ -461,7 +519,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
 
     // change the tag
-    Vprintf::snprintf(modinfo->tag, sizeof(modinfo->tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+    Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
 
     // free resources
     Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
@@ -476,69 +534,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     //modinfo->mem = 0;
     return __LINE__;
   }
-
-
-  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = 0x1c | 1)
-  {
-    assert(size);
-    //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
-
-    // make sure we align physmem + size to a pagesize
-    unsigned long ofs = physmem & 0xfff;
-    physmem -= ofs;
-    size    += ofs;
-    if (size & 0xfff) size += 0x1000 - (size & 0xfff);
-
-    unsigned long virt = 0;
-    if ((rights & 3) == 1)
-      {
-	unsigned long s = _virt_phys.find_phys(physmem, size);
-	if (s)  return reinterpret_cast<char *>(s) + ofs;
-	virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
-	if (!virt) return 0;
-      }
-    unsigned old = utcb->head.crd;
-    utcb->head.crd = Crd(0, 20, rights).value();
-    char *res = reinterpret_cast<char *>(virt);
-    unsigned long offset = 0;
-    while (size > offset)
-      {
-	utcb->head.mtr = Mtd();
-	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
-	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
-	offset = size - s;
-	unsigned err;
-	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
-	  {
-	    Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
-	    res = 0;
-	    break;
-	  }
-      }
-    utcb->head.crd = old;
-    if ((rights & 3) == 1)  _virt_phys.add(Region(virt, size, physmem));
-    return res ? res + ofs : 0;
-  }
-
-
-  /**
-   * Command lines need to be mapped.
-   */
-  char *map_string(Utcb *utcb, unsigned long src)
-  {
-    unsigned size = 0;
-    unsigned offset = src & 0xfffull;
-    src &= ~0xfffull;
-    char *res = 0;
-    do {
-      //XXX if (res) unmap_self(res, size);
-      size += 0x1000;
-      res = map_self(utcb, src, size) + offset;
-    } while (strnlen(res, size - offset) == (size - offset));
-    return res;
-  }
-
-
 
 
   /**
@@ -661,7 +656,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.mtr.untyped() < 0x1000)
 	    {
-	      if (!request_timeouts(client, utcb) && !request_disks(client, utcb) && !request_console(client, utcb))
+	      if (!request_timeouts(client, utcb) && !request_disks(client, utcb) && !request_console(client, utcb) && !request_network(client, utcb))
 		switch (utcb->msg[0])
 		  {
 		  case REQUEST_PUTS:
@@ -673,9 +668,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		      utcb->msg[0] = 0;
 		      break;
 		    }
-		  case REQUEST_NETWORK_ATTACH:
-		    handle_attach<NetworkConsumer>(modinfo, modinfo->prod_network, utcb);
-		    break;
 		  case REQUEST_HOSTOP:
 		    {
 		      MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
@@ -787,20 +779,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  // unhandled
 			  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 			  goto fail;
-			}
-		    }
-		    break;
-		  case REQUEST_NETWORK:
-		    {
-		      MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
-		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-			utcb->msg[0] = ~0x10u;
-		      else
-			{
-			  MessageNetwork msg2 = *msg;
-			  if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) goto fail;
-			  msg2.client = client;
-			  _mb->bus_network.send(msg2);
 			}
 		    }
 		    break;
@@ -925,11 +903,52 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
+  /************************************************************
+   *   Network support                                        *
+   ************************************************************/
+
+
+  /**
+   * Network data.
+   */
+  NetworkProducer _prod_network[MAXMODULES];
+
+  void init_network() {  _mb->bus_network.add(this, &Sigma0::receive_static<MessageNetwork>); }
+
+  /**
+   * Handle network requests from other PDs.
+   */
+  bool request_network(unsigned client, Utcb *utcb) {
+
+    ModuleInfo *modinfo = _modinfo + client;
+
+    switch(utcb->msg[0]) {
+    case REQUEST_NETWORK_ATTACH:
+      handle_attach<NetworkConsumer>(modinfo, _prod_network[client], utcb);
+      break;
+    case REQUEST_NETWORK:
+      {
+	MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
+	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	  utcb->msg[0] = ~0x10u;
+	else
+	  {
+	    MessageNetwork msg2 = *msg;
+	    if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) return false;
+	    msg2.client = client;
+	    _mb->bus_network.send(msg2);
+	  }
+      }
+      break;
+    default:  return false;
+    }
+    return true;
+  }
 
   bool  receive(MessageNetwork &msg)
   {
     for (unsigned i=0; i < MAXMODULES; i++)
-      if (i != msg.client) _modinfo[i].prod_network.produce(msg.buffer, msg.len);
+      if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
     return true;
   }
 
@@ -958,9 +977,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Global init.
    */
-  void init_disks() {
-    _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>);
-  }
+  void init_disks() {  _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>); }
 
   /**
    * Attach drives to a module.
@@ -1083,6 +1100,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   struct ConsoleData {
     unsigned long   console;
     StdinProducer   prod_stdin;
+    char            tag[256];
   } _console_data[MAXMODULES];
 
   /**
@@ -1111,9 +1129,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-  void alloc_console(unsigned client, const char *tag) {
+  void alloc_console(unsigned client, const char *cmdline) {
+    ModuleInfo *modinfo = _modinfo + client;
+
+    // format the tag
+    Vprintf::snprintf(_console_data[client].tag, sizeof(_console_data[client].tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
+
     MessageConsole msg1;
-    msg1.clientname = tag;
+    msg1.clientname = _console_data[client].tag;
     if (_mb->bus_console.send(msg1))  _console_data[client].console = msg1.id;
 
   };
@@ -1136,6 +1159,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   bool request_console(unsigned client, Utcb *utcb) {
     ModuleInfo *modinfo = _modinfo + client;
+
     switch(utcb->msg[0]) {
     case REQUEST_STDIN_ATTACH:
       handle_attach<StdinConsumer>(modinfo, _console_data[client].prod_stdin, utcb);
@@ -1201,9 +1225,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0xcf9, 2);
 	  MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0xcf9, 6);
 	  MessageIOOut msg3(MessageIOOut::TYPE_OUTB,  0x92, 1);
-	  _mb->bus_hwioout.send(msg1);
-	  _mb->bus_hwioout.send(msg2);
-	  _mb->bus_hwioout.send(msg3);
+	  _mb->bus_hwioout.send(msg1, true);
+	  _mb->bus_hwioout.send(msg2, true);
+	  _mb->bus_hwioout.send(msg3, true);
 	  return true;
 	}
       break;
@@ -1264,8 +1288,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   void init_timeouts() {
-    // prealloc timeouts for every module
 
+    // prealloc timeouts for every module
     _timeouts.init();
     for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
     _mb->bus_timer.add(this,   &Sigma0::receive_static<MessageTimer>);
@@ -1403,7 +1427,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-
   Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 

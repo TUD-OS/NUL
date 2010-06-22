@@ -32,8 +32,8 @@ class DirectIODevice : public StaticReceiver<DirectIODevice>
   unsigned _size;
 
  public:
-  bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(msg);  return false; }
-  bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(msg); return false; }
+  bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(msg, true);  return false; }
+  bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(msg, true); return false; }
   DirectIODevice(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned base, unsigned size)
   : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _base(base), _size(size) {}
 };

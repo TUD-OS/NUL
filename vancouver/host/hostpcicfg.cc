@@ -37,12 +37,12 @@ public:
     //Logging::printf("PCI CFG %x %x %x\n", msg.bdf, msg.dword, msg.value);
     if (msg.dword < 0x40) {
       MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | (msg.dword << 2));
-      if (!_hwioout.send(msg1)) return false;
+      if (!_hwioout.send(msg1, true)) return false;
 
       if (msg.type == MessagePciConfig::TYPE_READ) {
 
 	MessageIOIn msg2(MessageIOIn::TYPE_INL, BASE+4);
-	bool res = _hwioin.send(msg2);
+	bool res = _hwioin.send(msg2, true);
 	msg.value = msg2.value;
 	//Logging::printf("PCI READ %x = %x\n", msg.dword, msg2.value);
 	return res;
@@ -50,7 +50,7 @@ public:
       else {
  	//Logging::printf("PCI WRITE %x %x\n", msg.dword, msg.value);
 	MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
-	return _hwioout.send(msg2);
+	return _hwioout.send(msg2, true);
       }
     }
     return false;

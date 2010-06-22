@@ -20,7 +20,7 @@ DBus<MessageIOIn>   &_bus_hwioin;
 unsigned char inb(unsigned short port)
 {
   MessageIOIn msg(MessageIOIn::TYPE_INB, port);
-  if (!_bus_hwioin.send(msg))
+  if (!_bus_hwioin.send(msg, true))
     Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, port);
   return msg.value;
 }
@@ -28,13 +28,13 @@ unsigned char inb(unsigned short port)
 void insw(void *ptr, unsigned count, unsigned short port)
 {
   MessageIOIn msg(MessageIOIn::TYPE_INW, port, count, ptr);
-  if (!_bus_hwioin.send(msg))
+  if (!_bus_hwioin.send(msg, true))
     Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, port);
 }
 
 void insl(void *ptr, unsigned count, unsigned short port)
 {
   MessageIOIn msg(MessageIOIn::TYPE_INL, port, count, ptr);
-  if (!_bus_hwioin.send(msg))
+  if (!_bus_hwioin.send(msg, true))
     Logging::panic("%s could not read from ioport %x\n", __PRETTY_FUNCTION__, port);
 }
