@@ -777,10 +777,7 @@ PARAM(82576vf,
 
 	Logging::printf("Our UID is %lx\n", msg.value);
 
-	Model82576vf *dev = new Model82576vf( // XXX Change me 
-					     0xe9e24d211b00ULL,
-					     //static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
-
+	Model82576vf *dev = new Model82576vf(static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
 					     argv[0], argv[1],
