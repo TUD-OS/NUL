@@ -279,7 +279,7 @@ helper_SDT(SGDT,gd, MTD_GDTR)
   template<unsigned operand_size>
   int __attribute__((regparm(3)))  helper_POPF()
   {
-    unsigned long tmp;
+    unsigned long tmp = READ(efl);
     if (_cpu->v86() && _cpu->iopl() < 3)
       GP0
     else if (!helper_POP<operand_size>(&tmp))
@@ -693,7 +693,7 @@ int helper_IRET()
 
 
   // protected mode
-  unsigned tmp_eip = 0, tmp_cs = 0, tmp_flag = 0;
+  unsigned tmp_eip = 0, tmp_cs = 0, tmp_flag = _cpu->efl;
   if (helper_POP<operand_size>(&tmp_eip) || helper_POP<operand_size>(&tmp_cs) || helper_POP<operand_size>(&tmp_flag))
     return _fault;
 
