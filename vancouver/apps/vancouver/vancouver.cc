@@ -804,7 +804,6 @@ VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	utcb->head.mtr.add(MTD_CTRL);
 	utcb->ctrl[0] = 1 << 18; // cpuid
 	utcb->ctrl[1] = 1 << 0;  // vmrun
-	do_recall(pid, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  vmx_irqwin(pid, utcb); )
 VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, utcb); )
