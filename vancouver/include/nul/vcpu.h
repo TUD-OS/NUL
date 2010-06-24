@@ -44,7 +44,7 @@ struct CpuMessage {
 	unsigned  cpuid_index;
 	struct {
 	  unsigned  io_order;
-	  unsigned  port;
+	  unsigned  short port;
 	  void     *dst;
 	};
       };
