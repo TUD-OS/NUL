@@ -25,8 +25,7 @@
 
 
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
-
-
+extern char __image_start, __image_end;
 
 /**
  * Contains common code for nova programms.
@@ -45,6 +44,7 @@ class NovaProgram : public BaseProgram
   Hip *     _hip;
   unsigned  _cap_block;
 
+  
   // memory map
   RegionList<512> _free_virt;
   RegionList<512> _free_phys;
@@ -94,8 +94,6 @@ class NovaProgram : public BaseProgram
     _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
     create_sm(_cap_block = alloc_cap());
 
-    // prepopulate the virt memory lists
-    extern char __image_start, __image_end;
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
@@ -113,9 +111,12 @@ class NovaProgram : public BaseProgram
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
       if (hmem->type == 1) {
 	_free_virt.del(Region(hmem->addr, hmem->size));
+	_free_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
 	_virt_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
       }
     }
+
+    _free_phys.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
   }
 
 
