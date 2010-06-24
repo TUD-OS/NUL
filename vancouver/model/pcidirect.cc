@@ -158,7 +158,7 @@ private:
     if (~_cfgspace[1] & 1) return false;
     for (unsigned i=0; i < _bar_count; i++) {
       if (!_barinfo[i].io || !in_range(port, _cfgspace[BAR0 + i] & BAR_IO_MASK, _barinfo[i].size - size + 1)) continue;
-      newport = _barinfo[i].port;
+      newport = _barinfo[i].port | (port & (_barinfo[i].size-1));
       return true;
     }
     return false;
