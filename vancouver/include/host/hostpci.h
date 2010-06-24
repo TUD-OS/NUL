@@ -83,7 +83,7 @@ class HostPci
     for (unsigned bus = 0; bus < 256; bus++)
       {
 	// skip empty busses
-	if (conf_read(bus << 8, 0) == ~0u) continue;
+	//if (conf_read(bus << 8, 0) == ~0u) continue;
 	for (unsigned dev=0; dev < 32; dev++)
 	  {
 	    unsigned char maxfunc = 1;
