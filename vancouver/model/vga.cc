@@ -142,7 +142,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	break;
       case 0x4f01: // get modeinfo
 	{
-	  Logging::printf("VESA %x base %x+%x ecx %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->ecx, sizeof(ConsoleModeInfo));
+	  //Logging::printf("VESA %x base %x+%x ecx %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->ecx, sizeof(ConsoleModeInfo));
 
 	  ConsoleModeInfo info;
 	  if (get_vesa_mode(cpu->ecx & 0x0fff, &info) != 0ul)
