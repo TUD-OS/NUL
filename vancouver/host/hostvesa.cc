@@ -123,9 +123,9 @@ class HostVesa : public StaticReceiver<HostVesa>
 
 	memcpy(_modelist + _modecount, modeinfo, sizeof(*_modelist));
 	if (_debug)
-	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x+%8x attr %x bps %x\n", _modecount, mode, (modeinfo->attr & 0x80) ? "linear" : "window",
+	  Logging::printf("[%2x] %03x %s %4dx%4d-%2d phys %8x+%8x attr %x bps %x planes %d mmdl %d\n", _modecount, mode, (modeinfo->attr & 0x80) ? "linear" : "window",
 			  modeinfo->resolution[0], modeinfo->resolution[1], modeinfo->bpp, modeinfo->phys_base, modeinfo->_phys_size,
-			  modeinfo->attr, modeinfo->bytes_per_scanline);
+			  modeinfo->attr, modeinfo->bytes_per_scanline, modeinfo->planes, modeinfo->memory_model);
 	_modecount++;
       }
   }
@@ -193,8 +193,8 @@ public:
   }
 
 
-  bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(msg, true); }
-  bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(msg, true); }
+  bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(msg, true);   }
+  bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(msg, true);  }
   bool  receive(MessagePciConfig &msg) {  return _hostmb.bus_hwpcicfg.send(msg, true); }
   bool  receive(MessageVesa   &msg)
   {
