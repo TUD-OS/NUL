@@ -49,7 +49,7 @@ class HostVesa : public StaticReceiver<HostVesa>
   unsigned short       _modecount;
   Vbe::ModeInfoBlock * _modelist;
   unsigned             _instructions;
-  bool                 _debug;
+  unsigned             _debug;
 
 
   bool vbe_call(unsigned eax, unsigned short es_seg, unsigned ecx=0, unsigned edx=0, unsigned ebx=0)
@@ -222,9 +222,9 @@ public:
   }
 
 
-  HostVesa(Motherboard &hostmb, bool debug) : _hostmb(hostmb), _mb(hostmb.clock()), _memsize(1<<20), _timeout(~0ull),
-					      _framebuffer_size(0), _framebuffer_phys(0),
-					      _modecount(0), _debug(debug)
+  HostVesa(Motherboard &hostmb, unsigned debug) : _hostmb(hostmb), _mb(hostmb.clock()), _memsize(1<<20), _timeout(~0ull),
+						  _framebuffer_size(0), _framebuffer_phys(0),
+						  _modecount(0), _debug(debug)
   {
     _mb.bus_hostop.  add(this, &receive_static<MessageHostOp>);
     _mb.bus_timer.   add(this, &receive_static<MessageTimer>);
