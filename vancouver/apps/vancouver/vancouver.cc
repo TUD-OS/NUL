@@ -408,6 +408,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     // XXX use a push model on _startup instead
     // do we have not mapped physram yet?
     if (_mb->bus_memregion.send(msg, true) && msg.ptr) {
+
+      // get the memory ourself -> XXX this would break IOMEM!
       asm volatile("orl $0, (%0)": : "r"(msg.ptr) : "memory");
 
       Logging::printf("%s(%llx, %llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], utcb->qual[0], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
