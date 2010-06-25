@@ -21,7 +21,7 @@
 /**
  * I/OxAPIC model.
  *
- * State: unstable
+ * State: testing
  * Features: MSI generation, level+notify, PAR, EOI
  * Difference: no APIC bus
  * Documentation: Intel ICH4.
@@ -151,6 +151,7 @@ private:
 	unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
 	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
+	if (_rirr[pin])                 value |= 1 << 14;
 	//Logging::printf("IOAPIC %lx dst %x notify %x\n", phys, value, _notify[pin]);
 
 	MessageMem mem(false, phys, &value);
