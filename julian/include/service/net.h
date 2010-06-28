@@ -22,22 +22,46 @@
 
 
 class IPChecksum {
-public:
-  
-  /// Sum a vector of 16-bit big endian values. If len is odd, the
-  /// last byte is padded with a 0 byte from the end.
-  static uint32 comp16sum(uint8 *buf, unsigned len,
-                          uint32 initial)
+protected:
+
+  static inline void
+  comp16sum_simple(uint8 &lo, uint32 &state, const uint8 *buf, uint16 buf_len)
   {
-    uint32 sum = initial;
-    for (unsigned i = 0; i < (len&~1); i += 2)
-      sum += Math::htons(*reinterpret_cast<uint16*>(buf+i));
-    if ((len&1) != 0)
-      // XXX Endianess
-      sum += buf[len-1]<<8;
-    return sum;
+    for (uint16 i = 0; i < buf_len; i++)
+      state += (lo ^= 1) ? (buf[i]<<8) : buf[i];
   }
 
+
+  static inline void
+  comp16sum_fast(uint8 &lo, uint32 &state, const uint8 *buf, uint16 buf_len)
+  {
+    // // Align buf pointer
+    // uint16 alen = 4 - reinterpret_cast<uintptr_t>(buf)&3;
+    // process(buf, alen);
+    // buf     += alen;
+    // buf_len -= alen;
+
+    // Main loop
+    const uint32 *buf4 = reinterpret_cast<const uint32 *>(buf);
+    const uint16  words = buf_len>>2;
+    if (lo)
+      for (uint16 i = 0; i < words; i++) {
+        uint32    c = buf4[i];
+        state += (c & 0xFFFF) + ((c >> 16) & 0xFFFF);
+      }
+    else
+      for (uint16 i = 0; i < words; i++) {
+        uint32    c = buf4[i];
+        c = (c << 24) | (c >> 8);
+        state += (c & 0xFFFF) + ((c >> 16) & 0xFFFF);
+      }
+
+    // Handle unaligned rest
+    comp16sum_simple(lo, state, buf + (buf_len&~3), buf_len & 3);
+  }
+
+public:
+  
   /// Correct the result of comp16sum. The result is suitable to be
   /// used as IP/TCP/UDP checksum.
   static uint16 comp16correct(uint32 v)
@@ -48,21 +72,30 @@ public:
   /// Compute an IP checksum.
   static uint16 ipsum(uint8 *buf, unsigned maclen, unsigned iplen)
   {
-    return comp16correct(comp16sum(buf + maclen, iplen, 0));
+    uint8  lo    = 0;
+    uint32 state = 0;
+    comp16sum_fast(lo, state, buf + maclen, iplen);
+    return state;
   }
 
   /// Compute TCP/UDP checksum. proto is 17 for UDP and 6 for TCP.
-  static uint16 tcpudpsum(uint8 *buf, uint8 proto,
-                          unsigned maclen, unsigned iplen,
-                          unsigned len)
+  static uint16
+  tcpudpsum(uint8 *buf, uint8 proto,
+	    unsigned maclen, unsigned iplen,
+	    unsigned len)
   {
+    uint8  lo  = 0;
     uint32 sum = 0;
-  
-    sum = comp16sum(buf + maclen + iplen, len - maclen - iplen, sum);
-    sum = comp16sum(buf + maclen + 12, 8, sum);
 
+    // Source and destination IP addresses (part of pseudo header)
+    comp16sum_fast(lo, sum, buf + maclen + 12, 8);
+
+    // Second part of pseudo header: 0, protocol ID, UDP length
     uint16 p[] = { static_cast<uint16>(proto << 8), Math::htons(len - maclen - iplen) };
-    sum = comp16sum(reinterpret_cast<uint8 *>(p), sizeof(p), sum);
+    comp16sum_fast(lo, sum, reinterpret_cast<uint8 *>(p), sizeof(p));
+
+    // Sum L4 header plus payload
+    comp16sum_fast(lo, sum, buf + maclen + iplen, len - maclen - iplen);
 
     return comp16correct(sum);
   }
