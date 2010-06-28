@@ -321,9 +321,13 @@ public:
 
     // init memory
     memset(_mem, 0x00, sizeof(_mem));
-    for (unsigned i=0; i< 12; i++)  _mem[i] = reinterpret_cast<unsigned char *>(&_mac)[5 - i/2];
-    memcpy(_mem + 0x1c, "WWWW", 4);
-    for (unsigned i=1; i<8; i++) memcpy(_mem + 0x20*8, _mem, 0x20);
+    for (unsigned i=0; i< 6; i++)  _mem[i] = reinterpret_cast<unsigned char *>(&_mac)[5 - i];
+    memcpy(_mem + 0xe, "WW", 2);
+
+    for (unsigned i=0; i< 6; i++)  _mem[i + 0x10] = reinterpret_cast<unsigned char *>(&_mac)[5 - i];
+    memcpy(_mem + 0x1e, "BB", 2);
+
+    for (unsigned i=1; i<8; i++) memcpy(_mem + 0x20*i, _mem, 0x20);
 
     // and the read-only regs
     _regs.id8029 = 0x4350;
