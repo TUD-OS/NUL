@@ -18,6 +18,8 @@
 #include "nul/motherboard.h"
 #include "model/pci.h"
 
+#warning Broken. Linux gets TX errors.
+
 /**
  * RTL8029 device model.
  *
