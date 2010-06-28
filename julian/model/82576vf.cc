@@ -185,9 +185,11 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         case 0:                 // UDP
         case 1:                 // TCP
           {
-            uint16 &l4_sum = *reinterpret_cast<uint16 *>(packet + maclen + iplen + ((l4t == 0) ? 6 : 16));
-            l4_sum = 0;
-            l4_sum = IPChecksum::tcpudpsum(packet, (tucmd == 0) ? 17 : 6, maclen, iplen, packet_len);
+            uint8 *l4_sum = packet + maclen + iplen + ((l4t == 0) ? 6 : 16);
+            l4_sum[0] = l4_sum[1] = 0;
+            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == 0) ? 17 : 6, maclen, iplen, packet_len);
+	    l4_sum[0] = sum;
+	    l4_sum[1] = sum>>8;
           }
           break;
         case 2:                 // SCTP
