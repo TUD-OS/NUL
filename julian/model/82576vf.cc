@@ -239,8 +239,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
       if (dcmd & EOP) {
         apply_offload(packet_buf, payload_len, desc);
-        // XXX Set client ID to 23 to avoid our own packets on the RX paths
-        MessageNetwork m(packet_buf, payload_len, 23);
+        MessageNetwork m(packet_buf, payload_len, 0);
         parent->_net.send(m);
         packet_cur = 0;
       }
@@ -669,7 +668,9 @@ public:
   bool receive(MessageNetwork &msg)
   {
     // XXX Hack. Avoid our own packets.
-    if (msg.client == 23) return false;
+    if ((msg.buffer == _tx_queues[0].packet_buf) ||
+	(msg.buffer == _tx_queues[1].packet_buf))
+      return false;
 
     _rx_queues[0].receive_packet(const_cast<uint8 *>(msg.buffer), msg.len);
     return true;
