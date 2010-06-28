@@ -22,7 +22,7 @@
 #include <service/net.h>
 #include <model/pci.h>
 
-// Status: INCOMPLETE
+// Status: INCOMPLETE (but working for Linux)
 // Offloads are missing, i.e. context descriptor handling.
 // RX path should be fine.
 // 
@@ -227,7 +227,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       //                 (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
       const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
 
-      if (dcmd&TSE) {
+      if (dcmd & TSE) {
         Logging::printf("XXX We don't support TCP Segmentation Offload.\n");
         goto done;
       }
