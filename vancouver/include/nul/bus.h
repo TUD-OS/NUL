@@ -52,8 +52,10 @@ class DBus
   unsigned _list_size;
   struct Entry *_list;
 
-  /** Don't allow copying. */
-  DBus(const DBus<M> &bus) { __builtin_trap(); }
+  /**
+   * To avoid bugs we disallow the copy constuctor.
+   */
+  DBus(const DBus<M> &bus) { Logging::panic("%s copy constructor called", __func__); }
 
   void set_size(unsigned new_size)
   {

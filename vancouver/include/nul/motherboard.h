@@ -38,8 +38,10 @@ class Motherboard : public StaticReceiver<Motherboard>
 {
   Clock *_clock;
 
-  /** Don't allow copying. */
-  Motherboard(const Motherboard &bus) { __builtin_trap(); }
+  /**
+   * To avoid bugs we disallow the copy constuctor.
+   */
+  Motherboard(const Motherboard &bus) { Logging::panic("%s copy constructor called", __func__); }
 
  public:
   DBus<MessageAcpi>         bus_acpi;
