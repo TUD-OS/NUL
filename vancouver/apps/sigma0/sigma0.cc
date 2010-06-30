@@ -1259,14 +1259,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	unsigned res = start_modules(myutcb(), 1 << msg.id);
 	if (res)
 	  Logging::printf("start modules(%d) = %x\n", msg.id, res);
-	return true;
       }
+      return true;
     case MessageConsole::TYPE_KILL:
       {
 	unsigned res = kill_module(msg.id);
 	if (res)   Logging::printf("kill module(%d) = %x\n", msg.id, res);
-	return true;
       }
+      return true;
     case MessageConsole::TYPE_DEBUG:
       switch (msg.id) {
       case 0:  _mb->dump_counters(); break;
@@ -1423,7 +1423,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return false;
   }
 
-
   /************************************************************
    * Application                                              *
    ************************************************************/
@@ -1466,5 +1465,5 @@ void  do_exit(const char *msg)
   if (global_mb) Sigma0::switch_view(global_mb);
 
   while (1)
-    asm volatile ("ud2" : : "a"(msg));
+    asm volatile ("ud2a" : : "a"(msg));
 }
