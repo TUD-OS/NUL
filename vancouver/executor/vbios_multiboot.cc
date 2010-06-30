@@ -190,14 +190,17 @@ private:
   VirtualBiosMultiboot(Motherboard &mb, unsigned long modaddr, unsigned lowmem) : BiosCommon(mb), _modaddr(modaddr), _lowmem(lowmem) {}
 };
 
+
+unsigned long _vbios_multiboot_modaddr = 0x1800000;
+PARAM(vbios_multiboot_modaddr,  _vbios_multiboot_modaddr = argv[0], "vbios_multiboot_modaddr:modaddr - override the default modaddr parameter of vbios_multiboot");
 PARAM(vbios_multiboot,
       {
 	mb.bus_bios.add(new VirtualBiosMultiboot(mb,
-						 argv[0]!= ~0ul ? argv[0] : 0x1000000,
+						 argv[0]!= ~0ul ? argv[0] : _vbios_multiboot_modaddr,
 						 argv[1]!= ~0ul ? argv[1] : 0xa0000),
 			&VirtualBiosMultiboot::receive_static);
       },
-      "vbios_multiboot:modaddr=0x1000000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
+      "vbios_multiboot:modaddr=0x1800000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
       "Example:  'vbios_multiboot'",
       "modaddr defines where the modules are loaded in guest memory.",
       "lowmem allows to restrict memory below 1M to less than 640k.");
