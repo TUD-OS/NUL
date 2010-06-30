@@ -482,8 +482,9 @@ PARAM(vga,
       {
 	unsigned long fbsize = argv[1];
 
-	// we need at least 128k for 0xa0000-0xbffff
-	if (fbsize < 128 || fbsize == ~0ul)  fbsize = 128;
+	// We need at least 128k for 0xa0000-0xbffff. Give him 4M to
+	// allow for VESA modes.
+	if (fbsize < 128 || fbsize == ~0ul)  fbsize = 4096;
 	fbsize <<= 10;
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
 	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0);
