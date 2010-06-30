@@ -18,8 +18,6 @@
 #include "nul/motherboard.h"
 #include "model/pci.h"
 
-#warning Broken. Linux gets TX errors.
-
 /**
  * RTL8029 device model.
  *
@@ -203,10 +201,7 @@ class Rtl8029: public PciConfigHelper<Rtl8029>,
 	    *value = reinterpret_cast<unsigned char *>(&_regs)[ofs];
 	  // clear cnt on read
 	  if (ofs >= 0xd && ofs < 0x10)
-	    {
-	      Logging::printf("curr %x bnry %x rsr %x isr %x imr %x rcr %x cr %x\n", _regs.curr, _regs.bnry, _regs.rsr, _regs.isr, _regs.imr, _regs.rcr, _regs.cr);
-	      _regs.cntr[ofs-0xd] = 0;
-	    }
+	    _regs.cntr[ofs-0xd] = 0;
 	}
   }
 
