@@ -106,7 +106,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned _uid;
 
 
-  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
+  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
   {
     assert(size);
     //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
@@ -892,7 +892,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
-	msg.ptr = map_self(myutcb(), msg.value, msg.len);
+	msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       {
