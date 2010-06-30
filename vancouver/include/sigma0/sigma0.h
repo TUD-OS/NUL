@@ -52,7 +52,7 @@ class Sigma0Base : public BaseProgram
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
       utcb->head.mtr    = Mtd(2, 0);
-      utcb->add_mappings(false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+      add_mappings(utcb, false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
       check1(1, idc_call(14, utcb->head.mtr));
       return utcb->msg[0];
     }
