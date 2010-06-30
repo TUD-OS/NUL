@@ -261,7 +261,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
-    _mb->bus_disk.debug_dump();
     return 0;
   }
 
@@ -1293,6 +1292,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  for (unsigned i = 1; i <= MAXMODULES; i++)
 	    if (_modinfo[i].mem) {
 	      unsigned rights = (unmap_count & 7) << 2;
+	      Logging::printf("revoke all rights %x\n", rights);
 	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
 	    }
 	}
