@@ -477,14 +477,15 @@ public:
   }
 };
 
-
+unsigned long _default_vga_fbsize;
+PARAM(vga_fbsize,  _default_vga_fbsize = argv[0];, "vga_fbsize:size - override the default fbsize for the 'vga' parameter")
 PARAM(vga,
       {
 	unsigned long fbsize = argv[1];
+	if (fbsize == ~0ul) fbsize = _default_vga_fbsize;
 
-	// We need at least 128k for 0xa0000-0xbffff. Give him 4M to
-	// allow for VESA modes.
-	if (fbsize < 128 || fbsize == ~0ul)  fbsize = 4096;
+	// We need at least 128k for 0xa0000-0xbffff.
+	if (fbsize   < 128)  fbsize = 128;
 	fbsize <<= 10;
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
 	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0);
