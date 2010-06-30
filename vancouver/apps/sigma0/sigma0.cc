@@ -252,10 +252,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
+    _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
     init_timeouts();
     init_disks();
     init_network();
-    _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
     _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
