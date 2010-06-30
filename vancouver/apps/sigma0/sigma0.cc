@@ -727,6 +727,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			      break;
 			    }
+			  break;
 			case MessageHostOp::OP_ATTACH_IRQ:
 			  if ((msg->value & 0xff) < _hip->cfg_gsi) {
 			    // XXX make sure only one gets it
