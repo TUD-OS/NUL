@@ -64,8 +64,20 @@ public:
   void add(Region region)
   {
     if (!region.size)  return;
-
     del(region);
+
+    Region *r;
+    if (region.virt && (r = find(region.virt-1)) && r->virt + r->size == region.virt && r->phys + r->size == region.phys) {
+      region.virt = r->virt;
+      region.phys = r->phys;
+      region.size+= r->size;
+      del(*r);
+    }
+    if (region.end() && (r = find(region.end())) && region.end() == r->virt && region.phys + region.size == r->phys) {
+      region.size += r->size;
+      del(*r);
+    }
+
     _count++;
     assert(_count < SIZE);
     _list[_count-1] = region;
