@@ -369,9 +369,8 @@ class HostAhci : public StaticReceiver<HostAhci>
   HostAhciPortRegister *_regs_high;
   HostAhciPort *_ports[32];
 
-  void create_ahci_port(unsigned nr, HostAhciPortRegister *portreg, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, bool dmar)
+  void create_ahci_port(unsigned short *buffer, unsigned nr, HostAhciPortRegister *portreg, DBus<MessageHostOp> &bus_hostop, DBus<MessageDisk> &bus_disk, DBus<MessageDiskCommit> &bus_commit, Clock *clock, bool dmar)
   {
-    unsigned short buffer[256];
     // port implemented and the signature is not 0xffffffff?
     if ((_regs->pi & (1 << nr)) && ~portreg->sig)
       {
@@ -419,11 +418,14 @@ class HostAhci : public StaticReceiver<HostAhci>
 
 
     // create ports
+    unsigned short *buffer = new unsigned short[256];
     memset(_ports, 0, sizeof(_ports));
     for (unsigned i=0; i < 30; i++)
-      create_ahci_port(i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock, dmar);
+      create_ahci_port(buffer, i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock, dmar);
     for (unsigned i=30; _regs_high && i < 32; i++)
-      create_ahci_port(i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock, dmar);
+      create_ahci_port(buffer, i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock, dmar);
+    delete buffer;
+
     // clear pending irqs
     _regs->is = _regs->pi;
     // enable IRQs
