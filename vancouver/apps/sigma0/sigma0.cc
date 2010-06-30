@@ -108,16 +108,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned _uid;
 
 
-  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = 0x1c | 1)
+  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
   {
     assert(size);
     //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
 
-    // make sure we align physmem + size to a pagesize
-    unsigned long ofs = physmem & 0xfff;
+    // make sure we align physmem + size
+    unsigned alignment = (1 << 22) - 1;
+    unsigned long ofs = physmem & alignment;
     physmem -= ofs;
     size    += ofs;
-    if (size & 0xfff) size += 0x1000 - (size & 0xfff);
+    if (size & alignment) size += alignment + 1 - (size & alignment);
 
     unsigned long virt = 0;
     if ((rights & 3) == 1)
