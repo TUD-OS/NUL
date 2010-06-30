@@ -43,6 +43,18 @@ public:
   unsigned value() { return _value; }
 };
 
+
+enum {
+  DESC_TYPE_MEM  = 1,
+  DESC_TYPE_IO   = 2,
+  DESC_TYPE_CAP  = 3,
+  DESC_RIGHTS_ALL= 0x1c,
+  DESC_MEM_ALL   = DESC_TYPE_MEM | DESC_RIGHTS_ALL,
+  DESC_IO_ALL    = DESC_TYPE_IO  | DESC_RIGHTS_ALL,
+  DESC_CAP_ALL   = DESC_TYPE_CAP | DESC_RIGHTS_ALL
+};
+
+
 /**
  * A capability range descriptor;
  */
@@ -50,8 +62,10 @@ class Crd : public Desc
 {
 public:
   unsigned order() { return ((_value >> 7) & 0x1f); }
-  unsigned size() { return 1 << (order() + 12); }
-  Crd(unsigned offset, unsigned order, unsigned type = 0x1c | 3) : Desc((offset << 12) | (order << 7) | type) { }
+  unsigned size()  { return 1 << (order() + 12); }
+  unsigned base()  { return _value & ~0xfff; }
+  unsigned attr()  { return _value & 0x1f; }
+  Crd(unsigned offset, unsigned order, unsigned attr) : Desc((offset << 12) | (order << 7) | attr) { }
   Crd(unsigned v) : Desc(v) {}
 };
 
