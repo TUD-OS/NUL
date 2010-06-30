@@ -73,6 +73,34 @@ struct BaseProgram {
       page += 1 << order;
     }
   }
+
+
+
+  /**
+   * Request the mapping for a memory area.
+   */
+  static Crd request_mapping(char *start, unsigned long size, unsigned long hotspot) {
+    assert(hotspot < size);
+
+    Crd res = nova_lookup(start + hotspot);
+    Logging::printf("request mapping %p+%lx s %lx -> %x\n", start, hotspot, size, res.value());
+    if (!res.attr()) {
+      // XXX request the mapping from sigma0 if nothing found
+      asm volatile("lock orl $0, (%0)" : : "r"(start + hotspot) : "memory");
+      res = nova_lookup(start + hotspot);
+      // if this call fails, order==0 and the loop terminates
+    }
+
+    // restrict it to a region that fits into [start, start+size)
+    // XXX can we avoid the loop?
+    for (int i = res.order(); i >= 0; i--) {
+      Crd x = Crd(((reinterpret_cast<unsigned long>(start) + hotspot) & ~((1 << (i+12)) - 1)) >> 12, i, DESC_MEM_ALL);
+      //Logging::printf("%d %x vs %p and %x vs %lx\n", i, x.base(), start, x.base() + x.size(), reinterpret_cast<unsigned long>(start)+size);
+      if ((x.base() >= reinterpret_cast<unsigned long>(start)) && (x.base() + x.size()) <=  (reinterpret_cast<unsigned long>(start)+size))
+	return x;
+    }
+    Logging::panic("XXX nothing found %p-%lx-%lx\n", start, hotspot, size);
+  }
 };
 
 

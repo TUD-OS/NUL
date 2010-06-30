@@ -89,7 +89,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
 
     Logging::printf("%s eip %x qual %llx\n", __func__, utcb->eip, utcb->qual[1]);
-    asm volatile("orl $0, (%0)": : "r"(utcb->qual[1]) : "memory");
+    request_mapping(0, ~0ul, utcb->qual[1]);
     return 0;
   }
 
@@ -401,22 +401,20 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static bool map_memory_helper(Utcb *utcb)
+  static bool map_memory_helper(Utcb *utcb, bool need_unmap)
   {
+
     MessageMemRegion msg(utcb->qual[1] >> 12);
 
     // XXX use a push model on _startup instead
     // do we have not mapped physram yet?
     if (_mb->bus_memregion.send(msg, true) && msg.ptr) {
 
-      // get the memory ourself -> XXX this would break IOMEM!
-      asm volatile("orl $0, (%0)": : "r"(msg.ptr) : "memory");
+      Crd own = request_mapping(msg.ptr, msg.count << 12, utcb->qual[1] - (msg.start_page << 12));
 
-      Logging::printf("%s(%llx, %llx) phys %lx ptr %p pages %x eip %x\n", __func__, utcb->qual[1], utcb->qual[0], msg.start_page << 12, msg.ptr, msg.count, utcb->eip);
-      if (utcb->qual[0] & 0x38) revoke_all_mem(msg.ptr, msg.count << 12, 0x1c, false);
-
+      if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
       utcb->head.mtr = Mtd();
-      utcb->add_mappings(true, reinterpret_cast<unsigned long>(msg.ptr), msg.count << 12, msg.start_page << 12, 0x1c | 1);
+      add_mappings(utcb, true, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)), own.attr() | DESC_EPT);
       return true;
     }
     return false;
@@ -750,7 +748,7 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
 	 */
-	if (!map_memory_helper(utcb))
+	if (!map_memory_helper(utcb, utcb->qual[0] & 0x38))
 	  // this is an access to MMIO
 	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
 	)
@@ -797,7 +795,7 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, utcb); )
 VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, utcb); )
 VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
-	if (!map_memory_helper(utcb))
+	if (!map_memory_helper(utcb, utcb->qual[0] & 1))
 	  svm_invalid(pid, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
