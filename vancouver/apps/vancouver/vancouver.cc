@@ -427,13 +427,13 @@ public:
     // XXX locking?
     // XXX use the reserved CPUID regions
     switch (msg.cpuid_index) {
-      case 0x40000000:
-	//syscall(254, msg.cpu->ebx, 0, 0, 0);
+      case 0x40000020:
+	syscall(254, msg.cpu->ebx, 0, 0, 0);
 	break;
-      case 0x40000001:
+      case 0x40000021:
 	_mb->dump_counters();
 	break;
-      case 0x40000002:
+      case 0x40000022:
 	{
 	  unsigned long long c1=0;
 	  unsigned long long c2=0;
