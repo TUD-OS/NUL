@@ -34,6 +34,9 @@ SECTIONS
 
   .data :
   {
+    __mempoolstart = .;
+    . += __memsize;
+    __mempoolend = .;
     __profile_table_start = .;
     KEEP(*(.profile));
     __profile_table_end = .;
@@ -44,9 +47,6 @@ SECTIONS
     *(.data   .data.*   .gnu.linkonce.d.*);
     *(.bss .bss.* .gnu.linkonce.b.*);
     *(COMMON);
-    __mempoolstart = .;
-    . += __memsize;
-    __mempoolend = .;
   } : data
    __image_end = .;
 
