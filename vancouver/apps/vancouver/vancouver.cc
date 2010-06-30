@@ -44,6 +44,7 @@ long           _consolelock;
 TimeoutList<32>_timeouts;
 unsigned       _shared_sem[256];
 unsigned       _keyboard_modifier = KBFLAG_RWIN;
+bool           _dpci;
 PARAM(kbmodifier,
       _keyboard_modifier = argv[0];
       ,
@@ -414,7 +415,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
       utcb->head.mtr = Mtd();
-      add_mappings(utcb, true, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)), own.attr() | DESC_EPT);
+      add_mappings(utcb, true, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)), own.attr() | DESC_EPT | (_dpci ? DESC_DPT : 0));
       return true;
     }
     return false;
@@ -501,8 +502,9 @@ public:
 	semup(_shared_sem[msg.value & 0xff]);
 	res = true;
 	break;
-      case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_ASSIGN_PCI:
+	_dpci = true;
+      case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
 	res = Sigma0Base::hostop(msg);
 	break;
