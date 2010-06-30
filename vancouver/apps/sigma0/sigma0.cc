@@ -821,8 +821,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		      else
 			if (msg->type == MessageAcpi::ACPI_GET_IRQ)
 			  utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
-		      break;
 		    }
+		    break;
 		  default:
 		    Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    goto fail;
