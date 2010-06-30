@@ -350,13 +350,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // get all ioports
-    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), 0x1c | 2);
+    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), DESC_IO_ALL);
 
     // map all IRQs
-    utcb->head.crd = Crd(0, 31).value();
+    utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
       utcb->msg[gsi * 2 + 0] = hip->cfg_exc + 3 + gsi;
-      utcb->msg[gsi * 2 + 1] = Crd(gsi, 0, 0x1c | 3).value();
+      utcb->msg[gsi * 2 + 1] = Crd(gsi, 0, DESC_CAP_ALL).value();
     }
     unsigned res;
     if ((res = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(hip->cfg_gsi * 2, 0))))
@@ -518,7 +518,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
-	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5), Qpd(1, 10000), vcpus, modinfo->cpunr, modinfo->dma));
+	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), vcpus, modinfo->cpunr, modinfo->dma));
 	}
     }
     return 0;
@@ -534,10 +534,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    revoke(Crd(0x10000 + (module << 5), 5), false); // XXX kill it
+    revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), false); // XXX kill it
 
     // and the memory
-    revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
+    revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
 
     // change the tag
     Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
@@ -757,7 +757,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    assign_gsi(gsi_cap, modinfo->cpunr);
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[0] = 0;
-			    utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			    utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
 			  else {
 			    Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
@@ -769,14 +769,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    utcb->msg[0] = 0;
 			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
-			    utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | 3);
+			    utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
 			  // XXX make sure only one gets it
 			  utcb->head.mtr = Mtd(1);
 			  utcb->msg[0] = 0;
-			  utcb->add_mappings(false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, 0x1c | 3);
+			  utcb->add_mappings(false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
 			  {
@@ -785,7 +785,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[1] = 0;
-			    utcb->add_mappings(false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, 0x1c | 1);
+			    utcb->add_mappings(false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
 			    Logging::printf("[%02x] iomem %lx+%x granted from %p\n", client, addr, msg->len, ptr);
 			  }
 			  break;
