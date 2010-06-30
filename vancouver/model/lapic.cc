@@ -22,7 +22,7 @@
 /**
  * Lapic model.
  *
- * State: unstable
+ * State: testing
  * Features: MEM, MSR, MSR-base and CPUID, LVT, LINT0/1, EOI, prioritize IRQ, error, RemoteEOI, timer, IPI, lowest prio, reset, x2apic mode, BIOS ACPI tables
  * Missing:  focus checking, CR8/TPR setting
  * Difference:  no interrupt polarity, lowest prio is round-robin
@@ -488,6 +488,7 @@ private:
    * Check whether we should accept the message.
    */
   bool accept_message(MessageApic &msg) {
+    // XXX what about sw_disabled?
     if (hw_disabled())   return false;
     if (msg.ptr == this) return false;
 
