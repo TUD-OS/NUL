@@ -464,11 +464,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  else
 	    modinfo->physsize = psize_needed;
 
-	  unsigned long pmem;
+	  unsigned long pmem = 0;
 	  if ((psize_needed > modinfo->physsize)
 	      || !(pmem = _free_phys.alloc(modinfo->physsize, 22))
 	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
 	    {
+	      if (pmem) _free_phys.add(Region(pmem, modinfo->physsize));
 	      _free_phys.debug_dump("free phys");
 	      _virt_phys.debug_dump("virt phys");
 	      _free_virt.debug_dump("free virt");
