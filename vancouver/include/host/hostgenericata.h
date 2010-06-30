@@ -69,10 +69,8 @@ class HostGenericAta
     ntos_string(_model, reinterpret_cast<char *>(id+27), 40);
     for (unsigned i=40; i>0 && _model[i-1] == ' '; i--)
       _model[i-1] = 0;
-
-    Logging::printf("Identify[88] = %x\n", id[88]);
-    Logging::printf("Identify[85] = %x\n", id[85]);
-
+    dump_description();
+    Logging::printf("\n");
     return 0;
   }
 
