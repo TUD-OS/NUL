@@ -95,10 +95,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     char *          mem;
     unsigned long   physsize;
     unsigned        uid;
+    void *          hip;
   } _modinfo[MAXMODULES];
-
-  // backing store for the HIPs
-  char _hips[0x1000 * (1+MAXMODULES)];
 
   // IRQ handling
   unsigned  _msivector;        // next gsi vector
@@ -495,7 +493,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  unsigned  slen = strlen(cmdline) + 1;
 	  assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	  Hip * modhip = reinterpret_cast<Hip *>((reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * module) & ~0xfff);
+	  modinfo->hip = new (0x1000) char[0x1000];
+	  Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
 	  memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
 
 	  memcpy(modhip, _hip, _hip->mem_offs);
@@ -836,17 +835,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  else
 	    {
 	      Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
-	      unsigned long hip = (reinterpret_cast<unsigned long>(_hips) + 0xfff + 0x1000 * client) & ~0xfff;
 
 	      // we can not overmap -> thus remove all rights first if the PTE was present
 	      if (utcb->qual[0] & 1) {
-		revoke_all_mem(modinfo->mem, modinfo->physsize, 0x1c, false);
-		revoke_all_mem(reinterpret_cast<void *>(hip), 0x1000, 0x1c, false);
+		revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
+		revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
 	      }
 
 	      utcb->head.mtr = Mtd(0, 0);
-	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, 0x1c | 1);
-	      utcb->add_mappings(true, hip, 0x1000, reinterpret_cast<unsigned long>(_hip), 0x1c | 1);
+	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, DESC_MEM_ALL);
+	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip), DESC_MEM_ALL);
 	    }
 	  )
 
