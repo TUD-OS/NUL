@@ -141,7 +141,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	case KBCODE_SCROLL: // scroll lock
 	  Logging::printf("revoke all memory\n");
 	  extern char __freemem;
-	  revoke_all_mem(&__freemem, 0x30000000, 0x1c, true);
+	  revoke_all_mem(&__freemem, 0x30000000, DESC_MEM_ALL, true);
 	  break;
 	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
 	  _debug = true;
@@ -464,7 +464,7 @@ public:
       {
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	{
-	  myutcb()->head.crd = Crd(msg.value >> 8, msg.value & 0xff, 0x1c | 2).value();
+	  myutcb()->head.crd = Crd(msg.value >> 8, msg.value & 0xff, DESC_IO_ALL).value();
 	  res = ! Sigma0Base::hostop(msg);
 	  Logging::printf("alloc ioio region %lx %s\n", msg.value, res ? "done" :  "failed");
 	}
@@ -512,7 +512,7 @@ public:
       case MessageHostOp::OP_ATTACH_IRQ:
 	{
 	  unsigned irq_cap = alloc_cap();
-	  myutcb()->head.crd = Crd(irq_cap, 0, 0x1c | 3).value();
+	  myutcb()->head.crd = Crd(irq_cap, 0, DESC_CAP_ALL).value();
 	  res  = Sigma0Base::hostop(msg);
 	  create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
 	}
