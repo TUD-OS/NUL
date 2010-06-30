@@ -28,6 +28,7 @@ enum
   NOVA_CREATE_PT,
   NOVA_CREATE_SM,
   NOVA_REVOKE,
+  NOVA_LOOKUP,
   NOVA_RECALL,
   NOVA_SEMCTL,
   NOVA_ASSIGN_PCI,
@@ -62,8 +63,7 @@ static inline
 unsigned char
 syscall2(unsigned w0, unsigned w1)
 {
-  asm volatile ( 
-		"mov %%esp, %%ecx;"
+  asm volatile ("mov %%esp, %%ecx;"
 		"mov $1f, %%edx;"
 		"sysenter; 1: ;"
 		: "+a" (w0) :  "D" (w1)
@@ -148,6 +148,15 @@ inline unsigned char  assign_gsi(unsigned idx_sm, unsigned cpu_nr, unsigned rid=
   unsigned char res = syscall(NOVA_ASSIGN_GSI, idx_sm, cpu_nr, rid, 0, &out1, msi_value);
   if (msi_address) *msi_address = out1;
   return res;
+}
+
+inline Crd nova_lookup(void *address)
+{
+  unsigned res;
+  Crd crd(reinterpret_cast<unsigned long>(address) >> 12, 32-12, DESC_MEM_ALL);
+  if (syscall(NOVA_LOOKUP, crd.value(), 0, 0, 0, &res))
+    return Crd(1, 0, 0);
+  return Crd(res);
 }
 
 
