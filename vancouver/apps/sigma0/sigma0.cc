@@ -297,11 +297,38 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("'\n");
   }
 
+  unsigned create_worker_threads(Hip *hip, int cpunr) {
+    for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
+
+      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
+      if (~cpu->flags & 1 || (cpunr!= -1 && i != cpunr)) continue;
+      _cpunr[_numcpus++] = i;
+
+      Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
+
+      // have we created it already?
+      if (_percpu[i].cap_ec_echo)  continue;
+      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
+      _percpu[i].cap_pt_echo = alloc_cap();
+      check1(1, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
+
+      Utcb *utcb = 0;
+      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
+
+      // initialize the receive window
+      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+    }
+    return 0;
+  }
+
   /**
-   * Init the pager and the console.
+   * Init the pager, console and map initial resources.
    */
   unsigned __attribute__((noinline)) preinit(Utcb *utcb, Hip *hip)
   {
+    // make sure we can call static functions
+    utcb->head.tls = reinterpret_cast<unsigned long>(this);
+
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
     check1(1, init(hip));
@@ -311,23 +338,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(2, create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");
-    for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++)
-      {
-	Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
-	if (~cpu->flags & 1) continue;
-	_cpunr[_numcpus++] = i;
-
-	Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
-	_percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
-	_percpu[i].cap_pt_echo = alloc_cap();
-	check1(3, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
-
-	Utcb *utcb = 0;
-	_percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
-
-	// initialize the receive window
-	utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
-      }
+    check1(3, create_worker_threads(hip, Cpu::cpunr()));
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
@@ -1432,6 +1443,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
 
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
+    if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
     Logging::printf("start modules\n");
     for (unsigned i=0; i <= repeat; i++)
