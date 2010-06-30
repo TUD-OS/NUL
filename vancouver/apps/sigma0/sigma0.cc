@@ -111,8 +111,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     assert(size);
     //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
 
-    // make sure we align physmem + size
-    unsigned alignment = (1 << 22) - 1;
+    // we align to order
+    unsigned order = Cpu::bsr(size | 1);
+    if (order < 12) order = 22;
+
+    unsigned alignment = (1 << order) - 1;
     unsigned long ofs = physmem & alignment;
     physmem -= ofs;
     size    += ofs;
