@@ -133,7 +133,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     while (size > offset)
       {
 	utcb->head.mtr = Mtd();
-	unsigned long s = utcb->add_mappings(false, physmem + offset, size - offset, virt + offset, rights);
+	unsigned long s = add_mappings(utcb, false, physmem + offset, size - offset, virt + offset, rights);
 	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
 	offset = size - s;
 	unsigned err;
@@ -768,7 +768,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    assign_gsi(gsi_cap, modinfo->cpunr);
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[0] = 0;
-			    utcb->add_mappings(false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
+			    add_mappings(utcb, false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
 			  else {
 			    Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
@@ -780,14 +780,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    utcb->msg[0] = 0;
 			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
-			    utcb->add_mappings(false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
+			    add_mappings(utcb, false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
 			  // XXX make sure only one gets it
 			  utcb->head.mtr = Mtd(1);
 			  utcb->msg[0] = 0;
-			  utcb->add_mappings(false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
+			  add_mappings(utcb, false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
 			  {
@@ -796,7 +796,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[1] = 0;
-			    utcb->add_mappings(false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
+			    add_mappings(utcb, false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
 			    Logging::printf("[%02x] iomem %lx+%x granted from %p\n", client, addr, msg->len, ptr);
 			  }
 			  break;
@@ -854,8 +854,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      }
 
 	      utcb->head.mtr = Mtd(0, 0);
-	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, DESC_MEM_ALL);
-	      utcb->add_mappings(true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip), DESC_MEM_ALL);
+	      add_mappings(utcb, true, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, DESC_MEM_ALL);
+	      add_mappings(utcb, true, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip), DESC_MEM_ALL);
 	    }
 	  )
 
