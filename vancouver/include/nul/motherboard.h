@@ -148,6 +148,5 @@ class Motherboard : public StaticReceiver<Motherboard>
       }
   }
 
-  void *operator new(unsigned size)  { return new(0x1000) char[size]; }
   Motherboard(Clock *__clock) : _clock(__clock), last_vcpu(0)  {}
 };
