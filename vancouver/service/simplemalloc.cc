@@ -18,41 +18,31 @@
 #include "service/helper.h"
 #include "service/string.h"
 #include "service/logging.h"
-#include "service/profile.h"
 
-void *mymemalign(unsigned long size, unsigned long align)
+
+/**
+ * Alloc memory from a mempool defined in the linker script.
+ */
+void *memalign_mempool(unsigned long size, unsigned long align)
 {
-  // needs to be a power of two
+  // align needs to be a power of two
   assert(!(align & (align - 1)));
-  extern char __mempoolstart, __mempoolend;
-  static char *s =  &__mempoolend;
-  s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(s) - size) & ~(align - 1));
-  if (s < &__mempoolstart) Logging::panic("malloc(%lx) EOM!\n", size);
-  assert(!(reinterpret_cast<unsigned long>(s) & (align - 1)));
+  if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
 
-  // XXX we assume here that BSS is cleared
-  //memset(s, 0, size);
+  extern char __mempoolstart, __mempoolend;
+  static char *s = &__mempoolend;
+  s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(s) - size) & ~(align - 1));
+  if (s < &__mempoolstart)  Logging::panic("%s(%lx) EOM - increase __memsize!\n", __func__, size);
+  assert(!(reinterpret_cast<unsigned long>(s) & (align - 1)));
   return s;
 }
 
 
-extern "C" void *malloc(unsigned long size);
-void * malloc(unsigned long size) { return mymemalign(size, sizeof(unsigned long)); }
 
-
-extern "C" void free(void *ptr);
-void free(void *ptr)
-{
-  extern char __mempoolstart, __mempoolend;
-  assert(ptr <= &__mempoolend && ptr > &__mempoolstart);
-  // simplemalloc is simple, so we leak the memory here
-}
-
-
-void * operator new(unsigned size) { return malloc(size); }
-void   operator delete(void *ptr)  { free(ptr); }
-void * operator new[](unsigned size) { return malloc(size); }
-void   operator delete[](void *ptr)  { free(ptr); }
-void * operator new[](unsigned size, unsigned alignment) { return mymemalign(size, alignment); }
-
-// EOF
+// External interface
+void *(*memalign)(unsigned long size, unsigned long align) = memalign_mempool;
+void * operator new(unsigned size)   { return memalign(size, 0); }
+void   operator delete(void *ptr)    { /* simplemalloc is simple, so we leak the memory here */ }
+void * operator new[](unsigned size) { return memalign(size, 0); }
+void   operator delete[](void *ptr)  { /* simplemalloc is simple, so we leak the memory here */ }
+void * operator new[](unsigned size, unsigned alignment) { return memalign(size, alignment); }

@@ -18,7 +18,7 @@
 
 void * operator new[](unsigned size, unsigned alignment);
 void  do_exit(const char *msg) __attribute__((noreturn));
-
+extern void *(*memalign)(unsigned long size, unsigned long align);
 
 /**
  * Assert.
