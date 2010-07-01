@@ -107,26 +107,22 @@ static inline char * strstr(char *haystack, const char *needle) {
 static inline unsigned long strtoul(char *nptr, char **endptr, int base) {
 
   unsigned long res = 0;
-  if (*nptr == '0' && *(nptr+1) == 'x')
-    {
-      nptr += 2;
-      base = base ? base : 16;
-    }
-  else if (*nptr == '0')
-    base = base ? base : 8;
-  else
-    base = base ? base : 10;
+  if ((!base || base == 16) && *nptr == '0' && *(nptr+1) == 'x') {
+    nptr += 2;
+    base = 16;
+  }
+  else if (!base)
+    base = (*nptr == '0') ? 8 : 10;
 
-  while (*nptr)
-    {
-      long val = *nptr - '0';
-      if (val > 9)
-	val = val - 'a' + '0' + 10;
-      if (val < 0 || val > base)
-	break;
-      res = res*base + val;
-      nptr++;
-    }
+  while (*nptr) {
+    long val = *nptr - '0';
+    if (val > 9)
+      val = val - 'a' + '0' + 10;
+    if (val < 0 || val > base)
+      break;
+    res = res*base + val;
+    nptr++;
+  }
   if (endptr) *endptr = nptr;
   return res;
 }
