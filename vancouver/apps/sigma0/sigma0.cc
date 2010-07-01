@@ -461,7 +461,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
 	  modinfo->dma       = strstr(cmdline, "sigma0::dma");
 	  modinfo->log       = strstr(cmdline, "sigma0::log");
-	  bool vcpus         = strstr(cmdline, "sigma0::vmm");
 
 	  Logging::printf("module(%x) '", module);
 	  fancy_output(cmdline, 4096);
@@ -528,9 +527,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  check1(6, create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	  check1(7, create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
-	  Logging::printf("create %s%s on CPU %d\n", vcpus ? "VMM" : "PD", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
-	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), vcpus, modinfo->cpunr, modinfo->dma));
+	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), modinfo->cpunr));
 	}
     }
     return 0;

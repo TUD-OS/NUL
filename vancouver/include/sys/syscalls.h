@@ -102,9 +102,8 @@ inline unsigned char  idc_send0(unsigned idx_pt, Mtd mtd_send)
 {  return syscall(NOVA_IPC_SEND0, idx_pt, mtd_send.value(), 0, 0); }
 
 
-inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, bool vcpus, unsigned char cpunr, bool dma)
-{  return syscall(NOVA_CREATE_PD | (vcpus ? NOVA_PD_VM : 0) | (dma ? NOVA_PD_DMA : 0),
-		  idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
+inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
+{  return syscall(NOVA_CREATE_PD, idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
 
 inline unsigned char  create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker)
 {  return syscall(worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC, idx_ec, reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); }
