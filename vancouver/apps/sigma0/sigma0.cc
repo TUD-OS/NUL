@@ -1296,7 +1296,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	}
 	break;
       }
-      Logging::printf("DEBUG(%x) = %x\n", msg.id, syscall(254, msg.id, 0, 0, 0));
+      Logging::printf("DEBUG(%x) = %x\n", msg.id, nova_syscall2(254, msg.id));
       return true;
     case MessageConsole::TYPE_ALLOC_CLIENT:
     case MessageConsole::TYPE_ALLOC_VIEW:

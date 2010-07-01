@@ -147,7 +147,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
 	  _debug = true;
 	  _mb->dump_counters();
-	  syscall(254, 0, 0, 0, 0);
+	  nova_syscall2(254, 0);
 	  break;
 	case KBCODE_HOME: // reset VM
 	  {
@@ -429,21 +429,10 @@ public:
     // XXX use the reserved CPUID regions
     switch (msg.cpuid_index) {
       case 0x40000020:
-	syscall(254, msg.cpu->ebx, 0, 0, 0);
+	nova_syscall2(254, msg.cpu->ebx);
 	break;
       case 0x40000021:
 	_mb->dump_counters();
-	break;
-      case 0x40000022:
-	{
-	  unsigned long long c1=0;
-	  unsigned long long c2=0;
-	  perfcount(msg.cpu->ebx, msg.cpu->ecx, c1, c2);
-	  msg.cpu->eax = c1 >> 32;
-	  msg.cpu->ebx = c1;
-	  msg.cpu->ecx = c2 >> 32;
-	  msg.cpu->edx = c2;
-	}
 	break;
       default:
 	/*
