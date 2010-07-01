@@ -10,7 +10,6 @@ CacheDir('build_cache')
 Repository('../demo')
 Repository('../julian')
 Repository('../vancouver')
-Repository('../forth')
 
 # We pull the top-level SCons logic from the first repository that has
 # a SConscript file in its root directory.

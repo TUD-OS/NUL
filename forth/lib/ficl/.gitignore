@@ -1,6 +1,0 @@
-*.o
-/softcore.c
-.scons*
-*~
-testmain
-core
