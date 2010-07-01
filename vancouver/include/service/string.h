@@ -38,13 +38,11 @@ static inline void * memmove(void *dst, const void *src, unsigned long count) {
 
   char *d = reinterpret_cast<char *>(dst);
   const char *s = reinterpret_cast<const char *>(src);
-  if (d > s) {
-    d += count-1;
-    s += count-1;
-    asm volatile ("std");
-  }
-  memcpy(d, s, count);
-  if (d > s) asm volatile ("cld");
+  if (d <= s || d >= (s+count)) return memcpy(d, s, count);
+
+  d += count-1;
+  s += count-1;
+  asm volatile ("std; rep movsb; cld;" : "+D"(d), "+S"(s), "+c"(count) : : "memory");
   return dst;
 }
 
@@ -75,16 +73,13 @@ static inline int memcmp(const void *dst, const void *src, unsigned long count) 
 
 
 static inline unsigned long strnlen(const char *src, unsigned long maxlen) {
-
-  unsigned long count = maxlen;
-  unsigned char ch = 0;
-  asm volatile ("repne scasb; setz %0;" : "+a"(ch), "+D"(src), "+c"(count));
-  if (ch) count--;
-  return maxlen - count;
+  unsigned i=0;
+  while (src[i] && maxlen--) i++;
+  return i;
 }
+
+
 static inline unsigned long strlen(const char *src) { return strnlen(src, ~0ul); }
-
-
 
 
 static inline char * strcpy(char *dst, const char *src) {
