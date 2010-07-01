@@ -109,11 +109,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
   {
     assert(size);
-    //Logging::printf("%s %lx %lx\n", __func__, physmem, size);
 
-    // we align to order
+    // we align to order but not more than 4M
     unsigned order = Cpu::bsr(size | 1);
-    if (order < 12) order = 22;
+    if (order < 12 || order > 22) order = 22;
 
     unsigned alignment = (1 << order) - 1;
     unsigned long ofs = physmem & alignment;
