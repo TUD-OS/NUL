@@ -61,8 +61,11 @@ static inline void * memset(void *dst, int c, unsigned long count) {
 
 
 static inline int memcmp(const void *dst, const void *src, unsigned long count) {
-  
-  return __builtin_memcmp(dst, src, count);
+  const char *d = reinterpret_cast<const char *>(dst);
+  const char *s = reinterpret_cast<const char *>(src);
+  unsigned diff = 0;
+  while (!diff && count--) diff = *d++ - *s++;
+  return diff;
 }
 
 
