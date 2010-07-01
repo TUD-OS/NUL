@@ -61,6 +61,7 @@ static inline void * memset(void *dst, int c, unsigned long count) {
 
 
 static inline int memcmp(const void *dst, const void *src, unsigned long count) {
+  
   return __builtin_memcmp(dst, src, count);
 }
 
@@ -93,8 +94,8 @@ static inline char * strstr(char *haystack, const char *needle) {
 
   int index;
   do {
-    for (index=0; needle[index] == haystack[index] && needle[index]; index++)
-      ;
+    for (index=0; needle[index] == haystack[index] && needle[index];)
+       index++;
     if (!needle[index])
       return haystack;
     haystack += index ? index : 1;
@@ -129,11 +130,9 @@ static inline unsigned long strtoul(char *nptr, char **endptr, int base) {
 
 
 static inline const char * strchr(const char *s, int c) {
-
-  while (*s)
-    if (c == *s)
-      return s;
-    else s++;
+  do {
+    if (c == *s)  return s;
+  } while (*s++);
   return 0;
 }
 
@@ -143,18 +142,15 @@ static inline char * strsep(char **stringp, const char *delim) {
   if (!stringp || !*stringp)  return 0;
   char *res = *stringp;
   char *s = res;
-  while (*s)
-    {
-      if (strchr(delim, *s))
-	{
-	  *s = 0;
-	  *stringp = s+1;
-	  break;
-	}
-      s++;
+  while (*s) {
+    if (strchr(delim, *s)) {
+      *s = 0;
+      *stringp = s+1;
+      break;
     }
-  if (res == *stringp)
-    *stringp = 0;
+    s++;
+  }
+  if (res == *stringp)  *stringp = 0;
   return res;
 
 }
