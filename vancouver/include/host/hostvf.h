@@ -18,7 +18,6 @@
 
 #pragma once
 #include "host/hostpci.h"
-#include "nul/types.h"
 
 /**
  * A helper for PCI config space access for virtual functions.
@@ -37,7 +36,7 @@ public:
   /**
    * Return the base and size of a VF BAR (inside a SR-IOV capability).
    */
-  uint64 vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, uint64 &size, bool *is64bit=0) {
+  unsigned long long vf_bar_base_size(unsigned bdf, unsigned vf_no, unsigned no, unsigned long long &size, bool *is64bit=0) {
 
     unsigned sriov_cap = find_extended_cap(bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return -1;
@@ -75,7 +74,7 @@ public:
     return parent_bdf + vf_stride*vf_no + vf_offset;
   }
 
-  uint32 vf_device_id(unsigned parent_bdf)
+  unsigned vf_device_id(unsigned parent_bdf)
   {
     unsigned sriov_cap = find_extended_cap(parent_bdf, EXTCAP_SRIOV);
     if (!sriov_cap) return 0;

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <nul/types.h>
 #include <nul/motherboard.h>
 
 /**
@@ -47,7 +46,7 @@ class HostPci
   };
 
 
-  uint32 conf_read(unsigned bdf, unsigned dword)
+  unsigned conf_read(unsigned bdf, unsigned dword)
   {
     MessagePciConfig msg(bdf, dword);
     _bus_pcicfg.send(msg, true);
@@ -55,7 +54,7 @@ class HostPci
   }
 
 
-  void conf_write(unsigned bdf, unsigned dword, uint32 value)
+  void conf_write(unsigned bdf, unsigned dword, unsigned value)
   {
     MessagePciConfig msg(bdf, dword, value);
     _bus_pcicfg.send(msg, true);
@@ -90,7 +89,7 @@ class HostPci
 	    for (unsigned func=0; func < maxfunc; func++)
 	      {
 		unsigned bdf =  (bus << 8) | (dev << 3) | func;
-		uint32 value = conf_read(bdf, 2);
+		unsigned value = conf_read(bdf, 2);
 		if (value == ~0UL) continue;
 		if (maxfunc == 1 && conf_read(bdf, 3) & 0x800000)
 		  maxfunc = 8;
@@ -118,15 +117,15 @@ class HostPci
       for (unsigned func = 0; func < maxfunc; func++) {
 
 	unsigned bdf =  (dev << 3) | func;
-	uint32 value = conf_read(bdf, 2);
+	unsigned value = conf_read(bdf, 2);
 	if (value == ~0UL) continue;
 
-	uint8 header = conf_read(bdf, 3) >> 16;
+	unsigned char header = conf_read(bdf, 3) >> 16;
 	if (maxfunc == 1 && header & 0x80)  maxfunc = 8;
 	if ((header & 0x7f) != 1) continue;
 
 	// we have a bridge
-	uint32 b = conf_read(bdf, 6);
+	unsigned b = conf_read(bdf, 6);
 	if ((((b >> 8) & 0xff) <= dstbus) && (((b >> 16) & 0xff) >= dstbus))
 	  return bdf;
       }
@@ -149,8 +148,8 @@ class HostPci
     // MSI-X
     if (msix_offset) {
       if (!msix_table) {
-	uint32 table_offset = conf_read(bdf, msix_offset + 1);
-	uint64 base = bar_base(bdf, BAR0 + (table_offset & 0x7)) + (table_offset & ~0x7u);
+	unsigned table_offset = conf_read(bdf, msix_offset + 1);
+	unsigned long long base = bar_base(bdf, BAR0 + (table_offset & 0x7)) + (table_offset & ~0x7u);
 
 	// Map the MSI-X bar
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, base & (~0xffful), 0x1000);
@@ -160,14 +159,14 @@ class HostPci
 	msix_table = msg2.ptr + (base & 0xfff);
       }
 
-      volatile uint32 *_msix_table = reinterpret_cast<volatile uint32 *>(msix_table);
+      volatile unsigned *_msix_table = reinterpret_cast<volatile unsigned *>(msix_table);
       _msix_table[nr*4 + 0]  = msg1.msi_address;
       _msix_table[nr*4 + 1]  = msg1.msi_address >> 32;
       _msix_table[nr*4 + 2]  = msg1.msi_value;
       _msix_table[nr*4 + 3] &= ~1;
       conf_write(bdf, msix_offset, 1U << 31);
     } else if (msi_offset) {
-      uint32 ctrl = conf_read(bdf, msi_offset);
+      unsigned ctrl = conf_read(bdf, msi_offset);
       unsigned base = msi_offset + 1;
       conf_write(bdf, base+0, msg1.msi_address);
       conf_write(bdf, base+1, msg1.msi_address >> 32);
@@ -198,7 +197,7 @@ class HostPci
       Logging::printf("XXX Trying to program vector %d, but we only have legacy interrupts!\n", nr);
 
     // normal GSIs -  ask atare
-    uint8 pin = conf_read(bdf, 0xf) >> 8;
+    unsigned char pin = conf_read(bdf, 0xf) >> 8;
     if (!pin) { Logging::printf("No IRQ PINs connected on %x\n", bdf ); return ~0u; }
     MessageAcpi msg3(search_bridge(bdf), bdf, pin - 1);
     if (!bus_acpi.send(msg3, true)) {
@@ -215,10 +214,10 @@ class HostPci
   /**
    * Find the position of a legacy PCI capability.
    */
-  unsigned find_cap(unsigned bdf, uint8 id)
+  unsigned find_cap(unsigned bdf, unsigned char id)
   {
     if ((conf_read(bdf, 1) >> 16) & 0x10 /* Capabilities supported? */)
-      for (uint8 offset = conf_read(bdf, 0xd);
+      for (unsigned char offset = conf_read(bdf, 0xd);
 	   (offset != 0) && !(offset & 0x3);
 	   offset = conf_read(bdf, offset >> 2) >> 8)
 	if ((conf_read(bdf, offset >> 2) & 0xFF) == id)
@@ -226,9 +225,9 @@ class HostPci
     return 0;
   }
 
-  uint64 bar_base(unsigned bdf, unsigned bar, unsigned *type = 0)
+  unsigned long long bar_base(unsigned bdf, unsigned bar, unsigned *type = 0)
   {
-    uint32 val = conf_read(bdf, bar);
+    unsigned val = conf_read(bdf, bar);
     if ((val & BAR_IO) == BAR_IO) {
       /* XXX */
       if (type) *type = BAR_IO;
@@ -247,10 +246,10 @@ class HostPci
    * Determines BAR size. You should probably disable interrupt
    * delivery from this device, while querying BAR sizes.
    */
-  uint64 bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
+  unsigned long long bar_size(unsigned bdf, unsigned bar, bool *is64bit = 0)
   {
-    uint32 old = conf_read(bdf, bar);
-    uint64 size = 0;
+    unsigned old = conf_read(bdf, bar);
+    unsigned long long size = 0;
 
     if (is64bit) *is64bit = false;
     if ((old & BAR_IO) == 1) {
@@ -269,10 +268,10 @@ class HostPci
 	break;
       case BAR_TYPE_64B: {
 	if (is64bit) *is64bit = true;
-	uint32 old_hi = conf_read(bdf, bar + 1);
+	unsigned old_hi = conf_read(bdf, bar + 1);
 	conf_write(bdf, bar, 0xFFFFFFFFU);
 	conf_write(bdf, bar + 1, 0xFFFFFFFFU);
-	uint64 bar_size = static_cast<uint64>(conf_read(bdf, bar + 1))<<32;
+	unsigned long long bar_size = static_cast<unsigned long long>(conf_read(bdf, bar + 1))<<32;
 	bar_size = (((bar_size | conf_read(bdf, bar)) & ~0xFULL) ^ ~0ULL) + 1;
 	size = bar_size;
 	conf_write(bdf, bar + 1, old_hi);

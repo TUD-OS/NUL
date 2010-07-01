@@ -68,7 +68,7 @@ public:
     memset(size, 0, MAX_BAR*sizeof(*size));
 
     // disable device
-    uint32 cmd = conf_read(bdf, 1);
+    unsigned cmd = conf_read(bdf, 1);
     conf_write(bdf, 1, cmd & ~0x7);
 
     // read bars
@@ -104,13 +104,13 @@ public:
     memset(size, 0, MAX_BAR*sizeof(*size));
 
     // disable device
-    uint32 cmd = conf_read(bdf, 1);
+    unsigned cmd = conf_read(bdf, 1);
     conf_write(bdf, 1, cmd & ~0x7);
 
     // read bars
     for (unsigned i=0; i < count_bars(bdf); i++) {
       bool is64bit;
-      uint64 lsize = 0;
+      unsigned long long lsize = 0;
       base[i] = vf_bar_base_size(bdf, vf_no, i, lsize, &is64bit);
       size[i] = lsize;
       if (is64bit) i++;
