@@ -139,7 +139,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
 	offset = size - s;
 	unsigned err;
-	if ((err = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
+	if ((err = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
 	  {
 	    Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
 	    res = 0;
@@ -180,20 +180,20 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
-    return !create_sc(alloc_cap(), cap, Qpd(3, 10000));
+    return !nova_create_sc(alloc_cap(), cap, Qpd(3, 10000));
   }
 
   bool reraise_irq(unsigned gsi)
   {
     // XXX Is there a better way to get from GSI to semaphore capability?
-    return !semup(_hip->cfg_exc + 3 + (gsi & 0xFF));
+    return !nova_semup(_hip->cfg_exc + 3 + (gsi & 0xFF));
   }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
     Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
-    assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
+    nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
     return irq_cap;
   }
 
@@ -311,7 +311,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (_percpu[i].cap_ec_echo)  continue;
       _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
       _percpu[i].cap_pt_echo = alloc_cap();
-      check1(1, create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
+      check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
 
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
@@ -336,16 +336,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     Logging::printf("create lock\n");
     _lock = Semaphore(&_lockcount, alloc_cap());
-    check1(2, create_sm(_lock.sm()));
+    check1(2, nova_create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");
     check1(3, create_worker_threads(hip, Cpu::cpunr()));
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
-    check1(5, create_pt(30, _percpu[gsi].cap_ec_echo, do_thread_startup_wrapper, Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
+    check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, do_thread_startup_wrapper, Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
 
     // map vga memory
     Logging::printf("map vga memory\n");
@@ -371,7 +371,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       utcb->msg[gsi * 2 + 1] = Crd(gsi, 0, DESC_CAP_ALL).value();
     }
     unsigned res;
-    if ((res = idc_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(hip->cfg_gsi * 2, 0))))
+    if ((res = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(hip->cfg_gsi * 2, 0))))
       Logging::panic("map IRQ semaphore() failed = %x", res);
     return 0;
   };
@@ -524,12 +524,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // create special portal for every module, we start at 64k, to have enough space for static fields
 	  unsigned pt = 0x10000 + (module << 5);
 	  assert(_percpu[modinfo->cpunr].cap_ec_worker);
-	  check1(6, create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-	  check1(7, create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
+	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
 
 	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
-	  check1(8, create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), modinfo->cpunr));
+	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), modinfo->cpunr));
 	}
     }
     return 0;
@@ -545,7 +545,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), false); // XXX kill it
+    nova_revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), false); // XXX kill it
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -580,7 +580,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
 	if (!_pcidirect[i])
 	  {
-	    unsigned res = assign_pci(pd_cap, bdf, vfbdf);
+	    unsigned res = nova_assign_pci(pd_cap, bdf, vfbdf);
 	    if (!res) _pcidirect[i] = vfbdf ? vfbdf : bdf;
 	    return res;
 	  }
@@ -648,7 +648,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		     Logging::printf("%s(%x) initial vec %x\n", __func__, cap_irq,  gsi);
 		   }
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
-		   while (!(res = semdown(cap_irq)))
+		   while (!(res = nova_semdown(cap_irq)))
 		     {
 		       SemaphoreGuard s(_lock);
 		       _mb->bus_hostirq.send(msg);
@@ -765,7 +765,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    // XXX make sure only one gets it
 			    Logging::printf("[%02x] gsi %lx granted\n", client, msg->value);
 			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
-			    assign_gsi(gsi_cap, modinfo->cpunr);
+			    nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[0] = 0;
 			    add_mappings(utcb, false, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
@@ -879,7 +879,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  if (_gsi & (1 << gsi)) return true;
 	  _gsi |=  1 << gsi;
 	  unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
-	  assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
+	  nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
 	  res = attach_irq(gsi, irq_cap);
 	}
 	break;

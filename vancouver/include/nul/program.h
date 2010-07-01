@@ -44,7 +44,7 @@ class NovaProgram : public BaseProgram
   Hip *     _hip;
   unsigned  _cap_block;
 
-  
+
   // memory map
   RegionList<512> _free_virt;
   RegionList<512> _free_phys;
@@ -76,7 +76,7 @@ class NovaProgram : public BaseProgram
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n",
 		    cpunr, cap, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
-    check1(0, create_ec(cap, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
+    check1(0, nova_create_ec(cap, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
     utcb->head.tls = tls;
     if (utcb_out)
       *utcb_out = utcb;
@@ -92,7 +92,7 @@ class NovaProgram : public BaseProgram
     check1(1, hip->calc_checksum());
     _hip = hip;
     _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
-    create_sm(_cap_block = alloc_cap());
+    nova_create_sm(_cap_block = alloc_cap());
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
@@ -123,7 +123,7 @@ class NovaProgram : public BaseProgram
   /**
    * Block ourself.
    */
-  void __attribute__((noreturn)) block_forever() { while (1) semdown(_cap_block); };
+  void __attribute__((noreturn)) block_forever() { while (1) nova_semdown(_cap_block); };
 
 
 public:

@@ -30,14 +30,14 @@ public:
   KernelSemaphore(unsigned cap_sm = 0) : _sm(cap_sm) {}
   void down()
   {
-    unsigned res = semdown(_sm);
+    unsigned res = nova_semdown(_sm);
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
   }
 
 
   void up()
   {
-    unsigned res = semup(_sm);
+    unsigned res = nova_semup(_sm);
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
   }
 

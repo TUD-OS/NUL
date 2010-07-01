@@ -45,7 +45,7 @@ public:
   Consumer(unsigned cap_sm) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0)
   {
     unsigned res;
-    if ((res = create_sm(cap_sm)))
+    if ((res = nova_create_sm(cap_sm)))
       Logging::panic("create Consumer failed with %x\n", res);
     Logging::printf("create Consumer ok with %x nq %x\n", res, cap_sm);
   }

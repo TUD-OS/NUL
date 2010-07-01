@@ -108,14 +108,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     bool shared = utcb->msg[1] >> 8;
     Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
     while (1) {
-      if ((res = semdown(utcb->msg[0])))
+      if ((res = nova_semdown(utcb->msg[0])))
 	Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
       {
 	SemaphoreGuard l(_lock);
 	MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
 	_mb->bus_hostirq.send(msg);
       }
-      if (shared)  semdown(utcb->msg[2]);
+      if (shared)  nova_semdown(utcb->msg[2]);
     }
   }
 
@@ -263,17 +263,17 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     stack[stack_size/sizeof(void *) - 1] = utcb;
     stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
 
-    check1(~1u, create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
+    check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
 
     unsigned cap_ec =  alloc_cap();
-    check1(~2u, create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
+    check1(~2u, nova_create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
     utcb->head.tls = reinterpret_cast<unsigned>(this);
     utcb->msg[0] = irq_cap;
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
     // XXX How many time should an IRQ thread get?
-    check1(~3u, create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
+    check1(~3u, nova_create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
     return cap_ec;
   }
 
@@ -281,11 +281,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned init_caps()
   {
     _lock = Semaphore(&_lockcount, alloc_cap());
-    check1(1, create_sm(_lock.sm()));
+    check1(1, nova_create_sm(_lock.sm()));
 
     _consolelock = 1;
     _console_data.sem = new Semaphore(&_consolelock, alloc_cap());
-    check1(2, create_sm(_console_data.sem->sm()));
+    check1(2, nova_create_sm(_console_data.sem->sm()));
 
 
     // create exception EC
@@ -293,11 +293,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i != 30) check1(3, create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
+      if (i!=14 && i != 30) check1(3, nova_create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
-    create_pt(PT_IRQ + 14, cap_ex, do_gsi_pf,    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
-    create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+    nova_create_pt(PT_IRQ + 14, cap_ex, do_gsi_pf,    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
+    nova_create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
     return 0;
   }
 
@@ -320,15 +320,15 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
       //Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
-      check1(0, create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+      check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
     }
 
     Logging::printf("\tcreate VCPU\n");
     unsigned cap_block = alloc_cap(3);
-    if (create_sm(cap_block))
+    if (nova_create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
-    if (create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
-	|| create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
+    if (nova_create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
+	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return cap_block;
   }
@@ -488,7 +488,7 @@ public:
 	  res = false;
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
-	semup(_shared_sem[msg.value & 0xff]);
+	nova_semup(_shared_sem[msg.value & 0xff]);
 	res = true;
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
@@ -514,12 +514,12 @@ public:
 	break;
       case MessageHostOp::OP_VCPU_BLOCK:
 	_lock.up();
-	semdown(msg.value);
+	nova_semdown(msg.value);
 	_lock.down();
 	break;
       case MessageHostOp::OP_VCPU_RELEASE:
-	if (msg.len)  semup(msg.value);
-	recall(msg.value + 1);
+	if (msg.len)  nova_semup(msg.value);
+	nova_recall(msg.value + 1);
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_RERAISE_IRQ:
