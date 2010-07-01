@@ -38,10 +38,6 @@ enum
   NOVA_FLAG0          = 1 << 8,
   NOVA_FLAG1          = 1 << 9,
   NOVA_FLAG2          = 1 << 10,
-  NOVA_IPC_SEND       = NOVA_IPC_CALL | NOVA_FLAG1 | NOVA_FLAG2,
-  NOVA_IPC_SEND0      = NOVA_IPC_SEND | NOVA_FLAG0,
-  NOVA_PD_VM          = NOVA_FLAG0,
-  NOVA_PD_DMA         = NOVA_FLAG1,
   NOVA_CREATE_ECWORK  = NOVA_CREATE_EC | NOVA_FLAG0,
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
@@ -90,20 +86,14 @@ syscall(unsigned w0, unsigned w1, unsigned w2, unsigned w3, unsigned w4, unsigne
   return w0;
 }
 
+
 inline unsigned char  idc_call(unsigned idx_pt, Mtd mtd_send)
 {  return syscall(NOVA_IPC_CALL, idx_pt, mtd_send.value(), 0, 0); }
 
 
-inline unsigned char  idc_send(unsigned idx_pt, Mtd mtd_send)
-{  return syscall(NOVA_IPC_SEND, idx_pt, mtd_send.value(), 0, 0); }
-
-
-inline unsigned char  idc_send0(unsigned idx_pt, Mtd mtd_send)
-{  return syscall(NOVA_IPC_SEND0, idx_pt, mtd_send.value(), 0, 0); }
-
-
 inline unsigned char  create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
 {  return syscall(NOVA_CREATE_PD, idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
+
 
 inline unsigned char  create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker)
 {  return syscall(worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC, idx_ec, reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); }
@@ -111,6 +101,7 @@ inline unsigned char  create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned
 
 inline unsigned char  create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 {  return syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
+
 
 typedef unsigned long __attribute__((regparm(1))) (*pt_func)(unsigned, Utcb *);
 inline unsigned char  create_pt(unsigned idx_pt, unsigned idx_ec, pt_func eip, Mtd mtd)
