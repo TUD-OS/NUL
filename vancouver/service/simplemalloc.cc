@@ -38,11 +38,15 @@ void *memalign_mempool(unsigned long size, unsigned long align)
 }
 
 
+void free_mempool(void *) { /* simplemalloc is simple, so we leak the memory here */ }
+
+
 
 // External interface
 void *(*memalign)(unsigned long size, unsigned long align) = memalign_mempool;
 void * operator new(unsigned size)   { return memalign(size, 0); }
-void   operator delete(void *ptr)    { /* simplemalloc is simple, so we leak the memory here */ }
 void * operator new[](unsigned size) { return memalign(size, 0); }
-void   operator delete[](void *ptr)  { /* simplemalloc is simple, so we leak the memory here */ }
 void * operator new[](unsigned size, unsigned alignment) { return memalign(size, alignment); }
+void (*free)(void *ptr) = free_mempool;
+void   operator delete(void *ptr)    { free(ptr); }
+void   operator delete[](void *ptr)  { free(ptr);  }
