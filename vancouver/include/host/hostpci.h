@@ -144,6 +144,7 @@ class HostPci
 
     MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
     if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
+    if (!msg1.msi_address)  Logging::printf("Attach to MSI %x failed for bdf %x with (%llx,%x) - IRQs may be broken!\n", nr, bdf, msg1.msi_address, msg1.msi_value);
 
     // MSI-X
     if (msix_offset) {
