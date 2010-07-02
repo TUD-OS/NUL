@@ -355,7 +355,7 @@ PARAM(rtl8029,
       },
       "rtl8029:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus",
       "Example: 'rtl8029:,9,0x300'.",
-      "if no bdf is given a free one is searched.");
+      "if no bdf is given a free one is used.");
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,       0x0, 0x802910ec)
