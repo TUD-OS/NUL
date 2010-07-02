@@ -164,8 +164,8 @@ public:
       if (last_page != page) show_page(page);
       last_page = page;
 
-      MessageKeycode *kmsg = stdinconsumer.get_buffer();
-      switch (kmsg->keycode & ~KBFLAG_NUM) {
+      MessageInput *kmsg = stdinconsumer.get_buffer();
+      switch (kmsg->data & ~KBFLAG_NUM) {
       case KBCODE_SPACE:
       case KBCODE_DOWN:
       case KBCODE_RIGHT:
@@ -197,7 +197,7 @@ public:
       default:
 	{
 	  unsigned num;
-	  if ((num = is_numeric_key(kmsg->keycode, 0)))  input = input*10 + (num % 10);
+	  if ((num = is_numeric_key(kmsg->data, 0)))  input = input*10 + (num % 10);
 	}
       }
 

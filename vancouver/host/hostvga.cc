@@ -153,30 +153,30 @@ private:
   /**
    * Switches the console with the _modifier_switch.
    */
-  bool handle_console_switching(MessageKeycode &msg)
+  bool handle_console_switching(MessageInput &msg)
   {
     unsigned num;
 
     // F1-F12 switches consoles
-    if ((num = GenericKeyboard::is_function_key(msg.keycode, _modifier_switch))) {
+    if ((num = GenericKeyboard::is_function_key(msg.data, _modifier_switch))) {
       _active_client = num;
       return switch_client();
     }
 
     // numeric keys start new modules
-    if ((num = GenericKeyboard::is_numeric_key(msg.keycode, _modifier_switch))) {
+    if ((num = GenericKeyboard::is_numeric_key(msg.data, _modifier_switch))) {
       MessageConsole msg1(MessageConsole::TYPE_START, num - 1);
       return _mb.bus_console.send(msg1);
     }
 
     // funckeys together with lctrl to debug
-    if ((num = GenericKeyboard::is_function_key(msg.keycode, _modifier_switch ^ KBFLAG_LCTRL))) {
+    if ((num = GenericKeyboard::is_function_key(msg.data, _modifier_switch ^ KBFLAG_LCTRL))) {
       MessageConsole msg1(MessageConsole::TYPE_DEBUG, num -1);
       _mb.bus_console.send(msg1);
       return false;
     }
 
-    unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_switch;
+    unsigned keycode = (msg.data & ~KBFLAG_NUM) ^ _modifier_switch;
     switch (keycode)
       {
       case 0x42: // k - kill active module
@@ -216,9 +216,9 @@ private:
   /**
    * System keys handling.
    */
-  bool handle_system_keys(MessageKeycode &msg)
+  bool handle_system_keys(MessageInput &msg)
   {
-    unsigned keycode = (msg.keycode & ~KBFLAG_NUM) ^ _modifier_system;
+    unsigned keycode = (msg.data & ~KBFLAG_NUM) ^ _modifier_system;
 
     switch(keycode)
       {
@@ -407,13 +407,13 @@ public:
 
 
 
-  bool  receive(MessageKeycode &msg)
+  bool  receive(MessageInput &msg)
   {
-    if (msg.keyboard != 0) return false;
-    if (handle_system_keys(msg) || handle_console_switching(msg)) return true;
+    if (!msg.device && (handle_system_keys(msg) || handle_console_switching(msg)))
+      return true;
 
     // default is to forward the key to the active console
-    MessageConsole msg2(_active_client, _clients[_active_client].active_view, msg.keycode);
+    MessageConsole msg2(_active_client, _clients[_active_client].active_view, msg.device, msg.data);
     return _mb.bus_console.send(msg2);
   }
 
@@ -450,7 +450,7 @@ public:
       }
     }
 
-    _mb.bus_keycode.add(this, &HostVga::receive_static<MessageKeycode>);
+    _mb.bus_input.add(this, &HostVga::receive_static<MessageInput>);
     _mb.bus_console.add(this, &HostVga::receive_static<MessageConsole>);
     _mb.bus_timeout.add(this, &HostVga::receive_static<MessageTimeout>);
 

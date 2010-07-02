@@ -174,27 +174,27 @@ public:
   /**
    * Handle messages from the keyboard host driver.
    */
-  bool  receive(MessageKeycode &msg)
+  bool  receive(MessageInput &msg)
   {
-    if (msg.keyboard == 0x10)
-      {
-	update_status(msg.keycode);
-	unsigned value = keycode2bios(msg.keycode);
-	unsigned short next  = read_bda(0x1a);
-	unsigned short first = read_bda(0x1c);
-	unsigned short start = read_bda(0x80);
-	unsigned short end   = read_bda(0x82);
+    if (msg.device == 0x10) {
 
-	first += 0x2;
-	if (first >= end)   first = start;
-	if (value && first != next)
-	  {
-	    write_bda(read_bda(0x1c), value, 2);
-	    write_bda(0x1c, first, 2);
-	  }
-	return true;
-      }
-    Logging::printf("%s() ignored %x %x\n", __PRETTY_FUNCTION__, msg.keyboard, msg.keycode);
+      update_status(msg.data);
+      unsigned value = keycode2bios(msg.data);
+      unsigned short next  = read_bda(0x1a);
+      unsigned short first = read_bda(0x1c);
+      unsigned short start = read_bda(0x80);
+      unsigned short end   = read_bda(0x82);
+
+      first += 0x2;
+      if (first >= end)   first = start;
+      if (value && first != next)
+	{
+	  write_bda(read_bda(0x1c), value, 2);
+	  write_bda(0x1c, first, 2);
+	}
+      return true;
+    }
+    Logging::printf("%s() ignored %x %x\n", __PRETTY_FUNCTION__, msg.device, msg.data);
     return false;
   }
 
@@ -265,7 +265,7 @@ public:
 
     // create hostmb and hostkeyb
     _hostmb = new Motherboard(mb.clock());
-    _hostmb->bus_keycode.add(this, &VirtualBiosKeyboard::receive_static<MessageKeycode>);
+    _hostmb->bus_input.add(this, &VirtualBiosKeyboard::receive_static<MessageInput>);
     _hostmb->bus_hostop .add(this, &VirtualBiosKeyboard::receive_static<MessageHostOp>);
     _hostmb->bus_hwioin .add(this, &VirtualBiosKeyboard::receive_static<MessageIOIn>);
     _hostmb->bus_hwioout.add(this, &VirtualBiosKeyboard::receive_static<MessageIOOut>);

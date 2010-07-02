@@ -107,8 +107,8 @@ enum {
 /**
  * Stdin push interface.
  */
-typedef Consumer<MessageKeycode, STDIN_SIZE> StdinConsumer;
-typedef Producer<MessageKeycode, STDIN_SIZE> StdinProducer;
+typedef Consumer<MessageInput, STDIN_SIZE> StdinConsumer;
+typedef Producer<MessageInput, STDIN_SIZE> StdinProducer;
 
 
 /**

@@ -18,9 +18,9 @@
 #include "host/keyboard.h"
 
 /**
- * A PS/2 host keyboard and mouse driver.
- * Translates SCS2 keycodes to single extended keycode on the keycode
- * bus. Mouse packets are forwarded to the mouse bus.
+ * A PS/2 host keyboard and mouse driver.  Translates SCS2 keycodes to
+ * single extended keycode and mouse movements to mouse packets.  Both
+ * are forwarded on the keycode bus.
  *
  * State: stable
  * Features: scancode set1+2, simple PS2 mouse
@@ -32,8 +32,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   #include "host/simplehwioin.h"
   #include "host/simplehwioout.h"
 
-  DBus<MessageKeycode> & _bus_keycode;
-  DBus<MessageMouse> & _bus_mouse;
+  DBus<MessageInput> & _bus_input;
   Clock *_clock;
   unsigned _hostdev;
   unsigned short _base;
@@ -165,8 +164,8 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	if ((_mousestate & 0xff) != 3)
 	  return;
       }
-    MessageMouse msg(_hostdev, _mousestate);
-    _bus_mouse.send(msg);
+    MessageInput msg(_hostdev+1, _mousestate);
+    _bus_input.send(msg);
     _mousestate = 0;
   }
 
@@ -252,8 +251,8 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
     else
       _flags |=  nflag;
 
-    MessageKeycode msg(_hostdev, _flags | key);
-    _bus_keycode.send(msg);
+    MessageInput msg(_hostdev, _flags | key);
+    _bus_input.send(msg);
     _flags &= ~(KBFLAG_RELEASE | KBFLAG_EXTEND0 | KBFLAG_EXTEND1);
   }
 
@@ -352,12 +351,10 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  HostKeyboard(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout,
-	       DBus<MessageKeycode> &bus_keycode, DBus<MessageMouse> &bus_mouse,
+  HostKeyboard(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageInput> &bus_input,
 	       Clock *clock, unsigned hostdev, unsigned short base,
 	       unsigned irq, unsigned irqaux, unsigned char scset)
-    : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout),
-      _bus_keycode(bus_keycode), _bus_mouse(bus_mouse),
+    : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_input(bus_input),
       _clock(clock), _hostdev(hostdev), _base(base),
       _irq(irq), _irqaux(irqaux), _scset1(scset == 1)
     {}
@@ -371,7 +368,7 @@ PARAM(hostkeyb,
 	if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
 	  Logging::panic("%s failed to allocate ports %lx, %lx\n", __PRETTY_FUNCTION__, argv[1], argv[1]+4);
 
-	HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_keycode, mb.bus_mouse, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4]);
+	HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4]);
 	mb.bus_hostirq.add(dev, &HostKeyboard::receive_static<MessageIrq>);
 	mb.bus_legacy.add(dev, &HostKeyboard::receive_static<MessageLegacy>);
 
@@ -380,6 +377,6 @@ PARAM(hostkeyb,
 	if (!(msg3.value == ~0U || mb.bus_hostop.send(msg3)) || !(msg4.value == ~0U || mb.bus_hostop.send(msg4)))
 	  Logging::panic("%s failed to attach hostirq %lx, %lx\n", __PRETTY_FUNCTION__, argv[2], argv[3]);
       },
-      "hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2 - provide an input backend from the host keyboard (hdev) and host mouse (hdev).",
+      "hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
       "Example: 'hostkeyb:0x17,0x60,1,12,2'.",
       "A missing auxirq omits the mouse initialisation. ");

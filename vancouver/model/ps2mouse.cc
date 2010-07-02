@@ -141,18 +141,18 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 
 
  public:
-  bool  receive(MessageMouse &msg)
+  bool  receive(MessageInput &msg)
   {
-    if (msg.mouse != _hostmouse)
+    if (msg.device != _hostmouse)
       return false;
 
     // we support only 3 byte packets
-    assert((msg.packet & 0xff) == 3);
+    assert((msg.data & 0xff) == 3);
 
     // we ignore the overflow bit as everybody does
-    _posx += ((msg.packet >> 16) & 0xff) - ((msg.packet >> 4) & 0x100);
-    _posy += ((msg.packet >> 24) & 0xff) - ((msg.packet >> 5) & 0x100);
-    _status = _status & 0xf8 | (msg.packet >> 8) & 0x7;
+    _posx += ((msg.data >> 16) & 0xff) - ((msg.data >> 4) & 0x100);
+    _posy += ((msg.data >> 24) & 0xff) - ((msg.data >> 5) & 0x100);
+    _status = _status & 0xf8 | (msg.data >> 8) & 0x7;
     update_packet();
 
     return true;
@@ -286,7 +286,7 @@ PARAM(mouse,
       {
 	Device *dev = new PS2Mouse(mb.bus_ps2, argv[0], argv[1]);
 	mb.bus_ps2.add(dev, &PS2Mouse::receive_static<MessagePS2>);
-	mb.bus_mouse.add(dev, &PS2Mouse::receive_static<MessageMouse>);
+	mb.bus_input.add(dev, &PS2Mouse::receive_static<MessageInput>);
       },
       "mouse:ps2port,hostmouse:  attach a PS2 mouse at the given PS2 port that gets input from the given hostmouse.",
       "Example: 'mouse:1,0x17'");

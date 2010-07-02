@@ -1236,11 +1236,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       for (unsigned i=1; i < MAXMODULES; i++)
 	if (_console_data[i].console == msg.id)
 	  {
-	    MessageKeycode item(msg.view, msg.keycode);
+	    MessageInput item((msg.view << 16) | (msg.input_device & 0xffff), msg.input_data);
 	    _console_data[i].prod_stdin.produce(item);
 	    return true;
 	  }
-      Logging::printf("drop key %x at console %x.%x\n", msg.keycode, msg.id, msg.view);
+      Logging::printf("drop input %x at console %x.%x\n", msg.input_data, msg.id, msg.view);
       break;
     case MessageConsole::TYPE_RESET:
       if (msg.id == 0)

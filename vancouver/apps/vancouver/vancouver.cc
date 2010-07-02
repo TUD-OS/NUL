@@ -127,8 +127,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
     while (1) {
-      MessageKeycode *msg = stdinconsumer->get_buffer();
-      switch ((msg->keycode & ~KBFLAG_NUM) ^ _keyboard_modifier)
+      MessageInput *msg = stdinconsumer->get_buffer();
+      switch ((msg->data & ~KBFLAG_NUM) ^ _keyboard_modifier)
 	{
 	case KBFLAG_EXTEND0 | 0x7c: // printscr
 	  {
@@ -164,7 +164,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	}
 
 	SemaphoreGuard l(_lock);
-	_mb->bus_keycode.send(*msg);
+	_mb->bus_input.send(*msg);
 	stdinconsumer->free_buffer();
     }
   }

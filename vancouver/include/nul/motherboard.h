@@ -57,14 +57,13 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageIOIn>         bus_ioin;
   DBus<MessageIOOut>        bus_hwioout;
   DBus<MessageIOOut>        bus_ioout;
+  DBus<MessageInput>        bus_input;
   DBus<MessageIrq>          bus_hostirq;
   DBus<MessageIrq>          bus_irqlines;
   DBus<MessageIrqNotify>    bus_irqnotify;
-  DBus<MessageKeycode>      bus_keycode;
   DBus<MessageLegacy>       bus_legacy;
   DBus<MessageMem>          bus_mem;
   DBus<MessageMemRegion>    bus_memregion;
-  DBus<MessageMouse>        bus_mouse;
   DBus<MessageNetwork>      bus_network;
   DBus<MessagePS2>          bus_ps2;
   DBus<MessagePciConfig>    bus_hwpcicfg;

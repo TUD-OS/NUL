@@ -263,24 +263,13 @@ struct MessagePS2
 
 
 /**
- * A keycode. See keyboard.h for the format.
+ * A keycode or a mouse packet. See keyboard.h for the format.
  */
-struct MessageKeycode
+struct MessageInput
 {
-  unsigned keyboard;
-  unsigned keycode;
-  MessageKeycode(unsigned char _keyboard=0, unsigned _keycode=0) : keyboard(_keyboard), keycode(_keycode) {}
-};
-
-
-/**
- * A PS2 mouse packet.
- */
-struct MessageMouse
-{
-  unsigned mouse;
-  unsigned packet;
-  MessageMouse(unsigned char _mouse, unsigned _packet) : mouse(_mouse), packet(_packet) {}
+  unsigned device;
+  unsigned data;
+  MessageInput(unsigned _device=0, unsigned _data=0) : device(_device), data(_data) {}
 };
 
 
@@ -358,14 +347,16 @@ struct MessageConsole
       ConsoleModeInfo *info;
     };
     struct {
-      unsigned keycode;
+      unsigned input_device;
+      unsigned input_data;
     };
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
   MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}
   MessageConsole(const char *_name, char * _ptr, unsigned _size, VgaRegs *_regs)
     : type(TYPE_ALLOC_VIEW), id(~0), name(_name), ptr(_ptr), size(_size), regs(_regs) {}
-  MessageConsole(unsigned short _id, unsigned short _view, unsigned _keycode) : type(TYPE_KEY), id(_id), view(_view), keycode(_keycode) {}
+  MessageConsole(unsigned short _id, unsigned short _view, unsigned _input_device, unsigned _input_data)
+    : type(TYPE_KEY), id(_id), view(_view), input_device(_input_device), input_data(_input_data) {}
 };
 
 

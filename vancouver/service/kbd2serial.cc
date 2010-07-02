@@ -59,14 +59,14 @@ class KbdSerialBridge : public StaticReceiver<KbdSerialBridge>
   }
 
 public:
-  bool  receive(MessageKeycode &msg)
+  bool  receive(MessageInput &msg)
   {
-    if (msg.keyboard != _keyboard)  return false;
+    if (msg.device != _keyboard)  return false;
 
-    msg.keycode &= ~KBFLAG_NUM;
-    if (msg.keycode & (KBFLAG_RSHIFT | KBFLAG_LSHIFT))
-      msg.keycode = msg.keycode & ~(KBFLAG_RSHIFT | KBFLAG_LSHIFT) | KBFLAG_LSHIFT;
-    const char *s = keycode2ansi(msg.keycode);
+    msg.data &= ~KBFLAG_NUM;
+    if (msg.data & (KBFLAG_RSHIFT | KBFLAG_LSHIFT))
+      msg.data = msg.data & ~(KBFLAG_RSHIFT | KBFLAG_LSHIFT) | KBFLAG_LSHIFT;
+    const char *s = keycode2ansi(msg.data);
     if (s)
       {
 	send_char(0x1b);
@@ -74,8 +74,8 @@ public:
       }
     else
       {
-	if ((msg.keycode = keycode2ascii(msg.keycode)))
-	  send_char(msg.keycode);
+	if ((msg.data = keycode2ascii(msg.data)))
+	  send_char(msg.data);
       }
     return true;
   }
@@ -88,7 +88,7 @@ public:
 PARAM(kbd2serial,
       {
 	Device *dev = new KbdSerialBridge(mb.bus_serial, argv[0], argv[1]);
-	mb.bus_keycode.add(dev, &KbdSerialBridge::receive_static<MessageKeycode>);
+	mb.bus_input.add(dev, &KbdSerialBridge::receive_static<MessageInput>);
       },
       "kbd2serial:src,dst - attach a bridge between keyboard and keyboard.",
       "Example: 'kbd2serial:0x2bad,0x4711'.",

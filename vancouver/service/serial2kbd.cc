@@ -26,7 +26,7 @@
  */
 class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
 {
-  DBus<MessageKeycode> &_bus_keycode;
+  DBus<MessageInput> &_bus_input;
   unsigned _serial;
   unsigned _keyboard;
   unsigned char _escape;
@@ -70,8 +70,8 @@ class SerialKbdBridge : public StaticReceiver<SerialKbdBridge>
 
   void send_key(unsigned keycode)
   {
-    MessageKeycode msg(_keyboard, keycode);
-    _bus_keycode.send(msg);
+    MessageInput msg(_keyboard, keycode);
+    _bus_input.send(msg);
   }
 
 public:
@@ -97,13 +97,13 @@ public:
   }
 
 
-  SerialKbdBridge(DBus<MessageKeycode> &bus_keycode, unsigned serial, unsigned keyboard) : _bus_keycode(bus_keycode), _serial(serial), _keyboard(keyboard), _escape(0) {}
+  SerialKbdBridge(DBus<MessageInput> &bus_input, unsigned serial, unsigned keyboard) : _bus_input(bus_input), _serial(serial), _keyboard(keyboard), _escape(0) {}
 };
 
 
 PARAM(serial2kbd,
       {
-	Device *dev = new SerialKbdBridge(mb.bus_keycode, argv[0], argv[1]);
+	Device *dev = new SerialKbdBridge(mb.bus_input, argv[0], argv[1]);
 	mb.bus_serial.add(dev, &SerialKbdBridge::receive_static<MessageSerial>);
       },
       "serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.",

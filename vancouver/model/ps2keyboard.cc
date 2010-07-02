@@ -166,9 +166,9 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 
  public:
 
-  bool  receive(MessageKeycode &msg)
+  bool  receive(MessageInput &msg)
   {
-    if (msg.keyboard != _hostkeyboard)  return false;
+    if (msg.device != _hostkeyboard)  return false;
 
     if (_mode & (MODE_DISABLED | MODE_STOPPED))
       return false;
@@ -176,22 +176,22 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
     unsigned oldwrite = _pwrite;
     if (_scset == 2 || _scset == 1)
       {
-	unsigned char key = msg.keycode;
+	unsigned char key = msg.data;
 	_mode &= ~MODE_GOT_BREAK;
-	if (msg.keycode & KBFLAG_EXTEND1)
+	if (msg.data & KBFLAG_EXTEND1)
 	  {
 	    enqueue(0xe1);
 	    if (key == 0x77)	        // the pause key ?
 	      enqueue_string("\x14\x77\xe1\xf0\x14");
 	  }
-	if (key == 0x7e && msg.keycode & KBFLAG_EXTEND0 && msg.keycode & KBFLAG_RELEASE)
+	if (key == 0x7e && msg.data & KBFLAG_EXTEND0 && msg.data & KBFLAG_RELEASE)
 	  enqueue_string("\xe0\0x7e"); 	// sysctrl key
 
-	if (~msg.keycode & KBFLAG_RELEASE)  handle_shift_modifiers(msg.keycode);
-	if (msg.keycode & KBFLAG_EXTEND0)   enqueue(0xe0);
-	if (msg.keycode & KBFLAG_RELEASE)   enqueue(0xf0);
-	enqueue(msg.keycode);
-	if (msg.keycode & KBFLAG_RELEASE)   handle_shift_modifiers(msg.keycode);
+	if (~msg.data & KBFLAG_RELEASE)  handle_shift_modifiers(msg.data);
+	if (msg.data & KBFLAG_EXTEND0)   enqueue(0xe0);
+	if (msg.data & KBFLAG_RELEASE)   enqueue(0xf0);
+	enqueue(msg.data);
+	if (msg.data & KBFLAG_RELEASE)   handle_shift_modifiers(msg.data);
 
 #if 0
 	if ((_pwrite - _pread) % BUFFERSIZE == BUFFERSIZE - 1)
@@ -203,11 +203,11 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
       }
     else // _scset == 3
       {
-	unsigned char key = GenericKeyboard::translate_sc2_to_sc3(msg.keycode);
+	unsigned char key = GenericKeyboard::translate_sc2_to_sc3(msg.data);
 
 	// the pause key sends make and break together -> simulate another make
 	if (key == 0x62)  enqueue(key);
-	if (msg.keycode & KBFLAG_RELEASE) {
+	if (msg.data & KBFLAG_RELEASE) {
 
 	  if (_no_breakcode[key >> 3] & (1 << (key & 7)))
 	    return true;
@@ -377,7 +377,7 @@ PARAM(keyb,
       {
 	Device *dev = new PS2Keyboard(mb.bus_ps2, argv[0], argv[1]);
 	mb.bus_ps2.add(dev, &PS2Keyboard::receive_static<MessagePS2>);
-	mb.bus_keycode.add(dev, &PS2Keyboard::receive_static<MessageKeycode>);
+	mb.bus_input.add(dev, &PS2Keyboard::receive_static<MessageInput>);
 	mb.bus_legacy.add(dev, &PS2Keyboard::receive_static<MessageLegacy>);
       },
       "keyb:ps2port,hostkeyboard - attach a PS2 keyboard at the given PS2 port that gets input from the given hostkeyboard.",
