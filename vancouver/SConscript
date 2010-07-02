@@ -41,13 +41,6 @@ ndebug = ARGUMENTS.get('ndebug', 0)
 if int(ndebug):
     debug_opts += ' -DNDEBUG '
 
-
-# Installation flags
-
-tftp_dir = ARGUMENTS.get('tftp', '')
-if tftp_dir:
-    Install(tftp_dir, '#bin/sigma0.nul')
-
 # Default environment for host machine. Use this to build host tools,
 # that need to run during the build.
 host_env = Environment()

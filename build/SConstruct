@@ -15,4 +15,11 @@ Repository('../vancouver')
 # a SConscript file in its root directory.
 SConscript('SConscript')
 
+# Installation flags
+
+tftp_dir = ARGUMENTS.get('tftp', '')
+if tftp_dir:
+    Install(tftp_dir, Glob('bin/apps/*.nul.gz'))
+    Alias('install', tftp_dir)
+
 # EOF
