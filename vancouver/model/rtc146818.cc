@@ -92,7 +92,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 
   timevalue get_counter()
   {
-    timevalue value = _clock->clock(1<<30);
+    timevalue value = _clock->clock(1 << 30);
     // scale the counter with the divider
     int divider = get_divider();
     if (divider < 0)  return 0;
@@ -308,8 +308,7 @@ public:
     timevalue now = Math::muldiv128(time.wallclocktime - time.timestamp, FREQ, MessageTime::FREQUENCY);
     update_ram(now / FREQ);
     set_irqflags(0);
-    _offset = _clock->clock(FREQ);
-    _last   = 0;
+    _offset = _last = 0;
   }
 
 
@@ -346,6 +345,7 @@ public:
     else
       // Port 0x70 is not readable. See RBL+ICH docu. Tested on ICH10.
       return false;
+
     return true;
   }
 
@@ -382,7 +382,8 @@ public:
 	    // enabled counting?
 	    if ((_ram[0xb] & 0x80) && ~msg.value & 0x80)
 	      // skip missed updates, but do not reset the divider chain
-	      _last = (now / FREQ) * FREQ + _last % FREQ;
+	      _last = _clock->clock(FREQ);
+	    // Fallthrough
 	  default:
 	    _ram[_index] = msg.value;
 	  }
