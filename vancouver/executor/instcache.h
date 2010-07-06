@@ -48,10 +48,11 @@ enum {
   MRM_EAX    = 1 << 8,
   MRM_REG    = 1 << 9,
   MRM_SIB    = 1 << 10,
-  MRM_DISPSHIFT = 12,
-  MRM_DISP08 = 1 << MRM_DISPSHIFT,
-  MRM_DISP16 = 2 << MRM_DISPSHIFT,
-  MRM_DISP32 = 3 << MRM_DISPSHIFT,
+  MRM_SS     = 1 << 11,
+  MRM_DISSHIFT = 12,
+  MRM_DIS08 = 1 << MRM_DISSHIFT,
+  MRM_DIS16 = 2 << MRM_DISSHIFT,
+  MRM_DIS32 = 3 << MRM_DISSHIFT,
   MRM_NOBASE  = 1 << 14,
   MRM_NOINDEX = 1 << 15,
 };
@@ -61,14 +62,14 @@ enum {
  */
 static const unsigned short modrminfo[64] =
   {
-    0x36               , 0x37             ,  0x56             ,  0x57             ,  0x06             ,  0x07             ,         MRM_DISP16,  0x03             ,
-    0x36 | MRM_DISP08  , 0x37 | MRM_DISP08,  0x56 | MRM_DISP08,  0x57 | MRM_DISP08,  0x06 | MRM_DISP08,  0x07 | MRM_DISP08,  0x50 | MRM_DISP08,  0x03 | MRM_DISP08,
-    0x36 | MRM_DISP16  , 0x37 | MRM_DISP16,  0x56 | MRM_DISP16,  0x57 | MRM_DISP16,  0x06 | MRM_DISP16,  0x07 | MRM_DISP16,  0x50 | MRM_DISP16,  0x03 | MRM_DISP16,
-    MRM_EAX| MRM_REG   , 0x01 | MRM_REG   ,  0x02 | MRM_REG   ,  0x03 | MRM_REG   ,  0x04 | MRM_REG   ,  0x05 | MRM_REG   ,  0x06 | MRM_REG   ,  0x07 | MRM_REG   ,
-    MRM_EAX            , 0x01             ,  0x02             ,  0x03             ,  MRM_SIB            ,       MRM_DISP32,  0x06             ,  0x07             ,
-    MRM_EAX| MRM_DISP08, 0x01 | MRM_DISP08,  0x02 | MRM_DISP08,  0x03 | MRM_DISP08,  MRM_SIB| MRM_DISP08,0x05 | MRM_DISP08,  0x06 | MRM_DISP08,  0x07 | MRM_DISP08,
-    MRM_EAX| MRM_DISP32, 0x01 | MRM_DISP32,  0x02 | MRM_DISP32,  0x03 | MRM_DISP32,  MRM_SIB| MRM_DISP32,0x05 | MRM_DISP32,  0x06 | MRM_DISP32,  0x07 | MRM_DISP32,
-    MRM_EAX| MRM_REG   , 0x01 | MRM_REG   ,  0x02 | MRM_REG   ,  0x03 | MRM_REG   ,  0x04 | MRM_REG   ,  0x05 | MRM_REG   ,  0x06 | MRM_REG   ,  0x07 | MRM_REG   ,
+    0x36            , 0x37            , 0x56 | MRM_SS            , 0x57 | MRM_SS            , 0x06            , 0x07            ,        MRM_DIS16         , 0x03            ,
+    0x36 | MRM_DIS08, 0x37 | MRM_DIS08, 0x56 | MRM_SS | MRM_DIS08, 0x57 | MRM_SS | MRM_DIS08, 0x06 | MRM_DIS08, 0x07 | MRM_DIS08, 0x50 | MRM_DIS08 | MRM_SS, 0x03 | MRM_DIS08,
+    0x36 | MRM_DIS16, 0x37 | MRM_DIS16, 0x56 | MRM_SS | MRM_DIS16, 0x57 | MRM_SS | MRM_DIS16, 0x06 | MRM_DIS16, 0x07 | MRM_DIS16, 0x50 | MRM_DIS16 | MRM_SS, 0x03 | MRM_DIS16,
+    MRM_EAX| MRM_REG, 0x01 | MRM_REG  , 0x02 | MRM_REG           , 0x03 | MRM_REG           , 0x04 | MRM_REG  , 0x05 | MRM_REG  , 0x06 | MRM_REG           , 0x07 | MRM_REG  ,
+    MRM_EAX           , 0x01            , 0x02            , 0x03            , MRM_SIB           ,        MRM_DIS32         , 0x06            , 0x07            ,
+    MRM_EAX| MRM_DIS08, 0x01 | MRM_DIS08, 0x02 | MRM_DIS08, 0x03 | MRM_DIS08, MRM_SIB| MRM_DIS08, 0x05 | MRM_DIS08 | MRM_SS, 0x06 | MRM_DIS08, 0x07 | MRM_DIS08,
+    MRM_EAX| MRM_DIS32, 0x01 | MRM_DIS32, 0x02 | MRM_DIS32, 0x03 | MRM_DIS32, MRM_SIB| MRM_DIS32, 0x05 | MRM_DIS32 | MRM_SS, 0x06 | MRM_DIS32, 0x07 | MRM_DIS32,
+    MRM_EAX| MRM_REG  , 0x01 | MRM_REG  , 0x02 | MRM_REG  , 0x03 | MRM_REG  , 0x04 | MRM_REG    , 0x05 | MRM_REG           , 0x06 | MRM_REG  , 0x07 | MRM_REG  ,
   };
 
 
@@ -235,18 +236,18 @@ class InstructionCache : public MemTlb
     if (info & MRM_SIB)
       {
 	fetch_code(_entry, 1);
-	if ((modrm & 0xc7) == 0x4 && (_entry->data[_entry->inst_len - 1] & 0x7) == 5) info |= MRM_DISP32 | MRM_NOBASE;
+	if ((modrm & 0xc7) == 0x4 && (_entry->data[_entry->inst_len - 1] & 0x7) == 5) info |= MRM_DIS32 | MRM_NOBASE;
 	info = info & ~0xff | _entry->data[_entry->inst_len - 1];
 	if (((info >> 3) & 0xf) == 4) info |= MRM_NOINDEX;
+	if (~info & MRM_NOBASE && ((info & 0xf) == 4 || (info & 0xf) == 5)) info |= MRM_SS;
       }
-    unsigned disp = ((info >> MRM_DISPSHIFT) & 0x3);
+    unsigned disp = ((info >> MRM_DISSHIFT) & 0x3);
     if (disp)  fetch_code(_entry, 1 << (disp-1));
     _entry->modrminfo = info;
 
-    // in 16bit addressing mode bp-references are using the stack segment as default
-    if ((_entry->address_size == 1) && ((_entry->prefixes & 0xff00) == 0x8300) && ((info & 0xf0) == 0x50))
+    // SS segment is default for this modrm?
+    if (((_entry->prefixes & 0xff00) == 0x8300) && info & MRM_SS)
       _entry->prefixes = (_entry->prefixes & ~0xff00) | 0x200;
-
     return _fault;
   }
 
@@ -337,7 +338,7 @@ public:
 	if (info & 0xf0) virt += _cpu->gpr[(info >> 4) & 0x7];
       }
 
-    unsigned disp = ((info >> MRM_DISPSHIFT) & 0x3);
+    unsigned disp = ((info >> MRM_DISSHIFT) & 0x3);
     switch (disp)
       {
       case 1:  virt += *reinterpret_cast<char  *>(disp_offset); break;
