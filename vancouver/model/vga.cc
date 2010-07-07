@@ -260,7 +260,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	{
 	  unsigned page  = get_page(cpu->bh);
 	  unsigned pos   = get_pos(cpu->bh);
-	  unsigned value = cpu->al | (_framebuffer_ptr[2*(TEXT_OFFSET + page + pos) + 0] << 8);
+	  unsigned value = cpu->al | ((_framebuffer_ptr[2*(TEXT_OFFSET + page + pos) + 0] & 0xff) << 8);
 	  Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + page, pos);
 	  update_cursor(cpu->bh, ((pos / 80) << 8) | (pos % 80));
 	}
