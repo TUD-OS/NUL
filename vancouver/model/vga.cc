@@ -44,18 +44,38 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   unsigned char  _crt_index;
   unsigned       _ebda_segment;
 
-  void putchar_guest(unsigned short value)
-  {
+  void puts_guest(const char *msg) {
     unsigned pos = _regs.cursor_pos - TEXT_OFFSET;
-    Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, pos);
-    _regs.cursor_pos = pos + TEXT_OFFSET;
+    for (unsigned i=0; msg[i]; i++)
+      Screen::vga_putc(0x0f00 | msg[i], reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET, pos);
+    update_cursor(0, ((pos / 80) << 8) | (pos % 80));
   }
 
 
-  void puts_guest(const char *msg)
-  {
-    for (unsigned i=0; msg[i]; i++)  putchar_guest(0x0f00 | msg[i]);
+  /**
+   * Update the cursor of a page and sync the hardware cursor with the
+   * one of the active page.
+   */
+  void update_cursor(unsigned page, unsigned pos) {
+    write_bda(0x50 +  (page & 0x7) * 2, pos, 2);
+    pos = read_bda(0x50 + 2 * (read_bda(0x62) & 0x7));
+    _regs.cursor_pos = TEXT_OFFSET + ((pos >> 8)*80 + (pos & 0xff));
   }
+
+
+  /**
+   * Get the page offset.
+   */
+  unsigned get_page(unsigned page) { return 0x800 * (page & 0x7); }
+
+  /**
+   * Return the text mode cursor position in characters for a given page.
+   */
+  unsigned get_pos(unsigned page) {
+    unsigned res = read_bda(0x50 + (page & 0x7) * 2);
+    return (res >> 8)*80 + (res & 0xff);
+  }
+
 
 
   bool handle_reset()
@@ -168,7 +188,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      // switch mode
 	      _regs.mode =  index;
 
-	      // XXX handle s
+	      // XXX handle get_vesa_mode
 	      break;
 	    }
 	}
@@ -179,7 +199,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     cpu->ax = 0x004f;
     return true;
   }
-
 
   /**
    * Graphic INT.
@@ -199,32 +218,52 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	_regs.cursor_style = cpu->cx;
 	break;
       case 0x02: // set cursor
-	// we support only a single page
-	_regs.cursor_pos = TEXT_OFFSET + ((cpu->dx >> 8)*80 + (cpu->dx & 0xff));
+	update_cursor(cpu->bh, cpu->dx);
 	break;
       case 0x03: // get cursor
-	cpu->ax = 0;
-	cpu->cx = _regs.cursor_style;
-	cpu->dx = (((_regs.cursor_pos - TEXT_OFFSET) / 80) << 8) + ((_regs.cursor_pos - TEXT_OFFSET) % 80);
+	  cpu->ax = 0;
+	  cpu->cx = _regs.cursor_style;
+	  cpu->dx = read_bda(0x50 + (cpu->bh & 0x7) * 2);
+	break;
+      case 0x05: // set current page
+	write_bda(0x62, cpu->al & 7, 1);
+	_regs.offset = TEXT_OFFSET + get_page(cpu->al);
+	break;
+      case 0x08: // read character attributes
+	{
+	  unsigned page = get_page(cpu->bh);
+	  unsigned pos  = get_pos(cpu->bh);
+	  cpu->ax = *(reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + page + pos);
+	}
 	break;
       case 0x09: // write char+attr
       case 0x0a: // write char only
 	{
-	  unsigned cpos = _regs.cursor_pos;
-	  unsigned short value = (cpu->bl << 8) | cpu->al;
-	  for (unsigned i=0; i < cpu->cx; i++)
-	    // XXX do not write attribute
-	    putchar_guest(value);
-	  _regs.cursor_pos = cpos;
+	  unsigned page = get_page(cpu->bh);
+	  unsigned pos = get_pos(cpu->bh);
+	  for (unsigned i=0; i < cpu->cx; i++) {
+	    unsigned offset = page + pos + i;
+
+	    // check for overflow
+	    if (offset < 0x800*8) {
+		if (cpu->ah & 1) _framebuffer_ptr[2*(TEXT_OFFSET + offset) + 0] = cpu->bl;
+		_framebuffer_ptr[2*(TEXT_OFFSET + offset) + 1] = cpu->al;
+	    }
+	  }
 	}
 	break;
       case 0x0e: // write char - teletype output
-	// XXX do not write attribute
-	putchar_guest(0x0f00 | cpu->al);
+	{
+	  unsigned page  = get_page(cpu->bh);
+	  unsigned pos   = get_pos(cpu->bh);
+	  unsigned value = cpu->al | (_framebuffer_ptr[2*(TEXT_OFFSET + page + pos) + 0] << 8);
+	  Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + page, pos);
+	  update_cursor(cpu->bh, ((pos / 80) << 8) | (pos % 80));
+	}
 	break;
       case 0x0f: // get video mode
-	cpu->ax = 0x5003; // 80 columns, 80x25 16color mode
-	cpu->bh = 0;      // 0 is the active page
+	cpu->ax = read_bda(0x49);
+	cpu->bh = read_bda(0x62);
 	break;
       case 0x12:
 	switch (cpu->bl)
@@ -445,8 +484,11 @@ public:
     discovery_write_dw("bda",  0x49,    3, 1); // current videomode
     discovery_write_dw("bda",  0x4a,   80, 1); // columns on screen
     discovery_write_dw("bda",  0x4c, 4000, 2); // screenbytes: 80*25*2
+    for (unsigned i=0; i < 8; i++)             // cursor positions
+      discovery_write_dw("bda",  0x50 + 2*i,    0, 2);
     discovery_write_dw("bda",  0x84,   24, 1); // rows - 1
     discovery_write_dw("bda",  0x85,   16, 1); // character height in scan-lines
+    discovery_write_dw("bda",  0x62,    0, 1); // current page address
     discovery_write_dw("bda",  0x63, _iobase + 0x14, 2); // crt address
 
 
