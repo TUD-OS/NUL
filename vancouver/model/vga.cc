@@ -210,12 +210,16 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
       case 0x09: // write char+attr
       case 0x0a: // write char only
 	{
+	  unsigned cpos = _regs.cursor_pos;
 	  unsigned short value = (cpu->bl << 8) | cpu->al;
 	  for (unsigned i=0; i < cpu->cx; i++)
+	    // XXX do not write attribute
 	    putchar_guest(value);
+	  _regs.cursor_pos = cpos;
 	}
 	break;
       case 0x0e: // write char - teletype output
+	// XXX do not write attribute
 	putchar_guest(0x0f00 | cpu->al);
 	break;
       case 0x0f: // get video mode
