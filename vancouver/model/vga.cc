@@ -43,6 +43,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   VgaRegs        _regs;
   unsigned char  _crt_index;
   unsigned       _ebda_segment;
+  unsigned       _vbe_mode;
 
   void puts_guest(const char *msg) {
     unsigned pos = _regs.cursor_pos - TEXT_OFFSET;
@@ -187,11 +188,17 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 
 	      // switch mode
 	      _regs.mode =  index;
-
-	      // XXX handle get_vesa_mode
-	      break;
+	      _vbe_mode = cpu->ebx;
 	    }
+	  else {
+	    cpu->ax = 0x024f;
+	    return true;
+	  }
 	}
+	break;
+      case 0x4f03:
+	cpu->bx = _vbe_mode;
+	break;
       case 0x4f15: // DCC
       default:
 	return false;
