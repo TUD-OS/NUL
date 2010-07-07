@@ -19,7 +19,8 @@ SConscript('SConscript')
 
 tftp_dir = ARGUMENTS.get('tftp', '')
 if tftp_dir:
-    Install(tftp_dir, Glob('bin/apps/*.nul.gz'))
+    Install(tftp_dir + '/nul/', Glob('bin/apps/*.nul.gz'))
+    Install(tftp_dir + '/tools/', Glob('bin/boot/*'))
     Alias('install', tftp_dir)
 
 # EOF
