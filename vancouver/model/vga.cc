@@ -23,9 +23,9 @@
  * A VGA compatible device.
  *
  * State: unstable
- * Features: textmode 80x25 supported, cursor
- * Missing: plenty, e.g: PCI, IRQ, VESA framebuffer
- * Documentation: FreeVGA chipset reference - vga.htm
+ * Features: textmode 80x25 supported, cursor, VESA framebuffer
+ * Missing: plenty, e.g: PCI, IRQ, many BIOS functions, 8-bit graphic modes
+ * Documentation: FreeVGA chipset reference - vga.htm, Browns IRQ List
  */
 class Vga : public StaticReceiver<Vga>, public BiosCommon
 {
