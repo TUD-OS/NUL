@@ -127,20 +127,17 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
       case 0x4f00: // vesa information
 	{
 	  Vbe::InfoBlock v;
-	  copy_in(cpu->es.base + cpu->di, &v, sizeof(v));
+	  // clear the block
+	  memset(&v, 0, sizeof(v));
+
+	  // copy in the tag
+	  copy_in(cpu->es.base + cpu->di, &v, 4);
 	  Logging::printf("VESA %x tag %x base %x+%x esi %x\n", cpu->eax, v.tag, cpu->es.base, cpu->di, cpu->esi);
 
 	  // we support VBE 2.0
 	  v.version = 0x0200;
 
-	  // add ptr to scratch area
-	  char *p = v.scratch;
-	  strcpy(p, oemstring);
-	  v.oem_string = vesa_farptr(cpu, p, &v);
-	  p += strlen(p) + 1;
-
-	  v.caps = 0;
-	  unsigned short *modes = reinterpret_cast<unsigned short *>(p);
+	  unsigned short *modes = reinterpret_cast<unsigned short *>(v.scratch);
 	  v.video_mode_ptr = vesa_farptr(cpu, modes, &v);
 
 	  // get all modes
@@ -149,16 +146,17 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	    *modes++ = info._vesa_mode;
 	  *modes++ = 0xffff;
 
+	  // set the oemstring
+	  char *p = reinterpret_cast<char *>(modes);
+	  strcpy(p, oemstring);
+	  v.oem_string = vesa_farptr(cpu, p, &v);
+	  p += strlen(p) + 1;
+	  assert (p < reinterpret_cast<char *>((&v)+1));
+
 	  v.memory = _framebuffer_size >> 16;
-	  if (v.tag == Vbe::TAG_VBE2)
-	    {
-	      v.oem_revision = 0;
-	      v.oem_vendor = 0;
-	      v.oem_product = 0;
-	      v.oem_product_rev = 0;
-	    }
+	  unsigned copy_size = (v.tag == Vbe::TAG_VBE2) ? sizeof(v) : 256;
 	  v.tag = Vbe::TAG_VESA;
-	  copy_out(cpu->es.base + cpu->di, &v, sizeof(v));
+	  copy_out(cpu->es.base + cpu->di, &v, copy_size);
 	}
 	break;
       case 0x4f01: // get modeinfo
@@ -173,7 +171,8 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      break;
 	    }
 	}
-	return false;
+	cpu->ax = 0x024f;
+	return true;
       case 0x4f02: // set vbemode
 	{
 	  ConsoleModeInfo info;
@@ -189,14 +188,12 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	      // switch mode
 	      _regs.mode =  index;
 	      _vbe_mode = cpu->ebx;
+	      break;
 	    }
-	  else {
-	    cpu->ax = 0x024f;
-	    return true;
-	  }
+	  cpu->ax = 0x024f;
+	  return true;
 	}
-	break;
-      case 0x4f03:
+      case 0x4f03: // get vbemode
 	cpu->bx = _vbe_mode;
 	break;
       case 0x4f15: // DCC
