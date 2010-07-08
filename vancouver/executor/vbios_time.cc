@@ -77,7 +77,10 @@ class VirtualBiosTime : public StaticReceiver<VirtualBiosTime>, public BiosCommo
 	  break;
 	}
       default:
-	DEBUG(msg.cpu);
+	//DEBUG(msg.cpu);
+	// PCI BIOS is handled in pcihostbridge, so don't consume the
+	// message here.
+	return false;
       }
     return true;
   }
