@@ -756,6 +756,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  if (modinfo->dma) {
 			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
 			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			  } else {
+			    Logging::printf("[%02x] DMA access denied.\n", client);
 			  }
 			  break;
 			case MessageHostOp::OP_ATTACH_IRQ:
