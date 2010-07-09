@@ -290,7 +290,6 @@ REGSET(AhciController,
  * Features: PCI cfg space, AHCI register set, MSI delivery
  */
 class AhciController : public ParentIrqProvider,
-		       public PciConfigHelper<AhciController>,
 		       public StaticReceiver<AhciController>
 {
   enum {
@@ -300,7 +299,7 @@ class AhciController : public ParentIrqProvider,
   DBus<MessageMem> &_bus_mem;
   unsigned char _irq;
   AhciPort _ports[MAX_PORTS];
-
+  unsigned _bdf;
 #define AHCI_CONTROLLER
 #define  REGBASE "../model/ahcicontroller.cc"
 #include "model/reg.h"
@@ -376,9 +375,9 @@ class AhciController : public ParentIrqProvider,
     return true;
   }
 
-  bool receive(MessagePciConfig &msg) { return PciConfigHelper<AhciController>::receive(msg); }
+  bool receive(MessagePciConfig &msg) { return PciHelper::receive(msg, this, _bdf); }
   AhciController(Motherboard &mb, unsigned char irq, unsigned bdf)
-    : PciConfigHelper<AhciController>(bdf), _bus_irqlines(mb.bus_irqlines), _bus_mem(mb.bus_mem), _irq(irq)
+    : _bus_irqlines(mb.bus_irqlines), _bus_mem(mb.bus_mem), _irq(irq), _bdf(bdf)
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memregion, &mb.bus_mem);
     PCI_reset();

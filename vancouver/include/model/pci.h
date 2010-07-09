@@ -36,22 +36,18 @@ public:
     }
     return bdf;
   }
-};
 
-/**
- * Template that forwards PCI config messages to the corresponding
- * register functions.
- */
-template <typename Y> class PciConfigHelper {
- protected:
-  unsigned char _bdf;
-public:
-  bool receive(MessagePciConfig &msg) {
-    if (msg.bdf != _bdf)    return false;
-    if (msg.type == MessagePciConfig::TYPE_WRITE)
-      return reinterpret_cast<Y *>(this)->PCI_write(msg.dword, msg.value);
+  /**
+   * Template that forwards PCI config messages to the corresponding
+   * register functions.
+   */
+  template <typename Y> static bool receive(MessagePciConfig &msg, Y *obj, unsigned bdf) {
+
+    if (msg.bdf != bdf)    return false;
+
+    if (msg.type == MessagePciConfig::TYPE_WRITE)  return obj->PCI_write(msg.dword, msg.value);
     msg.value = 0;
-    return reinterpret_cast<Y *>(this)->PCI_read(msg.dword, msg.value);
+    return obj->PCI_read(msg.dword, msg.value);
   };
- PciConfigHelper(unsigned char bdf) : _bdf(bdf) {}
+
 };

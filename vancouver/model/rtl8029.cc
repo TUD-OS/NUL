@@ -26,13 +26,13 @@
  * Missing: multicast, CRC calculation, rep optimized
  */
 #ifndef REGBASE
-class Rtl8029: public PciConfigHelper<Rtl8029>,
-	       public StaticReceiver<Rtl8029>
+class Rtl8029: public StaticReceiver<Rtl8029>
 {
   DBus<MessageNetwork> &_bus_network;
   DBus<MessageIrq>     &_bus_irqlines;
   unsigned char _irq;
   unsigned long long _mac;
+  unsigned _bdf;
   struct {
     unsigned char  cr;
     unsigned short clda;
@@ -308,11 +308,11 @@ public:
     return true;
   }
 
-  bool receive(MessagePciConfig &msg)  {  return PciConfigHelper<Rtl8029>::receive(msg); }
+  bool receive(MessagePciConfig &msg)  {  return PciHelper::receive(msg, this, _bdf); }
 
 
   Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac, unsigned bdf) :
-    PciConfigHelper<Rtl8029>(bdf), _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac)
+    _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac), _bdf(bdf)
   {
     PCI_reset();
 

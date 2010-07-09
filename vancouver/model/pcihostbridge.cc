@@ -29,7 +29,7 @@
 
 #ifndef REGBASE
 
-class PciHostBridge : public PciConfigHelper<PciHostBridge>, public DiscoveryHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
+class PciHostBridge : public DiscoveryHelper<PciHostBridge>, public StaticReceiver<PciHostBridge>
 {
 public:
   Motherboard &_mb;
@@ -137,7 +137,7 @@ public:
   }
 
 
-  bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
+  bool receive(MessagePciConfig &msg) { return PciHelper::receive(msg, this, _busnum << 8); }
   bool receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
 
@@ -231,7 +231,7 @@ public:
 
 
   PciHostBridge(Motherboard &mb, unsigned busnum, unsigned buscount, unsigned short iobase, unsigned long membase)
-    :  PciConfigHelper<PciHostBridge>(busnum << 8), _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
+    :  _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
 };
 
 PARAM(pcihostbridge,
