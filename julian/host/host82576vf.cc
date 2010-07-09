@@ -240,6 +240,9 @@ public:
     _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
     // Tell NIC about receive descriptors.
     _hwreg[RDT0] = desc_ring_len-1;
+
+    // Get each IRQ once.
+    _hwreg[VTEICS] = 7;
   }
 
 };
