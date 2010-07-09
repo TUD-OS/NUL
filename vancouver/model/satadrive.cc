@@ -400,23 +400,26 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
 	complete_command();
       }
     return true;
-  };
-  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemRegion> *bus_memregion, DBus<MessageMem> *bus_mem, unsigned hostdisk)
-    : _bus_memregion(bus_memregion), _bus_mem(bus_mem), _bus_disk(bus_disk), _hostdisk(hostdisk), _multiple(0), _ctrl(0)
-  {
+  }
 
-    MessageDisk msg(hostdisk, &_params);
-    if (!bus_disk.send(msg) || msg.error != MessageDisk::DISK_OK)
-      Logging::panic("%s could not get disk %x parameters error %x", __PRETTY_FUNCTION__, hostdisk, msg.error);
+
+  SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemRegion> *bus_memregion, DBus<MessageMem> *bus_mem, unsigned hostdisk, DiskParameter params)
+    : _bus_memregion(bus_memregion), _bus_mem(bus_mem), _bus_disk(bus_disk), _hostdisk(hostdisk), _multiple(0), _ctrl(0), _params(params)
+  {
     Logging::printf("SATA disk %x flags %x sectors %llx", hostdisk, _params.flags, _params.sectors);
   }
 };
 
 PARAM(drive,
       {
-	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, argv[0]);
-	// XXX read params from sigma0
+	DiskParameter params;
+	unsigned hostdisk = argv[0];
+	MessageDisk msg0(hostdisk, &params);
+	check0(!mb.bus_disk.send(msg0) || msg0.error != MessageDisk::DISK_OK, "%s could not get disk %x parameters error %x", __PRETTY_FUNCTION__, hostdisk, msg0.error);
+
+	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, hostdisk, params);
 	mb.bus_diskcommit.add(drive, &SataDrive::receive_static<MessageDiskCommit>);
+
 	// XXX put on SATA bus
 	MessageAhciSetDrive msg(drive, argv[2]);
 	if (!mb.bus_ahcicontroller.send(msg, argv[1]))
