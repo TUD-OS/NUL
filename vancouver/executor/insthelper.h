@@ -135,11 +135,11 @@ int helper_INTO() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; if (_cpu->efl &
   {
     void *res;
     unsigned length = 1 << operand_size;
-    _cpu->esp -= length;
-    unsigned virt = _cpu->esp;
+    unsigned virt = _cpu->esp - length;
     if (!(handle_segment(&_cpu->ss, virt, length, true)
 	  || prepare_virtual(virt, length, user_access(TYPE_W), res)))
 	move<operand_size>(res, tmp_src);
+    _cpu->esp -= length;
     return _fault;
   }
 
