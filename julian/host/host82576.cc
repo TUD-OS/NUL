@@ -80,12 +80,13 @@ private:
     uint32 status = _hwreg[STATUS];
     const char *up = (status & STATUS_LU ? "UP" : "DOWN");
     const char *speed[] = { "10", "100", "1000", "1000" };
-    msg(INFO, "%4s %sBASE-T %cD | %u VFs %s | %4d RX | %4d TX\n", up,
+    msg(INFO, "%4s %sBASE-T %cD | %u VFs | %4d RX | %4d TX\n", up,
 	speed[(status & STATUS_SPEED) >> STATUS_SPEED_SHIFT],
 	status & STATUS_FD ? 'F' : 'H',
 	(status & STATUS_NUMVF) >> STATUS_NUMVF_SHIFT,
-	status & STATUS_IOV ? "ON" : "OFF",
 	_hwreg[GPRC], _hwreg[GPTC]);
+    if ((status & STATUS_IOV) == 0)
+      msg(INFO, "SR-IOV is OFF. VFs will not work.\n");
   }
 
   static void  hexdump(const void *p, unsigned len)
