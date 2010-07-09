@@ -426,11 +426,10 @@ public:
     void *tmp_src = _entry->src;
     void *tmp_dst = _entry->dst;
 
-    if (((_entry->prefixes & 0xff) == 0xf0) && ((~_entry->flags & IC_LOCK) || (_entry->modrminfo & MRM_REG)))
-      {
-	Logging::panic("LOCK prefix %02x%02x%02x%02x at eip %x\n", _entry->data[0], _entry->data[1], _entry->data[2], _entry->data[3], _cpu->eip);
-	UD0;
-      }
+    if (((_entry->prefixes & 0xff) == 0xf0) && ((~_entry->flags & IC_LOCK) || (_entry->modrminfo & MRM_REG))) {
+      Logging::panic("LOCK prefix %02x%02x%02x%02x at eip %x:%x\n", _entry->data[0], _entry->data[1], _entry->data[2], _entry->data[3], _cpu->cs.sel, _cpu->eip);
+      UD0;
+    }
 
     Type type = TYPE_R;
     if (!(_entry->flags & (IC_DIRECTION | IC_READONLY))) type = TYPE_W;
