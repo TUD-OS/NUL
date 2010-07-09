@@ -117,15 +117,16 @@ public:
     else if (msg.port == _iobase && msg.type == MessageIOOut::TYPE_OUTL)
       // PCI spec: the lower two bits are hardwired and must return 0 when read
       _confaddress =  msg.value & ~0x3;
-    else if (in_range(msg.port, _iobase+4, 4) && _confaddress & 0x80000000)
-      {
-	unsigned value = msg.value;
-	unsigned shift = 8*(msg.port & 0x3);
-	unsigned mask = msg.type == MessageIOOut::TYPE_OUTL ? ~0u : (((1u << 8*(1<<msg.type))-1) << shift);
-	bool res;
-	if (~mask)  value = (read_pcicfg(res) & ~mask) | ((msg.value << shift) & mask);
+    else if (in_range(msg.port, _iobase+4, 4) && _confaddress & 0x80000000) {
+	unsigned long long value = 0;
+	bool res = true;
+	if (msg.type != MessageIOOut::TYPE_OUTL) value = read_pcicfg(res);
+
+	// we support unaligned dword accesses here
+	Cpu::move(reinterpret_cast<char *>(&value) + (msg.port & 3), &msg.value, msg.type);
 	MessagePciConfig msg2((_confaddress & ~0x80000000) >> 8, (_confaddress & 0xff) >> 2, value);
-	res &= send_bus(msg2);
+	if (res) res = send_bus(msg2);
+	return res;
       }
     else
       return false;
