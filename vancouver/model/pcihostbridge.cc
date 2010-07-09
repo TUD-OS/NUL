@@ -18,13 +18,12 @@
 #include "nul/motherboard.h"
 #include "model/pci.h"
 #include "executor/bios.h"
-#include <nul/types.h>
 
 /**
  * A PCI host bridge.
  *
  * State: unstable
- * Features: ConfigSpace, BusReset, MMConfig
+ * Features: ConfigSpace, BusReset, MMConfig, PCI BIOS
  * Missing: LogicalPCI bus
  */
 
@@ -170,80 +169,74 @@ public:
     return true;
   }
 
-  // PCI BIOS
-  enum {
-    // AH
-    PCI_FUNCTION_ID     = 0xB1,
-    // AL
-    PCI_BIOS_PRESENT    = 0x01,
-    FIND_PCI_DEVICE     = 0x02,
-    FIND_PCI_CLASS_CODE = 0x03,
-    READ_CONFIG_BYTE    = 0x08,
-    READ_CONFIG_WORD    = 0x09,
-    READ_CONFIG_DWORD   = 0x0A,
-    WRITE_CONFIG_BYTE   = 0x0B,
-    WRITE_CONFIG_WORD   = 0x0C,
-    WRITE_CONFIG_DWORD  = 0x0D,
-    // Return codes
-    SUCCESSFUL          = 0x00,
-    FUNC_NOT_SUPPORTED  = 0x81,
-    BAD_REGISTER_NUMBER = 0x87,
-  };
 
+  /**
+   * PCI BIOS functions.
+   */
   bool receive(MessageBios &msg) {
-    if ((msg.irq != 0x1a) || (msg.cpu->ah != PCI_FUNCTION_ID))
-      return false;
-
+    if ((msg.irq != 0x1a) || (msg.cpu->ah != 0xb1))  return false;
     msg.mtr_out |= MTD_GPR_ACDB;
 
     // Assume success
     msg.cpu->efl &= ~1;
+    msg.cpu->ah   = 0;
 
     switch (msg.cpu->al) {
-    case PCI_BIOS_PRESENT:
-      msg.cpu->edx  = 0x20494350; // 'PCI '
-      msg.cpu->ah   = SUCCESSFUL;
-      msg.cpu->al   = 3;	// Config Mechanism 1 and 2, no
-				// special cycle generation.
-      msg.cpu->bx   = 0x0210;	// PCI BIOS 2.10
-      // XXX Last bus in system. Breaks for multiple host bridges.
-      msg.cpu->cl   = _busnum;
+    case 1: // PCI_BIOS_PRESENT
+      msg.cpu->edx  = 0x20494350;// 'PCI '
+      msg.cpu->al   = 3;	 // Config Mechanism 1 and 2, no
+				 // special cycle generation.
+      msg.cpu->bx   = 0x0210;	 // version 2.10
+      msg.cpu->cl   = 0xff;      // we support 256 busses
       return true;
-    case READ_CONFIG_BYTE:
-    case READ_CONFIG_WORD:
-    case READ_CONFIG_DWORD: {
-      unsigned order      = msg.cpu->al - READ_CONFIG_BYTE;
-      uint16   offs       = msg.cpu->di;
-      unsigned byteselect = offs & 3;
-      uint32 old = msg.cpu->ecx;
+    case 0x8 ... 0xa: // READ CONFIG BYTE, WORD, DWORD
+      {
+	unsigned order      = msg.cpu->al - 0x8;
+	unsigned byteselect = msg.cpu->di & 3;
 
-      if ((offs & ((1 << order)-1)) != 0) {
-	Logging::printf("Misaligned PCI read reg %x order %u\n", offs, order);
-	goto misaligned;
+	if (byteselect >> order) {
+	  // return BAD_REGISTER_NUMBER on unaligned accesses
+	  msg.cpu->al   = 0x87;
+	  break;
+	}
+
+	MessagePciConfig mr(msg.cpu->bx, msg.cpu->di >> 2);
+	if (!send_bus(mr)) break;
+
+	Cpu::move(&msg.cpu->ecx, reinterpret_cast<char *>(&mr.value) + byteselect, order);
+	return true;
       }
+    case 0xb ... 0xd: // WRITE CONFIG BYTE, WORD, DWORD
+      {
+	unsigned order      = msg.cpu->al - 0xb;
+	unsigned byteselect = msg.cpu->di & 3;
 
-      MessagePciConfig mr(msg.cpu->bx, offs>>2);
-      if (!send_bus(mr))
-	msg.cpu->efl |= 1;
+	if (byteselect >> order) {
+	  // return BAD_REGISTER_NUMBER on unaligned accesses
+	  msg.cpu->al   = 0x87;
+	  break;
+	}
 
-      static const uint32 pmask[] = { 0xFFFFFF00U, 0xFFFF0000U, 0x00000000U };
-      uint32 value = mr.value >> (8*byteselect);
-      msg.cpu->ecx = (msg.cpu->ecx & pmask[order]) | (value & ~pmask[order]);
-      msg.cpu->ah  = SUCCESSFUL;
-      return true;
-    }
-      misaligned:
-      msg.cpu->al   = BAD_REGISTER_NUMBER;
-      goto error;
+	// read the orig word
+	MessagePciConfig msg2(msg.cpu->bx, msg.cpu->di >> 2);
+	if (!send_bus(msg2)) break;
+
+	// update the new value
+	Cpu::move(reinterpret_cast<char *>(&msg2.value) + byteselect, &msg.cpu->ecx, order);
+
+	msg2.type = MessagePciConfig::TYPE_WRITE;
+	if (!send_bus(msg2)) break;
+	return true;
+      }
     default:
       DEBUG(msg.cpu);
-      msg.cpu->ah   = FUNC_NOT_SUPPORTED;
-      // Fallthrough
+      msg.cpu->ah   = 0x81; // unsupported function
     }
-  error:
-      msg.cpu->efl |= 1;
-      return true;
+    // error
+    msg.cpu->efl |= 1;
+    return true;
   }
+
 
   void discovery() {
     unsigned length = discovery_length("MCFG", 44);
@@ -289,6 +282,7 @@ PARAM(pcihostbridge,
       "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",
       "If not iobase is given, no io-accesses are performed.",
       "Similar if membase is not given, MMCFG is disabled.")
+
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,  0x0, 0x27a08086)
