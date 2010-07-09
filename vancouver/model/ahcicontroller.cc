@@ -377,7 +377,8 @@ class AhciController : public ParentIrqProvider,
   }
 
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<AhciController>::receive(msg); }
-  AhciController(Motherboard &mb, unsigned char irq) : _bus_irqlines(mb.bus_irqlines), _bus_mem(mb.bus_mem), _irq(irq)
+  AhciController(Motherboard &mb, unsigned char irq, unsigned bdf)
+    : PciConfigHelper<AhciController>(bdf), _bus_irqlines(mb.bus_irqlines), _bus_mem(mb.bus_mem), _irq(irq)
   {
     for (unsigned i=0; i < MAX_PORTS; i++) _ports[i].set_parent(this, &mb.bus_memregion, &mb.bus_mem);
     PCI_reset();
@@ -387,11 +388,11 @@ class AhciController : public ParentIrqProvider,
 
 PARAM(ahci,
       {
-	AhciController *dev = new AhciController(mb, argv[1]);
+	AhciController *dev = new AhciController(mb, argv[1], PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
 	mb.bus_mem.add(dev, &AhciController::receive_static<MessageMem>);
 
 	// register PCI device
-	mb.bus_pcicfg.add(dev, &AhciController::receive_static<MessagePciConfig>, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
+	mb.bus_pcicfg.add(dev, &AhciController::receive_static<MessagePciConfig>);
 
 	// register for AhciSetDrive messages
 	mb.bus_ahcicontroller.add(dev, &AhciController::receive_static<MessageAhciSetDrive>);

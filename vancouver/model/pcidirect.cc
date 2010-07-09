@@ -42,7 +42,8 @@ class DirectPciDevice : public StaticReceiver<DirectPciDevice>, public HostVfPci
   };
 
   Motherboard &_mb;
-  unsigned  _bdf;
+  unsigned  _hostbdf;
+  unsigned  _guestbdf;
   unsigned  _irq_count;
   unsigned *_host_irqs;
   MsiXTableEntry *_msix_table;
@@ -214,50 +215,46 @@ private:
 
   bool receive(MessagePciConfig &msg)
   {
-    if (!msg.bdf)
-      {
-	assert(msg.dword < PCI_CFG_SPACE_DWORDS);
-	if (msg.type == MessagePciConfig::TYPE_READ)
-	  {
-	    bool internal = (msg.dword == 0) || in_range(msg.dword, 0x4, MAX_BAR);
-	    if (_msi_cap)
-	      internal = internal || in_range(msg.dword, _msi_cap, (_msi_64bit ? 4 : 3));
+    if (msg.bdf != _guestbdf) return false;
 
-	    if (internal)
-	      msg.value = _cfgspace[msg.dword];
-	    else
-	      msg.value = conf_read(_bdf, msg.dword);
+    assert(msg.dword < PCI_CFG_SPACE_DWORDS);
+    if (msg.type == MessagePciConfig::TYPE_READ) {
+      bool internal = (msg.dword == 0) || in_range(msg.dword, 0x4, MAX_BAR);
+      if (_msi_cap)
+	internal = internal || in_range(msg.dword, _msi_cap, (_msi_64bit ? 4 : 3));
 
-	    // disable multi-function devices
-	    if (msg.dword == 3)         msg.value &= ~0x800000;
-	    // we support only a single MSI vector
-	    if (msg.dword == _msi_cap)  msg.value &= ~0xe0000;
-	    //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, msg.value);
-	    return true;
-	  }
-	else
-	  {
-	    unsigned mask = ~0u;
-	    if (!msg.dword) mask = 0;
-	    if (in_range(msg.dword, BAR0, MAX_BAR)) mask = ~(_barinfo[msg.dword - BAR0].size - 1);
-	    if (_msi_cap) {
-	      if (msg.dword == _msi_cap) mask = 0x10000;  // only the MSI enable bit can be toggled
-	      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
-	      if (msg.dword == (_msi_cap + 2)) mask = ~0u;
-	      if (msg.dword == (_msi_cap + (_msi_64bit ? 3 : 2))) mask = 0xffff;
-	    }
-	    if (~mask)
-	      _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
-	    else {
-	      //write through
-	      conf_write(_bdf, msg.dword, msg.value);
-	      _cfgspace[msg.dword] = conf_read(_bdf, msg.dword);
-	    }
-	    //Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _bdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
-	  return true;
-	  }
-      }
-    return false;
+      if (internal)
+	msg.value = _cfgspace[msg.dword];
+      else
+	msg.value = conf_read(_hostbdf, msg.dword);
+
+      // disable multi-function devices
+      if (msg.dword == 3)         msg.value &= ~0x800000;
+      // we support only a single MSI vector
+      if (msg.dword == _msi_cap)  msg.value &= ~0xe0000;
+      //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _hostbdf, msg.dword, msg.value);
+      return true;
+    }
+
+    // WRITE
+    unsigned mask = ~0u;
+    if (!msg.dword) mask = 0;
+    if (in_range(msg.dword, BAR0, MAX_BAR)) mask = ~(_barinfo[msg.dword - BAR0].size - 1);
+    if (_msi_cap) {
+      if (msg.dword == _msi_cap) mask = 0x10000;  // only the MSI enable bit can be toggled
+      if (msg.dword == (_msi_cap + 1)) mask = ~3u;
+      if (msg.dword == (_msi_cap + 2)) mask = ~0u;
+      if (msg.dword == (_msi_cap + (_msi_64bit ? 3 : 2))) mask = 0xffff;
+    }
+    if (~mask)
+      _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
+    else {
+      //write through
+      conf_write(_hostbdf, msg.dword, msg.value);
+      _cfgspace[msg.dword] = conf_read(_hostbdf, msg.dword);
+    }
+    //Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _hostbdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
+    return true;
   }
 
 
@@ -362,23 +359,25 @@ private:
     return false;
   }
 
-  DirectPciDevice(Motherboard &mb, unsigned bdf, unsigned dstbdf, bool assign, bool use_irqs=true, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
-    : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _bdf(bdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_bdf))
+  DirectPciDevice(Motherboard &mb, unsigned hbdf, unsigned guestbdf, bool assign, bool use_irqs=true, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
+    : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _hostbdf(hbdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_hostbdf))
   {
+
     _vf = parent_bdf != 0;
     if (parent_bdf)
-      _bdf = bdf = vf_bdf(parent_bdf, vf_no);
-    for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_bdf, i);
+      _hostbdf = vf_bdf(parent_bdf, vf_no);
+    _guestbdf = (guestbdf == 0) ? _hostbdf : PciHelper::find_free_bdf(mb.bus_pcicfg, guestbdf);
+    for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_hostbdf, i);
 
-    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _bdf, parent_bdf ? _bdf : 0);
-    check0(assign && !mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", bdf);
+    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _hostbdf, parent_bdf ? _hostbdf : 0);
+    check0(assign && !mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", _hostbdf);
 
     unsigned long bases[HostPci::MAX_BAR];
     unsigned long sizes[HostPci::MAX_BAR];
     if (parent_bdf)
       read_all_vf_bars(parent_bdf, vf_no, bases, sizes);
     else
-      read_all_bars(_bdf, bases, sizes);
+      read_all_bars(_hostbdf, bases, sizes);
 
     map_bars(bases, sizes);
 
@@ -392,9 +391,9 @@ private:
 	_cfgspace[i + BAR0] = bases[i];
     }
 
-    _msi_cap  = use_irqs ? find_cap(_bdf, CAP_MSI) : 0;
+    _msi_cap  = use_irqs ? find_cap(_hostbdf, CAP_MSI) : 0;
     _msi_64bit = false;
-    _msix_cap = use_irqs ? find_cap(_bdf, CAP_MSIX) : 0;
+    _msix_cap = use_irqs ? find_cap(_hostbdf, CAP_MSIX) : 0;
     _msix_bar = ~0;
     _irq_count = use_irqs ? 1 : 0;
    if (_msi_cap)  {
@@ -416,9 +415,8 @@ private:
     _host_irqs = new unsigned[_irq_count];
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
-      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _bdf, i, false, _msix_host_table);
-    dstbdf = (dstbdf == 0) ? bdf : PciHelper::find_free_bdf(mb.bus_pcicfg, dstbdf);
-    mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>, dstbdf);
+      _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _hostbdf, i, false, _msix_host_table);
+    mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>);
     mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
     mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
     mb.bus_mem.add(this, &DirectPciDevice::receive_static<MessageMem>);
@@ -433,12 +431,10 @@ private:
 PARAM(dpci,
       {
 	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	unsigned bdf = pci.search_device(argv[0], argv[1], argv[2]);
-
-	check0(!bdf, "search_device(%lx,%lx,%lx) failed", argv[0], argv[1], argv[2]);
-	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], bdf);
-
-	new DirectPciDevice(mb, bdf, argv[3], argv[4], argv[5]);
+	unsigned hostbdf  = pci.search_device(argv[0], argv[1], argv[2]);
+	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], hostbdf);
+	check0(!hostbdf, "dpci device not found");
+	new DirectPciDevice(mb, hostbdf, argv[3], argv[4], argv[5]);
       },
       "dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.",
       "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",

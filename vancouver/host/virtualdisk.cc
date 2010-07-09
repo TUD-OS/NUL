@@ -92,6 +92,6 @@ PARAM(vdisk,
 					 msg.start,
 					 msg.size,
 					 msg.cmdline);
-	  mb.bus_disk.add(dev, &VirtualDisk::receive_static<MessageDisk>, mb.bus_disk.count());
+	  mb.bus_disk.add(dev, &VirtualDisk::receive_static<MessageDisk>);
 	},
       "vdisk - create virtual disks from all modules")

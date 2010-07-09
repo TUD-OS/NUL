@@ -73,6 +73,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
   // Map RX registers?
   bool _map_rx;
+  unsigned _bdf;
 
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
@@ -604,7 +605,7 @@ public:
 
   bool receive(MessagePciConfig &msg)
   {
-    if (msg.bdf) return false;
+    if (msg.bdf != _bdf) return false;
 
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:
@@ -729,16 +730,16 @@ public:
     reprogram_timer();
     return true;
   }
-    
+
 
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
 	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 	       Clock *clock, DBus<MessageTimer> &timer,
-	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx)
+	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx, unsigned bdf)
     : _mac(mac), _net(net), _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
-      _txpoll_us(txpoll_us), _map_rx(map_rx)
+      _txpoll_us(txpoll_us), _map_rx(map_rx), _bdf(bdf)
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -785,11 +786,11 @@ PARAM(82576vf,
 					     mb.clock(), mb.bus_timer,
 					     argv[0], argv[1],
 					     (argv[2] == ~0U) ? 0 : argv[2],
-					     argv[3]);
+					     argv[3],
+					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
 	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
 	mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
-	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>,
-			    PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
+	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>);
 	mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);
 	mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
 

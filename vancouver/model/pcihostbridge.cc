@@ -40,28 +40,8 @@ private:
   unsigned long  _membase;
   unsigned _confaddress;
   unsigned char _cf9;
-
 #define  REGBASE "../model/pcihostbridge.cc"
 #include "model/reg.h"
-
-  /**
-   * Send a message downstream.
-   */
-  bool send_bus(MessagePciConfig &msg)
-  {
-    unsigned bus = msg.bdf >> 8;
-    if (!in_range(bus, _busnum, _buscount))  return false;
-
-    // is it our bus?
-    if (_busnum == bus) {
-      unsigned bdf = msg.bdf; msg.bdf = 0;
-      return _mb.bus_pcicfg.send(msg, true, bdf);
-    }
-
-    // forward to subordinate busses
-    return _mb.bus_pcicfg.send(msg);
-  }
-
 
   /**
    * Read the PCI config space.
@@ -69,7 +49,7 @@ private:
   unsigned read_pcicfg(bool &res)
   {
     MessagePciConfig msg((_confaddress & ~0x80000000) >> 8, (_confaddress & 0xff) >> 2);
-    res &= send_bus(msg);
+    res &= _mb.bus_pcicfg.send(msg);
     return msg.value;
   }
 
@@ -124,7 +104,7 @@ public:
 	// we support unaligned dword accesses here
 	Cpu::move(reinterpret_cast<char *>(&value) + (msg.port & 3), &msg.value, msg.type);
 	MessagePciConfig msg2((_confaddress & ~0x80000000) >> 8, (_confaddress & 0xff) >> 2, value);
-	if (res) res = send_bus(msg2);
+	if (res) res = _mb.bus_pcicfg.send(msg2);
 	return res;
       }
     else
@@ -146,20 +126,18 @@ public:
     // write
     if (!msg.read) {
       MessagePciConfig msg1(bdf, dword, *msg.ptr);
-      return send_bus(msg1);
+      return _mb.bus_pcicfg.send(msg1);
     }
 
     // read
     MessagePciConfig msg2(bdf, dword);
-    if (!send_bus(msg2)) return false;
+    if (!_mb.bus_pcicfg.send(msg2)) return false;
     *msg.ptr = msg2.value;
     return true;
   }
 
 
   bool receive(MessagePciConfig &msg) { return PciConfigHelper<PciHostBridge>::receive(msg); }
-
-
   bool receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
 
@@ -184,8 +162,7 @@ public:
     switch (msg.cpu->al) {
     case 1: // PCI_BIOS_PRESENT
       msg.cpu->edx  = 0x20494350;// 'PCI '
-      msg.cpu->al   = 3;	 // Config Mechanism 1 and 2, no
-				 // special cycle generation.
+      msg.cpu->al   = 1;	 // config mechanism 1 only without special cycles
       msg.cpu->bx   = 0x0210;	 // version 2.10
       msg.cpu->cl   = 0xff;      // we support 256 busses
       return true;
@@ -201,7 +178,7 @@ public:
 	}
 
 	MessagePciConfig mr(msg.cpu->bx, msg.cpu->di >> 2);
-	if (!send_bus(mr)) break;
+	if (!_mb.bus_pcicfg.send(mr)) break;
 
 	Cpu::move(&msg.cpu->ecx, reinterpret_cast<char *>(&mr.value) + byteselect, order);
 	return true;
@@ -219,13 +196,13 @@ public:
 
 	// read the orig word
 	MessagePciConfig msg2(msg.cpu->bx, msg.cpu->di >> 2);
-	if (!send_bus(msg2)) break;
+	if (!_mb.bus_pcicfg.send(msg2)) break;
 
 	// update the new value
 	Cpu::move(reinterpret_cast<char *>(&msg2.value) + byteselect, &msg.cpu->ecx, order);
 
 	msg2.type = MessagePciConfig::TYPE_WRITE;
-	if (!send_bus(msg2)) break;
+	if (!_mb.bus_pcicfg.send(msg2)) break;
 	return true;
       }
     default:
@@ -254,7 +231,7 @@ public:
 
 
   PciHostBridge(Motherboard &mb, unsigned busnum, unsigned buscount, unsigned short iobase, unsigned long membase)
-    :  _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
+    :  PciConfigHelper<PciHostBridge>(busnum << 8), _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
 };
 
 PARAM(pcihostbridge,
@@ -274,7 +251,7 @@ PARAM(pcihostbridge,
 	  mb.bus_discovery.add(dev, &DiscoveryHelper<PciHostBridge>::receive);
 	}
 
-	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>, busnum << 8);
+	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>);
 	mb.bus_legacy.add(dev, &PciHostBridge::receive_static<MessageLegacy>);
 	mb.bus_bios.add  (dev, &PciHostBridge::receive_static<MessageBios>);
       },

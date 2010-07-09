@@ -311,8 +311,8 @@ public:
   bool receive(MessagePciConfig &msg)  {  return PciConfigHelper<Rtl8029>::receive(msg); }
 
 
-  Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac) :
-    _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac)
+  Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac, unsigned bdf) :
+    PciConfigHelper<Rtl8029>(bdf), _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac)
   {
     PCI_reset();
 
@@ -338,8 +338,8 @@ PARAM(rtl8029,
 	if (!mb.bus_hostop.send(msg))
 	  Logging::printf("Could not get an UID");
 	unsigned long long prefix = ~argv[3] ? argv[3] : 0x0050C200;
-	Rtl8029 *dev = new Rtl8029(mb.bus_network, mb.bus_irqlines, argv[1], (prefix << 16) | msg.value);
-	mb.bus_pcicfg.add (dev, &Rtl8029::receive_static<MessagePciConfig>, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
+	Rtl8029 *dev = new Rtl8029(mb.bus_network, mb.bus_irqlines, argv[1], (prefix << 16) | msg.value, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
+	mb.bus_pcicfg.add (dev, &Rtl8029::receive_static<MessagePciConfig>);
 	mb.bus_ioin.add   (dev, &Rtl8029::receive_static<MessageIOIn>);
 	mb.bus_ioout.add  (dev, &Rtl8029::receive_static<MessageIOOut>);
 	mb.bus_network.add(dev, &Rtl8029::receive_static<MessageNetwork>);

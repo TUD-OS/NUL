@@ -42,7 +42,6 @@ class DBus
   typedef bool (*ReceiveFunction)(Device *, M&);
   struct Entry
   {
-    unsigned _tag;
     Device *_dev;
     ReceiveFunction _func;
   };
@@ -67,28 +66,24 @@ class DBus
   };
 public:
 
-  void add(Device *dev, ReceiveFunction func, unsigned tag = ~0u)
+  void add(Device *dev, ReceiveFunction func)
   {
     if (_list_count >= _list_size)
       set_size(_list_size > 0 ? _list_size * 2 : 1);
     _list[_list_count]._dev    = dev;
     _list[_list_count]._func = func;
-    _list[_list_count]._tag = tag;
     _list_count++;
   }
 
   /**
    * Send message LIFO.
    */
-  bool  send(M &msg, bool earlyout = false, unsigned tag = ~0u)
+  bool  send(M &msg, bool earlyout = false)
   {
     _debug_counter++;
     bool res = false;
     for (unsigned i = _list_count; i-- && !(earlyout && res);)
-      {
-	if (tag == ~0u || _list[i]._tag == tag)
-	  res |= _list[i]._func(_list[i]._dev, msg);
-      }
+      res |= _list[i]._func(_list[i]._dev, msg);
     return res;
   }
 
@@ -135,7 +130,7 @@ public:
     Logging::printf("%s: Bus used %ld times.", __PRETTY_FUNCTION__, _debug_counter);
     for (unsigned i = 0; i < _list_count; i++)
       {
-	Logging::printf("\n%2d:   (%2d)\t", i, _list[i]._tag);
+	Logging::printf("\n%2d:\t", i);
 	_list[i]._dev->debug_dump();
       }
     Logging::printf("\n");

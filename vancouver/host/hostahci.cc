@@ -381,7 +381,7 @@ class HostAhci : public StaticReceiver<HostAhci>
 	    Logging::printf("AHCI: port %x init failed\n", nr);
 	  }
 	else
-	  bus_disk.add(_ports[nr], &HostAhciPort::receive_static<MessageDisk>, bus_disk.count());
+	  bus_disk.add(_ports[nr], &HostAhciPort::receive_static<MessageDisk>);
       }
   }
 
