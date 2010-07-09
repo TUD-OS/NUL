@@ -50,8 +50,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     MAXPCIDIRECT       = 64,
     MAXMODULES         = 64,
     CPUGSI             = 0,
-    MEM_OFFSET         = 1ul << 31
+    MEM_OFFSET         = 1ul << 31,
+    TRACE_BUF_SIZE     = 1ul << 17,
   };
+
+  unsigned _trace_pos;
+  char     _trace_buf[TRACE_BUF_SIZE];
 
   // a mapping from virtual cpus to the physical numbers
   unsigned  _cpunr[MAXCPUS];
@@ -677,6 +681,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
 	  )
 
+  void trace_puts(const char *s, unsigned l)
+  {
+    for (unsigned i = 0; l && s[i] ; i++, l--)
+      _trace_buf[(_trace_pos++) % TRACE_BUF_SIZE] = s[i];
+  }
 
   PT_FUNC(do_request,
 	  unsigned short client = (pid & 0xffe0) >> 5;
@@ -695,8 +704,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		    {
 		      char * buffer = reinterpret_cast<PutsRequest *>(utcb->msg+1)->buffer;
 		      if (convert_client_ptr(modinfo, buffer, 4096)) return false;;
-		      if (modinfo->log)
-			Logging::printf("[%02x, %lx] %.*s\n",  client, _console_data[client].console, sizeof(utcb->msg)-1, buffer);
+		      if (modinfo->log) {
+			char label[32];
+			Logging::snprintf(label, sizeof(label), "[%02x, %lx] ", client, _console_data[client].console);
+			trace_puts(label, sizeof(label));
+			trace_puts(buffer, sizeof(utcb->msg)-sizeof(utcb->msg[0]));
+			trace_puts("\n", 1);
+		      }
+
 		      utcb->msg[0] = 0;
 		      break;
 		    }
@@ -1283,8 +1298,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case 2:
 	Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
 	break;
-      case 3:
-	if (msg.id == 3) {
+      case 3: {
 	  static unsigned unmap_count;
 	  unmap_count--;
 	  for (unsigned i = 1; i <= MAXMODULES; i++)
@@ -1293,7 +1307,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      Logging::printf("revoke all rights %x\n", rights);
 	      revoke_all_mem(_modinfo[i].mem, _modinfo[i].physsize, rights, false);
 	    }
-	}
+      }
+	break;
+      case 4:
+	Logging::printf("Trace buffer at %x bytes (%x).\n\n", _trace_pos, TRACE_BUF_SIZE);
+	Logging::printf("%.*s", TRACE_BUF_SIZE - (_trace_pos % TRACE_BUF_SIZE), _trace_buf + (_trace_pos % TRACE_BUF_SIZE));
+	if (_trace_pos % TRACE_BUF_SIZE) Logging::printf("%.*s", _trace_pos % TRACE_BUF_SIZE, _trace_buf);
+	Logging::printf("\nEOF trace buffer\n\n");
 	break;
       }
       Logging::printf("DEBUG(%x) = %x\n", msg.id, nova_syscall2(254, msg.id));
@@ -1460,7 +1480,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
+  Sigma0() :  _trace_pos(0), _trace_buf(), _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
 
