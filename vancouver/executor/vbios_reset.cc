@@ -249,6 +249,9 @@ public:
     switch(msg.irq) {
     case RESET_VECTOR:
       return reset_helper(msg);
+    case 0x18:
+      Logging::printf("INT18 - new try\n");
+      return jmp_int(msg, 0x19);
     default:    return false;
     }
   }
