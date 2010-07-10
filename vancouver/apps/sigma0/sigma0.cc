@@ -384,7 +384,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Request memory from the memmap.
    */
-  static void *sigma0_memalign(unsigned long size, unsigned long align) {
+  static void *sigma0_memalloc(unsigned long size, unsigned long align) {
     if (!size) return 0;
     if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
 
@@ -431,7 +431,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _free_phys.del(Region(0, 1<<20));
 
     // switch to another allocator
-    memalign = sigma0_memalign;
+    memalloc = sigma0_memalloc;
     return 0;
   }
 

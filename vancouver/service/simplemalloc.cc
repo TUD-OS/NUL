@@ -23,7 +23,7 @@
 /**
  * Alloc memory from a mempool defined in the linker script.
  */
-void *memalign_mempool(unsigned long size, unsigned long align)
+void *memalloc_mempool(unsigned long size, unsigned long align)
 {
   // align needs to be a power of two
   assert(!(align & (align - 1)));
@@ -38,15 +38,15 @@ void *memalign_mempool(unsigned long size, unsigned long align)
 }
 
 
-void free_mempool(void *) { /* simplemalloc is simple, so we leak the memory here */ }
+void memfree_mempool(void *) { /* simplemalloc is simple, so we leak the memory here */ }
 
 
 
 // External interface
-void *(*memalign)(unsigned long size, unsigned long align) = memalign_mempool;
-void * operator new(unsigned size)   { return memalign(size, 0); }
-void * operator new[](unsigned size) { return memalign(size, 0); }
-void * operator new[](unsigned size, unsigned alignment) { return memalign(size, alignment); }
-void (*free)(void *ptr) = free_mempool;
-void   operator delete(void *ptr)    { free(ptr); }
-void   operator delete[](void *ptr)  { free(ptr);  }
+void *(*memalloc)(unsigned long size, unsigned long align) = memalloc_mempool;
+void * operator new(unsigned size)   { return memalloc(size, 0); }
+void * operator new[](unsigned size) { return memalloc(size, 0); }
+void * operator new[](unsigned size, unsigned alignment) { return memalloc(size, alignment); }
+void (*memfree)(void *ptr) = memfree_mempool;
+void   operator delete(void *ptr)    { memfree(ptr); }
+void   operator delete[](void *ptr)  { memfree(ptr);  }
