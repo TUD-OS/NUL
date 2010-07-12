@@ -375,7 +375,7 @@ opcodes += [(x, ["DIRECTION"], [
 	    "xorl %%2, %%2;"
 	    "2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;"
 	    "\" : \"+a\"(eax), \"+d\"(edx), \"+c\"(tmp_src))"%x,
-	    "if (tmp_src) DE0",
+	    "if (tmp_src) DE0(cache)",
 	    "cache->_cpu->eax = eax",
 	    "cache->_cpu->edx = edx",
 	    ]) for x in ["div", "idiv", "mul"]]

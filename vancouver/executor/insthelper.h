@@ -971,7 +971,7 @@ int fix_byte_flags() {
 
 
 int helper_AAM(unsigned char imm) {
-  if (!imm) EXCEPTION0(this, 0x0);
+  if (!imm) DE0(this);
   _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
   _cpu->ax = ((_cpu->al / imm) << 8) | (_cpu->al % imm);
   return fix_byte_flags();

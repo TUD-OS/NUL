@@ -2999,7 +2999,7 @@ static void __attribute__ ((regparm (3))) exec_f620_mul_0 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mulb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3029,7 +3029,7 @@ static void __attribute__ ((regparm (3))) exec_f630_div_0 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3039,7 +3039,7 @@ static void __attribute__ ((regparm (3))) exec_f638_idiv_0 (InstructionCache * c
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivb (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3074,7 +3074,7 @@ static void __attribute__ ((regparm (3))) exec_f720_mul_1 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mulw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3084,7 +3084,7 @@ static void __attribute__ ((regparm (3))) exec_f720_mul_2 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;mull (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3134,7 +3134,7 @@ static void __attribute__ ((regparm (3))) exec_f730_div_1 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3144,7 +3144,7 @@ static void __attribute__ ((regparm (3))) exec_f730_div_2 (InstructionCache * ca
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;divl (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3154,7 +3154,7 @@ static void __attribute__ ((regparm (3))) exec_f738_idiv_1 (InstructionCache * c
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivw (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }
@@ -3164,7 +3164,7 @@ static void __attribute__ ((regparm (3))) exec_f738_idiv_2 (InstructionCache * c
   unsigned edx = cache->_cpu->edx, eax = cache->_cpu->eax;;
   asm volatile ("1: ;idivl (%2);xorl %2, %2;2: ; .section .data.fixup2; .long 1b, 2b, 2b-1b; .previous;":"+a" (eax), "+d" (edx), "+c" (tmp_src));
   if (tmp_src)
-    DE0;
+    DE0 (cache);
   cache->_cpu->eax = eax;
   cache->_cpu->edx = edx;
 }

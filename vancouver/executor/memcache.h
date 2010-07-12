@@ -26,7 +26,7 @@
 #define RETRY         { return (FAULT(this, FAULT_RETRY)); }
 #define EXCEPTION0(NAME, NR) { NAME->_error_code = 0; FAULT(NAME, 0x80000300 | NR); }
 #define EXCEPTION(NAME, NR, ERROR) { NAME->_error_code = ERROR; FAULT(NAME, 0x80000b00 | NR); }
-#define DE0   { EXCEPTION0(cache, 0x0); }
+#define DE0(X) { EXCEPTION0(X, 0x0); }
 #define UD0   { EXCEPTION0(this, 0x6); return _fault; }
 #define NP(X) { EXCEPTION(this, 0xb, X); return _fault; }
 #define SS(X) { EXCEPTION(this, 0xc, X); return _fault; }
