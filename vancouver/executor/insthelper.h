@@ -972,12 +972,14 @@ int fix_byte_flags() {
 
 int helper_AAM(unsigned char imm) {
   if (!imm) EXCEPTION0(this, 0x0);
-  _cpu->ax = ((_cpu->ax / imm) << 8) | (_cpu->ax % imm);
+  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
+  _cpu->ax = ((_cpu->al / imm) << 8) | (_cpu->al % imm);
   return fix_byte_flags();
 }
 
 int helper_AAD(unsigned char imm) {
-  _cpu->ax = (_cpu->ax + ((_cpu->ax >> 8)) * imm) & 0xff;
+  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
+  _cpu->ax = (_cpu->al + (_cpu->ah * imm)) & 0xff;
   fix_byte_flags();
   return fix_byte_flags();
 }
