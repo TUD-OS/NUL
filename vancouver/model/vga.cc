@@ -279,9 +279,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	  unsigned pos   = get_pos(cpu->bh);
 	  unsigned value = ((_framebuffer_ptr[2*(TEXT_OFFSET + page + pos) + 1] & 0xff) << 8);
 
-	  // this is a workaround: since we use 0 as default attribute Linux output would be invisible
-	  if (!value)  value = 0x700;
-
 	  value |= cpu->al;
 	  Screen::vga_putc(value, reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + page, pos);
 	  update_cursor(cpu->bh, ((pos / 80) << 8) | (pos % 80));
