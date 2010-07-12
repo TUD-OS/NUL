@@ -338,7 +338,7 @@ def add_helper(l, flags, params):
 	if "NO_OS" not in flags: name += "<[os]>"
 	opcodes.append((x, flags, ["cache->helper_%s(%s)"%(name, params or "")]))
 add_helper(["push", "lret", "ret"],                              ["DIRECTION"], "tmp_src")
-add_helper(["int"],                                              ["NO_OS"], "tmp_src")
+add_helper(["int", "aad", "aam"],                                ["NO_OS"], "*reinterpret_cast<unsigned char *>(tmp_src)")
 add_helper(["ljmp", "lcall", "call", "jmp",  "jecxz", "loop", "loope", "loopne"],
 	   ["JMP", "DIRECTION"], "tmp_src")
 add_helper(["in", "out"],                                        [],       "*reinterpret_cast<[IMMU] *>(tmp_src), &cache->_cpu->eax")
@@ -356,7 +356,6 @@ add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit"
 add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM", "CPL0"], "")
 add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
 add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "");
-add_helper(["aad", "aam"], ["NO_OS"], "*reinterpret_cast<unsigned char *>(tmp_src)")
 
 stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "ins" : "SH_SAVE_EDI | SH_DOOP_IN",

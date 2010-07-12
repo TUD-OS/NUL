@@ -894,7 +894,7 @@ int idt_traversal(unsigned event, unsigned error_code)
 }
 
 
-int helper_INT(void *tmp_src) { return idt_traversal(0x80000600 | *reinterpret_cast<unsigned char *>(tmp_src), 0); }
+int helper_INT(unsigned char vector) { return idt_traversal(0x80000600 | vector, 0); }
 int helper_INVLPG() { return _fault; }
 int helper_FWAIT()                              { return _fault; }
 int helper_MOV__DB0__EDX()

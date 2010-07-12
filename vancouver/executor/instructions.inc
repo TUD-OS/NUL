@@ -2528,7 +2528,7 @@ static void __attribute__ ((regparm (3))) exec_cc_int3_0 (InstructionCache * cac
 
 static void __attribute__ ((regparm (3))) exec_cd_int_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
-  cache->helper_INT (tmp_src);
+  cache->helper_INT (*reinterpret_cast < unsigned char *>(tmp_src));
 }
 
 static void __attribute__ ((regparm (3))) exec_ce_into_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
