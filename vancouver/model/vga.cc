@@ -78,7 +78,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   }
 
 
-
   bool handle_reset()
   {
     _regs.offset       = TEXT_OFFSET;
@@ -237,19 +236,16 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	{
 	  unsigned char current_page = read_bda(0x62);
 	  unsigned short *base = reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + get_page(current_page);
-
 	  unsigned rows = (cpu->al == 0) ? 25 : cpu->al;
-	  unsigned char attr = cpu->bh;
-
-	  for (unsigned row = cpu->ch; row <= cpu->dh; row++)
-	    for (unsigned col = cpu->cl; col <= cpu->dl; col++)
-	      if ((row + rows) > cpu->dh)
-		base[row*80 + col] = attr << 8;
+	  unsigned maxrow = cpu->dh < 25 ? cpu->dh : 25;
+	  for (unsigned row = cpu->ch; row < maxrow; row++)
+	    for (unsigned col = cpu->cl; col < 80 && col <= cpu->dl; col++)
+	      if ((row + rows) >= maxrow)
+		base[row*80 + col] = cpu->bh << 8;
 	      else
 		base[row*80 + col] = base[(row + rows)*80 + col];
-
-	  break;
 	}
+	break;
       case 0x08: // read character attributes
 	{
 	  unsigned page = get_page(cpu->bh);
