@@ -2766,6 +2766,11 @@ static void __attribute__ ((regparm (3))) exec_d5_aad_0 (InstructionCache * cach
   cache->helper_AAD (*reinterpret_cast < unsigned char *>(tmp_src));
 }
 
+static void __attribute__ ((regparm (3))) exec_d7_xlat_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_XLAT ();
+}
+
 static void __attribute__ ((regparm (3))) exec_d938_fnstcw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   if (cache->_cpu->cr0 & 0xc)
@@ -6581,8 +6586,11 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0xd7:
 	    {
-/* instruction2 'xlat' ['d7'] ['BYTE'] */ ;
-	      UNIMPLEMENTED (this);
+/* instruction2 'xlat' ['d7'] ['NO_OS', 'BYTE'] */ ;
+	      entry->flags = IC_BYTE;
+	      {
+		entry->execute = exec_d7_xlat_0;
+	      };
 	      break;
 	    }
 	  case 0xd9:

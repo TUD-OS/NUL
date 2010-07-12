@@ -351,7 +351,7 @@ add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP
 add_helper(["ltr", "lldt"],                                      ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
 add_helper(["lmsw"],                                             ["NO_OS", "OS1", "DIRECTION", "CPL0"], "*reinterpret_cast<unsigned short *>(tmp_src)")
 add_helper(["hlt", "clts", "wbinvd",  "invd"], ["NO_OS", "CPL0"], "")
-add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit"], ["NO_OS"], "")
+add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit", "xlat"], ["NO_OS"], "")
 
 add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM", "CPL0"], "")
 add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
@@ -434,7 +434,6 @@ opcodes += [(x, [], []) for x in [
 	"arpl", "bound", "enter",
 	"lar",  "lsl",
 	"rsm", "verr", "verw",
-	"xlat",
 	"getsec"]]
 
 # "salc" - 0xd6

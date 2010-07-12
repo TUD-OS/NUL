@@ -984,3 +984,12 @@ int helper_AAD(unsigned char imm) {
   return fix_byte_flags();
 }
 
+
+int helper_XLAT() {
+  void *dst = 0;
+  if (!logical_mem<0>(&_cpu->ds, _cpu->ebx + _cpu->al, false, dst)) {
+    _mtr_out |= MTD_GPR_ACDB;
+    move<0>(&_cpu->eax, dst);
+  }
+  return _fault;
+}
