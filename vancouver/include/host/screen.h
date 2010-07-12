@@ -18,23 +18,8 @@
 #pragma once
 #include "service/string.h"
 
-class Screen
+struct Screen
 {
- public:
-
-  /**
-   * Scrolls the VGA screen contents up. Does not update cursor position.
-   */
-  static void vga_scroll_up(unsigned short *base, unsigned rows,
-			    unsigned char attr)
-  {
-    if (rows > 25) rows = 25;
-    memmove(base, base + (rows*80), (25-rows)*80*2);
-    unsigned short *clear = base + (25 - rows)*80;
-    for (unsigned i = 0; i < 80*rows; i++)
-      clear[i] = attr << 8;
-  }
-
   /**
    * Put a single char to the VGA monitor.
    */
@@ -59,10 +44,12 @@ class Screen
       default:
 	visible = true;
       }
+
     // scroll?
     if (pos >= 25*80) {
-	vga_scroll_up(base, 1, 0x07);
-	pos = 24*80;
+      memmove(base, base + 80, 24*80*2);
+      pos = 24*80;
+      for (unsigned i = 0; i < 80; i++) base[pos + i] = 0x0700;
     }
     if (visible) base[pos++] =  value;
   }
