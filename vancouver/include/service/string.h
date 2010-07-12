@@ -46,7 +46,6 @@ static inline void * memmove(void *dst, const void *src, unsigned long count) {
 }
 
 
-
 static inline void * memset(void *dst, int c, unsigned long count) {
 
   void *res = dst;
@@ -83,11 +82,13 @@ static inline unsigned long strnlen(const char *src, unsigned long maxlen) {
 
 
 static inline unsigned long strlen(const char *src) { return strnlen(src, ~0ul); }
-
-
-static inline char * strcpy(char *dst, const char *src) {
+static inline char * strcpy(char *dst, const char *src)  {
   char *res = dst;
-  asm volatile ("1: lodsb; test %%al, %%al; stosb; jnz 1b;  " : "+D"(dst), "+S"(src) : : "eax", "memory", "cc");
+  unsigned char ch;
+  do {
+    ch = *src++;
+    *dst++ = ch;
+  } while (ch);
   return res;
 }
 
