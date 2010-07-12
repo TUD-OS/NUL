@@ -2756,6 +2756,16 @@ static void __attribute__ ((regparm (3))) exec_d338_sar_2 (InstructionCache * ca
   asm volatile ("xchg %edx, %ecx;movb (%ecx),%cl;sarl %cl, (%edx)");
 }
 
+static void __attribute__ ((regparm (3))) exec_d4_aam_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_AAM (*reinterpret_cast < unsigned char *>(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_d5_aad_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_AAD (*reinterpret_cast < unsigned char *>(tmp_src));
+}
+
 static void __attribute__ ((regparm (3))) exec_d938_fnstcw_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   if (cache->_cpu->cr0 & 0xc)
@@ -4153,7 +4163,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	      };
 	      break;
 	    }
-	  case 0x40 ... 0x47:
+	  case 0x40  ...  0x47:
 	    {
 /* instruction2 'inc' ['41'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4168,7 +4178,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x48 ... 0x4f:
+	  case 0x48  ...  0x4f:
 	    {
 /* instruction2 'dec' ['49'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4183,7 +4193,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x50 ... 0x57:
+	  case 0x50  ...  0x57:
 	    {
 /* instruction2 'push' ['51'] ['DIRECTION', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4198,7 +4208,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x58 ... 0x5f:
+	  case 0x58  ...  0x5f:
 	    {
 /* instruction2 'pop' ['59'] ['IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -5289,7 +5299,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x90 ... 0x97:
+	  case 0x90  ...  0x97:
 	    {
 /* instruction2 'xchg' ['92'] ['ASM', 'RMW', 'EAX', 'IMPL', 'DIRECTION'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -5599,7 +5609,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0xb0 ... 0xb7:
+	  case 0xb0  ...  0xb7:
 	    {
 /* instruction2 'mov' ['b2'] ['ASM', 'IMM1', 'IMPL', 'BYTE'] */ ;
 	      fetch_code (entry, 1);
@@ -5612,7 +5622,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	      };
 	      break;
 	    }
-	  case 0xb8 ... 0xbf:
+	  case 0xb8  ...  0xbf:
 	    {
 /* instruction2 'mov' ['ba'] ['ASM', 'IMMO', 'IMPL'] */ ;
 	      ;
@@ -6549,14 +6559,24 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0xd4:
 	    {
-/* instruction2 'aam' ['d4'] ['IMM1'] */ ;
-	      UNIMPLEMENTED (this);
+/* instruction2 'aam' ['d4'] ['NO_OS', 'IMM1'] */ ;
+	      fetch_code (entry, 1);
+	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
+	      entry->src = &entry->immediate;
+	      {
+		entry->execute = exec_d4_aam_0;
+	      };
 	      break;
 	    }
 	  case 0xd5:
 	    {
-/* instruction2 'aad' ['d5'] ['IMM1'] */ ;
-	      UNIMPLEMENTED (this);
+/* instruction2 'aad' ['d5'] ['NO_OS', 'IMM1'] */ ;
+	      fetch_code (entry, 1);
+	      entry->immediate = *reinterpret_cast < char *>(entry->data + entry->inst_len - 1);
+	      entry->src = &entry->immediate;
+	      {
+		entry->execute = exec_d5_aad_0;
+	      };
 	      break;
 	    }
 	  case 0xd7:
@@ -9167,7 +9187,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0xc8 ... 0xcf:
+	  case 0xc8  ...  0xcf:
 	    {
 /* instruction2 'bswap' ['0f', 'c9'] ['NO_OS', 'ASM', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);

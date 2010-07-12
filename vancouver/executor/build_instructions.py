@@ -356,6 +356,7 @@ add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit"
 add_helper(["invlpg"], ["NO_OS", "MEMONLY", "SKIPMODRM", "CPL0"], "")
 add_helper(["mov %db0,%edx", "mov %edx,%db0"], ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
 add_helper(["fxsave", "frstor"], ["SKIPMODRM", "NO_OS"], "");
+add_helper(["aad", "aam"], ["NO_OS"], "*reinterpret_cast<unsigned char *>(tmp_src)")
 
 stringops = {"cmps": "SH_LOAD_ESI | SH_LOAD_EDI | SH_DOOP_CMP",
 	     "ins" : "SH_SAVE_EDI | SH_DOOP_IN",
@@ -431,7 +432,7 @@ opcodes += [(x, [], []) for x in ["sysenter", "sysexit", "monitor", "mwait"]]
 opcodes += [(x, [], []) for x in ["rdpmc"]]
 opcodes += [(x, ["RMW"], []) for x in ["cmpxchg8b"]]
 opcodes += [(x, [], []) for x in [
-	"aad", "aam","arpl", "bound", "enter",
+	"arpl", "bound", "enter",
 	"lar",  "lsl",
 	"rsm", "verr", "verw",
 	"xlat",
