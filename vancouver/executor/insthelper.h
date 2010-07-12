@@ -328,6 +328,20 @@ helper_SDT(SGDT,gd, MTD_GDTR)
     _vcpu->executor.send(msg, true);
   }
 
+/**
+ * Calc the flags for an operation.
+ */
+int calc_flags(unsigned operand_size, void *src, void *dst) {
+  InstructionCacheEntry entry2;
+  entry2.execute = operand_size == 0 ? exec_38_cmp_0 : (operand_size == 1 ? exec_39_cmp_1 : exec_39_cmp_2);
+  entry2.flags = IC_SAVEFLAGS;
+  InstructionCacheEntry *old = _entry;
+  _entry = &entry2;
+  call_asm(src, dst);
+  _entry = old;
+  return _fault;
+}
+
 
   enum STRING_HELPER_FEATURES
   {
@@ -354,16 +368,7 @@ helper_SDT(SGDT,gd, MTD_GDTR)
 	FEATURE(SH_LOAD_EDI, NCHECK(logical_mem<operand_size>(&_cpu->es, _cpu->edi, false, dst)));
 	FEATURE(SH_DOOP_IN,  helper_IN<operand_size>(_cpu->dx, dst));
 	FEATURE(SH_DOOP_OUT, helper_OUT<operand_size>(_cpu->dx, src));
-	FEATURE(SH_DOOP_CMP, {
-	    InstructionCacheEntry entry2;
-	    entry2.execute = operand_size == 0 ? exec_38_cmp_0 : (operand_size == 1 ? exec_39_cmp_1 : exec_39_cmp_2);
-	    entry2.flags = IC_SAVEFLAGS;
-	    InstructionCacheEntry *old = _entry;
-	    _entry = &entry2;
-	    call_asm(src, dst);
-	    _entry = old;
-	  }
-	  );
+	FEATURE(SH_DOOP_CMP, calc_flags(operand_size, src, dst); );
 	FEATURE(SH_SAVE_EDI, NCHECK(logical_mem<operand_size>(&_cpu->es, _cpu->edi, true, dst)));
 	FEATURE(SH_SAVE_EDI | SH_SAVE_EAX, move<operand_size>(dst, src));
 	int size = 1 << operand_size;
@@ -957,31 +962,19 @@ int helper_FRSTOR()
 }
 
 
-int fix_byte_flags() {
-  InstructionCacheEntry entry2;
-  entry2.execute = exec_38_cmp_0;
-  entry2.flags = IC_SAVEFLAGS;
-  InstructionCacheEntry *old = _entry;
-  _entry = &entry2;
-  unsigned zero = 0;
-  call_asm(&_cpu->eax, &zero);
-  _entry = old;
-  return _fault;
-}
-
-
 int helper_AAM(unsigned char imm) {
   if (!imm) DE0(this);
-  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
   _cpu->ax = ((_cpu->al / imm) << 8) | (_cpu->al % imm);
-  return fix_byte_flags();
+  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
+  unsigned zero = 0;
+  return calc_flags(0, &_cpu->eax, &zero);
 }
 
 int helper_AAD(unsigned char imm) {
-  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
   _cpu->ax = (_cpu->al + (_cpu->ah * imm)) & 0xff;
-  fix_byte_flags();
-  return fix_byte_flags();
+  _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
+  unsigned zero = 0;
+  return calc_flags(0, &_cpu->eax, &zero);
 }
 
 
