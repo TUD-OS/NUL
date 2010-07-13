@@ -237,10 +237,10 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	  unsigned char current_page = read_bda(0x62);
 	  unsigned short *base = reinterpret_cast<unsigned short *>(_framebuffer_ptr) + TEXT_OFFSET + get_page(current_page);
 	  unsigned rows = (cpu->al == 0) ? 25 : cpu->al;
-	  unsigned maxrow = cpu->dh < 25 ? cpu->dh : 25;
-	  for (unsigned row = cpu->ch; row < maxrow; row++)
+	  unsigned maxrow = cpu->dh < 25 ? cpu->dh : 24;
+	  for (unsigned row = cpu->ch; row <= maxrow; row++)
 	    for (unsigned col = cpu->cl; col < 80 && col <= cpu->dl; col++)
-	      if ((row + rows) >= maxrow)
+	      if ((row + rows) > maxrow)
 		base[row*80 + col] = cpu->bh << 8;
 	      else
 		base[row*80 + col] = base[(row + rows)*80 + col];
