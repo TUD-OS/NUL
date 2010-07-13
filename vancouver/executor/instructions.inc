@@ -935,7 +935,14 @@ static void __attribute__ ((regparm (3))) exec_0fb5_lgs_2 (InstructionCache * ca
   cache->helper_loadsegment < 2 > (&cache->_cpu->gs);
 }
 
-static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned dummy;
+  tmp_dst = cache->get_reg32 ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7);
+  asm volatile ("movl (%2), %0; data16 movzxb (%1), %0; mov %0, (%2)":"=a" (dummy), "+d" (tmp_src), "+c" (tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_0fb6_movzxb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned dummy;
   tmp_dst = cache->get_reg32 ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7);
@@ -1026,7 +1033,14 @@ static void __attribute__ ((regparm (3))) exec_0fbd_bsr_2 (InstructionCache * ca
   asm volatile ("bsrl (%edx), %eax;mov %eax, (%ecx)");
 }
 
-static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_0 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  unsigned dummy;
+  tmp_dst = cache->get_reg32 ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7);
+  asm volatile ("movl (%2), %0; data16 movsxb (%1), %0; mov %0, (%2)":"=a" (dummy), "+d" (tmp_src), "+c" (tmp_dst));
+}
+
+static void __attribute__ ((regparm (3))) exec_0fbe_movsxb_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   unsigned dummy;
   tmp_dst = cache->get_reg32 ((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7);
@@ -4168,7 +4182,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	      };
 	      break;
 	    }
-	  case 0x40  ...  0x47:
+	  case 0x40 ... 0x47:
 	    {
 /* instruction2 'inc' ['41'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4183,7 +4197,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x48  ...  0x4f:
+	  case 0x48 ... 0x4f:
 	    {
 /* instruction2 'dec' ['49'] ['ASM', 'SAVEFLAGS', 'LOADFLAGS', 'RMW', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4198,7 +4212,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x50  ...  0x57:
+	  case 0x50 ... 0x57:
 	    {
 /* instruction2 'push' ['51'] ['DIRECTION', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -4213,7 +4227,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x58  ...  0x5f:
+	  case 0x58 ... 0x5f:
 	    {
 /* instruction2 'pop' ['59'] ['IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -5304,7 +5318,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0x90  ...  0x97:
+	  case 0x90 ... 0x97:
 	    {
 /* instruction2 'xchg' ['92'] ['ASM', 'RMW', 'EAX', 'IMPL', 'DIRECTION'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);
@@ -5614,7 +5628,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0xb0  ...  0xb7:
+	  case 0xb0 ... 0xb7:
 	    {
 /* instruction2 'mov' ['b2'] ['ASM', 'IMM1', 'IMPL', 'BYTE'] */ ;
 	      fetch_code (entry, 1);
@@ -5627,7 +5641,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	      };
 	      break;
 	    }
-	  case 0xb8  ...  0xbf:
+	  case 0xb8 ... 0xbf:
 	    {
 /* instruction2 'mov' ['ba'] ['ASM', 'IMMO', 'IMPL'] */ ;
 	      ;
@@ -8960,18 +8974,23 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0xb6:
 	    {
-/* instruction2 'movzxb' ['0f', 'b6'] ['BYTE', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
+/* instruction2 'movzxb' ['0f', 'b6'] ['BYTE', 'HAS_OS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
-	      {
-		entry->execute = exec_0fb6_movzxb_0;
-	      };
+	      if (entry->operand_size == 1)
+		{
+		  entry->execute = exec_0fb6_movzxb_1;
+		}
+	      else
+		{
+		  entry->execute = exec_0fb6_movzxb_2;
+		};
 	      break;
 	    }
 	  case 0xb7:
 	    {
-/* instruction2 'movzxw' ['0f', 'b7'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
+/* instruction2 'movzxw' ['0f', 'b7'] ['HAS_OS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_MODRM | IC_DIRECTION;
@@ -9114,18 +9133,23 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	    }
 	  case 0xbe:
 	    {
-/* instruction2 'movsxb' ['0f', 'be'] ['BYTE', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
+/* instruction2 'movsxb' ['0f', 'be'] ['BYTE', 'HAS_OS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 1 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_BYTE | IC_MODRM | IC_DIRECTION;
-	      {
-		entry->execute = exec_0fbe_movsxb_0;
-	      };
+	      if (entry->operand_size == 1)
+		{
+		  entry->execute = exec_0fbe_movsxb_1;
+		}
+	      else
+		{
+		  entry->execute = exec_0fbe_movsxb_2;
+		};
 	      break;
 	    }
 	  case 0xbf:
 	    {
-/* instruction2 'movsxw' ['0f', 'bf'] ['MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
+/* instruction2 'movsxw' ['0f', 'bf'] ['HAS_OS', 'MODRMMEM', 'MODRM', 'DIRECTION'] */ ;
 	      get_modrm ();
 	      entry->src = get_reg < 0 > ((entry->data[entry->offset_opcode] >> 3) & 0x7);
 	      entry->flags = IC_MODRM | IC_DIRECTION;
@@ -9195,7 +9219,7 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 		};
 	      break;
 	    }
-	  case 0xc8  ...  0xcf:
+	  case 0xc8 ... 0xcf:
 	    {
 /* instruction2 'bswap' ['0f', 'c9'] ['NO_OS', 'ASM', 'IMPL'] */ ;
 	      entry->dst = get_reg < 0 > (entry->data[entry->offset_opcode - 1] & 0x7);

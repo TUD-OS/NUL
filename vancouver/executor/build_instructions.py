@@ -166,7 +166,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
     # operand size loop
     s = ""
     for op_size in range(3):
-	no_os = "BYTE" in flags or "NO_OS" in flags
+	no_os = ("BYTE" in flags or "NO_OS" in flags) and "HAS_OS" not in flags
 	if no_os or op_size > 0:
 	    s += op_size == 1 and "if (entry->operand_size == 1) {" or op_size == 2 and " else {" or "{"
 	    if "IMMO"   in flags:
@@ -326,7 +326,7 @@ for i in range(len(ccflags)):
     opcodes += [("j"+ccflag,    ["JMP",   "ASM", "LOADFLAGS", "DIRECTION"],
 		 ['int (*foo)(InstructionCache *, void *) = helper_JMP_static<[os]>',
 		  'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
-opcodes += [(x, [x[-1] == "b" and "BYTE"], [
+opcodes += [(x, [x[-1] == "b" and "BYTE", "HAS_OS"], [
             "unsigned dummy",
 	    "tmp_dst = cache->get_reg32((cache->_entry->data[cache->_entry->offset_opcode] >> 3) & 0x7)",
 	    """asm volatile("movl (%%2), %%0; [data16] %s (%%1), %%0; mov %%0, (%%2)" : "=a"(dummy), "+d"(tmp_src), "+c"(tmp_dst))"""%x])
