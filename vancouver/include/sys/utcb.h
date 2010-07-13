@@ -13,6 +13,11 @@
 #include "desc.h"
 #include "service/cpu.h"
 
+enum Eflags {
+  EFL_CARRY = 1U << 0,
+  EFL_ZERO  = 1U << 6,
+};
+
 struct Utcb
 {
   typedef struct Descriptor

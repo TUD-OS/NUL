@@ -131,8 +131,10 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
 
     switch (cpu->ah)
       {
-      case 0x00:  // get keystroke
+      case 0x10: // get extended keystroke
+      case 0x00: // get keystroke
 	{
+	  // XXX For AH=0x00 we need to discard extended keystrokes.
 	  if (first != next)
 	    {
 	      cpu->ax = read_bda(next);
@@ -146,15 +148,17 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
 	    cpu->ax = 0;
 	}
 	break;
+      case 0x11: // check extended keystroke
       case 0x01: // check keystroke
 	{
+	  // XXX For AH=0x00 we need to discard extended keystrokes.
 	  if (first != next)
 	    {
-	      cpu->efl &= ~0x40;
+	      cpu->efl &= ~EFL_ZERO;
 	      cpu->ax = read_bda(next);
 	    }
 	  else
-	    cpu->efl |= 0x40;
+	    cpu->efl |= EFL_ZERO;
 	break;
 	}
       case 0x02: // get shift flag
