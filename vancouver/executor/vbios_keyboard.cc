@@ -151,7 +151,7 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
       case 0x11: // check extended keystroke
       case 0x01: // check keystroke
 	{
-	  // XXX For AH=0x00 we need to discard extended keystrokes.
+	  // XXX For AH=0x01 we need to discard extended keystrokes.
 	  if (first != next)
 	    {
 	      cpu->efl &= ~EFL_ZERO;
