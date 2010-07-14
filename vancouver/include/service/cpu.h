@@ -47,7 +47,7 @@ class Cpu
     return y;
   }
 
-  static  unsigned cmpxchg(volatile void *var, unsigned oldvalue, unsigned newvalue) {
+  static  unsigned cmpxchg4b(volatile void *var, unsigned oldvalue, unsigned newvalue) {
     asm volatile ("lock; cmpxchg %2, (%0)": "+r"(var), "+a"(oldvalue): "r"(newvalue) : "memory");
     return oldvalue;
   }

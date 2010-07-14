@@ -45,8 +45,11 @@ private:
 #define AD_ASSIST(bits)							\
   if ((pte & (bits)) != (bits))						\
     {									\
-      if (features & FEATURE_PAE)  Cpu::cmpxchg8b(entry->_ptr, pte, pte | bits); \
-      else  Cpu::cmpxchg(entry->_ptr, pte, pte | bits);			\
+    if (features & FEATURE_PAE) {					\
+      if (Cpu::cmpxchg8b(entry->_ptr, pte, pte | bits) != pte) RETRY;	\
+    }									\
+    else								\
+      if (Cpu::cmpxchg4b(entry->_ptr, pte, pte | bits) != pte) RETRY;	\
     }
 
   template <unsigned features, typename PTE_TYPE>

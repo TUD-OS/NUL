@@ -302,7 +302,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
        * for a SIPI. If it fails, somebody else was faster and we do
        * not wakeup the client.
        */
-      if (Cpu::cmpxchg(&_sipi, 0, value)) return;
+      if (Cpu::cmpxchg4b(&_sipi, 0, value)) return;
 
     Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
 
