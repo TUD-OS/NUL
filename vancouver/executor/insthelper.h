@@ -580,12 +580,13 @@ int helper_LLDT(unsigned short selector)
 }
 
 
-static void set_realmode_segment(CpuState::Descriptor *seg, unsigned short sel, bool cpl0)
-{
-  //Logging::printf("set_realmode_segment %x\n", sel);
+static void set_realmode_segment(CpuState::Descriptor *seg, unsigned short sel, bool v86mode) {
 
-  // there is no limit modification in realmode
-  seg->set(sel, sel << 4, seg->limit, cpl0 ? 0x93 : 0xf3);
+  if (v86mode)
+    seg->set(sel, sel << 4, 0xffff, 0xf3);
+  else
+   // there is no limit and attribute modification in realmode
+   seg->set(sel, sel << 4, seg->limit, seg->ar);
 }
 
 
@@ -593,7 +594,7 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 {
   //Logging::printf("set_segment %x sel %x eip %x efl %x\n", seg - &_cpu->es, sel, _cpu->eip, _cpu->efl);
   if (!_cpu->pm() || _cpu->v86())
-    set_realmode_segment(seg, sel, !_cpu->v86());
+    set_realmode_segment(seg, sel, _cpu->v86());
   else
     {
       bool is_ss = seg == &_cpu->ss;
@@ -630,11 +631,12 @@ int helper_far_jmp(unsigned tmp_cs, unsigned tmp_eip, unsigned tmp_flag)
   if (!_cpu->pm() || _cpu->v86())
     // realmode + v86mode
     {
-      if (tmp_eip > 0xffff) GP0;
-      set_realmode_segment(&_cpu->cs, tmp_cs,  !_cpu->v86());
-      _cpu->cs.limit = 0xffff;
-      _cpu->eip = tmp_eip;
-      _cpu->efl = (_cpu->efl & (EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL)) | (tmp_flag  & ~(EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL));
+      if (tmp_eip > _cpu->cs.limit) GP0;
+      _cpu->cs.sel = tmp_cs;
+      _cpu->cs.base= tmp_cs << 4;
+      _cpu->cs.ar  = _cpu->v86() ? 0xf3 : 0x93;
+      _cpu->eip    = tmp_eip;
+      _cpu->efl    = (_cpu->efl & (EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL)) | (tmp_flag  & ~(EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL));
     }
   else
     {
@@ -713,15 +715,15 @@ int helper_IRET()
       unsigned sels[4];
       for (unsigned i=0; i < 4; i++)
 	if (helper_POP<operand_size>(sels+i)) return _fault;
-      _cpu->eip = tmp_eip & 0xffff;
+      _cpu->eip = tmp_eip & 0xffff;  // upper bits ignored while entering a VM
       _cpu->esp = tmp_esp;
       _cpu->efl = tmp_flag | 2;
-      set_realmode_segment(&_cpu->cs, tmp_cs,  false);
-      set_realmode_segment(&_cpu->es, sels[0], false);
-      set_realmode_segment(&_cpu->ds, sels[1], false);
-      set_realmode_segment(&_cpu->fs, sels[2], false);
-      set_realmode_segment(&_cpu->gs, sels[3], false);
-      set_realmode_segment(&_cpu->ss, tmp_ss,  false);
+      set_realmode_segment(&_cpu->cs, tmp_cs,  true);
+      set_realmode_segment(&_cpu->es, sels[0], true);
+      set_realmode_segment(&_cpu->ds, sels[1], true);
+      set_realmode_segment(&_cpu->fs, sels[2], true);
+      set_realmode_segment(&_cpu->gs, sels[3], true);
+      set_realmode_segment(&_cpu->ss, tmp_ss,  true);
       _cpu->intr_state &= ~8;  // clear NMI BLOCKING
       return _fault;
     }
