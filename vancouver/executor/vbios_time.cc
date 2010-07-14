@@ -66,6 +66,7 @@ class VirtualBiosTime : public StaticReceiver<VirtualBiosTime>, public BiosCommo
 	break;
       case 0x02: // realtime clock
 	{
+	  // XXX use the RTC time
 	  unsigned seconds = _mb.clock()->clock(1);
 	  msg.cpu->ch = tobcd((seconds / 3600) % 24);
 	  msg.cpu->cl = tobcd((seconds / 60) % 60);
