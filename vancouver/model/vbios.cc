@@ -113,9 +113,9 @@ public:
 
     // the iret that is the default operation
     _resetvector[0xf] = 0xcf;
-    _vcpu->executor.add(this,   &VBios::receive_static<CpuMessage>);
-    _vcpu->mem.add(this,        &VBios::receive_static<MessageMem>);
-    _mb.bus_discovery.add(this, &VBios::receive_static<MessageDiscovery>);
+    _vcpu->executor.add(this,   VBios::receive_static<CpuMessage>);
+    _vcpu->mem.add(this,        VBios::receive_static<MessageMem>);
+    _mb.bus_discovery.add(this, VBios::receive_static<MessageDiscovery>);
 
   }
 

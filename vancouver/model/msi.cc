@@ -60,7 +60,6 @@ public:
 };
 
 PARAM(msi, {
-    Msi *dev = new Msi(mb.bus_apic);
-    mb.bus_mem.add(dev,       &Msi::receive_static<MessageMem>);
+    mb.bus_mem.add(new Msi(mb.bus_apic), Msi::receive_static<MessageMem>);
   },
   "msi - provide MSI support by forwarding access to 0xfee00000 to the LocalAPICs.");

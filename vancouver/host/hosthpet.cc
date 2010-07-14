@@ -20,7 +20,7 @@
 /**
  * Use the HPET as timer backend.
  *
- * State:    testing
+ * State: testing
  * Features: periodic timer, support different timers, one-shot, HPET ACPI table, MSI
  */
 class HostHpet : public StaticReceiver<HostHpet>
@@ -236,8 +236,8 @@ PARAM(hosthpet,
 
 	// create device
 	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, level);
-	mb.bus_hostirq.add(dev, &HostHpet::receive_static<MessageIrq>);
-	mb.bus_timer.add(dev, &HostHpet::receive_static<MessageTimer>);
+	mb.bus_hostirq.add(dev, HostHpet::receive_static<MessageIrq>);
+	mb.bus_timer.add(dev,   HostHpet::receive_static<MessageTimer>);
 
       },
       "hosthpet:timer=0,address,irq=~0u,level=1 - use the host HPET as timer.",

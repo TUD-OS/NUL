@@ -266,10 +266,10 @@ public:
   IOApic(Motherboard &mb, unsigned long base, unsigned gsibase) : _mb(mb), _base(base), _gsibase(gsibase)
   {
     reset();
-    _mb.bus_mem.add(this, IOApic::receive_static<MessageMem>);
-    _mb.bus_irqlines.add(this, IOApic::receive_static<MessageIrq>);
-    _mb.bus_legacy.add(this, IOApic::receive_static<MessageLegacy>);
-    _mb.bus_discovery.add(this, &DiscoveryHelper<IOApic>::receive);
+    _mb.bus_mem.add(this,       receive_static<MessageMem>);
+    _mb.bus_irqlines.add(this,  receive_static<MessageIrq>);
+    _mb.bus_legacy.add(this,    receive_static<MessageLegacy>);
+    _mb.bus_discovery.add(this, discover);
   };
 };
 

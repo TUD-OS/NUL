@@ -450,9 +450,9 @@ public:
       }
     }
 
-    _mb.bus_input.add(this, &HostVga::receive_static<MessageInput>);
-    _mb.bus_console.add(this, &HostVga::receive_static<MessageConsole>);
-    _mb.bus_timeout.add(this, &HostVga::receive_static<MessageTimeout>);
+    _mb.bus_input.add(this,   receive_static<MessageInput>);
+    _mb.bus_console.add(this, receive_static<MessageConsole>);
+    _mb.bus_timeout.add(this, receive_static<MessageTimeout>);
 
     Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
   }
@@ -464,10 +464,13 @@ PARAM(hostvga,
 	unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
 	unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
 
-	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
-	if (!mb.bus_hostop.send(msg)) Logging::panic("can not allocate VGA backend");
+	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, 0x3c0 |  5);
+	check0(!mb.bus_hostop.send(msg1), "can not allocate VGA ioports");
 
-	new HostVga(mb, msg.ptr, modifier_switch, modifier_system, refresh_freq);
+	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
+	check0(!mb.bus_hostop.send(msg2), "can not allocate VGA backend");
+
+	new HostVga(mb, msg2.ptr, modifier_switch, modifier_system, refresh_freq);
       },
       "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.",
       "Example: 'hostvga'.",

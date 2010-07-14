@@ -256,10 +256,10 @@ public:
       memset(_regs, 0, sizeof(_regs));
       _regs[LSR] = 0x60;
       _regs[MSR] = 0xb0;
-      _mb.bus_ioin.add(this, &SerialDevice::receive_static<MessageIOIn>);
-      _mb.bus_ioout.add(this, &SerialDevice::receive_static<MessageIOOut>);
-      _mb.bus_serial.add(this, &SerialDevice::receive_static<MessageSerial>);
-      _mb.bus_discovery.add(this, &DiscoveryHelper<SerialDevice>::receive);
+      _mb.bus_ioin.     add(this, receive_static<MessageIOIn>);
+      _mb.bus_ioout.    add(this, receive_static<MessageIOOut>);
+      _mb.bus_serial.   add(this, receive_static<MessageSerial>);
+      _mb.bus_discovery.add(this, discover);
     }
 };
 

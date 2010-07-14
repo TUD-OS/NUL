@@ -269,12 +269,12 @@ public:
 
     // create hostmb and hostkeyb
     _hostmb = new Motherboard(mb.clock());
-    _hostmb->bus_input.add(this, &VirtualBiosKeyboard::receive_static<MessageInput>);
-    _hostmb->bus_hostop .add(this, &VirtualBiosKeyboard::receive_static<MessageHostOp>);
-    _hostmb->bus_hwioin .add(this, &VirtualBiosKeyboard::receive_static<MessageIOIn>);
-    _hostmb->bus_hwioout.add(this, &VirtualBiosKeyboard::receive_static<MessageIOOut>);
-    _mb.bus_bios        .add(this, &VirtualBiosKeyboard::receive_static<MessageBios>);
-    _mb.bus_discovery   .add(this, &VirtualBiosKeyboard::receive_static<MessageDiscovery>);
+    _hostmb->bus_input.add(this,   receive_static<MessageInput>);
+    _hostmb->bus_hostop .add(this, receive_static<MessageHostOp>);
+    _hostmb->bus_hwioin .add(this, receive_static<MessageIOIn>);
+    _hostmb->bus_hwioout.add(this, receive_static<MessageIOOut>);
+    _mb.bus_bios        .add(this, receive_static<MessageBios>);
+    _mb.bus_discovery   .add(this, receive_static<MessageDiscovery>);
     char args[] = "hostkeyb:0x10,0x60,1,,1";
     _hostmb->parse_args(args);
 

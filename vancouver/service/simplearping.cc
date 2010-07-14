@@ -82,7 +82,7 @@ public:
 PARAM(arping,
       {
 	SimpleArpPing *dev = new SimpleArpPing("\x12\x23\x45\x67\x89\xab");
-	mb.bus_network.add(dev, &SimpleArpPing::receive_static<MessageNetwork>);
+	mb.bus_network.add(dev, SimpleArpPing::receive_static<MessageNetwork>);
 	dev->arp(mb.bus_network, argv[0]);
       },
       "arping:dstip - test the network driver.",

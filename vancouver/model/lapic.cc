@@ -778,14 +778,14 @@ public:
 
     reset();
 
-    mb.bus_legacy.add(this, &Lapic::receive_static<MessageLegacy>);
-    mb.bus_apic.add(this,     &Lapic::receive_static<MessageApic>);
-    mb.bus_timeout.add(this,  &Lapic::receive_static<MessageTimeout>);
-    mb.bus_discovery.add(this,  &DiscoveryHelper<Lapic>::receive);
-    vcpu->executor.add(this, &Lapic::receive_static<CpuMessage>);
-    vcpu->mem.add(this, &Lapic::receive_static<MessageMem>);
-    vcpu->memregion.add(this, &Lapic::receive_static<MessageMemRegion>);
-    vcpu->bus_lapic.add(this, &Lapic::receive_static<LapicEvent>);
+    mb.bus_legacy.add(this,   receive_static<MessageLegacy>);
+    mb.bus_apic.add(this,     receive_static<MessageApic>);
+    mb.bus_timeout.add(this,  receive_static<MessageTimeout>);
+    mb.bus_discovery.add(this,discover);
+    vcpu->executor.add(this,  receive_static<CpuMessage>);
+    vcpu->mem.add(this,       receive_static<MessageMem>);
+    vcpu->memregion.add(this, receive_static<MessageMemRegion>);
+    vcpu->bus_lapic.add(this, receive_static<LapicEvent>);
 
   }
 };

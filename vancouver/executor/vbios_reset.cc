@@ -306,7 +306,7 @@ public:
 
 PARAM(vbios_reset,
       Device * dev = new VirtualBiosReset(mb);
-      mb.bus_bios.add(dev, &VirtualBiosReset::receive_static<MessageBios>);
-      mb.bus_discovery.add(dev, &VirtualBiosReset::receive_static<MessageDiscovery>);
+      mb.bus_bios.add(dev,      VirtualBiosReset::receive_static<MessageBios>);
+      mb.bus_discovery.add(dev, VirtualBiosReset::receive_static<MessageDiscovery>);
       ,
       "vbios_reset - provide reset handling for virtual BIOS functions.");

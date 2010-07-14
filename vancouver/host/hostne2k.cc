@@ -23,7 +23,7 @@
  *
  * Features: reset, send, irq, receive, overflow-recover
  * Missing:  read counters, configuration of full-duplex modes
- * State:    testing
+ * State: testing
  * Documentation: DP8390D, rtl8029, mx98905b
  */
 class HostNe2k : public StaticReceiver<HostNe2k>
@@ -219,8 +219,8 @@ PARAM(hostne2k,
 	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
 	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
-	      mb.bus_network.add(dev, &HostNe2k::receive_static<MessageNetwork>);
-	      mb.bus_hostirq.add(dev, &HostNe2k::receive_static<MessageIrq>);
+	      mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
+	      mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
 	    }
       },
       "hostne2k - provide ne2k-pci drivers.",

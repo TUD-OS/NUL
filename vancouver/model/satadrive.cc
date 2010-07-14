@@ -418,7 +418,7 @@ PARAM(drive,
 	check0(!mb.bus_disk.send(msg0) || msg0.error != MessageDisk::DISK_OK, "%s could not get disk %x parameters error %x", __PRETTY_FUNCTION__, hostdisk, msg0.error);
 
 	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, hostdisk, params);
-	mb.bus_diskcommit.add(drive, &SataDrive::receive_static<MessageDiskCommit>);
+	mb.bus_diskcommit.add(drive, SataDrive::receive_static<MessageDiskCommit>);
 
 	// XXX put on SATA bus
 	MessageAhciSetDrive msg(drive, argv[2]);

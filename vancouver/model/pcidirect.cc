@@ -416,14 +416,14 @@ private:
     for (unsigned i=0; i < _irq_count; i++)
       // XXX when do we need level?
       _host_irqs[i] = get_gsi(mb.bus_hostop, mb.bus_acpi, _hostbdf, i, false, _msix_host_table);
-    mb.bus_pcicfg.add(this, &DirectPciDevice::receive_static<MessagePciConfig>);
-    mb.bus_ioin.add(this, &DirectPciDevice::receive_static<MessageIOIn>);
-    mb.bus_ioout.add(this, &DirectPciDevice::receive_static<MessageIOOut>);
-    mb.bus_mem.add(this, &DirectPciDevice::receive_static<MessageMem>);
+    mb.bus_pcicfg.add(this, DirectPciDevice::receive_static<MessagePciConfig>);
+    mb.bus_ioin.add(this,   DirectPciDevice::receive_static<MessageIOIn>);
+    mb.bus_ioout.add(this,  DirectPciDevice::receive_static<MessageIOOut>);
+    mb.bus_mem.add(this,    DirectPciDevice::receive_static<MessageMem>);
     if (map)
-      mb.bus_memregion.add(this, &DirectPciDevice::receive_static<MessageMemRegion>);
-    mb.bus_hostirq.add(this, &DirectPciDevice::receive_static<MessageIrq>);
-    //mb.bus_irqnotify.add(this, &DirectPciDevice::receive_static<MessageIrqNotify>);
+      mb.bus_memregion.add(this, DirectPciDevice::receive_static<MessageMemRegion>);
+    mb.bus_hostirq.add(this,     DirectPciDevice::receive_static<MessageIrq>);
+    //mb.bus_irqnotify.add(this, DirectPciDevice::receive_static<MessageIrqNotify>);
   }
 };
 

@@ -41,8 +41,7 @@ public:
 
 PARAM(nullmem,
       {
-	Device *dev = new NullMemDevice(argv[0], argv[1]);
-	mb.bus_mem.add(dev, &NullMemDevice::receive_static<MessageMem>);
+	mb.bus_mem.add(new NullMemDevice(argv[0], argv[1]), NullMemDevice::receive_static<MessageMem>);
       },
       "nullmem:<range> - ignore Memory access to the given physical address range.",
       "Example: 'nullmem:0xfee00000,0x1000'.");

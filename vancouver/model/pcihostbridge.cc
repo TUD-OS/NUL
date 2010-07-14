@@ -241,19 +241,19 @@ PARAM(pcihostbridge,
 
 	// ioport interface
 	if (~argv[2]) {
-	  mb.bus_ioin.add(dev, &PciHostBridge::receive_static<MessageIOIn>);
-	  mb.bus_ioout.add(dev, &PciHostBridge::receive_static<MessageIOOut>);
+	  mb.bus_ioin.add(dev,  PciHostBridge::receive_static<MessageIOIn>);
+	  mb.bus_ioout.add(dev, PciHostBridge::receive_static<MessageIOOut>);
 	}
 
 	// MMCFG interface
 	if (~argv[3]) {
-	  mb.bus_mem.add(dev,       &PciHostBridge::receive_static<MessageMem>);
-	  mb.bus_discovery.add(dev, &DiscoveryHelper<PciHostBridge>::receive);
+	  mb.bus_mem.add(dev,       PciHostBridge::receive_static<MessageMem>);
+	  mb.bus_discovery.add(dev, PciHostBridge::discover);
 	}
 
-	mb.bus_pcicfg.add(dev, &PciHostBridge::receive_static<MessagePciConfig>);
-	mb.bus_legacy.add(dev, &PciHostBridge::receive_static<MessageLegacy>);
-	mb.bus_bios.add  (dev, &PciHostBridge::receive_static<MessageBios>);
+	mb.bus_pcicfg.add(dev, PciHostBridge::receive_static<MessagePciConfig>);
+	mb.bus_legacy.add(dev, PciHostBridge::receive_static<MessageLegacy>);
+	mb.bus_bios.add  (dev, PciHostBridge::receive_static<MessageBios>);
       },
       "pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.",
       "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",

@@ -266,7 +266,7 @@ PARAM(hostide,
 		// create controller
 		HostIde *dev = new HostIde(mb.bus_hwioin, mb.bus_hwioout, mb.bus_diskcommit,
 					   mb.bus_disk.count(), bar1 & ~0x3, bar2 & ~0x3, mb.clock());
-		for (unsigned j=0; j < dev->disk_count(); j++)  mb.bus_disk.add(dev, &HostIde::receive_static<MessageDisk>);
+		for (unsigned j=0; j < dev->disk_count(); j++)  mb.bus_disk.add(dev, HostIde::receive_static<MessageDisk>);
 	      }
 	  }
       },

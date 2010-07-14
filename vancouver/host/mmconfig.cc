@@ -85,7 +85,7 @@ PARAM(mmconfig,
 	  }
 
 	  Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
-	  mb.bus_hwpcicfg.add(dev, &PciMMConfigAccess::receive_static<MessagePciConfig>);
+	  mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessagePciConfig>);
 	}
       },
       "mmconfig - provide HW PCI config space access via mmconfig.");

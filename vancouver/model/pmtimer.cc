@@ -53,8 +53,8 @@ public:
 
   PmTimer(Motherboard &mb, unsigned iobase) : _mb(mb), _iobase(iobase) {
 
-    _mb.bus_ioin.add(this, PmTimer::receive_static<MessageIOIn>);
-    _mb.bus_discovery.add(this, DiscoveryHelper<PmTimer>::receive);
+    _mb.bus_ioin.add(this,      receive_static<MessageIOIn>);
+    _mb.bus_discovery.add(this, discover);
   }
 };
 

@@ -558,12 +558,12 @@ PARAM(vga,
 	  Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
 
 	Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
-	mb.bus_ioin     .add(dev, &Vga::receive_static<MessageIOIn>);
-	mb.bus_ioout    .add(dev, &Vga::receive_static<MessageIOOut>);
-	mb.bus_bios     .add(dev, &Vga::receive_static<MessageBios>);
-	mb.bus_mem      .add(dev, &Vga::receive_static<MessageMem>);
-	mb.bus_memregion.add(dev, &Vga::receive_static<MessageMemRegion>);
-	mb.bus_discovery.add(dev, &Vga::receive_static<MessageDiscovery>);
+	mb.bus_ioin     .add(dev, Vga::receive_static<MessageIOIn>);
+	mb.bus_ioout    .add(dev, Vga::receive_static<MessageIOOut>);
+	mb.bus_bios     .add(dev, Vga::receive_static<MessageBios>);
+	mb.bus_mem      .add(dev, Vga::receive_static<MessageMem>);
+	mb.bus_memregion.add(dev, Vga::receive_static<MessageMemRegion>);
+	mb.bus_discovery.add(dev, Vga::receive_static<MessageDiscovery>);
 
       },
       "vga:iobase,fbsize=128 - attach a virtual VGA controller.",

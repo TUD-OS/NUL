@@ -293,8 +293,8 @@ public:
 
 
   VirtualBiosDisk(Motherboard &mb) : BiosCommon(mb) {
-    mb.bus_diskcommit.add(this,  &VirtualBiosDisk::receive_static<MessageDiskCommit>);
-    mb.bus_timeout.add(this,     &VirtualBiosDisk::receive_static<MessageTimeout>);
+    mb.bus_diskcommit.add(this,  VirtualBiosDisk::receive_static<MessageDiskCommit>);
+    mb.bus_timeout.add(this,     VirtualBiosDisk::receive_static<MessageTimeout>);
 
     // get sectors of the disk
     for (_disk_count = 0; _disk_count < MAX_DISKS; _disk_count++) {
@@ -314,7 +314,7 @@ public:
 };
 
 PARAM(vbios_disk,
-      mb.bus_bios.add(new VirtualBiosDisk(mb), &VirtualBiosDisk::receive_static<MessageBios>);
+      mb.bus_bios.add(new VirtualBiosDisk(mb), VirtualBiosDisk::receive_static<MessageBios>);
       ,
       "vbios_disk- provide disk related virtual BIOS functions.");
 

@@ -388,13 +388,13 @@ class AhciController : public ParentIrqProvider,
 PARAM(ahci,
       {
 	AhciController *dev = new AhciController(mb, argv[1], PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
-	mb.bus_mem.add(dev, &AhciController::receive_static<MessageMem>);
+	mb.bus_mem.add(dev, AhciController::receive_static<MessageMem>);
 
 	// register PCI device
-	mb.bus_pcicfg.add(dev, &AhciController::receive_static<MessagePciConfig>);
+	mb.bus_pcicfg.add(dev, AhciController::receive_static<MessagePciConfig>);
 
 	// register for AhciSetDrive messages
-	mb.bus_ahcicontroller.add(dev, &AhciController::receive_static<MessageAhciSetDrive>);
+	mb.bus_ahcicontroller.add(dev, AhciController::receive_static<MessageAhciSetDrive>);
 
 	// set default state, this is normally done by the BIOS
 	// set MMIO region and IRQ

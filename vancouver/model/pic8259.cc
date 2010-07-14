@@ -372,12 +372,12 @@ PARAM(pic,
 				       argv[1],
 				       argv[2],
 				       virq);
-	mb.bus_ioin.    add(dev, &PicDevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.   add(dev, &PicDevice::receive_static<MessageIOOut>);
-	mb.bus_irqlines.add(dev, &PicDevice::receive_static<MessageIrq>);
-	mb.bus_pic.     add(dev, &PicDevice::receive_static<MessagePic>);
+	mb.bus_ioin.    add(dev, PicDevice::receive_static<MessageIOIn>);
+	mb.bus_ioout.   add(dev, PicDevice::receive_static<MessageIOOut>);
+	mb.bus_irqlines.add(dev, PicDevice::receive_static<MessageIrq>);
+	mb.bus_pic.     add(dev, PicDevice::receive_static<MessagePic>);
 	if (!virq)
-	  mb.bus_legacy.add(dev, &PicDevice::receive_static<MessageLegacy>);
+	  mb.bus_legacy.add(dev, PicDevice::receive_static<MessageLegacy>);
 	virq += 8;
       },
       "pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.",

@@ -435,12 +435,12 @@ public:
     _hostop_id = msg.value;
 
     // add to the busses
-    executor. add(this, &VirtualCpu::receive_static<CpuMessage>);
-    bus_event.add(this, &VirtualCpu::receive_static<CpuEvent>);
-    mem.      add(this, &VirtualCpu::receive_static<MessageMem>);
-    memregion.add(this, &VirtualCpu::receive_static<MessageMemRegion>);
-    mb.bus_legacy.add(this, &VirtualCpu::receive_static<MessageLegacy>);
-    bus_lapic.add(this, &VirtualCpu::receive_static<LapicEvent>);
+    executor. add(this, VirtualCpu::receive_static<CpuMessage>);
+    bus_event.add(this, VirtualCpu::receive_static<CpuEvent>);
+    mem.      add(this, VirtualCpu::receive_static<MessageMem>);
+    memregion.add(this, VirtualCpu::receive_static<MessageMemRegion>);
+    mb.bus_legacy.add(this, VirtualCpu::receive_static<MessageLegacy>);
+    bus_lapic.add(this, VirtualCpu::receive_static<LapicEvent>);
 
     CPUID_reset();
  }

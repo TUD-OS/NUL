@@ -74,8 +74,8 @@ PARAM(mio,
 	  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
 
 	Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
-	mb.bus_memregion.add(dev,  &DirectMemDevice::receive_static<MessageMemRegion>);
-	mb.bus_mem.add(dev, &DirectMemDevice::receive_static<MessageMem>);
+	mb.bus_memregion.add(dev,  DirectMemDevice::receive_static<MessageMemRegion>);
+	mb.bus_mem.add(dev,        DirectMemDevice::receive_static<MessageMem>);
 
       },
       "mio:base,size,dest=base - map hostmemory directly into the VM.",

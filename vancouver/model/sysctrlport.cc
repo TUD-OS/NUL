@@ -99,8 +99,8 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
 PARAM(scp,
       {
 	SystemControlPort *scp = new SystemControlPort(mb.bus_legacy, mb.bus_pit, argv[0], argv[1]);
-	mb.bus_ioin.add(scp, &SystemControlPort::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(scp, &SystemControlPort::receive_static<MessageIOOut>);
+	mb.bus_ioin.add(scp,  SystemControlPort::receive_static<MessageIOIn>);
+	mb.bus_ioout.add(scp, SystemControlPort::receive_static<MessageIOOut>);
       },
       "scp:porta,portb - provide the system control ports A+B.",
       "Example: 'scp:0x92,0x61'")

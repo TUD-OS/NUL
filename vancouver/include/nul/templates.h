@@ -70,7 +70,7 @@ protected:
 
 
 public:
-  static bool  receive(Device *o, MessageDiscovery &msg) {
+  static bool  discover(Device *o, MessageDiscovery &msg) {
     if (msg.type != MessageDiscovery::DISCOVERY) return false;
     static_cast<Y*>(o)->discovery();
     return true;

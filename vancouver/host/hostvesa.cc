@@ -22,7 +22,7 @@
 /**
  * A Vesa console.
  *
- * State:    unstable
+ * State: unstable
  * Features: get linear modes, validate physpointer, set LinBytesPerScanline
  * Missing:  vesa1.2 support
  */
@@ -226,11 +226,11 @@ public:
 						  _framebuffer_size(0), _framebuffer_phys(0),
 						  _modecount(0), _debug(debug)
   {
-    _mb.bus_hostop.  add(this, &receive_static<MessageHostOp>);
-    _mb.bus_timer.   add(this, &receive_static<MessageTimer>);
-    _mb.bus_hwioin.  add(this, &receive_static<MessageIOIn>);
-    _mb.bus_hwioout. add(this, &receive_static<MessageIOOut>);
-    _mb.bus_hwpcicfg.add(this, &receive_static<MessagePciConfig>);
+    _mb.bus_hostop.  add(this, receive_static<MessageHostOp>);
+    _mb.bus_timer.   add(this, receive_static<MessageTimer>);
+    _mb.bus_hwioin.  add(this, receive_static<MessageIOIn>);
+    _mb.bus_hwioout. add(this, receive_static<MessageIOOut>);
+    _mb.bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
 
 
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0 , 1<<20);
@@ -286,7 +286,7 @@ public:
 	unsigned short mode = vbe_to_ptr<unsigned short *>(p->video_mode_ptr)[i];
 	if (!vbe_call(0x4f01, ES_SEG1, mode))  add_mode(mode, ES_SEG1, 0x81);
       }
-    _hostmb.bus_vesa.add(this, &receive_static<MessageVesa>);
+    _hostmb.bus_vesa.add(this, receive_static<MessageVesa>);
     Logging::printf("framebuffer %lx+%lx\n", _framebuffer_phys, _framebuffer_size);
   }
 };

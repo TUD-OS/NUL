@@ -66,8 +66,7 @@ class HostSink : public StaticReceiver<HostSink>
 
 PARAM(hostsink,
       {
-	Device *dev = new HostSink(argv[0], argv[1], argv[2], argv[3]);
-	mb.bus_serial.add(dev, &HostSink::receive_static<MessageSerial>);
+	mb.bus_serial.add(new HostSink(argv[0], argv[1], argv[2], argv[3]), HostSink::receive_static<MessageSerial>);
       },
       "hostsink:hostdevnr,bufferlen,sinkchar,contchar - provide an output for a serial port.",
       "Example: 'hostsink:0x4712,80'.");

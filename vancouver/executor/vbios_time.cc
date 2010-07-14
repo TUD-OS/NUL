@@ -100,7 +100,7 @@ public:
 };
 
 PARAM(vbios_time,
-      mb.bus_bios.add(new VirtualBiosTime(mb), &VirtualBiosTime::receive_static<MessageBios>);
+      mb.bus_bios.add(new VirtualBiosTime(mb), VirtualBiosTime::receive_static<MessageBios>);
       ,
       "vbios_time - provide time related virtual BIOS functions.");
 

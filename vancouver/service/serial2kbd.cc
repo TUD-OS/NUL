@@ -103,8 +103,7 @@ public:
 
 PARAM(serial2kbd,
       {
-	Device *dev = new SerialKbdBridge(mb.bus_input, argv[0], argv[1]);
-	mb.bus_serial.add(dev, &SerialKbdBridge::receive_static<MessageSerial>);
+	mb.bus_serial.add(new SerialKbdBridge(mb.bus_input, argv[0], argv[1]), SerialKbdBridge::receive_static<MessageSerial>);
       },
       "serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.",
       "Example: 'serial2kbd:0x4711,0x2bad'.",

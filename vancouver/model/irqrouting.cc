@@ -52,7 +52,7 @@ class IRQRouting : public StaticReceiver<IRQRouting>
 
 PARAM(hostirq,
       {
-	mb.bus_hostirq.add(new IRQRouting(mb, argv[0], argv[1], argv[2]), &IRQRouting::receive_static<MessageIrq>);
+	mb.bus_hostirq.add(new IRQRouting(mb, argv[0], argv[1], argv[2]), IRQRouting::receive_static<MessageIrq>);
 	MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, argv[0]);
 	if (!mb.bus_hostop.send(msg))
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg.value);

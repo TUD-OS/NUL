@@ -428,10 +428,10 @@ PARAM(rtc,
 	if (!mb.bus_time.send(msg1))
 	  Logging::printf("could not get wallclock time!\n");
 	rtc->reset(msg1);
-	mb.bus_ioin.     add(rtc, &Rtc146818::receive_static<MessageIOIn>);
-	mb.bus_ioout.    add(rtc, &Rtc146818::receive_static<MessageIOOut>);
-	mb.bus_timeout.  add(rtc, &Rtc146818::receive_static<MessageTimeout>);
-	mb.bus_irqnotify.add(rtc, &Rtc146818::receive_static<MessageIrqNotify>);
+	mb.bus_ioin.     add(rtc, Rtc146818::receive_static<MessageIOIn>);
+	mb.bus_ioout.    add(rtc, Rtc146818::receive_static<MessageIOOut>);
+	mb.bus_timeout.  add(rtc, Rtc146818::receive_static<MessageTimeout>);
+	mb.bus_irqnotify.add(rtc, Rtc146818::receive_static<MessageIrqNotify>);
       },
       "rtc:iobase,irq - Attach a realtime clock including its CMOS RAM.",
       "Example: 'rtc:0x70,8'");

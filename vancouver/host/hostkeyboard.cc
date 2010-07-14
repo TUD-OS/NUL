@@ -369,8 +369,8 @@ PARAM(hostkeyb,
 	  Logging::panic("%s failed to allocate ports %lx, %lx\n", __PRETTY_FUNCTION__, argv[1], argv[1]+4);
 
 	HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4]);
-	mb.bus_hostirq.add(dev, &HostKeyboard::receive_static<MessageIrq>);
-	mb.bus_legacy.add(dev, &HostKeyboard::receive_static<MessageLegacy>);
+	mb.bus_hostirq.add(dev, HostKeyboard::receive_static<MessageIrq>);
+	mb.bus_legacy.add(dev,  HostKeyboard::receive_static<MessageLegacy>);
 
 	MessageHostOp msg3(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
 	MessageHostOp msg4(MessageHostOp::OP_ATTACH_IRQ, argv[3]);

@@ -21,8 +21,7 @@
  * A 16550 serial port driver.
  *
  * State: stable
- * Features: receive, FIFO, different LCR+speed
- * Missing: send
+ * Features: send, receive, FIFO, different LCR+speed
  */
 class HostSerial : public StaticReceiver<HostSerial>
 {
@@ -103,16 +102,13 @@ PARAM(hostserial,
       {
 	unsigned iobase = argv[1];
 
-	if (iobase == ~0u)
-	  {
-	    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
-	    if (mb.bus_hostop.send(msg) && msg.ptr)
-	      {
-		iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
-		//XXX unmap(msg.ptr, 1<<12);
-	      }
-	    Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
-	  }
+	if (iobase == ~0u) {
+
+	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
+	  if (mb.bus_hostop.send(msg) && msg.ptr)
+	    iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
+	  Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
+	}
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (iobase << 8) |  3);
 	if (!mb.bus_hostop.send(msg1))
 	  Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
@@ -121,8 +117,8 @@ PARAM(hostserial,
 				     argv[0] == ~0UL ? 0 : argv[0], iobase, argv[2],
 				     argv[3] == ~0UL ? 115200 : argv[3],
 				     argv[4] == ~0UL ? 3 : argv[4], argv[2] != ~0U);
-	mb.bus_hostirq.add(dev, &HostSerial::receive_static<MessageIrq>);
-	mb.bus_serial.add(dev, &HostSerial::receive_static<MessageSerial>);
+	mb.bus_hostirq.add(dev, HostSerial::receive_static<MessageIrq>);
+	mb.bus_serial.add(dev,  HostSerial::receive_static<MessageSerial>);
 
 	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
 	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))

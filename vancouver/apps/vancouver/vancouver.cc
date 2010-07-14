@@ -239,14 +239,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _timeouts.init();
 
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
-    _mb->bus_hostop.add(this, &Vancouver::receive_static<MessageHostOp>);
-    _mb->bus_console.add(this, &Vancouver::receive_static<MessageConsole>);
-    _mb->bus_disk.add(this, &Vancouver::receive_static<MessageDisk>);
-    _mb->bus_timer.add(this, &Vancouver::receive_static<MessageTimer>);
-    _mb->bus_time.add(this, &Vancouver::receive_static<MessageTime>);
-    _mb->bus_network.add(this, &Vancouver::receive_static<MessageNetwork>);
-    _mb->bus_hwpcicfg.add(this, &Vancouver::receive_static<MessagePciConfig>);
-    _mb->bus_acpi.add(this, &Vancouver::receive_static<MessageAcpi>);
+    _mb->bus_hostop.add  (this, receive_static<MessageHostOp>);
+    _mb->bus_console.add (this, receive_static<MessageConsole>);
+    _mb->bus_disk.add    (this, receive_static<MessageDisk>);
+    _mb->bus_timer.add   (this, receive_static<MessageTimer>);
+    _mb->bus_time.add    (this, receive_static<MessageTime>);
+    _mb->bus_network.add (this, receive_static<MessageNetwork>);
+    _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
+    _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
 
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
@@ -510,7 +510,7 @@ public:
 	msg.value = create_vcpu(msg.vcpu, _hip->has_svm());
 
 	// handle cpuid overrides
-	msg.vcpu->executor.add(this, &Vancouver::receive_static<CpuMessage>);
+	msg.vcpu->executor.add(this, receive_static<CpuMessage>);
 	break;
       case MessageHostOp::OP_VCPU_BLOCK:
 	_lock.up();

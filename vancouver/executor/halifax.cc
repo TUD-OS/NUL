@@ -35,7 +35,7 @@ public:
   }
 
   Halifax(VCpu *vcpu) : InstructionCache(vcpu) {
-    vcpu->executor.add(this,  &Halifax::receive_static);
+    vcpu->executor.add(this,  receive_static);
   }
   void *operator new(unsigned size)  { return new(__alignof__(Halifax)) char[size]; }
 };

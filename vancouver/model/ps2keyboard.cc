@@ -376,9 +376,9 @@ class PS2Keyboard : public StaticReceiver<PS2Keyboard>
 PARAM(keyb,
       {
 	Device *dev = new PS2Keyboard(mb.bus_ps2, argv[0], argv[1]);
-	mb.bus_ps2.add(dev, &PS2Keyboard::receive_static<MessagePS2>);
-	mb.bus_input.add(dev, &PS2Keyboard::receive_static<MessageInput>);
-	mb.bus_legacy.add(dev, &PS2Keyboard::receive_static<MessageLegacy>);
+	mb.bus_ps2.add(dev,   PS2Keyboard::receive_static<MessagePS2>);
+	mb.bus_input.add(dev, PS2Keyboard::receive_static<MessageInput>);
+	mb.bus_legacy.add(dev,PS2Keyboard::receive_static<MessageLegacy>);
       },
       "keyb:ps2port,hostkeyboard - attach a PS2 keyboard at the given PS2 port that gets input from the given hostkeyboard.",
       "Example: 'keyb:0,0x17'");

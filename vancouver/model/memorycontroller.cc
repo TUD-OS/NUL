@@ -65,8 +65,8 @@ PARAM(mem,
 	Logging::printf("physmem: %lx [%lx, %lx]\n", msg.value, start, end);
 	Device *dev = new MemoryController(msg.ptr, start, end);
 	// physmem access
-	mb.bus_mem.add(dev,      &MemoryController::receive_static<MessageMem>);
-	mb.bus_memregion.add(dev, &MemoryController::receive_static<MessageMemRegion>);
+	mb.bus_mem.add(dev,       MemoryController::receive_static<MessageMem>);
+	mb.bus_memregion.add(dev, MemoryController::receive_static<MessageMemRegion>);
       },
       "mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.",
       "Example: 'mem:0,0xa0000' for the first 640k region",

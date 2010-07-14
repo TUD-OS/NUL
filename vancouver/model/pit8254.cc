@@ -426,8 +426,8 @@ class PitDevice : public StaticReceiver<PitDevice>
     for (unsigned i=0; i < COUNTER; i++)
       {
 	_c[i] = PitCounter(&mb.bus_timer, &mb.bus_irqlines, i ? ~0U : irq, mb.clock());
-	if (!i) mb.bus_irqnotify.add(&_c[i], &PitCounter::receive_static<MessageIrqNotify>);
-	if (!i) mb.bus_timeout.add(&_c[i],   &PitCounter::receive_static<MessageTimeout>);
+	if (!i) mb.bus_irqnotify.add(&_c[i], PitCounter::receive_static<MessageIrqNotify>);
+	if (!i) mb.bus_timeout.add(&_c[i],   PitCounter::receive_static<MessageTimeout>);
 	_c[i].set_gate(1);
       }
   }
@@ -442,9 +442,9 @@ PARAM(pit,
 				       argv[1],
 				       pit_count++);
 
-	mb.bus_ioin.add(dev,  &PitDevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, &PitDevice::receive_static<MessageIOOut>);
-	mb.bus_pit.add(dev,   &PitDevice::receive_static<MessagePit>);
+	mb.bus_ioin.add(dev,  PitDevice::receive_static<MessageIOIn>);
+	mb.bus_ioout.add(dev, PitDevice::receive_static<MessageIOOut>);
+	mb.bus_pit.add(dev,   PitDevice::receive_static<MessagePit>);
       },
       "pit:iobase,irq - attach a PIT8254 to the system.",
       "Example: 'pit:0x40,0'")

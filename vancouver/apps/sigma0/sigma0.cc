@@ -35,7 +35,6 @@ Motherboard *global_mb;
 // extra params
 PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
       "Example: 'startlate:0xfffffffc' - starts only the first and second module")
-
 PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times")
 
 
@@ -256,7 +255,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
-    _mb->bus_hostop.add(this,  &Sigma0::receive_static<MessageHostOp>);
+    _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
     init_timeouts();
     init_disks();
     init_network();
@@ -533,7 +532,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
-	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 10000), modinfo->cpunr));
+	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 	}
     }
     return 0;
@@ -960,7 +959,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   NetworkProducer _prod_network[MAXMODULES];
 
-  void init_network() {  _mb->bus_network.add(this, &Sigma0::receive_static<MessageNetwork>); }
+  void init_network() {  _mb->bus_network.add(this, receive_static<MessageNetwork>); }
 
   /**
    * Handle network requests from other PDs.
@@ -1024,7 +1023,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Global init.
    */
-  void init_disks() {  _mb->bus_diskcommit.add(this, &Sigma0::receive_static<MessageDiskCommit>); }
+  void init_disks() {  _mb->bus_diskcommit.add(this, receive_static<MessageDiskCommit>); }
 
   /**
    * Attach drives to a module.
@@ -1155,7 +1154,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   void init_console() {
 
-    _mb->bus_console.add(this, &Sigma0::receive_static<MessageConsole>);
+    _mb->bus_console.add(this, receive_static<MessageConsole>);
     // alloc consoles for ourself
     MessageConsole msg1;
     msg1.clientname = 0;
@@ -1345,8 +1344,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // prealloc timeouts for every module
     _timeouts.init();
     for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
-    _mb->bus_timer.add(this,   &Sigma0::receive_static<MessageTimer>);
-    _mb->bus_timeout.add(this, &Sigma0::receive_static<MessageTimeout>);
+    _mb->bus_timer.add(this,   receive_static<MessageTimer>);
+    _mb->bus_timeout.add(this, receive_static<MessageTimeout>);
   }
 
 

@@ -198,7 +198,7 @@ PARAM(vbios_multiboot,
 	mb.bus_bios.add(new VirtualBiosMultiboot(mb,
 						 argv[0]!= ~0ul ? argv[0] : _vbios_multiboot_modaddr,
 						 argv[1]!= ~0ul ? argv[1] : 0xa0000),
-			&VirtualBiosMultiboot::receive_static);
+			VirtualBiosMultiboot::receive_static);
       },
       "vbios_multiboot:modaddr=0x1800000,lowmem=0xa0000 - create a BIOS extension that supports multiboot",
       "Example:  'vbios_multiboot'",
