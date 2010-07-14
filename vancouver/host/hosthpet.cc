@@ -53,7 +53,7 @@ class HostHpet : public StaticReceiver<HostHpet>
   struct HostHpetTimer *_timerreg;
   unsigned  _irq;
   timevalue _freq;
-
+  unsigned  _mindelta;
 public:
 
   /**
@@ -144,6 +144,7 @@ public:
 
     // delta is truncated, should be rounded "upwards" :-)
     unsigned delta = _clock->delta(msg.abstime, _freq);
+    if (delta < _mindelta) delta = _mindelta;
     unsigned oldvalue = _regs->counter[0];
 
     // write new comparator value
@@ -163,11 +164,12 @@ public:
   }
 
 
-  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level)
+  HostHpet(DBus<MessageTimeout> &bus_timeout, DBus<MessageHostOp> &bus_hostop, Clock *clock, void *iomem, unsigned timer, unsigned theirq, bool level, unsigned long maxfreq)
     : _bus_timeout(bus_timeout), _clock(clock), _regs(reinterpret_cast<HostHpetRegister *>(iomem)), _timerreg(_regs->timer + timer), _irq(theirq)
   {
     _freq = 1000000000000000ull;
     Math::div64(_freq, _regs->period);
+    _mindelta = Math::muldiv128(maxfreq, 1, _freq);
 
     // get the IRQ number
     bool legacy = false;
@@ -223,7 +225,6 @@ PARAM(hosthpet,
 	unsigned timer = ~argv[0] ? argv[0] : 0;
 	unsigned long address = HostHpet::get_hpet_address(mb.bus_acpi, argv[1]);
 	unsigned irq = argv[2];
-	bool level   = argv[3];
 
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
 	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
@@ -235,14 +236,15 @@ PARAM(hosthpet,
 
 
 	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, level);
+	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, argv[3], argv[4]);
 	mb.bus_hostirq.add(dev, HostHpet::receive_static<MessageIrq>);
 	mb.bus_timer.add(dev,   HostHpet::receive_static<MessageTimer>);
 
       },
-      "hosthpet:timer=0,address,irq=~0u,level=1 - use the host HPET as timer.",
+      "hosthpet:timer=0,address,irq=~0u,level=1,maxfreq=10000 - use the host HPET as timer.",
       "If no address is given, the ACPI HPET table or 0xfed00000 is used.",
       "If no irq is given, either the legacy or the lowest possible IRQ is used.",
+      "The maxfreq parameter defines the maximum IRQ rate and therefore accuracy of the device.",
       "Example: 'hosthpet:1,0xfed00000' - for the second timer of the hpet at 0xfed00000.");
 
 
