@@ -66,7 +66,7 @@ class Sigma0Base : public BaseProgram
     TemporarySave<Utcb::HEADER_SIZE + 1 + words> save(utcb);
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
-    if (nova_call(14, Mtd(1 + words, 0)))
+    if (nova_call(14, Mtd(1 + words, 0)) && OP != REQUEST_PUTS)
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return !utcb->msg[0];

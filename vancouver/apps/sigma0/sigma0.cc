@@ -689,7 +689,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_request,
 	  unsigned short client = (pid & 0xffe0) >> 5;
 	  ModuleInfo *modinfo = _modinfo + client;
+
 	  COUNTER_INC("request");
+	  if ((utcb->msg[0] == REQUEST_PUTS) && !modinfo->log) {
+	    utcb->msg[0] = 0;
+	    return Mtd(1, 0).value();
+	  }
+
+
 
 	  //Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
