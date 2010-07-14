@@ -64,7 +64,7 @@ private:
     if (features & FEATURE_SMALL_PDPT) pte = _pdpt[(virt >> 30) & 3]; else pte = READ(cr3);
     if (features & FEATURE_SMALL_PDPT && ~pte & 1) PF(virt, type & ~1);
     if (~features & FEATURE_PAE || ~_paging_mode & (1<<11)) type &= ~TYPE_X;
-    unsigned r = type;
+    unsigned rights = TYPE_R | TYPE_W | TYPE_U | TYPE_X;
     unsigned l = features & FEATURE_LONG ? 4 : 2;
     bool is_sp;
     CacheEntry *entry = 0;
@@ -76,10 +76,10 @@ private:
 	//Logging::printf("PTE virt %lx %x = %x\n", virt, pte, *reinterpret_cast<PTE_TYPE *>(entry->_ptr));
 	pte = *reinterpret_cast<PTE_TYPE *>(entry->_ptr);
 	if (~pte & 1)  PF(virt, type & ~1);
-	r &= pte | TYPE_X;
+	rights &= pte | TYPE_X;
 	l--;
 	is_sp = l && l != 3 && pte & 0x80 && features & FEATURE_PSE;
-	if (features & FEATURE_PAE && pte & (1ULL << 63)) r &= ~TYPE_X;
+	if (features & FEATURE_PAE && pte & (1ULL << 63)) rights &= ~TYPE_X;
 
 	// reserved bit checking
 	bool reserved_bit = false;
@@ -94,17 +94,17 @@ private:
       } while (l && !is_sp);
 
     // !wp: kernel write to read-only userpage? -> put the page as kernel read-write in the TLB
-    if (~_paging_mode & (1<<16) && type & TYPE_W && ~type & TYPE_U && ~r & TYPE_W && r & TYPE_U)
-      r = (r | TYPE_W) & ~TYPE_U;
+    if (~_paging_mode & (1<<16) && type & TYPE_W && ~type & TYPE_U && ~rights & TYPE_W && rights & TYPE_U)
+      rights = (rights | TYPE_W) & ~TYPE_U;
 
     // enough rights?
-    if ((r & type) != type)  PF(virt, type | 1);
+    if ((rights & type) != type)  PF(virt, type | 1);
 
     // delete write flag, if we do not write and the dirty flag is not set
-    if (~type & TYPE_W && ~pte & 1 << 6)  r &= ~TYPE_W;
+    if (~type & TYPE_W && ~pte & 1 << 6)  rights &= ~TYPE_W;
 
     // update A+D bits
-    AD_ASSIST((r & 3) << 5);
+    AD_ASSIST((rights & 3) << 5);
 
     unsigned size = ((features & FEATURE_PAE) ? 9 : 10) * l + 12;
     if (features & FEATURE_PSE36 && is_sp)
