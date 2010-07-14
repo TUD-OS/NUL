@@ -368,12 +368,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false)
   {
 
+    SemaphoreGuard l(_lock);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     if (skip) skip_instruction(msg);
 
     VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
     {
-      SemaphoreGuard l(_lock);
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
