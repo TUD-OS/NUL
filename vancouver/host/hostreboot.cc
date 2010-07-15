@@ -1,5 +1,5 @@
 /**
- * Host Reset.
+ * Host Reboot.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  *
@@ -19,13 +19,14 @@
 
 
 /**
- * Reset the host machine.
+ * Reboot the host machine.
  *
  * State: unstable
  * Features:  loop, keyboard, fastgate, PCI reset, ACPI reset methods (MMIO, IOIO, PCI0)
  */
-struct HostReset : public StaticReceiver<HostReset>
+struct HostReboot : public StaticReceiver<HostReboot>
 {
+#include "host/simplehwioin.h"
 #include "host/simplehwioout.h"
   enum {
     METHOD_LOOP,
@@ -92,7 +93,10 @@ struct HostReset : public StaticReceiver<HostReset>
     case METHOD_LOOP: while (1) Cpu::pause();  break;
     case METHOD_KEYBOARD: outb(0xfe, 0x64);    break;
     case METHOD_FASTGATE: outb(0x01, 0x92);    break;
-    case METHOD_PCIRESET: outb(0x06, 0xcf9);    break;
+    case METHOD_PCIRESET:
+      outb((inb(0xcf9) & ~4) | 0x02, 0xcf9);
+      outb(0x06, 0xcf9);
+      break;
     case METHOD_ACPI:
       switch (_acpi_method) {
       case 0:
@@ -118,17 +122,17 @@ struct HostReset : public StaticReceiver<HostReset>
     return true;
   }
 
-  HostReset(DBus<MessageIOOut> &bus_hwioout, unsigned method) : _bus_hwioout(bus_hwioout), _method(method) {}
+  HostReboot(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned method) : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _method(method) {}
 };
 
 
-PARAM(hostreset,
-      HostReset *r = new HostReset(mb.bus_hwioout, argv[0]);
+PARAM(hostreboot,
+      HostReboot *r = new HostReboot(mb.bus_hwioin, mb.bus_hwioout, argv[0]);
       if (r->init(mb)) {
 	Logging::printf("add reset method %ld\n", argv[0]);
-	mb.bus_console.add(r, HostReset::receive_static);
+	mb.bus_console.add(r, HostReboot::receive_static);
       },
-      "hostreset:type - provide the functionality to reset the host.",
-      "Example: 'hostreset:1' uses the keyboard to reset the host.",
+      "hostreboot:type - provide the functionality to reboot the host.",
+      "Example: 'hostreboot:1' uses the keyboard to rebootthe host.",
       "type is one of [0:Loop, 1:Keyboard, 2:FastGate, 3:PCI, 4:ACPI]."
       )

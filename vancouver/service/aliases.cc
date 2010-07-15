@@ -26,7 +26,7 @@ DEFAULT_PARAM(PC_PS2, "an alias to create an PS2 compatible PC",
 	      " vbios_disk vbios_keyboard vbios_mem vbios_time vbios_reset vbios_multiboot"   \
 	      " msi ioapic pcihostbridge:0,0x10,0xcf8,0xe0000000 pmtimer:0x8000 vcpus")
 DEFAULT_PARAM(vcpu_default, "an alias to create a default VCPU",          "vcpu halifax vbios lapic")
-DEFAULT_PARAM(S0_DEFAULT,   "an alias for the default sigma0 parameters", "ioio hostacpi hostrtc pcicfg mmconfig atare hostreset:0 hostreset:3 hostreset:1  hostreset:2  hostreset:4")
+DEFAULT_PARAM(S0_DEFAULT,   "an alias for the default sigma0 parameters", "ioio hostacpi hostrtc pcicfg mmconfig atare hostreboot:0 hostreboot:1  hostreboot:2 hostreboot:3 hostreboot:4")
 unsigned _ncpu=1;
 PARAM(ncpu, _ncpu = argv[0];, "ncpu - change the number of vcpus that are created" );
 PARAM(vcpus,
