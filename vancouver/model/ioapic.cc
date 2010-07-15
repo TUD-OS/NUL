@@ -97,7 +97,7 @@ private:
       unsigned pin = (_index - 0x10) / 2;
 
       // if edge: clear ds bit
-      _ds[pin] = _redir[pin * 2] & MessageApic::ICR_LEVEL;
+      _ds[pin] = _ds[pin] && _redir[pin * 2] & MessageApic::ICR_LEVEL;
 
       // unmasked - retrigger and/or notify
       if (~_redir[pin * 2] & 0x10000) {
@@ -147,7 +147,8 @@ private:
 	if (level) _ds[pin] = true;
       } else {
 
-	_rirr[pin]= level;
+	_rirr[pin] = level;
+	_ds[pin]   = false;
 	unsigned long phys = MessageMem::MSI_ADDRESS | (dst >> 12) & 0xffff0;
 	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
