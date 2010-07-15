@@ -305,13 +305,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
 
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
-      if (~cpu->flags & 1 || (cpunr!= -1 && i != cpunr)) continue;
-      _cpunr[_numcpus++] = i;
-
+      if (~cpu->flags & 1 || (cpunr != -1 && i != cpunr)) continue;
       Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
 
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;
+      _cpunr[_numcpus++] = i;
       _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
