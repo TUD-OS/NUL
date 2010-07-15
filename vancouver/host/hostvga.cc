@@ -464,7 +464,7 @@ PARAM(hostvga,
 	unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
 	unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
 
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, 0x3c0 |  5);
+	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, 0x3c000 |  5);
 	check0(!mb.bus_hostop.send(msg1), "can not allocate VGA ioports");
 
 	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);

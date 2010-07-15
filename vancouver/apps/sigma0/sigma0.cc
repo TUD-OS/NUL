@@ -124,7 +124,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (size & alignment) size += alignment + 1 - (size & alignment);
 
     unsigned long virt = 0;
-    if ((rights & 3) == 1)
+    if ((rights & 3) == DESC_TYPE_MEM)
       {
 	unsigned long s = _virt_phys.find_phys(physmem, size);
 	if (s)  return reinterpret_cast<char *>(s) + ofs;
@@ -361,10 +361,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;
     Logging::init(putc, &putcd);
-
-
-    // get all ioports
-    map_self(utcb, 0, 1 << (16+Utcb::MINSHIFT), DESC_IO_ALL);
 
     // map all IRQs
     utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
@@ -805,6 +801,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
 			  // XXX make sure only one gets it
+			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
 			  utcb->head.mtr = Mtd(1);
 			  utcb->msg[0] = 0;
 			  add_mappings(utcb, false, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
@@ -907,6 +904,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	res = reraise_irq(msg.value & 0xFF);
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
+	Logging::printf("ALLOC_IOIO %lx\n", msg.value);
+	map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
 	msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);

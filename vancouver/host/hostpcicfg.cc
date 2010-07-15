@@ -51,7 +51,7 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
 
 PARAM(pcicfg,
       {
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  PciConfigAccess::BASE | 3);
+	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (PciConfigAccess::BASE << 8) | 3);
 	check0(!mb.bus_hostop.send(msg1), "%s could not allocate ioports %x+8\n", __PRETTY_FUNCTION__, PciConfigAccess::BASE);
 
 	Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout);
