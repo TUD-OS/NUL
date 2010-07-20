@@ -144,7 +144,7 @@ private:
 	if (_mb.bus_hostop.send(msg) && msg.ptr)
 	  _barinfo[i].ptr = msg.ptr + (bases[i] & 0x10);
 	else
-	  Logging::panic("can not map IOMEM region %lx+%x %p", msg.value, msg.len, msg.ptr);
+	  Logging::panic("can not map IOMEM region %lx+%lx %p", msg.value, msg.len, msg.ptr);
       }
     }
   }

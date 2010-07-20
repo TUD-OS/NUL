@@ -130,7 +130,7 @@ public:
       {
 	// ack irq
 	if (_isrclear) _regs->isr = _isrclear;
-	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
+	MessageTimeout msg2(0, _clock->time());
 	_bus_timeout.send(msg2);
 	return true;
       }
@@ -140,7 +140,7 @@ public:
 
   bool  receive(MessageTimer &msg)
   {
-    if (msg.abstime == ~0ull || msg.nr != MessageTimeout::HOST_TIMEOUT) return false;
+    if (msg.abstime == ~0ull || msg.nr != 0) return false;
 
     // delta is truncated, should be rounded "upwards" :-)
     unsigned delta = _clock->delta(msg.abstime, _freq);
@@ -157,7 +157,7 @@ public:
     if ((_regs->counter[0] - oldvalue) >= delta)
       {
 	COUNTER_INC("HPET lost");
-	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
+	MessageTimeout msg2(0, _clock->time());
 	_bus_timeout.send(msg2);
       }
     return true;

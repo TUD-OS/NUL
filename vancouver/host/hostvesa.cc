@@ -169,6 +169,8 @@ public:
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
       case MessageHostOp::OP_RERAISE_IRQ:
+      case MessageHostOp::OP_ALLOC_SEMAPHORE:
+      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }

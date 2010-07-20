@@ -83,7 +83,7 @@ struct BaseProgram {
     assert(hotspot < size);
 
     Crd res = nova_lookup(start + hotspot);
-    Logging::printf("request mapping %p+%lx s %lx -> %x\n", start, hotspot, size, res.value());
+    //Logging::printf("request mapping %p+%lx s %lx -> %x\n", start, hotspot, size, res.value());
     if (!res.attr()) {
       // XXX request the mapping from sigma0 if nothing found
       asm volatile("lock orl $0, (%0)" : : "r"(start + hotspot) : "memory");

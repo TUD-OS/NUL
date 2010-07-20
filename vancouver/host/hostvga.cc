@@ -97,7 +97,7 @@ private:
     if (!_active_mode) set_vga_reg(0x14, 0xc, 8*3);
 
     // do an immediate refresh
-    MessageTimeout msg(_timer);
+    MessageTimeout msg(_timer, _mb.clock()->time());
     bool res =  receive(msg);
     return res;
 
@@ -369,7 +369,7 @@ public:
 	    view->direct_map = 0;
 
 	  // do an immediate refresh
-	  MessageTimeout msg2(_timer);
+	  MessageTimeout msg2(_timer, _mb.clock()->time());
 	  receive(msg2);
 	  return true;
 	}

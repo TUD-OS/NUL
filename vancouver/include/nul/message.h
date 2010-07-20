@@ -396,6 +396,8 @@ struct MessageHostOp
       OP_ATTACH_MSI,
       OP_ALLOC_IOIO_REGION,
       OP_ALLOC_IOMEM,
+      OP_ALLOC_SEMAPHORE,
+      OP_ALLOC_SERVICE_THREAD,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
@@ -414,7 +416,7 @@ struct MessageHostOp
     };
     struct {
       char *ptr;
-      unsigned len;
+      unsigned long len;
     };
     struct {
       unsigned module;
@@ -434,7 +436,7 @@ struct MessageHostOp
   };
   MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   MessageHostOp(unsigned _module, char * _start) : type(OP_GET_MODULE), module(_module), start(_start), size(0), cmdlen(0)  {}
-  MessageHostOp(Type _type, unsigned long _value, unsigned _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
+  MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
 };
 
 
@@ -601,9 +603,9 @@ struct MessageTimer
  */
 struct MessageTimeout
 {
-  enum { HOST_TIMEOUT = ~0u };
   unsigned  nr;
-  MessageTimeout(unsigned  _nr) : nr(_nr) {}
+  timevalue time;
+  MessageTimeout(unsigned  _nr, timevalue _time) : nr(_nr), time(_time) {}
 };
 
 
@@ -611,7 +613,7 @@ struct MessageTimeout
  * Returns the wall clock time in microseconds.
  *
  * It also contains a timestamp of the Motherboard clock in
- * microseconds, to be able to adjust to the time allready passed and
+ * microseconds, to be able to adjust to the time already passed and
  * to detect out-of-date values.
  */
 struct MessageTime

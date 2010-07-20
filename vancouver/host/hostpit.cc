@@ -26,6 +26,7 @@ class HostPit : public StaticReceiver<HostPit>
 {
   #include "host/simplehwioout.h"
   DBus<MessageTimeout> &_bus_timeout;
+  Clock *_clock;
   static const unsigned long long FREQ = 1193180;
   unsigned _period;
   unsigned _iobase;
@@ -35,9 +36,8 @@ class HostPit : public StaticReceiver<HostPit>
  public:
   bool  receive(MessageIrq &msg)
   {
-    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
-      {
-	MessageTimeout msg2(MessageTimeout::HOST_TIMEOUT);
+    if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ) {
+      MessageTimeout msg2(0, _clock->time());
 	_bus_timeout.send(msg2);
 	return true;
       }
@@ -45,8 +45,8 @@ class HostPit : public StaticReceiver<HostPit>
   }
 
 
-  HostPit(DBus<MessageIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, unsigned period, unsigned iobase, unsigned irq)
-    :  _bus_hwioout(bus_hwioout), _bus_timeout(bus_timeout), _period(period), _iobase(iobase), _irq(irq)
+  HostPit(DBus<MessageIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, Clock *clock, unsigned period, unsigned iobase, unsigned irq)
+    :  _bus_hwioout(bus_hwioout), _bus_timeout(bus_timeout), _clock(clock), _period(period), _iobase(iobase), _irq(irq)
   {
     unsigned long long value = FREQ*period;
     Math::div64(value, 1000000);
@@ -65,7 +65,7 @@ PARAM(hostpit,
 	if (!mb.bus_hostop.send(msg1))
 	  Logging::panic("%s failed to allocate ports %lx+4\n", __PRETTY_FUNCTION__, argv[1]);
 
-	Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, argv[0], argv[1], argv[2]);
+	Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, mb.clock(), argv[0], argv[1], argv[2]);
 	mb.bus_hostirq.add(dev, HostPit::receive_static<MessageIrq>);
 
 	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
