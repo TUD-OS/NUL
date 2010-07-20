@@ -359,6 +359,25 @@ private:
     return false;
   }
 
+
+  bool  receive(MessageLegacy &msg) {
+    if (msg.type != MessageLegacy::RESET) return false;
+
+    /**
+     * Disable Busmaster DMA on reset.  Thus the device can not do DMA
+     * anymore.
+     *
+     * XXX OSes are buggy and enable this bit to early, thus we have
+     * to reset the PCI device here!
+     */
+    unsigned old = conf_read(_hostbdf, 1);
+    conf_write(_hostbdf, 1, old & ~0x4);
+    Logging::printf("disabled DMA by PCI device %x cmd %x -> %x\n", _hostbdf, old, conf_read(_hostbdf, 1));
+    return true;
+  }
+
+
+
   DirectPciDevice(Motherboard &mb, unsigned hbdf, unsigned guestbdf, bool assign, bool use_irqs=true, unsigned parent_bdf = 0, unsigned vf_no = 0, bool map = true)
     : HostVfPci(mb.bus_hwpcicfg, mb.bus_hostop), _mb(mb), _hostbdf(hbdf), _msix_table(0), _msix_host_table(0), _bar_count(count_bars(_hostbdf))
   {
@@ -420,6 +439,7 @@ private:
     mb.bus_ioin.add(this,   DirectPciDevice::receive_static<MessageIOIn>);
     mb.bus_ioout.add(this,  DirectPciDevice::receive_static<MessageIOOut>);
     mb.bus_mem.add(this,    DirectPciDevice::receive_static<MessageMem>);
+    mb.bus_legacy.add(this, DirectPciDevice::receive_static<MessageLegacy>);
     if (map)
       mb.bus_memregion.add(this, DirectPciDevice::receive_static<MessageMemRegion>);
     mb.bus_hostirq.add(this,     DirectPciDevice::receive_static<MessageIrq>);
