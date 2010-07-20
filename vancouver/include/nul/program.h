@@ -64,19 +64,19 @@ class NovaProgram : public BaseProgram
   /**
    * Create an ec and setup the stack.
    */
-  unsigned  create_ec_helper(unsigned tls, Utcb **utcb_out=0, bool worker = false, unsigned excbase = 0, unsigned cpunr=~0)
+  unsigned  create_ec_helper(unsigned long tls, Utcb **utcb_out=0, unsigned excbase = 0, unsigned cpunr=~0, void *func=0)
   {
-    const unsigned STACK_FRAME = 2;
-
+    unsigned stack_top = stack_size/sizeof(void *);
     unsigned cap = alloc_cap(1);
     Utcb *utcb = alloc_utcb();
-    void **stack = new(stack_size) void *[stack_size / sizeof(void *)];
+    void **stack = new(stack_size) void *[stack_top];
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
-    stack[stack_size/sizeof(void *) - 1] = utcb; // push UTCB -- needed for myutcb()
-    stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(idc_reply_and_wait_fast);
-    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %x\n",
-		    cpunr, cap, stack, utcb, stack + stack_size/sizeof(void *) -  STACK_FRAME, stack[stack_size/sizeof(void *) -  STACK_FRAME], tls);
-    check1(0, nova_create_ec(cap, utcb,  stack + stack_size/sizeof(void *) -  STACK_FRAME, cpunr, excbase, worker));
+    stack[--stack_top] = utcb; // push UTCB -- needed for myutcb()
+    stack[--stack_top] = reinterpret_cast<void *>(tls);
+    stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
+    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %lx\n",
+		    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
+    check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
     utcb->head.tls = tls;
     if (utcb_out)
       *utcb_out = utcb;
@@ -187,7 +187,7 @@ asm volatile (".section .text.idc_reply_and_wait_fast;"
 	      "mov	%eax, %esi;"
 	      // w0: NOVA_IPC_REPLY
 	      "mov	$1, %al;"
-	      // keep a pointer to ourself on the stack
+	      // keep a pointer to ourself
 	      "sub	$4, %esp;"
 	      // ecx: stack
 	      "mov	%esp, %ecx;"

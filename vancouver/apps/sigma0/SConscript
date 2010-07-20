@@ -4,7 +4,7 @@ import nul
 
 Import('target_env')
 nul.App(target_env, 'sigma0',
-        SOURCES = [ 'sigma0.cc'],
+        SOURCES = [ 'sigma0.cc', 'service_timer.cc'],
         LIBS    = [ 'hostvesa', 'host', 'service'],
         LINKSCRIPT = 'linker.ld',
         MEMSIZE = 2<<12) # enough memory for two stacks

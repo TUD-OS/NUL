@@ -1,7 +1,7 @@
 /*
  * Main sigma0 code.
  *
- * Copyright (C) 2008-2009, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
  *
  * This file is part of Vancouver.
  *
@@ -180,7 +180,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     Logging::printf("create ec for gsi %x\n", gsi);
     Utcb *u = 0;
-    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, false, 0, _cpunr[CPUGSI % _numcpus]);
+    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
     return !nova_create_sc(alloc_cap(), cap, Qpd(3, 10000));
@@ -256,7 +256,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
-    init_timeouts();
+    _mb->bus_timeout.add(this,  receive_static<MessageTimeout>);
     init_disks();
     init_network();
     _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
@@ -311,12 +311,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;
       _cpunr[_numcpus++] = i;
-      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true, 0, i);
+      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, 0, i);
       _percpu[i].cap_pt_echo = alloc_cap();
-      check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, do_map_wrapper, Mtd()));
+      check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), Mtd()));
 
       Utcb *utcb = 0;
-      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, true, 0, i);
+      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, 0, i);
 
       // initialize the receive window
       utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
@@ -345,9 +345,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, do_pf_wrapper,    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper),    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
-    check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, do_thread_startup_wrapper, Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
+    check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
 
     // map vga memory
     Logging::printf("map vga memory\n");
@@ -375,8 +375,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   };
 
 
-  /**
-   * Request memory from the memmap.
+  /**   * Request memory from the memmap.
    */
   static void *sigma0_memalloc(unsigned long size, unsigned long align) {
     if (!size) return 0;
@@ -522,8 +521,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // create special portal for every module, we start at 64k, to have enough space for static fields
 	  unsigned pt = 0x10000 + (module << 5);
 	  assert(_percpu[modinfo->cpunr].cap_ec_worker);
-	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, do_request_wrapper, Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, do_startup_wrapper, Mtd()));
+	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
 
 	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
@@ -595,8 +594,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
  * Sigma0 portal functions.
  */
 #define PT_FUNC_NORETURN(NAME, CODE)					\
-  static unsigned long NAME##_wrapper(unsigned pid, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
-  { reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(pid, utcb); }	\
+  static unsigned long NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
+  { tls->NAME(pid, utcb); }						\
   									\
   void __attribute__((always_inline, noreturn))  NAME(unsigned pid, Utcb *utcb) \
   {									\
@@ -604,8 +603,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 #define PT_FUNC(NAME, CODE, ...)					\
-  static unsigned long NAME##_wrapper(unsigned pid, Utcb *utcb) __attribute__((regparm(1))) \
-  { return reinterpret_cast<Sigma0 *>(utcb->head.tls)->NAME(pid, utcb); } \
+  static unsigned long NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
+  { return tls->NAME(pid, utcb); } \
   									\
   unsigned long __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
   {									\
@@ -630,11 +629,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	  )
 
-  PT_FUNC(do_thread_startup,
-	  // XXX Make this generic.
-	  utcb->eip = reinterpret_cast<unsigned long>(&do_gsi_wrapper);
-	  )
-
+  PT_FUNC(do_thread_startup,   utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0]; )
 
   PT_FUNC_NORETURN(do_gsi,
 		   unsigned char res;
@@ -650,8 +645,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		     {
 		       SemaphoreGuard s(_lock);
 		       _mb->bus_hostirq.send(msg);
-		       if (msg.line == 1)
-			 COUNTER_SET("absto", _timeouts.timeout());
 		     }
 		   {
 		     SemaphoreGuard s(_lock);
@@ -771,7 +764,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
 			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
-			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %x = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			  } else {
 			    Logging::printf("[%02x] DMA access denied.\n", client);
 			  }
@@ -814,9 +807,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    utcb->head.mtr = Mtd(1);
 			    utcb->msg[1] = 0;
 			    add_mappings(utcb, false, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
-			    Logging::printf("[%02x] iomem %lx+%x granted from %p\n", client, addr, msg->len, ptr);
+			    Logging::printf("[%02x] iomem %lx+%lx granted from %p\n", client, addr, msg->len, ptr);
 			  }
 			  break;
+			case MessageHostOp::OP_ALLOC_SEMAPHORE:
+			case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 			case MessageHostOp::OP_RERAISE_IRQ:
 			case MessageHostOp::OP_GUEST_MEM:
 			case MessageHostOp::OP_ALLOC_FROM_GUEST:
@@ -909,6 +904,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
 	msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);
+	break;
+      case MessageHostOp::OP_ALLOC_SEMAPHORE:
+	msg.value = alloc_cap();
+	check1(false, nova_create_sm(msg.value));
+	break;
+      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
+	{
+	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(msg.len));
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+	}
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       {
@@ -1290,10 +1295,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case MessageConsole::TYPE_DEBUG:
       switch (msg.id) {
       case 0:  _mb->dump_counters(); break;
-      case 1:  check_timeouts(); break;
-      case 2:
-	Logging::printf("to %llx now %llx\n", _timeouts.timeout(), _mb->clock()->time());
-	break;
       case 3: {
 	  static unsigned unmap_count;
 	  unmap_count--;
@@ -1329,22 +1330,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   /************************************************************
-   *   TIMEOUT support                                        *
+   *   TIME support                                           *
    ************************************************************/
 
-  TimeoutList<MAXMODULES+2> _timeouts;
   TimerProducer             _prod_timer[MAXMODULES];
-
-
-  void init_timeouts() {
-
-    // prealloc timeouts for every module
-    _timeouts.init();
-    for (unsigned i=0; i < MAXMODULES; i++) _timeouts.alloc();
-    _mb->bus_timer.add(this,   receive_static<MessageTimer>);
-    _mb->bus_timeout.add(this, receive_static<MessageTimeout>);
-  }
-
 
   /**
    * Handle timeout requests from other PDs.
@@ -1376,7 +1365,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	MessageTime msg;
 	if (_mb->bus_time.send(msg))
 	  {
-	    // we assume the same mb->clock() source here
+	    // XXX we assume the same mb->clock() source here
 	    *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
 	    utcb->head.mtr = Mtd((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
 	    utcb->msg[0] = 0;
@@ -1389,63 +1378,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return true;
   }
 
+
   /**
-   * Check whether timeouts have fired.
+   * Forward timeout requests.
    */
-  void check_timeouts() {
-
-    COUNTER_INC("check_to");
-    timevalue now = _mb->clock()->time();
-    unsigned nr;
-    while ((nr = _timeouts.trigger(now)))
-      {
-	_timeouts.cancel(nr);
-	MessageTimeout msg1(nr);
-	_mb->bus_timeout.send(msg1);
-      }
-    if (_timeouts.timeout() != ~0ULL)
-      {
-	// update timeout upstream
-	MessageTimer msg(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
-	_mb->bus_timer.send(msg);
-      }
-  }
-
-
-  bool  receive(MessageTimer &msg)
-  {
-    switch (msg.type)
-      {
-      case MessageTimer::TIMER_NEW:
-	msg.nr = _timeouts.alloc();
-	return true;
-      case MessageTimer::TIMER_REQUEST_TIMEOUT:
-	if (msg.nr != MessageTimeout::HOST_TIMEOUT)
-	  {
-	    if (!_timeouts.request(msg.nr, msg.abstime))
-	      {
-		MessageTimer msg2(MessageTimeout::HOST_TIMEOUT, _timeouts.timeout());
-		_mb->bus_timer.send(msg2);
-	      }
-	  }
-	break;
-      default:
-	return false;
-      }
-    return true;
-  }
-
-
   bool  receive(MessageTimeout &msg)
   {
-    if (msg.nr < MAXMODULES)
-      {
-	TimerItem item(Cpu::rdtsc());
+    if (msg.nr < MAXMODULES) {
+	TimerItem item(msg.time);
 	assert(msg.nr < sizeof(_prod_timer)/sizeof(_prod_timer[0]));
 	_prod_timer[msg.nr].produce(item);
 	return true;
-      }
-    if (msg.nr == MessageTimeout::HOST_TIMEOUT)  check_timeouts();
+    }
     return false;
   }
 

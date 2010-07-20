@@ -51,7 +51,8 @@ PARAM(kbmodifier,
       "kbmodifier:value - change the kbmodifier. Default: RWIN.",
       "Example: 'kbmodifier:0x40000' uses LWIN as modifier.",
       "See keyboard.h for definitions.")
-
+PARAM(panic, if (argv[0]) Logging::panic("%s", __func__); ,
+      "panic - panic the system at creation time" )
 /****************************************************/
 /* Vancouver class                                  */
 /****************************************************/
@@ -65,7 +66,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
-#define PT_FUNC(NAME)  static unsigned long  NAME(unsigned pid, Utcb *utcb) __attribute__((regparm(1)))
+#define PT_FUNC(NAME)  static unsigned long  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   PT_FUNC(NAME)								\
   {  CODE; return utcb->head.mtr.value(); }
@@ -82,7 +83,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 		    utcb->edx, utcb->eax,
 		    utcb->edi, utcb->esi,
 		    utcb->ecx);
-    reinterpret_cast<Vancouver*>(utcb->head.tls)->block_forever();
+    tls->block_forever();
   }
 
 
@@ -122,7 +123,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_stdin) __attribute__((noreturn))
   {
-    StdinConsumer *stdinconsumer = new StdinConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
+    StdinConsumer *stdinconsumer = new StdinConsumer(tls->alloc_cap());
     assert(stdinconsumer);
     Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
@@ -171,7 +172,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    DiskConsumer *diskconsumer = new DiskConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
+    DiskConsumer *diskconsumer = new DiskConsumer(tls->alloc_cap());
     assert(diskconsumer);
     Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
     while (1) {
@@ -185,7 +186,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    TimerConsumer *timerconsumer = new TimerConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
+    TimerConsumer *timerconsumer = new TimerConsumer(tls->alloc_cap());
     assert(timerconsumer);
     Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
     while (1) {
@@ -193,7 +194,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       COUNTER_INC("timer");
       timerconsumer->get_buffer();
       timerconsumer->free_buffer();
-
       SemaphoreGuard l(_lock);
       timeout_trigger();
     }
@@ -201,7 +201,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_network) __attribute__((noreturn))
   {
-    NetworkConsumer *network_consumer = new NetworkConsumer(reinterpret_cast<Vancouver*>(utcb->head.tls)->alloc_cap());
+    NetworkConsumer *network_consumer = new NetworkConsumer(tls->alloc_cap());
     Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
     while (1) {
       unsigned char *buf;
@@ -253,21 +253,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *))
+  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
-
-    unsigned stack_size = 0x1000;
-    Utcb *utcb = alloc_utcb();
-    void **stack = new(0x1000) void *[stack_size / sizeof(void *)];
-    stack[stack_size/sizeof(void *) - 1] = utcb;
-    stack[stack_size/sizeof(void *) - 2] = reinterpret_cast<void *>(func);
-
+    Utcb *utcb;
+    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, PT_IRQ, Cpu::cpunr(), reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
-
-    unsigned cap_ec =  alloc_cap();
-    check1(~2u, nova_create_ec(cap_ec, utcb,  stack + stack_size/sizeof(void *) -  2, Cpu::cpunr(), PT_IRQ, false));
-    utcb->head.tls = reinterpret_cast<unsigned>(this);
     utcb->msg[0] = irq_cap;
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
@@ -289,15 +280,15 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
     // create exception EC
-    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0, true);
+    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0);
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i != 30) check1(3, nova_create_pt(i, cap_ex, got_exception, Mtd(MTD_ALL, 0)));
+      if (i!=14 && i != 30) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
-    nova_create_pt(PT_IRQ + 14, cap_ex, do_gsi_pf,    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
-    nova_create_pt(PT_IRQ + 30, cap_ex, do_gsi_boot,  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+    nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
+    nova_create_pt(PT_IRQ + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
     return 0;
   }
 
@@ -311,7 +302,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE) {NR, NAME, INPUT},
     struct vm_caps {
       unsigned nr;
-      unsigned long __attribute__((regparm(1))) (*func)(unsigned, Utcb *);
+      unsigned long __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *);
       unsigned mtd;
     } vm_caps[] = {
 #include "vancouver.cc"
@@ -320,7 +311,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
       //Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
-      check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, vm_caps[i].func, Mtd(vm_caps[i].mtd, 0)));
+      check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, reinterpret_cast<unsigned long>(vm_caps[i].func), Mtd(vm_caps[i].mtd, 0)));
     }
 
     Logging::printf("\tcreate VCPU\n");
@@ -328,7 +319,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (nova_create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
     if (nova_create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
-	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
+	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 100000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return cap_block;
   }
@@ -526,6 +517,8 @@ public:
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_RERAISE_IRQ:
+      case MessageHostOp::OP_ALLOC_SEMAPHORE:
+      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
@@ -553,20 +546,32 @@ public:
   bool  receive(MessagePciConfig &msg) {  return !Sigma0Base::pcicfg(msg);  }
   bool  receive(MessageAcpi      &msg) {  return !Sigma0Base::acpi(msg);    }
 
-  static void timeout_trigger()
-  {
-    timevalue now = _mb->clock()->time();
-    unsigned nr;
-    while ((nr = _timeouts.trigger(now))) {
-      _timeouts.cancel(nr);
-      MessageTimeout msg(nr);
-      _mb->bus_timeout.send(msg);
-    }
+
+  /**
+   * update timeout in sigma0
+   */
+  static void timeout_request() {
     if (_timeouts.timeout() != ~0ull) {
-      // update timeout in sigma0
       MessageTimer msg2(0, _timeouts.timeout());
       Sigma0Base::timer(msg2);
     }
+  }
+
+
+  static void timeout_trigger() {
+    timevalue now = _mb->clock()->time();
+
+    //Logging::printf("trigger %llx vs %llx %lld\n", now, _timeouts.timeout(), now - _timeouts.timeout());
+
+    // trigger all timeouts that are due
+    unsigned nr;
+    while ((nr = _timeouts.trigger(now))) {
+      MessageTimeout msg(nr, _timeouts.timeout());
+      _timeouts.cancel(nr);
+      _mb->bus_timeout.send(msg);
+    }
+    // request a new timeout upstream
+    timeout_request();
   }
 
 
@@ -580,7 +585,7 @@ public:
 	return true;
       case MessageTimer::TIMER_REQUEST_TIMEOUT:
 	_timeouts.request(msg.nr, msg.abstime);
-	timeout_trigger();
+	timeout_request();
 	break;
       default:
 	return false;
@@ -767,9 +772,9 @@ MTD_IRQ,
 
 
 // and now the SVM portals
-VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, utcb); )
-VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ, utcb->inst_len = 2; vmx_cpuid(pid, utcb); )
-VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, utcb); )
+VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, tls, utcb); )
+VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ, utcb->inst_len = 2; vmx_cpuid(pid, tls, utcb); )
+VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
 	{
 	  if (utcb->qual[0] & 0x4)
@@ -786,11 +791,11 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	    }
 	}
 	)
-VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, utcb); )
-VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, utcb); )
+VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, tls, utcb); )
+VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 	if (!map_memory_helper(utcb, utcb->qual[0] & 1))
-	  svm_invalid(pid, utcb);
+	  svm_invalid(pid, tls, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
@@ -799,6 +804,6 @@ VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	utcb->ctrl[0] = 1 << 18; // cpuid
 	utcb->ctrl[1] = 1 << 0;  // vmrun
 	)
-VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  vmx_irqwin(pid, utcb); )
-VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, utcb); )
+VM_FUNC(PT_SVM + 0xfe,  svm_startup,MTD_ALL,  vmx_irqwin(pid, tls, utcb); )
+VM_FUNC(PT_SVM + 0xff,  svm_recall, MTD_IRQ,  do_recall(pid, tls, utcb); )
 #endif

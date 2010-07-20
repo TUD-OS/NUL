@@ -104,9 +104,8 @@ inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 {  return nova_syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
 
 
-typedef unsigned long __attribute__((regparm(1))) (*pt_func)(unsigned, Utcb *);
-inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, pt_func eip, Mtd mtd)
-{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value(), reinterpret_cast<unsigned>(eip)); }
+inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, Mtd mtd)
+{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value(), eip); }
 
 
 inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial = 0)
