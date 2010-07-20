@@ -69,7 +69,7 @@ class Sigma0Base : public BaseProgram
     if (nova_call(14, Mtd(1 + words, 0)) && OP != REQUEST_PUTS)
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
-    return !utcb->msg[0];
+    return utcb->msg[0];
   }
  public:
   struct PutsRequest

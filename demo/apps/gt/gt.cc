@@ -57,7 +57,7 @@ public:
     unsigned mode = ~0;
     ConsoleModeInfo m;
     MessageConsole msg(0, &m);
-    while (Sigma0Base::console(msg))      {
+    while (!Sigma0Base::console(msg))      {
       Logging::printf("GT: %x %dx%d-%d sc %x\n",
 		      msg.index, m.resolution[0], m.resolution[1], m.bpp, m.bytes_per_scanline);
 	// we like to have the 24/32bit mode with 1024
@@ -77,7 +77,7 @@ public:
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("GT2", _vesa_console, size, &_vesaregs);
-    check1(1, !Sigma0Base::console(msg2));
+    check1(1, Sigma0Base::console(msg2), "alloc vesa console failed");
     _vesaregs.mode = mode;
 
 

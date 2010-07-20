@@ -453,7 +453,7 @@ public:
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	{
 	  myutcb()->head.crd = Crd(msg.value >> 8, msg.value & 0xff, DESC_IO_ALL).value();
-	  res = ! Sigma0Base::hostop(msg);
+	  res = Sigma0Base::hostop(msg);
 	  Logging::printf("alloc ioio region %lx %s\n", msg.value, res ? "done" :  "failed");
 	}
 	break;
@@ -461,7 +461,7 @@ public:
 	{
 	  _iomem_start = (_iomem_start + msg.len - 1) & ~(msg.len-1);
 	  myutcb()->head.crd = Crd(_iomem_start >> 12, Cpu::bsr(msg.len) - 12, 1).value();
-	  res = ! Sigma0Base::hostop(msg);
+	  res = Sigma0Base::hostop(msg);
 	  if (res) {
 	    msg.ptr = reinterpret_cast<char *>(_iomem_start);
 	    _iomem_start += msg.len;
@@ -492,17 +492,20 @@ public:
 	res = true;
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	_dpci = true;
+	res = !Sigma0Base::hostop(msg);
+	_dpci |= res;
+	Logging::printf("%s\n",_dpci ? "DPCI device assigned" : "DPCI failed");
+	break;
       case MessageHostOp::OP_GET_MODULE:
       case MessageHostOp::OP_GET_UID:
-	res = Sigma0Base::hostop(msg);
+	res = !Sigma0Base::hostop(msg);
 	break;
       case MessageHostOp::OP_ATTACH_MSI:
       case MessageHostOp::OP_ATTACH_IRQ:
 	{
 	  unsigned irq_cap = alloc_cap();
 	  myutcb()->head.crd = Crd(irq_cap, 0, DESC_CAP_ALL).value();
-	  res  = Sigma0Base::hostop(msg);
+	  res  = !Sigma0Base::hostop(msg);
 	  create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
 	}
 	break;
@@ -535,7 +538,7 @@ public:
       msg.physsize = _physsize;
       msg.physoffset = _physmem;
     }
-    return Sigma0Base::disk(msg);
+    return !Sigma0Base::disk(msg);
   }
 
 
@@ -546,9 +549,9 @@ public:
     return true;
   }
 
-  bool  receive(MessageConsole &msg)   {  return Sigma0Base::console(msg); }
-  bool  receive(MessagePciConfig &msg) {  return Sigma0Base::pcicfg(msg);  }
-  bool  receive(MessageAcpi      &msg) {  return Sigma0Base::acpi(msg);    }
+  bool  receive(MessageConsole &msg)   {  return !Sigma0Base::console(msg); }
+  bool  receive(MessagePciConfig &msg) {  return !Sigma0Base::pcicfg(msg);  }
+  bool  receive(MessageAcpi      &msg) {  return !Sigma0Base::acpi(msg);    }
 
   static void timeout_trigger()
   {
@@ -585,7 +588,7 @@ public:
     return true;
   }
 
-  bool  receive(MessageTime &msg) {  return Sigma0Base::time(msg);  }
+  bool  receive(MessageTime &msg) {  return !Sigma0Base::time(msg);  }
 
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)

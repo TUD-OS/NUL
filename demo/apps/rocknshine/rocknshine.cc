@@ -102,7 +102,7 @@ public:
     extern char __image_end;
     char *pmem = &__image_end;
     MessageHostOp msg1(1, pmem);
-    if (!Sigma0Base::hostop(msg1))
+    if (Sigma0Base::hostop(msg1))
       Logging::panic("no enough memory for the module");
 
     _header = reinterpret_cast<pheader *>(pmem);
@@ -123,7 +123,7 @@ public:
 
     // we like to have a 24/32bit mode but prefer a 24bit mode
     ConsoleModeInfo m;
-    for (MessageConsole msg(0, &m); Sigma0Base::console(msg); msg.index++)
+    for (MessageConsole msg(0, &m); !Sigma0Base::console(msg); msg.index++)
       if (m.attr & 0x80
 	  && m.bpp >= 24
 	  && m.resolution[0] == _header->width
@@ -143,7 +143,7 @@ public:
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("RS2", _vesa_console, size, &_vesaregs);
-    check1(1, !Sigma0Base::console(msg2));
+    check1(1, Sigma0Base::console(msg2));
     _vesaregs.mode = mode;
 
     // Get keyboard
