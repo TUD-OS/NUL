@@ -121,9 +121,9 @@ typedef Producer<MessageDiskCommit, DISKS_SIZE> DiskProducer;
 /**
  * Timer push interface.
  */
-struct TimerItem{
-  unsigned long long time;
-  TimerItem(unsigned long long _time = 0) : time(_time) {}
+struct TimerItem {
+  timevalue time;
+  TimerItem(timevalue _time = 0) : time(_time) {}
 };
 typedef Consumer<TimerItem, DISKS_SIZE> TimerConsumer;
 typedef Producer<TimerItem, DISKS_SIZE> TimerProducer;
