@@ -18,6 +18,7 @@
 
 struct Config {
   enum {
+    MAX_CLIENTS    = 64,
     PHYS_ADDR_SIZE = 40
   };
 };
