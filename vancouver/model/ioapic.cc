@@ -104,7 +104,8 @@ private:
 	if (_ds[pin]) pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
 	else {
 	  //if (pin == 2) _debug = true;
-	  //if (_debug) Logging::printf("unmask pin %x value %x\n", pin, _redir[pin * 2]);
+	  //if (_debug) 
+	  //Logging::printf("unmask pin %x value %x\n", pin, _redir[pin * 2]);
 	  // unmasked an edge triggered IRQ? -> notify
 	  _notify[pin] = true;
 	  notify(pin);
@@ -233,6 +234,7 @@ public:
 
   bool  receive(MessageLegacy &msg) {
     if (!_gsibase) {
+      //Logging::printf("Legacy %x\n", msg.type);
       if (msg.type == MessageLegacy::INTR)   return pin_assert(EXTINT_PIN,  MessageIrq::ASSERT_IRQ);
       if (msg.type == MessageLegacy::NMI)    return pin_assert(NMI_PIN,     MessageIrq::ASSERT_IRQ);
     }

@@ -65,7 +65,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     VCpu *vcpu = msg.vcpu;
 
     bool bsp = !vcpu->get_last();
-    Logging::printf("%s %x\n", __func__, bsp);
+    //Logging::printf("%s %x\n", __func__, bsp);
 
     // the APIC
     state->eax = 0xfee00800 | (bsp ? 0x100 : 0);

@@ -123,7 +123,7 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
   bool handle_int16(MessageBios &msg)
   {
     CpuState *cpu = msg.cpu;
-    //COUNTER_INC("int16");
+    COUNTER_INC("int16");
     unsigned short next  = read_bda(0x1a);
     unsigned short first = read_bda(0x1c);
     unsigned short start = read_bda(0x80);

@@ -410,7 +410,8 @@ public:
 		  };
 		break;
 	      default:
-		Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
+		//Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
+		break;
 	      }
 	    res = true;
 	  }
@@ -459,7 +460,8 @@ public:
 		  }
 		break;
 	      default:
-		Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
+		//Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
+		break;
 	      }
 	    msg.value = (msg.value & ~(0xff << i*8)) | (value << i*8);
 	    res = true;
