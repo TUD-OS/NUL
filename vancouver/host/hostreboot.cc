@@ -23,18 +23,18 @@
  *
  * State: unstable
  * Features:  loop, keyboard, fastgate, PCI reset, ACPI reset methods (MMIO, IOIO, PCI0)
+ * Missing: disable VMX, keyboard-wait-loop
  */
 struct HostReboot : public StaticReceiver<HostReboot>
 {
 #include "host/simplehwioin.h"
 #include "host/simplehwioout.h"
   enum {
-    METHOD_LOOP,
     METHOD_KEYBOARD,
     METHOD_FASTGATE,
     METHOD_PCIRESET,
-    METHOD_ACPI,
- };
+    METHOD_ACPI
+  };
   unsigned _method;
   unsigned char _acpi_method;
   unsigned char _acpi_value;
@@ -46,7 +46,6 @@ struct HostReboot : public StaticReceiver<HostReboot>
   bool init(Motherboard &mb) {
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_IOIO_REGION, ~0ul);
     switch (_method) {
-    case METHOD_LOOP: return true;
     case METHOD_KEYBOARD: msg0.value =  0x6400; break;
     case METHOD_FASTGATE: msg0.value =  0x9200; break;
     case METHOD_PCIRESET: msg0.value = 0xcf900; break;
@@ -90,7 +89,6 @@ struct HostReboot : public StaticReceiver<HostReboot>
 
     Logging::printf("resetting machine via method %d addr %llx value %x\n", _method, _acpi_address, _acpi_value);
     switch (_method) {
-    case METHOD_LOOP: while (1) Cpu::pause();  break;
     case METHOD_KEYBOARD: outb(0xfe, 0x64);    break;
     case METHOD_FASTGATE: outb(0x01, 0x92);    break;
     case METHOD_PCIRESET:
@@ -133,6 +131,5 @@ PARAM(hostreboot,
 	mb.bus_console.add(r, HostReboot::receive_static);
       },
       "hostreboot:type - provide the functionality to reboot the host.",
-      "Example: 'hostreboot:1' uses the keyboard to rebootthe host.",
-      "type is one of [0:Loop, 1:Keyboard, 2:FastGate, 3:PCI, 4:ACPI]."
-      )
+      "Example: 'hostreboot:0' uses the keyboard to reboot the host.",
+      "type is one of [0:Keyboard, 1:FastGate, 2:PCI, 3:ACPI].")
