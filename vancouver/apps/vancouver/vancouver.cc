@@ -405,8 +405,20 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       Crd own = request_mapping(msg.ptr, msg.count << 12, utcb->qual[1] - (msg.start_page << 12));
 
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
+
       utcb->head.mtr = Mtd();
       add_mappings(utcb, true, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)), own.attr() | DESC_EPT | (_dpci ? DESC_DPT : 0));
+
+      // EPT violation during IDT vectoring?
+      if (utcb->inj_info & 0x80000000) {
+	utcb->head.mtr.add(MTD_INJ);
+	CpuMessage msg(CpuMessage::TYPE_CALC_IRQWINDOW, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+	msg.mtr_out = MTD_INJ;
+	VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
+	if (!vcpu->executor.send(msg, true))
+	  Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
+      }
+
       return true;
     }
     return false;
