@@ -100,7 +100,7 @@ class Cpu
    * Return the CPU number.
    */
   static  unsigned cpunr() {
-    unsigned ebx, ecx, edx;
+    unsigned ebx=0, ecx=0, edx=0;
     cpuid(0x1, ebx, ecx, edx);
     return (ebx >> 24) & 0xff;
   }
