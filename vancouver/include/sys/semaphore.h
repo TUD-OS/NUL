@@ -20,6 +20,8 @@
 #include "service/logging.h"
 #include "syscalls.h"
 
+#include "service/profile.h"
+
 /**
  * A kernel semaphore optimized for consumer/producer.
  */
@@ -30,6 +32,7 @@ public:
   KernelSemaphore(unsigned cap_sm = 0) : _sm(cap_sm) {}
   void down()
   {
+    COUNTER_INC("LOCK krnl");
     unsigned res = nova_semdown(_sm);
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
   }
@@ -69,7 +72,11 @@ public:
 class SemaphoreGuard
 {
   Semaphore &_sem;
+  unsigned long long _start;
 public:
-  SemaphoreGuard(Semaphore &sem) : _sem(sem) {  _sem.down(); }
-  ~SemaphoreGuard()                          {  _sem.up();   }
+  SemaphoreGuard(Semaphore &sem) : _sem(sem) {
+    COUNTER_INC("LOCK count");
+    _sem.down();
+  }
+  ~SemaphoreGuard() { _sem.up(); }
 };

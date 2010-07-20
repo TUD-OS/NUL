@@ -643,6 +643,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
 		   while (!(res = nova_semdown(cap_irq)))
 		     {
+		       COUNTER_INC("GSI");
 		       SemaphoreGuard s(_lock);
 		       _mb->bus_hostirq.send(msg);
 		     }
@@ -684,6 +685,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    return Mtd(1, 0).value();
 	  }
 
+	  if (utcb->head.mtr.untyped() < 0x1000) {
+	    if (request_timeouts(client, utcb) || request_pcicfg(client, utcb))
+	      return utcb->head.mtr.value();
+	  }
+
 
 
 	  //Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
@@ -691,7 +697,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.mtr.untyped() < 0x1000)
 	    {
-	      if (!request_timeouts(client, utcb) && !request_disks(client, utcb) && !request_console(client, utcb) && !request_network(client, utcb))
+	      if (!request_disks(client, utcb) && !request_console(client, utcb) && !request_network(client, utcb))
 		switch (utcb->msg[0])
 		  {
 		  case REQUEST_PUTS:
@@ -825,15 +831,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 			  goto fail;
 			}
-		    }
-		    break;
-		  case REQUEST_PCICFG:
-		    {
-		      MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
-		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-			utcb->msg[0] = ~0x10u;
-		      else
-			utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
 		    }
 		    break;
 		  case REQUEST_ACPI:
@@ -1354,6 +1351,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	else
 	  if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
 	    {
+	      COUNTER_INC("request to");
 	      msg->nr = client;
 	      if (_mb->bus_timer.send(*msg))
 		utcb->msg[0] = 0;
@@ -1391,6 +1389,30 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	return true;
     }
     return false;
+  }
+
+  /************************************************************
+   * PCI Cfg                                                  *
+   ************************************************************/
+
+  bool request_pcicfg(unsigned client, Utcb *utcb) {
+    switch(utcb->msg[0]) {
+    case REQUEST_PCICFG:
+      {
+	MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
+	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	  utcb->msg[0] = ~0x10u;
+	else {
+	  COUNTER_INC("request pci");
+	  SemaphoreGuard l(_lock);
+	  utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
+	}
+      }
+      break;
+    default:
+      return false;
+    }
+    return true;
   }
 
   /************************************************************

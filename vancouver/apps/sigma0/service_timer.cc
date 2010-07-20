@@ -25,7 +25,7 @@
  *
  * State: unstable
  * Features: pit, hpet, worker-thread, xcpu-timeouts
- * Missing:  lock-free xcpu communication
+ * Missing:  lock-free-xcpu-communication?
  */
 class TimerService : public StaticReceiver<TimerService> {
 
