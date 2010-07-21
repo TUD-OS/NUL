@@ -20,11 +20,9 @@
 #define PVAR  ".long"
 #define COUNTER_INC(NAME)						\
   ({									\
-    long __res;								\
     asm volatile (".section .data; 1: .string \"" NAME "\";.previous;"	\
 		  ".section .profile; " PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
-		  "incl 2b; movl 2b, %0" : "=r"(__res));		\
-    __res;								\
+		  "incl 2b;" );						\
   })
 
 
