@@ -24,7 +24,7 @@
  * Timer service.
  *
  * State: unstable
- * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem for 
+ * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem for
  */
 class TimerService : public StaticReceiver<TimerService> {
 
@@ -128,7 +128,7 @@ public:
   bool  receive(MessageHostOp  &msg) { return _hostmb.bus_hostop.send(msg); }
   bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(msg); }
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
-  bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg); }
+  bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
   TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())),  _relnr(~0u) {
 
@@ -156,8 +156,7 @@ public:
     _mymb.bus_acpi.add(this, receive_static<MessageAcpi>);
 
     // create backend devices
-    char argv[] = "hosthpet";
-    // hostpit:1000,0x40,2
+    char argv[] = "hostpit:1000,0x40,2 hosthpet";
     _mymb.parse_args(argv);
 
     // make sure everybody can use it
