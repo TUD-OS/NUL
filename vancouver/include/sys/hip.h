@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008, Udo Steinberg <udo@hypervisor.org>
  * Changed for Vancouver: 2008, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of the NOVA microhypervisor.
  *

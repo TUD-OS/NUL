@@ -2,6 +2,7 @@
  * Bus infrastucture and generic Device class.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

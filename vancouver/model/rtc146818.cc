@@ -2,6 +2,7 @@
  * MC146818A Realtime Clock and CMOS emulation.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

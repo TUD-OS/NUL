@@ -2,6 +2,7 @@
  * Generic DMA definitions.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

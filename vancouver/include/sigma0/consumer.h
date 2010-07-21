@@ -1,8 +1,9 @@
-/*
+/**
  * Generic NOVA producer/consumer code based on shared memory and
  * semaphores.
  *
  * Copyright (C) 2008-2009, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

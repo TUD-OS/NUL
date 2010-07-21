@@ -2,6 +2,7 @@
  * Multiboot support for the virtual BIOS.
  *
  * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

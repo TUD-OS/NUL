@@ -1,3 +1,20 @@
+/**
+ * Generic hardware register definition.
+ *
+ * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Vancouver is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
 #define DEFINE_REG(NAME, OFFSET, VALUE, MASK) private: unsigned NAME; public: static const unsigned NAME##_offset = OFFSET; static const unsigned NAME##_mask   = MASK; static const unsigned NAME##_reset  = VALUE;
 #define REG_RO(NAME, OFFSET, VALUE) REG(NAME, OFFSET, static const unsigned NAME = VALUE;, value = VALUE; , break; , )
 #define REG_RW(NAME, OFFSET, VALUE, MASK, WRITE_CALLBACK) REG(NAME, OFFSET, DEFINE_REG(NAME, OFFSET, VALUE, MASK) , value = NAME; , if (!MASK) return false; if (strict && value & ~MASK) return false; NAME = (NAME & ~MASK) | (value & MASK); WRITE_CALLBACK; , NAME=VALUE;)

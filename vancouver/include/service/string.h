@@ -2,8 +2,9 @@
  * Standard include file and asm implementation.
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <kauer@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
- * This file is part of Florence2.
+ * This file is part of Vancouver.
  *
  * Florence2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as

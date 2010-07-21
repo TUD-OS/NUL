@@ -3,6 +3,7 @@
  * Documentation: PS2 hitrc chapter 11; Andries Brouwer Keyboard scancodes;
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

@@ -2,6 +2,7 @@
  * PIT8254 emulation.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *

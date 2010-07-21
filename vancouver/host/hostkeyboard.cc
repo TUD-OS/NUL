@@ -2,6 +2,7 @@
  * HostKeyboard driver.
  *
  * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *
