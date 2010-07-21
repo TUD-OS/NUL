@@ -18,6 +18,7 @@
 #include "nul/motherboard.h"
 #include "service/vprintf.h"
 #include "host/keyboard.h"
+#include "sys/semaphore.h"
 
 /**
  * A VGA console.
@@ -53,6 +54,7 @@ private:
   unsigned short _last_cursor_style;
   Vbe::ModeInfoBlock _modeinfo;
   unsigned _timer;
+  Semaphore  _worker;
   timevalue _lastswitchtime;
   char *_graphic_ptr;
   bool _measure;
@@ -280,59 +282,62 @@ private:
     return true;
   }
 
+
+  void work() __attribute__((noreturn)) {
+    while (1) {
+      _worker.down();
+      unsigned mode = 0;
+      struct View * view = 0;
+      if (_active_client < _count && _clients[_active_client].num_views)
+	{
+	  assert (_clients[_active_client].active_view < _clients[_active_client].num_views);
+	  COUNTER_INC("vga::refresh");
+
+	  view = _clients[_active_client].views + _clients[_active_client].active_view;
+	  mode = view->regs ? view->regs->mode : (0 + TEXTMODE);
+	}
+      if (mode != _active_mode)
+	{
+	  if (!_active_mode) memcpy(_saved, _backend, BACKEND_SIZE);
+
+	  MessageVesa msg2(mode, &_modeinfo);
+	  MessageVesa msg3(mode);
+	  if (!_mb.bus_vesa.send(msg2) || !_mb.bus_vesa.send(msg3)) {
+	    Logging::printf("switch vesa mode %x -> %x failed\n", _active_mode,  mode);
+	    continue;
+	  }
+
+	  // get the framebuffer mapped
+	  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, _modeinfo.phys_base,  _modeinfo._phys_size);
+	  if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) Logging::panic("can not get the framebuffer");
+	  _graphic_ptr = msg1.ptr;
+	  _active_mode = mode;
+	  if (!_active_mode) {
+	    set_vga_reg(0x14, 0xc, 8*3);
+	    memcpy(_backend, _saved, BACKEND_SIZE);
+	  }
+	}
+
+      if (~_modeinfo.attr & 0x80)
+	refresh_textmode(view);
+      else {
+	unsigned long long start = Cpu::rdtsc();
+	if (_graphic_ptr)
+	  memcpy(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline);
+	unsigned long long end = Cpu::rdtsc();
+	if (_measure) Logging::printf("memcpy %d bytes took %lld cycles\n", _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4, end - start);
+	_measure = false;
+	update_timer();
+      }
+    }
+  }
+
 public:
   bool  receive(MessageTimeout &msg)
   {
-    if (msg.nr == _timer)
-      {
-	unsigned mode = 0;
-	struct View * view = 0;
-	if (_active_client < _count && _clients[_active_client].num_views)
-	  {
-	    assert (_clients[_active_client].active_view < _clients[_active_client].num_views);
-	    COUNTER_INC("vga::refresh");
-
-	    view = _clients[_active_client].views + _clients[_active_client].active_view;
-	    mode = view->regs ? view->regs->mode : (0 + TEXTMODE);
-	  }
-	if (mode != _active_mode)
-	  {
-	    if (!_active_mode) memcpy(_saved, _backend, BACKEND_SIZE);
-
-	    MessageVesa msg2(mode, &_modeinfo);
-	    MessageVesa msg3(mode);
-	    if (!_mb.bus_vesa.send(msg2) || !_mb.bus_vesa.send(msg3))
-	      {
-		Logging::printf("switch vesa mode %x -> %x failed\n", _active_mode,  mode);
-		return false;
-	      }
-
-	    // get the framebuffer mapped
-	    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, _modeinfo.phys_base,  _modeinfo._phys_size);
-	    if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) Logging::panic("can not get the framebuffer");
-	    _graphic_ptr = msg1.ptr;
-	    _active_mode = mode;
-	    if (!_active_mode) {
-	      set_vga_reg(0x14, 0xc, 8*3);
-	      memcpy(_backend, _saved, BACKEND_SIZE);
-	    }
-	  }
-
-	if (~_modeinfo.attr & 0x80)
-	  return refresh_textmode(view);
-	else
-	  {
-	    unsigned long long start = Cpu::rdtsc();
-	    if (_graphic_ptr)
-	      memcpy(_graphic_ptr, view->ptr, _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline);
-	    unsigned long long end = Cpu::rdtsc();
-	    if (_measure) Logging::printf("memcpy %d bytes took %lld cycles\n", _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4, end - start);
-	    _measure = false;
-	    update_timer();
-	    return true;
-	  }
-      }
-    return false;
+    if (msg.nr != _timer) return false;
+    _worker.up();
+    return true;
   }
 
 
@@ -418,6 +423,10 @@ public:
   }
 
 
+  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(); }
+
+
+
   HostVga(Motherboard &mb, char *backend, unsigned modifier_switch, unsigned modifier_system, unsigned refresh_freq) :
     _mb(mb), _backend(backend), _saved(), _font(), _modifier_switch(modifier_switch), _modifier_system(modifier_system), _refresh_freq(refresh_freq),
     _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0), _clients()
@@ -426,7 +435,7 @@ public:
     // get a timer
     MessageTimer msg0;
     if (!_mb.bus_timer.send(msg0))
-      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+      Logging::panic("%s can't get a timer", __func__);
     _timer = msg0.nr;
 
     // switch to sigma0 console
@@ -455,6 +464,18 @@ public:
     _mb.bus_timeout.add(this, receive_static<MessageTimeout>);
 
     Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
+
+
+    MessageHostOp msg4(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
+    if (!_mb.bus_hostop.send(msg4))
+      Logging::panic("%s alloc semaphore failed", __func__);
+    _worker = Semaphore(msg4.value);
+
+    // create the worker thread
+    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), reinterpret_cast<unsigned long>(do_work));
+    if (!_mb.bus_hostop.send(msg5))
+      Logging::panic("%s alloc service thread failed", __func__);
+
   }
 };
 
