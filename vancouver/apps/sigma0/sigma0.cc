@@ -184,7 +184,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi;
-    return !nova_create_sc(alloc_cap(), cap, Qpd(3, 10000));
+    return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
   }
 
   bool reraise_irq(unsigned gsi)
@@ -905,7 +905,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
 	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(msg.len));
-	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(3, 10000));
 	}
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
