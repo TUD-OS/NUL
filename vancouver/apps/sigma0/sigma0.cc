@@ -48,7 +48,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   enum {
     MAXCPUS            = 256,
     MAXPCIDIRECT       = 64,
-    MAXMODULES         = 64,
+    MAXMODULES         = Config::MAX_CLIENTS,
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31,
     TRACE_BUF_SIZE     = 1ul << 17,
@@ -649,8 +649,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		     _mb->bus_hostirq.send(msg);
 		     if (locked) _lock.up();
 		   }
-		   Logging::printf("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
-		   Logging::panic("failed");
+		   Logging::panic("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
 
 
