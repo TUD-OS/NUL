@@ -100,8 +100,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 	      {
 		if (s[len] == ':')  len++;
 		else if (s[len])    continue;
-
-		Logging::printf("Handle parameter: '%s'\n", s);
+		Logging::printf("\t=> %s <=\n", s);
 
 		// skip prefix and colon
 		s += len;
