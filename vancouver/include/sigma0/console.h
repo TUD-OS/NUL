@@ -14,8 +14,8 @@ class ProgramConsole
     unsigned index;
     Semaphore *sem;
     char buffer[100];
+    bool sigma0_log;
   };
-
 
   static void putc(void *data, int value)
   {
@@ -28,7 +28,7 @@ class ProgramConsole
     if (value == '\n' || d->index == sizeof(d->buffer) - 1)
       {
 	d->buffer[d->index] = 0;
-	Sigma0Base::puts(d->buffer);
+	if (d->sigma0_log) Sigma0Base::puts(d->buffer);
 	d->index = 0;
 	if (value != '\n')
 	  {

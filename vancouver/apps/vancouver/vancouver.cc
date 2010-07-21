@@ -617,6 +617,7 @@ public:
 
     char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
+    _console_data.sigma0_log = strstr(args, "sigma0::log");
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);
