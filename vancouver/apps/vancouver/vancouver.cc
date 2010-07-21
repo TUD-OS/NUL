@@ -273,8 +273,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _lock = Semaphore(alloc_cap());
     check1(1, nova_create_sm(_lock.sm()));
 
-    _consolelock = 1;
-    _console_data.sem = new Semaphore(alloc_cap(), &_consolelock);
+    _console_data.sem = new Semaphore(alloc_cap());
+    _console_data.sem->up();
     check1(2, nova_create_sm(_console_data.sem->sm()));
 
 
