@@ -70,7 +70,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   // synchronisation of GSIs+worker
-  long      _lockcount;
   Semaphore _lock;
 
   // putc+vga
@@ -337,7 +336,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(1, init(hip));
 
     Logging::printf("create lock\n");
-    _lock = Semaphore(&_lockcount, alloc_cap());
+    _lock = Semaphore(alloc_cap());
     check1(2, nova_create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");

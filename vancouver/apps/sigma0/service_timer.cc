@@ -33,7 +33,6 @@ class TimerService : public StaticReceiver<TimerService> {
   TimeoutList<Config::MAX_CLIENTS+2> _abs_timeouts;
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
-  long            _lockcount;
   Semaphore       _lock;
   KernelSemaphore _worker;
 
@@ -129,7 +128,7 @@ public:
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
     if (!hostmb.bus_hostop.send(msg0) || !hostmb.bus_hostop.send(msg1))
       Logging::panic("alloc semaphore failed");
-    _lock = Semaphore(&_lockcount, msg0.value);
+    _lock = Semaphore(msg0.value);
     _worker = KernelSemaphore(msg1.value);
     Logging::printf("2 caps %lx %lx\n", msg0.value, msg1.value);
 

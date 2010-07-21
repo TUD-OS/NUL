@@ -38,7 +38,6 @@ enum Cap_space_layout
 Motherboard   *_mb;
 unsigned       _debug;
 const void *   _forward_pkt;
-long           _lockcount;
 Semaphore      _lock;
 long           _consolelock;
 TimeoutList<32>_timeouts;
@@ -271,11 +270,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   unsigned init_caps()
   {
-    _lock = Semaphore(&_lockcount, alloc_cap());
+    _lock = Semaphore(alloc_cap());
     check1(1, nova_create_sm(_lock.sm()));
 
     _consolelock = 1;
-    _console_data.sem = new Semaphore(&_consolelock, alloc_cap());
+    _console_data.sem = new Semaphore(alloc_cap(), &_consolelock);
     check1(2, nova_create_sm(_console_data.sem->sm()));
 
 
