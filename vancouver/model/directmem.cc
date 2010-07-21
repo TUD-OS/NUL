@@ -71,7 +71,7 @@ PARAM(mio,
 
 	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, argv[0], 1 << size);
 	if (!mb.bus_hostop.send(msg) || !msg.ptr)
-	  Logging::panic("can not map IOMEM region %lx+%x", msg.value, msg.len);
+	  Logging::panic("can not map IOMEM region %lx+%lx", msg.value, msg.len);
 
 	Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
 	mb.bus_memregion.add(dev,  DirectMemDevice::receive_static<MessageMemRegion>);
