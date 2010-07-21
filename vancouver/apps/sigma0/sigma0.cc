@@ -177,13 +177,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
 
-  bool attach_irq(unsigned gsi, unsigned sm_cap)
+  bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
-    Logging::printf("create ec for gsi %x\n", gsi);
     Utcb *u = 0;
     unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
-    u->msg[1] =  gsi;
+    u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
   }
 
@@ -639,16 +638,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC_NORETURN(do_gsi,
 		   unsigned char res;
 		   unsigned gsi = utcb->msg[1] & 0xff;
-		   bool shared = utcb->msg[1] >> 8;
+		   bool shared   = (utcb->msg[1] >> 8) & 1;
+		   bool locked   = !(utcb->msg[1] & 0x200);
 		   unsigned cap_irq = utcb->msg[0];
-		   Logging::printf("%s(%x) initial vec %x\n", __func__, cap_irq,  gsi);
+		   Logging::printf("%s(%x) vec %x %s\n", __func__, cap_irq,  gsi, locked ? "locked" : "unlocked");
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
-		   while (!(res = nova_semdown(cap_irq)))
-		     {
-		       COUNTER_INC("GSI");
-		       SemaphoreGuard s(_lock);
-		       _mb->bus_hostirq.send(msg);
-		     }
+		   while (!(res = nova_semdown(cap_irq))) {
+		     COUNTER_INC("GSI");
+		     if (locked) _lock.down();
+		     _mb->bus_hostirq.send(msg);
+		     if (locked) _lock.up();
+		   }
 		   Logging::printf("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   Logging::panic("failed");
 		   )
@@ -870,8 +870,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
       case MessageHostOp::OP_ATTACH_MSI:
 	{
+	  bool unlocked = msg.len;
 	  unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(msg.msi_gsi, cap);
+	  res = attach_irq(msg.msi_gsi, cap, unlocked);
 	}
 	break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -881,7 +882,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  _gsi |=  1 << gsi;
 	  unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
 	  nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(gsi, irq_cap);
+	  res = attach_irq(gsi, irq_cap, msg.len);
 	}
 	break;
       case MessageHostOp::OP_RERAISE_IRQ:

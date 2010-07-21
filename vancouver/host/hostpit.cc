@@ -68,7 +68,7 @@ PARAM(hostpit,
 	Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, mb.clock(), argv[0], argv[1], argv[2]);
 	mb.bus_hostirq.add(dev, HostPit::receive_static<MessageIrq>);
 
-	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
+	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2], 1);
 	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
 	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
       },
