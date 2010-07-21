@@ -381,7 +381,7 @@ PARAM(pic,
 	virq += 8;
       },
       "pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.",
-      "Example: 'pic:0x20,,0x4d1 pic:0xa0,2'",
+      "Example: 'pic:0x20,,0x4d0 pic:0xa0,2'",
       "The first PIC is always the master. An irq can be given when creating",
       "a slave pic.  The irqlines are automatically distributed, such that",
       "the first pic gets 0-7, the second one 8-15,... The optional elcr",
