@@ -29,6 +29,7 @@ unsigned     startlate;
 unsigned     repeat;
 unsigned     console_id;
 Motherboard *global_mb;
+Semaphore    *consolesem;
 
 
 
@@ -79,6 +80,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     VgaRegs        *regs;
     unsigned short *screen;
+    Semaphore      sem;
   } putcd;
 
   // device data
@@ -276,12 +278,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   static void putc(void *data, int value)
   {
+    PutcData *p = reinterpret_cast<PutcData *>(data);
+    if (p && value == -1) p->sem.down();
+    if (p && value == -2) p->sem.up();
     if (value < 0) return;
-    if (data)
-      {
-	PutcData *p = reinterpret_cast<PutcData *>(data);
-	Screen::vga_putc(0xf00 | value, p->screen, p->regs->cursor_pos);
-      }
+
+    if (p) Screen::vga_putc(0xf00 | value, p->screen, p->regs->cursor_pos);
     if (value == '\n')  serial_send('\r');
     serial_send(value);
   }
@@ -357,6 +359,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     putcd.screen = reinterpret_cast<unsigned short *>(_vga + 0x18000);
     putcd.regs = &_vga_regs;
+    putcd.sem = Semaphore(alloc_cap());
+    consolesem = &putcd.sem;
+    putcd.sem.up();
+    check1(6, nova_create_sm(putcd.sem.sm()));
+
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;
     Logging::init(putc, &putcd);
@@ -405,7 +412,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
       {
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	Logging::printf("\tmmap[%2x] addr %8llx len %8llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
+	Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
 	if (hmem->type == 1)
 	  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
       }
@@ -618,12 +625,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   _free_virt.debug_dump("free virt");
 		   _virt_phys.debug_dump("virt->phys");
 #endif
+		   if (consolesem) consolesem->up();
 		   Logging::panic("got #PF at %llx eip %x error %llx esi %x edi %x ecx %x\n", utcb->qual[1], utcb->eip, utcb->qual[0], utcb->esi, utcb->edi, utcb->ecx);
 		   )
 
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
-	  //Logging::printf("\t\t%s(%x, %x, %x, %x) pid %x\n", __func__, utcb->head.mtr.value(), utcb->msg[0], utcb->msg[1], utcb->msg[2], pid);
 	  assert(~utcb->head.mtr.untyped() & 1);
 	  return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	  )
@@ -635,10 +642,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   unsigned gsi = utcb->msg[1] & 0xff;
 		   bool shared = utcb->msg[1] >> 8;
 		   unsigned cap_irq = utcb->msg[0];
-		   {
-		     SemaphoreGuard s(_lock);
-		     Logging::printf("%s(%x) initial vec %x\n", __func__, cap_irq,  gsi);
-		   }
+		   Logging::printf("%s(%x) initial vec %x\n", __func__, cap_irq,  gsi);
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
 		   while (!(res = nova_semdown(cap_irq)))
 		     {
@@ -646,10 +650,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		       SemaphoreGuard s(_lock);
 		       _mb->bus_hostirq.send(msg);
 		     }
-		   {
-		     SemaphoreGuard s(_lock);
-		     Logging::printf("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
-		   }
+		   Logging::printf("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   Logging::panic("failed");
 		   )
 
@@ -657,12 +658,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_startup,
 	  unsigned short client = (pid & 0xffe0) >> 5;
 	  ModuleInfo *modinfo = _modinfo + client;
-	  {
-	    SemaphoreGuard s(_lock);
-	    Logging::printf("[%02x] eip %lx mem %p size %lx\n",
-			    client, modinfo->rip, modinfo->mem, modinfo->physsize);
-	  }
-
+	  Logging::printf("[%02x] eip %lx mem %p size %lx\n",
+			  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
@@ -1453,6 +1450,7 @@ void Sigma0::start(Hip *hip, Utcb *utcb) {
 
 void  do_exit(const char *msg)
 {
+  if (consolesem)  consolesem->up();
   Logging::printf("__exit(%s)\n", msg);
   if (global_mb) Sigma0::switch_view(global_mb);
 
