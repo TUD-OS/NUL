@@ -30,13 +30,10 @@ int cpl0_test() {
   int handle_segment(CpuState::Descriptor *desc, unsigned &virt, unsigned length, bool write)
   {
     // align address
-    //if (virt < 0xb8000 || virt > 0xc0000)
-    //  Logging::printf("%s() #%x %x+%d desc %x limit %x base %x esp %x\n", __func__, desc - &_cpu->es, virt, length, desc->ar, desc->limit, desc->base, _cpu->esp);
     if (!_entry)
       {
 	assert(desc == &_cpu->ss);
 	unsigned stack_size = ((_cpu->ss.ar >> 10) & 1) + 1;
-	//Logging::printf("stack_size %x eip %x esp %x\n", stack_size, _cpu->eip, _cpu->esp);
 	if (stack_size == 1) virt &= 0xffff;
       }
     else
@@ -62,7 +59,6 @@ int cpl0_test() {
 
     // add segment base
     virt += desc->base;
-    //Logging::printf("handle_segment %x+%d base %x\n", virt, length, desc->base);
     return _fault;
   }
 
@@ -114,7 +110,6 @@ template<unsigned operand_size> static void move(void *tmp_dst, void *tmp_src) {
       move<operand_size>(&nrip, tmp_src);
     else
       nrip = _cpu->eip + *reinterpret_cast<int *>(tmp_src);
-    //Logging::printf("HELPER_JMP eip %x nrip %x entryflags %x src %p entry %p\n", _cpu->eip, nrip, _entry->flags, tmp_src, _entry);
     return helper_JMP_absolute<operand_size>(nrip);
   }
 
@@ -359,11 +354,11 @@ int calc_flags(unsigned operand_size, void *src, void *dst) {
   template<unsigned feature, unsigned operand_size>
   int __attribute__((regparm(3)))  string_helper()
   {
-    //Logging::printf("%s-%x efl %x edi %x ecx %x eip %x prefix %x\n", __func__, feature, _cpu->efl, _cpu->edi, _cpu->ecx, _cpu->eip, _entry->prefixes);
     while (_entry->address_size == 1 && _cpu->cx || _entry->address_size == 2 && _cpu->ecx || !(_entry->prefixes & 0xff))
       {
 	void *src = &_cpu->eax;
 	void *dst = &_cpu->eax;
+
 	FEATURE(SH_LOAD_ESI, NCHECK(logical_mem<operand_size>((&_cpu->es) + ((_entry->prefixes >> 8) & 0xf), _cpu->esi, false, src)));
 	FEATURE(SH_LOAD_EDI, NCHECK(logical_mem<operand_size>(&_cpu->es, _cpu->edi, false, dst)));
 	FEATURE(SH_DOOP_IN,  helper_IN<operand_size>(_cpu->dx, dst));
@@ -371,6 +366,7 @@ int calc_flags(unsigned operand_size, void *src, void *dst) {
 	FEATURE(SH_DOOP_CMP, calc_flags(operand_size, src, dst); );
 	FEATURE(SH_SAVE_EDI, NCHECK(logical_mem<operand_size>(&_cpu->es, _cpu->edi, true, dst)));
 	FEATURE(SH_SAVE_EDI | SH_SAVE_EAX, move<operand_size>(dst, src));
+
 	int size = 1 << operand_size;
 	if (_cpu->efl & 0x400)  size = -size;
 	FEATURE(SH_LOAD_ESI,               if (_entry->address_size == 1)  _cpu->si += size; else _cpu->esi += size;);
@@ -379,8 +375,9 @@ int calc_flags(unsigned operand_size, void *src, void *dst) {
 	if (_entry->address_size == 1)  _cpu->cx--; else _cpu->ecx--;
 	FEATURE(SH_DOOP_CMP,  if (((_entry->prefixes & 0xff) == 0xf3)  && (~_cpu->efl & 0x40))  break);
 	FEATURE(SH_DOOP_CMP,  if (((_entry->prefixes & 0xff) == 0xf2)  && ( _cpu->efl & 0x40))  break);
+
+	// XXX check for interrupts
       }
-    //Logging::printf("%s efl %x edi %x ecx %x eip %x\n", __func__, _cpu->efl, _cpu->edi, _cpu->ecx, _cpu->eip);
     return _fault;
   }
 
@@ -482,7 +479,6 @@ int desc_get_base(unsigned short selector, unsigned long &base, bool ext) {
       l =  _cpu->gd.limit;
       base = _cpu->gd.base;
     }
-  //Logging::printf("desc_get_base(%x) %lx %lx\n", selector, base, l);
   if (selector > (l + 7))  GP(selector | ext);
   base += selector & ~0x7;
   return _fault;
@@ -553,7 +549,6 @@ int helper_LTR(unsigned short selector)
       desc_set_flag(desc, selector, 0x2, false);
       desc.to_cpustate(&_cpu->tr, selector);
     }
-  //Logging::printf("LTR %x base %x limit %x\n", _cpu->tr.sel, _cpu->tr.base, _cpu->tr.limit);
   return _fault;
 }
 
@@ -592,7 +587,6 @@ static void set_realmode_segment(CpuState::Descriptor *seg, unsigned short sel, 
 
 int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = true)
 {
-  //Logging::printf("set_segment %x sel %x eip %x efl %x\n", seg - &_cpu->es, sel, _cpu->eip, _cpu->efl);
   if (!_cpu->pm() || _cpu->v86())
     set_realmode_segment(seg, sel, _cpu->v86());
   else
@@ -618,7 +612,6 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 	  if (~desc.ar0 & 0x80) is_ss ? (SS(sel)) : (NP(sel));
 	  desc_set_flag(desc, sel, 0x1, false);
 	  desc.to_cpustate(seg, sel);
-	  //Logging::printf("set_segment %x sel %x eip %x efl %x ar %x\n", seg - &_cpu->es, sel, _cpu->eip, _cpu->efl, seg->ar);
 	}
     }
   return _fault;
@@ -627,7 +620,6 @@ int set_segment(CpuState::Descriptor *seg, unsigned short sel, bool cplcheck = t
 int helper_far_jmp(unsigned tmp_cs, unsigned tmp_eip, unsigned tmp_flag)
 {
   _mtr_out |= MTD_CS_SS | MTD_RFLAGS;
-  //Logging::printf("farjmp %x:%x efl %x\n", tmp_cs, tmp_eip, tmp_flag);
   if (!_cpu->pm() || _cpu->v86())
     // realmode + v86mode
     {
@@ -669,8 +661,6 @@ int helper_lcall(void *tmp_src)
   move<operand_size>(&ofs, addr);
   move<1>(&sel, reinterpret_cast<char *>(addr) + (1 << operand_size));
 
-  //Logging::printf("%s eip %x-> %x:%x addr %p flags %x instr %x\n", lcall ? "lcall" :"ljmp", _cpu->eip, sel, ofs, addr, _entry->flags,
-  // * reinterpret_cast<unsigned *>(_entry->data));
   unsigned cs_sel = _cpu->cs.sel;
   if (lcall && (helper_PUSH<operand_size>(&cs_sel) || helper_PUSH<operand_size>(&_cpu->eip))) return _fault;
   return helper_far_jmp(sel, ofs, _cpu->efl);
@@ -689,7 +679,6 @@ int helper_LCALL(void *tmp_src)
 template<unsigned operand_size>
 int helper_IRET()
 {
-  //Logging::printf("IRET eip %x:%x\n", _cpu->cs.sel, _cpu->eip);
   _mtr_out |= MTD_CS_SS | MTD_DS_ES | MTD_FS_GS | MTD_RFLAGS;
   if (_cpu->v86())
     {
@@ -711,7 +700,6 @@ int helper_IRET()
       unsigned tmp_ss = 0, tmp_esp = 0;
       if (helper_POP<operand_size>(&tmp_esp) || helper_POP<operand_size>(&tmp_ss))
 	return _fault;
-      //Logging::printf("iret %x %x %x @%x,%x esp %x\n", tmp_eip, tmp_cs, tmp_flag, _oesp, _oeip, tmp_esp);
       unsigned sels[4];
       for (unsigned i=0; i < 4; i++)
 	if (helper_POP<operand_size>(sels+i)) return _fault;
@@ -742,7 +730,6 @@ int helper_IRET()
 	      if (helper_POP<operand_size>(&tmp_esp) || helper_POP<operand_size>(&tmp_ss))
 		return _fault;
 	      _cpu->esp = tmp_esp;
-	      //Logging::printf("iret %x %x %x @%x esp %x:%x\n", tmp_eip, tmp_cs, tmp_flag, _oesp, tmp_ss, tmp_esp);
 	      if (set_segment(&_cpu->ss, tmp_ss, false)) return _fault;
 	    }
 
@@ -840,7 +827,6 @@ int idt_traversal(unsigned event, unsigned error_code)
 		  }
 		_cpu->efl &= ~(EFL_VM | EFL_TF | EFL_RF | EFL_NT);
 		if ((idt.ar0 & 0x1f) == 0xe)  _cpu->efl &= ~EFL_IF;
-		//Logging::printf("IDT %x -> %x\n", _cpu->eip, idt.offset());
 		desc.to_cpustate(&_cpu->cs, idt.base0);
 		_cpu->eip = idt.offset();
 	      }

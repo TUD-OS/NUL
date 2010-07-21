@@ -160,8 +160,6 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
 	break;
       case 0x4f01: // get modeinfo
 	{
-	  //Logging::printf("VESA %x base %x+%x ecx %x size %x\n", cpu->eax, cpu->es.base, cpu->di, cpu->ecx, sizeof(ConsoleModeInfo));
-
 	  ConsoleModeInfo info;
 	  if (get_vesa_mode(cpu->ecx & 0x0fff, &info) != 0ul)
 	    {
@@ -406,11 +404,10 @@ public:
  		    _regs.offset = (_regs.offset & ~0xff) | value;
 		    break;
 		  default:
-		    Logging::printf("%s ignore crt register %x\n", __PRETTY_FUNCTION__, _crt_index);
+		    break;
 		  };
 		break;
 	      default:
-		//Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
 		break;
 	      }
 	    res = true;
@@ -456,11 +453,10 @@ public:
 		    value = _regs.offset;
 		    break;
 		  default:
-		    Logging::printf("%s ignore crt register %x\n", __PRETTY_FUNCTION__, _crt_index);
+		    break;
 		  }
 		break;
 	      default:
-		//Logging::printf("%s ignore register %x\n", __PRETTY_FUNCTION__, msg.port + i - _iobase);
 		break;
 	      }
 	    msg.value = (msg.value & ~(0xff << i*8)) | (value << i*8);

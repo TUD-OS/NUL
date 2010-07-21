@@ -39,7 +39,6 @@ public:
 
     COUNTER_INC("VB");
     unsigned irq =  (cpu->cs.base + cpu->eip) - BIOS_BASE;
-    //Logging::printf("VB %x\n", irq);
 
     /**
      * Normally we jump to the last instruction in the 16-byte reset

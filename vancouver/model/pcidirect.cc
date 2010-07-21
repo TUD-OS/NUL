@@ -128,7 +128,6 @@ private:
    */
   void map_bars(unsigned long *bases, unsigned long *sizes) {
     for (unsigned i=0; i < _bar_count; i++) {
-      Logging::printf("%s %lx %lx\n", __func__, bases[i], sizes[i]);
       _barinfo[i].size = sizes[i];
       if (!bases[i]) continue;
       if ((bases[i] & 1) == 1) {
@@ -232,7 +231,7 @@ private:
       if (msg.dword == 3)         msg.value &= ~0x800000;
       // we support only a single MSI vector
       if (msg.dword == _msi_cap)  msg.value &= ~0xe0000;
-      //Logging::printf("%s:%x -- %8x,%8x\n", __PRETTY_FUNCTION__, _hostbdf, msg.dword, msg.value);
+
       return true;
     }
 
@@ -246,6 +245,7 @@ private:
       if (msg.dword == (_msi_cap + 2)) mask = ~0u;
       if (msg.dword == (_msi_cap + (_msi_64bit ? 3 : 2))) mask = 0xffff;
     }
+
     if (~mask)
       _cfgspace[msg.dword] = (_cfgspace[msg.dword] & ~mask) | (msg.value & mask);
     else {
@@ -253,7 +253,6 @@ private:
       conf_write(_hostbdf, msg.dword, msg.value);
       _cfgspace[msg.dword] = conf_read(_hostbdf, msg.dword);
     }
-    //Logging::printf("%s:%x -- %8x,%8x value %8x mask %x msi %x\n", __PRETTY_FUNCTION__, _hostbdf, msg.dword, _cfgspace[msg.dword], msg.value, mask, _msi_cap);
     return true;
   }
 
@@ -262,7 +261,6 @@ private:
   {
     for (unsigned i = 0; i < _irq_count; i++)
       if (_host_irqs[i] == msg.line) {
-	//Logging::printf("Irq message #%x  %x\n", msg.line, msg.type);
 
 	// MSI enabled?
 	if (_msi_cap && _cfgspace[_msi_cap] & 0x10000) {
@@ -277,8 +275,6 @@ private:
 
 	  MessageMem msg2(false, msi_address, &msi_data);
 	  return _mb.bus_mem.send(msg2);
-
-	  //Logging::printf("Direct MSI %llx %x\n", msi_address, msi_data);
 	}
 
 	// MSI-X enabled?
@@ -300,7 +296,6 @@ private:
     // XXX MSIs are edge triggered!
     unsigned irq = _cfgspace[15] & 0xff;
     if (msg.baseirq != (irq & ~7) || !(msg.mask & (1 << (irq & 7)))) return false;
-    //Logging::printf("Notify irq message #%x  %x -> %x\n", msg.mask, msg.baseirq, _host_irqs[0]);
     MessageHostOp msg2(MessageHostOp::OP_NOTIFY_IRQ, _host_irqs[0]);
     return _mb.bus_hostop.send(msg2);
   }
@@ -314,7 +309,6 @@ private:
     if (msg.read) {
       COUNTER_INC("PCID::READ");
       *msg.ptr = *ptr;
-      //Logging::printf("PCIREAD %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
     else {
       COUNTER_INC("PCID::WRITE");
@@ -324,7 +318,6 @@ private:
 	_msix_host_table[(ptr - reinterpret_cast<unsigned *>(_msix_table)) / 16].control = *msg.ptr;
 	COUNTER_INC("PCID::MSI-X");
       }
-      //Logging::printf("PCIWRITE %lx  %x %p\n", msg.phys, *msg.ptr, ptr);
     }
 
     return true;
@@ -399,8 +392,6 @@ private:
       read_all_bars(_hostbdf, bases, sizes);
 
     map_bars(bases, sizes);
-
-    Logging::printf("%x\n", *reinterpret_cast<unsigned *>(_barinfo[0].ptr));
 
     if (parent_bdf) {
       // Populate config space for VF

@@ -83,7 +83,6 @@ public:
 	    PxSIG = fis[1] << 8 | fis[3] & 0xff;
 	    // set PxSTSS since a device is available
 	    PxSSTS = (PxSSTS & ~0xfff) | 0x113;
-	    Logging::printf("initial fis received %x %x\n", fis[1], fis[3]);
 	    _need_initial_fis = false;
 	  }
 

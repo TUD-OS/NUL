@@ -73,7 +73,6 @@ class Rtl8029: public StaticReceiver<Rtl8029>
     _regs.isr |= value;
     if (_regs.isr & _regs.imr)
       {
-	//Logging::printf("Rtl8029: IRQ %x\n", _irq);
 	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
 	_bus_irqlines.send(msg);
       }
@@ -138,7 +137,6 @@ class Rtl8029: public StaticReceiver<Rtl8029>
       }
 
 
-    //Logging::printf("curr %x rsr %x need %x ", _regs.curr, _regs.rsr, len + 8);
     unsigned start = _regs.curr << 8;
     len += 4;
     _mem[start + 2] = len ;
@@ -290,8 +288,6 @@ public:
     for (unsigned i = 0; i < (1u<<msg.type); i++, addr++)
       read_byte(addr, reinterpret_cast<unsigned char *>(&msg.value)+i);
 
-
-    //Logging::printf("%s port %x = %x rsar %x imr %x isr %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _regs.rsar - 1, _regs.imr, _regs.isr);
     return true;
   }
 
@@ -302,7 +298,6 @@ public:
     if (!match_bar(addr) || !(PCI_CMD_STS & 0x1))
       return false;
 
-    //Logging::printf("%s port %x value %x imr %x isr %x cr %x\n", __PRETTY_FUNCTION__, msg.port, msg.value, _regs.imr, _regs.isr, _regs.cr);
     for (unsigned i = 0; i < (1u<<msg.type); i++, addr++)
       write_byte(addr, msg.value >> (i*8));
     return true;

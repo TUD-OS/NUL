@@ -109,7 +109,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       case 0x10:
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
 	msg.mtr_out |= MTD_TSC;
-	//dprintf("reset RDTSC to %llx at %x value %llx\n", cpu->tsc_off, cpu->eip, cpu->edx_eax());
 	break;
       case 0x174 ... 0x176:
 	(&cpu->sysenter_cs)[cpu->ecx - 0x174] = cpu->edx_eax();
@@ -123,7 +122,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
-    //dprintf("handle CPU %s event %x\n", reset ? "RESET" : "INIT", _event);
     CpuState *cpu = msg.cpu;
 
     // this also clears inj_info
@@ -204,7 +202,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       cpu->cs.sel       = _sipi & 0xff00;
       cpu->cs.base      = cpu->cs.sel << 4;
       cpu->actv_state   = 0;
-      //dprintf("handle sipi %x event %x ip: %x:%x\n", _sipi, _event, cpu->cs.sel, cpu->eip);
       msg.mtr_out      |= MTD_CS_SS;
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_SIPI);
       return;
@@ -258,12 +255,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     Cpu::move(msg.dst, &msg2.value, msg.io_order);
     msg.mtr_out |= MTD_GPR_ACDB;
-    //dprintf("in<%d> %4x %8x mtr %x\n", msg2.type, msg2.port, msg2.value, msg.mtr_out);
 
     static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
-      //dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+      dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
     }
   }
 
@@ -271,13 +267,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void handle_ioout(CpuMessage &msg) {
     MessageIOOut msg2(MessageIOOut::Type(msg.io_order), msg.port, 0);
     Cpu::move(&msg2.value, msg.dst, msg.io_order);
-    //dprintf("out<%d> %4x %8x\n", msg2.type, msg2.port, msg2.value);
-    bool res = _mb.bus_ioout.send(msg2);
 
+    bool res = _mb.bus_ioout.send(msg2);
     static unsigned char debugioout[8192];
     if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
-      //dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
+      dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
     }
   }
 
@@ -357,7 +352,6 @@ public:
 
 
   bool receive(CpuMessage &msg) {
-    //dprintf("CPU Message %d %x/%x\n", msg.type, msg.mtr_in, msg.mtr_out);
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -366,7 +360,6 @@ public:
 	unsigned old;
 	if (CPUID_read(reg, old) && CPUID_write(reg, (old & msg.mask) | msg.value)) {
 	  CPUID_read(reg, old);
-	  //dprintf("CPUID %x value %x mask %x meant %x\n", reg, old, msg.mask, msg.value);
 	  return true;
 	}
 	return false;
@@ -397,7 +390,6 @@ public:
       msg.cpu->actv_state = 1;
       break;
     case CpuMessage::TYPE_CHECK_IRQ:
-      //if (debug) dprintf("CHECK IRQ %x\n", _event);
       // we handle it later on
       break;
     case CpuMessage::TYPE_CALC_IRQWINDOW:
@@ -407,7 +399,6 @@ public:
 	msg.cpu->inj_info &= ~INJ_WIN;
 	if (new_event & EVENT_INTR)                    msg.cpu->inj_info |= INJ_IRQWIN;
 	if (new_event & EVENT_NMI)                     msg.cpu->inj_info |= INJ_NMIWIN;
-	//if (debug) dprintf("CHECK IRQ %x inj %x\n", _event, msg.cpu->inj_info);
       }
       return true;
     case CpuMessage::TYPE_SINGLE_STEP:
@@ -417,7 +408,6 @@ public:
       return false;
     }
 
-    //dprintf("CPU Message %d utcb %p eip %x\n", msg.type, msg.cpu, msg.cpu->eip);
     // handle IRQ injection
     for (prioritize_events(msg); msg.cpu->actv_state & 0x3; prioritize_events(msg)) {
       MessageHostOp msg2(MessageHostOp::OP_VCPU_BLOCK, _hostop_id);
@@ -425,7 +415,6 @@ public:
       if (~_event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
       Cpu::atomic_and<volatile unsigned>(&_event, ~(STATE_BLOCK | STATE_WAKEUP));
     }
-    //if (debug) dprintf("CPU Message %d utcb %p eip %x event %x inj %x\n", msg.type, msg.cpu, msg.cpu->eip, _event, msg.cpu->inj_info);
     return true;
   }
 

@@ -73,7 +73,6 @@ private:
    * Handle an INIT signal.
    */
   void init() {
-    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     // INIT preserves the APIC ID and the LINT0 level
     bool lint0 = _lvtds[_LINT0_offset - LVT_BASE];
     unsigned old_id = _ID;
@@ -103,7 +102,6 @@ private:
    * Reset the APIC to some default state.
    */
   void reset() {
-    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     init();
     _ID = _initial_apic_id << 24;
     _msr = 0;
@@ -153,7 +151,6 @@ private:
    * counter value.
    */
   unsigned get_ccr(timevalue now) {
-    //if (_initial_apic_id) Logging::printf("ccr %llx start %llx ict %x timer %x\n",  _clock->time(), _timer_start, _ICT, _TIMER);
     if (!_ICT || !_timer_start)  return 0;
 
     timevalue delta = (now - _timer_start) >> _timer_dcr_shift;
@@ -180,7 +177,6 @@ private:
    */
   void update_timer(timevalue now) {
     unsigned value = get_ccr(now);
-    //if (_initial_apic_id) Logging::printf("update timer %x time %llx\n", value,  now + (value << _timer_dcr_shift));
     if (!value || _TIMER & (1 << LVT_MASK_BIT)) return;
     MessageTimer msg(_timer, now + (value << _timer_dcr_shift));
     _mb.bus_timer.send(msg);
@@ -193,7 +189,6 @@ private:
   bool send_ipi(unsigned icr, unsigned dst) {
     COUNTER_INC("IPI");
 
-    //Logging::printf("%s %d %x %x\n", __func__, _initial_apic_id, icr, dst);
     unsigned shorthand = (icr >> 18) & 0x3;
     unsigned event =  1 << ((icr >> 8) & 7);
     bool self = shorthand == 1 || shorthand == 2;
@@ -311,7 +306,6 @@ private:
      * Make sure we do not loop, if the ERROR LVT has also an invalid
      * vector programmed.
      */
-    //Logging::printf("set error %x\n", bit);
     if (_esr_shadow & (1<< bit)) return true;
     Cpu::atomic_set_bit(&_esr_shadow, bit);
     return trigger_lvt(_ERROR_offset - LVT_BASE);
@@ -376,7 +370,6 @@ private:
       if (_lvtds[offset - LVT_BASE]) value |= 1 << 12;
       if (_rirr[offset - LVT_BASE])  value |= MessageApic::ICR_ASSERT;
     }
-    //if (_initial_apic_id)  Logging::printf("\t\tAPIC read %x value %x\n", offset, value);
     return res;
   }
 
@@ -384,8 +377,6 @@ private:
   bool register_write(unsigned offset, unsigned value, bool strict) {
     bool res;
     COUNTER_INC("lapic write");
-    //if (_initial_apic_id && offset != 0xb && offset != 0x38 && offset != 0x30 && offset!= 0x31)
-    //Logging::printf("\t\tAPIC write %x value %x %x\n", offset, value, strict);
 
     // XXX
     if (sw_disabled() && in_range(offset, LVT_BASE, NUM_LVT))  value |= 1 << 16;
@@ -410,7 +401,7 @@ private:
       return true;
     default:
       if (!(res = Lapic_write(offset, value, strict))) {
-	Logging::printf("LAPIC write %x at offset %x failed\n", value, offset);
+	if (offset != 3)  Logging::printf("LAPIC write %x at offset %x failed\n", value, offset);
 	set_error(7);
       }
     }
@@ -440,7 +431,6 @@ private:
     unsigned lvt;
     Lapic_read(num + LVT_BASE, lvt);
     if (!num) COUNTER_INC("LVT0");
-    //Logging::printf("%s %x %x %d %d _SVR %x\n", __func__, num, lvt, _lvtds[num], _rirr[num], _SVR);
 
 
     unsigned event = 1 << ((lvt >> 8) & 7);
@@ -495,12 +485,6 @@ private:
     if (x2apic_mode()) {
       // broadcast?
       if (msg.dst == ~0u)    return true;
-#if 0
-      Logging::printf("IPI2[%d] %x %x LDR %x _ID %x %x %x %x\n", _initial_apic_id, msg.dst, msg.icr, x2apic_ldr(), _ID,
-		      1 << (msg.dst & 0xf),
-		      x2apic_ldr() & (1 << (msg.dst & 0xf)),
-		      !((x2apic_ldr() ^ msg.dst) & 0xffff0000));
-#endif
       // physical DM
       if (~msg.icr & MessageApic::ICR_DM) return msg.dst == _ID;
 
@@ -510,7 +494,6 @@ private:
     }
 
     unsigned dst = msg.dst << 24;
-    //Logging::printf("IPI[%d] %x %x LDR %x DFR %x\n", _initial_apic_id, dst, msg.icr, _LDR, _DFR);
 
     // broadcast
     if (dst == 0xff000000)  return true;
@@ -540,7 +523,6 @@ public:
       register_read((msg.phys >> 4) & 0x3f, *msg.ptr);
     else
       register_write((msg.phys >> 4) & 0x3f, *msg.ptr, false);
-    //if (msg.phys != 0xfee000b0) Logging::printf("%s %lx = %x ccr %x\n", msg.read ? "READ" : "WRITE", msg.phys, *msg.ptr, get_ccr(_mb.clock()->time()));
     return true;
   }
 
@@ -577,7 +559,6 @@ public:
    */
   bool  receive(MessageApic &msg) {
     if (!accept_message(msg)) return false;
-    //Logging::printf("LAPIC accept IPI %x dst %x\n", msg.icr, msg.dst);
     assert(!(msg.icr & ~0xcfff));
     unsigned event = 1 << ((msg.icr >> 8) & 7);
 
@@ -590,7 +571,6 @@ public:
       if (event == VCpu::EVENT_SIPI) event |= (msg.icr & 0xff) << 8;
 
       // forward INIT, SIPI, SMI, NMI and EXTINT directly to the CPU core
-      //Logging::printf("LAPIC::got event %x\n", event);
       CpuEvent msg(event);
       _vcpu->bus_event.send(msg);
     }
@@ -641,7 +621,6 @@ public:
       if (msg.cpu->ecx == 0x1b) { msg.cpu->edx_eax(_msr); return true; }
 
       // check whether the register is available
-      //Logging::printf("RDMSR %x mode %d\n", msg.cpu->ecx, x2apic_mode());
       if (!in_range(msg.cpu->ecx, 0x800, 64)
 	  || !x2apic_mode()
 	  || msg.cpu->ecx == 0x831
@@ -659,7 +638,6 @@ public:
 
     // WRMSR
     if (msg.type == CpuMessage::TYPE_WRMSR) {
-      //Logging::printf("WRMSR %x %llx %x\n", msg.cpu->ecx, _msr, msg.cpu->eax);
 
       // handle APIC base MSR
       if (msg.cpu->ecx == 0x1b)  return set_base_msr(msg.cpu->edx_eax());

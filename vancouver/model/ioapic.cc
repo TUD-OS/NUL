@@ -83,7 +83,6 @@ private:
       value = _id;
     else if (_index == 1)
       value = 0x00008020 | ((PINS - 1) << 16);
-    //Logging::printf("\t\tIOAPIC read %x value %x\n", _index, value);
   }
 
 
@@ -103,9 +102,6 @@ private:
       if (~_redir[pin * 2] & 0x10000) {
 	if (_ds[pin]) pin_assert(pin, MessageIrq::ASSERT_NOTIFY);
 	else {
-	  //if (pin == 2) _debug = true;
-	  //if (_debug) 
-	  //Logging::printf("unmask pin %x value %x\n", pin, _redir[pin * 2]);
 	  // unmasked an edge triggered IRQ? -> notify
 	  _notify[pin] = true;
 	  notify(pin);
@@ -123,7 +119,6 @@ private:
     if (_notify[pin]) {
       _notify[pin] = false;
       unsigned gsi = reverse_routing(pin);
-      //Logging::printf("send notify to gsi %x\n", gsi);
       MessageIrqNotify msg(gsi & ~7, 1  << (gsi & 7));
       _mb.bus_irqnotify.send(msg);
     }
@@ -136,13 +131,11 @@ private:
     if (pin >= PINS) return false;
     if (type == MessageIrq::DEASSERT_IRQ) _ds[pin] = false;
     else {
-      //Logging::printf("IOAPIC %x rirr %d ds %d val %x\n", pin, _rirr[pin], _ds[pin], _redir[2*pin]);
       // have we already send the message
       if (_rirr[pin]) return true;
       unsigned dst   = _redir[2*pin+1];
       unsigned value = _redir[2*pin];
       bool level     = value & 0x8000;
-      //Logging::printf("IOAPIC %x assert %x %x\n", pin, dst, value);
       _notify[pin] = type == MessageIrq::ASSERT_NOTIFY;
       if (value & 0x10000) {
 	if (level) _ds[pin] = true;
@@ -154,7 +147,6 @@ private:
 	if (value & MessageApic::ICR_DM) phys |= MessageMem::MSI_DM;
 	if ((value & 0x700) == 0x100)    phys |= MessageMem::MSI_RH;
 	if (_rirr[pin])                 value |= 1 << 14;
-	//Logging::printf("IOAPIC %lx dst %x notify %x\n", phys, value, _notify[pin]);
 
 	MessageMem mem(false, phys, &value);
 	_mb.bus_mem.send(mem);
@@ -181,7 +173,6 @@ private:
    * Reset the registers.
    */
   void reset() {
-    Logging::printf("%s\n", __PRETTY_FUNCTION__);
     for (unsigned i=0; i < PINS; i++) {
       _redir[2*i]   = 0x10000;
       _redir[2*i+1] = 0;
@@ -225,7 +216,6 @@ public:
 
   bool  receive(MessageIrq &msg) {
     if (!in_range(msg.line, _gsibase, PINS)) return false;
-    //if (msg.line) Logging::printf("IRQ %x type %x\n", msg.line, msg.type);
     COUNTER_INC("GSI");
     pin_assert(irq_routing(msg.line), msg.type);
     return true;
@@ -234,7 +224,6 @@ public:
 
   bool  receive(MessageLegacy &msg) {
     if (!_gsibase) {
-      //Logging::printf("Legacy %x\n", msg.type);
       if (msg.type == MessageLegacy::INTR)   return pin_assert(EXTINT_PIN,  MessageIrq::ASSERT_IRQ);
       if (msg.type == MessageLegacy::NMI)    return pin_assert(NMI_PIN,     MessageIrq::ASSERT_IRQ);
     }

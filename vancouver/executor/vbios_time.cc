@@ -28,7 +28,6 @@ class VirtualBiosTime : public StaticReceiver<VirtualBiosTime>, public BiosCommo
   bool handle_int08(MessageBios &msg)
   {
     // Note: no need for EOI since we run in AEOI mode!
-    //Logging::printf("%s\n", __func__);
     // increment BIOS tick counter
     unsigned ticks = read_bda(0x6c);
     ticks++;
@@ -74,13 +73,11 @@ class VirtualBiosTime : public StaticReceiver<VirtualBiosTime>, public BiosCommo
 	  msg.cpu->dl = 0;
 	  msg.cpu->efl &= ~1;
 	  msg.mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
-	  //Logging::printf("realtime clock %x:%x:%x %d\n", msg.cpu->ch, msg.cpu->cl, msg.cpu->dh, seconds);
 	  break;
 	}
       default:
-	//DEBUG(msg.cpu);
-	// PCI BIOS is handled in pcihostbridge, so don't consume the
-	// message here.
+	// PCI BIOS is implemented in pcihostbridge, so don't consume
+	// the message here.
 	return false;
       }
     return true;

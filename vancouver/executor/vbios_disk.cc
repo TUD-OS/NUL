@@ -59,7 +59,6 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     dma.byteoffset = address;
 
     MessageDisk msg2(write ? MessageDisk::DISK_WRITE : MessageDisk::DISK_READ, disk_nr, MAGIC_DISK_TAG, blocknr, 1, &dma, 0, ~0ul);
-    //Logging::printf("%s(%llx) %s count %x -> %lx\n", __func__, blocknr, write ? "write" : "read",  count, address);
     if (!_mb.bus_disk.send(msg2) || msg2.error)
       {
 	Logging::printf("msg2.error %x\n", msg2.error);

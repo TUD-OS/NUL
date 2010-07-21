@@ -34,15 +34,12 @@ public:
     unsigned *ptr = reinterpret_cast<unsigned *>(_physmem + msg.phys);
 
     if (msg.read) *msg.ptr = *ptr; else *ptr = *msg.ptr;
-    //Logging::printf("MEM %s %lx = %x\n", msg.read ? "read" : "write", msg.phys, *ptr);
     return true;
   }
 
 
   bool  receive(MessageMemRegion &msg)
   {
-    //if (msg.page >= 0x30 && msg.page < 0xa0) return false;
-    //Logging::printf("MEM region %lx\n", msg.page);
     if ((msg.page < (_start >> 12)) || (msg.page >= (_end >> 12)))  return false;
     msg.start_page = _start >> 12;
     msg.count = (_end - _start) >> 12;

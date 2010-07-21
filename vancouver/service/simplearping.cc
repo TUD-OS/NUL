@@ -55,7 +55,6 @@ public:
   {
     if (msg.len >= 8 && !memcmp(msg.buffer, _mac, 6))
       {
-	//Logging::printf("network packet %p+%x\n", msg.buffer, msg.len);
 	for (unsigned i=0; i < 64 && i < msg.len; i++)
 	  Logging::printf(" %02x%c", msg.buffer[i], !((i + 1) % 16) ? '\n' : ',');
 	Logging::printf("\n");

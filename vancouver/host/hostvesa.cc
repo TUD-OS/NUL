@@ -110,7 +110,6 @@ class HostVesa : public StaticReceiver<HostVesa>
   void add_mode(unsigned short mode, unsigned seg, unsigned min_attributes)
   {
     Vbe::ModeInfoBlock *modeinfo = reinterpret_cast<Vbe::ModeInfoBlock *>(_mem + (seg << 4));
-    //Logging::printf("[%2x] %03x attr %x res %dx%d\n", _modecount, mode, modeinfo->attr, modeinfo->resolution[0], modeinfo->resolution[1]);
     if ((modeinfo->attr & min_attributes) == min_attributes)
       {
 	// keeep vesa modenumber for further reference

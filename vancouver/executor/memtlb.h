@@ -73,7 +73,6 @@ private:
 	if (entry) AD_ASSIST(0x20);
 	if (features & FEATURE_PAE)  entry = get((pte & ~0xfff) | ((virt >> l* 9) & 0xff8ul), ~0xffful, 8, TYPE_R);
 	else                         entry = get((pte & ~0xfff) | ((virt >> l*10) & 0xffcul), ~0xffful, 4, TYPE_R);
-	//Logging::printf("PTE virt %lx %x = %x\n", virt, pte, *reinterpret_cast<PTE_TYPE *>(entry->_ptr));
 	pte = *reinterpret_cast<PTE_TYPE *>(entry->_ptr);
 	if (~pte & 1)  PF(virt, type & ~1);
 	rights &= pte | TYPE_X;
@@ -182,8 +181,6 @@ protected:
    */
   int read_code(unsigned long virt, unsigned len, void *buffer)
   {
-    //COUNTER_INC("read_code");
-
     assert(len < 16);
     CacheEntry *entry = find_virtual(virt & ~3, (len + (virt & 3) + 3) & ~3ul, user_access(Type(TYPE_X | TYPE_R)));
     if (entry) {
@@ -199,7 +196,6 @@ protected:
 
   int prepare_virtual(unsigned virt, unsigned len, Type type, void *&ptr)
   {
-    //COUNTER_INC("prep_virtual");
     bool round = (virt | len) & 3;
     CacheEntry *entry = find_virtual(virt & ~3ul, (len + (virt & 3) + 3) & ~3ul, round ? Type(type | TYPE_R) : type);
     if (entry) {

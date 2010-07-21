@@ -309,7 +309,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     unsigned cap_start = alloc_cap(0x100);
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
-      //Logging::printf("\tcreate pt %x\n", vm_caps[i].nr);
       check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, reinterpret_cast<unsigned long>(vm_caps[i].func), Mtd(vm_caps[i].mtd, 0)));
     }
 
@@ -350,7 +349,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
     }
-    //Logging::printf("\tio type %x port %x eax %x\n", is_in, port, utcb->eax);
     utcb->head.mtr = msg.mtr_out;
   }
 
@@ -387,8 +385,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, utcb->cs.sel, utcb->eip, pid);
     }
     utcb->head.mtr = msg.mtr_out;
-    if (utcb->head.mtr.typed())
-      Logging::printf("> %s pid %p,%d eip %x:%x out %x inj %x typed %x\n", __func__, utcb, pid, utcb->cs.sel, utcb->eip, utcb->head.mtr.untyped(), utcb->inj_info, utcb->head.mtr.typed());
   }
 
 
@@ -572,8 +568,6 @@ public:
   static void timeout_trigger() {
     timevalue now = _mb->clock()->time();
 
-    //Logging::printf("trigger %llx vs %llx %lld\n", now, _timeouts.timeout(), now - _timeouts.timeout());
-
     // trigger all timeouts that are due
     unsigned nr;
     while ((nr = _timeouts.trigger(now))) {
@@ -661,7 +655,6 @@ public:
       vcpu->set_cpuid(1, 1, ebx_1 & 0xff00, 0xff00ff00); // clflush size
       vcpu->set_cpuid(1, 2, ecx_1, 0x00000201); // +SSE3,+SSSE3
       vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf | (1 << 28)); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
-      //Logging::printf("SET cpuid edx %x mask %x\n", edx_1, 0x0f88a9bf);
     }
 
     Logging::printf("RESET device state\n");
@@ -704,15 +697,9 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
 	)
-//VM_FUNC(PT_VMX +  9,  vmx_taskswitch, MTD_ALL,
-//	Logging::printf("TASK qual %llx eip %x cr0 %x cr3 %x inj %x\n", utcb->qual[0], utcb->eip, utcb->cr0, utcb->cr3, utcb->inj_info);
-//     	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
-//	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	//Logging::printf("CPUID eip %x %x\n", utcb->eip, utcb->eax);
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);
-	//Logging::printf("CPUID -> %x %x %x %x\n", utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
 	)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ | MTD_STATE,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
@@ -722,7 +709,6 @@ VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
 	utcb->eip += utcb->inst_len;
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
-	//if (_debug) Logging::printf("guest ioio at %x port %llx len %x\n", utcb->eip, utcb->qual[0], utcb->inst_len);
 	if (utcb->qual[0] & 0x10)
 	  {
 	    COUNTER_INC("IOS");
@@ -737,9 +723,7 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STAT
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);
-	//Logging::printf("RDMSR addr %x eip %x %x:%8x\n", utcb->ecx, utcb->eip, utcb->edx, utcb->eax);
-)
+	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("wrmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)

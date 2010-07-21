@@ -391,7 +391,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long pmem = s0->_free_phys.alloc(size, Cpu::bsr(align | 1));
     void *res;
     if (!pmem || !(res = s0->map_self(myutcb(), pmem, size))) Logging::panic("%s(%lx, %lx) EOM!\n", __func__, size, align);
-    //Logging::printf("alloc(%lx,%lx) - pmem %lx ptr %p\n", size, align, pmem, res);
     memset(res, 0, size);
     return res;
   }
@@ -686,9 +685,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      return utcb->head.mtr.value();
 	  }
 
-
-
-	  //Logging::printf("[%02x] request (%x,%x,%x) mtr %x\n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2], utcb->head.mtr.value());
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.mtr.untyped() < 0x1000)

@@ -65,7 +65,6 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     VCpu *vcpu = msg.vcpu;
 
     bool bsp = !vcpu->get_last();
-    //Logging::printf("%s %x\n", __func__, bsp);
 
     // the APIC
     state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
@@ -276,9 +275,6 @@ public:
           table_len = needed_len;
         }
         memcpy(_mem_ptr + r->offset + msg.offset, msg.data, msg.count);
-
-        //Logging::printf("DW %s %x+%x count %d value %x\n",  msg.resource, r->offset, msg.offset, msg.count, *reinterpret_cast<unsigned *>(_mem_ptr + r->offset + msg.offset));
-
 
         // and fix the checksum
         if (r->acpi_table)   fix_acpi_checksum(r, table_len);

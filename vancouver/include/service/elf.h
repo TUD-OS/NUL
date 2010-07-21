@@ -73,7 +73,6 @@ class Elf
 	if (maxptr < ph->p_memsz + ph->p_paddr - mem_offset)
 	  maxptr = ph->p_paddr + ph->p_memsz - mem_offset;
       }
-    Logging::printf("\t\tdecode elf rip %lx\n", rip);
     return 0;
   }
 };
