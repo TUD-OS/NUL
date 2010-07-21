@@ -21,8 +21,8 @@
 #define COUNTER_INC(NAME)						\
   ({									\
     asm volatile (".section .data; 1: .string \"" NAME "\";.previous;"	\
-		  ".section .profile; " PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
-		  "incl 2b;" );						\
+                  ".section .profile; " PVAR " 1b; 2: " PVAR " 0,0;.previous;" \
+		  "incl 2b" : : : "cc");				\
   })
 
 
