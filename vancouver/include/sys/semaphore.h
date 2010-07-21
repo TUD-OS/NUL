@@ -57,12 +57,11 @@ class Semaphore
 {
   KernelSemaphore _sem;
   long _value;
-  long *_count;
 public:
-  Semaphore(unsigned cap_sm = 0, long *count = 0) : _sem(cap_sm), _value(0), _count(count ? count : &_value) { };
+  Semaphore(unsigned cap_sm = 0) : _sem(cap_sm), _value(0) { };
 
-  void down() {  if (Cpu::atomic_xadd(_count, -1) <= 0)  _sem.down(); }
-  void up()   {  if (Cpu::atomic_xadd(_count, +1) <  0)  _sem.up();   }
+  void down() {  if (Cpu::atomic_xadd(&_value, -1) <= 0)  _sem.down(); }
+  void up()   {  if (Cpu::atomic_xadd(&_value, +1) <  0)  _sem.up();   }
   unsigned sm() {  return  _sem.sm();  }
 };
 
