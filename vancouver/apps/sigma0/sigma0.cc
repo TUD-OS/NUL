@@ -140,7 +140,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
 	utcb->head.mtr = Mtd();
 	unsigned long s = add_mappings(utcb, false, physmem + offset, size - offset, virt + offset, rights);
-	Logging::printf("map self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
+	Logging::printf("\t\tmap self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
 	offset = size - s;
 	unsigned err;
 	if ((err = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed() * 2, 0))))
