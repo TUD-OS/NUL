@@ -2,6 +2,7 @@
  * Intel 82576 VF device model.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *
@@ -23,12 +24,7 @@
 #include <model/pci.h>
 
 // Status: INCOMPLETE (but working for Linux)
-// Offloads are missing, i.e. context descriptor handling.
-// RX path should be fine.
 // 
-// The model's MAC should match the host driver's MAC. Otherwise you
-// might run into trouble. See XXX Change me below.
-
 // This model supports two modes of operation for the TX path:
 //  - trap&emulate mode (default):
 //     trap every access to TX registers
