@@ -4,6 +4,7 @@ prebuilt = [ 'coswig',
              'marburg',
              'munich',
              'santamonica',
+             'vilo', 
              ]
 
 Install('#bin/boot', prebuilt)
