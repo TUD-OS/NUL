@@ -1,6 +1,22 @@
 /**
  * Host Intel 82576 driver.
  *
+ * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Vancouver is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
+
+/**
  * This device usually comes as a PCIe card with two functions, each
  * acting as a separate NIC with a few exceptions. There are several
  * shared resources: EEPROM, PHY(s), Flash. If access to those
@@ -14,44 +30,6 @@
 #include <host/hostpci.h>
 #include <host/host82576.h>
 #include <host/jsdriver.h>
-
-// lspci -v:
-// 02:00.0 Ethernet controller: Intel Corporation Device 10c9 (rev 01)
-// 	Subsystem: Intel Corporation Device a03c
-// 	Flags: bus master, fast devsel, latency 0, IRQ 16
-// 	Memory at 90820000 (32-bit, non-prefetchable) [size=128K]
-// 	I/O ports at 2020 [size=32]
-// 	Memory at 90844000 (32-bit, non-prefetchable) [size=16K]
-// 	Expansion ROM at 91000000 [disabled] [size=4M]
-// 	Capabilities: [40] Power Management version 3
-// 	Capabilities: [50] Message Signalled Interrupts: Mask+ 64bit+ Count=1/1 Enable-
-// 	Capabilities: [70] MSI-X: Enable+ Mask- TabSize=10
-// 	Capabilities: [a0] Express Endpoint, MSI 00
-// 	Capabilities: [100] Advanced Error Reporting
-// 		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSVoil-
-// 		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSVoil-
-// 		UESvrt:	DLP+ SDES- TLP- FCP+ CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSVoil-
-// 		CESta:	RxErr+ BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-// 		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
-// 		AERCap:	First Error Pointer: 00, GenCap- CGenEn- ChkCap- ChkEn-
-// 	Capabilities: [140] Device Serial Number e8-e2-4d-ff-ff-21-1b-00
-// 	Capabilities: [150] Alternative Routing-ID Interpretation (ARI)
-// 		ARICap:	MFVC- ACS-, Next Function: 1
-// 		ARICtl:	MFVC- ACS-, Function Group: 0
-// 	Capabilities: [160] Single Root I/O Virtualization (SR-IOV)
-// 		IOVCap:	Migration-, Interrupt Message Number: 000
-// 		IOVCtl:	Enable- Migration- Interrupt- MSE- ARIHierarchy-
-// 		IOVSta:	Migration-
-// 		Initial VFs: 8, Total VFs: 8, Number of VFs: 8, Function Dependency Link: 00
-// 		VF offset: 384, stride: 2, Device ID: 10ca
-// 		Supported Page Size: 00000553, System Page Size: 00000001
-// 		VF Migration: offset: 00000000, BIR: 1
-// 	Kernel driver in use: igb
-// 	Kernel modules: igb
-
-// Our test NICs:
-// 00:1b:21:4d:e2:e8
-// 00:1b:21:4d:e2:e9
 
 class Host82576 : public PciDriver,
                   public Base82576,
