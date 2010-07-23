@@ -74,6 +74,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
+  enum L4T {
+    L4T_UDP  = 0U,
+    L4T_TCP  = 1U,
+    L4T_SCTP = 2U,
+  };
+
   struct queue {
     Model82576vf *parent;
     unsigned n;
@@ -120,8 +126,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       TDWBAH  = 0x83C/4,
     };
 
-    // XXX Support huge packets
-    uint8 packet_buf[1500];
+    // We use a huge buffer, because the VM may use segmentation
+    // offload and put a whole TCP window worth of data here.
+    uint8 packet_buf[32 * 1024];
     unsigned packet_cur;
 
     void reset()
@@ -157,6 +164,86 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       ctx[cc] = desc;
     }
 
+    void apply_segmentation(uint8 *packet, uint32 packet_len,
+			    const tx_desc &tx_desc, bool tse)
+    {
+      if (!tse) {
+	apply_offload(packet, packet_len, tx_desc);
+        MessageNetwork m(packet_buf, packet_len, 0);
+	parent->_net.send(m);
+      } else {
+	uint8  cc     = (tx_desc.advanced.pay>>4) & 0x7;
+	uint16 tucmd  = (ctx[cc].raw[1]>>9) & 0x3FF;
+        uint8  l4t    = (tucmd >> 2) & 3;
+	bool   ipv6   = ((tucmd & 2) == 0);
+	uint8  l4len  = (ctx[cc].raw[1]>>40) & 0xFF;
+	uint16 mss    = (ctx[cc].raw[1]>>48) & 0xFFFF;
+	uint16 iplen  =  ctx[cc].raw[0];
+	uint8  maclen = (iplen >> 9) & 0xFF;
+	iplen &= 0x1FF;
+	uint32 data_left = packet_len - (maclen + iplen + l4len);
+	uint32 data_sent = 0;
+
+	if (l4t == L4T_SCTP) {
+	  Logging::printf("XXX SCTP segmentation?\n");
+	  return;
+	}
+
+	if (l4t == L4T_UDP) {
+	  Logging::printf("XXX UDP segmentation not implemented.\n");
+	  return;
+	}
+
+	Logging::printf("SEGMENT HEADERS: MAC %x IP %x L4 %x MSS %x DTA %x %s%s\n", maclen, iplen, l4len, mss, data_left,
+			(l4t == L4T_UDP) ? "UDP" : "TCP", ipv6 ? "v6" : "v4");
+
+	//uint16 &packet_mac_len = *(uint16 *)(packet + 6 + 6);
+	uint16 &packet_ip4_id  = *(uint16 *)(packet + maclen + 4);
+	uint16 &packet_ip_len  = *(uint16 *)(packet + maclen + (ipv6 ? 4 : 2));
+	uint32 &packet_tcp_seq = *(uint32 *)(packet + maclen + iplen + 4);
+	uint8  &packet_tcp_flg = packet[maclen + iplen + 13];
+	uint8  tcp_orig_flg    = packet_tcp_flg;
+
+	unsigned i = 0;
+	while (data_left > 0) {
+	  uint16 chunk_size = (data_left > mss) ? mss : data_left;
+	  data_left -= chunk_size;
+	  Logging::printf("CHUNK%u: DTA %x \n", i++, chunk_size);
+	  
+	  // XXX ?
+	  //packet_mac_len = chunk_size + maclen + iplen + l4len - 14;
+
+	  packet_ip_len = chunk_size + l4len + iplen - (ipv6 ? 40 : 0);
+
+	  // XXX UDP
+
+	  if (l4t == L4T_TCP)
+	    packet_tcp_flg = tcp_orig_flg &
+	      ((data_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
+
+	  // Move packet data
+	  if (data_sent != 0) memmove(packet + maclen + iplen + l4len,
+				      packet + maclen + iplen + l4len + data_sent,
+				      chunk_size);
+	  
+	  // At this point we have prepared the final packet, we just
+	  // need to fix checksums and off it goes...
+	  apply_offload(packet, packet_len, tx_desc);
+	  Logging::printf("CHUNK%u sent %x bytes\n", i-1, chunk_size + maclen + iplen + l4len);
+	  MessageNetwork m(packet_buf, chunk_size + maclen + iplen + l4len, 0);
+	  parent->_net.send(m);
+
+	  // Prepare next chunk
+	  data_sent += chunk_size;
+	  if (!ipv6) packet_ip4_id++;
+	  if (l4t == L4T_TCP) packet_tcp_seq += chunk_size;
+	  
+	}
+	//Logging::panic("INSPECT");
+	// 
+      }
+    }
+
     void apply_offload(uint8 *packet, uint32 packet_len,
                        const tx_desc &tx_desc)
     {
@@ -164,7 +251,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       // Short-Circuit return, if no interesting offloads are to be done.
       if ((popts & 7) == 0) return;
 
-      unsigned cc = (tx_desc.advanced.pay>>4) & 0x7;
+      unsigned cc  = (tx_desc.advanced.pay>>4) & 0x7;
       uint16 tucmd = (ctx[cc].raw[1]>>9) & 0x3FF;
       uint16 iplen = ctx[cc].raw[0];
       uint8 maclen = iplen >> 9;
@@ -183,6 +270,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
       if (((popts & 1 /* IXSM     */) != 0) &&
           ((tucmd & 2 /* IPv4 CSO */) != 0)) {
+	Logging::printf("IPv4 CSO\n");
 	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
 	ipv4_sum = 0;
 	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
@@ -193,17 +281,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         uint8 l4t = (tucmd >> 2) & 3;
 
         switch (l4t) {
-        case 0:                 // UDP
-        case 1:                 // TCP
+        case L4T_UDP:		// UDP
+        case L4T_TCP:		// TCP
           {
-            uint8 *l4_sum = packet + maclen + iplen + ((l4t == 0) ? 6 : 16);
+	    Logging::printf("%s CSO\n", (l4t == L4T_UDP) ? "UDP" : "TCP");
+            uint8 *l4_sum = packet + maclen + iplen + ((l4t == L4T_UDP) ? 6 : 16);
             l4_sum[0] = l4_sum[1] = 0;
-            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == 0) ? 17 : 6, maclen, iplen, packet_len);
+            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == L4T_UDP) ? 17 : 6, maclen, iplen, packet_len);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
           }
           break;
-        case 2:                 // SCTP
+        case L4T_SCTP:		// SCTP
           // XXX Not implemented.
           Logging::printf("XXX SCTP CSO requested. Not implemented!\n");
           break;
@@ -219,8 +308,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 payload_len = desc.advanced.pay >> 14;
       uint32 data_len = desc.advanced.dtalen;
       uint8  dcmd = desc.advanced.dcmd;
-      // Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
-      //                 dcmd, data_len, payload_len, ctx_idx);
+      uint8  cc   = (desc.advanced.pay>>4) & 0x7;
+      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
+		      dcmd, data_len, payload_len, cc);
       if ((dcmd & (1<<5)) == 0) {
         //Logging::printf("TX bad descriptor\n");
 	return;
@@ -234,26 +324,26 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         TSE = 128,
       };
 
-      // Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
-      //                 (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
+      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
+		      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
       const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
 
-      if (dcmd & TSE) {
-        Logging::printf("XXX We don't support TCP Segmentation Offload.\n");
-        goto done;
-      }
       if ((dcmd & IFCS) == 0)
         Logging::printf("IFCS not set, but we append FCS anyway in host82576vf.\n");
 
       // XXX Check if offloading is used. If not -> send directly from
       // guestmem.
+      if ((packet_cur + data_len) > sizeof(packet_buf)) {
+	Logging::printf("XXX Packet buffer too small? Skipping packet\n");
+	packet_cur = 0;
+	goto done;
+      }
+
       memcpy(packet_buf + packet_cur, data, data_len);
       packet_cur += data_len;
 
       if (dcmd & EOP) {
-        apply_offload(packet_buf, payload_len, desc);
-        MessageNetwork m(packet_buf, payload_len, 0);
-        parent->_net.send(m);
+	apply_segmentation(packet_buf, payload_len, desc, (dcmd & TSE) != 0);
         packet_cur = 0;
       }
 
@@ -680,8 +770,10 @@ public:
   bool receive(MessageNetwork &msg)
   {
     // XXX Hack. Avoid our own packets.
-    if ((msg.buffer == _tx_queues[0].packet_buf) ||
-	(msg.buffer == _tx_queues[1].packet_buf))
+    if (!(((msg.buffer < _tx_queues[0].packet_buf) ||
+	   (msg.buffer >= (_tx_queues[0].packet_buf + sizeof(_tx_queues[0].packet_buf)))) &&
+	  ((msg.buffer < _tx_queues[1].packet_buf) ||
+	   (msg.buffer >= (_tx_queues[1].packet_buf + sizeof(_tx_queues[1].packet_buf))))))
       return false;
 
     _rx_queues[0].receive_packet(const_cast<uint8 *>(msg.buffer), msg.len);
