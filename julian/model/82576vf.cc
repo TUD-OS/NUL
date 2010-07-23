@@ -123,7 +123,21 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     // XXX Support huge packets
     uint8 packet_buf[1500];
     unsigned packet_cur;
-    
+
+    void reset()
+    {
+      memset(const_cast<uint32 *>(regs), 0, 0x100);
+      regs[TXDCTL] = (n == 0) ? (1<<25) : 0;
+      txdctl_old = regs[TXDCTL];
+      packet_cur = 0;
+
+      regs[TDBAL] = 0;
+      regs[TDBAH] = 0;
+      regs[TDLEN] = 0;
+      regs[TDT]   = 0;
+      regs[TDH]   = 0;
+    }
+
     void txdctl_poll()
     {
       uint32 txdctl_new = regs[TXDCTL];
@@ -294,14 +308,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       }
     }
 
-    void reset()
-    {
-      memset(const_cast<uint32 *>(regs), 0, 0x100);
-      regs[TXDCTL] = (n == 0) ? (1<<24) : 0;
-      txdctl_old = regs[TXDCTL];
-      packet_cur = 0;
-    }
-
     uint32 read(uint32 offset)
     {
       // Logging::printf("TX read %x (%x)\n", offset, (offset & 0x8FF) / 4);
@@ -356,9 +362,16 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void reset()
     {
       memset(const_cast<uint32 *>(regs), 0, 0x100);
-      regs[RXDCTL] = 1<<16 | ((n == 0) ? (1<<24) : 0);
+      regs[RXDCTL] = 1<<16 | ((n == 0) ? (1<<25) : 0);
       regs[SRRCTL] = 0x400 | ((n != 0) ? 0x80000000U : 0);
       rxdctl_old = regs[RXDCTL];
+
+      regs[RDBAL]  = 0;
+      regs[RDBAH]  = 0;
+      regs[RDLEN]  = 0;
+      regs[SRRCTL] = (4U<<8) | ((n == 0) ? 0 : (1U<<31));
+      regs[RDT]    = 0;
+      regs[RDH]    = 0;
     }
 
     uint32 read(uint32 offset)
@@ -727,6 +740,33 @@ public:
     return true;
   }
 
+  void device_reset()
+  {
+    PCI_init();
+    rPCIBAR0 = _mem_mmio;
+    rPCIBAR3 = _mem_msix;
+
+    for (unsigned i = 0; i < 3; i++) {
+      _msix.table[i].msg_addr = 0;
+      _msix.table[i].msg_data = 0;
+      _msix.table[i].vector_control = 1;
+    }
+
+    MMIO_init();
+
+    for (unsigned i = 0; i < 2; i++) {
+      _tx_queues[i].reset();
+      _rx_queues[i].reset();
+    }
+  }
+
+  bool receive(MessageLegacy &msg)
+  {
+    if (msg.type == MessageLegacy::RESET)
+      device_reset();
+
+    return false;
+  }
 
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
 	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
@@ -749,17 +789,7 @@ public:
     _tx_queues[0].init(this, 0, _local_tx_regs);
     _tx_queues[1].init(this, 1, _local_tx_regs + 0x100/4);
 
-    PCI_init();
-    rPCIBAR0 = _mem_mmio;
-    rPCIBAR3 = _mem_msix;
-
-    for (unsigned i = 0; i < 3; i++) {
-      _msix.table[i].msg_addr = 0;
-      _msix.table[i].msg_data = 0;
-      _msix.table[i].vector_control = 1;
-    }
-
-    MMIO_init();
+    device_reset();
 
     // Program timer
     MessageTimer msgt;
@@ -789,6 +819,7 @@ PARAM(82576vf,
 	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>);
 	mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);
 	mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
+	mb.bus_legacy.  add(dev, &Model82576vf::receive_static<MessageLegacy>);
 
       },
       "82576vf:mem_mmio,mem_msix[,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
