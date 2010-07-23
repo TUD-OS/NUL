@@ -165,7 +165,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       if ((popts & 7) == 0) return;
 
       unsigned cc = (tx_desc.advanced.pay>>4) & 0x7;
-      uint8 tucmd = (ctx[cc].raw[1]>>9) & 0x3FF;
+      uint16 tucmd = (ctx[cc].raw[1]>>9) & 0x3FF;
       uint16 iplen = ctx[cc].raw[0];
       uint8 maclen = iplen >> 9;
       iplen &= 0x1FF;
