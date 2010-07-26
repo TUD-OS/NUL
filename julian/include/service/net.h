@@ -19,7 +19,7 @@
 #pragma once
 
 #include <nul/types.h>
-#include <service/math.h>
+#include <service/endian.h>
 
 
 class IPChecksum {
@@ -67,11 +67,11 @@ public:
   /// used as IP/TCP/UDP checksum.
   static uint16 comp16correct(uint32 v)
   {
-    return Math::htons(~(v + (v>>16)));
+    return Endian::hton16(~(v + (v>>16)));
   }
 
   /// Compute an IP checksum.
-  static uint16 ipsum(uint8 *buf, unsigned maclen, unsigned iplen)
+  static uint16 ipsum(const uint8 *buf, unsigned maclen, unsigned iplen)
   {
     uint8  lo    = 0;
     uint32 state = 0;
@@ -81,7 +81,7 @@ public:
 
   /// Compute TCP/UDP checksum. proto is 17 for UDP and 6 for TCP.
   static uint16
-  tcpudpsum(uint8 *buf, uint8 proto,
+  tcpudpsum(const uint8 *buf, uint8 proto,
 	    unsigned maclen, unsigned iplen,
 	    unsigned len)
   {
@@ -92,7 +92,7 @@ public:
     comp16sum_fast(lo, sum, buf + maclen + 12, 8);
 
     // Second part of pseudo header: 0, protocol ID, UDP length
-    uint16 p[] = { static_cast<uint16>(proto << 8), Math::htons(len - maclen - iplen) };
+    uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
     comp16sum_fast(lo, sum, reinterpret_cast<uint8 *>(p), sizeof(p));
 
     // Sum L4 header plus payload
