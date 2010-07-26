@@ -27,6 +27,7 @@
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
+#include <service/hexdump.h>
 #include <host/hostpci.h>
 #include <host/host82576.h>
 #include <host/jsdriver.h>
@@ -66,32 +67,6 @@ private:
     if ((status & STATUS_IOV) == 0)
       msg(INFO, "SR-IOV is OFF. VFs will not work.\n");
   }
-
-  static void  hexdump(const void *p, unsigned len)
-  {
-    const unsigned chars_per_row = 16;
-    const char *data = reinterpret_cast<const char *>(p);
-    const char *data_end = data + len;
-
-    for (unsigned cur = 0; cur < len; cur += chars_per_row) {
-      Logging::printf("%08x:", cur);
-      for (unsigned i = 0; i < chars_per_row; i++)
-	if (data+i < data_end)
-	  Logging::printf(" %02x", reinterpret_cast<const unsigned char *>(data)[i]);
-	else
-	  Logging::printf("   ");
-      Logging::printf(" | ");
-      for (unsigned i = 0; i < chars_per_row; i++) {
-	if (data < data_end)
-	  Logging::printf("%c", ((data[0] >= 32) && (data[0] > 0)) ? data[0] : '.');
-	else
-	  Logging::printf(" ");
-	data++;
-      }
-      Logging::printf("\n");
-    }
-  }
-
 
   void handle_vf_reset(unsigned vf_no)
   {
