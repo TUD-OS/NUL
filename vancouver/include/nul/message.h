@@ -432,6 +432,11 @@ struct MessageHostOp
       unsigned long long msi_address;
     };
     struct {
+      /* GET_UID */
+      unsigned client_id;
+      unsigned call;
+    };
+    struct {
       VCpu *vcpu;
     };
   };

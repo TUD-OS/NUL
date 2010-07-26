@@ -16,10 +16,12 @@
  * General Public License version 2 for more details.
  */
 
+#include "nul/types.h"
 #include "nul/motherboard.h"
 #include "host/keyboard.h"
 #include "host/screen.h"
 #include "host/dma.h"
+#include "host/hostpci.h"
 #include "nul/program.h"
 #include "service/elf.h"
 #include "service/logging.h"
@@ -173,10 +175,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     } while (strnlen(res, size - offset) == (size - offset));
     return res;
   }
-
-
-
-
 
   bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
@@ -746,18 +744,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  }
 			  break;
 			case MessageHostOp::OP_GET_UID:
-			  {
-			    /**
-			     * A client needs a uniq-ID for shared
-			     * identification, such as MAC addresses.
-			     * For simplicity we use our client number.
-			     * Using a random number would also be
-			     * possible.  For debugging reasons we
-			     * simply increment and add the client number.
-			     */
-			    msg->value = (client << 8) + ++modinfo->uid;
-			    utcb->msg[0] = 0;
-			  }
+			  msg->value = _uid++;
+			  msg->client_id = client;
+			  msg->call = modinfo->uid++;
+
+			  utcb->msg[0] = 0;
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
@@ -1412,6 +1403,31 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Application                                              *
    ************************************************************/
 
+  // Do a halfway serious attempt at generating a random number by
+  // hashing all PCI device IDs. This will obviously be the same on
+  // identical boxes.
+  uint32 generate_uid()
+  {
+    HostPci pci(_mb->bus_hwpcicfg, _mb->bus_hostop);
+    uint32 state = 0;
+
+    for (unsigned bus = 0; bus < 256; bus++) {
+      for (unsigned dev=0; dev < 32; dev++) {
+	unsigned char maxfunc = 1;
+	for (unsigned func=0; func < maxfunc; func++) {
+	  uint16 bdf =  (bus << 8) | (dev << 3) | func;
+	  uint32 devid = pci.conf_read(bdf, 0);
+	  if (devid == ~0UL) continue;
+	  if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000)
+	    maxfunc = 8;
+	  state = ((state << 1) | (state >> 31)) ^ devid;
+	}
+      }
+    }
+
+    return state;
+  }
+
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     unsigned res;
@@ -1421,6 +1437,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
+
+    _uid = generate_uid();
+    Logging::printf("Our UID is %x\n", _uid);
+
     Logging::printf("start modules\n");
     for (unsigned i=0; i <= repeat; i++)
       if ((res = start_modules(utcb, ~startlate)))    Logging::printf("start modules failed %x\n", res);

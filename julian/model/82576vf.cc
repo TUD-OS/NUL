@@ -19,7 +19,6 @@
 #include <nul/types.h>
 #include <nul/motherboard.h>
 #include <service/hexdump.h>
-#include <service/math.h>
 #include <service/time.h>
 #include <service/net.h>
 #include <service/endian.h>
@@ -921,9 +920,8 @@ PARAM(82576vf,
 	MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
 	if (!mb.bus_hostop.send(msg)) Logging::printf("Could not get an UID");
 
-	Logging::printf("Our UID is %lx\n", msg.value);
-
-	Model82576vf *dev = new Model82576vf(static_cast<uint64>(Math::htonl(msg.value))<<16 | 0xC25000,
+	uint32 lmac = ((msg.value >> 8) & 0xFFFF) | ((msg.client_id << 2) | msg.call) << 16;
+	Model82576vf *dev = new Model82576vf(static_cast<uint64>(lmac)<<24 | 0xC25000,
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
 					     argv[0], argv[1],
