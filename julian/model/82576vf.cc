@@ -333,8 +333,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       uint32 data_len = desc.advanced.dtalen;
       uint8  dcmd = desc.advanced.dcmd;
       uint8  cc   = (desc.advanced.pay>>4) & 0x7;
-      Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
-		      dcmd, data_len, payload_len, cc);
+      // Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
+      // 		      dcmd, data_len, payload_len, cc);
       if ((dcmd & (1<<5)) == 0) {
         //Logging::printf("TX bad descriptor\n");
 	return;
