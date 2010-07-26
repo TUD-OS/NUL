@@ -405,29 +405,35 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     extern char __image_start, __image_end;
     _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, _hip->get_mod(0)->addr));
 
+    
+    RegionList<32> occupied;
+    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
+      Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
+      // Skip regions above 4GB and clamp regions that cross the 4GB
+      // boundary.
+      if (hmem->addr >= (1ULL<<32)) continue;
+      uint64 size = hmem->size;
+      if (hmem->addr + size > (1ULL<<32)) size = (1ULL<<32) - hmem->addr;
 
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
-	if (hmem->type == 1)
-	  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
-      }
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
+      if (hmem->type == 1)
+        _free_phys.add(Region(hmem->addr, size, hmem->addr));
 
-	// make sure to remove the cmdline as well
-	if (hmem->type == -2 && hmem->aux)
-	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
-      }
+      if (hmem->type != 1) occupied.add(Region(hmem->addr, (size + 0xfff) & ~0xffful));
+
+      // make sure to remove the cmdline as well
+      if (hmem->type == -2 && hmem->aux)
+        occupied.add(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
+    }
 
     // reserve the very first 1MB
-    _free_phys.del(Region(0, 1<<20));
+    occupied.add(Region(0, 1<<20, 0));
+
+    _free_phys.subtract(occupied);
 
     // switch to another allocator
     memalloc = sigma0_memalloc;
+
     return 0;
   }
 
