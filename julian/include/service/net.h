@@ -76,7 +76,7 @@ public:
     uint8  lo    = 0;
     uint32 state = 0;
     comp16sum_fast(lo, state, buf + maclen, iplen);
-    return state;
+    return comp16correct(state);
   }
 
   /// Compute TCP/UDP checksum. proto is 17 for UDP and 6 for TCP.
