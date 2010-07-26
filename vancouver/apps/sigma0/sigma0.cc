@@ -196,7 +196,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
-    Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
+    //Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
     nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
     return irq_cap;
   }
@@ -487,7 +487,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
 	      return __LINE__;
 	    }
-	  Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
+	  Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
 	  // allocate a console for it
 	  alloc_console(module, cmdline);
@@ -529,7 +529,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
 
-	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+	  Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
 	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 	}
@@ -657,8 +657,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_startup,
 	  unsigned short client = (pid & 0xffe0) >> 5;
 	  ModuleInfo *modinfo = _modinfo + client;
-	  Logging::printf("[%02x] eip %lx mem %p size %lx\n",
-			  client, modinfo->rip, modinfo->mem, modinfo->physsize);
+	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
+	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
@@ -762,7 +762,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
 			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
-			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			      //Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			  } else {
 			    Logging::printf("[%02x] DMA access denied.\n", client);
 			  }
@@ -889,7 +889,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	res = reraise_irq(msg.value & 0xFF);
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
-	Logging::printf("ALLOC_IOIO %lx\n", msg.value);
+	//Logging::printf("ALLOC_IOIO %lx\n", msg.value);
 	map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
@@ -1425,7 +1425,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     for (unsigned i=0; i <= repeat; i++)
       if ((res = start_modules(utcb, ~startlate)))    Logging::printf("start modules failed %x\n", res);
 
-    Logging::printf("INIT done\n");
+    Logging::printf("\t=> INIT done <=\n\n");
 
     // unblock the worker and IRQ threads
     _lock.up();
