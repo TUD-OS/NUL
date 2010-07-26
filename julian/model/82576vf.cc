@@ -218,9 +218,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	//hexdump(packet, packet_len);
 
 	//uint16 &packet_mac_len = *(uint16 *)(packet + 6 + 6);
-	uint16 &packet_ip4_id  = *(uint16 *)(packet + maclen + 4);
-	uint16 &packet_ip_len  = *(uint16 *)(packet + maclen + (ipv6 ? 4 : 2));
-	uint32 &packet_tcp_seq = *(uint32 *)(packet + maclen + iplen + 4);
+	uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(packet + maclen + 4);
+	uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(packet + maclen + (ipv6 ? 4 : 2));
+	uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(packet + maclen + iplen + 4);
 	uint8  &packet_tcp_flg = packet[maclen + iplen + 13];
 	uint8  tcp_orig_flg    = packet_tcp_flg;
 
@@ -329,10 +329,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     void handle_dta(uint64 addr, tx_desc &desc)
     {
-      uint32 payload_len = desc.advanced.pay >> 14;
+      // uint32 payload_len = desc.advanced.pay >> 14;
       uint32 data_len = desc.advanced.dtalen;
       uint8  dcmd = desc.advanced.dcmd;
-      uint8  cc   = (desc.advanced.pay>>4) & 0x7;
+      // uint8  cc   = (desc.advanced.pay>>4) & 0x7;
       // Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
       // 		      dcmd, data_len, payload_len, cc);
       if ((dcmd & (1<<5)) == 0) {
