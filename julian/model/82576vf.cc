@@ -18,10 +18,14 @@
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
+#include <service/hexdump.h>
 #include <service/math.h>
 #include <service/time.h>
 #include <service/net.h>
+#include <service/endian.h>
 #include <model/pci.h>
+
+using namespace Endian;
 
 // Status: INCOMPLETE (but working for Linux)
 // 
@@ -165,24 +169,38 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     }
 
     void apply_segmentation(uint8 *packet, uint32 packet_len,
-			    const tx_desc &tx_desc, bool tse)
+			    const tx_desc &desc, bool tse)
     {
+      uint32 payload_len = desc.advanced.pay >> 14;
+
       if (!tse) {
-	apply_offload(packet, packet_len, tx_desc);
-        MessageNetwork m(packet_buf, packet_len, 0);
+	// Skip segmentation if it is not requested.
+	if (payload_len != packet_len) {
+	  Logging::printf("XXX Got %x bytes, but payload size is %x. Huh? Ignoring packet.\n", packet_len, payload_len);
+	  return;
+	}
+	apply_offload(packet, payload_len, desc);
+        MessageNetwork m(packet, packet_len, 0);
 	parent->_net.send(m);
       } else {
-	uint8  cc     = (tx_desc.advanced.pay>>4) & 0x7;
-	uint16 tucmd  = (ctx[cc].raw[1]>>9) & 0x3FF;
+	// TCP segmentation is a bit weird, because the payload length
+	// in the TX descriptor does not include the prototype header.
+
+	uint8  cc     = (desc.advanced.pay>>4) & 0x7;
+	const tx_desc &cur_ctx = ctx[cc];
+	uint16 tucmd  = (cur_ctx.raw[1]>>9) & 0x3FF;
         uint8  l4t    = (tucmd >> 2) & 3;
 	bool   ipv6   = ((tucmd & 2) == 0);
-	uint8  l4len  = (ctx[cc].raw[1]>>40) & 0xFF;
-	uint16 mss    = (ctx[cc].raw[1]>>48) & 0xFFFF;
-	uint16 iplen  =  ctx[cc].raw[0];
+	//uint8  l4len  = (cur_ctx.raw[1]>>40) & 0xFF;
+	uint16 mss    = (cur_ctx.raw[1]>>48) & 0xFFFF;
+	uint16 iplen  =  cur_ctx.raw[0];
 	uint8  maclen = (iplen >> 9) & 0xFF;
 	iplen &= 0x1FF;
-	uint32 data_left = packet_len - (maclen + iplen + l4len);
+	uint32 header_len = packet_len - payload_len;
+	uint32 data_left = payload_len;
 	uint32 data_sent = 0;
+
+	//Logging::printf("SEGMENT header %x data %x (total %x) mss %x\n", header_len, data_left, packet_len, mss);
 
 	if (l4t == L4T_SCTP) {
 	  Logging::printf("XXX SCTP segmentation?\n");
@@ -194,8 +212,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  return;
 	}
 
-	Logging::printf("SEGMENT HEADERS: MAC %x IP %x L4 %x MSS %x DTA %x %s%s\n", maclen, iplen, l4len, mss, data_left,
-			(l4t == L4T_UDP) ? "UDP" : "TCP", ipv6 ? "v6" : "v4");
+	// Logging::printf("SEGMENT HEADERS: MAC %x IP %x L4 %x %s%s\n", maclen, iplen, l4len,
+	// 		(l4t == L4T_UDP) ? "UDP" : "TCP", ipv6 ? "v6" : "v4");
+
+	//hexdump(packet, packet_len);
 
 	//uint16 &packet_mac_len = *(uint16 *)(packet + 6 + 6);
 	uint16 &packet_ip4_id  = *(uint16 *)(packet + maclen + 4);
@@ -208,12 +228,14 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	while (data_left > 0) {
 	  uint16 chunk_size = (data_left > mss) ? mss : data_left;
 	  data_left -= chunk_size;
-	  Logging::printf("CHUNK%u: DTA %x \n", i++, chunk_size);
+	  //Logging::printf("CHUNK%u: DTA %x \n", i, chunk_size);
 	  
 	  // XXX ?
 	  //packet_mac_len = chunk_size + maclen + iplen + l4len - 14;
 
-	  packet_ip_len = chunk_size + l4len + iplen - (ipv6 ? 40 : 0);
+	  // Logging::printf("IP len %x (at %x)\n", chunk_size + header_len - maclen,
+	  // 		  maclen + (ipv6 ? 4 : 2));
+	  packet_ip_len = hton16(chunk_size + header_len - maclen);
 
 	  // XXX UDP
 
@@ -222,22 +244,24 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	      ((data_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
 
 	  // Move packet data
-	  if (data_sent != 0) memmove(packet + maclen + iplen + l4len,
-				      packet + maclen + iplen + l4len + data_sent,
+	  if (data_sent != 0) memmove(packet + header_len,
+				      packet + header_len + data_sent,
 				      chunk_size);
 	  
 	  // At this point we have prepared the final packet, we just
 	  // need to fix checksums and off it goes...
-	  apply_offload(packet, packet_len, tx_desc);
-	  Logging::printf("CHUNK%u sent %x bytes\n", i-1, chunk_size + maclen + iplen + l4len);
-	  MessageNetwork m(packet_buf, chunk_size + maclen + iplen + l4len, 0);
+	  uint32 segment_len = header_len + chunk_size;
+	  //Logging::printf("CHUNK%u sent %x bytes\n", i-1, segment_len);
+	  //hexdump(packet, segment_len);
+	  apply_offload(packet, segment_len, desc);
+	  MessageNetwork m(packet, segment_len, 0);
 	  parent->_net.send(m);
 
 	  // Prepare next chunk
 	  data_sent += chunk_size;
-	  if (!ipv6) packet_ip4_id++;
-	  if (l4t == L4T_TCP) packet_tcp_seq += chunk_size;
-	  
+	  if (!ipv6) packet_ip4_id = hton16(ntoh16(packet_ip4_id) + 1);
+	  if (l4t == L4T_TCP) packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk_size);
+	  i++;
 	}
 	//Logging::panic("INSPECT");
 	// 
@@ -270,10 +294,10 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
       if (((popts & 1 /* IXSM     */) != 0) &&
           ((tucmd & 2 /* IPv4 CSO */) != 0)) {
-	Logging::printf("IPv4 CSO\n");
 	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
 	ipv4_sum = 0;
 	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
+	//Logging::printf("IPv4 CSO: %x\n", ipv4_sum);
       }
 
       if ((popts & 2 /* TXSM */) != 0) {
@@ -284,12 +308,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         case L4T_UDP:		// UDP
         case L4T_TCP:		// TCP
           {
-	    Logging::printf("%s CSO\n", (l4t == L4T_UDP) ? "UDP" : "TCP");
             uint8 *l4_sum = packet + maclen + iplen + ((l4t == L4T_UDP) ? 6 : 16);
             l4_sum[0] = l4_sum[1] = 0;
             uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == L4T_UDP) ? 17 : 6, maclen, iplen, packet_len);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
+	    //Logging::printf("%s CSO %x\n", (l4t == L4T_UDP) ? "UDP" : "TCP", sum);
           }
           break;
         case L4T_SCTP:		// SCTP
@@ -324,8 +348,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         TSE = 128,
       };
 
-      Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
-		      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
+      // Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
+      // 		      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
       const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
 
       if ((dcmd & IFCS) == 0)
@@ -343,7 +367,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       packet_cur += data_len;
 
       if (dcmd & EOP) {
-	apply_segmentation(packet_buf, payload_len, desc, (dcmd & TSE) != 0);
+	apply_segmentation(packet_buf, packet_cur, desc, (dcmd & TSE) != 0);
         packet_cur = 0;
       }
 
