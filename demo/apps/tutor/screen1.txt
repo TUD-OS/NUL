@@ -5,7 +5,7 @@
  screens. Screens are arranged in a 2D   [LWin+<F1-F12>] Jump to screen 1-12
  layout as follows:                      [LWin+End]      Reboot the system 
                                          [LWin+Home]     Reset VM
-   +---------+                           [LWin+2]        Start Linux VM
+   +---------+                           [LWin+1]        Start Linux VM
 2  |  boot   |                           
    +---------+                           
                                          
