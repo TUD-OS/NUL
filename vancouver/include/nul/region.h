@@ -58,7 +58,7 @@ public:
   };
 
   /**
-   * Find a the virtual address to a physical region.
+   * Find the virtual address to a physical region.
    */
   mword find_phys(mword phys, mword size)
   {
