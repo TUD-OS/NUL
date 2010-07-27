@@ -20,6 +20,7 @@
 
 * VMM fixes
  - VBIOS
+   - clear VGA memory on reboot to avoid showing garbage
    - copyin/out for x86emu
    - PCI routing tables and PNP
  - rework MemRegion interface
