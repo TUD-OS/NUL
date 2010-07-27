@@ -15,16 +15,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+
 #pragma once
-#include "service/helper.h"
+
+#include <service/helper.h>
+#include <nul/types.h>
 
 struct Region
 {
-  unsigned long virt;
-  unsigned long size;
-  unsigned long phys;
-  unsigned long end() { return virt + size; }
-  Region(unsigned long _virt=0, unsigned long _size=0, unsigned long _phys=0) : virt(_virt), size(_size), phys(_phys) {}
+  mword virt;
+  mword size;
+  mword phys;
+  mword end() const { return virt + size; }
+
+  Region(mword _virt = 0, mword _size = 0, mword _phys = 0)
+    : virt(_virt), size(_size), phys(_phys)
+  { }
 };
 
 /**
@@ -40,7 +46,10 @@ private:
   Region  _list[SIZE];
 
 public:
-  Region *find(unsigned long pos)
+  unsigned      count() const { return _count; }
+  const Region *list()  const { return _list; }
+
+  Region *find(mword pos)
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->virt <= pos && pos - r->virt <  r->size)
@@ -49,9 +58,9 @@ public:
   };
 
   /**
-   * Find a the virtual address to a physical region.
+   * Find the virtual address to a physical region.
    */
-  unsigned long find_phys(unsigned long phys, unsigned long size)
+  mword find_phys(mword phys, mword size)
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->phys <= phys && r->size >= size && phys - r->phys <=  r->size - size )
@@ -64,17 +73,20 @@ public:
    */
   void add(Region region)
   {
-    if (!region.size)  return;
+    if (!region.size) return;
     del(region);
 
     Region *r;
-    if (region.virt && (r = find(region.virt-1)) && r->virt + r->size == region.virt && r->phys + r->size == region.phys) {
+    if (region.virt && (r = find(region.virt-1)) && (r->virt + r->size == region.virt)
+        && (r->phys + r->size == region.phys)) {
       region.virt = r->virt;
       region.phys = r->phys;
       region.size+= r->size;
       del(*r);
     }
-    if (region.end() && (r = find(region.end())) && region.end() == r->virt && region.phys + region.size == r->phys) {
+
+    if (region.end() && (r = find(region.end())) && (region.end() == r->virt)
+        && (region.phys + region.size == r->phys)) {
       region.size += r->size;
       del(*r);
     }
@@ -82,6 +94,16 @@ public:
     _count++;
     assert(_count < SIZE);
     _list[_count-1] = region;
+  }
+
+  /**
+   * Compute the difference of two region lists.
+   */
+  template <unsigned N>
+  void subtract(RegionList<N> &rl)
+  {
+    for (const Region *r = rl.list() + rl.count(); --r >= rl.list();)
+      del(*r);
   }
 
   /**
@@ -129,12 +151,12 @@ public:
   /**
    * Alloc a region from the list.
    */
-  unsigned long alloc(unsigned long size, unsigned align_order)
+  mword alloc(mword size, unsigned align_order)
   {
-    assert(align_order < 8*sizeof(unsigned long));
+    assert(align_order < 8*sizeof(mword));
     for (Region *r = _list; r < _list + _count; r++)
       {
-	unsigned long virt = (r->end() - size) & ~((1ul << align_order) - 1);
+	mword virt = (r->end() - size) & ~((1ul << align_order) - 1);
 	if (size <= r->size && virt >= r->virt)
 	  {
 	    del(Region(virt, size));

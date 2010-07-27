@@ -260,7 +260,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
-      dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
+      //dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
     }
   }
 
@@ -273,7 +273,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     static unsigned char debugioout[8192];
     if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
-      dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
+      //dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
     }
   }
 

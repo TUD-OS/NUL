@@ -28,6 +28,7 @@
    - task switch
    - iopbm
    - catch #NE
+   - VMXON (causes GP instead of UD?)
  - ACPI
    - fixed registers
    - DSDT

@@ -16,10 +16,12 @@
  * General Public License version 2 for more details.
  */
 
+#include "nul/types.h"
 #include "nul/motherboard.h"
 #include "host/keyboard.h"
 #include "host/screen.h"
 #include "host/dma.h"
+#include "host/hostpci.h"
 #include "nul/program.h"
 #include "service/elf.h"
 #include "service/logging.h"
@@ -174,10 +176,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-
-
-
-
   bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
     Utcb *u = 0;
@@ -196,7 +194,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
-    Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
+    //Logging::printf("%s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
     nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
     return irq_cap;
   }
@@ -407,29 +405,35 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     extern char __image_start, __image_end;
     _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, _hip->get_mod(0)->addr));
 
+    
+    RegionList<32> occupied;
+    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
+      Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
+      // Skip regions above 4GB and clamp regions that cross the 4GB
+      // boundary.
+      if (hmem->addr >= (1ULL<<32)) continue;
+      uint64 size = hmem->size;
+      if (hmem->addr + size > (1ULL<<32)) size = (1ULL<<32) - hmem->addr;
 
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
-	if (hmem->type == 1)
-	  _free_phys.add(Region(hmem->addr, hmem->size, hmem->addr));
-      }
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++)
-      {
-	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
-	if (hmem->type !=  1) _free_phys.del(Region(hmem->addr, (hmem->size+ 0xfff) & ~0xffful));
+      if (hmem->type == 1)
+        _free_phys.add(Region(hmem->addr, size, hmem->addr));
 
-	// make sure to remove the cmdline as well
-	if (hmem->type == -2 && hmem->aux)
-	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
-      }
+      if (hmem->type != 1) occupied.add(Region(hmem->addr, (size + 0xfff) & ~0xffful));
+
+      // make sure to remove the cmdline as well
+      if (hmem->type == -2 && hmem->aux)
+        occupied.add(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
+    }
 
     // reserve the very first 1MB
-    _free_phys.del(Region(0, 1<<20));
+    occupied.add(Region(0, 1<<20, 0));
+
+    _free_phys.subtract(occupied);
 
     // switch to another allocator
     memalloc = sigma0_memalloc;
+
     return 0;
   }
 
@@ -487,7 +491,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
 	      return __LINE__;
 	    }
-	  Logging::printf("(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
+	  Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
 	  // allocate a console for it
 	  alloc_console(module, cmdline);
@@ -529,7 +533,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
 	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
 
-	  Logging::printf("create PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+	  Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 	  modinfo->cap_pd = alloc_cap();
 	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 	}
@@ -657,8 +661,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_startup,
 	  unsigned short client = (pid & 0xffe0) >> 5;
 	  ModuleInfo *modinfo = _modinfo + client;
-	  Logging::printf("[%02x] eip %lx mem %p size %lx\n",
-			  client, modinfo->rip, modinfo->mem, modinfo->physsize);
+	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
+	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
@@ -746,23 +750,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  }
 			  break;
 			case MessageHostOp::OP_GET_UID:
-			  {
-			    /**
-			     * A client needs a uniq-ID for shared
-			     * identification, such as MAC addresses.
-			     * For simplicity we use our client number.
-			     * Using a random number would also be
-			     * possible.  For debugging reasons we
-			     * simply increment and add the client number.
-			     */
-			    msg->value = (client << 8) + ++modinfo->uid;
-			    utcb->msg[0] = 0;
-			  }
+			  msg->value = _uid++;
+			  msg->client_id = client;
+			  msg->call = modinfo->uid++;
+
+			  utcb->msg[0] = 0;
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
 			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
-			      Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			      //Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			  } else {
 			    Logging::printf("[%02x] DMA access denied.\n", client);
 			  }
@@ -889,7 +886,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	res = reraise_irq(msg.value & 0xFF);
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
-	Logging::printf("ALLOC_IOIO %lx\n", msg.value);
+	//Logging::printf("ALLOC_IOIO %lx\n", msg.value);
 	map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
@@ -1412,6 +1409,31 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Application                                              *
    ************************************************************/
 
+  // Do a halfway serious attempt at generating a random number by
+  // hashing all PCI device IDs. This will obviously be the same on
+  // identical boxes.
+  uint32 generate_uid()
+  {
+    HostPci pci(_mb->bus_hwpcicfg, _mb->bus_hostop);
+    uint32 state = 0;
+
+    for (unsigned bus = 0; bus < 256; bus++) {
+      for (unsigned dev=0; dev < 32; dev++) {
+	unsigned char maxfunc = 1;
+	for (unsigned func=0; func < maxfunc; func++) {
+	  uint16 bdf =  (bus << 8) | (dev << 3) | func;
+	  uint32 devid = pci.conf_read(bdf, 0);
+	  if (devid == ~0UL) continue;
+	  if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000)
+	    maxfunc = 8;
+	  state = ((state << 1) | (state >> 31)) ^ devid;
+	}
+      }
+    }
+
+    return state;
+  }
+
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     unsigned res;
@@ -1421,11 +1443,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
+
+    _uid = generate_uid();
+    Logging::printf("Our UID is %x\n", _uid);
+
     Logging::printf("start modules\n");
     for (unsigned i=0; i <= repeat; i++)
       if ((res = start_modules(utcb, ~startlate)))    Logging::printf("start modules failed %x\n", res);
 
-    Logging::printf("INIT done\n");
+    Logging::printf("\t=> INIT done <=\n\n");
 
     // unblock the worker and IRQ threads
     _lock.up();

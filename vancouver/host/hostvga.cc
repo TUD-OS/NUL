@@ -455,7 +455,7 @@ public:
       unsigned ofs = (vec & 0xffff) + ((vec >> 12) & 0xffff0);
       MessageHostOp msg3(MessageHostOp::OP_ALLOC_IOMEM, ofs & ~0xfff, sizeof(_font)*2);
       if (_mb.bus_hostop.send(msg3) && msg3.ptr) {
-	Logging::printf("got the font at %x -> %x\n", vec, ofs);
+	//Logging::printf("got the font at %x -> %x\n", vec, ofs);
 	memcpy(_font, msg3.ptr + (ofs & 0xfff), sizeof(_font));
       }
     }
@@ -464,7 +464,7 @@ public:
     _mb.bus_console.add(this, receive_static<MessageConsole>);
     _mb.bus_timeout.add(this, receive_static<MessageTimeout>);
 
-    Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
+    //Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
 
 
     MessageHostOp msg4(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);

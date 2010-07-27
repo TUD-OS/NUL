@@ -18,6 +18,9 @@
 #include "nul/motherboard.h"
 #include "host/keyboard.h"
 
+static const bool verbose = false;
+#define LOG if (verbose) Logging::printf
+
 /**
  * A PS/2 host keyboard and mouse driver.  Translates SCS2 keycodes to
  * single extended keycode and mouse movements to mouse packets.  Both
@@ -290,7 +293,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 	#if 0
 	if (!disable_devices())
-	  Logging::printf("%s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
+	  LOG("%s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
 	#endif
 
 	// clear keyboard buffer
@@ -298,7 +301,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 
 	if (!read_cmd(0x20, cmdbyte))
-	  Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("%s() failed at %d\n",__func__, __LINE__);
 
 	cmdbyte &= ~0x40;
 	// we enable translation if scset == 1
@@ -306,15 +309,15 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 	// set translation and enable irqs
 	if (!write_cmd(0x60, cmdbyte | 3) || !read_cmd(0x20, cmdbyte))
-	  Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("%s() failed at %d\n",__func__, __LINE__);
 	_scset1 |= !!(cmdbyte & 0x40);
 
 	if (!enable_devices())
-	  Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("%s() failed at %d\n",__func__, __LINE__);
 
 	// default+disable Keyboard
 	if (!write_keyboard_ack(0xf5))
-	  Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("%s() failed at %d\n",__func__, __LINE__);
 
 	// switch to our scancode set
 	if (!(write_keyboard_ack(0xf0) && write_keyboard_ack(2)))
@@ -325,17 +328,17 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 	// enable Keyboard
 	if (!write_keyboard_ack(0xf4))
-	  Logging::printf("%s() failed at %d\n",__PRETTY_FUNCTION__, __LINE__);
+	  LOG("%s() failed at %d\n",__PRETTY_FUNCTION__, __LINE__);
 
 	if (irqaux != ~0U)
 	  {
 	    // reset mouse, we enable data reporting later after the reset is completed
 	    if (!write_mouse_ack(0xff))
-	      Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	      LOG("%s() failed at %d\n",__func__, __LINE__);
 
 	    // wait until we got response from the mice
 	    if (!wait_output_full())
-	      Logging::printf("%s() failed at %d\n",__func__, __LINE__);
+	      LOG("%s() failed at %d\n",__func__, __LINE__);
 	  }
 
 	// enable receiving
