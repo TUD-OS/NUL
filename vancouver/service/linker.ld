@@ -49,7 +49,7 @@ SECTIONS
     *(.bss .bss.* .gnu.linkonce.b.*);
     *(COMMON);
      __mempoolstart = .;
-    . += __memsize;
+    . += __memsize - (__mempoolstart - __image_start);
     __mempoolend = .;
   }
   __image_end = .;
