@@ -1,5 +1,5 @@
 ################################################################################
- [NOVA Xmas Alpha]
+ [NOVA snapshot]
 
  [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to screen 0
  screens. Screens are arranged in a 2D   [LWin+<F1-F12>] Jump to screen 1-12
