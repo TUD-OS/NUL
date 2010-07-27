@@ -3,12 +3,12 @@
 
  [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to screen 0
  screens. Screens are arranged in a 2D   [LWin+<F1-F12>] Jump to screen 1-12
- layout as follows:                      [RWin+End]      Reboot the system 
-                                         [RWin+Home]     Reset VM
-   +---------+                           [LWin+2]        Start Fiasco VM
-2  |  boot   |                           [LWin+3]        Start Pistachio VM 
-   +---------+                           [LWin+4]        Start Linux VM
-                                         [LWin+5]        Start ASCII Plasma
+ layout as follows:                      [LWin+End]      Reboot the system 
+                                         [LWin+Home]     Reset VM
+   +---------+                           [LWin+2]        Start Linux VM
+2  |  boot   |                           
+   +---------+                           
+                                         
    +---------+                +-----+
 1  |   HV    |                | VM  |
    +---------+                +-----+
@@ -24,6 +24,4 @@
 
    Operating Systems Group
    Technische Universitaet Dresden
-
-You have found the hidden second page. :)
 ################################################################################
