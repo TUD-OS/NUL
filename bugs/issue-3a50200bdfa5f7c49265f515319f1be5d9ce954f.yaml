@@ -1,0 +1,21 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: VMs hang when lots are started in parallel
+desc: |-
+  Steps to reproduce:
+  1. Start lots of Linux VMs
+  2. See some of them hanging before entering multiuser
+type: :bugfix
+component: nul
+release: "0.2"
+reporter: Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+status: :unstarted
+disposition: 
+creation_time: 2010-07-29 11:00:28.781822 Z
+references: []
+
+id: 3a50200bdfa5f7c49265f515319f1be5d9ce954f
+log_events: 
+- - 2010-07-29 11:00:35.830845 Z
+  - Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+  - created
+  - ""

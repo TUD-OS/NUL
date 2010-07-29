@@ -1,0 +1,21 @@
+--- !ditz.rubyforge.org,2008-03-06/issue 
+title: VGA memory not cleared on VM boot.
+desc: |-
+  Steps to reproduce:
+  1. Boot a VM.
+  2. See garbage for an instant.
+type: :bugfix
+component: vancouver
+release: "0.2"
+reporter: Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+status: :unstarted
+disposition: 
+creation_time: 2010-07-29 11:02:34.500909 Z
+references: []
+
+id: 69a3017295e5b2a6b23139eca12f98b6d834f49c
+log_events: 
+- - 2010-07-29 11:02:36.540841 Z
+  - Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+  - created
+  - ""
