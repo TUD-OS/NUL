@@ -50,7 +50,6 @@ SECTIONS
     *(COMMON);
      __mempoolstart = .;
     . += __memsize;
-    /* align the end */
     . = ALIGN(0x1000);
     __mempoolend = .;
   }
