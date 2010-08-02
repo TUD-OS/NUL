@@ -18,8 +18,7 @@
 #include "nul/motherboard.h"
 #include "host/keyboard.h"
 
-static const bool verbose = false;
-#define LOG if (verbose) Logging::printf
+#define LOG if (_verbose) Logging::printf
 
 /**
  * A PS/2 host keyboard and mouse driver.  Translates SCS2 keycodes to
@@ -45,6 +44,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   unsigned _flags;
   unsigned _mousestate;
   bool _scset1;
+  bool _verbose;
   static unsigned const FREQ = 1000;
   static unsigned const TIMEOUT = 50;
 
@@ -357,10 +357,10 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
   HostKeyboard(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageInput> &bus_input,
 	       Clock *clock, unsigned hostdev, unsigned short base,
-	       unsigned irq, unsigned irqaux, unsigned char scset)
+	       unsigned irq, unsigned irqaux, unsigned char scset, bool verbose)
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_input(bus_input),
       _clock(clock), _hostdev(hostdev), _base(base),
-      _irq(irq), _irqaux(irqaux), _scset1(scset == 1)
+      _irq(irq), _irqaux(irqaux), _scset1(scset == 1), _verbose(verbose)
     {}
 
 };
@@ -372,7 +372,7 @@ PARAM(hostkeyb,
 	if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
 	  Logging::panic("%s failed to allocate ports %lx, %lx\n", __PRETTY_FUNCTION__, argv[1], argv[1]+4);
 
-	HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4]);
+	HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
 	mb.bus_hostirq.add(dev, HostKeyboard::receive_static<MessageIrq>);
 	mb.bus_legacy.add(dev,  HostKeyboard::receive_static<MessageLegacy>);
 
@@ -381,6 +381,6 @@ PARAM(hostkeyb,
 	if (!(msg3.value == ~0U || mb.bus_hostop.send(msg3)) || !(msg4.value == ~0U || mb.bus_hostop.send(msg4)))
 	  Logging::panic("%s failed to attach hostirq %lx, %lx\n", __PRETTY_FUNCTION__, argv[2], argv[3]);
       },
-      "hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
+      "hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
       "Example: 'hostkeyb:0x17,0x60,1,12,2'.",
       "A missing auxirq omits the mouse initialisation. ");
