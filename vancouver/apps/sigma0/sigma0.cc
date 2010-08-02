@@ -434,7 +434,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // Reserve the very first 1MB and remove everything above 4G.
     _free_phys.del(Region(0,        1<<20, 0));
-    _free_phys.del(Region(0ULL<<32, -(0ULL << 32) - 1, 0)); // avoid end() == 0
+    _free_phys.del(Region(1ULL<<32, -(1ULL << 32) - 1, 0)); // avoid end() == 0
 
     // switch to another allocator
     memalloc = sigma0_memalloc;
