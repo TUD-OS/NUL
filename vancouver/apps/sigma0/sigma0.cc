@@ -41,9 +41,8 @@ unsigned     mac_host;
 PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
       "Example: 'startlate:0xfffffffc' - starts only the first and second module")
 PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times")
-PARAM(mac_prefix, mac_prefix = argv[0],  "override the MAC prefix.",
-      "Example: 'max_prefix:0x42000000")
-PARAM(mac_host,   mac_host = argv[0],    "override the host part of the MAC.")
+PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
+PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
 
 
 /**
