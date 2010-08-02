@@ -924,7 +924,8 @@ PARAM(82576vf,
 	Model82576vf *dev = new Model82576vf(static_cast<uint64>(lmac)<<24 | 0xC25000,
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
-					     argv[0], argv[1],
+					     (argv[0] == ~0U) ? 0xF7CE0000 : argv[0],
+					     (argv[1] == ~0U) ? 0xF7CC0000 : argv[1],
 					     (argv[2] == ~0U) ? 0 : argv[2],
 					     argv[3],
 					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
@@ -936,10 +937,10 @@ PARAM(82576vf,
 	mb.bus_legacy.  add(dev, &Model82576vf::receive_static<MessageLegacy>);
 
       },
-      "82576vf:mem_mmio,mem_msix[,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
+      "82576vf:[mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
       "txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)",
       "rx_map    - if !=0, map RX registers to guest. (Default: Yes)",
-      "Example: 82576vf:0xf7ce0000,0xf7cc0000"
+      "Example: 82576vf"
       );
 
 
