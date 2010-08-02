@@ -22,6 +22,8 @@
 #include <host/host82576.h>
 #include <host/jsdriver.h>
 
+#include <service/net.h>
+
 static const unsigned desc_ring_len = 512;
 
 typedef uint8 packet_buffer[2048];
@@ -40,10 +42,7 @@ private:
   DBus<MessageHostOp> &_bus_hostop;
   DBus<MessageNetwork> &_bus_network;
 
-  struct {
-    unsigned vec;
-    void (Host82576VF::*handle)();
-  } _hostirqs[3];
+  unsigned _hostirqs[3];
 
   volatile uint32 *_hwreg;     // Device MMIO registers (16K)
 
@@ -77,7 +76,7 @@ public:
     dma_desc *cur;
     while ((cur = &_rx_ring[last_rx])->hi & 1 /* done? */) {
       uint16 plen = cur->hi >> 32;
-      //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
+      msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
         //msg(INFO, "Too many packets. Exit handle_rx for now.\n");
         _hwreg[VTEICS] = 1;	// XXX Needed?
@@ -108,6 +107,14 @@ public:
     }
   }
 
+  void handle_rxtx()
+  {
+    msg(IRQ, "IRQ!\n");
+    handle_rx();
+    handle_tx();
+    _hwreg[VTEIMS] = 1;
+  }
+
   void handle_mbx()
   {
     // MBX IRQ: Just handle RESET for now. Seems like we don't
@@ -136,19 +143,20 @@ public:
       }
 
     }
+
+    _hwreg[VTEIMS] = 1<<1;
   }
 
   bool receive(MessageIrq &irq_msg)
   {
-    for (unsigned i = 0; i < 3; i++)
-      if (irq_msg.line == _hostirqs[i].vec) {
-        // msg(IRQ, "IRQ%d RDT %04x RDH %04x TDT %04x TDH %04x\n", irq_msg.line,
-        //     _hwreg[RDT0], _hwreg[RDH0], _hwreg[TDT0], _hwreg[TDH0]);
-        (this->*(_hostirqs[i].handle))();
-        _hwreg[VTEIMS] = 7;
-        return true;
-      }
-    return false;
+    if (irq_msg.line == _hostirqs[0])
+      handle_rxtx();
+    else if (irq_msg.line == _hostirqs[1])
+      handle_mbx();
+    else
+      return false;
+
+    return true;
   }
 
   bool receive(MessageNetwork &nmsg)
@@ -180,7 +188,7 @@ public:
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
-              Clock *clock, unsigned bdf, unsigned irqs[3], void *reg, uint32 itr_us)
+              Clock *clock, unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us)
     : PciDriver(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
@@ -195,14 +203,13 @@ public:
     pci.conf_write(bdf, 1 /* CMD */, 1U<<2 /* Bus-Master enable */);
 
     // Setup IRQ mapping:
-    // RX queue 0 get MSI-X vector 0, TX queue 0 gets 1.
-    // Mailbox IRQs go to 2.
-    _hwreg[VTIVAR]      = 0x00008180;
-    _hwreg[VTIVAR_MISC] = 0x82;
+    // RX and TX trigger MSI 0.
+    // Mailbox IRQs trigger MSI 1
+    _hwreg[VTIVAR]      = 0x00008080;
+    _hwreg[VTIVAR_MISC] = 0x81;
 
-    _hostirqs[0].vec = irqs[0]; _hostirqs[0].handle = &Host82576VF::handle_rx;
-    _hostirqs[1].vec = irqs[1]; _hostirqs[1].handle = &Host82576VF::handle_tx;
-    _hostirqs[2].vec = irqs[2]; _hostirqs[2].handle = &Host82576VF::handle_mbx;
+    for (unsigned i = 0; i < 2; i++)
+      _hostirqs[i] = irqs[i];
 
     // Set IRQ throttling
     uint32 itr = (itr_us & 0xFFF) << 2;
@@ -215,10 +222,10 @@ public:
     else
       msg(INFO, "Minimum IRQ interval is %dus.\n", itr_us);
 
-    // Enable IRQs
-    _hwreg[VTEIAC] = 7;		// Autoclear for all IRQs
-    _hwreg[VTEIAM] = 7;
-    _hwreg[VTEIMS] = 7;
+    // Setup autoclear and stuff for both IRQs.
+    _hwreg[VTEIAC] = 3;
+    _hwreg[VTEIAM] = 3;
+    _hwreg[VTEIMS] = 3;
 
     // Send RESET message
     _hwreg[VMB] = VFU;
@@ -258,7 +265,7 @@ public:
     _hwreg[RDT0] = desc_ring_len-1;
 
     // Get each IRQ once.
-    _hwreg[VTEICS] = 7;
+    //_hwreg[VTEICS] = 3;
   }
 
 };
@@ -283,7 +290,7 @@ PARAM(host82576vf, {
       return;
     }
 
-    uint64 size;
+    uint64 size = 0;
     uint64 base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
 
     MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
@@ -305,8 +312,8 @@ PARAM(host82576vf, {
     }
 
     // IRQs
-    unsigned irqs[3];
-    for (unsigned i = 0; i < 3; i++)
+    unsigned irqs[2];
+    for (unsigned i = 0; i < 2; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,

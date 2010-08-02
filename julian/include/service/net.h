@@ -21,6 +21,37 @@
 #include <nul/types.h>
 #include <service/endian.h>
 
+enum {
+  ETHERNET_ADDR_MASK = 0xFFFFFFFFFFFFULL,
+};
+
+struct EthernetAddr {
+  union {
+    uint64 raw;
+    uint8 byte[6];
+  };
+
+  bool is_multicast() const { return (byte[0] & 1) == 1; }
+  bool is_broadcast() const {
+    return (raw & ETHERNET_ADDR_MASK) == ETHERNET_ADDR_MASK;
+  }
+
+  EthernetAddr() : raw(0) {}
+  EthernetAddr(uint8 b1, uint8 b2, uint8 b3, uint8 b4, uint8 b5, uint8 b6)
+    : byte({b1, b2, b3, b4, b5, b6}) {}
+  explicit EthernetAddr(uint64 _raw) : raw(_raw) {}
+  
+};
+
+static inline bool
+operator==(EthernetAddr const& a, EthernetAddr const& b)
+{
+  return ((a.raw & ETHERNET_ADDR_MASK) == (b.raw & ETHERNET_ADDR_MASK));
+}
+
+
+#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC_SPLIT(x) (x)->byte[0], (x)->byte[1], (x)->byte[2],(x)->byte[3], (x)->byte[4], (x)->byte[5]
 
 class IPChecksum {
 protected:

@@ -20,16 +20,6 @@
 
 #include <nul/types.h>
 
-struct EthernetAddr {
-  union {
-    uint64 raw;
-    uint8 byte[6];
-  };
-};
-
-#define MAC_FMT "%02x:%02x:%02x:%02x:%02x:%02x"
-#define MAC_SPLIT(x) (x)->byte[0], (x)->byte[1], (x)->byte[2],(x)->byte[3], (x)->byte[4], (x)->byte[5]
-
 class Base82576 {
 protected:
 
