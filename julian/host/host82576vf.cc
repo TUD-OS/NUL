@@ -24,7 +24,7 @@
 
 #include <service/net.h>
 
-static const unsigned desc_ring_len = 512;
+static const unsigned desc_ring_len = 32;
 
 typedef uint8 packet_buffer[2048];
 
@@ -51,10 +51,10 @@ private:
   bool _up;			// Are we UP?
 
   unsigned last_rx;
-  dma_desc _rx_ring[desc_ring_len] __attribute__((aligned(128)));
+  dma_desc *_rx_ring;
 
   unsigned last_tx;
-  dma_desc _tx_ring[desc_ring_len] __attribute__((aligned(128)));
+  dma_desc *_tx_ring;
 
   packet_buffer _rx_buf[desc_ring_len];
   packet_buffer _tx_buf[desc_ring_len];
@@ -86,8 +86,8 @@ public:
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
 
-      cur->lo = reinterpret_cast<uint64>(_rx_buf[last_rx]);
-      cur->hi = reinterpret_cast<uint64>(_rx_buf[last_rx])>>32;
+      cur->lo = reinterpret_cast<mword>(_rx_buf[last_rx]);
+      cur->hi = 0; 
 
       last_rx = (last_rx+1) % desc_ring_len;
       _hwreg[RDT0] = last_rx;
@@ -109,7 +109,6 @@ public:
 
   void handle_rxtx()
   {
-    msg(IRQ, "IRQ!\n");
     handle_rx();
     handle_tx();
     _hwreg[VTEIMS] = 1;
@@ -143,17 +142,17 @@ public:
       }
 
     }
-
-    _hwreg[VTEIMS] = 1<<1;
   }
 
   bool receive(MessageIrq &irq_msg)
   {
-    if (irq_msg.line == _hostirqs[0])
+    if (irq_msg.line == _hostirqs[0]) {
       handle_rxtx();
-    else if (irq_msg.line == _hostirqs[1])
+      _hwreg[VTEIMS] = 1;
+    } else if (irq_msg.line == _hostirqs[1]) {
       handle_mbx();
-    else
+      _hwreg[VTEIMS] = 1<<1;
+    } else
       return false;
 
     return true;
@@ -236,18 +235,22 @@ public:
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
 
     // Enable RX
+    _rx_ring = new(256) dma_desc[desc_ring_len];
     _hwreg[RDBAL0] = reinterpret_cast<uint64>(_rx_ring);
-    _hwreg[RDBAH0] = reinterpret_cast<uint64>(_rx_ring) >> 32;
-    _hwreg[RDLEN0] = sizeof(_rx_ring);
+    _hwreg[RDBAH0] = 0; //reinterpret_cast<mword>(_rx_ring) >> 32;
+    _hwreg[RDLEN0] = desc_ring_len * sizeof(dma_desc);
     msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
-    _hwreg[RXDCTL0] = (1U<<25);
     assert(_hwreg[RDT0] == 0);
     assert(_hwreg[RDH0] == 0);
+    _hwreg[RXDCTL0] = (1U<<25 /* Enable */);
+    msg(INFO, "RDBAL %08x RDBAH %08x RXDCTL %08x\n", _hwreg[RDBAL0], _hwreg[RDBAH0], _hwreg[RXDCTL0]);
+
 
     // Enable TX
+    _tx_ring = new(256) dma_desc[desc_ring_len];
     _hwreg[TDBAL0] = reinterpret_cast<uint64>(_tx_ring);
-    _hwreg[TDBAH0] = reinterpret_cast<uint64>(_tx_ring) >> 32;
-    _hwreg[TDLEN0] = sizeof(_tx_ring);
+    _hwreg[TDBAH0] = 0; //reinterpret_cast<mword>(_tx_ring) >> 32;
+    _hwreg[TDLEN0] = desc_ring_len * sizeof(dma_desc);
     msg(INFO, "%08x bytes allocated for TX descriptor ring (%d descriptors).\n", _hwreg[TDLEN0], desc_ring_len);
     _hwreg[TXDCTL0] = (1U<<25);
     assert(_hwreg[TDT0] == 0);
@@ -255,14 +258,18 @@ public:
 
     // Prepare rings
     last_rx = last_tx = 0;
+
+    _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
+    _hwreg[RDT0] = 0;		// RDH == RDT -> queue empty
+
     for (unsigned i = 0; i < desc_ring_len; i++) {
       _rx_ring[i].lo = reinterpret_cast<uint64>(_rx_buf[i]);
       _rx_ring[i].hi = 0;
     }
 
-    _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
     // Tell NIC about receive descriptors.
-    _hwreg[RDT0] = desc_ring_len-1;
+    _hwreg[RDT0] = desc_ring_len - 1;
+    _hwreg[VTEIMS] = 1;
 
     // Get each IRQ once.
     //_hwreg[VTEICS] = 3;
