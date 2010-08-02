@@ -121,9 +121,10 @@ static inline unsigned long strtoul(char *nptr, char **endptr, int base) {
 
   while (*nptr) {
     long val = *nptr - '0';
-    if (val > 9)		// a character
-      val = (*nptr | 0x20 /* downcase */) - 'a' + 10;
-    if (val < 0 || val > base)
+    // a lower or upper character
+    if (val > 9)
+      val = (*nptr | 0x20) - 'a' + 10;
+    if (val < 0 || val >= base)
       break;
     res = res*base + val;
     nptr++;
