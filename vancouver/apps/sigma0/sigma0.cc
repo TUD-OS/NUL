@@ -555,7 +555,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    nova_revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), false); // XXX kill it
+    nova_revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), true);
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -572,7 +572,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
 
 
-    // XXX mark module as free -> we can not do this currently as we can not free the request portals
+    // XXX mark module as free -> we can not do this currently as we can not free all the resources
     //modinfo->mem = 0;
     return __LINE__;
   }
