@@ -1411,15 +1411,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Application                                              *
    ************************************************************/
 
-  unsigned long long get_mac(unsigned clientnr) {
-    return (static_cast<unsigned long long>(mac_prefix) << 16) + (static_cast<unsigned long long>(mac_host << 8)) + clientnr;
-  }
+  /**
+   * A very simple hash function.
+   */
+  unsigned hash(unsigned state, unsigned value) {  return ((state << 1) | (state >> 31)) ^ value; }
 
 
   /**
-   * Do a halfway serious attempt at generating a random number by
-   * hashing all PCI device IDs. This will obviously be the same on
-   * identical boxes.
+   * Generate a pseudo-random but persistent hostmac by hashing all
+   * PCI device IDs, their BDFs and the serial numbers of devices.
    */
   unsigned generate_hostmac() {
     HostPci pci(_mb->bus_hwpcicfg, _mb->bus_hostop);
@@ -1434,12 +1434,29 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  if (devid == ~0UL) continue;
 	  if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000)
 	    maxfunc = 8;
-	  state = ((state << 1) | (state >> 31)) ^ devid;
+
+	  state = hash(state, bdf);
+	  state = hash(state, devid);
+
+	  // find device serial number
+	  unsigned offset = pci.find_extended_cap(bdf, 0x0003);
+	  if (offset)
+	    state = hash(hash(state, pci.conf_read(bdf, offset + 1)), pci.conf_read(bdf, offset + 2));
 	}
       }
     }
     return state;
   }
+
+
+  /**
+   * Return a MAC by adding the MAC-prefix, the host-MAC and a client
+   * specific number.
+   */
+  unsigned long long get_mac(unsigned clientnr) {
+    return (static_cast<unsigned long long>(mac_prefix) << 16) + (static_cast<unsigned long long>(mac_host) << 8) + clientnr;
+  }
+
 
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {

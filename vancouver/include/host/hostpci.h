@@ -43,7 +43,8 @@ class HostPci
     BAR_MEM_MASK  = 0xFFFFFFF0U,
 
     CAP_MSI       = 0x05U,
-    CAP_MSIX      = 0x11U
+    CAP_MSIX      = 0x11U,
+    CAP_PCIE      = 0x10U,
   };
 
 
@@ -134,6 +135,7 @@ class HostPci
     return 0;
   }
 
+
   /**
    * Program the nr-th MSI/MSI-X vector of the given device.
    */
@@ -213,6 +215,7 @@ class HostPci
     return msg3.gsi;
   }
 
+
   /**
    * Find the position of a legacy PCI capability.
    */
@@ -227,6 +230,27 @@ class HostPci
     return 0;
   }
 
+
+  /**
+   * Find the position of an extended PCI capability.
+   */
+  unsigned find_extended_cap(unsigned bdf, unsigned short id)
+  {
+    unsigned header, offset;
+
+    if ((find_cap(bdf, CAP_PCIE)) && (~0UL != conf_read(bdf, 0x40)))
+      for (offset = 0x100, header = conf_read(bdf, offset >> 2);
+	   offset != 0;
+	   offset = header >> 20, header = conf_read(bdf, offset >> 2))
+	if ((header & 0xFFFF) == id)
+	  return offset >> 2;
+    return 0;
+  }
+
+
+  /**
+   * Get the base and the type of a bar.
+   */
   unsigned long long bar_base(unsigned bdf, unsigned bar, unsigned *type = 0)
   {
     unsigned val = conf_read(bdf, bar);
@@ -243,6 +267,7 @@ class HostPci
       };
     }
   }
+
 
   /**
    * Determines BAR size. You should probably disable interrupt

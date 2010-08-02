@@ -29,9 +29,8 @@ public:
   enum {
     SRIOV_VF_BAR0           = 9,
 
-    CAP_PCI_EXPRESS         = 0x10U,
     EXTCAP_ARI              = 0x000EU,
-    EXTCAP_SRIOV            = 0x0010U,
+    EXTCAP_SRIOV            = 0x0010U
   };
 
   /**
@@ -43,23 +42,6 @@ public:
     if (!sriov_cap) return -1;
     size =  bar_size(bdf, sriov_cap + SRIOV_VF_BAR0 + no, is64bit);
     return  bar_base(bdf, sriov_cap + SRIOV_VF_BAR0 + no) + vf_no * size;
-  }
-
-
-  /**
-   * Find the position of an extended PCI capability.
-   */
-  unsigned find_extended_cap(unsigned bdf, unsigned short id)
-  {
-    unsigned long header, offset;
-
-    if ((find_cap(bdf, CAP_PCI_EXPRESS)) && (~0UL != conf_read(bdf, 0x40)))
-      for (offset = 0x100, header = conf_read(bdf, offset >> 2);
-	   offset != 0;
-	   offset = header >> 20, header = conf_read(bdf, offset >> 2))
-	if ((header & 0xFFFF) == id)
-	  return offset >> 2;
-    return 0;
   }
 
 
