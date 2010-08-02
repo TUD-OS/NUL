@@ -675,12 +675,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       switch (rVFMBX0 & 0xFFFF) {
       case VF_RESET:
 	rVFMBX0 |= CMD_ACK;
-	rVFMBX1 = _mac;
-	rVFMBX2 = (_mac >> 32) & 0xFFFF;
+	rVFMBX1 = hton32(_mac >> 16);
+	rVFMBX2 = hton32(_mac) >> 16;
 	break;
       case VF_SET_MAC_ADDR:
 	rVFMBX0 |= CMD_ACK;
-	_mac = static_cast<uint64>(rVFMBX1) | static_cast<uint64>((rVFMBX2 & 0xFFFF))<<32;
+	_mac = static_cast<uint64>(ntoh32(rVFMBX1)) << 16 | static_cast<uint64>(ntoh32(rVFMBX2)) >> 16;
 	break;
       case VF_SET_MULTICAST:
 	// Ignore
@@ -917,16 +917,15 @@ public:
 
 PARAM(82576vf,
       {
-	MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
-	if (!mb.bus_hostop.send(msg)) Logging::printf("Could not get an UID");
+	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
+	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
-	uint32 lmac = ((msg.value >> 8) & 0xFFFF) | ((msg.client_id << 2) | msg.call) << 16;
-	Model82576vf *dev = new Model82576vf(static_cast<uint64>(lmac)<<24 | 0xC25000,
+	Model82576vf *dev = new Model82576vf(msg.mac,
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
-					     (argv[0] == ~0U) ? 0xF7CE0000 : argv[0],
-					     (argv[1] == ~0U) ? 0xF7CC0000 : argv[1],
-					     (argv[2] == ~0U) ? 0 : argv[2],
+					     (argv[0] == ~0UL) ? 0xF7CE0000 : argv[0],
+					     (argv[1] == ~0UL) ? 0xF7CC0000 : argv[1],
+					     (argv[2] == ~0UL) ? 0 : argv[2],
 					     argv[3],
 					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
 	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);

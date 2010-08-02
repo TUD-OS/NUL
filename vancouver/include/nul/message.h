@@ -402,7 +402,7 @@ struct MessageHostOp
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
-      OP_GET_UID,
+      OP_GET_MAC,
       OP_GUEST_MEM,
       OP_ALLOC_FROM_GUEST,
       OP_VCPU_CREATE_BACKEND,
@@ -432,9 +432,7 @@ struct MessageHostOp
       unsigned long long msi_address;
     };
     struct {
-      /* GET_UID */
-      unsigned client_id;
-      unsigned call;
+      unsigned long long mac;
     };
     struct {
       VCpu *vcpu;

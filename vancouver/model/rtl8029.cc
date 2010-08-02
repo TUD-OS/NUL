@@ -330,13 +330,9 @@ public:
 
 PARAM(rtl8029,
       {
-	MessageHostOp msg(MessageHostOp::OP_GET_UID, ~0);
-	if (!mb.bus_hostop.send(msg))
-	  Logging::printf("Could not get an UID");
-	unsigned long long prefix = ~argv[3] ? argv[3] : 0x0050C200;
-	Rtl8029 *dev = new Rtl8029(mb.bus_network, mb.bus_irqlines, argv[1],
-				   (prefix << 16) | ((msg.value>>8) & 0xFFFF00) | msg.client_id << 2 | msg.call,
-				   PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
+	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
+	if (!mb.bus_hostop.send(msg))  Logging::panic("Could not get a MAC address");
+	Rtl8029 *dev = new Rtl8029(mb.bus_network, mb.bus_irqlines, argv[1], msg.mac, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
 	mb.bus_pcicfg.add (dev, Rtl8029::receive_static<MessagePciConfig>);
 	mb.bus_ioin.add   (dev, Rtl8029::receive_static<MessageIOIn>);
 	mb.bus_ioout.add  (dev, Rtl8029::receive_static<MessageIOOut>);

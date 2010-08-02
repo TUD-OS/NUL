@@ -32,15 +32,18 @@ unsigned     startlate;
 unsigned     repeat;
 unsigned     console_id;
 Motherboard *global_mb;
-Semaphore    *consolesem;
-
+Semaphore   *consolesem;
+unsigned     mac_prefix = 0x42000000;
+unsigned     mac_host;
 
 
 // extra params
 PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
       "Example: 'startlate:0xfffffffc' - starts only the first and second module")
 PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times")
-
+PARAM(mac_prefix, mac_prefix = argv[0],  "override the MAC prefix.",
+      "Example: 'max_prefix:0x42000000")
+PARAM(mac_host,   mac_host = argv[0],    "override the host part of the MAC.")
 
 
 /**
@@ -101,16 +104,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     bool            dma;
     char *          mem;
     unsigned long   physsize;
-    unsigned        uid;
+    unsigned        mac;
     void *          hip;
   } _modinfo[MAXMODULES];
+  unsigned _mac;
 
   // IRQ handling
   unsigned  _msivector;        // next gsi vector
   unsigned long long _gsi;     // bitfield per used GSI
   unsigned _pcidirect[MAXPCIDIRECT];
-
-  unsigned _uid;
 
 
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
@@ -752,11 +754,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    msg->cmdlen  = slen;
 			  }
 			  break;
-			case MessageHostOp::OP_GET_UID:
-			  msg->value = _uid++;
-			  msg->client_id = client;
-			  msg->call = modinfo->uid++;
-
+			case MessageHostOp::OP_GET_MAC:
+			  msg->mac = get_mac(modinfo->mac++ * MAXMODULES + client);
 			  utcb->msg[0] = 0;
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
@@ -934,8 +933,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ASSIGN_PCI:
 	res = !assign_pci_device(_hip->cfg_exc + 0, msg.value, msg.len);
 	break;
-      case MessageHostOp::OP_GET_UID:
-	msg.value = ++_uid;
+      case MessageHostOp::OP_GET_MAC:
+	msg.mac = get_mac(_mac++ * MAXMODULES);
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
@@ -1412,20 +1411,26 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Application                                              *
    ************************************************************/
 
-  // Do a halfway serious attempt at generating a random number by
-  // hashing all PCI device IDs. This will obviously be the same on
-  // identical boxes.
-  uint32 generate_uid()
-  {
+  unsigned long long get_mac(unsigned clientnr) {
+    return (static_cast<unsigned long long>(mac_prefix) << 16) + (static_cast<unsigned long long>(mac_host << 8)) + clientnr;
+  }
+
+
+  /**
+   * Do a halfway serious attempt at generating a random number by
+   * hashing all PCI device IDs. This will obviously be the same on
+   * identical boxes.
+   */
+  unsigned generate_hostmac() {
     HostPci pci(_mb->bus_hwpcicfg, _mb->bus_hostop);
-    uint32 state = 0;
+    unsigned state = 0;
 
     for (unsigned bus = 0; bus < 256; bus++) {
       for (unsigned dev=0; dev < 32; dev++) {
 	unsigned char maxfunc = 1;
 	for (unsigned func=0; func < maxfunc; func++) {
-	  uint16 bdf =  (bus << 8) | (dev << 3) | func;
-	  uint32 devid = pci.conf_read(bdf, 0);
+	  unsigned short bdf =  (bus << 8) | (dev << 3) | func;
+	  unsigned devid = pci.conf_read(bdf, 0);
 	  if (devid == ~0UL) continue;
 	  if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000)
 	    maxfunc = 8;
@@ -1433,7 +1438,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	}
       }
     }
-
     return state;
   }
 
@@ -1447,8 +1451,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
 
-    _uid = generate_uid();
-    Logging::printf("Our UID is %x\n", _uid);
+    if (!mac_host) mac_host = generate_hostmac();
 
     Logging::printf("start modules\n");
     for (unsigned i=0; i <= repeat; i++)

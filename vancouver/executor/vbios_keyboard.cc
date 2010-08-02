@@ -224,7 +224,7 @@ public:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
       case MessageHostOp::OP_GET_MODULE:
-      case MessageHostOp::OP_GET_UID:
+      case MessageHostOp::OP_GET_MAC:
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
       case MessageHostOp::OP_VCPU_BLOCK:
       case MessageHostOp::OP_VCPU_RELEASE:

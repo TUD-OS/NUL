@@ -496,7 +496,7 @@ public:
 	Logging::printf("%s\n",_dpci ? "DPCI device assigned" : "DPCI failed");
 	break;
       case MessageHostOp::OP_GET_MODULE:
-      case MessageHostOp::OP_GET_UID:
+      case MessageHostOp::OP_GET_MAC:
 	res = !Sigma0Base::hostop(msg);
 	break;
       case MessageHostOp::OP_ATTACH_MSI:
