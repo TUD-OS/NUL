@@ -16,6 +16,7 @@
  * License version 2 for more details.
  */
 
+#include <nul/types.h>
 #include <sigma0/console.h>
 #include <nul/program.h>
 #include <nul/motherboard.h>
