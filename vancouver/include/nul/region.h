@@ -19,16 +19,15 @@
 #pragma once
 
 #include <service/helper.h>
-#include <nul/types.h>
 
 struct Region
 {
-  mword virt;
-  mword size;
-  mword phys;
-  mword end() const { return virt + size; }
+  unsigned long long virt;
+  unsigned long long size;
+  unsigned long long phys;
+  unsigned long long end() const { return virt + size; }
 
-  Region(mword _virt = 0, mword _size = 0, mword _phys = 0)
+  Region(unsigned long long _virt = 0, unsigned long long _size = 0, unsigned long long _phys = 0)
     : virt(_virt), size(_size), phys(_phys)
   { }
 };
@@ -49,7 +48,7 @@ public:
   unsigned      count() const { return _count; }
   const Region *list()  const { return _list; }
 
-  Region *find(mword pos)
+  Region *find(unsigned long long pos)
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->virt <= pos && pos - r->virt <  r->size)
@@ -60,7 +59,7 @@ public:
   /**
    * Find the virtual address to a physical region.
    */
-  mword find_phys(mword phys, mword size)
+  unsigned long long find_phys(unsigned long long phys, unsigned long long size)
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->phys <= phys && r->size >= size && phys - r->phys <=  r->size - size )
@@ -94,16 +93,6 @@ public:
     _count++;
     assert(_count < SIZE);
     _list[_count-1] = region;
-  }
-
-  /**
-   * Compute the difference of two region lists.
-   */
-  template <unsigned N>
-  void subtract(RegionList<N> &rl)
-  {
-    for (const Region *r = rl.list() + rl.count(); --r >= rl.list();)
-      del(*r);
   }
 
   /**
@@ -151,12 +140,12 @@ public:
   /**
    * Alloc a region from the list.
    */
-  mword alloc(mword size, unsigned align_order)
+  unsigned long long alloc(unsigned long long size, unsigned align_order)
   {
-    assert(align_order < 8*sizeof(mword));
+    assert(align_order < 8*sizeof(unsigned long long));
     for (Region *r = _list; r < _list + _count; r++)
       {
-	mword virt = (r->end() - size) & ~((1ul << align_order) - 1);
+	unsigned long long virt = (r->end() - size) & ~((1ULL << align_order) - 1);
 	if (size <= r->size && virt >= r->virt)
 	  {
 	    del(Region(virt, size));
@@ -171,7 +160,7 @@ public:
   {
     Logging::printf("Region %s count %d\n", prefix, _count);
     for (Region *r = _list; r < _list + _count; r++)
-      Logging::printf("\t%4d virt %8lx end %8lx size %8lx phys %8lx\n", r - _list, r->virt, r->end(), r->size, r->phys);
+      Logging::printf("\t%4d virt %8llx end %8llx size %8llx phys %8llx\n", r - _list, r->virt, r->end(), r->size, r->phys);
   }
 
  RegionList() : _count(0) {}
