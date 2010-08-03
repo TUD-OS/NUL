@@ -1,6 +1,5 @@
 /**
  * Host Intel 82576 Virtual Function driver.
- * Host Intel 82576 driver.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
