@@ -25,13 +25,12 @@
  * Timer service.
  *
  * State: unstable
- * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem for
+ * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem to communicate
  */
 class TimerService : public StaticReceiver<TimerService> {
 
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
-  Semaphore       _lock;
   TimeoutList<Config::MAX_CLIENTS+2> _abs_timeouts;
   Semaphore       _worker;
   Semaphore       _relsem;
