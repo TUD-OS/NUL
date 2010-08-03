@@ -318,7 +318,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (nova_create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
     if (nova_create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
-	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 100000)))
+	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return cap_block;
   }
