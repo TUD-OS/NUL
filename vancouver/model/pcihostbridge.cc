@@ -118,7 +118,6 @@ public:
    * MMConfig access.
    */
   bool  receive(MessageMem &msg) {
-    // XXX Broken for byte and word reads?
     if (!in_range(msg.phys, _membase, _buscount << 20)) return false;
 
     unsigned bdf = (msg.phys - _membase) >> 12;
