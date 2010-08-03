@@ -275,6 +275,15 @@ public:
     //_hwreg[VTEICS] = 3;
   }
 
+  ~Host82576VF() {
+    _hwreg[VTEIMC] = ~0U;	// Disable IRQs
+    _hwreg[RXDCTL0] = 0;	// Disable queues.
+    _hwreg[TXDCTL0] = 0;
+
+    delete[] _tx_ring;
+    delete[] _rx_ring;
+  }
+
 };
 
 PARAM(host82576vf, {
