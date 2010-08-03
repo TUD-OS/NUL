@@ -1395,8 +1395,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  utcb->msg[0] = ~0x10u;
 	else {
 	  COUNTER_INC("request pci");
-	  SemaphoreGuard l(_lock);
-	  utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg);
+	  utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg, true);
 	}
       }
       break;
