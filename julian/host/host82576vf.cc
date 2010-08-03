@@ -41,8 +41,6 @@ class Host82576VF : public PciDriver,
                     public StaticReceiver<Host82576VF>
 {
 private:
-
-  DBus<MessageHostOp> &_bus_hostop;
   DBus<MessageNetwork> &_bus_network;
 
   unsigned _hostirqs[3];
@@ -189,9 +187,9 @@ public:
     return true;
   }
 
-  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop, DBus<MessageNetwork> &bus_network,
-              Clock *clock, unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us)
-    : PciDriver(clock, ALL, bdf), _bus_hostop(bus_hostop), _bus_network(bus_network),
+  Host82576VF(HostVfPci pci, DBus<MessageNetwork> &bus_network, Clock *clock,
+	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us)
+    : PciDriver(clock, ALL, bdf), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false)
   {
@@ -335,7 +333,7 @@ PARAM(host82576vf, {
     for (unsigned i = 0; i < 2; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
+    Host82576VF *dev = new Host82576VF(pci, mb.bus_network,
                                        mb.clock(), vf_bdf,
                                        irqs, reg_msg.ptr, itr_us);
 
