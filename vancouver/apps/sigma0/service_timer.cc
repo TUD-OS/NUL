@@ -26,16 +26,18 @@
  *
  * State: unstable
  * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem to communicate
+ * Missing:  cache optimization
  */
 class TimerService : public StaticReceiver<TimerService> {
 
+  enum {
+    CLIENTS = Config::MAX_CLIENTS+2
+  };
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
-  TimeoutList<Config::MAX_CLIENTS+2> _abs_timeouts;
-  Semaphore       _worker;
-  Semaphore       _relsem;
-  volatile unsigned  _relnr;
-  volatile timevalue _reltime;
+  TimeoutList<CLIENTS> _abs_timeouts;
+  KernelSemaphore   _worker;
+  volatile unsigned _reltime[CLIENTS];
 
   /**
    * Do the actual work.
@@ -50,19 +52,19 @@ class TimerService : public StaticReceiver<TimerService> {
        * Check whether a new timeout should be programmed.
        */
       timevalue now = _mymb.clock()->time();
-      unsigned nr = _relnr;
-      if (nr != ~0u) {
-
-	_abs_timeouts.cancel(nr);
-	_abs_timeouts.request(nr, now + _reltime);
-	_relnr = ~0u;
-	_relsem.up();
-      }
-
+      unsigned nr;
+      for (nr=0; nr < CLIENTS; nr++)
+	if (_reltime[nr]) {
+	  timevalue t = Cpu::xchg(_reltime + nr, 0);
+	  assert(t);
+	  _abs_timeouts.cancel(nr);
+	  _abs_timeouts.request(nr, now + t);
+	}
 
       /**
        * Check whether timeouts have fired.
        */
+      now = _mymb.clock()->time();
       while ((nr = _abs_timeouts.trigger(now))) {
 	MessageTimeout msg1(nr, now);
 	_abs_timeouts.cancel(nr);
@@ -85,29 +87,17 @@ public:
   {
     switch (msg.type) {
     case MessageTimer::TIMER_NEW:
-      {
-	/**
-	 * We assume here that the alloc function can be done in
-	 * parallel to the worker, as we lock different callers
-	 * against each other, but the worker does not lock access to
-	 * _abs_timeouts.
-	 */
-	SemaphoreGuard l(_relsem);
-	msg.nr = _abs_timeouts.alloc();
-      }
+      // XXX synchronization
+      msg.nr = _abs_timeouts.alloc();
       break;
     case MessageTimer::TIMER_REQUEST_TIMEOUT:
       {
-	// request the entry
-	_relsem.down();
-
-	// it has to be empty
-	assert(_relnr == ~0u);
-
-	timevalue now = _hostmb.clock()->time();
-	if (now > msg.abstime)  now = msg.abstime;
-	_reltime = msg.abstime - now;
-	_relnr   = msg.nr;
+	assert(msg.nr < CLIENTS);
+	long long diff = msg.abstime - _hostmb.clock()->time();
+	if (diff <= 0)  diff = 1;
+	else
+	  if (diff >> 32)    diff = ~0u;
+	_reltime[msg.nr] = diff;
 	_worker.up();
       }
       break;
@@ -130,14 +120,12 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())),  _relnr(~0u) {
+  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
-    MessageHostOp msg1(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
-    if (!hostmb.bus_hostop.send(msg0) || !hostmb.bus_hostop.send(msg1))
+    if (!hostmb.bus_hostop.send(msg0))
       Logging::panic("%s alloc semaphore failed", __func__);
-    _worker = Semaphore(msg0.value);
-    _relsem = Semaphore(msg1.value);
+    _worker = KernelSemaphore(msg0.value);
 
     // init timeouts
     _abs_timeouts.init();
@@ -158,9 +146,6 @@ public:
     // create backend devices
     char argv[] = "hostpit:1000,0x40,2 hosthpet";
     _mymb.parse_args(argv);
-
-    // make sure everybody can use it
-    _relsem.up();
 
     // create the worker thread
     MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), reinterpret_cast<unsigned long>(TimerService::do_work));
