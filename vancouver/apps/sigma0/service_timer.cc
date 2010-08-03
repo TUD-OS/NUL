@@ -31,12 +31,16 @@
 class TimerService : public StaticReceiver<TimerService> {
 
   enum {
-    CLIENTS = Config::MAX_CLIENTS+2
+    CLIENTS = Config::MAX_CLIENTS+2,
+    GRANULARITY = 1<<8
   };
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
   TimeoutList<CLIENTS> _abs_timeouts;
   KernelSemaphore   _worker;
+  /**
+   * We use a 32bit unsigned to be able to use xchg later on.
+   */
   volatile unsigned _reltime[CLIENTS];
 
   /**
@@ -56,6 +60,7 @@ class TimerService : public StaticReceiver<TimerService> {
       for (nr=0; nr < CLIENTS; nr++)
 	if (_reltime[nr]) {
 	  timevalue t = Cpu::xchg(_reltime + nr, 0);
+	  t *= GRANULARITY;
 	  assert(t);
 	  _abs_timeouts.cancel(nr);
 	  _abs_timeouts.request(nr, now + t);
@@ -94,9 +99,13 @@ public:
       {
 	assert(msg.nr < CLIENTS);
 	long long diff = msg.abstime - _hostmb.clock()->time();
-	if (diff <= 0)  diff = 1;
+	if (diff < GRANULARITY)
+	  diff = 1;
 	else
-	  if (diff >> 32)    diff = ~0u;
+	  if (diff <= ~0u)
+	    diff /= GRANULARITY;
+	  else
+	    diff = ~0u;
 	_reltime[msg.nr] = diff;
 	_worker.up();
       }
