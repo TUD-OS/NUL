@@ -33,6 +33,9 @@ struct dma_desc {
   uint64 hi;
 };
 
+static_assert((sizeof(dma_desc[desc_ring_len]) & 0x7F) == 0,
+	      "Size of DMA descriptors must be 128-byte aligned.");
+
 class Host82576VF : public PciDriver,
                     public Base82576,
                     public StaticReceiver<Host82576VF>
@@ -194,7 +197,7 @@ public:
   {
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
-    // Disable IRQs
+    // Disable IRQs and reset
     _hwreg[VTEIMC] = ~0U;
     _hwreg[VTCTRL] |= CTRL_RST;
     _hwreg[VTEIMC] = ~0U;
@@ -235,10 +238,10 @@ public:
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
 
     // Enable RX
-    _rx_ring = new(256) dma_desc[desc_ring_len];
-    _hwreg[RDBAL0] = reinterpret_cast<uint64>(_rx_ring);
+    _rx_ring = new(128) dma_desc[desc_ring_len];
+    _hwreg[RDBAL0] = reinterpret_cast<mword>(_rx_ring);
     _hwreg[RDBAH0] = 0; //reinterpret_cast<mword>(_rx_ring) >> 32;
-    _hwreg[RDLEN0] = desc_ring_len * sizeof(dma_desc);
+    _hwreg[RDLEN0] = sizeof(dma_desc[desc_ring_len]);
     msg(INFO, "%08x bytes allocated for RX descriptor ring (%d descriptors).\n", _hwreg[RDLEN0], desc_ring_len);
     assert(_hwreg[RDT0] == 0);
     assert(_hwreg[RDH0] == 0);
@@ -247,10 +250,10 @@ public:
 
 
     // Enable TX
-    _tx_ring = new(256) dma_desc[desc_ring_len];
-    _hwreg[TDBAL0] = reinterpret_cast<uint64>(_tx_ring);
+    _tx_ring = new(128) dma_desc[desc_ring_len];
+    _hwreg[TDBAL0] = reinterpret_cast<mword>(_tx_ring);
     _hwreg[TDBAH0] = 0; //reinterpret_cast<mword>(_tx_ring) >> 32;
-    _hwreg[TDLEN0] = desc_ring_len * sizeof(dma_desc);
+    _hwreg[TDLEN0] = sizeof(dma_desc[desc_ring_len]);
     msg(INFO, "%08x bytes allocated for TX descriptor ring (%d descriptors).\n", _hwreg[TDLEN0], desc_ring_len);
     _hwreg[TXDCTL0] = (1U<<25);
     assert(_hwreg[TDT0] == 0);
