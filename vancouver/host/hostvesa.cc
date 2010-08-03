@@ -24,7 +24,7 @@
  * A Vesa console.
  *
  * State: unstable
- * Features: get linear modes, validate physpointer, set LinBytesPerScanline
+ * Features: get linear modes, validate physpointer, set LinBytesPerScanline, timeouts
  * Missing:  vesa1.2 support
  */
 class HostVesa : public StaticReceiver<HostVesa>
@@ -89,17 +89,25 @@ class HostVesa : public StaticReceiver<HostVesa>
     _cpu.cs.sel   = reinterpret_cast<unsigned short *>(_mem)[0x10*2 + 1];
     _cpu.cs.base  = _cpu.cs.sel << 4;
 
-    CpuMessage msg(CpuMessage::TYPE_SINGLE_STEP, &_cpu, MTD_ALL);
+    CpuMessage msg0(CpuMessage::TYPE_SINGLE_STEP, &_cpu, MTD_ALL);
+    CpuMessage msg1(CpuMessage::TYPE_CHECK_IRQ, &_cpu, MTD_ALL);
     while (!_cpu.actv_state)
       {
 	_instructions++;
 	if (_debug & 2)
 	  Logging::printf("[%x] execute at %x:%x esp %x eax %x ecx %x esi %x ebp %x efl %x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.esp,
 			  _cpu.eax, _cpu.ecx, _cpu.esi, _cpu.ebp, _cpu.efl);
-	if (!_mb.last_vcpu->executor.send(msg))
+	if (!_mb.last_vcpu->executor.send(msg0))
 	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
-      }
+	if (!_mb.last_vcpu->executor.send(msg1))
+	  Logging::panic("[%x] nobody to execute at %x:%x esp %x:%x\n", _instructions, _cpu.cs.sel, _cpu.eip, _cpu.ss.sel, _cpu.esp);
 
+	if (_mb.clock()->time() > _timeout) {
+	  MessageTimeout msg2(TIMER_NR, _timeout);
+	  _timeout = ~0ull;
+	  _mb.bus_timeout.send(msg2);
+	}
+      }
 
     if ((_cpu.eax & 0xffff) == 0x004f)  return false;
     Logging::printf("VBE call(%x, %x, %x, %x) returned %x\n", eax, ecx, edx, ebx, _cpu.eax);
@@ -179,7 +187,6 @@ public:
 
   bool  receive(MessageTimer &msg)
   {
-    COUNTER_INC("requestTO");
     switch (msg.type)
       {
       case MessageTimer::TIMER_NEW:
