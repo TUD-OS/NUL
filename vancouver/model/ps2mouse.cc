@@ -25,6 +25,7 @@
  * State: stable
  * Features: mouse commands including poll mode, scaling, packet merging, resolution adaption
  * Missing:  different sample rate, packet resend, z-coordinate
+ * Documentation: PS2 hitrc, PS2 Mouse Interface, Trackpoint Engineering Specification 3E
  */
 class PS2Mouse : public StaticReceiver<PS2Mouse>
 {
@@ -255,6 +256,7 @@ class PS2Mouse : public StaticReceiver<PS2Mouse>
 		break;
 	      default:
 		Logging::printf("%s(%x, %x) unknown command\n", __PRETTY_FUNCTION__, msg.port, msg.value);
+	      case 0xe1: // read secondary ID - used to identify trackpoints
 		packet = 0xfc01;
 	      }
 	    break;
