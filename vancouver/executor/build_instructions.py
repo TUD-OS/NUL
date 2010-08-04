@@ -145,6 +145,7 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
 		 ("CONST1",  "entry->immediate = 1" + imm),
 		 ("IMM1",    "fetch_code(entry, 1); entry->immediate = *reinterpret_cast<char  *>(entry->data+entry->inst_len - 1)" + imm),
 		 ("IMM2",    "fetch_code(entry, 2); entry->immediate = *reinterpret_cast<short *>(entry->data+entry->inst_len - 2)" + imm),
+		 ("IMM3",    "fetch_code(entry, 3); entry->immediate = *reinterpret_cast<unsigned *>(entry->data+entry->inst_len - 3)" + imm),
 		 ("IMMO",    imm),
 		 ("MOFS",    "fetch_code(entry, 1 << entry->address_size); entry->src = &_cpu->eax"),
 		 ("LONGJMP", "fetch_code(entry, 2 + (1 << entry->operand_size))"),
@@ -350,6 +351,7 @@ add_helper(["sgdt", "sidt"],                                     ["MEMONLY", "SK
 add_helper(["mov %cr0,%edx", "mov %edx,%cr0"],                   ["MODRM", "DROP1", "REGONLY", "NO_OS", "CPL0"], "")
 add_helper(["ltr", "lldt"],                                      ["NO_OS", "OS1", "DIRECTION"], "*reinterpret_cast<unsigned short *>(tmp_src)")
 add_helper(["lmsw"],                                             ["NO_OS", "OS1", "DIRECTION", "CPL0"], "*reinterpret_cast<unsigned short *>(tmp_src)")
+add_helper(["enter"],                                            [], "reinterpret_cast<unsigned *>(tmp_src)")
 add_helper(["hlt", "clts", "wbinvd",  "invd"], ["NO_OS", "CPL0"], "")
 add_helper(["sti", "cli", "int3", "into", "fwait", "ud2a", "sysenter", "sysexit", "xlat"], ["NO_OS"], "")
 

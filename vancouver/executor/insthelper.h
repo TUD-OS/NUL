@@ -971,3 +971,25 @@ void helper_XLAT() {
   }
 }
 
+
+template<unsigned operand_size>
+void helper_ENTER(unsigned *imm) {
+
+  unsigned long ebp = _cpu->ebp;
+  if (helper_PUSH<operand_size>(&ebp)) return;
+
+  unsigned long frametemp = _cpu->esp;
+  unsigned nesting_level = (*imm >> 16) & 0x1f;
+  void *tmp = 0;
+  for (unsigned n = 1; n < nesting_level; n++) {
+    ebp -= 1 << operand_size;
+    if (logical_mem<operand_size>(&_cpu->ss, ebp, false, tmp, true) || helper_PUSH<operand_size>(tmp))  return;
+  }
+  if (nesting_level && helper_PUSH<operand_size>(&frametemp))  return;
+  _cpu->esp -= (*imm & 0xffff);
+
+  // check for errors while accessing the top of the stack
+  if (logical_mem<operand_size>(&_cpu->ss, _cpu->esp, true, tmp, true)) return;
+
+  _cpu->ebp = frametemp;
+}

@@ -2505,6 +2505,16 @@ static void __attribute__ ((regparm (3))) exec_c702_mov_2 (InstructionCache * ca
   asm volatile ("movl (%edx), %eax; movl %eax,(%ecx)");
 }
 
+static void __attribute__ ((regparm (3))) exec_c8_enter_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_ENTER < 1 > (reinterpret_cast < unsigned *>(tmp_src));
+}
+
+static void __attribute__ ((regparm (3))) exec_c8_enter_2 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
+{
+  cache->helper_ENTER < 2 > (reinterpret_cast < unsigned *>(tmp_src));
+}
+
 static void __attribute__ ((regparm (3))) exec_c9_leave_1 (InstructionCache * cache, void *tmp_src, void *tmp_dst)
 {
   cache->helper_LEAVE < 1 > ();
@@ -6053,7 +6063,17 @@ handle_code_byte (InstructionCacheEntry * entry, unsigned char code, int &op_mod
 	  case 0xc8:
 	    {
 /* instruction2 'enter' ['c8'] ['IMM3'] */ ;
-	      UNIMPLEMENTED (this);
+	      fetch_code (entry, 3);
+	      entry->immediate = *reinterpret_cast < unsigned *>(entry->data + entry->inst_len - 3);
+	      entry->src = &entry->immediate;
+	      if (entry->operand_size == 1)
+		{
+		  entry->execute = exec_c8_enter_1;
+		}
+	      else
+		{
+		  entry->execute = exec_c8_enter_2;
+		};
 	      break;
 	    }
 	  case 0xc9:
