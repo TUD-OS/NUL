@@ -947,27 +947,27 @@ int helper_FRSTOR()
 }
 
 
-int helper_AAM(unsigned char imm) {
+void helper_AAM(unsigned char imm) {
   if (!imm) DE0(this);
   _cpu->ax = ((_cpu->al / imm) << 8) | (_cpu->al % imm);
   _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
   unsigned zero = 0;
-  return calc_flags(0, &_cpu->eax, &zero);
+  calc_flags(0, &_cpu->eax, &zero);
 }
 
-int helper_AAD(unsigned char imm) {
+void helper_AAD(unsigned char imm) {
   _cpu->ax = (_cpu->al + (_cpu->ah * imm)) & 0xff;
   _mtr_out |= MTD_GPR_ACDB | MTD_RFLAGS;
   unsigned zero = 0;
-  return calc_flags(0, &_cpu->eax, &zero);
+  calc_flags(0, &_cpu->eax, &zero);
 }
 
 
-int helper_XLAT() {
+void helper_XLAT() {
   void *dst = 0;
   if (!logical_mem<0>((&_cpu->es) + ((_entry->prefixes >> 8) & 0xf), _cpu->ebx + _cpu->al, false, dst)) {
     _mtr_out |= MTD_GPR_ACDB;
     move<0>(&_cpu->eax, dst);
   }
-  return _fault;
 }
+
