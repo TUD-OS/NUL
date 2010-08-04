@@ -345,7 +345,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper),    Mtd(MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper),    Mtd(MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN, 0)));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
     check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
 
