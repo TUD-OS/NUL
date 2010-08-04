@@ -426,9 +426,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       if (hmem->type != 1) _free_phys.del(Region(hmem->addr, (hmem->size + 0xfff) & ~0xffful));
 
-      // Make sure to remove the commandline as well.
-      if (hmem->type == -2 && hmem->aux)
-        _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
+      if (hmem->type == -2) {
+	// map all the modules early to be sure that we have enough virtual memory left
+	map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful);
+
+	// Make sure to remove the commandline as well.
+	if (hmem->aux)
+	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
+      }
     }
 
     // Reserve the very first 1MB and remove everything above 4G.
@@ -476,7 +481,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  fancy_output(cmdline, 4096);
 
 	  // alloc memory
-	  unsigned long psize_needed = Elf::loaded_memsize(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful));
+	  char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
+	  unsigned long psize_needed = elf ? Elf::loaded_memsize(elf) : ~0u;
 	  p = strstr(cmdline, "sigma0::mem:");
 	  if (p)
 	    modinfo->physsize = strtoul(p+12, 0, 0) << 20;
@@ -486,7 +492,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  unsigned long pmem = 0;
 	  if ((psize_needed > modinfo->physsize)
 	      || !(pmem = _free_phys.alloc(modinfo->physsize, 22))
-	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize))))
+	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))
+	      || !elf)
 	    {
 	      if (pmem) _free_phys.add(Region(pmem, modinfo->physsize));
 	      _free_phys.debug_dump("free phys");
@@ -509,7 +516,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  // decode elf
 	  maxptr = 0;
-	  Elf::decode_elf(map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful), modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
+	  Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
 	  attach_drives(cmdline, module);
 
 	  unsigned  slen = strlen(cmdline) + 1;
@@ -736,7 +743,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
 			    if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
 
-			    memcpy(s, map_self(utcb, mod->addr, (mod->size | 0xfff)+1), mod->size);
+			    char *module = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
+			    if (!module) goto fail;
+			    memcpy(s, module, mod->size);
 			    s += msize;
 			    char *p = strstr(cmdline, "sigma0::attach");
 			    unsigned clearsize = 14;
