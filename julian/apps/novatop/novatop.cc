@@ -16,13 +16,18 @@
  * License version 2 for more details.
  */
 
+// Novatop uses a specially patched hypervisor to read the
+// architectural fixed-function performance counters. Each column
+// represents one CPU and displays the ratio between unhalted and
+// halted clock cycles, i.e. the time the CPU did some work.
+
 #include <nul/types.h>
 #include <sigma0/console.h>
 #include <nul/program.h>
 #include <nul/motherboard.h>
 
-static uint8 perfctl_init() { return nova_syscall2(223, 0); }
-static uint8 perfctl_read() { return nova_syscall2(223, 1); }
+static uint8 perfctl_init() { return nova_syscall2(128, 0); }
+static uint8 perfctl_read() { return nova_syscall2(128, 1); }
 
 enum {
   WIDTH  = 80,
@@ -194,9 +199,6 @@ public:
   {
     unsigned cpu = cpu_logical(Cpu::cpunr());
     uint64 tsc = 0;
-    uint64 fc0 = 0; 		// INST_RETIRED.ANY
-    uint64 fc1 = 0;		// CPU_CLK_UNHALTED.CORE
-
     uint64 fc2 = 0;		// CPU_CLK_UNHALTED.REF. This counter
 				// is guaranteed to count as fast as
 				// TSC.
@@ -215,9 +217,7 @@ public:
       _history[cpu].add((busy * 100) / total);
 
       tsc = m[0];
-      fc0 = m[1];
-      fc1 = m[2];
-      fc2 = m[3];
+      fc2 = m[1];
 
       plot(cpu);
     }
