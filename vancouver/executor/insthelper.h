@@ -28,10 +28,10 @@ int cpl0_test() {
   /**
    * Add base and check segment type and limit.
    */
-  int handle_segment(CpuState::Descriptor *desc, unsigned &virt, unsigned length, bool write)
+  int handle_segment(CpuState::Descriptor *desc, unsigned &virt, unsigned length, bool write, bool stackop)
   {
     // align address
-    if (!_entry)
+    if (!_entry || stackop)
       {
 	assert(desc == &_cpu->ss);
 	unsigned stack_size = ((_cpu->ss.ar >> 10) & 1) + 1;
@@ -64,9 +64,9 @@ int cpl0_test() {
   }
 
   template<unsigned operand_size>
-  int logical_mem(CpuState::Descriptor *desc, unsigned virt, bool write, void *&res)
+  int logical_mem(CpuState::Descriptor *desc, unsigned virt, bool write, void *&res, bool stackop=false)
   {
-    handle_segment(desc, virt, 1 << operand_size, write)
+    handle_segment(desc, virt, 1 << operand_size, write, stackop)
       || prepare_virtual(virt, 1 << operand_size, user_access(write ? TYPE_W : TYPE_R) , res);
     return _fault;
   }
@@ -132,9 +132,8 @@ int helper_INTO() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; if (_cpu->efl &
     void *res;
     unsigned length = 1 << operand_size;
     unsigned virt = _cpu->esp - length;
-    if (!(handle_segment(&_cpu->ss, virt, length, true)
-	  || prepare_virtual(virt, length, user_access(TYPE_W), res)))
-	move<operand_size>(res, tmp_src);
+    if (!logical_mem<operand_size>(&_cpu->ss, virt, true, res, true))
+      move<operand_size>(res, tmp_src);
     _cpu->esp -= length;
     return _fault;
   }
@@ -148,12 +147,9 @@ int helper_INTO() {  _oeip = _cpu->eip; _mtr_out |= MTD_RIP_LEN; if (_cpu->efl &
   {
     void *res;
     unsigned virt = _cpu->esp;
-    unsigned length = 1 << operand_size;
-    if (!(handle_segment(&_cpu->ss, virt, length, false) || prepare_virtual(virt, length, user_access(TYPE_R), res)))
-      {
-	_cpu->esp += length;
-	move<operand_size>(tmp_dst, res);
-      }
+    if (!logical_mem<operand_size>(&_cpu->ss, virt, false, res, true))
+      move<operand_size>(tmp_dst, res);
+    _cpu->esp += 1 << operand_size;
     return _fault;
   }
 

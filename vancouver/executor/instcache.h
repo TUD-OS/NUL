@@ -357,7 +357,7 @@ public:
 
   int virt_to_ptr(void *&res, unsigned length, Type type, unsigned virt)
   {
-    InstructionCache::handle_segment((&_cpu->es) + ((_entry->prefixes >> 8) & 0x0f), virt, length, type & TYPE_W)
+    InstructionCache::handle_segment((&_cpu->es) + ((_entry->prefixes >> 8) & 0x0f), virt, length, type & TYPE_W, false)
       || prepare_virtual(virt, length, type, res);
     return _fault;
   }
