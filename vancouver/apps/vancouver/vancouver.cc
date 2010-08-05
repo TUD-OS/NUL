@@ -344,22 +344,19 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->head.mtr.untyped());
     skip_instruction(msg);
-    handle_vcpu_fault(0, msg, reinterpret_cast<VCpu*>(utcb->head.tls));
+    VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
+    SemaphoreGuard l(_lock);
+    if (!vcpu->executor.send(msg, true))
+      Logging::panic("nobody to excute %s at %x:%x\n", __func__, msg.cpu->cs.sel, msg.cpu->eip);
   }
+
 
 
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false) {
 
+    VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
     if (skip) skip_instruction(msg);
-    handle_vcpu_fault(pid, msg, reinterpret_cast<VCpu*>(utcb->head.tls));
-  }
-
-
-  /**
-   * Handle VCpu faults.
-   */
-  static void handle_vcpu_fault(unsigned pid, CpuMessage &msg, VCpu *vcpu) {
 
     SemaphoreGuard l(_lock);
 
@@ -710,7 +707,7 @@ VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
 	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
 	utcb->eip += utcb->inst_len;
 	)
-VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE | MTD_IRQ,
+VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
 	if (utcb->qual[0] & 0x10)
 	  {
 	    COUNTER_INC("IOS");
@@ -773,7 +770,7 @@ MTD_IRQ,
 VM_FUNC(PT_SVM + 0x64,  svm_vintr,   MTD_IRQ, vmx_irqwin(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0x72,  svm_cpuid,   MTD_RIP_LEN | MTD_GPR_ACDB | MTD_IRQ, utcb->inst_len = 2; vmx_cpuid(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0x78,  svm_hlt,     MTD_RIP_LEN | MTD_IRQ,  utcb->inst_len = 1; vmx_hlt(pid, tls, utcb); )
-VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE | MTD_IRQ,
+VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
 	{
 	  if (utcb->qual[0] & 0x4)
 	    {
