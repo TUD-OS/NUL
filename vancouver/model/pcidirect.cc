@@ -231,7 +231,7 @@ private:
       // disable multi-function devices
       if (msg.dword == 3)         msg.value &= ~0x800000;
       // we support only a single MSI vector
-      if (msg.dword == _msi_cap)  msg.value &= ~0xe0000;
+      if (_msi_cap && msg.dword == _msi_cap)  msg.value &= ~0xe0000;
 
       return true;
     }
