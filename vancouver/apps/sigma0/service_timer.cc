@@ -19,6 +19,7 @@
 #include "nul/motherboard.h"
 #include "nul/timer.h"
 #include "sys/semaphore.h"
+#include "service/lifo.h"
 
 
 /**
@@ -38,10 +39,14 @@ class TimerService : public StaticReceiver<TimerService> {
   Motherboard &   _mymb;
   TimeoutList<CLIENTS> _abs_timeouts;
   KernelSemaphore   _worker;
-  /**
-   * We use a 32bit unsigned to be able to use xchg later on.
-   */
-  volatile unsigned _reltime[CLIENTS];
+
+
+  struct ClientData {
+    volatile unsigned reltime;
+    ClientData * volatile lifo_next;
+  } _data[CLIENTS];
+
+  AtomicLifo<ClientData> _queue;
 
   /**
    * Do the actual work.
@@ -52,19 +57,20 @@ class TimerService : public StaticReceiver<TimerService> {
       _worker.down();
       COUNTER_INC("to work");
 
-      /**
-       * Check whether a new timeout should be programmed.
-       */
-      timevalue now = _mymb.clock()->time();
+
       unsigned nr;
-      for (nr=0; nr < CLIENTS; nr++)
-	if (_reltime[nr]) {
-	  timevalue t = Cpu::xchg(_reltime + nr, 0);
-	  t *= GRANULARITY;
-	  assert(t);
-	  _abs_timeouts.cancel(nr);
-	  _abs_timeouts.request(nr, now + t);
-	}
+      timevalue now = _mymb.clock()->time();
+      ClientData *next;
+      for (ClientData *head = _queue.dequeue_all(); head; head = next) {
+	nr = head - _data;
+	next = head->lifo_next;
+	head->lifo_next = 0;
+	asm volatile("");
+	timevalue t = Cpu::xchg(&head->reltime, 0);
+	t *= GRANULARITY;
+	_abs_timeouts.cancel(nr);
+	_abs_timeouts.request(nr, now + t);
+      }
 
       /**
        * Check whether timeouts have fired.
@@ -102,11 +108,14 @@ public:
 	if (diff < GRANULARITY)
 	  diff = 1;
 	else
-	  if (diff <= ~0u)
+	  if (diff <= (~0u)*GRANULARITY)
 	    diff /= GRANULARITY;
 	  else
 	    diff = ~0u;
-	_reltime[msg.nr] = diff;
+
+	_data[msg.nr].reltime = diff;
+	asm volatile ("" : : : "memory");
+	if (!_data[msg.nr].lifo_next) _queue.enqueue(_data+msg.nr);
 	_worker.up();
       }
       break;
@@ -129,7 +138,7 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())) {
+  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())), _data() {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
     if (!hostmb.bus_hostop.send(msg0))
