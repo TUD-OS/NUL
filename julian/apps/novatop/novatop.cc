@@ -89,12 +89,12 @@ public:
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
     init_mem(hip);
     _hip = hip;
-    
+
     _cycles_per_second = static_cast<uint64>(hip->freq_tsc)*1000;
     _history           = new History<unsigned, WIDTH>[hip->cpu_count()];
 
     Logging::printf("IDLE up.\n%u CPUs, %llu Cycles/s\n",
-                    hip->cpu_count(), _cycles_per_second);
+		    hip->cpu_count(), _cycles_per_second);
 
     if (perfctl_init() != 0) Logging::panic("Unmodified NOVA.");
     Logging::printf("Modified NOVA. Using performance counters.\n");
@@ -121,13 +121,13 @@ public:
 
     TimerConsumer tc(alloc_cap());
     Sigma0Base::request_timer_attach(utcb, &tc, tc.sm());
-    
+
     Clock c(_hip->freq_tsc*1000);
     while (1) {
-      
+
       MessageTimer m(0, c.abstime(1, 1));
       Sigma0Base::timer(m);
-      
+
       tc.get_buffer();
       tc.free_buffer();
 
@@ -140,7 +140,7 @@ public:
   {
     for (unsigned i = 0; i < _hip->cpu_count(); i++)
       if (_hip->cpu_physical(i) == physical)
-        return i;
+	return i;
     assert(false);
   }
 
@@ -149,7 +149,7 @@ public:
   {
     unsigned our_width = WIDTH/_hip->cpu_count();
     unsigned our_off   = cpu*our_width;
-        
+
     // Iterate over history values
     for (unsigned i = 0; i < our_width; i++) {
       unsigned c = i + our_off;
@@ -170,7 +170,7 @@ public:
 	    vga[1] = 0x0F;
 	  } else {
 	    char ch = '*';
-	    
+
 	    if (r == now) {
 	      if (now == 2) { ch = '-'; goto draw; }
 	      if ((left == now) and (right == now)) { ch = '-'; goto draw; }
