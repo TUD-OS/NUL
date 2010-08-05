@@ -79,7 +79,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
   }
 
 
-  bool handle_reset()
+  bool handle_reset(bool show)
   {
     _regs.offset       = TEXT_OFFSET;
     _regs.mode         = 0;
@@ -87,7 +87,7 @@ class Vga : public StaticReceiver<Vga>, public BiosCommon
     _regs.cursor_style = 0x0d0e;
     // and clear the screen
     memset(_framebuffer_ptr, 0, _framebuffer_size);
-    puts_guest("    VgaBios booting...\n\n\n");
+    if (show) puts_guest("    VgaBios booting...\n\n\n");
     return true;
   }
 
@@ -356,7 +356,7 @@ public:
     switch(msg.irq)
       {
       case 0x10: return handle_int10(msg);
-      case RESET_VECTOR: return handle_reset();
+      case RESET_VECTOR: return handle_reset(true);
       default:
 	return false;
       }
@@ -528,6 +528,10 @@ public:
   {
     assert(!(framebuffer_phys & 0xfff));
     assert(!(framebuffer_size & 0xfff));
+
+    handle_reset(false);
+
+
     // alloc console
     MessageConsole msg("VM", _framebuffer_ptr, _framebuffer_size, &_regs);
     if (!mb.bus_console.send(msg))
