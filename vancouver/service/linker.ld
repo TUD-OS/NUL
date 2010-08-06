@@ -64,6 +64,7 @@ SECTIONS
        LONG(0x204c554e);
        /* requested AP	I version */
        LONG(2);
+       /* XXX This leads to unaligned binaries? */
    } : data : nul
 
   /DISCARD/ :

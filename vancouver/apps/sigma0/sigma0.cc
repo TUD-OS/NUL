@@ -500,10 +500,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
       unsigned long psize_needed = elf ? Elf::loaded_memsize(elf) : ~0u;
       p = strstr(cmdline, "sigma0::mem:");
-      if (p)
-	modinfo->physsize = strtoul(p+12, 0, 0) << 20;
-      else
-	modinfo->physsize = psize_needed;
+      unsigned long psize_requested = p ? strtoul(p+12, 0, 0) << 20 : 0;
+      modinfo->physsize = (psize_needed > psize_requested) ? psize_needed : psize_requested ;
+      // Round up to page size
+      modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
       unsigned long pmem = 0;
       if ((psize_needed > modinfo->physsize)
