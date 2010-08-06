@@ -913,8 +913,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
-	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(msg.len));
-	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(3, 10000));
+	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], msg.ptr);
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(msg.len ? 3 : 2, 10000));
 	}
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:

@@ -473,7 +473,8 @@ public:
     _worker = Semaphore(msg4.value);
 
     // create the worker thread
-    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), reinterpret_cast<unsigned long>(do_work));
+    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this));
+    msg5.ptr = reinterpret_cast<char *>(do_work);
     if (!_mb.bus_hostop.send(msg5))
       Logging::panic("%s alloc service thread failed", __func__);
 

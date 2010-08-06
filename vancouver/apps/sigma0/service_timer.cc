@@ -166,7 +166,8 @@ public:
     _mymb.parse_args(argv);
 
     // create the worker thread
-    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), reinterpret_cast<unsigned long>(TimerService::do_work));
+    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), 1);
+    msg2.ptr = reinterpret_cast<char *>(TimerService::do_work);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
   }
