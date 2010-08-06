@@ -155,14 +155,6 @@ tree. You will not be disappointed.
 
 ** TODO Using the Build System
 
-* Third-Party Software
-
-  NUL reuses currently some code from the following projects:
-
-  - QEMU's ne2k model: http://www.qemu.org/
-
-  See the contrib directories for details.
-
 * Footnotes
 
 [fn:1] We are actively exploring alternatives to write our build system, but SCons fills in quite nicely for now.
