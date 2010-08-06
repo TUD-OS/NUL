@@ -65,7 +65,7 @@ public:
       msg.value = read_pcicfg(res) >> 8*(msg.port & 0x3);
     else
       return false;
-    return true;
+    return res;
   }
 
 
