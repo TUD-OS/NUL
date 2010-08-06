@@ -47,7 +47,7 @@ struct EthernetAddr {
 static inline bool
 operator==(EthernetAddr const& a, EthernetAddr const& b)
 {
-  return ((a.raw & ETHERNET_ADDR_MASK) == (b.raw & ETHERNET_ADDR_MASK));
+  return ((a.raw ^ b.raw) & ETHERNET_ADDR_MASK) == 0;
 }
 
 
