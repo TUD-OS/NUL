@@ -1,0 +1,16 @@
+
+* Changes since the XMas Alpha:
+
+- added support for one-shot timers (HPET)
+- MSI and MSI-X support
+- direct assignment of PCI devices to VMs
+- IRQ routing discovery
+- APIC, IO-APIC, and MSI/MSI-X support in VMs
+- SMP support
+- experimental SMP VM support
+- Intel 82576VF network card model
+- RTL8029 network card model
+- Intel 82576 host driver
+- VESA VBE 2.0 support
+
+... and of course lots of bug fixes. 

@@ -34,9 +34,9 @@ tree. You will not be disappointed.
 
 * Prerequisites
 
-  - *Binutils* 2.19 or later
-  - *GCC* 4.2 or later
-  - *SCons[fn:1]* 1.2.0 or later
+  - *Binutils* 2.20 or later
+  - *GCC* 4.4 or later
+  - *SCons* 1.2.0 or later
   - *Python* 2.6 or later
   - *Git* 1.6 or later
 
@@ -59,17 +59,6 @@ tree. You will not be disappointed.
    The NUL tree consists of several applications and libraries, which
    are loosely grouped by topic into repositories. Each subdirectory
    of the top-level directory is a repository.
-
-*** /nova/
-
-   The kernel bindings and a very small example roottask live in this
-   repository. =lib/nova/include= contains the relevant header files.
-
-**** TODO Clean up handling of MTDs.
-     The current solution makes it very easy to shoot yourself in the foot.
-
-*** TODO Describe /vancouver/
-
 
 ** Building
 
@@ -96,8 +85,6 @@ tree. You will not be disappointed.
   To compile nul with an old version of GCC, type:
   =scons target_cc=gcc-4.2.4 target_cxx=g++-4.2.4=
 
-** TODO Booting
-
 ** Using Git
 
    We use git to manage our source code. (Un)fortunately, there are
@@ -108,7 +95,8 @@ tree. You will not be disappointed.
 
 *** User Setup
 
-    It is important to use your real name and a working email address as these are stored in your commits. Set them using:
+    It is important to use your real name and a working email address
+    as these are stored in your commits. Set them using:
 
     - =git config --global user.name yourname=
     - =git config --global user.email you@yourdomain.example.com=
@@ -142,23 +130,13 @@ tree. You will not be disappointed.
 
     The workflow would thus be:
 
-    - =git remote update= to get the latest changes from the central repository[fn:2]
+    - =git remote update= to get the latest changes from the central repository
     - =gitk --all= (for X11 users) or =tig --all= (for those console junkies) to see your local branches as well as the remote branches.
     - =git rebase origin/master= to rebase your local commits on top
       of the central repository's head. If you like to reorder or
-      squash your commits[fn:3], you can pass the =-i= flag to rebase.
+      squash your commits, you can pass the =-i= flag to rebase.
 
     At this point, your local branch contains all commits from the
     central repository with your commits on top of them. If you wish
     to commit them, you can now do =git push= to send them to the
     central repository.
-
-** TODO Using the Build System
-
-* Footnotes
-
-[fn:1] We are actively exploring alternatives to write our build system, but SCons fills in quite nicely for now.
-
-[fn:2] This step might be optional. I have to check this.
-
-[fn:3] Git rocks, doesn't it?
