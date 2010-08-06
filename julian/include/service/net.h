@@ -31,7 +31,8 @@ struct EthernetAddr {
     uint8 byte[6];
   };
 
-  bool is_multicast() const { return (byte[0] & 1) == 1; }
+  bool is_local()     const { return (byte[0] & 2) != 0; }
+  bool is_multicast() const { return (byte[0] & 1) != 0; }
   bool is_broadcast() const {
     return (raw & ETHERNET_ADDR_MASK) == ETHERNET_ADDR_MASK;
   }
@@ -46,7 +47,7 @@ struct EthernetAddr {
 static inline bool
 operator==(EthernetAddr const& a, EthernetAddr const& b)
 {
-  return ((a.raw & ETHERNET_ADDR_MASK) == (b.raw & ETHERNET_ADDR_MASK));
+  return ((a.raw ^ b.raw) & ETHERNET_ADDR_MASK) == 0;
 }
 
 

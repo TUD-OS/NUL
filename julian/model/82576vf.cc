@@ -37,7 +37,6 @@ using namespace Endian;
 //     this file).
 
 // TODO
-// - handle resets properly (i.e. reset queues)
 // - handle BAR remapping
 // - RXDCTL.enable (bit 25) may be racy
 // - receive path does not set packet type in RX descriptor
@@ -49,9 +48,32 @@ using namespace Endian;
 // - scatter/gather support in MessageNetwork to avoid packet copy in
 //   TX path.
 
+class Mta {
+  uint32 _bits[128];
+
+public:
+  
+  static uint16 hash(EthernetAddr const &addr)
+  {
+    return 0xFFF & (((addr.byte[4] >> 4)
+		     | static_cast<uint16>(addr.byte[5]) << 4));
+  }
+
+  bool includes(EthernetAddr const &addr) const
+  {
+    uint16 h = hash(addr);
+    return (_bits[(h >> 5) & 0x7F] & (1 << (h & 0x1F))) != 0;
+  }
+
+  void set(uint16 hash) { _bits[(hash >> 5) & 0x7F] |= 1 << (hash&0x1F); }
+  void clear() { memset(_bits, 0, sizeof(_bits)); }
+
+  Mta() : _bits() { }
+};
+
 class Model82576vf : public StaticReceiver<Model82576vf>
 {
-  uint64 _mac;
+  EthernetAddr           _mac;
   DBus<MessageNetwork>  &_net;
 #include "model/simplemem.h"
   Clock                 *_clock;
@@ -73,6 +95,11 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   // Map RX registers?
   bool _map_rx;
   unsigned _bdf;
+
+  // Filtering
+  const bool _promisc_default;
+  bool       _promisc;
+  Mta        _mta;
 
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
@@ -512,6 +539,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     void receive_packet(uint8 *buf, size_t size)
     {
+      // Check early if this packet is for us.
+
+      const EthernetAddr &dst = *reinterpret_cast<const EthernetAddr *>(buf);
+      if (!parent->_promisc && !dst.is_broadcast() && !(dst == parent->_mac) &&
+	  // XXX Check the MTA only for multicast MACs?
+	  !parent->_mta.includes(dst)) {
+	// Logging::printf("Dropping packet to " MAC_FMT " (%04x) (" MAC_FMT ")\n",
+	//  		MAC_SPLIT(&dst), parent->_mta.hash(dst),
+	//  		MAC_SPLIT(&parent->_mac));
+	return;
+      }
+
       rxdctl_poll();
 
       uint32 rdbah  = regs[RDBAH];
@@ -587,8 +626,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     VF_SET_MAC_ADDR  = 0x0002U,
     VF_SET_MULTICAST = 0x0003U,
     VF_SET_LPE       = 0x0005U,
+    VF_SET_PROMISC   = 0x0006U,
 
-    PF_CONTROL_MSG   = 0x0100U,
+    VF_SET_PROMISC_UNICAST = 0x04<<16,
 
     CMD_ACK          = 0x80000000U,
     CMD_NACK         = 0x40000000U,
@@ -675,18 +715,39 @@ class Model82576vf : public StaticReceiver<Model82576vf>
       switch (rVFMBX0 & 0xFFFF) {
       case VF_RESET:
 	rVFMBX0 |= CMD_ACK;
-	rVFMBX1 = hton32(_mac >> 16);
-	rVFMBX2 = hton32(_mac) >> 16;
+	rVFMBX1 = _mac.raw;
+	rVFMBX2 = (_mac.raw >> 32) & 0xFFFF;
+	Logging::printf("VF_RESET " MAC_FMT "\n", MAC_SPLIT(&_mac));
 	break;
       case VF_SET_MAC_ADDR:
 	rVFMBX0 |= CMD_ACK;
-	_mac = static_cast<uint64>(ntoh32(rVFMBX1)) << 16 | static_cast<uint64>(ntoh32(rVFMBX2)) >> 16;
+	_mac.raw = static_cast<uint64>(rVFMBX2 & 0xFFFF) << 32 | rVFMBX1;
+	Logging::printf("VF_SET_MAC " MAC_FMT "\n", MAC_SPLIT(&_mac));
 	break;
-      case VF_SET_MULTICAST:
-	// Ignore
+      case VF_SET_MULTICAST: {
+	uint8 count = (rVFMBX0 >> 16) & 0xFF;
+	Logging::printf("VF_SET_MULTICAST %08x (%u) %08x\n",
+			rVFMBX0, count, rVFMBX1);
+
+	// Linux never sends more than 30 hashes.
+	if (count > 30) count = 30;
+
+	_mta.clear();
+	uint16 *hash = reinterpret_cast<uint16 *>(&rVFMBX1);
+	for (unsigned i = 0; i < count; i++) {
+	  _mta.set(hash[i]);
+	}
+
+	rVFMBX0 |= CMD_ACK | CTS;
+      }
+	break;
+      case VF_SET_PROMISC:
+	Logging::printf("VF_SET_PROMISC %08x %08x %08x\n", rVFMBX0,
+			rVFMBX1, rVFMBX2);
+	_promisc = (rVFMBX0 & VF_SET_PROMISC_UNICAST);
+	Logging::printf("Promiscuous mode is %s.\n", _promisc ? "ENABLED" : "DISABLED");
 	rVFMBX0 |= CMD_ACK | CTS;
 	break;
-
       default:
 	Logging::printf("VF message unknown %08x\n", rVFMBX0 & 0xFFFF);
 	rVFMBX0 |= CMD_NACK;
@@ -869,6 +930,9 @@ public:
 
     MMIO_init();
 
+    _mta.clear();
+    _promisc = _promisc_default;
+
     for (unsigned i = 0; i < 2; i++) {
       _tx_queues[i].reset();
       _rx_queues[i].reset();
@@ -886,11 +950,13 @@ public:
   Model82576vf(uint64 mac, DBus<MessageNetwork> &net,
 	       DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 	       Clock *clock, DBus<MessageTimer> &timer,
-	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx, unsigned bdf)
+	       uint32 mem_mmio, uint32 mem_msix, unsigned txpoll_us, bool map_rx, unsigned bdf,
+	       bool promisc_default)
     : _mac(mac), _net(net), _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _clock(clock), _timer(timer),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
-      _txpoll_us(txpoll_us), _map_rx(map_rx), _bdf(bdf)
+      _txpoll_us(txpoll_us), _map_rx(map_rx), _bdf(bdf),
+      _promisc_default(promisc_default)
   {
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
@@ -920,14 +986,15 @@ PARAM(82576vf,
 	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
-	Model82576vf *dev = new Model82576vf(msg.mac,
+	Model82576vf *dev = new Model82576vf(hton64(msg.mac) >> 16,
 					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
 					     mb.clock(), mb.bus_timer,
-					     (argv[0] == ~0UL) ? 0xF7CE0000 : argv[0],
-					     (argv[1] == ~0UL) ? 0xF7CC0000 : argv[1],
-					     (argv[2] == ~0UL) ? 0 : argv[2],
-					     argv[3],
-					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
+					     (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
+					     (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
+					     (argv[3] == ~0UL) ? 0 : argv[3],
+					     argv[4],
+					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U),
+					     (argv[0] == ~0UL) ? true : (argv[0] != 0) );
 	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
 	mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
 	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>);
@@ -936,7 +1003,8 @@ PARAM(82576vf,
 	mb.bus_legacy.  add(dev, &Model82576vf::receive_static<MessageLegacy>);
 
       },
-      "82576vf:[mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
+      "82576vf:[promisc][,mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
+      "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
       "txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)",
       "rx_map    - if !=0, map RX registers to guest. (Default: Yes)",
       "Example: 82576vf"
