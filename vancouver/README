@@ -1,5 +1,4 @@
 Structure
-
 include/
 	service/
 		general service includes
@@ -21,8 +20,6 @@ include/
 		model support headers
 	executor/
 		public executor interface
-vsys/
-	basic syscall and service functions
 service/
 	extended service module
 host/
