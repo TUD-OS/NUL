@@ -17,6 +17,7 @@
  */
 PHDRS
 {
+	nul	 PT_NULL;
 	text     PT_LOAD FLAGS(5) FILEHDR PHDRS;
 	data     PT_LOAD FLAGS(6);
 }
@@ -57,6 +58,13 @@ SECTIONS
   /* the freememory starts here, we align to 4M to allow superpages */
   __freemem = ALIGN(0x400000);
 
+  .nul :
+  {
+       /* NUL magic */
+       LONG(0x204c554e);
+       /* requested AP	I version */
+       LONG(2);
+   } : data : nul
 
   /DISCARD/ :
   {

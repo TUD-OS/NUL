@@ -57,7 +57,8 @@ class Elf
   /**
    * Decode an elf32 binary.
    */
-  static unsigned  decode_elf(char *module, char *phys_mem, unsigned long &rip, unsigned long &maxptr, unsigned long mem_size, unsigned long mem_offset)
+  static unsigned  decode_elf(char *module, char *phys_mem, unsigned long &rip, unsigned long &maxptr, unsigned long mem_size,
+			      unsigned long mem_offset, unsigned long long magic)
   {
     unsigned res;
     struct eh32 *elf = reinterpret_cast<struct eh32 *>(module);
@@ -67,8 +68,10 @@ class Elf
     for (unsigned j=0; j<elf->e_phnum; j++)
       {
 	struct ph32 *ph = reinterpret_cast<struct ph32 *>(module + elf->e_phoff + j*elf->e_phentsize);
+	if (ph->p_type == 4 && magic)
+	  check1(5, magic != *reinterpret_cast<unsigned long long *>(module + ph->p_offset), "wrong file: magic %llx vs %llx", magic, *reinterpret_cast<unsigned long long *>(module + ph->p_offset));
 	if (ph->p_type != 1)  continue;
-	check1(5, !(mem_size >= ph->p_paddr + ph->p_memsz - mem_offset), "elf section out of memory %lx vs %x ofs %lx", mem_size, ph->p_paddr + ph->p_memsz, mem_offset);
+	check1(7, !(mem_size >= ph->p_paddr + ph->p_memsz - mem_offset), "elf section out of memory %lx vs %x ofs %lx", mem_size, ph->p_paddr + ph->p_memsz, mem_offset);
 	memcpy(phys_mem + ph->p_paddr - mem_offset, module + ph->p_offset, ph->p_filesz);
 	memset(phys_mem + ph->p_paddr - mem_offset + ph->p_filesz, 0, ph->p_memsz - ph->p_filesz);
 	if (maxptr < ph->p_memsz + ph->p_paddr - mem_offset)

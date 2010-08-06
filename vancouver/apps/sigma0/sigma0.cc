@@ -504,9 +504,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    }
 	  Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
-	  // allocate a console for it
-	  alloc_console(module, cmdline);
-
 	  /**
 	   * We memset the client memory to make sure we get an
 	   * deterministic run and not leak any information between
@@ -514,9 +511,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	   */
 	  memset(modinfo->mem, 0, modinfo->physsize);
 
-	  // decode elf
+	  // decode ELF
 	  maxptr = 0;
-	  Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET);
+	  if (Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
+	    _free_phys.add(Region(pmem, modinfo->physsize));
+	    modinfo->mem = 0;
+	    return __LINE__;
+	  }
+
+
+	  // allocate a console for it
+	  alloc_console(module, cmdline);
 	  attach_drives(cmdline, module);
 
 	  unsigned  slen = strlen(cmdline) + 1;
