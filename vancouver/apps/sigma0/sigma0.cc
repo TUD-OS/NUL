@@ -38,9 +38,9 @@ unsigned     mac_host;
 
 
 // extra params
-PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all modules at bootup.",
-      "Example: 'startlate:0xfffffffc' - starts only the first and second module")
-PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times")
+PARAM(startlate,  startlate = argv[0], "startlate:mask=~0 - do not start all configurations at bootup.",
+      "Example: 'startlate:0xfffffffc' - starts only the first and second configuration")
+PARAM(repeat,     repeat = argv[0],    "repeat:count - start the modules multiple times") // XXX OBSOLETE because of sigma0::repeat
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
 
@@ -446,114 +446,143 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return 0;
   }
 
-
-
-  unsigned __attribute__((noinline)) start_modules(Utcb *utcb, unsigned long mask)
+  /** Starts a configuration. Configuration numbers start at
+   * zero. init is set when this is the automatic start up after
+   * sigma0 has finished initializing and enables interpretation of
+   * sigma0::repeat.
+   */
+  unsigned start_config(Utcb *utcb, unsigned which, bool init = false)
   {
-    unsigned long maxptr;
+    // Skip to interesting configuration
+    char *cmdline = NULL;
     Hip_mem *mod;
-    unsigned mods = 0;
-    for (unsigned i=1; mod = _hip->get_mod(i); i++) {
-
-	char *cmdline = map_string(utcb, mod->aux);
-	if (!strstr(cmdline, "sigma0::attach") && mask & (1 << mods++)) {
-
-	  // search for a free module
-	  unsigned module = 1;
-	  while (module < MAXMODULES && _modinfo[module].mem)  module++;
-
-	  if (module >= MAXMODULES) {
-	    Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
-	    return __LINE__;
-	  }
-
-	  // init module parameters
-	  ModuleInfo *modinfo = _modinfo + module;
-	  memset(modinfo, 0, sizeof(*modinfo));
-	  modinfo->mod_nr    = i;
-	  modinfo->mod_count = 1;
-	  char *p = strstr(cmdline, "sigma0::cpu");
-	  modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
-	  modinfo->dma       = strstr(cmdline, "sigma0::dma");
-	  modinfo->log       = strstr(cmdline, "sigma0::log");
-
-	  Logging::printf("module(%x) '", module);
-	  fancy_output(cmdline, 4096);
-
-	  // alloc memory
-	  char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
-	  unsigned long psize_needed = elf ? Elf::loaded_memsize(elf) : ~0u;
-	  p = strstr(cmdline, "sigma0::mem:");
-	  if (p)
-	    modinfo->physsize = strtoul(p+12, 0, 0) << 20;
-	  else
-	    modinfo->physsize = psize_needed;
-
-	  unsigned long pmem = 0;
-	  if ((psize_needed > modinfo->physsize)
-	      || !(pmem = _free_phys.alloc(modinfo->physsize, 22))
-	      || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))
-	      || !elf)
-	    {
-	      if (pmem) _free_phys.add(Region(pmem, modinfo->physsize));
-	      _free_phys.debug_dump("free phys");
-	      _virt_phys.debug_dump("virt phys");
-	      _free_virt.debug_dump("free virt");
-	      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
-	      return __LINE__;
-	    }
-	  Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
-
-	  /**
-	   * We memset the client memory to make sure we get an
-	   * deterministic run and not leak any information between
-	   * clients.
-	   */
-	  memset(modinfo->mem, 0, modinfo->physsize);
-
-	  // decode ELF
-	  maxptr = 0;
-	  if (Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
-	    _free_phys.add(Region(pmem, modinfo->physsize));
-	    modinfo->mem = 0;
-	    return __LINE__;
-	  }
-
-
-	  // allocate a console for it
-	  alloc_console(module, cmdline);
-	  attach_drives(cmdline, module);
-
-	  unsigned  slen = strlen(cmdline) + 1;
-	  assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-	  modinfo->hip = new (0x1000) char[0x1000];
-	  Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
-	  memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
-
-	  memcpy(modhip, _hip, _hip->mem_offs);
-	  modhip->length = modhip->mem_offs;
-	  modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-	  modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
-	  modhip->fix_checksum();
-	  assert(_hip->length > modhip->length);
-
-	  // count attached modules
-	  while ((mod = _hip->get_mod(++i)) && strstr(map_string(utcb, mod->aux), "sigma0::attach"))
-	    modinfo->mod_count++;
-	  i--;
-
-
-	  // create special portal for every module, we start at 64k, to have enough space for static fields
-	  unsigned pt = 0x10000 + (module << 5);
-	  assert(_percpu[modinfo->cpunr].cap_ec_worker);
-	  check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-	  check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
-
-	  Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
-	  modinfo->cap_pd = alloc_cap();
-	  check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
-	}
+    unsigned configs = 0;
+    unsigned i;
+    for (i=1; mod = _hip->get_mod(i); i++) {
+      cmdline = map_string(utcb, mod->aux);
+      if (strstr(cmdline, "sigma0::attach")) continue;
+      if (configs++ == which) break;
     }
+    if (configs-1 != which) {
+      Logging::printf("Configuration %u not found!\n", which);
+      return __LINE__;
+    }
+
+    unsigned repeat = 1;
+    char *p;
+    if (init && (p = strstr(cmdline, "sigma0::repeat:")))
+      repeat = strtoul(p + sizeof("sigma0::repeat:")-1, 0, 0);
+
+    while (repeat-- != 0) {
+      // search for a free module
+      unsigned module = 1;
+      while (module < MAXMODULES && _modinfo[module].mem)  module++;
+
+      if (module >= MAXMODULES) {
+	Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+	return __LINE__;
+      }
+
+      // init module parameters
+      ModuleInfo *modinfo = _modinfo + module;
+      memset(modinfo, 0, sizeof(*modinfo));
+      modinfo->mod_nr    = i;
+      modinfo->mod_count = 1;
+      char *p = strstr(cmdline, "sigma0::cpu");
+      modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
+      modinfo->dma       = strstr(cmdline, "sigma0::dma");
+      modinfo->log       = strstr(cmdline, "sigma0::log");
+
+      Logging::printf("module(%x) '", module);
+      fancy_output(cmdline, 4096);
+
+      // alloc memory
+      char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
+      unsigned long psize_needed = elf ? Elf::loaded_memsize(elf) : ~0u;
+      p = strstr(cmdline, "sigma0::mem:");
+      if (p)
+	modinfo->physsize = strtoul(p+12, 0, 0) << 20;
+      else
+	modinfo->physsize = psize_needed;
+
+      unsigned long pmem = 0;
+      if ((psize_needed > modinfo->physsize)
+	  || !(pmem = _free_phys.alloc(modinfo->physsize, 22))
+	  || !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))
+	  || !elf)
+	{
+	  if (pmem) _free_phys.add(Region(pmem, modinfo->physsize));
+	  _free_phys.debug_dump("free phys");
+	  _virt_phys.debug_dump("virt phys");
+	  _free_virt.debug_dump("free virt");
+	  Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
+	  return __LINE__;
+	}
+      Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
+
+      /**
+       * We memset the client memory to make sure we get an
+       * deterministic run and not leak any information between
+       * clients.
+       */
+      memset(modinfo->mem, 0, modinfo->physsize);
+
+      // decode ELF
+      unsigned long maxptr = 0;
+      if (Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
+	_free_phys.add(Region(pmem, modinfo->physsize));
+	modinfo->mem = 0;
+	return __LINE__;
+      }
+
+      // allocate a console for it
+      alloc_console(module, cmdline);
+      attach_drives(cmdline, module);
+
+      unsigned  slen = strlen(cmdline) + 1;
+      assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
+      modinfo->hip = new (0x1000) char[0x1000];
+      Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
+      memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
+
+      memcpy(modhip, _hip, _hip->mem_offs);
+      modhip->length = modhip->mem_offs;
+      modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
+      modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
+      modhip->fix_checksum();
+      assert(_hip->length > modhip->length);
+
+      // count attached modules
+      Hip_mem *cmod = mod;
+      unsigned j = i;
+      while ((cmod = _hip->get_mod(++j)) && strstr(map_string(utcb, cmod->aux), "sigma0::attach"))
+	modinfo->mod_count++;
+
+
+      // create special portal for every module, we start at 64k, to have enough space for static fields
+      unsigned pt = 0x10000 + (module << 5);
+      assert(_percpu[modinfo->cpunr].cap_ec_worker);
+      check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+      check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
+
+      Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+      modinfo->cap_pd = alloc_cap();
+      check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+
+    } // repeat
+
+    return 0;
+  }
+
+  /** Start all configs except those not listed in mask.
+   */
+  unsigned start_configs(Utcb *utcb, unsigned long mask)
+  {
+    unsigned res;
+    for (unsigned config = 0; mask; (mask >>= 1), (config++))
+      if (mask & 1)
+	if ((res = start_config(utcb, config, true)) != 0) return res;
+
     return 0;
   }
 
@@ -1283,9 +1312,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case MessageConsole::TYPE_START:
       {
-	unsigned res = start_modules(myutcb(), 1 << msg.id);
+	unsigned res = start_config(myutcb(), msg.id - 1);
 	if (res)
-	  Logging::printf("start modules(%d) = %x\n", msg.id, res);
+	  Logging::printf("start config(%d) = %x\n", msg.id - 1, res);
       }
       return true;
     case MessageConsole::TYPE_KILL:
@@ -1484,9 +1513,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!mac_host) mac_host = generate_hostmac();
 
-    Logging::printf("start modules\n");
+    Logging::printf("start configurations\n");
     for (unsigned i=0; i <= repeat; i++)
-      if ((res = start_modules(utcb, ~startlate)))    Logging::printf("start modules failed %x\n", res);
+      if ((res = start_configs(utcb, ~startlate))) Logging::printf("start configurations failed %x\n", res);
 
     Logging::printf("\t=> INIT done <=\n\n");
 
