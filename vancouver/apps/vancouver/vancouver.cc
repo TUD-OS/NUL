@@ -521,10 +521,19 @@ public:
 	if (msg.len)  nova_semup(msg.value);
 	nova_recall(msg.value + 1);
 	break;
+      case MessageHostOp::OP_ALLOC_SEMAPHORE:
+	msg.value = alloc_cap();
+	if (nova_create_sm(msg.value) != 0) Logging::panic("??");
+	break;
+      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
+	{
+	  unsigned ec_cap = create_ec_helper(msg.value, 0, PT_IRQ, ~0, msg.ptr);
+	  // XXX Priority?
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+	}
+	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_RERAISE_IRQ:
-      case MessageHostOp::OP_ALLOC_SEMAPHORE:
-      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
