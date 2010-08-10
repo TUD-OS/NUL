@@ -20,6 +20,7 @@
 
 #include <nul/types.h>
 
+static inline
 void hexdump(const void *p, unsigned len)
 {
   const unsigned chars_per_row = 16;
