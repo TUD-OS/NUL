@@ -1312,9 +1312,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case MessageConsole::TYPE_START:
       {
-	unsigned res = start_config(myutcb(), msg.id - 1);
+	unsigned res = start_config(myutcb(), msg.id);
 	if (res)
-	  Logging::printf("start config(%d) = %x\n", msg.id - 1, res);
+	  Logging::printf("start config(%d) = %x\n", msg.id, res);
       }
       return true;
     case MessageConsole::TYPE_KILL:
