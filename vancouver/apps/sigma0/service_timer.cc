@@ -32,7 +32,7 @@
 class TimerService : public StaticReceiver<TimerService> {
 
   enum {
-    CLIENTS = Config::MAX_CLIENTS+2,
+    CLIENTS = Config::MAX_CLIENTS+3,
     GRANULARITY = 1<<8
   };
   Motherboard &   _hostmb;
@@ -56,7 +56,6 @@ class TimerService : public StaticReceiver<TimerService> {
     while (1) {
       _worker.down();
       COUNTER_INC("to work");
-
 
       unsigned nr;
       timevalue now = _mymb.clock()->time();
@@ -108,7 +107,7 @@ public:
 	if (diff < GRANULARITY)
 	  diff = 1;
 	else
-	  if (diff <= (~0u)*GRANULARITY)
+	  if (diff <= static_cast<long long>(~0u)*GRANULARITY)
 	    diff /= GRANULARITY;
 	  else
 	    diff = ~0u;
