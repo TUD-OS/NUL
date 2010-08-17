@@ -142,6 +142,7 @@ public:
    */
   unsigned long long alloc(unsigned long long size, unsigned align_order)
   {
+    assert(_count < SIZE);
     assert(align_order < 8*sizeof(unsigned long long));
     for (Region *r = _list; r < _list + _count; r++)
       {
@@ -159,7 +160,7 @@ public:
   void debug_dump(const char *prefix)
   {
     Logging::printf("Region %s count %d\n", prefix, _count);
-    for (Region *r = _list; r < _list + _count; r++)
+    for (Region *r = _list; r < _list + _count && r < _list + SIZE; r++)
       Logging::printf("\t%4d virt %8llx end %8llx size %8llx phys %8llx\n", r - _list, r->virt, r->end(), r->size, r->phys);
   }
 
