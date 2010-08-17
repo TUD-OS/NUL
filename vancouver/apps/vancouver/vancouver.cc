@@ -284,7 +284,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if (i!=14 && i != 30) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), Mtd(MTD_ALL, 0)));
+      if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), Mtd(MTD_ALL, 0)));
 
     // create the gsi boot portal
     nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
