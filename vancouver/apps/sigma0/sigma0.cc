@@ -30,15 +30,15 @@
 // global VARs
 unsigned     console_id;
 Motherboard *global_mb;
+class Sigma0;
+Sigma0      *sigma0;
 Semaphore   *consolesem;
 unsigned     mac_prefix = 0x42000000;
 unsigned     mac_host;
 
-
 // extra params
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
-
 
 /**
  * Sigma0 application class.
@@ -324,9 +324,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   unsigned __attribute__((noinline)) preinit(Utcb *utcb, Hip *hip)
   {
-    // make sure we can call static functions
-    utcb->head.tls = reinterpret_cast<unsigned long>(this);
-
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
     check1(1, init(hip));
@@ -375,23 +372,23 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   };
 
 
-  /**   * Request memory from the memmap.
+  /**
+   * Request memory from the memmap.
    */
   static void *sigma0_memalloc(unsigned long size, unsigned long align) {
     if (!size) return 0;
     if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
 
-    Sigma0 *s0 = reinterpret_cast<Sigma0 *>(myutcb()->head.tls);
-    unsigned long pmem = s0->_free_phys.alloc(size, Cpu::bsr(align | 1));
+    unsigned long pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1));
     void *res;
-    if (!pmem || !(res = s0->map_self(myutcb(), pmem, size))) Logging::panic("%s(%lx, %lx) EOM!\n", __func__, size, align);
+    if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size))) Logging::panic("%s(%lx, %lx) EOM!\n", __func__, size, align);
     memset(res, 0, size);
     return res;
   }
 
 
   /**
-   * Init the memory map from the hip.
+   * Init the memory map from the Hip.
    */
   unsigned init_memmap(Utcb *utcb)
   {
@@ -1315,7 +1312,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	Logging::printf("\nEOF trace buffer\n\n");
 	break;
       }
-      Logging::printf("DEBUG(%x) = %x\n", msg.id, nova_syscall2(254, msg.id));
+      Logging::printf("DEBUG(%x) = %x time %llx\n", msg.id, nova_syscall2(254, msg.id), _mb->clock()->time());
       return true;
     case MessageConsole::TYPE_ALLOC_CLIENT:
     case MessageConsole::TYPE_ALLOC_VIEW:
@@ -1419,6 +1416,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return true;
   }
 
+
   /************************************************************
    * Application                                              *
    ************************************************************/
@@ -1498,8 +1496,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
 void Sigma0::start(Hip *hip, Utcb *utcb) {
-  static Sigma0 sigma0;
-  sigma0.run(utcb, hip);
+  static Sigma0 s0;
+  sigma0 = &s0;
+  s0.run(utcb, hip);
 }
 
 
