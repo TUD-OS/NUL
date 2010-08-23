@@ -425,18 +425,29 @@ public:
     // XXX locking?
     // XXX use the reserved CPUID regions
     switch (msg.cpuid_index) {
-      case 0x40000020:
-	nova_syscall2(254, msg.cpu->ebx);
-	break;
-      case 0x40000021:
-	_mb->dump_counters();
-	break;
-      default:
-	/*
-	 * We have to return true here, to make handle_vcpu happy.
-	 * The values are already set in VCpu.
-	 */
-	return true;
+    case 0x40000020:
+      // NOVA debug leaf
+      nova_syscall2(254, msg.cpu->ebx);
+      break;
+    case 0x40000021:
+      // Vancouver debug leaf
+      _mb->dump_counters();
+      break;
+    case 0x40000022:
+      {
+	// time leaf
+	unsigned long long tsc = Cpu::rdtsc();
+	msg.cpu->eax = tsc;
+	msg.cpu->edx = tsc >> 32;
+	msg.cpu->ecx = _hip->freq_tsc;
+      }
+      break;
+    default:
+      /*
+       * We have to return true here, to make handle_vcpu happy.
+       * The values are already set in VCpu.
+       */
+      return true;
     }
     return true;
   }
@@ -765,7 +776,7 @@ VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 #define EXPERIMENTAL
 VM_FUNC(PT_VMX + 0xff,  do_recall,
 #ifdef EXPERIMENTAL
-MTD_IRQ | MTD_RIP_LEN,
+MTD_IRQ | MTD_RIP_LEN | MTD_GPR_BSD | MTD_GPR_ACDB | MTD_TSC,
 #else
 MTD_IRQ,
 #endif
