@@ -31,6 +31,11 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
   volatile unsigned _event;
   volatile unsigned _sipi;
+  unsigned  _speedup;
+  timevalue _calibrationtime;
+  timevalue _timeadapted;
+  timevalue _lasttime;
+  timevalue _lasttscofs;
 
   void dprintf(const char *format, ...) {
     Logging::printf("[%2d] ", CPUID_EDXb);
@@ -108,6 +113,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     switch (cpu->ecx)
       {
       case 0x10:
+	// XXX
 	cpu->tsc_off = -Cpu::rdtsc() + cpu->edx_eax();
 	msg.mtr_out |= MTD_TSC;
 	break;
@@ -146,7 +152,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     cpu->dr7      = 0x400;
     msg.mtr_out  |= MTD_ALL;
     if (reset) {
-      cpu->tsc_off = -Cpu::rdtsc();
+      //cpu->tsc_off = -Cpu::rdtsc();
       // XXX floating point
       // XXX MXCSR
       // XXX MTRR
@@ -175,7 +181,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
     if (!old_event)  return;
     if (old_event & EVENT_DEBUG) {
-      dprintf("state %x event %8x eip %8x\n", cpu->actv_state, old_event, cpu->eip);
+      dprintf("state %x event %8x eip %8x eax %x ebx %x edx %x esi %x\n", cpu->actv_state, old_event, cpu->eip, cpu->eax, cpu->ebx, cpu->edx, cpu->esi);
       Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_DEBUG);
       return;
     }
@@ -353,6 +359,37 @@ public:
 
 
   bool receive(CpuMessage &msg) {
+
+    if (msg.type != CpuMessage::TYPE_CPUID_WRITE && msg.mtr_in & MTD_TSC && ~msg.mtr_out & MTD_TSC) {
+      COUNTER_INC("tsc adoption");
+      timevalue now = _mb.clock()->time();
+
+      // we measure the speedup factor from time to time
+      if (now - _calibrationtime > 1*_mb.clock()->freq()) {
+       	timevalue othertime = -msg.cpu->tsc_off + _timeadapted;
+	timevalue owntime   = (now - _calibrationtime) - othertime;
+	_speedup = Math::muldiv128(now - _calibrationtime, 1 << 10, owntime);
+	Logging::printf("tsc adaptation %d %llx %llx %llx %llx\n", _speedup, -msg.cpu->tsc_off, _timeadapted, owntime, othertime);
+	_calibrationtime = now;
+	_timeadapted = msg.cpu->tsc_off;
+      }
+
+      timevalue delta =     now - _lasttime;
+      timevalue othertime = -msg.cpu->tsc_off + _lasttscofs;
+      if (othertime > delta) othertime = 0;
+      timevalue owntime   = delta - othertime;
+      timevalue adapt     = ((owntime * _speedup) >> 10) - owntime;
+      // make sure we adapt not too much
+      if (adapt > -msg.cpu->tsc_off) adapt = -msg.cpu->tsc_off;
+      //Logging::printf("tsc adpt: %llx for %llx/%llx own %llx other %llx delta %llx\n", adapt, -msg.cpu->tsc_off, -_lasttscofs, owntime, othertime, delta);
+      _timeadapted += adapt;
+      _lasttime = now;
+      _lasttscofs = msg.cpu->tsc_off + adapt;
+      msg.cpu->tsc_off = adapt;
+      msg.mtr_out |= MTD_TSC;
+    }
+
+
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -419,7 +456,7 @@ public:
     return true;
   }
 
-  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb), _event(0), _sipi(~0u)  {
+  VirtualCpu(VCpu *_last, Motherboard &mb) : VCpu(_last), _mb(mb), _event(0), _sipi(~0u), _speedup(1000), _calibrationtime(0), _timeadapted(0)  {
     MessageHostOp msg(this);
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;
