@@ -720,7 +720,7 @@ VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);
 	)
-VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ | MTD_STATE,
+VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
 	)
 VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
@@ -743,7 +743,7 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STAT
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
-VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE,
+VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE | MTD_TSC,
 	COUNTER_INC("wrmsr");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
@@ -776,7 +776,7 @@ VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 #define EXPERIMENTAL
 VM_FUNC(PT_VMX + 0xff,  do_recall,
 #ifdef EXPERIMENTAL
-MTD_IRQ | MTD_RIP_LEN | MTD_GPR_BSD | MTD_GPR_ACDB | MTD_TSC,
+MTD_IRQ | MTD_RIP_LEN | MTD_GPR_BSD | MTD_GPR_ACDB,
 #else
 MTD_IRQ,
 #endif
