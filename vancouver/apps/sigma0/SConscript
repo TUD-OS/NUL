@@ -7,5 +7,5 @@ nul.App(target_env, 'sigma0',
         SOURCES = Glob('*.cc'),
         LIBS    = [ 'hostvesa', 'host', 'service'],
         LINKSCRIPT = 'linker.ld',
-        MEMSIZE = 2<<12) # enough memory for two stacks
+        MEMSIZE = 8<<12) # enough memory for two stacks
 # EOF

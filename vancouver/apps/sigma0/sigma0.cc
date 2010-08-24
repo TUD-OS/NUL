@@ -26,6 +26,7 @@
 #include "service/elf.h"
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
+#include "namespace.h"
 
 // global VARs
 unsigned     console_id;
@@ -35,6 +36,7 @@ Sigma0      *sigma0;
 Semaphore   *consolesem;
 unsigned     mac_prefix = 0x42000000;
 unsigned     mac_host;
+unsigned     order_cpus_running = 0;
 
 // extra params
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
@@ -87,7 +89,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   Motherboard *_mb;
 
   // module data
-  struct ModuleInfo
+  static struct ModuleInfo
   {
     unsigned        mod_nr;
     unsigned        mod_count;
@@ -100,6 +102,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long   physsize;
     unsigned        mac;
     void *          hip;
+    char *          cmdline;
   } _modinfo[MAXMODULES];
   unsigned _mac;
 
@@ -107,6 +110,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned  _msivector;        // next gsi vector
   unsigned long long _gsi;     // bitfield per used GSI
   unsigned _pcidirect[MAXPCIDIRECT];
+
+
+  // namespaces
+  NameSpace _ns;
+
 
 
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
@@ -297,12 +305,23 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
+    for (int i= ((hip->mem_offs - hip->cpu_offs) / hip->cpu_size) - 1; i >= 0; i--) {
+      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) +
+                     hip->cpu_offs + i*hip->cpu_size);
+      if (cpu->flags & 1) {
+        order_cpus_running = i;
+        i = -1;
+      }
+    }
+    if (!order_cpus_running)
+      return 1;
+    order_cpus_running = 1 << ((order_cpus_running - 1) / 2);
+
     for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
 
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
       if (~cpu->flags & 1 || (cpunr != -1 && i != cpunr)) continue;
       Logging::printf("Cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
-
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;
       _cpunr[_numcpus++] = i;
@@ -476,6 +495,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
     modinfo->dma       = strstr(cmdline, "sigma0::dma");
     modinfo->log       = strstr(cmdline, "sigma0::log");
+    modinfo->cmdline   = cmdline;
 
     Logging::printf("module(%x) '", module);
     fancy_output(cmdline, 4096);
@@ -544,14 +564,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // create special portal for every module, we start at 64k, to have enough space for static fields
-    unsigned pt = 0x10000 + (module << 5);
+    unsigned pt = 0x10000 + (module << 7);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
-    check1(6, nova_create_pt(pt+14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-    check1(7, nova_create_pt(pt+30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
+    check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
+    check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
+    check1(8, nova_create_pt(pt + NameSpaceBase::PORT_BASE, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_names_wrapper), Mtd()));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
     modinfo->cap_pd = alloc_cap();
-    check1(8, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 5, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+    check1(9, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 7, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+
     return 0;
   }
 
@@ -564,7 +586,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    nova_revoke(Crd(0x10000 + (module << 5), 5, DESC_CAP_ALL), true);
+    nova_revoke(Crd(0x10000 + (module << 7), 7, DESC_CAP_ALL), true);
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -670,9 +692,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   Logging::panic("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
 
-
   PT_FUNC(do_startup,
-	  unsigned short client = (pid & 0xffe0) >> 5;
+	  unsigned short client = (pid & 0xffe0) >> 7;
 	  ModuleInfo *modinfo = _modinfo + client;
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
@@ -687,8 +708,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _trace_buf[(_trace_pos++) % TRACE_BUF_SIZE] = s[i];
   }
 
+  PT_FUNC(do_names,
+	  unsigned short client = (pid & 0xffe0) >> 7;
+	  ModuleInfo *modinfo = _modinfo + client;
+	  return _ns.handler(pid, utcb, modinfo->cmdline, this, order_cpus_running);
+	  )
+
+
   PT_FUNC(do_request,
-	  unsigned short client = (pid & 0xffe0) >> 5;
+	  unsigned short client = (pid & 0xffe0) >> 7;
 	  ModuleInfo *modinfo = _modinfo + client;
 
 	  COUNTER_INC("request");
@@ -1491,7 +1519,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _trace_pos(0), _trace_buf(), _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
+  Sigma0() :  _trace_pos(0), _trace_buf(), _numcpus(0), _gsi(0), _pcidirect()  {}
 };
 
 
@@ -1511,3 +1539,7 @@ void  do_exit(const char *msg)
   while (1)
     asm volatile ("ud2a" : : "a"(msg));
 }
+
+
+
+Sigma0::ModuleInfo Sigma0::_modinfo[64];
