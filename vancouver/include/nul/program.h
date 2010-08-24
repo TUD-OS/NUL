@@ -38,7 +38,7 @@ class NovaProgram : public BaseProgram
     VIRT_START       = 0x1000,
     UTCB_PAD         = 0x1000
   };
-  volatile unsigned  _cap_free;
+  long  _cap_free;
 
  protected:
 
@@ -123,30 +123,7 @@ class NovaProgram : public BaseProgram
 
 
 public:
-  /**
-   * Alloc free caps. Can be overridden by derived classes.
-   */
-  virtual unsigned alloc_cap(unsigned count=1, unsigned align=1)
-  {
-    //XXX hack mack
-    unsigned value, res, again = 1;
-
-    while (again) {
-      value = _cap_free;
-      if (value & (align - 1)) {
-        res   = Cpu::cmpxchg4b(&_cap_free, value, (value & ~(align - 1)) + align + count);
-        again = (res != value);
-        res   = (value & ~(align - 1)) + align;
-      } else {
-        res = Cpu::atomic_xadd(reinterpret_cast<long volatile *>(&_cap_free),
-                               count);
-        //wasting caps if concurrent thread allocated a cap and alignment don't fit anymore
-        again = (res & (align - 1));
-      }
-    } 
-
-    return res;
-  }
+  unsigned alloc_cap(unsigned count=1) {  return Cpu::atomic_xadd(&_cap_free,  count); }
 
   /**
    * Default exit function.

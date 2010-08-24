@@ -16,7 +16,7 @@
  * General Public License version 2 for more details.
  */
 
-#include "nul/types.h"
+#include "nul/nameserver.h"
 #include "nul/motherboard.h"
 #include "host/keyboard.h"
 #include "host/screen.h"
@@ -26,7 +26,6 @@
 #include "service/elf.h"
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
-#include "namespace.h"
 
 // global VARs
 unsigned     console_id;
@@ -48,12 +47,13 @@ PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host par
 struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
-    MAXCPUS            = 256,
+    MAXCPUS            = Config::MAX_CPUS,
     MAXPCIDIRECT       = 64,
     MAXMODULES         = Config::MAX_CLIENTS,
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31,
     TRACE_BUF_SIZE     = 1ul << 17,
+    CLIENT_PT_SHIFT    = 10
   };
 
   unsigned _trace_pos;
@@ -113,7 +113,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   // namespaces
-  NameSpace _ns;
+  Nameserver<Sigma0> _ns;
 
 
 
@@ -463,7 +463,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned start_config(Utcb *utcb, unsigned which)
   {
     // Skip to interesting configuration
-    char *cmdline = NULL;
+    char *cmdline = 0;
     Hip_mem *mod;
     unsigned configs = 0;
     unsigned i;
@@ -564,15 +564,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // create special portal for every module, we start at 64k, to have enough space for static fields
-    unsigned pt = 0x10000 + (module << 7);
+    unsigned pt = 0x10000 + (module << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
     check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
-    check1(8, nova_create_pt(pt + NameSpaceBase::PORT_BASE, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_names_wrapper), Mtd()));
+
+    for (unsigned i=0; i < _numcpus; i++)
+      check1(8, nova_create_pt(pt + MessageNameserver::PT_NS_BASE + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(do_nameserver_wrapper), Mtd()));
+    check1(9, nova_create_sm(pt + MessageNameserver::PT_NS_SEM));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
     modinfo->cap_pd = alloc_cap();
-    check1(9, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 7, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+    check1(10, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, 10, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 
     return 0;
   }
@@ -586,7 +589,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    nova_revoke(Crd(0x10000 + (module << 7), 7, DESC_CAP_ALL), true);
+    nova_revoke(Crd(0x10000 + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -602,6 +605,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->physsize = 0;
     // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
 
+    _ns.delete_client(modinfo);
+    // due to a race in the implementation of delete_client we have to trigger all clients here
+    trigger_all_ns_clients();
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
     //modinfo->mem = 0;
@@ -692,8 +698,61 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   Logging::panic("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
 
+  // simple helper functions
+  static void *   get_message(Utcb *utcb) { return utcb->msg; }
+  static unsigned set_error(Utcb *utcb, unsigned error) {  utcb->msg[0] = error; return Mtd(1, 0).value(); }
+  static unsigned get_received_cap(Utcb *utcb) { if (!utcb->head.mtr.typed() == 1) return 0;  return utcb->head.crd >> Utcb::MINSHIFT; }
+  static unsigned reply_with_cap(Utcb *utcb, unsigned cap)  {
+    utcb->msg[0] = ENONE;
+    Mtd oldmtr = utcb->head.mtr;
+    utcb->head.mtr = Mtd(1, 0);
+    add_mappings(utcb, false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
+    unsigned res = utcb->head.mtr.value();
+    utcb->head.mtr = oldmtr;
+    return res;
+  };
+
+  // XXX unimplemented
+  static bool account_resource(void *client, int amount) { return true; }
+  // XXX unimplemented
+  static void free_portal(unsigned portal) {};
+
+  void trigger_all_ns_clients() {
+    for (unsigned module = 0; module < MAXMODULES; module++)
+      if (_modinfo[module].mem)
+	nova_semup(0x10000 + (module << CLIENT_PT_SHIFT) + MessageNameserver::PT_NS_SEM);
+  }
+
+  // the nameserver portals
+  PT_FUNC(do_nameserver,
+	  unsigned short client = pid >> CLIENT_PT_SHIFT;
+	  unsigned res;
+	  bool free_cap = get_received_cap(utcb);
+	  if (utcb->head.mtr.untyped() < 1) res = set_error(utcb, EPROTO);
+	  else
+	    switch (utcb->msg[0]) {
+	    case MessageNameserver::TYPE_RESOLVE:
+	      res = _ns.resolve_name(utcb, _modinfo[client].cmdline);
+	      break;
+	    case MessageNameserver::TYPE_REGISTER:
+	      res = _ns.register_name(utcb, _modinfo+client, _modinfo[client].cmdline);
+	      free_cap = free_cap && utcb->msg[0];
+	      if (utcb->msg[0] == ENONE) trigger_all_ns_clients();
+	      break;
+	    default:
+	      res = set_error(utcb, EPROTO);
+	    }
+	  if (free_cap)
+	    nova_revoke(Crd(get_received_cap(utcb) << Utcb::MINSHIFT, 1, DESC_CAP_ALL), true);
+	  else if (get_received_cap(utcb))
+	    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+	  return res;
+	  )
+
+
+
   PT_FUNC(do_startup,
-	  unsigned short client = (pid & 0xffe0) >> 7;
+	  unsigned short client = pid >> CLIENT_PT_SHIFT;
 	  ModuleInfo *modinfo = _modinfo + client;
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
@@ -708,15 +767,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _trace_buf[(_trace_pos++) % TRACE_BUF_SIZE] = s[i];
   }
 
-  PT_FUNC(do_names,
-	  unsigned short client = (pid & 0xffe0) >> 7;
-	  ModuleInfo *modinfo = _modinfo + client;
-	  return _ns.handler(pid, utcb, modinfo->cmdline, this, order_cpus_running);
-	  )
-
-
   PT_FUNC(do_request,
-	  unsigned short client = (pid & 0xffe0) >> 7;
+	  unsigned short client = pid >> CLIENT_PT_SHIFT;
 	  ModuleInfo *modinfo = _modinfo + client;
 
 	  COUNTER_INC("request");

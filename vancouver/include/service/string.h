@@ -162,3 +162,10 @@ static inline char * strsep(char **stringp, const char *delim) {
 
 
 static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)); }
+
+
+static inline int strcspn(const char *s, const char *reject) {
+  int res = 0;
+  while (s[res] && !strchr(reject, s[res])) res++;
+  return res;
+}

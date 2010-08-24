@@ -18,7 +18,6 @@
 #pragma once
 
 #include <sys/utcb.h>
-
 /**
  * A simple program that allows to get the UTCB pointer from the stack.
  */

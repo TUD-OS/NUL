@@ -21,6 +21,7 @@
 #include "service/helper.h"
 #include "nul/message.h"
 #include "nul/baseprogram.h"
+#include "nul/error.h"
 
 /**
  * This class defines the call interface to sigma0 services.
@@ -41,11 +42,11 @@ class Sigma0Base : public BaseProgram
     REQUEST_HOSTOP,
     REQUEST_NETWORK,
     REQUEST_PCICFG,
-    REQUEST_ACPI
+    REQUEST_ACPI,
   };
  protected:
 
-  template <unsigned OP, unsigned PORT>
+  template <unsigned OP>
     static unsigned request_attach(Utcb *utcb, void *buffer, unsigned sem_nq)
     {
       TemporarySave<Utcb::HEADER_SIZE + 5> save(utcb);
@@ -54,11 +55,11 @@ class Sigma0Base : public BaseProgram
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
       utcb->head.mtr    = Mtd(2, 0);
       add_mappings(utcb, false, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x18 | DESC_TYPE_CAP);
-      check1(1, nova_call(PORT, utcb->head.mtr));
+      check1(1, nova_call(14, utcb->head.mtr));
       return utcb->msg[0];
     }
 
-  template <class MESSAGE, unsigned OP, unsigned PORT>
+  template <class MESSAGE, unsigned OP>
   static unsigned sigma0_message(MESSAGE &msg)
   {
     Utcb *utcb = myutcb();
@@ -67,7 +68,7 @@ class Sigma0Base : public BaseProgram
     TemporarySave<Utcb::HEADER_SIZE + 1 + words> save(utcb);
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
-    if (nova_call(PORT, Mtd(1 + words, 0)) && OP != REQUEST_PUTS)
+    if (nova_call(14, Mtd(1 + words, 0)) && OP != REQUEST_PUTS)
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return utcb->msg[0];
@@ -78,20 +79,19 @@ class Sigma0Base : public BaseProgram
     char *buffer;
     PutsRequest(char *_buffer) : buffer(_buffer) {}
   };
-  static unsigned  puts(char *buffer) {  PutsRequest req(buffer); return sigma0_message<PutsRequest, REQUEST_PUTS, 14>(req); }
-  static unsigned  request_stdin         (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH, 14>(utcb, buffer, sem_nq); }
-  static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH, 14>(utcb, buffer, sem_nq); }
-  static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH, 14>(utcb, buffer, sem_nq); }
-  static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH, 14>(utcb, buffer, sem_nq); }
-  static bool disk   (MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK, 14>(msg); }
-  static bool console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE, 14>(msg); }
-  static bool hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP, 14>(msg); }
-  static bool timer  (MessageTimer &msg)    { return sigma0_message<MessageTimer,     REQUEST_TIMER, 14>(msg); }
-  static bool network(MessageNetwork &msg)  { return sigma0_message<MessageNetwork,   REQUEST_NETWORK, 14>(msg); }
-  static bool time   (MessageTime &msg)     { return sigma0_message<MessageTime,      REQUEST_TIME, 14>(msg); }
-  static bool pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG, 14>(msg); }
-  static bool acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI, 14>(msg); }
-
+  static unsigned  puts(char *buffer) {  PutsRequest req(buffer); return sigma0_message<PutsRequest, REQUEST_PUTS>(req); }
+  static unsigned  request_stdin         (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
+  static bool disk   (MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
+  static bool console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
+  static bool hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }
+  static bool timer  (MessageTimer &msg)    { return sigma0_message<MessageTimer,     REQUEST_TIMER>(msg); }
+  static bool network(MessageNetwork &msg)  { return sigma0_message<MessageNetwork,   REQUEST_NETWORK>(msg); }
+  static bool time   (MessageTime &msg)     { return sigma0_message<MessageTime,      REQUEST_TIME>(msg); }
+  static bool pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
+  static bool acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI>(msg); }
 };
 
 
