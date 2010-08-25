@@ -712,10 +712,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   };
 
-  // XXX unimplemented
-  static bool account_resource(void *client, int amount) { return true; }
-  // XXX unimplemented
-  static void free_portal(unsigned portal) {};
+  static bool account_resource(void *client, int amount) {
+    // XXX unimplemented
+    return true;
+  }
+  static void free_portal(unsigned portal) {
+    nova_revoke(Crd(portal << Utcb::MINSHIFT, 1, DESC_CAP_ALL), true);
+    // XXX add it back to the cap-allocator
+  };
 
   void trigger_all_ns_clients() {
     for (unsigned module = 0; module < MAXMODULES; module++)
@@ -728,20 +732,20 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  unsigned short client = pid >> CLIENT_PT_SHIFT;
 	  unsigned res;
 	  bool free_cap = get_received_cap(utcb);
-	  if (utcb->head.mtr.untyped() < 1) res = set_error(utcb, EPROTO);
-	  else
-	    switch (utcb->msg[0]) {
-	    case MessageNameserver::TYPE_RESOLVE:
-	      res = _ns.resolve_name(utcb, _modinfo[client].cmdline);
-	      break;
-	    case MessageNameserver::TYPE_REGISTER:
-	      res = _ns.register_name(utcb, _modinfo+client, _modinfo[client].cmdline);
-	      free_cap = free_cap && utcb->msg[0];
-	      if (utcb->msg[0] == ENONE) trigger_all_ns_clients();
-	      break;
-	    default:
-	      res = set_error(utcb, EPROTO);
-	    }
+	  MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(get_message(utcb));
+	  check1(set_error(utcb, EPROTO), utcb->head.mtr.untyped() < 1);
+	  switch (msg->type) {
+	  case MessageNameserver::TYPE_RESOLVE:
+	    res = _ns.resolve_name(utcb, _modinfo[client].cmdline);
+	    break;
+	  case MessageNameserver::TYPE_REGISTER:
+	    res = _ns.register_name(utcb, _modinfo+client, _modinfo[client].cmdline);
+	    free_cap = free_cap && utcb->msg[0];
+	    if (utcb->msg[0] == ENONE) trigger_all_ns_clients();
+	    break;
+	  default:
+	    res = set_error(utcb, EPROTO);
+	  }
 	  if (free_cap)
 	    nova_revoke(Crd(get_received_cap(utcb) << Utcb::MINSHIFT, 1, DESC_CAP_ALL), true);
 	  else if (get_received_cap(utcb))

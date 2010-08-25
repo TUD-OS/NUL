@@ -29,7 +29,7 @@ struct MessageNameserver {
   enum Type {
     TYPE_RESOLVE,
     TYPE_REGISTER,
-  } _type;
+  } type;
   unsigned cpu;
   char name [MAX_NAME];
 };
@@ -41,7 +41,7 @@ struct NameserverClient {
 
   static unsigned name_resolve(Utcb *utcb, const char *service, unsigned cap, unsigned cpu) {
     unsigned len = strlen(service);
-    if (len > MessageNameserver::MAX_NAME) return EPROTO;
+    if (len >= MessageNameserver::MAX_NAME) return EPROTO;
 
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
 
@@ -65,7 +65,7 @@ struct NameserverClient {
 
   static unsigned name_register(Utcb *utcb, const char *service, unsigned cap, unsigned cpu) {
     unsigned len = strlen(service);
-    if (len > MessageNameserver::MAX_NAME) return EPROTO;
+    if (len >= MessageNameserver::MAX_NAME) return EPROTO;
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
 
     MessageNameserver *msg = reinterpret_cast<utcb->msg+1>;
@@ -102,8 +102,9 @@ class Nameserver  {
 
 public:
   unsigned resolve_name(Utcb *utcb, char *client_cmdline) {
+    // should not get a mapping
+    check1(T::set_error(utcb, EPROTO), T::get_received_cap(utcb));
 
-    check1(T::set_error(utcb, EPROTO), T::get_received_cap(utcb)); //protocol violation - received mappings
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
@@ -132,6 +133,7 @@ public:
        */
       for (Entry * service = _entries.head(); service; service = service->lifo_next)
 	if (service->cpu == msg->cpu && !memcmp(service->sname, cmdline, namelen)) {
+	  Logging::printf("[%u] request %s service %x,%x %s from %p\n", Cpu::cpunr(), msg->name, service->cpu, service->pt, service->sname, service->client);
 	  return T::reply_with_cap(utcb, service->pt);
 	}
 
@@ -145,7 +147,9 @@ public:
 
 
   unsigned register_name(Utcb *utcb, void *client, char *client_cmdline) {
-    check1(T::set_error(utcb, EPROTO), !T::get_received_cap(utcb)); //protocol violation - received no mappings
+    // we need a mapping
+    check1(T::set_error(utcb, EPROTO), !T::get_received_cap(utcb));
+
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
@@ -158,13 +162,12 @@ public:
     /**
      * We have a namespace and need to check the limits.
      */
-    Entry *service;
     check1(T::set_error(utcb, ERESOURCE), !T::account_resource(client, sizeof(Entry) + msg_len + namespace_len + 1));
 
     /**
      * Alloc and fill the structure.
      */
-    service = new Entry;
+    Entry *service = new Entry;
     service->pt  = T::get_received_cap(utcb);
     service->cpu = msg->cpu;
     service->client = client;
@@ -172,8 +175,7 @@ public:
     memcpy(service->sname, cmdline, namespace_len);
     memcpy(service->sname + namespace_len, msg->name, msg_len);
     service->sname[namespace_len + msg_len] = 0;
-    _entries.enqueue(service);
-
+    Logging::printf("[%u] registered %x,%x %s for %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 
     /**
      * We could check whether somebody else has registered this name
@@ -182,6 +184,7 @@ public:
      * overwriting the name.  This complicates debugging but helps
      * with service-restart.
      */
+    _entries.enqueue(service);
     return T::set_error(utcb, ENONE);
   }
 
@@ -198,6 +201,7 @@ public:
       if (service->client != client)
 	tmp.enqueue(service);
       else {
+	Logging::printf("[%u] delete service %x,%x %s from %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 	unsigned slen = strlen(service->sname)+1;
 	T::free_portal(service->pt);
 	T::account_resource(client, -sizeof(Entry) - slen);
