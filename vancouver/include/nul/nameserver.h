@@ -36,29 +36,29 @@ struct MessageNameserver {
 
 
 #ifdef NS_CLIENT
-
+#include "sys/utcb.h"
 #include "nul/baseprogram.h"
 struct NameserverClient {
 
   static unsigned name_resolve(Utcb *utcb, const char *service, unsigned cap) {
     unsigned len = strlen(service);
-    if (len >= MessageNameserver::MAX_NAME) return EPROTO;
+    if (len >= MessageNameserver::MAX_NAME-1) return EPROTO;
 
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
-
-    MessageNameserver *msg = reinterpret_cast<utcb->msg>;
-    msg->type = MessageNameserver::TYPE_RESOLVE;
-    memcpy(msg->name, service, len);
-    memset(msg->name + len, MessageNameserver::MAX_NAME - len);
 
     utcb->head.crd    = (cap << Utcb::MINSHIFT) | 3;
     while (1) {
       unsigned res;
-      check1(res, res = nova_call(PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver), 0)));
-      check1(utcb->msg[0], utcb->msg[0] != ERETRY);
+      MessageNameserver *msg = reinterpret_cast<MessageNameserver *>(utcb->msg);
+      msg->type = MessageNameserver::TYPE_RESOLVE;
+      memcpy(msg->name, service, len);
+      memset(msg->name + len, 0, MessageNameserver::MAX_NAME - len);
+
+      check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver), 0)));
+      if (utcb->msg[0] != ERETRY) return utcb->msg[0];
 
       // XXX this should be an get-all-events
-      nova_semdown(PT_NS_SEM);
+      nova_semdown(MessageNameserver::PT_NS_SEM);
     }
     return utcb->msg[0];
   }
@@ -69,16 +69,16 @@ struct NameserverClient {
     if (len >= MessageNameserver::MAX_NAME) return EPROTO;
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
 
-    MessageNameserver *msg = reinterpret_cast<utcb->msg+1>;
+    MessageNameserver *msg = reinterpret_cast<MessageNameserver *>(utcb->msg);
     msg->type = MessageNameserver::TYPE_REGISTER;
     msg->cpu = cpu;
     memcpy(msg->name, service, len);
-    memset(msg->name + len, MessageNameserver::MAX_NAME - len);
+    memset(msg->name + len, 0, MessageNameserver::MAX_NAME - len);
 
     utcb->head.mtr = Mtd(sizeof(MessageNameserver), 0);
     BaseProgram::add_mappings(utcb, false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x18 | DESC_TYPE_CAP);
     unsigned res;
-    check1(res, res = nova_call(PT_NS_BASE + Cpu::cpunr(), utcb->head.mtr));
+    check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), utcb->head.mtr));
     return utcb->msg[0];
   };
 };
@@ -122,7 +122,7 @@ public:
       cmdline += 6;
       unsigned namelen = strcspn(cmdline, " \t");
 
-      Logging::printf("[%u] request for %x %x | %s | %s\n", Cpu::cpunr(), msg_len, namelen, msg->name, cmdline + namelen - msg_len);
+      Logging::printf("[%u] request for %x %x| '%s' | '%.*s'\n", Cpu::cpunr(), msg_len, namelen, msg->name, namelen, cmdline);
       if ((msg_len > namelen) || (0 != memcmp(cmdline + namelen - msg_len, msg->name, msg_len))) {
 	cmdline = strstr(cmdline + namelen, "name::");
 	continue;
@@ -139,11 +139,13 @@ public:
 	  Logging::printf("[%u] request %s service %x,%x %s from %p\n", Cpu::cpunr(), msg->name, service->cpu, service->pt, service->sname, service->client);
 	  return T::reply_with_cap(utcb, service->pt);
 	}
+	else
+	  Logging::printf("[%u] request %s vs %s\n", Cpu::cpunr(), msg->name, service->sname);
 
       // Get the next alternative name...
       cmdline = strstr(cmdline + namelen, "name::");
     }
-
+    Logging::printf("resolve '%s' - %s\n", msg->name, found ? "retry" : "not allowed");
     // should we retry because there could be a name someday, or don't we have the permission
     return T::set_error(utcb, found ? ERETRY : EPERM);
   }
