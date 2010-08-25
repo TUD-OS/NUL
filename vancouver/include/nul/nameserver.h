@@ -96,7 +96,7 @@ class Nameserver  {
     void     * client;
     unsigned   pt;
     unsigned   cpu;
-    char       name[MessageNameserver::MAX_NAME];
+    char     * sname;
   };
   AtomicLifo<Entry> _entries;
 
@@ -130,10 +130,8 @@ public:
        * We found a postfix match in cmdline - "name::nspace:service".
        * Check now whether "nspace:service" is registered.
        */
-      Entry *service;
-      unsigned len = namelen > sizeof(service->name) ? sizeof(service->name) : namelen;
       for (Entry * service = _entries.head(); service; service = service->lifo_next)
-	if (service->cpu == msg->cpu && !memcmp(service->name, cmdline, len)) {
+	if (service->cpu == msg->cpu && !memcmp(service->sname, cmdline, namelen)) {
 	  return T::reply_with_cap(utcb, service->pt);
 	}
 
@@ -161,9 +159,7 @@ public:
      * We have a namespace and need to check the limits.
      */
     Entry *service;
-    check1(T::set_error(utcb, EPERM), namespace_len >= sizeof(service->name));
-    check1(T::set_error(utcb, EPERM), msg_len >  sizeof(service->name) - namespace_len);
-    check1(T::set_error(utcb, ERESOURCE), !T::account_resource(client, sizeof(Entry)));
+    check1(T::set_error(utcb, ERESOURCE), !T::account_resource(client, sizeof(Entry) + msg_len + namespace_len + 1));
 
     /**
      * Alloc and fill the structure.
@@ -172,10 +168,10 @@ public:
     service->pt  = T::get_received_cap(utcb);
     service->cpu = msg->cpu;
     service->client = client;
-    memcpy(service->name, cmdline, namespace_len);
-    memcpy(service->name + namespace_len, msg->name, msg_len);
-    memset(service->name + namespace_len + msg_len, 0, sizeof(service->name) - namespace_len - msg_len);
-
+    service->sname = new char[msg_len + namespace_len + 1];
+    memcpy(service->sname, cmdline, namespace_len);
+    memcpy(service->sname + namespace_len, msg->name, msg_len);
+    service->sname[namespace_len + msg_len] = 0;
     _entries.enqueue(service);
 
 
@@ -202,8 +198,10 @@ public:
       if (service->client != client)
 	tmp.enqueue(service);
       else {
+	unsigned slen = strlen(service->sname)+1;
 	T::free_portal(service->pt);
-	T::account_resource(client, -sizeof(Entry));
+	T::account_resource(client, -sizeof(Entry) - slen);
+	delete service->sname;
 	delete service;
       }
     }
