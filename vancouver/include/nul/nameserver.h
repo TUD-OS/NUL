@@ -1,5 +1,5 @@
 /*
- * Nameserver.
+ * Nameserver and client code.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
@@ -35,7 +35,8 @@ struct MessageNameserver {
 };
 
 
-#ifdef CLIENT
+#ifdef NS_CLIENT
+
 #include "nul/baseprogram.h"
 struct NameserverClient {
 
@@ -56,6 +57,7 @@ struct NameserverClient {
       unsigned res;
       check1(res, res = nova_call(PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver), 0)));
       check1(utcb->msg[0], utcb->msg[0] != ERETRY);
+
       // XXX this should be an get-all-events
       nova_semdown(PT_NS_SEM);
     }
@@ -105,19 +107,19 @@ public:
     // should not get a mapping
     check1(T::set_error(utcb, EPROTO), T::get_received_cap(utcb));
 
+    // sanitize the request
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
-    bool found = false;
 
     /**
      * Parse the cmdline for "name::" prefixes and check whether the
-     * postfix matches the request name.
+     * postfix matches the requested name.
      */
     char * cmdline = strstr(client_cmdline, "name::");
+    bool found = false;
     while (cmdline) {
       cmdline += 6;
-
       unsigned namelen = strcspn(cmdline, " \t");
 
       Logging::printf("[%u] request for %x %x | %s | %s\n", Cpu::cpunr(), msg_len, namelen, msg->name, cmdline + namelen - msg_len);
@@ -127,6 +129,7 @@ public:
       }
 
       found = true;
+
       /**
        * We found a postfix match in cmdline - "name::nspace:service".
        * Check now whether "nspace:service" is registered.
@@ -137,36 +140,35 @@ public:
 	  return T::reply_with_cap(utcb, service->pt);
 	}
 
-      /**
-       * Try to get the next alternative name...
-       */
-      cmdline = strstr(cmdline+namelen, "name::");
+      // Get the next alternative name...
+      cmdline = strstr(cmdline + namelen, "name::");
     }
+
+    // should we retry because there could be a name someday, or is it useless?
     return T::set_error(utcb, found ? ERETRY : EPERM);
   }
 
 
   unsigned register_name(Utcb *utcb, void *client, char *client_cmdline) {
-    // we need a mapping
+
+    // we need the mapping
     check1(T::set_error(utcb, EPROTO), !T::get_received_cap(utcb));
 
+    // sanitize the request
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
 
+    // search for an allowed namespace
     char * cmdline = strstr(client_cmdline, "namespace::");
     check1(T::set_error(utcb, EPERM), !cmdline);
     cmdline += 11;
     unsigned namespace_len = strcspn(cmdline, " \t");
 
-    /**
-     * We have a namespace and need to check the limits.
-     */
+    // We have a namespace and need to check the limits.
     check1(T::set_error(utcb, ERESOURCE), !T::account_resource(client, sizeof(Entry) + msg_len + namespace_len + 1));
 
-    /**
-     * Alloc and fill the structure.
-     */
+    // Alloc and fill the structure.
     Entry *service = new Entry;
     service->pt  = T::get_received_cap(utcb);
     service->cpu = msg->cpu;
@@ -178,11 +180,13 @@ public:
     Logging::printf("[%u] registered %x,%x %s for %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 
     /**
-     * We could check whether somebody else has registered this name
-     * already.  However we can not do this atomically together with
-     * the enqueue. We therefore omit this check and allow to
-     * overwriting the name.  This complicates debugging but helps
-     * with service-restart.
+     * We could check here whether somebody else has registered this
+     * name already. But this can not be done atomically with the
+     * enqueue.  We therefore omit this check and allow to register
+     * names twice.  However "register" races with "deletion", thus
+     * resolving is not deteministic with multiple entries with the
+     * very same name.  The threads that register have to avoid such
+     * situations!
      */
     _entries.enqueue(service);
     return T::set_error(utcb, ENONE);
@@ -194,25 +198,23 @@ public:
    */
   void delete_client(void *client) {
 
-    AtomicLifo<Entry> tmp;
     Entry *next;
     for (Entry * service = _entries.dequeue_all(); service; service = next) {
       next = service->lifo_next;
+      service->lifo_next = 0;
       if (service->client != client)
-	tmp.enqueue(service);
+	_entries.enqueue(service);
       else {
 	Logging::printf("[%u] delete service %x,%x %s from %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 	unsigned slen = strlen(service->sname)+1;
 	T::free_portal(service->pt);
 	T::account_resource(client, -sizeof(Entry) - slen);
+
+	// XXX wait a grace period, as resolver on another CPU could iterate over the list
 	delete service->sname;
 	delete service;
       }
     }
-
-    // now requeue them in the original order
-    for (Entry * service = tmp.dequeue_all(); service; service = next)
-      _entries.enqueue(service);
   }
 };
 #endif

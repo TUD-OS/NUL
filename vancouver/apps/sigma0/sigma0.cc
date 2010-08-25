@@ -35,7 +35,6 @@ Sigma0      *sigma0;
 Semaphore   *consolesem;
 unsigned     mac_prefix = 0x42000000;
 unsigned     mac_host;
-unsigned     order_cpus_running = 0;
 
 // extra params
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
@@ -47,7 +46,7 @@ PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host par
 struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
-    MAXCPUS            = Config::MAX_CPUS,
+    MAXCPUS            = 256,
     MAXPCIDIRECT       = 64,
     MAXMODULES         = Config::MAX_CLIENTS,
     CPUGSI             = 0,
@@ -89,7 +88,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   Motherboard *_mb;
 
   // module data
-  static struct ModuleInfo
+  struct ModuleInfo
   {
     unsigned        mod_nr;
     unsigned        mod_count;
@@ -305,18 +304,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
-    for (int i= ((hip->mem_offs - hip->cpu_offs) / hip->cpu_size) - 1; i >= 0; i--) {
-      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) +
-                     hip->cpu_offs + i*hip->cpu_size);
-      if (cpu->flags & 1) {
-        order_cpus_running = i;
-        i = -1;
-      }
-    }
-    if (!order_cpus_running)
-      return 1;
-    order_cpus_running = 1 << ((order_cpus_running - 1) / 2);
-
     for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
 
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
@@ -1575,7 +1562,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _trace_pos(0), _trace_buf(), _numcpus(0), _gsi(0), _pcidirect()  {}
+  Sigma0() :  _trace_pos(0), _trace_buf(), _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
 
@@ -1598,4 +1585,3 @@ void  do_exit(const char *msg)
 
 
 
-Sigma0::ModuleInfo Sigma0::_modinfo[64];
