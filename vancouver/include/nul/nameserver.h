@@ -40,7 +40,7 @@ struct MessageNameserver {
 #include "nul/baseprogram.h"
 struct NameserverClient {
 
-  static unsigned name_resolve(Utcb *utcb, const char *service, unsigned cap, unsigned cpu) {
+  static unsigned name_resolve(Utcb *utcb, const char *service, unsigned cap) {
     unsigned len = strlen(service);
     if (len >= MessageNameserver::MAX_NAME) return EPROTO;
 
@@ -48,7 +48,6 @@ struct NameserverClient {
 
     MessageNameserver *msg = reinterpret_cast<utcb->msg>;
     msg->type = MessageNameserver::TYPE_RESOLVE;
-    msg->cpu = cpu;
     memcpy(msg->name, service, len);
     memset(msg->name + len, MessageNameserver::MAX_NAME - len);
 
@@ -111,6 +110,7 @@ public:
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
+    unsigned cpu = Cpu::cpunr();
 
     /**
      * Parse the cmdline for "name::" prefixes and check whether the
@@ -135,7 +135,7 @@ public:
        * Check now whether "nspace:service" is registered.
        */
       for (Entry * service = _entries.head(); service; service = service->lifo_next)
-	if (service->cpu == msg->cpu && !memcmp(service->sname, cmdline, namelen)) {
+	if (service->cpu == cpu && !memcmp(service->sname, cmdline, namelen)) {
 	  Logging::printf("[%u] request %s service %x,%x %s from %p\n", Cpu::cpunr(), msg->name, service->cpu, service->pt, service->sname, service->client);
 	  return T::reply_with_cap(utcb, service->pt);
 	}
@@ -144,7 +144,7 @@ public:
       cmdline = strstr(cmdline + namelen, "name::");
     }
 
-    // should we retry because there could be a name someday, or is it useless?
+    // should we retry because there could be a name someday, or don't we have the permission
     return T::set_error(utcb, found ? ERETRY : EPERM);
   }
 
@@ -210,7 +210,7 @@ public:
 	T::free_portal(service->pt);
 	T::account_resource(client, -sizeof(Entry) - slen);
 
-	// XXX wait a grace period, as resolver on another CPU could iterate over the list
+	// XXX wait a grace period, as an resolver on another CPU could iterate over the list
 	delete service->sname;
 	delete service;
       }
