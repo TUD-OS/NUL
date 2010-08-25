@@ -84,10 +84,10 @@ struct NameserverClient {
 
 #else
 
-class Utcb;
 #include "service/lifo.h"
 #include "service/logging.h"
 #include "service/helper.h"
+class Utcb;
 
 template <class T>
 class Nameserver  {
@@ -107,8 +107,12 @@ public:
     MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(T::get_message(utcb));
     msg->name[sizeof(msg->name) - 1] = 0;
     unsigned msg_len = strlen(msg->name);
+    bool found = false;
 
-    //parse cmdline of client
+    /**
+     * Parse the cmdline for "name::" prefixes and check whether the
+     * postfix matches the request name.
+     */
     char * cmdline = strstr(client_cmdline, "name::");
     while (cmdline) {
       cmdline += 6;
@@ -121,19 +125,24 @@ public:
 	continue;
       }
 
-      //found a service match in cmdline - name::nspace:service
-      //check whether nspace:service is registered
+      found = true;
+      /**
+       * We found a postfix match in cmdline - "name::nspace:service".
+       * Check now whether "nspace:service" is registered.
+       */
       Entry *service;
       unsigned len = namelen > sizeof(service->name) ? sizeof(service->name) : namelen;
       for (Entry * service = _entries.head(); service; service = service->lifo_next)
 	if (service->cpu == msg->cpu && !memcmp(service->name, cmdline, len)) {
 	  return T::reply_with_cap(utcb, service->pt);
 	}
-      return T::set_error(utcb, ERETRY);
-    }
 
-    // name is not allowed on cmdline
-    return T::set_error(utcb, EPERM);
+      /**
+       * Try to get the next alternative name...
+       */
+      cmdline = strstr(cmdline+namelen, "name::");
+    }
+    return T::set_error(utcb, found ? ERETRY : EPERM);
   }
 
 
@@ -147,10 +156,18 @@ public:
     check1(T::set_error(utcb, EPERM), !cmdline);
     cmdline += 11;
     unsigned namespace_len = strcspn(cmdline, " \t");
+
+    /**
+     * We have a namespace and need to check the limits.
+     */
     Entry *service;
     check1(T::set_error(utcb, EPERM), namespace_len >= sizeof(service->name));
     check1(T::set_error(utcb, EPERM), msg_len >  sizeof(service->name) - namespace_len);
     check1(T::set_error(utcb, ERESOURCE), !T::account_resource(client, sizeof(Entry)));
+
+    /**
+     * Alloc and fill the structure.
+     */
     service = new Entry;
     service->pt  = T::get_received_cap(utcb);
     service->cpu = msg->cpu;
@@ -158,7 +175,17 @@ public:
     memcpy(service->name, cmdline, namespace_len);
     memcpy(service->name + namespace_len, msg->name, msg_len);
     memset(service->name + namespace_len + msg_len, 0, sizeof(service->name) - namespace_len - msg_len);
+
     _entries.enqueue(service);
+
+
+    /**
+     * We could check whether somebody else has registered this name
+     * already.  However we can not do this atomically together with
+     * the enqueue. We therefore omit this check and allow to
+     * overwriting the name.  This complicates debugging but helps
+     * with service-restart.
+     */
     return T::set_error(utcb, ENONE);
   }
 
@@ -167,18 +194,23 @@ public:
    * Delete all services from a client.
    */
   void delete_client(void *client) {
+
+    AtomicLifo<Entry> tmp;
     Entry *next;
     for (Entry * service = _entries.dequeue_all(); service; service = next) {
       next = service->lifo_next;
       if (service->client != client)
-	// this enqueues them in the wrong direction, but we hope that this is not a problem
-	_entries.enqueue(service);
+	tmp.enqueue(service);
       else {
 	T::free_portal(service->pt);
 	T::account_resource(client, -sizeof(Entry));
 	delete service;
       }
     }
+
+    // now requeue them in the original order
+    for (Entry * service = tmp.dequeue_all(); service; service = next)
+      _entries.enqueue(service);
   }
 };
 #endif
