@@ -52,6 +52,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31,
     TRACE_BUF_SIZE     = 1ul << 17,
+    CLIENT_PT_OFFSET   = 0x10000,
     CLIENT_PT_SHIFT    = 10
   };
 
@@ -111,7 +112,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned _pcidirect[MAXPCIDIRECT];
 
 
-  // namespaces
+  // nameserver
   Nameserver<Sigma0> _ns;
 
 
@@ -550,8 +551,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       modinfo->mod_count++;
 
 
-    // create special portal for every module, we start at 64k, to have enough space for static fields
-    unsigned pt = 0x10000 + (module << CLIENT_PT_SHIFT);
+    // create special portal for every module
+    unsigned pt = CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
     check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
@@ -576,7 +577,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap the service portal
-    nova_revoke(Crd(0x10000 + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
+    nova_revoke(Crd(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -711,12 +712,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void trigger_all_ns_clients() {
     for (unsigned module = 0; module < MAXMODULES; module++)
       if (_modinfo[module].mem)
-	nova_semup(0x10000 + (module << CLIENT_PT_SHIFT) + MessageNameserver::PT_NS_SEM);
+	nova_semup(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT) + MessageNameserver::PT_NS_SEM);
   }
 
   // the nameserver portals
   PT_FUNC(do_nameserver,
-	  unsigned short client = pid >> CLIENT_PT_SHIFT;
+	  unsigned short client = (pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT;
 	  unsigned res;
 	  bool free_cap = get_received_cap(utcb);
 	  MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(get_message(utcb));
@@ -743,7 +744,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   PT_FUNC(do_startup,
-	  unsigned short client = pid >> CLIENT_PT_SHIFT;
+	  unsigned short client = (pid - CLIENT_PT_OFFSET)>> CLIENT_PT_SHIFT;
 	  ModuleInfo *modinfo = _modinfo + client;
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
@@ -759,7 +760,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   PT_FUNC(do_request,
-	  unsigned short client = pid >> CLIENT_PT_SHIFT;
+	  unsigned short client = (pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT;
 	  ModuleInfo *modinfo = _modinfo + client;
 
 	  COUNTER_INC("request");
@@ -926,7 +927,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    }
 	  else
 	    {
-	      Logging::printf("[%02x] map for %x for %llx err %llx at %x\n", client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
+	      Logging::printf("[%02x, %x] map for %x for %llx err %llx at %x\n", pid, client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
 
 	      // we can not overmap -> thus remove all rights first if the PTE was present
 	      if (utcb->qual[0] & 1) {
