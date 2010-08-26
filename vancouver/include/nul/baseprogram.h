@@ -37,7 +37,7 @@ struct BaseProgram {
   /**
    * add mappings to a UTCB.
    */
-  static unsigned long add_mappings(Utcb *utcb, bool exception, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
+  static unsigned long add_mappings(Utcb *utcb, bool exception, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights, bool domap = true)
   {
     while (size > 0)
       {
@@ -45,7 +45,7 @@ struct BaseProgram {
 	assert(minshift >= Utcb::MINSHIFT);
 	unsigned *item = (exception ? utcb->items : (utcb->msg + utcb->head.mtr.untyped())) + utcb->head.mtr.typed() * 2;
 	if (reinterpret_cast<Utcb *>(item) >= utcb+1 || utcb->head.mtr.typed() >= 255) return size;
-	item[1] = (hotspot & ~0xffful) | 1;
+	item[1] = (hotspot & ~0xffful) | domap;
 	item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
 	utcb->head.mtr = Mtd(utcb->head.mtr.untyped(), utcb->head.mtr.typed() + 1);
 

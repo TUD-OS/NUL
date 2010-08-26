@@ -594,8 +594,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
 
     _ns.delete_client(modinfo);
-    // due to a race in the implementation of delete_client we have to trigger all clients here
-    trigger_all_ns_clients();
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
     //modinfo->mem = 0;
@@ -689,7 +687,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   // simple helper functions
   static void *   get_message(Utcb *utcb) { return utcb->msg; }
   static unsigned set_error(Utcb *utcb, unsigned error) {  utcb->msg[0] = error; return Mtd(1, 0).value(); }
-  static unsigned get_received_cap(Utcb *utcb) { if (!utcb->head.mtr.typed() == 1) return 0;  return utcb->head.crd >> Utcb::MINSHIFT; }
+  static unsigned get_received_cap(Utcb *utcb) { if (!utcb->head.mtr.typed())  return 0; return utcb->head.crd >> Utcb::MINSHIFT; }
   static unsigned reply_with_cap(Utcb *utcb, unsigned cap)  {
     utcb->msg[0] = ENONE;
     Mtd oldmtr = utcb->head.mtr;
@@ -711,7 +709,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   void trigger_all_ns_clients() {
     for (unsigned module = 0; module < MAXMODULES; module++)
-      if (_modinfo[module].mem)
+      if (_modinfo[module].physsize)
 	nova_semup(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT) + MessageNameserver::PT_NS_SEM);
   }
 
@@ -721,19 +719,36 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  unsigned res;
 	  bool free_cap = get_received_cap(utcb);
 	  MessageNameserver * msg = reinterpret_cast<MessageNameserver *>(get_message(utcb));
-	  check1(set_error(utcb, EPROTO), utcb->head.mtr.untyped() < 1);
-	  switch (msg->type) {
-	  case MessageNameserver::TYPE_RESOLVE:
-	    res = _ns.resolve_name(utcb, _modinfo[client].cmdline);
-	    break;
-	  case MessageNameserver::TYPE_REGISTER:
-	    res = _ns.register_name(utcb, _modinfo+client, _modinfo[client].cmdline);
-	    free_cap = free_cap && utcb->msg[0];
-	    if (utcb->msg[0] == ENONE) trigger_all_ns_clients();
-	    break;
-	  default:
-	    res = set_error(utcb, EPROTO);
-	  }
+
+	  if (utcb->head.mtr.untyped() < 1) res = set_error(utcb, EPROTO);
+	  else
+	    switch (msg->type) {
+	    case MessageNameserver::TYPE_RESOLVE:
+	      {
+		SemaphoreGuard l(_lock);
+		res = _ns.resolve_name(utcb, _modinfo[client].cmdline);
+	      }
+	      break;
+	    case MessageNameserver::TYPE_REGISTER:
+	      {
+		SemaphoreGuard l(_lock);
+		res = _ns.register_name(utcb, _modinfo+client, _modinfo[client].cmdline);
+		free_cap = free_cap && utcb->msg[0];
+		if (utcb->msg[0] == ENONE) trigger_all_ns_clients();
+	      }
+	      break;
+	    case MessageNameserver::TYPE_TESTIDENTIFY:
+	      if (utcb->head.mtr.typed() != 1) res = set_error(utcb, EPROTO);
+	      else {
+		utcb->msg[0] = ENONE;
+		utcb->msg[1] = ((utcb->msg[utcb->head.mtr.untyped()] >> Utcb::MINSHIFT) - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT;
+		Logging::printf("[%x] identify %x %x (%x) = %x\n", pid, utcb->msg[utcb->head.mtr.untyped()], utcb->msg[utcb->head.mtr.untyped() + 1], utcb->head.mtr.value(), utcb->msg[1]);
+		res = Mtd(2, 0).value();
+	      }
+	      break;
+	    default:
+	      res = set_error(utcb, EPROTO);
+	    }
 	  if (free_cap)
 	    nova_revoke(Crd(get_received_cap(utcb) << Utcb::MINSHIFT, 1, DESC_CAP_ALL), true);
 	  else if (get_received_cap(utcb))

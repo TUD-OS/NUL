@@ -23,4 +23,5 @@ enum {
   EPERM,
   ERETRY,
   ERESOURCE,
+  EEXISTS,
 };

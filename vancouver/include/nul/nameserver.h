@@ -114,6 +114,23 @@ class Nameserver  {
     char     * sname;
   } * _head;
 
+
+  void debug_dump(const char *func) {
+    Logging::printf("%s:\n", func);
+    Entry **prev = &_head;
+    for (unsigned i=0; *prev; i++, prev = &(*prev)->next) {
+      Logging::printf("\t%2x: %s\n", i, (*prev)->sname);
+    }
+  }
+
+
+  void free_entry(Entry *service) {
+    unsigned slen = strlen(service->sname)+1;
+    T::free_portal(service->pt);
+    T::account_resource(service->client, -sizeof(Entry) - slen);
+    delete service->sname;
+    delete service;
+  }
 public:
   unsigned resolve_name(Utcb *utcb, char *client_cmdline) {
     // should not get a mapping
@@ -185,6 +202,7 @@ public:
 
     // Alloc and fill the structure.
     Entry *service = new Entry;
+    service->next  = 0;
     service->pt  = T::get_received_cap(utcb);
     service->cpu = msg->cpu;
     service->client = client;
@@ -194,11 +212,20 @@ public:
     service->sname[namespace_len + msg_len] = 0;
     Logging::printf("[%u] registered %x,%x %s for %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 
-    // XXX check that nobody has registered the name already
+    // check that nobody has registered the name already
     Entry **prev = &_head;
-    while (*prev)  prev = &(*prev)->next;
+    while (*prev) {
+      if (!strcmp(service->sname, (*prev)->sname) && service->cpu == (*prev)->cpu) {
+	free_entry(service);
+	return T::set_error(utcb, EEXISTS);
+      }
+      prev = &(*prev)->next;
+    }
+
+    // enqueue at the end of the list
     *prev = service;
 
+    debug_dump(__func__);
     return T::set_error(utcb, ENONE);
   }
 
@@ -211,16 +238,15 @@ public:
     Entry **prev = &_head;
     while (*prev)  {
       Entry *service = *prev;
-      prev = &service->next;
       if (service->client == client) {
+	*prev = service->next;
 	Logging::printf("[%u] delete service %x,%x %s from %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
-	unsigned slen = strlen(service->sname)+1;
-	T::free_portal(service->pt);
-	T::account_resource(client, -sizeof(Entry) - slen);
-	delete service->sname;
-	delete service;
+	free_entry(service);
       }
+      else
+	prev = &service->next;
     }
+    debug_dump(__func__);
   }
 };
 #endif
