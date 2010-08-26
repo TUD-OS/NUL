@@ -226,7 +226,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
     // alloc new cap for next request
-    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
     utcb->head.mtr = Mtd(1, 0);
   }
 
@@ -321,7 +321,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, 0, i);
 
       // initialize the receive window
-      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
     }
     return 0;
   }
@@ -369,8 +369,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // map all IRQs
     utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      utcb->msg[gsi * 2 + 0] = hip->cfg_exc + 3 + gsi;
-      utcb->msg[gsi * 2 + 1] = Crd(gsi, 0, DESC_CAP_ALL).value();
+      utcb->msg[gsi * 2 + 1] = ((hip->cfg_exc + 3 + gsi) << Utcb::MINSHIFT) | 1;
+      utcb->msg[gsi * 2 + 0] = Crd(gsi, 0, DESC_CAP_ALL).value();
     }
     unsigned res;
     if ((res = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(hip->cfg_gsi * 2, 0))))
@@ -737,7 +737,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  if (free_cap)
 	    nova_revoke(Crd(get_received_cap(utcb) << Utcb::MINSHIFT, 1, DESC_CAP_ALL), true);
 	  else if (get_received_cap(utcb))
-	    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | 3;
+	    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 	  return res;
 	  )
 

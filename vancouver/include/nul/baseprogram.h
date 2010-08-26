@@ -45,8 +45,8 @@ struct BaseProgram {
 	assert(minshift >= Utcb::MINSHIFT);
 	unsigned *item = (exception ? utcb->items : (utcb->msg + utcb->head.mtr.untyped())) + utcb->head.mtr.typed() * 2;
 	if (reinterpret_cast<Utcb *>(item) >= utcb+1 || utcb->head.mtr.typed() >= 255) return size;
-	item[0] = hotspot;
-	item[1] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
+	item[1] = (hotspot & ~0xffful) | 1;
+	item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
 	utcb->head.mtr = Mtd(utcb->head.mtr.untyped(), utcb->head.mtr.typed() + 1);
 
 	unsigned long mapsize = 1 << minshift;
