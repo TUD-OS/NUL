@@ -87,7 +87,9 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
-    _cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
+    //_cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
+    // XXX PT_NS_BASE + MAXCPUS
+    _cap_free = 512;
     nova_create_sm(_cap_block = alloc_cap());
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
