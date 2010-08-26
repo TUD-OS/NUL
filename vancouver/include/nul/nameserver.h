@@ -83,7 +83,7 @@ struct NameserverClient {
     return utcb->msg[0];
   };
 
-  static unsigned name_identify(Utcb *utcb, unsigned &id) {
+  static unsigned name_testidentify(Utcb *utcb, unsigned &id) {
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
 
     MessageNameserver *msg = reinterpret_cast<MessageNameserver *>(utcb->msg);
