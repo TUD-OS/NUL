@@ -29,6 +29,7 @@ struct MessageNameserver {
   enum Type {
     TYPE_RESOLVE,
     TYPE_REGISTER,
+    TYPE_TESTIDENTIFY,
   } type;
   unsigned cpu;
   char name [MAX_NAME];
@@ -54,7 +55,7 @@ struct NameserverClient {
       memcpy(msg->name, service, len);
       memset(msg->name + len, 0, MessageNameserver::MAX_NAME - len);
 
-      check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver), 0)));
+      check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver) / sizeof(unsigned), 0)));
       if (utcb->msg[0] != ERETRY) return utcb->msg[0];
 
       // XXX this should be an get-all-events
@@ -75,12 +76,25 @@ struct NameserverClient {
     memcpy(msg->name, service, len);
     memset(msg->name + len, 0, MessageNameserver::MAX_NAME - len);
 
-    utcb->head.mtr = Mtd(sizeof(MessageNameserver), 0);
-    BaseProgram::add_mappings(utcb, false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x18 | DESC_TYPE_CAP);
+    utcb->head.mtr = Mtd(sizeof(MessageNameserver) / sizeof(unsigned), 0);
+    BaseProgram::add_mappings(utcb, false, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x1c | DESC_TYPE_CAP);
     unsigned res;
     check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), utcb->head.mtr));
     return utcb->msg[0];
   };
+
+  static unsigned name_identify(Utcb *utcb, unsigned &id) {
+    TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
+
+    MessageNameserver *msg = reinterpret_cast<MessageNameserver *>(utcb->msg);
+    msg->type = MessageNameserver::TYPE_TESTIDENTIFY;
+    utcb->head.mtr = Mtd(sizeof(MessageNameserver) / sizeof(unsigned), 0);
+    BaseProgram::add_mappings(utcb, false, MessageNameserver::PT_NS_SEM << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_TYPE_CAP, false);
+    unsigned res;
+    check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), utcb->head.mtr));
+    id = utcb->msg[1];
+    return utcb->msg[0];
+  }
 };
 
 #else
@@ -93,13 +107,12 @@ class Utcb;
 template <class T>
 class Nameserver  {
   struct Entry {
-    Entry    * lifo_next;
+    Entry    * next;
     void     * client;
     unsigned   pt;
     unsigned   cpu;
     char     * sname;
-  };
-  AtomicLifo<Entry> _entries;
+  } * _head;
 
 public:
   unsigned resolve_name(Utcb *utcb, char *client_cmdline) {
@@ -134,7 +147,7 @@ public:
        * We found a postfix match in cmdline - "name::nspace:service".
        * Check now whether "nspace:service" is registered.
        */
-      for (Entry * service = _entries.head(); service; service = service->lifo_next)
+      for (Entry * service = _head; service; service = service->next)
 	if (service->cpu == cpu && !memcmp(service->sname, cmdline, namelen)) {
 	  Logging::printf("[%u] request %s service %x,%x %s from %p\n", Cpu::cpunr(), msg->name, service->cpu, service->pt, service->sname, service->client);
 	  return T::reply_with_cap(utcb, service->pt);
@@ -181,16 +194,11 @@ public:
     service->sname[namespace_len + msg_len] = 0;
     Logging::printf("[%u] registered %x,%x %s for %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 
-    /**
-     * We could check here whether somebody else has registered this
-     * name already. But this can not be done atomically with the
-     * enqueue.  We therefore omit this check and allow to register
-     * names twice.  However "register" races with "deletion", thus
-     * resolving is not deteministic with multiple entries with the
-     * very same name.  The threads that register have to avoid such
-     * situations!
-     */
-    _entries.enqueue(service);
+    // XXX check that nobody has registered the name already
+    Entry **prev = &_head;
+    while (*prev)  prev = &(*prev)->next;
+    *prev = service;
+
     return T::set_error(utcb, ENONE);
   }
 
@@ -200,19 +208,15 @@ public:
    */
   void delete_client(void *client) {
 
-    Entry *next;
-    for (Entry * service = _entries.dequeue_all(); service; service = next) {
-      next = service->lifo_next;
-      service->lifo_next = 0;
-      if (service->client != client)
-	_entries.enqueue(service);
-      else {
+    Entry **prev = &_head;
+    while (*prev)  {
+      Entry *service = *prev;
+      prev = &service->next;
+      if (service->client == client) {
 	Logging::printf("[%u] delete service %x,%x %s from %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 	unsigned slen = strlen(service->sname)+1;
 	T::free_portal(service->pt);
 	T::account_resource(client, -sizeof(Entry) - slen);
-
-	// XXX wait a grace period, as an resolver on another CPU could iterate over the list
 	delete service->sname;
 	delete service;
       }
