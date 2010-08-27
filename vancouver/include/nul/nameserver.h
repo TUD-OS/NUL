@@ -43,11 +43,12 @@ struct NameserverClient {
 
   static unsigned name_resolve(Utcb *utcb, const char *service, unsigned cap) {
     unsigned len = strlen(service);
-    if (len >= MessageNameserver::MAX_NAME-1) return EPROTO;
+    if (len >= MessageNameserver::MAX_NAME) return EPROTO;
 
     TemporarySave<Utcb::HEADER_SIZE + sizeof(MessageNameserver) / sizeof(unsigned)> save(utcb);
 
     utcb->head.crd    = (cap << Utcb::MINSHIFT) | 3;
+    unsigned retries = 0;
     while (1) {
       unsigned res;
       MessageNameserver *msg = reinterpret_cast<MessageNameserver *>(utcb->msg);
@@ -56,11 +57,13 @@ struct NameserverClient {
       memset(msg->name + len, 0, MessageNameserver::MAX_NAME - len);
 
       check1(res, res = nova_call(MessageNameserver::PT_NS_BASE + Cpu::cpunr(), Mtd(sizeof(MessageNameserver) / sizeof(unsigned), 0)));
-      if (utcb->msg[0] != ERETRY) return utcb->msg[0];
+      if (utcb->msg[0] != ERETRY) break;
+      if (!retries++)  Logging::printf("%s(%s) retry\n", __func__, service);
 
       // XXX this should be an get-all-events
       nova_semdown(MessageNameserver::PT_NS_SEM);
     }
+    if (retries)  Logging::printf("%s(%s) tried %d times\n", __func__, service, retries);
     return utcb->msg[0];
   }
 
@@ -115,23 +118,35 @@ class Nameserver  {
   } * _head;
 
 
+  /**
+   * Dump all entries for debugging reasons.
+   */
   void debug_dump(const char *func) {
     Logging::printf("%s:\n", func);
     Entry **prev = &_head;
     for (unsigned i=0; *prev; i++, prev = &(*prev)->next) {
-      Logging::printf("\t%2x: %s\n", i, (*prev)->sname);
+      Logging::printf("\t%2x: %x,%x %s\n", i, (*prev)->cpu, (*prev)->pt, (*prev)->sname);
     }
   }
 
-
+  /**
+   * Free an entry thats not part of the list.
+   */
   void free_entry(Entry *service) {
+    assert(!service->next);
     unsigned slen = strlen(service->sname)+1;
     T::free_portal(service->pt);
     T::account_resource(service->client, -sizeof(Entry) - slen);
     delete service->sname;
     delete service;
   }
+
+
 public:
+
+  /**
+   * Resolve a name.
+   */
   unsigned resolve_name(Utcb *utcb, char *client_cmdline) {
     // should not get a mapping
     check1(T::set_error(utcb, EPROTO), T::get_received_cap(utcb));
@@ -152,7 +167,6 @@ public:
       cmdline += 6;
       unsigned namelen = strcspn(cmdline, " \t");
 
-      Logging::printf("[%u] request for %x %x| '%s' | '%.*s'\n", Cpu::cpunr(), msg_len, namelen, msg->name, namelen, cmdline);
       if ((msg_len > namelen) || (0 != memcmp(cmdline + namelen - msg_len, msg->name, msg_len))) {
 	cmdline = strstr(cmdline + namelen, "name::");
 	continue;
@@ -165,22 +179,22 @@ public:
        * Check now whether "nspace:service" is registered.
        */
       for (Entry * service = _head; service; service = service->next)
-	if (service->cpu == cpu && !memcmp(service->sname, cmdline, namelen)) {
-	  Logging::printf("[%u] request %s service %x,%x %s from %p\n", Cpu::cpunr(), msg->name, service->cpu, service->pt, service->sname, service->client);
+	if (service->cpu == cpu && !memcmp(service->sname, cmdline, namelen))
 	  return T::reply_with_cap(utcb, service->pt);
-	}
-	else
-	  Logging::printf("[%u] request %s vs %s\n", Cpu::cpunr(), msg->name, service->sname);
 
       // Get the next alternative name...
       cmdline = strstr(cmdline + namelen, "name::");
     }
     Logging::printf("resolve '%s' - %s\n", msg->name, found ? "retry" : "not allowed");
+
     // should we retry because there could be a name someday, or don't we have the permission
     return T::set_error(utcb, found ? ERETRY : EPERM);
   }
 
 
+  /**
+   * Register a name.
+   */
   unsigned register_name(Utcb *utcb, void *client, char *client_cmdline) {
 
     // we need the mapping
@@ -210,17 +224,14 @@ public:
     memcpy(service->sname, cmdline, namespace_len);
     memcpy(service->sname + namespace_len, msg->name, msg_len);
     service->sname[namespace_len + msg_len] = 0;
-    Logging::printf("[%u] registered %x,%x %s for %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
 
     // check that nobody has registered the name already
     Entry **prev = &_head;
-    while (*prev) {
+    for (; *prev; prev = &(*prev)->next)
       if (!strcmp(service->sname, (*prev)->sname) && service->cpu == (*prev)->cpu) {
 	free_entry(service);
 	return T::set_error(utcb, EEXISTS);
       }
-      prev = &(*prev)->next;
-    }
 
     // enqueue at the end of the list
     *prev = service;
@@ -234,17 +245,16 @@ public:
    * Delete all services from a client.
    */
   void delete_client(void *client) {
-
-    Entry **prev = &_head;
-    while (*prev)  {
+    for (Entry **prev = &_head; *prev;)  {
       Entry *service = *prev;
-      if (service->client == client) {
+      if (service->client != client)
+	prev = &service->next;
+      else {
 	*prev = service->next;
 	Logging::printf("[%u] delete service %x,%x %s from %p\n", Cpu::cpunr(), service->cpu, service->pt, service->sname, service->client);
+	service->next = 0;
 	free_entry(service);
       }
-      else
-	prev = &service->next;
     }
     debug_dump(__func__);
   }
