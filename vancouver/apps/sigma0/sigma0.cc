@@ -558,7 +558,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
 
     for (unsigned i=0; i < _numcpus; i++)
-      check1(8, nova_create_pt(pt + MessageNameserver::PT_NS_BASE + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(do_nameserver_wrapper), Mtd()));
+      check1(8, nova_create_pt(pt + MessageNameserver::PT_NS_BASE + _cpunr[i], _percpu[_cpunr[i]].cap_ec_worker, reinterpret_cast<unsigned long>(do_nameserver_wrapper), Mtd()));
     check1(9, nova_create_sm(pt + MessageNameserver::PT_NS_SEM));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
