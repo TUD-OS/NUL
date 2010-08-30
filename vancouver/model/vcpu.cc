@@ -31,12 +31,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
   volatile unsigned _event;
   volatile unsigned _sipi;
-  unsigned  _speedup;
-  timevalue _calibrationtime;
-  timevalue _timeadapted;
-  timevalue _lasttime;
-  timevalue _lasttscofs;
-  timevalue _usertscofs;
 
   void dprintf(const char *format, ...) {
     Logging::printf("[%2d] ", CPUID_EDXb);
@@ -115,9 +109,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       {
       case 0x10:
 	assert(msg.mtr_in & MTD_TSC);
-	_usertscofs =  - Cpu::rdtsc() + cpu->edx_eax();
-	Logging::printf("set user tsc offset %llx, %llx -> %llx\n", cpu->edx_eax(), _usertscofs, cpu->tsc_off);
-	cpu->tsc_off = _usertscofs - cpu->tsc_off;
+	cpu->tsc_off = - Cpu::rdtsc() + cpu->edx_eax() - cpu->tsc_off;
 	msg.mtr_out |= MTD_TSC;
 	break;
       case 0x174 ... 0x176:
@@ -133,7 +125,6 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
   void handle_cpu_init(CpuMessage &msg, bool reset) {
     CpuState *cpu = msg.cpu;
-    timevalue oldtsc_ofs = cpu->tsc_off;
 
     // this also clears inj_info
     memset(cpu->msg, 0, sizeof(cpu->msg));
@@ -157,15 +148,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     msg.mtr_out  |= MTD_ALL;
     if (reset) {
       Logging::printf("reset CPU from %x mtr_in %x\n", msg.type, msg.mtr_in);
-      assert(msg.mtr_in & MTD_TSC);
-      _usertscofs =  -_mb.clock()->time();
-      cpu->tsc_off = _usertscofs - oldtsc_ofs;
-      msg.mtr_out  |= MTD_TSC;
-      _speedup = 1024;
-      _calibrationtime = -_usertscofs;
-      _lasttime =        -_usertscofs;
-      _timeadapted = 0;
-      _lasttscofs = 0;
+      // XXX reset TSC
       // XXX floating point
       // XXX MXCSR
       // XXX MTRR
@@ -373,6 +356,14 @@ public:
 
   bool receive(CpuMessage &msg) {
 
+    // TSC drift compensation
+    if (msg.type != CpuMessage::TYPE_CPUID_WRITE && msg.mtr_in & MTD_TSC && ~msg.mtr_out & MTD_TSC) {
+      COUNTER_INC("tsc adoption");
+      msg.cpu->tsc_off = -msg.cpu->tsc_off;
+      msg.mtr_out |= MTD_TSC;
+    }
+
+
     switch (msg.type) {
     case CpuMessage::TYPE_CPUID:    return handle_cpuid(msg);
     case CpuMessage::TYPE_CPUID_WRITE:
@@ -436,40 +427,6 @@ public:
       if (~_event & STATE_WAKEUP) _mb.bus_hostop.send(msg2);
       Cpu::atomic_and<volatile unsigned>(&_event, ~(STATE_BLOCK | STATE_WAKEUP));
     }
-
-
-    // TSC drift compensation
-    if (msg.type != CpuMessage::TYPE_CPUID_WRITE && msg.mtr_in & MTD_TSC && ~msg.mtr_out & MTD_TSC) {
-      COUNTER_INC("tsc adoption");
-      timevalue now = _mb.clock()->time();
-      timevalue tsc_off = -msg.cpu->tsc_off + _usertscofs;
-
-      // we measure the speedup factor from time to time
-      if (now - _calibrationtime > 1*_mb.clock()->freq()) {
-       	timevalue othertime = tsc_off + _timeadapted;
-	timevalue owntime   = (now - _calibrationtime) - othertime;
-	_speedup = Math::muldiv128(now - _calibrationtime, 1 << 10, owntime);
-	Logging::printf("tsc adaptation %d %llx %llx %llx %llx time %llx %llx\n", _speedup, tsc_off, _timeadapted, owntime, othertime, now, _calibrationtime);
-	_calibrationtime = now;
-	_timeadapted = -tsc_off;
-      }
-
-      timevalue delta =     now - _lasttime;
-      timevalue othertime = tsc_off + _lasttscofs;
-      if (othertime > delta) othertime = 0;
-      timevalue owntime   = delta - othertime;
-      timevalue adapt     = ((owntime * _speedup) >> 10) - owntime;
-      // make sure we adapt not too much
-      if (adapt > tsc_off) adapt = tsc_off;
-      if (_calibrationtime == now)
-	Logging::printf("tsc adpt: %llx for %llx/%llx own %llx other %llx delta %llx\n", adapt, tsc_off, -_lasttscofs, owntime, othertime, delta);
-      _timeadapted += adapt;
-      _lasttime = now;
-      _lasttscofs = -tsc_off + adapt;
-      msg.cpu->tsc_off = adapt;
-      msg.mtr_out |= MTD_TSC;
-    }
-
     return true;
   }
 
