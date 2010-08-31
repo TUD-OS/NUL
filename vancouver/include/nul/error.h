@@ -22,6 +22,7 @@ enum {
   EPROTO       = 0x100,
   EPERM,
   ERETRY,
+  EABORT,
   ERESOURCE,
   EEXISTS,
 };
