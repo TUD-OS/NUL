@@ -23,7 +23,8 @@
 #include "sys/syscalls.h"
 #include "region.h"
 #include "baseprogram.h"
-
+#include "config.h"
+#include "parent.h"
 
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
@@ -36,12 +37,11 @@ class NovaProgram : public BaseProgram
 
   enum {
     VIRT_START       = 0x1000,
-    UTCB_PAD         = 0x1000
+    UTCB_PAD         = 0x1000,
   };
   long  _cap_free;
 
  protected:
-
   Hip *     _hip;
   unsigned  _cap_block;
 
@@ -87,9 +87,7 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
-    //_cap_free = hip->cfg_exc + 3 + hip->cfg_gsi;
-    // XXX PT_NS_BASE + MAXCPUS
-    _cap_free = 512;
+    _cap_free = ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS;
     nova_create_sm(_cap_block = alloc_cap());
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
