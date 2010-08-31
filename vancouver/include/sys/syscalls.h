@@ -39,7 +39,8 @@ enum
   NOVA_CREATE_ECWORK  = NOVA_CREATE_EC | NOVA_FLAG0,
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
-  NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0
+  NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0,
+  NOVA_SEMCTL_DOWN_MULTI = NOVA_SEMCTL_DOWN | (1 << 9)
 };
 
 enum ERROR
@@ -128,6 +129,8 @@ inline unsigned char  nova_semup(unsigned idx_sm)
 inline unsigned char  nova_semdown(unsigned idx_sm)
 {  return nova_syscall2(NOVA_SEMCTL_DOWN, idx_sm); }
 
+inline unsigned char  nova_semdownmulti(unsigned idx_sm)
+{  return nova_syscall2(NOVA_SEMCTL_DOWN_MULTI, idx_sm); }
 
 inline unsigned char  nova_assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
 {  return nova_syscall(NOVA_ASSIGN_PCI, pd, pf_rid, vf_rid, 0); }

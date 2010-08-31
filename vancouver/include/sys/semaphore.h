@@ -38,6 +38,13 @@ public:
     if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
   }
 
+  void downmulti()
+  {
+    COUNTER_INC("LOCK krnl");
+    unsigned res = nova_semdownmulti(_sm);
+    if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
+  }
+
 
   void up()
   {

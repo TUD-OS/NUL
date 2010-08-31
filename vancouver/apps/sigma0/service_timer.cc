@@ -54,7 +54,7 @@ class TimerService : public StaticReceiver<TimerService> {
   void work() __attribute__((noreturn))  {
 
     while (1) {
-      _worker.down();
+      _worker.downmulti();
       COUNTER_INC("to work");
 
       unsigned nr;
