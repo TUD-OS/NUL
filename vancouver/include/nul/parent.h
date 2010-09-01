@@ -188,6 +188,7 @@ struct LogProtocol : public GenericProtocol {
     do {
       unsigned slen = strlen(line) + 1;
       init_utcb(utcb, (slen + sizeof(unsigned) - 1) / sizeof(unsigned), _cap_base + CAP_SERVER_SESSION);
+      utcb->msg[utcb->head.mtr.untyped()-1] = 0;
       memcpy(utcb->msg, line, slen);
       res = do_call(utcb);
     } while (res == ERETRY);
