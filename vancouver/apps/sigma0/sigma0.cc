@@ -157,7 +157,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned map_caps(Utcb *utcb, unsigned src, unsigned dst, unsigned count) {
     utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
     for (unsigned i = 0; i < count; i++) {
-      utcb->msg[i * 2 + 1] = ((dst + i) << Utcb::MINSHIFT) | 1;
+      utcb->msg[i * 2 + 1] = (dst + i) << Utcb::MINSHIFT | 1;
       utcb->msg[i * 2 + 0] = Crd(src + i, 0, DESC_CAP_ALL).value();
     }
     return nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(count * 2, 0));
@@ -651,6 +651,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
 	  assert(~utcb->head.mtr.untyped() & 1);
+
+	  // enable from kernel mappings
+	  for (unsigned i=0; i < utcb->head.mtr.untyped()/2; i++)
+	    utcb->msg[i*2 + 1] |= 2;
 	  return Mtd(0, utcb->head.mtr.untyped()/2).value();
 	  )
 
