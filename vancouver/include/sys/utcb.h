@@ -95,6 +95,17 @@ struct Utcb
     };
     unsigned msg[1024 - sizeof(struct head) / sizeof(unsigned)];
   };
+  unsigned get_received_cap(Mtd mtr) {
+    for (unsigned i=0; i < mtr.typed(); i++)
+      if (msg[mtr.untyped() + i*2 + 1] & 1)
+	return head.crd >> Utcb::MINSHIFT;
+    return 0;
+  }
+  unsigned get_identity(Mtd mtr) {
+    if (!mtr.typed() || (msg[mtr.untyped() + 1] & 1))
+      return 0;
+    return msg[mtr.untyped()] >> Utcb::MINSHIFT;
+  }
 
   enum { MINSHIFT = 12 };
 };

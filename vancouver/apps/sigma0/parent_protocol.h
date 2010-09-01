@@ -17,20 +17,8 @@
  */
 
 /**
- * Missing: kill a client, get_quota
+ * Missing: kill a client, get_quota, lookup-portal before mapping it back to check wether the server is still active or not
  */
-
-static unsigned get_received_cap(Utcb *utcb, Mtd mtr) {
-  for (unsigned i=0; i < mtr.typed(); i++)
-    if (utcb->msg[mtr.untyped() + i*2 + 1] & 1)
-      return utcb->head.crd >> Utcb::MINSHIFT;
-  return 0;
-}
-static unsigned get_identity(Utcb *utcb, Mtd mtr) {
-  if (!mtr.typed() || (utcb->msg[mtr.untyped() + 1] & 1))
-    return 0;
-  return utcb->msg[mtr.untyped()] >> Utcb::MINSHIFT;
-}
 
 static void dealloc_cap(unsigned cap) {
   nova_revoke(Crd(cap, 0, DESC_CAP_ALL), true);
@@ -80,7 +68,7 @@ unsigned session_open(Utcb *utcb, Mtd mtr, unsigned clientnr, char *client_cmdli
   char * cmdline = strstr(client_cmdline, "name::");
   while (cmdline) {
     cmdline += 6;
-    unsigned namelen = strcspn(cmdline, " \t");
+    unsigned namelen = strcspn(cmdline, " \t\r\n\f");
     if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
       cmdline = strstr(cmdline + namelen, "name::");
       continue;
@@ -112,7 +100,7 @@ unsigned session_open(Utcb *utcb, Mtd mtr, unsigned clientnr, char *client_cmdli
 
 
 unsigned session_close(Utcb *utcb, Mtd mtr) {
-  unsigned identity = get_identity(utcb, mtr);
+  unsigned identity = utcb->get_identity(mtr);
   if (!identity) return EEXISTS;
   Logging::printf("close cap %x\n", identity);
   for (NameClient **prev = &_ns_clients; *prev; prev = &(*prev)->next) {
@@ -132,7 +120,7 @@ unsigned session_close(Utcb *utcb, Mtd mtr) {
 
 
 unsigned request_portal(Utcb *utcb, Mtd mtr) {
-  unsigned identity = get_identity(utcb, mtr);
+  unsigned identity = utcb->get_identity(mtr);
   if (!identity) return EEXISTS;
   unsigned cpu = Cpu::cpunr();
   for (NameClient * client = _ns_clients; client; client = client->next)
@@ -142,6 +130,7 @@ unsigned request_portal(Utcb *utcb, Mtd mtr) {
 	Logging::printf("service %s cpu %x nlen %x slen %x\n", service->sname, service->cpu, service->nlen, client->slen);;
 	if (cpu == service->cpu && client->slen == service->nlen-1 && !memcmp(client->sname, service->sname, client->slen)) {
 	  Logging::printf("found service cap %x\n", service->pt);
+	  // XXX check that the service->pt still exists
 	  ParentProtocol::init_utcb(utcb, 1, service->pt, utcb->head.crd >> Utcb::MINSHIFT, true);
 	  return ENONE;
 	}
@@ -194,7 +183,7 @@ unsigned register_service(Utcb *utcb, Mtd mtr, unsigned clientnr, char *client_c
   service->parent_cap = alloc_cap();
   nova_create_sm(service->parent_cap);
   service->cpu  = utcb->msg[1];
-  service->pt   = get_received_cap(utcb, mtr);
+  service->pt   = utcb->get_received_cap(mtr);
   service->next = 0;
 
 
@@ -223,7 +212,7 @@ unsigned register_service(Utcb *utcb, Mtd mtr, unsigned clientnr, char *client_c
 
 
 unsigned unregister_service(Utcb *utcb, Mtd mtr) {
-  unsigned identity = get_identity(utcb, mtr);
+  unsigned identity = utcb->get_identity(mtr);
   if (!identity) return EEXISTS;
   for (NameService **prev = &_ns_service; *prev; prev = &(*prev)->next) {
     NameService *service = *prev;
@@ -267,13 +256,13 @@ PT_FUNC(do_parent,
 	if (pid < CLIENT_PT_OFFSET) pid += CLIENT_PT_OFFSET;
 	unsigned short client = (pid - CLIENT_PT_OFFSET)>> CLIENT_PT_SHIFT;
 	Mtd mtr = utcb->head.mtr;
-	bool free_cap = get_received_cap(utcb, mtr);
+	bool free_cap = utcb->get_received_cap(mtr);
 
 	utcb->head.mtr = Mtd(1, 0);
 	utcb->msg[0] = handle_parent(utcb, client, mtr, free_cap);
 	if (free_cap)
-	  nova_revoke(Crd(get_received_cap(utcb, mtr), 0, DESC_CAP_ALL), true);
-	else if (get_received_cap(utcb, mtr))
+	  nova_revoke(Crd(utcb->get_received_cap(mtr), 0, DESC_CAP_ALL), true);
+	else if (utcb->get_received_cap(mtr))
 	  utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 	Logging::printf(" =  %x\n", utcb->msg[0]);
 	)
