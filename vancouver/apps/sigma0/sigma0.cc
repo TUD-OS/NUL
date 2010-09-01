@@ -808,6 +808,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_VCPU_CREATE_BACKEND:
 			case MessageHostOp::OP_VCPU_BLOCK:
 			case MessageHostOp::OP_VCPU_RELEASE:
+			case MessageHostOp::OP_REGISTER_SERVICE:
 			default:
 			  // unhandled
 			  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
@@ -923,6 +924,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_GET_MAC:
 	msg.mac = get_mac(_mac++ * MAXMODULES);
+	break;
+      case MessageHostOp::OP_REGISTER_SERVICE:
+	for (unsigned i = 0; i < _numcpus; i++) {
+	  unsigned cpu = _cpunr[i];
+	  unsigned ec_cap = create_ec_helper(msg.len, 0, 0, cpu);
+	  Logging::printf("ec created %x\n", ec_cap);
+	  unsigned pt = alloc_cap();
+	  check1(false, nova_create_pt(pt, ec_cap, msg.value, Mtd()));
+	  Logging::printf("portal created %x\n", pt);
+	  check1(false, ParentProtocol::register_service(myutcb(), msg.ptr, cpu, pt, 0));
+	  Logging::printf("service registered on cpu %x\n", cpu);
+	}
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
@@ -1450,13 +1463,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
+    // unblock the worker and IRQ threads
+    _lock.up();
     if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
     Logging::printf("\t=> INIT done <=\n\n");
 
-    // unblock the worker and IRQ threads
-    _lock.up();
 
     // block ourself since we have finished initialization
     block_forever();

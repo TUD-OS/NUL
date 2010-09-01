@@ -406,7 +406,8 @@ struct MessageHostOp
       OP_ALLOC_FROM_GUEST,
       OP_VCPU_CREATE_BACKEND,
       OP_VCPU_BLOCK,
-      OP_VCPU_RELEASE
+      OP_VCPU_RELEASE,
+      OP_REGISTER_SERVICE,
     } type;
   unsigned long value;
   union {
