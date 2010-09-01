@@ -299,7 +299,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
-    for (int i=0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
+    for (int i = 0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
 
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
       if (~cpu->flags & 1 || (cpunr != -1 && i != cpunr)) continue;
@@ -397,7 +397,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _virt_phys.add(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start, _hip->get_mod(0)->addr));
 
     // Do a first pass to add all available memory below 4G.
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
+    for (int i = 0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
       Logging::printf("  mmap[%02d] addr %16llx len %16llx type %2d aux %8x\n", i, hmem->addr, hmem->size, hmem->type, hmem->aux);
 
@@ -411,7 +411,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
 
     // Remove all reserved regions.
-    for (int i=0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
+    for (int i = 0; i < (_hip->length - _hip->mem_offs) / _hip->mem_size; i++) {
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
 
       if (hmem->type != 1) _free_phys.del(Region(hmem->addr, (hmem->size + 0xfff) & ~0xffful));
@@ -549,7 +549,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
 
     // create parent portals
-    for (unsigned i=0; i < _numcpus; i++)
+    for (unsigned i = 0; i < _numcpus; i++)
       check1(9, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i], _percpu[_cpunr[i]].cap_ec_worker, reinterpret_cast<unsigned long>(do_parent_wrapper), Mtd()));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
@@ -598,7 +598,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   unsigned assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned vfbdf)
   {
-    for (unsigned i=0; i < MAXPCIDIRECT; i++)
+    for (unsigned i = 0; i < MAXPCIDIRECT; i++)
       {
 	if (!_pcidirect[i])
 	  {
@@ -979,7 +979,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   bool  receive(MessageNetwork &msg)
   {
-    for (unsigned i=0; i < MAXMODULES; i++)
+    for (unsigned i = 0; i < MAXMODULES; i++)
       if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
     return true;
   }
@@ -1248,7 +1248,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (msg.id == 0)
 	{
 	  Logging::printf("flush disk caches for reboot\n");
-	  for (unsigned i=0; i < _mb->bus_disk.count(); i++) {
+	  for (unsigned i = 0; i < _mb->bus_disk.count(); i++) {
 	    MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, i, 0, 0, 0, 0, 0, 0);
 	    if (!_mb->bus_disk.send(msg2))  Logging::printf("could not flush disk %d\n", i);
 	  }
