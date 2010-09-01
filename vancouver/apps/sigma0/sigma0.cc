@@ -249,14 +249,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   unsigned create_host_devices(Utcb *utcb, Hip *hip)
   {
-
+    char * cmdline = map_string(utcb, hip->get_mod(0)->aux);
+    _modinfo[0].cmdline = cmdline;
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
     _mb->bus_timeout.add(this,  receive_static<MessageTimeout>);
     init_disks();
     init_network();
-    _mb->parse_args(map_string(utcb, hip->get_mod(0)->aux));
+    _mb->parse_args(cmdline);
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg3);
