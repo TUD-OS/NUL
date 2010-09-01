@@ -85,43 +85,44 @@ class Motherboard : public StaticReceiver<Motherboard>
    */
   void parse_args(char *args)
   {
-    char *s;
-    while ((s = strsep(&args, " \t\r\n\f")))
-      {
-	long *p = &__param_table_start;
-	bool handled = false;
-	while (!handled && s[0] && p < &__param_table_end)
-	  {
-	    typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
-	    CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
-	    char **strings = reinterpret_cast<char **>(*p++);
-
-	    unsigned len = strlen(strings[0]);
-	    if (!memcmp(s, strings[0], len))
-	      {
-		if (s[len] == ':')  len++;
-		else if (s[len])    continue;
-		Logging::printf("\t=> %s <=\n", s);
-
-		// skip prefix and colon
-		s += len;
-		if (s[0] && s[0] != ':')
-		if (s[0] == ':') s++;
-		unsigned long argv[16];
-		for (unsigned j=0; j < 16; j++)
-		  {
-		    char *argvalue = strsep(&s, ",+");
-		    if (argvalue && *argvalue)
-		      argv[j] = strtoul(argvalue, 0, 0);
-		    else
-		      argv[j] = ~0UL;
-		  }
-		func(this, argv);
-		handled = true;
-	      };
-	  }
-	if (!handled && s[0]) Logging::printf("Ignored parameter: '%s'\n", s);
+#define WORD_SEPARATOR " \t\r\n\f"
+#define PARAM_SEPARATOR ",+"
+    while (args[0]) {
+      unsigned arglen = strcspn(args, WORD_SEPARATOR);
+      if (!arglen) {
+	args++;
+	continue;
       }
+      long *p = &__param_table_start;
+      bool handled = false;
+      while (!handled && p < &__param_table_end) {
+	typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
+	CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
+	char **strings = reinterpret_cast<char **>(*p++);
+
+	unsigned prefixlen = strcspn(args, ":" WORD_SEPARATOR);
+	if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
+	  Logging::printf("\t=> %.*s <=\n", arglen, args);
+
+	  char *s = args + prefixlen;
+	  if (args[prefixlen] == ':') s++;
+	  unsigned long argv[16];
+	  for (unsigned j=0; j < 16; j++) {
+	    unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
+	    if (alen)
+	      argv[j] = strtoul(s, 0, 0);
+	    else
+	      argv[j] = ~0UL;
+	    s+= alen;
+	    if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
+	  }
+	  func(this, argv);
+	  handled = true;
+	};
+      }
+      if (!handled) Logging::printf("Ignored parameter: '%.*s'\n", arglen, args);
+      args += arglen;
+    }
   }
 
 

@@ -142,25 +142,6 @@ static inline const char * strchr(const char *s, int c) {
 }
 
 
-static inline char * strsep(char **stringp, const char *delim) {
-
-  if (!stringp || !*stringp)  return 0;
-  char *res = *stringp;
-  char *s = res;
-  while (*s) {
-    if (strchr(delim, *s)) {
-      *s = 0;
-      *stringp = s+1;
-      break;
-    }
-    s++;
-  }
-  if (res == *stringp)  *stringp = 0;
-  return res;
-
-}
-
-
 static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)); }
 
 
