@@ -32,7 +32,7 @@ struct Utcb
     unsigned res;
     Mtd      mtr;
     unsigned crd;
-    unsigned res0;
+    Mtd      mtr_out;
     unsigned res1;
     unsigned tls;
   } head;
@@ -91,20 +91,21 @@ struct Utcb
       unsigned long long tsc_off;
       unsigned     inst_len;
       unsigned     sysenter_cs, sysenter_esp, sysenter_eip;
-      unsigned     items[1];
     };
     unsigned msg[1024 - sizeof(struct head) / sizeof(unsigned)];
   };
-  unsigned get_received_cap(Mtd mtr) {
-    for (unsigned i=0; i < mtr.typed(); i++)
-      if (msg[mtr.untyped() + i*2 + 1] & 1)
+
+  unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.mtr.typed(); }
+  unsigned get_received_cap() {
+    for (unsigned i=0; i < head.mtr.typed(); i++)
+      if (msg[head.mtr.untyped() + i*2 + 1] & 1)
 	return head.crd >> Utcb::MINSHIFT;
     return 0;
   }
-  unsigned get_identity(Mtd mtr) {
-    if (!mtr.typed() || (msg[mtr.untyped() + 1] & 1))
+  unsigned get_identity() {
+    if (!head.mtr.typed() || (msg[head.mtr.untyped() + 1] & 1))
       return 0;
-    return msg[mtr.untyped()] >> Utcb::MINSHIFT;
+    return msg[head.mtr.untyped()] >> Utcb::MINSHIFT;
   }
 
   enum { MINSHIFT = 12 };
