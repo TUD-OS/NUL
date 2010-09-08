@@ -31,35 +31,43 @@
 struct ParentProtocol {
 
   enum {
+    // generic protocol functions
     TYPE_OPEN,
     TYPE_CLOSE,
+    TYPE_GENERIC_END,
+    // server specific functions
     TYPE_REQUEST,
     TYPE_REGISTER,
     TYPE_UNREGISTER,
+    TYPE_GET_QUOTA,
     CAP_PT_PERCPU = 256,
   };
 
   static unsigned call(Utcb *utcb, unsigned cap_base) {
     unsigned res;
-    res = nova_call(cap_base + Cpu::cpunr(), utcb->head.mtr);
+    res = nova_call(cap_base + Cpu::cpunr(), utcb->head.mtr_out);
     return res ? res : utcb->msg[0];
   }
-  static void init_utcb(Utcb *utcb, unsigned words, unsigned cap_id=0, unsigned cap_receive=0, bool map_id=false) {
-    utcb->head.mtr = Mtd(words, cap_id ? 1 : 0);
-    assert (utcb->head.mtr.untyped() + 2*utcb->head.mtr.typed() <= (sizeof(Utcb) - Utcb::HEADER_SIZE));
+  static void init_utcb(Utcb *utcb, unsigned words, unsigned cap_id=0, unsigned cap_receive=0, unsigned cap_map=0) {
+    assert (words + 4 <= (sizeof(Utcb) - Utcb::HEADER_SIZE));
     utcb->head.crd = cap_receive ? DESC_TYPE_CAP | cap_receive << Utcb::MINSHIFT : 0;
+    unsigned *msg = utcb->msg + words;
     if (cap_id) {
-      utcb->msg[words + 0] = DESC_CAP_ALL | cap_id << Utcb::MINSHIFT;
-      utcb->msg[words + 1] = map_id ? 1 : 0;
+      *msg++ = DESC_CAP_ALL | cap_id << Utcb::MINSHIFT;
+      *msg++ = 0;
     }
+    if (cap_map) {
+      *msg++ = DESC_CAP_ALL | cap_map << Utcb::MINSHIFT;
+      *msg++ = 1;
+    }
+    utcb->head.mtr_out = Mtd(words, ((msg - utcb->msg) - words) / 2);
   }
-
 
 
   static unsigned session_open(Utcb *utcb, const char *service, unsigned cap_parent_session){
     unsigned slen =  strlen(service) + 1;
     init_utcb(utcb, 1 + (slen + sizeof(unsigned) - 1) / sizeof(unsigned), 0, cap_parent_session);
-    utcb->msg[utcb->head.mtr.untyped() - 1] = 0;
+    utcb->msg[utcb->head.mtr_out.untyped() - 1] = 0;
     memcpy(utcb->msg + 1, service, slen);
     utcb->msg[0] = TYPE_OPEN;
     return call(utcb, CAP_PT_PERCPU);
@@ -91,10 +99,10 @@ struct ParentProtocol {
 
   static unsigned register_service(Utcb *utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
     unsigned slen =  strlen(service) + 1;
-    init_utcb(utcb, 2 + (slen + sizeof(unsigned) - 1) / sizeof(unsigned), pt, cap_service, true);
+    init_utcb(utcb, 2 + (slen + sizeof(unsigned) - 1) / sizeof(unsigned), 0, cap_service, pt);
     utcb->msg[0] = TYPE_REGISTER;
     utcb->msg[1] = cpu;
-    utcb->msg[utcb->head.mtr.untyped()-1] = 0;
+    utcb->msg[utcb->head.mtr_out.untyped()-1] = 0;
     memcpy(utcb->msg + 2, service, slen);
     return call(utcb, CAP_PT_PERCPU);
   };
@@ -105,6 +113,23 @@ struct ParentProtocol {
     utcb->msg[0] = TYPE_UNREGISTER;
     return call(utcb, CAP_PT_PERCPU);
   }
+
+
+  static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
+    unsigned slen =  strlen(name) + 1;
+    init_utcb(utcb, 2 + (slen + sizeof(unsigned) - 1) / sizeof(unsigned), parent_cap);
+    utcb->msg[0] = TYPE_GET_QUOTA;
+    utcb->msg[1] = invalue;
+    utcb->msg[utcb->head.mtr_out.untyped()-1] = 0;
+    memcpy(utcb->msg + 2, name, slen);
+    unsigned res = call(utcb, CAP_PT_PERCPU);
+    if (!res && outvalue) {
+      if (utcb->head.mtr.untyped() < 2) return EPROTO;
+      *outvalue = utcb->msg[1];
+    }
+    return res;
+  }
+
 };
 
 
@@ -141,7 +166,8 @@ public:
     bool need_pt      = res == NOVA_ECAP;
     bool need_open = false;
     if (need_session) {
-      init_utcb(utcb, 0, _cap_base + CAP_PARENT_SESSION, _cap_base + CAP_SERVER_SESSION, true);
+      init_utcb(utcb, 1, 0, _cap_base + CAP_SERVER_SESSION, _cap_base + CAP_PARENT_SESSION);
+      utcb->msg[0] = TYPE_OPEN;
       res = call(utcb, _cap_base + CAP_SERVER_PT);
       if (!res)  return ERETRY;
       need_pt      = res == NOVA_ECAP;
@@ -166,6 +192,12 @@ public:
     return res;
   }
 
+
+  void close(Utcb *utcb) {
+    session_close(utcb, _cap_base + CAP_PARENT_SESSION);
+  }
+
+
   GenericProtocol(const char *service, unsigned cap_base, bool blocking)
     : _service(service), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
   {
@@ -182,14 +214,18 @@ public:
  * Missing: handle very-long strings, disable on EPERM
  */
 struct LogProtocol : public GenericProtocol {
+  enum {
+    TYPE_LOG = ParentProtocol::TYPE_GENERIC_END,
+  };
   unsigned log(Utcb *utcb, const char *line) {
     if (_disabled) return EPERM;
     unsigned res;
     do {
       unsigned slen = strlen(line) + 1;
-      init_utcb(utcb, (slen + sizeof(unsigned) - 1) / sizeof(unsigned), _cap_base + CAP_SERVER_SESSION);
-      utcb->msg[utcb->head.mtr.untyped()-1] = 0;
-      memcpy(utcb->msg, line, slen);
+      init_utcb(utcb, 1 + (slen + sizeof(unsigned) - 1) / sizeof(unsigned), _cap_base + CAP_SERVER_SESSION);
+      utcb->msg[0] = TYPE_LOG;
+      utcb->msg[utcb->head.mtr_out.untyped() - 1] = 0;
+      memcpy(utcb->msg + 1, line, slen);
       res = do_call(utcb);
     } while (res == ERETRY);
     return res;

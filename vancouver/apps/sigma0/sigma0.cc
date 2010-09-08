@@ -22,7 +22,7 @@
 #include "host/dma.h"
 #include "host/hostpci.h"
 #include "nul/program.h"
-#include "nul/parent.h"
+#include "nul/generic_service.h"
 #include "service/elf.h"
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
