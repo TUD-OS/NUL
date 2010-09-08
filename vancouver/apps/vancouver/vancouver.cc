@@ -123,7 +123,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_stdin) __attribute__((noreturn))
   {
-    StdinConsumer *stdinconsumer = new StdinConsumer(tls->alloc_cap());
+    StdinConsumer *stdinconsumer = new StdinConsumer(alloc_cap());
     assert(stdinconsumer);
     Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
 
@@ -172,7 +172,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    DiskConsumer *diskconsumer = new DiskConsumer(tls->alloc_cap());
+    DiskConsumer *diskconsumer = new DiskConsumer(alloc_cap());
     assert(diskconsumer);
     Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
     while (1) {
@@ -186,7 +186,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    TimerConsumer *timerconsumer = new TimerConsumer(tls->alloc_cap());
+    TimerConsumer *timerconsumer = new TimerConsumer(alloc_cap());
     assert(timerconsumer);
     Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
     while (1) {
@@ -201,7 +201,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_network) __attribute__((noreturn))
   {
-    NetworkConsumer *network_consumer = new NetworkConsumer(tls->alloc_cap());
+    NetworkConsumer *network_consumer = new NetworkConsumer(alloc_cap());
     Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
     while (1) {
       unsigned char *buf;

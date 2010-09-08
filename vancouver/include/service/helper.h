@@ -21,6 +21,9 @@ void * operator new[](unsigned size, unsigned alignment);
 void  do_exit(const char *msg) __attribute__((noreturn));
 extern void *(*memalloc)(unsigned long size, unsigned long align);
 extern void (*memfree)(void *ptr);
+unsigned alloc_cap(unsigned count=1);
+void   dealloc_cap(unsigned cap, unsigned count=1);
+
 
 /**
  * Assert.

@@ -928,11 +928,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_REGISTER_SERVICE:
 	for (unsigned i = 0; i < _numcpus; i++) {
 	  unsigned cpu = _cpunr[i];
-	  unsigned ec_cap = create_ec_helper(msg.len, 0, 0, cpu);
-	  Logging::printf("ec created %x\n", ec_cap);
+	  Utcb *utcb;
+	  unsigned ec_cap = create_ec_helper(msg.len, &utcb, 0, cpu);
+	  utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
 	  unsigned pt = alloc_cap();
 	  check1(false, nova_create_pt(pt, ec_cap, msg.value, Mtd()));
-	  Logging::printf("portal created %x\n", pt);
 	  check1(false, ParentProtocol::register_service(myutcb(), msg.ptr, cpu, pt, 0));
 	  Logging::printf("service registered on cpu %x\n", cpu);
 	}

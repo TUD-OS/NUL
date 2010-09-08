@@ -29,6 +29,15 @@
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
 
+long  _cap_free;
+unsigned alloc_cap(unsigned count) {  return Cpu::atomic_xadd(&_cap_free,  count); }
+void   dealloc_cap(unsigned cap, unsigned count) {
+  while (count--)
+    nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true);
+  // XXX add it back to the cap-allocator
+};
+
+
 /**
  * Contains common code for nova programms.
  */
@@ -39,7 +48,6 @@ class NovaProgram : public BaseProgram
     VIRT_START       = 0x1000,
     UTCB_PAD         = 0x1000,
   };
-  long  _cap_free;
 
  protected:
   Hip *     _hip;
@@ -63,7 +71,7 @@ class NovaProgram : public BaseProgram
   unsigned  create_ec_helper(unsigned long tls, Utcb **utcb_out=0, unsigned excbase = 0, unsigned cpunr=~0, void *func=0)
   {
     unsigned stack_top = stack_size/sizeof(void *);
-    unsigned cap = alloc_cap(1);
+    unsigned cap = alloc_cap();
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_top];
     cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
@@ -87,7 +95,8 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
-    _cap_free = ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS;
+    assert(!_cap_free);
+    alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
     nova_create_sm(_cap_block = alloc_cap());
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
@@ -123,8 +132,6 @@ class NovaProgram : public BaseProgram
 
 
 public:
-  unsigned alloc_cap(unsigned count=1) {  return Cpu::atomic_xadd(&_cap_free,  count); }
-
   /**
    * Default exit function.
    */
