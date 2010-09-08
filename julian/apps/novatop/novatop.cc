@@ -145,15 +145,19 @@ public:
   }
 
 
-  void plot(unsigned cpu)
+  void plot(unsigned cpu, uint64 v1, uint64 v2)
   {
     unsigned our_width = WIDTH/_hip->cpu_count();
     unsigned our_off   = cpu*our_width;
+    char d[WIDTH*2];
+    memset(d, ' ', sizeof(d));
+    Vprintf::snprintf(d+0,  WIDTH, "%16lld", v1);
+    Vprintf::snprintf(d+WIDTH, WIDTH, "%16lld", v2);
 
     // Iterate over history values
     for (unsigned i = 0; i < our_width; i++) {
       unsigned c = i + our_off;
-      unsigned h = HEIGHT - 2;	// We need two rows for stats.
+      unsigned h = HEIGHT - 4;	// We need two rows for stats.
       unsigned now = 2 + (h*_history[cpu][i]) / 100;
       unsigned left  = (i > 0) ? (2 + h*_history[cpu][i-1]/100) : now;
       unsigned right = 2 + h*_history[cpu][i+1]/100;
@@ -165,7 +169,11 @@ public:
 	  vga[0] = '|';
 	  vga[1] = 0x08;
 	} else {
-	  if (r < 2) {
+	  if (r >= HEIGHT - 2) {
+	    vga[0] = d[(r + 2 - HEIGHT) * WIDTH + i];
+	    vga[1] = 0x0F;
+	  }
+	  else if (r < 2) {
 	    vga[0] = '0' + (_history[cpu][i] / ((r ? 10 : 1))) % 10;
 	    vga[1] = 0x0F;
 	  } else {
@@ -202,6 +210,8 @@ public:
     uint64 fc2 = 0;		// CPU_CLK_UNHALTED.REF. This counter
 				// is guaranteed to count as fast as
 				// TSC.
+    uint64 old0 = 0;
+    uint64 old1 = 0;
 
     uint64  *m = reinterpret_cast<uint64 *>(myutcb()->msg);
 
@@ -218,8 +228,9 @@ public:
 
       tsc = m[0];
       fc2 = m[1];
-
-      plot(cpu);
+      plot(cpu, m[2] - old0, m[3] - old1);
+      old0 = m[2];
+      old1 = m[3];
     }
   }
 };
