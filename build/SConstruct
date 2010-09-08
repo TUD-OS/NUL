@@ -2,7 +2,6 @@
 import sys, os
 sys.path.append(os.path.abspath("../vancouver/tools/"))
 
-CacheDir('build_cache')
 
 # Files are resolved by searching the repositories in the order they
 # are declared. The first match wins. Order repositories from most to
