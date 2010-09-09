@@ -30,7 +30,9 @@ struct ScriptItem {
   ScriptItem *next;
   unsigned long param0;
   unsigned long param1;
-  ScriptItem(Type _type, unsigned long _param0, unsigned long _param1) : type(_type), next(0), param0(_param0), param1(_param1) {}
+  unsigned long param2;
+  ScriptItem(Type _type, unsigned long _param0, unsigned long _param1, unsigned long _param2)
+  : type(_type), next(0), param0(_param0), param1(_param1), param2(_param2) {}
 };
 
 
@@ -83,10 +85,15 @@ struct Script : public StaticReceiver<Script> {
 	}
 	return true;
       case ScriptItem::TYPE_START:
-	Logging::printf("start %ld %ld\n", item.param0, item.param1);
-	while (item.param1--) {
-	  MessageConsole msg2(MessageConsole::TYPE_START, item.param0);
-	  check1(false, !_bus_console.send(msg2));
+	Logging::printf("start %ld-%ld count %ld\n", item.param0, item.param1, item.param2);
+	while (item.param2--) {
+	  for (unsigned long nr = 0; nr < item.param1; nr++) {
+	    MessageConsole msg2(MessageConsole::TYPE_START, item.param0 + nr);
+	    if (!_bus_console.send(msg2)) {
+	      if (nr == item.param0) return true;
+	      else break;
+	    }
+	  }
 	}
 	break;
       default:
@@ -113,10 +120,11 @@ PARAM(script,
 
 PARAM(script_wait,
       check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_WAIT, argv[0], 0));,
-      "script_wait:t - wait t milliseconds until the next operation")
+      _script->add(new ScriptItem(ScriptItem::TYPE_WAIT, argv[0], 0, 0));,
+      "wait:t - wait t milliseconds until the next operation")
 
 PARAM(script_start,
       check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_START, argv[0], ~argv[1] ? argv[1] : 1));,
-      "script_start:config,count=1 - start a config count times")
+      _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] : 0, argv[1], ~argv[2] ? argv[1] : 1));,
+      "script_start:config=0,number=ALL,count=1 - start a config count times",
+      "Example: 'start:5,3,4' - starts 4 times the configs 5, 6 and 7")
