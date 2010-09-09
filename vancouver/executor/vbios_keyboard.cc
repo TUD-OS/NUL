@@ -277,8 +277,7 @@ public:
     _hostmb->bus_hwioout.add(this, receive_static<MessageIOOut>);
     _mb.bus_bios        .add(this, receive_static<MessageBios>);
     _mb.bus_discovery   .add(this, receive_static<MessageDiscovery>);
-    char args[] = "hostkeyb:0x10,0x60,1,,1";
-    _hostmb->parse_args(args);
+    _hostmb->parse_args("hostkeyb:0x10,0x60,1,,1");
 
 
   }

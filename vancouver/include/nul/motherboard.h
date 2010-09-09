@@ -83,7 +83,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   /**
    * Parse the cmdline and create devices.
    */
-  void parse_args(char *args)
+  void parse_args(const char *args)
   {
 #define WORD_SEPARATOR " \t\r\n\f"
 #define PARAM_SEPARATOR ",+"
@@ -104,7 +104,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 	if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
 	  Logging::printf("\t=> %.*s <=\n", arglen, args);
 
-	  char *s = args + prefixlen;
+	  const char *s = args + prefixlen;
 	  if (args[prefixlen] == ':') s++;
 	  unsigned long argv[16];
 	  for (unsigned j=0; j < 16; j++) {

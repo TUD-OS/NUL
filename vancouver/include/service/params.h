@@ -39,4 +39,4 @@ extern long __param_table_start, __param_table_end;
 /**
  * Define an alias for a set of parameters.
  */
-#define PARAM_ALIAS(NAME, DESC, VALUE) PARAM(NAME, { char param [] = VALUE; mb.parse_args(param); }, #NAME " - " DESC, "value: "  VALUE)
+#define PARAM_ALIAS(NAME, DESC, VALUE) PARAM(NAME, mb.parse_args(VALUE);, #NAME " - " DESC, "value: "  VALUE)

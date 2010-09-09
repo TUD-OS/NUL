@@ -109,7 +109,7 @@ static inline char * strstr(char *haystack, const char *needle) {
 }
 
 
-static inline unsigned long strtoul(char *nptr, char **endptr, int base) {
+static inline unsigned long strtoul(const char *nptr, const char **endptr, int base) {
 
   unsigned long res = 0;
   if ((!base || base == 16) && *nptr == '0' && *(nptr+1) == 'x') {

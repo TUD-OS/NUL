@@ -161,8 +161,7 @@ public:
     _mymb.bus_acpi.add(this, receive_static<MessageAcpi>);
 
     // create backend devices
-    char argv[] = "hostpit:1000,0x40,2 hosthpet";
-    _mymb.parse_args(argv);
+    _mymb.parse_args("hostpit:1000,0x40,2 hosthpet");
 
     // create the worker thread
     MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), 1);
