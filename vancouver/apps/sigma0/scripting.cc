@@ -32,7 +32,7 @@ struct ScriptItem {
   unsigned long param1;
   unsigned long param2;
   ScriptItem(Type _type, unsigned long _param0, unsigned long _param1, unsigned long _param2)
-  : type(_type), next(0), param0(_param0), param1(_param1), param2(_param2) {}
+    : type(_type), next(0), param0(_param0), param1(_param1), param2(_param2) {}
 };
 
 
@@ -90,8 +90,9 @@ struct Script : public StaticReceiver<Script> {
 	  for (unsigned long nr = 0; nr < item.param1; nr++) {
 	    MessageConsole msg2(MessageConsole::TYPE_START, item.param0 + nr);
 	    if (!_bus_console.send(msg2)) {
-	      if (nr == item.param0) return true;
-	      else break;
+	      if (nr != item.param0) break;
+	      Logging::printf("<< script done;\n");
+	      return true;
 	    }
 	  }
 	}
@@ -103,8 +104,8 @@ struct Script : public StaticReceiver<Script> {
     Logging::printf("<< script done;\n");
     return true;
   }
-Script(DBus<MessageTimer> &bus_timer, DBus<MessageConsole> &bus_console, Clock *clock, unsigned timer)
-  : _bus_timer(bus_timer), _bus_console(bus_console), _clock(clock), _timer(timer) {}
+  Script(DBus<MessageTimer> &bus_timer, DBus<MessageConsole> &bus_console, Clock *clock, unsigned timer)
+    : _bus_timer(bus_timer), _bus_console(bus_console), _clock(clock), _timer(timer) {}
 };
 
 
@@ -121,7 +122,7 @@ PARAM(script,
 PARAM(script_wait,
       check0(_script == 0);
       _script->add(new ScriptItem(ScriptItem::TYPE_WAIT, argv[0], 0, 0));,
-      "wait:t - wait t milliseconds until the next operation")
+      "wait:t - wait t milliseconds until the next scripting operation will happen")
 
 PARAM(script_start,
       check0(_script == 0);
