@@ -1460,8 +1460,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     unsigned res;
-    // XXX check this in the hypervisor
-    assert(hip->api_ver == 3);
     if ((res = preinit(utcb, hip)))              Logging::panic("init() failed with %x\n", res);
     Logging::printf("Sigma0.nova:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
 
@@ -1485,6 +1483,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
 void Sigma0::start(Hip *hip, Utcb *utcb) {
+  extern unsigned __nova_api_version;
+  assert(hip->api_ver == __nova_api_version);
   static Sigma0 s0;
   sigma0 = &s0;
   s0.run(utcb, hip);

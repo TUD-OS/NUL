@@ -28,11 +28,21 @@ SECTIONS
    .  =  0x80000000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
+
+  .nul :
+  {
+       /* NUL magic */
+       LONG(0x204c554e);
+       /* requested API version */
+       LONG(2);
+   } : text : nul
+
   .text :
   {
     *(.text .text.* .gnu.linkonce.t.*);
   } : text
   . = ALIGN(0x1000);
+
 
   .data :
   {
@@ -58,14 +68,6 @@ SECTIONS
   /* the freememory starts here, we align to 4M to allow superpages */
   __freemem = ALIGN(0x400000);
 
-  .nul :
-  {
-       /* NUL magic */
-       LONG(0x204c554e);
-       /* requested AP	I version */
-       LONG(2);
-       /* XXX This leads to unaligned binaries? */
-   } : data : nul
 
   /DISCARD/ :
   {
