@@ -40,6 +40,7 @@ struct ParentProtocol {
     TYPE_REGISTER,
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
+    CAP_PARENT_ID = 255,
     CAP_PT_PERCPU = 256,
   };
 
@@ -50,13 +51,13 @@ struct ParentProtocol {
   }
 
   static unsigned session_open(Utcb *utcb, const char *service, unsigned cap_parent_session) __attribute__((noinline)) {
-    utcb->init_frame() << TYPE_OPEN << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_OPEN << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU);
   }
 
 
   static unsigned request_portal(Utcb *utcb, unsigned cap_parent_session, unsigned cap_portal, bool blocking) {
-    utcb->init_frame() << TYPE_REQUEST << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REQUEST << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU);
 
     // block on the parent session until something happens
@@ -71,25 +72,25 @@ struct ParentProtocol {
 
 
   static unsigned session_close(Utcb *utcb, unsigned cap_parent_session) {
-    utcb->init_frame() << TYPE_CLOSE << Utcb::TypedIdentifyCap(cap_parent_session);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_CLOSE << Utcb::TypedIdentifyCap(cap_parent_session);
     return call(utcb, CAP_PT_PERCPU);
   }
 
 
   static unsigned register_service(Utcb *utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
-    utcb->init_frame() << TYPE_REGISTER << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REGISTER << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU);
   };
 
 
   static unsigned unregister_service(Utcb *utcb, unsigned cap_service) {
-    utcb->init_frame() << TYPE_UNREGISTER << Utcb::TypedIdentifyCap(cap_service);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_UNREGISTER << Utcb::TypedIdentifyCap(cap_service);
     return call(utcb, CAP_PT_PERCPU);
   }
 
 
   static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
-    utcb->init_frame() << TYPE_GET_QUOTA << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
+    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_GET_QUOTA << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
     unsigned res = call(utcb, CAP_PT_PERCPU);
     if (!res && outvalue) {
       if (utcb->head.mtr.untyped() < 2) return EPROTO;
@@ -130,7 +131,6 @@ public:
    */
   unsigned do_call(Utcb *utcb) {
     unsigned res = call(utcb, _cap_base + CAP_SERVER_PT);
-    Logging::printf("%s %x\n", __func__, res);
     bool need_session = res == EEXISTS;
     bool need_pt      = res == NOVA_ECAP;
     bool need_open = false;
@@ -148,7 +148,7 @@ public:
 	SemaphoreGuard guard(_lock);
 	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PARENT_SESSION, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
       }
-      Logging::printf("request portal for %s returned %x\n", _service, res);
+      //Logging::printf("request portal for %s returned %x\n", _service, res);
       if (!res)  return ERETRY;
       need_open = res == EEXISTS;
     }

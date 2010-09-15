@@ -39,9 +39,9 @@ class MultiEntranceLock {
 
   void unlock(void *myself) {
     assert(_lock_owner == myself);
-    if (!--_nesting_level && sem) {
+    if (!--_nesting_level) {
       _lock_owner = 0;
-      sem->up();
+      if (sem) sem->up();
     }
   }
 

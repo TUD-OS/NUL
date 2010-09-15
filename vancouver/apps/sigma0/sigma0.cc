@@ -324,7 +324,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       // create parent portals
       check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(do_parent_wrapper), Mtd()));
-
+      if (i == 0) check1(3, nova_create_sm(ParentProtocol::CAP_PARENT_ID));
     }
     return 0;
   }
@@ -557,10 +557,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // create parent portals
     for (unsigned i = 0; i < _numcpus; i++)
       check1(9, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i], _percpu[_cpunr[i]].cap_ec_worker, reinterpret_cast<unsigned long>(do_parent_wrapper), Mtd()));
+    check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
     modinfo->cap_pd = alloc_cap();
-    check1(10, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+    check1(11, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 
     return 0;
   }
