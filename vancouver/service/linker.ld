@@ -17,8 +17,7 @@
  */
 PHDRS
 {
-	nul	 PT_NULL;
-	text     PT_LOAD FLAGS(5) FILEHDR PHDRS;
+	text     PT_LOAD FLAGS(5);
 	data     PT_LOAD FLAGS(6);
 }
 
@@ -29,16 +28,12 @@ SECTIONS
    __image_start = .;
    . +=  SIZEOF_HEADERS;
 
-  .nul :
-  {
-       /* NUL magic */
-       LONG(0x204c554e);
-       /* requested API version */
-       LONG(2);
-   } : text : nul
-
   .text :
   {
+     /* NUL magic */
+     LONG(0x204c554e);
+     /* requested API version */
+     LONG(3);
     *(.text .text.* .gnu.linkonce.t.*);
   } : text
   . = ALIGN(0x1000);

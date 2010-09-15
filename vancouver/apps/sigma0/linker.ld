@@ -17,8 +17,7 @@
  */
 PHDRS
 {
-	nova	 PT_NULL;
-	text     PT_LOAD FLAGS(5) FILEHDR PHDRS;
+	text     PT_LOAD FLAGS(5);
 	data     PT_LOAD FLAGS(6);
 }
 
@@ -28,20 +27,15 @@ SECTIONS
    .  =  0x00400000;
    __image_start = .;
    . +=  SIZEOF_HEADERS;
-   .nova :
-  {
-       /* NUL magic */
-       LONG(0x41564f4e);
-       __nova_api_version = .;
-       /* requested API version */
-       LONG(3);
-   } : text : nova
-
 
  .text :
   {
-    *(.text .text.* .gnu.linkonce.t.*);
-    . = ALIGN(0x1000);
+       /* NOVA header */
+       LONG(0x41564f4e);
+       __nova_api_version = .;
+       LONG(0xbbbb0004);
+       *(.text .text.* .gnu.linkonce.t.*);
+       . = ALIGN(0x1000);
   } : text
 
   .data :

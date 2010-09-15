@@ -19,7 +19,7 @@
 
 struct Config {
   enum {
-    NUL_VERSION    = 0x00000002204c554eULL,
+    NUL_VERSION    = 0x00000003204c554eULL,
     MAX_CLIENTS    = 64,
     PHYS_ADDR_SIZE = 40,
     MAX_CPUS       = 256,
