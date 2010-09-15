@@ -23,17 +23,18 @@
  */
 template <typename T> class QuotaGuard {
   Utcb *   _utcb;
+  unsigned _requestor;
   unsigned _parent_cap;
   const char *_name;
   long _value_in;
   QuotaGuard *_prev;
   unsigned _res;
  public:
-  QuotaGuard(Utcb *utcb, unsigned parent_cap, const char *name, long value_in, QuotaGuard *prev=0)
-    : _utcb(utcb), _parent_cap(parent_cap), _name(name), _value_in(value_in), _prev(prev), _res(ENONE) {
-    _res = T::get_quota(_utcb, _parent_cap, _name, _value_in);
+  QuotaGuard(Utcb *utcb, unsigned requestor, unsigned parent_cap, const char *name, long value_in, QuotaGuard *prev=0)
+    : _utcb(utcb), _requestor(requestor), _parent_cap(parent_cap), _name(name), _value_in(value_in), _prev(prev), _res(ENONE) {
+    _res = T::get_quota(_utcb, _requestor, _parent_cap, _name, _value_in);
   }
-  ~QuotaGuard()   { if (_value_in && !_res) T::get_quota(_utcb, _parent_cap, _name, _value_in); }
+  ~QuotaGuard()   { if (_value_in && !_res) T::get_quota(_utcb, _requestor, _parent_cap, _name, _value_in); }
   void commit()   { for (QuotaGuard *g = this; g; g = g->_prev) g->_value_in = 0; }
   unsigned status() { for (QuotaGuard *g = this; g; g = g->_prev) if (g->_res) return g->_res; return _res; }
 };
@@ -51,7 +52,7 @@ struct GenericClientData {
    * overwrite it.  Usefull for example in sigma0 that has a different
    * way to get the quota of a client.
    */
-  static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
+  static unsigned get_quota(Utcb *utcb, unsigned requestor, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
     return ParentProtocol::get_quota(utcb, parent_cap, name, value_in, value_out);
   }
 
@@ -72,10 +73,10 @@ struct GenericClientData {
 template <typename T> class ClientDataStorage {
   T *_head;
 public:
-  unsigned alloc_client_data(Utcb *utcb, T *&data, unsigned parent_cap) {
+  unsigned alloc_client_data(Utcb *utcb, T *&data, unsigned requestor, unsigned parent_cap) {
     unsigned res;
-    QuotaGuard<T> guard1(utcb, parent_cap, "mem", sizeof(T));
-    QuotaGuard<T> guard2(utcb, parent_cap, "cap", 2, &guard1);
+    QuotaGuard<T> guard1(utcb, requestor, parent_cap, "mem", sizeof(T));
+    QuotaGuard<T> guard2(utcb, requestor, parent_cap, "cap", 2, &guard1);
     check1(res, res = guard2.status());
     guard2.commit();
 
@@ -91,13 +92,13 @@ public:
   }
 
 
-  unsigned free_client_data(Utcb *utcb, T *data) {
+  unsigned free_client_data(Utcb *utcb, T *data, unsigned requestor) {
     for (T **prev = &_head; *prev; prev = reinterpret_cast<T **>(&(*prev)->next))
       if (*prev == data) {
 	*prev = reinterpret_cast<T *>(data->next);
 	data->next = 0;
-	T::get_quota(utcb, data->parent_cap, "cap", -2);
-	T::get_quota(utcb, data->parent_cap, "mem", -sizeof(T));
+	T::get_quota(utcb, requestor, data->parent_cap, "cap", -2);
+	T::get_quota(utcb, requestor, data->parent_cap, "mem", -sizeof(T));
 	data->session_close(utcb);
 	dealloc_cap(data->identity);
 	dealloc_cap(data->parent_cap);
@@ -116,6 +117,7 @@ public:
 	data = client;
 	return ENONE;
       }
+    Logging::printf("could not find client data for %x\n", identity);
     return EPROTO;
   }
 
@@ -132,14 +134,13 @@ public:
 template <class C> struct StaticPortalFunc {
   static unsigned long portal_func(C *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
-    Logging::printf("%s %x %x\n", __PRETTY_FUNCTION__, utcb->head.mtr.value(), utcb->msg[0]);
     bool free_cap = utcb->get_received_cap();
-
-    utcb->head.mtr_out = Mtd(1, 0);
+    bool need_alloc = free_cap;
+    utcb->init_frame().head.mtr_out.add_untyped();
     utcb->msg[0] = tls->portal_func(utcb, free_cap);
     if (free_cap)
       nova_revoke(Crd(utcb->get_received_cap(), 0, DESC_CAP_ALL), true);
-    else if (utcb->get_received_cap())
+    else if (need_alloc)
       utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
     return utcb->head.mtr_out.value();
   }

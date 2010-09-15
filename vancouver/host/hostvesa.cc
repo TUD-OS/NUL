@@ -16,8 +16,8 @@
  * General Public License version 2 for more details.
  */
 
-#include "nul/motherboard.h"
 #include "host/vesa.h"
+#include "nul/motherboard.h"
 #include "nul/vcpu.h"
 
 /**

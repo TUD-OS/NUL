@@ -12,6 +12,8 @@
 #pragma once
 #include "desc.h"
 #include "service/cpu.h"
+#include "service/string.h"
+#include "service/logging.h"
 
 enum Eflags {
   EFL_CARRY = 1U << 0,
@@ -96,17 +98,65 @@ struct Utcb
   };
 
   unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.mtr.typed(); }
+
+
   unsigned get_received_cap() {
     for (unsigned i=0; i < head.mtr.typed(); i++)
-      if (msg[head.mtr.untyped() + i*2 + 1] & 1)
+      if (msg[sizeof(msg) / sizeof(unsigned) - i*2 - 1] & 1)
 	return head.crd >> Utcb::MINSHIFT;
     return 0;
   }
-  unsigned get_identity() {
-    if (!head.mtr.typed() || (msg[head.mtr.untyped() + 1] & 1))
-      return 0;
-    return msg[head.mtr.untyped()] >> Utcb::MINSHIFT;
+  unsigned get_identity(unsigned skip=0) {
+    for (unsigned i=0; i < head.mtr.typed(); i++)
+      if (~msg[sizeof(msg) / sizeof(unsigned) - i*2 - 1] & 1 && !skip--)
+	return msg[sizeof(msg) / sizeof(unsigned) - i*2- 2] >> Utcb::MINSHIFT;
+    return 0;
   }
 
   enum { MINSHIFT = 12 };
+
+
+  // MessageBuffer abstraction
+  struct TypedMapCap {
+    unsigned value;
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 1;  }
+    TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+  };
+
+  struct TypedIdentifyCap {
+    unsigned value;
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 0;  }
+    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+  };
+
+  Utcb &  init_frame() { head.mtr_out = Mtd(0,0); return *this; }
+
+  Utcb &  operator <<(unsigned value) {
+    msg[head.mtr_out.untyped()] = value;
+    head.mtr_out.add_untyped();
+    return *this;
+  }
+
+  Utcb &  operator <<(const char *value) {
+    unsigned olduntyped = head.mtr_out.untyped();
+    unsigned slen =  strlen(value) + 1;
+    head.mtr_out.add_untyped((slen + sizeof(unsigned) - 1 ) / sizeof(unsigned));
+    msg[head.mtr_out.untyped() - 1] = 0;
+    memcpy(msg + olduntyped, value, slen);
+    return *this;
+  }
+
+  Utcb &  operator <<(TypedMapCap value) {
+    head.mtr_out.add_typed();
+    value.fill_words(msg + sizeof(msg) / sizeof(unsigned) - head.mtr_out.typed()* 2);
+    return *this;
+  }
+
+  Utcb &  operator <<(TypedIdentifyCap value) {
+    head.mtr_out.add_typed();
+    value.fill_words(msg+sizeof(msg) / sizeof(unsigned) - head.mtr_out.typed()* 2);
+    return *this;
+  }
+
+  Utcb &  operator <<(Crd value) { head.crd = value.value(); return *this; }
 };

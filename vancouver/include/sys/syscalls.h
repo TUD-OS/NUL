@@ -69,6 +69,17 @@ static inline unsigned char nova_syscall2(unsigned w0, unsigned w1)
   return w0;
 }
 
+static inline unsigned char nova_syscall3(unsigned w0, unsigned w1, unsigned w2)
+{
+  asm volatile ("; mov %%esp, %%ecx"
+		"; mov $1f, %%edx"
+		"; sysenter"
+		"; 1:"
+		: "+a" (w0) :  "D" (w1), "S" (w2)
+		: "ecx", "edx", "memory");
+  return w0;
+}
+
 /**
  * Call to the kernel.
  */
@@ -91,7 +102,7 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 
 
 inline unsigned char  nova_call(unsigned idx_pt, Mtd mtd_send)
-{  return nova_syscall(NOVA_IPC_CALL, idx_pt, mtd_send.value(), 0, 0); }
+{  return nova_syscall3(NOVA_IPC_CALL, idx_pt, mtd_send.value()); }
 
 
 inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
@@ -111,7 +122,7 @@ inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned 
 
 
 inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial = 0)
-{  return nova_syscall(NOVA_CREATE_SM, idx_sm, initial, 0, 0); }
+{  return nova_syscall3(NOVA_CREATE_SM, idx_sm, initial); }
 
 
 inline unsigned char  nova_revoke(Crd crd, bool myself)

@@ -17,10 +17,10 @@
  */
 #ifndef  VM_FUNC
 #include "host/keyboard.h"
-#include "sigma0/console.h"
 #include "nul/motherboard.h"
 #include "nul/program.h"
 #include "nul/vcpu.h"
+#include "sigma0/console.h"
 
 /**
  * Layout of the capability space.
@@ -288,10 +288,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _lock = Semaphore(alloc_cap());
     check1(1, nova_create_sm(_lock.sm()));
 
-    _console_data.sem = new Semaphore(alloc_cap());
-    _console_data.sem->up();
-    check1(2, nova_create_sm(_console_data.sem->sm()));
-
+    Semaphore *sem = new Semaphore(alloc_cap());
+    check1(2, nova_create_sm(sem->sm()));
+    sem->up();
+    _console_data.lock.sem = sem;
 
     // create exception EC
     unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0);
@@ -635,14 +635,14 @@ public:
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
+    char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     console_init("VMM");
     assert(hip);
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
-    char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
-    _console_data.sigma0_log = strstr(args, "sigma0::log");
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);

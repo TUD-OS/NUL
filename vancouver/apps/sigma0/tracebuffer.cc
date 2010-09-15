@@ -57,21 +57,25 @@ public:
     ClientData *data = 0;
     unsigned res = ENONE;
 
+    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, utcb->head.mtr.untyped(), utcb->head.mtr.typed(), utcb->get_identity(), utcb->msg[0]);
     check1(EPROTO, utcb->head.mtr.untyped() < 1);
     switch (utcb->msg[0]) {
     case ParentProtocol::TYPE_OPEN:
-      check1(res, res = _storage.alloc_client_data(utcb, data, utcb->get_received_cap()));
+      check1(res, res = _storage.alloc_client_data(utcb, data, 0, utcb->get_received_cap()));
       free_cap = false;
       if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", data->guid, &data->guid))
 	data->guid = --_anon_sessions;
+      *utcb << Utcb::TypedMapCap(data->identity);
+      Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->parent_cap);
       return res;
     case ParentProtocol::TYPE_CLOSE:
       check1(res, res = _storage.get_client_data(utcb, data));
       Logging::printf("close session for %lx\n", data->guid);
-      return _storage.free_client_data(utcb, data);
+      return _storage.free_client_data(utcb, data, 0);
     case LogProtocol::TYPE_LOG:
       check1(EPROTO, utcb->head.mtr.untyped() < 2);
       check1(res, res = _storage.get_client_data(utcb, data));
+      Logging::printf("[%4lx] %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
       trace_printf("[%4lx] %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
       return ENONE;
     default:

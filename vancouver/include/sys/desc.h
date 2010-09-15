@@ -83,6 +83,8 @@ public:
   unsigned untyped() { return _value & ~0xff800000; }
   void add (unsigned v) { _value |= v; };
   void del (unsigned v) { _value &= ~v; };
+  void add_untyped(unsigned count=1) { _value += count; }
+  void add_typed() { _value += 1 << 23; }
 };
 
 

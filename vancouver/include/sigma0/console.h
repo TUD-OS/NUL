@@ -19,6 +19,34 @@
 #include "nul/message.h"
 #include "host/screen.h"
 #include "sigma0/sigma0.h"
+#include "nul/parent.h"
+#include "nul/baseprogram.h"
+
+class MultiEntranceLock {
+  void *_lock_owner;
+  int   _nesting_level;
+ public:
+  Semaphore *sem;
+  MultiEntranceLock() : _lock_owner(0), _nesting_level(0), sem(0) {}
+
+  void lock(void *myself) {
+    if (_lock_owner != myself) {
+      if (sem) sem->down();
+      _lock_owner = myself;
+    }
+    _nesting_level++;
+  }
+
+  void unlock(void *myself) {
+    assert(_lock_owner == myself);
+    if (!--_nesting_level && sem) {
+      _lock_owner = 0;
+      sem->up();
+    }
+  }
+
+  int nesting_level() { return _nesting_level - 1; }
+};
 
 /**
  * A helper class that implements a vga console and forwards message to sigma0.
@@ -30,23 +58,23 @@ class ProgramConsole
     VgaRegs *regs;
     unsigned short *screen_address;
     unsigned index;
-    Semaphore *sem;
+    MultiEntranceLock lock;
     char buffer[100];
-    bool sigma0_log;
+    LogProtocol *log;
   };
 
   static void putc(void *data, int value)
   {
     struct console_data *d = reinterpret_cast<struct console_data *>(data);
-    if (value == -1 && d->sem) d->sem->down();
-    if (value == -2 && d->sem) d->sem->up();
+    if (value == -1) d->lock.lock(BaseProgram::myutcb());
+    if (value == -2) d->lock.unlock(BaseProgram::myutcb());
     if (value < 0) return;
-
     if (d->screen_address)  Screen::vga_putc(0xf00 | value, d->screen_address, d->regs->cursor_pos);
     if (value == '\n' || d->index == sizeof(d->buffer) - 1)
       {
 	d->buffer[d->index] = 0;
-	if (d->sigma0_log) Sigma0Base::puts(d->buffer);
+	if (d->log && !d->lock.nesting_level())
+	  d->log->log(BaseProgram::myutcb(), d->buffer);
 	d->index = 0;
 	if (value != '\n')
 	  {
@@ -63,11 +91,10 @@ class ProgramConsole
   VgaRegs             _vga_regs;
   struct console_data _console_data;
   char                _vga_console[0x1000];
-  void console_init(const char *name, Semaphore *sem=0)
+  void console_init(const char *name)
   {
     _console_data.screen_address = reinterpret_cast<unsigned short *>(_vga_console);
     _console_data.regs = &_vga_regs;
-    _console_data.sem = sem;
     Logging::init(putc, &_console_data);
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;

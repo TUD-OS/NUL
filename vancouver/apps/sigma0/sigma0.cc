@@ -703,6 +703,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      return utcb->head.mtr.value();
 	  }
 
+	  //Logging::printf("%s %x %x\n", __func__, client, utcb->msg[0]);
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.mtr.untyped() < 0x1000)

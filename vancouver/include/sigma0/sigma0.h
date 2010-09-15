@@ -30,8 +30,7 @@ class Sigma0Base : public BaseProgram
 {
  public:
   enum {
-    REQUEST_PUTS   = 0x1001,
-    REQUEST_STDIN_ATTACH,
+    REQUEST_STDIN_ATTACH = 0x1001,
     REQUEST_DISKS_ATTACH,
     REQUEST_TIMER_ATTACH,
     REQUEST_NETWORK_ATTACH,
@@ -68,7 +67,7 @@ class Sigma0Base : public BaseProgram
     TemporarySave<Utcb::HEADER_SIZE + 1 + words> save(utcb);
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
-    if (nova_call(14, Mtd(1 + words, 0)) && OP != REQUEST_PUTS)
+    if (nova_call(14, Mtd(1 + words, 0)))
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return utcb->msg[0];
@@ -79,7 +78,6 @@ class Sigma0Base : public BaseProgram
     char *buffer;
     PutsRequest(char *_buffer) : buffer(_buffer) {}
   };
-  static unsigned  puts(char *buffer) {  PutsRequest req(buffer); return sigma0_message<PutsRequest, REQUEST_PUTS>(req); }
   static unsigned  request_stdin         (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
