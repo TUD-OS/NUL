@@ -487,7 +487,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // alloc memory
     char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
-    unsigned long psize_needed = elf ? Elf::loaded_memsize(elf) : ~0u;
+    unsigned long psize_needed = elf ? Elf::loaded_memsize(elf, mod->size) : ~0u;
     p = strstr(cmdline, "sigma0::mem:");
     unsigned long psize_requested = p ? strtoul(p+12, 0, 0) << 20 : 0;
     modinfo->physsize = (psize_needed > psize_requested) ? psize_needed : psize_requested ;
@@ -518,7 +518,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // decode ELF
     unsigned long maxptr = 0;
-    if (Elf::decode_elf(elf, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
+    if (Elf::decode_elf(elf, mod->size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
       _free_phys.add(Region(pmem, modinfo->physsize));
       modinfo->mem = 0;
       return __LINE__;

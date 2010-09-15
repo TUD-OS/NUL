@@ -109,7 +109,7 @@ private:
 	switch(modcount)
 	  {
 	  case 0:
-	    if (Elf::decode_elf(msg2.start, physmem, rip, offset, memsize, 0, 0)) return 0;
+	    if (Elf::decode_elf(msg2.start, msg2.size, physmem, rip, offset, memsize, 0, 0)) return 0;
 	    offset = (offset + 0xfff) & ~0xffful;
 	    mbi = offset;
 	    offset += 0x1000;
