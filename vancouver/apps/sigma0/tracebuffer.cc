@@ -75,6 +75,7 @@ public:
     case LogProtocol::TYPE_LOG:
       check1(EPROTO, utcb->head.mtr.untyped() < 2);
       if ((res = _storage.get_client_data(utcb, data, utcb->get_identity())))  return res;
+
       if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
       trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
       return ENONE;
