@@ -143,24 +143,24 @@ public:
   {
     if (msg.abstime == ~0ull || msg.nr != 0) return false;
 
-    // delta is truncated, should be rounded "upwards" :-)
+    // delta is truncated, it should be rounded "upwards" :-)
     unsigned delta = _clock->delta(msg.abstime, _freq);
     if (delta < _mindelta) delta = _mindelta;
-    unsigned oldvalue = _regs->counter[0];
+    unsigned newvalue = _regs->counter[0] + delta;
 
     // write new comparator value
-    _timerreg->comp[0] = oldvalue + delta;
+    _timerreg->comp[0] = newvalue;
 
-    // we read them back to avoid PCI posting problems on ATI chipsets
-    (void) _timerreg->comp[0];
-
-    // check for overflow
-    if ((_regs->counter[0] - oldvalue) >= delta)
-      {
-	COUNTER_INC("HPET lost");
-	MessageTimeout msg2(0, _clock->time());
-	_bus_timeout.send(msg2);
-      }
+    /**
+     * Use the same heuristic as in Linux 2.6.37 to avoid various
+     * corner cases. See 995bd3bb5c78f3ff71339803c0b8337ed36d64fb for
+     * a detailed explanation.
+     */
+    if (static_cast<signed int>(newvalue - _regs->counter[0]) <= 8) {
+      COUNTER_INC("HPET lost");
+      MessageTimeout msg2(0, _clock->time());
+      _bus_timeout.send(msg2);
+    }
     return true;
   }
 
