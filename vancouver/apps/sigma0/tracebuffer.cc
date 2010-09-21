@@ -53,12 +53,12 @@ class Tracebuffer {
   }
 
 public:
-  unsigned portal_func(Utcb *utcb, bool &free_cap) {
+  unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
     ClientData *data = 0;
     unsigned res = ENONE;
 
-    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, utcb->head.mtr.untyped(), utcb->head.mtr.typed(), utcb->get_identity(), utcb->msg[0]);
-    check1(EPROTO, utcb->head.mtr.untyped() < 1);
+    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, mtr.untyped(), mtr.typed(), utcb->get_identity(), utcb->msg[0]);
+    check1(EPROTO, mtr.untyped() < 1);
     switch (utcb->msg[0]) {
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, utcb->get_received_cap()));
@@ -73,11 +73,11 @@ public:
       Logging::printf("close session for %lx\n", data->guid);
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
-      check1(EPROTO, utcb->head.mtr.untyped() < 2);
+      check1(EPROTO, mtr.untyped() < 2);
       if ((res = _storage.get_client_data(utcb, data, utcb->get_identity())))  return res;
 
-      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
-      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(utcb->head.mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
+      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
+      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
       return ENONE;
     default:
       return EPROTO;
@@ -105,6 +105,7 @@ PARAM(tracebuffer,
       Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1]);
       MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), reinterpret_cast<unsigned long>(t));
       msg.ptr = const_cast<char *>("/log");
-      check0(!mb.bus_hostop.send(msg), "registering the service failed");
+      if (!mb.bus_hostop.send(msg))
+	Logging::panic("registering the service failed");
       ,
       "tracebuffer:size,verbose=1 - instanciate a tracebuffer for the clients")

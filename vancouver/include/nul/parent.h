@@ -44,21 +44,23 @@ struct ParentProtocol {
     CAP_PT_PERCPU = 256,
   };
 
-  static unsigned call(Utcb *utcb, unsigned cap_base) {
+  static unsigned call(Utcb *utcb, unsigned cap_base, bool drop_frame) {
     unsigned res;
-    res = nova_call(cap_base + Cpu::cpunr(), utcb->head.mtr_out);
-    return res ? res : utcb->msg[0];
+    res = nova_call(cap_base + Cpu::cpunr(), utcb->head.mtr);
+    if (!res) res = utcb->msg[0];
+    if (drop_frame) utcb->drop_frame();
+    return res;
   }
 
   static unsigned session_open(Utcb *utcb, const char *service, unsigned cap_parent_session) __attribute__((noinline)) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_OPEN << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
-    return call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_OPEN << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
+    return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned request_portal(Utcb *utcb, unsigned cap_parent_session, unsigned cap_portal, bool blocking) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REQUEST << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
-    unsigned res = call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REQUEST << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
+    unsigned res = call(utcb, CAP_PT_PERCPU, true);
 
     // block on the parent session until something happens
     if (res == ERETRY) {
@@ -72,30 +74,33 @@ struct ParentProtocol {
 
 
   static unsigned session_close(Utcb *utcb, unsigned cap_parent_session) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_CLOSE << Utcb::TypedIdentifyCap(cap_parent_session);
-    return call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_CLOSE << Utcb::TypedIdentifyCap(cap_parent_session);
+    return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned register_service(Utcb *utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REGISTER << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
-    return call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REGISTER << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    return call(utcb, CAP_PT_PERCPU, true);
   };
 
 
   static unsigned unregister_service(Utcb *utcb, unsigned cap_service) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_UNREGISTER << Utcb::TypedIdentifyCap(cap_service);
-    return call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_UNREGISTER << Utcb::TypedIdentifyCap(cap_service);
+    return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
-    utcb->init_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_GET_QUOTA << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
-    unsigned res = call(utcb, CAP_PT_PERCPU);
+    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_GET_QUOTA << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
+    unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue) {
-      if (utcb->head.mtr.untyped() < 2) return EPROTO;
-      *outvalue = utcb->msg[1];
+      if (utcb->head.mtr.untyped() < 2)
+	res = EPROTO;
+      else
+	*outvalue = utcb->msg[1];
     }
+    utcb->drop_frame();
     return res;
   }
 
@@ -130,15 +135,15 @@ public:
    * Call a server and handles the parent and session errors after the call.
    */
   unsigned do_call(Utcb *utcb) {
-    unsigned res = call(utcb, _cap_base + CAP_SERVER_PT);
+    unsigned res = call(utcb, _cap_base + CAP_SERVER_PT, false);
     bool need_session = res == EEXISTS;
     bool need_pt      = res == NOVA_ECAP;
     bool need_open = false;
     if (need_session) {
-      utcb->init_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PARENT_SESSION) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
-      res = call(utcb, _cap_base + CAP_SERVER_PT);
+      utcb->add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PARENT_SESSION) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
+      res = call(utcb, _cap_base + CAP_SERVER_PT, true);
       if (!res)  return ERETRY;
-      need_pt      = res == NOVA_ECAP;
+      need_pt   = res == NOVA_ECAP;
       need_open = res == EEXISTS;
     }
     if (need_pt) {
@@ -188,10 +193,11 @@ struct LogProtocol : public GenericProtocol {
   unsigned log(Utcb *utcb, const char *line) {
     if (_disabled) return EPERM;
     unsigned res;
-    do {
-      utcb->init_frame() << TYPE_LOG << line << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION);
+    utcb->add_frame() << TYPE_LOG << line << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION);
+    do
       res = do_call(utcb);
-    } while (res == ERETRY);
+    while (res == ERETRY);
+    utcb->drop_frame();
     return res;
   }
 

@@ -66,19 +66,19 @@ unsigned free_service(Utcb *utcb, ServerData *sdata) {
 }
 
 
-unsigned handle_parent(Utcb *utcb, bool &free_cap) {
+unsigned handle_parent(Utcb *utcb, bool &free_cap, Mtd mtr) {
   unsigned res;
   ServerData *sdata;
   ClientData *cdata;
-  Logging::printf("parent request mtr %x/%x type %x id %x %x+%x\n", utcb->head.mtr.untyped(), utcb->head.mtr.typed(), utcb->msg[0], utcb->get_identity(),
+  Logging::printf("parent request mtr %x/%x type %x id %x+%x %x+%x\n", mtr.untyped(), mtr.typed(), utcb->msg[0], utcb->get_identity(), utcb->get_identity(1),
 		  utcb->msg[sizeof(utcb->msg) / sizeof(unsigned) - 2], utcb->msg[sizeof(utcb->msg) / sizeof(unsigned) - 1]);
-  if (utcb->head.mtr.untyped() < 1) return EPROTO;
+  if (mtr.untyped() < 1) return EPROTO;
   switch (utcb->msg[0]) {
   case ParentProtocol::TYPE_OPEN:
     {
-      if (utcb->head.mtr.untyped() < 2) return EPROTO;
+      if (mtr.untyped() < 2) return EPROTO;
       char *request = reinterpret_cast<char *>(utcb->msg+1);
-      unsigned request_len = sizeof(unsigned)*(utcb->head.mtr.untyped()-1);
+      unsigned request_len = sizeof(unsigned)*(mtr.untyped()-1);
       request[request_len-1] = 0;
       request_len = strnlen(request, request_len);
 
@@ -140,11 +140,11 @@ unsigned handle_parent(Utcb *utcb, bool &free_cap) {
 
   case ParentProtocol::TYPE_REGISTER:
     {
-      if (utcb->head.mtr.untyped() < 3) return EPROTO;
+      if (mtr.untyped() < 3) return EPROTO;
 
       // sanitize the request
       char *request = reinterpret_cast<char *>(utcb->msg + 2);
-      unsigned request_len = sizeof(unsigned)*(utcb->head.mtr.untyped() - 2);
+      unsigned request_len = sizeof(unsigned)*(mtr.untyped() - 2);
       request[request_len-1] = 0;
       request_len = strnlen(request, request_len);
 
@@ -198,9 +198,9 @@ unsigned handle_parent(Utcb *utcb, bool &free_cap) {
     {
       if ((res = _client.get_client_data(utcb, cdata, utcb->get_identity(1)))) return res;
       char *request = reinterpret_cast<char *>(utcb->msg+2);
-      unsigned request_len = sizeof(unsigned)*(utcb->head.mtr.untyped()-2);
+      unsigned request_len = sizeof(unsigned)*(mtr.untyped()-2);
       request[request_len-1] = 0;
-      utcb->head.mtr_out.add_untyped();
+      utcb->head.mtr.add_untyped();
       long outvalue = utcb->msg[1];
       res = ClientData::get_quota(utcb, cdata->parent_cap, request,  utcb->msg[1], &outvalue);
       utcb->msg[1] = outvalue;
@@ -218,12 +218,14 @@ PT_FUNC(do_parent,
 	bool free_cap = utcb->get_received_cap();
 
 	// reserve return value
-	utcb->init_frame().head.mtr_out.add_untyped();
-	utcb->msg[0] = handle_parent(utcb, free_cap);
+	Mtd mtr = utcb->head.mtr;
+	utcb->add_frame().head.mtr.add_untyped();
+	utcb->msg[0] = handle_parent(utcb, free_cap, mtr);
+	unsigned res = utcb->skip_frame();
 	if (free_cap)
 	  nova_revoke(Crd(utcb->get_received_cap(), 0, DESC_CAP_ALL), true);
 	else if (utcb->get_received_cap())
 	  utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 	if (utcb->msg[0]) Logging::printf("\tparent return %x\n", utcb->msg[0]);
-	return utcb->head.mtr_out.value();
+	return res;
 	)
