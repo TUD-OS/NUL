@@ -66,7 +66,10 @@ unsigned free_service(Utcb *utcb, ServerData *sdata) {
 }
 
 
-unsigned handle_parent(Utcb *utcb, bool &free_cap, Mtd mtr) {
+unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
+  // we lock to protect our datastructures and the malloc implementation
+  SemaphoreGuard l(_lock);
+
   unsigned res;
   ServerData *sdata;
   ClientData *cdata;
@@ -210,22 +213,3 @@ unsigned handle_parent(Utcb *utcb, bool &free_cap, Mtd mtr) {
     return EPROTO;
   }
 }
-
-
-PT_FUNC(do_parent,
-	// we lock to protect our datastructures and the malloc implementation
-	SemaphoreGuard l(_lock);
-	bool free_cap = utcb->get_received_cap();
-
-	// reserve return value
-	Mtd mtr = utcb->head.mtr;
-	utcb->add_frame().head.mtr.add_untyped();
-	utcb->msg[0] = handle_parent(utcb, free_cap, mtr);
-	unsigned res = utcb->skip_frame();
-	if (free_cap)
-	  nova_revoke(Crd(utcb->get_received_cap(), 0, DESC_CAP_ALL), true);
-	else if (utcb->get_received_cap())
-	  utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
-	if (utcb->msg[0]) Logging::printf("\tparent return %x\n", utcb->msg[0]);
-	return res;
-	)
