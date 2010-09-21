@@ -12,6 +12,7 @@
 #pragma once
 #include "desc.h"
 #include "service/cpu.h"
+#include "service/helper.h"
 #include "service/string.h"
 #include "service/logging.h"
 
@@ -22,6 +23,11 @@ enum Eflags {
 
 struct Utcb
 {
+  enum {
+    MINSHIFT = 12,
+    STACK_START = 512,
+  };
+
   typedef struct Descriptor
   {
     unsigned short sel, ar;
@@ -34,8 +40,7 @@ struct Utcb
     unsigned res;
     Mtd      mtr;
     unsigned crd;
-    Mtd      mtr_out;
-    unsigned res1;
+    unsigned res1[2];
     unsigned tls;
   } head;
   enum {
@@ -100,20 +105,35 @@ struct Utcb
   unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.mtr.typed(); }
 
 
-  unsigned get_received_cap() {
-    for (unsigned i=0; i < head.mtr.typed(); i++)
-      if (msg[sizeof(msg) / sizeof(unsigned) - i*2 - 1] & 1)
-	return head.crd >> Utcb::MINSHIFT;
-    return 0;
+  Mtd get_nested_mtr(unsigned &typed_offset) {
+    if (!msg[STACK_START]) {
+      typed_offset = sizeof(msg) / sizeof(unsigned) - 2 * head.mtr.typed();
+      return head.mtr;
+    }
+    unsigned old_ofs = msg[msg[STACK_START] + STACK_START] + STACK_START + 1;
+    typed_offset = old_ofs + 6 + Mtd(msg[old_ofs + 1]).size() / 4;
+    return Mtd(msg[old_ofs + 1]);
   }
-  unsigned get_identity(unsigned skip=0) {
-    for (unsigned i=0; i < head.mtr.typed(); i++)
-      if (~msg[sizeof(msg) / sizeof(unsigned) - i*2 - 1] & 1 && !skip--)
-	return msg[sizeof(msg) / sizeof(unsigned) - i*2- 2] >> Utcb::MINSHIFT;
+
+
+  unsigned get_received_cap() {
+    unsigned typed_ofs;
+    Mtd mtr = get_nested_mtr(typed_ofs);
+    for (unsigned i=mtr.typed(); i > 0; i--)
+      if (msg[typed_ofs + i * 2 - 1] & 1)
+	return msg[typed_ofs + i * 2 - 2] >> Utcb::MINSHIFT;
     return 0;
   }
 
-  enum { MINSHIFT = 12 };
+  unsigned get_identity(unsigned skip=0) {
+    unsigned typed_ofs;
+    Mtd mtr = get_nested_mtr(typed_ofs);
+    //Logging::printf("iden %p %x %x %x\n", this, mtr.value(), typed_ofs, msg[STACK_START]);
+    for (unsigned i=mtr.typed(); i > 0; i--)
+      if (~msg[typed_ofs + i * 2 - 1] & 1 && !skip--)
+	return msg[typed_ofs + i * 2 - 2] >> Utcb::MINSHIFT;
+    return 0;
+  }
 
 
   // MessageBuffer abstraction
@@ -129,32 +149,82 @@ struct Utcb
     TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
-  Utcb &  init_frame() { head.mtr_out = Mtd(0,0); return *this; }
+  Utcb &  add_frame() {
+    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+
+    //Logging::printf("add  %p frame at %x %x/%x\n", this, ofs, head.mtr.size() / 4, head.mtr.typed());
+    // save header, untyped and typed items
+    memcpy(msg+ofs, &head, 6 * 4);
+    ofs += 6;
+    memcpy(msg+ofs, msg, head.mtr.size());
+    ofs += head.mtr.size() / 4;
+    memcpy(msg+ofs, msg + sizeof(msg) / sizeof(unsigned) - head.mtr.typed()* 2, head.mtr.typed() * 2 * 4);
+    ofs += head.mtr.typed() * 2;
+    msg[ofs++] = msg[STACK_START];
+    msg[STACK_START] = ofs - STACK_START - 1;
+
+    assert(ofs < sizeof(msg) / sizeof(unsigned));
+
+    // init them
+    head.mtr = Mtd(0,0);
+    head.crd = ~0;
+    return *this;
+  }
+
+  unsigned skip_frame() {
+    //Logging::printf("skip %p frame at %x-%x\n", this, ofs, msg[ofs - 1] + STACK_START + 1);
+    unsigned res = head.mtr.value();
+    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    msg[STACK_START] = msg[ofs - 1];
+    memcpy(&head, msg + msg[STACK_START] + STACK_START + 1 , 6 * 4);
+    return res;
+  }
+
+  void drop_frame() {
+    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    assert (ofs > STACK_START + 1);
+
+    // XXX clear the UTCB to detect bugs
+    memset(msg, 0xe8, 512 * 4);
+    memset(msg+ofs, 0xd5, sizeof(msg) - ofs * 4);
+
+    unsigned old_ofs = msg[ofs - 1] +  STACK_START + 1;
+    //Logging::printf("drop %p frame %x-%x\n", this, old_ofs, ofs);
+    ofs = old_ofs;
+    memcpy(&head, msg+ofs, 6 * 4);
+    ofs += 6;
+    memcpy(msg, msg+ofs, head.mtr.size());
+    ofs += head.mtr.size();
+    memcpy(msg + sizeof(msg) / sizeof(unsigned) - head.mtr.typed()* 2, msg+ofs, head.mtr.typed() * 2 * 4);
+    ofs += head.mtr.typed() * 2;
+    msg[STACK_START] = old_ofs - STACK_START - 1;
+  }
+
 
   Utcb &  operator <<(unsigned value) {
-    msg[head.mtr_out.untyped()] = value;
-    head.mtr_out.add_untyped();
+    msg[head.mtr.untyped()] = value;
+    head.mtr.add_untyped();
     return *this;
   }
 
   Utcb &  operator <<(const char *value) {
-    unsigned olduntyped = head.mtr_out.untyped();
+    unsigned olduntyped = head.mtr.untyped();
     unsigned slen =  strlen(value) + 1;
-    head.mtr_out.add_untyped((slen + sizeof(unsigned) - 1 ) / sizeof(unsigned));
-    msg[head.mtr_out.untyped() - 1] = 0;
+    head.mtr.add_untyped((slen + sizeof(unsigned) - 1 ) / sizeof(unsigned));
+    msg[head.mtr.untyped() - 1] = 0;
     memcpy(msg + olduntyped, value, slen);
     return *this;
   }
 
   Utcb &  operator <<(TypedMapCap value) {
-    head.mtr_out.add_typed();
-    value.fill_words(msg + sizeof(msg) / sizeof(unsigned) - head.mtr_out.typed()* 2);
+    head.mtr.add_typed();
+    value.fill_words(msg + sizeof(msg) / sizeof(unsigned) - head.mtr.typed()* 2);
     return *this;
   }
 
   Utcb &  operator <<(TypedIdentifyCap value) {
-    head.mtr_out.add_typed();
-    value.fill_words(msg+sizeof(msg) / sizeof(unsigned) - head.mtr_out.typed()* 2);
+    head.mtr.add_typed();
+    value.fill_words(msg+sizeof(msg) / sizeof(unsigned) - head.mtr.typed()* 2);
     return *this;
   }
 
