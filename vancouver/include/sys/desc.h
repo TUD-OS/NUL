@@ -22,6 +22,7 @@ enum
     MTD_INJ             = 1ul << 17,
     MTD_STATE           = 1ul << 18,
     MTD_TSC             = 1ul << 19,
+    MTD_EXCEPTION       = 1ul << 22,
     MTD_IRQ             = MTD_RFLAGS | MTD_STATE | MTD_INJ | MTD_TSC,
     MTD_ALL             = (~0U >> 12) & ~MTD_CTRL
   };
@@ -81,7 +82,8 @@ public:
   Mtd(unsigned _untyped, unsigned _typed = 0) : Desc((_typed << 23) | _untyped) { }
   unsigned typed() { return (_value  >> 23); }
   unsigned untyped() { return _value & ~0xff800000; }
-  void add (unsigned v) { _value |= v; };
+  unsigned size() { return _value & MTD_EXCEPTION ? 0x120 : 4*untyped(); }
+  void add (unsigned v) { _value |= v | MTD_EXCEPTION; };
   void del (unsigned v) { _value &= ~v; };
   void add_untyped(unsigned count=1) { _value += count; }
   void add_typed() { _value += 1 << 23; }

@@ -118,7 +118,7 @@ inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 
 
 inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, Mtd mtd)
-{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value(), eip); }
+{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value() | MTD_EXCEPTION, eip); }
 
 
 inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial = 0)
