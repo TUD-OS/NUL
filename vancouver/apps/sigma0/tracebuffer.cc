@@ -53,31 +53,31 @@ class Tracebuffer {
   }
 
 public:
-  unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
+  unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
     ClientData *data = 0;
     unsigned res = ENONE;
 
-    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, mtr.untyped(), mtr.typed(), utcb->get_identity(), utcb->msg[0]);
+    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, mtr.untyped(), mtr.typed(), utcb.get_identity(), utcb.msg[0]);
     check1(EPROTO, mtr.untyped() < 1);
-    switch (utcb->msg[0]) {
+    switch (utcb.msg[0]) {
     case ParentProtocol::TYPE_OPEN:
-      check1(res, res = _storage.alloc_client_data(utcb, data, utcb->get_received_cap()));
+      check1(res, res = _storage.alloc_client_data(utcb, data, utcb.get_received_cap()));
       free_cap = false;
       if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", data->guid, &data->guid))
 	data->guid = --_anon_sessions;
-      *utcb << Utcb::TypedMapCap(data->identity);
+      utcb << Utcb::TypedMapCap(data->identity);
       Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->parent_cap);
       return res;
     case ParentProtocol::TYPE_CLOSE:
-      check1(res, res = _storage.get_client_data(utcb, data, utcb->get_identity()));
+      check1(res, res = _storage.get_client_data(utcb, data, utcb.get_identity()));
       Logging::printf("close session for %lx\n", data->guid);
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
       check1(EPROTO, mtr.untyped() < 2);
-      if ((res = _storage.get_client_data(utcb, data, utcb->get_identity())))  return res;
+      if ((res = _storage.get_client_data(utcb, data, utcb.get_identity())))  return res;
 
-      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
-      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb->msg + 1));
+      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb.msg + 1));
       return ENONE;
     default:
       return EPROTO;

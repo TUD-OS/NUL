@@ -22,8 +22,8 @@
 struct ClientData : public GenericClientData {
   char          * name;
   unsigned        len;
-  static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
-    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, utcb->get_identity(1), utcb->get_identity(0));
+  static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
+    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, utcb.get_identity(1), utcb.get_identity(0));
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
       char *cmdline = get_module_cmdline(utcb);
@@ -34,7 +34,7 @@ struct ClientData : public GenericClientData {
     }
     return ERESOURCE;
   }
-  void session_close(Utcb *utcb) {}
+  void session_close(Utcb &utcb) {}
 };
 struct ServerData : public ClientData {
   unsigned        cpu;
@@ -50,14 +50,14 @@ static unsigned get_client_number(unsigned cap) {
   return cap >> CLIENT_PT_SHIFT;
 }
 
-static char * get_module_cmdline(Utcb *utcb) {
-  unsigned clientnr = get_client_number(utcb->get_identity(0));
+static char * get_module_cmdline(Utcb &utcb) {
+  unsigned clientnr = get_client_number(utcb.get_identity(0));
   if (clientnr >= MAXMODULES) return 0;
   return sigma0->_modinfo[clientnr].cmdline;
 }
 
 
-unsigned free_service(Utcb *utcb, ServerData *sdata) {
+unsigned free_service(Utcb &utcb, ServerData *sdata) {
   dealloc_cap(sdata->pt);
   delete sdata->name;
   ServerData::get_quota(utcb, sdata->parent_cap, "cap", -1);
@@ -66,21 +66,21 @@ unsigned free_service(Utcb *utcb, ServerData *sdata) {
 }
 
 
-unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
+unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
   // we lock to protect our datastructures and the malloc implementation
   SemaphoreGuard l(_lock);
 
   unsigned res;
   ServerData *sdata;
   ClientData *cdata;
-  Logging::printf("parent request mtr %x/%x type %x id %x+%x %x+%x\n", mtr.untyped(), mtr.typed(), utcb->msg[0], utcb->get_identity(), utcb->get_identity(1),
-		  utcb->msg[sizeof(utcb->msg) / sizeof(unsigned) - 2], utcb->msg[sizeof(utcb->msg) / sizeof(unsigned) - 1]);
+  Logging::printf("parent request mtr %x/%x type %x id %x+%x %x+%x\n", mtr.untyped(), mtr.typed(), utcb.msg[0], utcb.get_identity(), utcb.get_identity(1),
+		  utcb.msg[sizeof(utcb.msg) / sizeof(unsigned) - 2], utcb.msg[sizeof(utcb.msg) / sizeof(unsigned) - 1]);
   if (mtr.untyped() < 1) return EPROTO;
-  switch (utcb->msg[0]) {
+  switch (utcb.msg[0]) {
   case ParentProtocol::TYPE_OPEN:
     {
       if (mtr.untyped() < 2) return EPROTO;
-      char *request = reinterpret_cast<char *>(utcb->msg+1);
+      char *request = reinterpret_cast<char *>(utcb.msg+1);
       unsigned request_len = sizeof(unsigned)*(mtr.untyped()-1);
       request[request_len-1] = 0;
       request_len = strnlen(request, request_len);
@@ -102,14 +102,14 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
 
 	// check whether such a session is already known from our client
 	for (ClientData * c = _client.next(); c; c = _client.next(c))
-	  if (c->name == cmdline && c->parent_cap == utcb->get_identity())
+	  if (c->name == cmdline && c->parent_cap == utcb.get_identity())
 	    return EEXISTS;
 
-	check1(res, res = _client.alloc_client_data(utcb, cdata, utcb->get_identity()));
+	check1(res, res = _client.alloc_client_data(utcb, cdata, utcb.get_identity()));
 	cdata->name = cmdline;
 	cdata->len  = namelen;
-	*utcb << Utcb::TypedMapCap(cdata->identity);
-	Logging::printf("\treturn cap %x to client %x\n", cdata->identity, utcb->get_identity());
+	utcb << Utcb::TypedMapCap(cdata->identity);
+	Logging::printf("\treturn cap %x to client %x\n", cdata->identity, utcb.get_identity());
 	return ENONE;
       }
       // we do not have the permissions
@@ -117,13 +117,13 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
     }
 
   case ParentProtocol::TYPE_CLOSE:
-    if ((res = _client.get_client_data(utcb, cdata, utcb->get_identity(1)))) return res;
+    if ((res = _client.get_client_data(utcb, cdata, utcb.get_identity(1)))) return res;
     Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->parent_cap);
     return _client.free_client_data(utcb, cdata);
 
   case ParentProtocol::TYPE_REQUEST:
     {
-      if ((res = _client.get_client_data(utcb, cdata, utcb->get_identity(1)))) return res;
+      if ((res = _client.get_client_data(utcb, cdata, utcb.get_identity(1)))) return res;
       Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->parent_cap, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
 	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
@@ -135,7 +135,7 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
 	    free_service(utcb, sdata);
 	    return ERETRY;
 	  }
-	  *utcb << Utcb::TypedMapCap(sdata->pt);
+	  utcb << Utcb::TypedMapCap(sdata->pt);
 	  return ENONE;
 	}
       return ERETRY;
@@ -146,7 +146,7 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
       if (mtr.untyped() < 3) return EPROTO;
 
       // sanitize the request
-      char *request = reinterpret_cast<char *>(utcb->msg + 2);
+      char *request = reinterpret_cast<char *>(utcb.msg + 2);
       unsigned request_len = sizeof(unsigned)*(mtr.untyped() - 2);
       request[request_len-1] = 0;
       request_len = strnlen(request, request_len);
@@ -154,16 +154,16 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
       // search for an allowed namespace
       char * cmdline = get_module_cmdline(utcb);
       if (!cmdline) return EPROTO;
-      Logging::printf("\tregister client %x cmdline '%.10s'\n", utcb->get_identity(), cmdline);
+      Logging::printf("\tregister client %x cmdline '%.10s'\n", utcb.get_identity(), cmdline);
       cmdline = strstr(cmdline, "namespace::");
       if (!cmdline) return EPERM;
       cmdline += 11;
       unsigned namespace_len = strcspn(cmdline, " \t");
 
-      QuotaGuard<ServerData> guard1(utcb, utcb->get_identity(), "mem", request_len + namespace_len + 1);
-      QuotaGuard<ServerData> guard2(utcb, utcb->get_identity(), "cap", 1, &guard1);
+      QuotaGuard<ServerData> guard1(utcb, utcb.get_identity(), "mem", request_len + namespace_len + 1);
+      QuotaGuard<ServerData> guard2(utcb, utcb.get_identity(), "cap", 1, &guard1);
       check1(res, res = guard2.status());
-      check1(res, (res = _server.alloc_client_data(utcb, sdata, utcb->get_identity())));
+      check1(res, (res = _server.alloc_client_data(utcb, sdata, utcb.get_identity())));
       guard2.commit();
 
       sdata->len = namespace_len + request_len + 1;
@@ -171,8 +171,8 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
       memcpy(sdata->name, cmdline, namespace_len);
       memcpy(sdata->name + namespace_len, request, request_len);
       sdata->name[sdata->len - 1] = 0;
-      sdata->cpu  = utcb->msg[1];
-      sdata->pt   = utcb->get_received_cap();
+      sdata->cpu  = utcb.msg[1];
+      sdata->pt   = utcb.get_received_cap();
 
       for (ServerData * s2 = _server.next(); s2; s2 = _server.next(s2))
 	if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
@@ -187,26 +187,26 @@ unsigned portal_func(Utcb *utcb, bool &free_cap, Mtd mtr) {
 	  nova_semup(c->identity);
 	}
 
-      *utcb << Utcb::TypedMapCap(sdata->identity);
+      utcb << Utcb::TypedMapCap(sdata->identity);
       free_cap = false;
       return ENONE;
     }
 
   case ParentProtocol::TYPE_UNREGISTER:
-    if ((res = _server.get_client_data(utcb, sdata, utcb->get_identity(1)))) return res;
+    if ((res = _server.get_client_data(utcb, sdata, utcb.get_identity(1)))) return res;
     Logging::printf("\tunregister %s cpu %x\n", sdata->name, sdata->cpu);
     return free_service(utcb, sdata);
 
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      if ((res = _client.get_client_data(utcb, cdata, utcb->get_identity(1)))) return res;
-      char *request = reinterpret_cast<char *>(utcb->msg+2);
+      if ((res = _client.get_client_data(utcb, cdata, utcb.get_identity(1)))) return res;
+      char *request = reinterpret_cast<char *>(utcb.msg+2);
       unsigned request_len = sizeof(unsigned)*(mtr.untyped()-2);
       request[request_len-1] = 0;
-      utcb->head.mtr.add_untyped();
-      long outvalue = utcb->msg[1];
-      res = ClientData::get_quota(utcb, cdata->parent_cap, request,  utcb->msg[1], &outvalue);
-      utcb->msg[1] = outvalue;
+      utcb.head.mtr.add_untyped();
+      long outvalue = utcb.msg[1];
+      res = ClientData::get_quota(utcb, cdata->parent_cap, request,  utcb.msg[1], &outvalue);
+      utcb.msg[1] = outvalue;
       return res;
     }
   default:

@@ -74,7 +74,7 @@ class ProgramConsole
       {
 	d->buffer[d->index] = 0;
 	if (d->log && !d->lock.nesting_level())
-	  d->log->log(BaseProgram::myutcb(), d->buffer);
+	  d->log->log(*BaseProgram::myutcb(), d->buffer);
 	d->index = 0;
 	if (value != '\n')
 	  {

@@ -22,14 +22,14 @@
  * Optimize the request of different resources and the rollback if one failes.
  */
 template <typename T> class QuotaGuard {
-  Utcb *       _utcb;
+  Utcb &       _utcb;
   unsigned     _parent_cap;
   const char * _name;
   long         _value_in;
   QuotaGuard * _prev;
   unsigned     _res;
  public:
-  QuotaGuard(Utcb *utcb, unsigned parent_cap, const char *name, long value_in, QuotaGuard *prev=0)
+  QuotaGuard(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, QuotaGuard *prev=0)
     : _utcb(utcb), _parent_cap(parent_cap), _name(name), _value_in(value_in), _prev(prev), _res(ENONE) {
     _res = T::get_quota(_utcb, _parent_cap, _name, _value_in);
   }
@@ -51,7 +51,7 @@ struct GenericClientData {
    * overwrite it.  Usefull for example in sigma0 that has a different
    * way to get the quota of a client.
    */
-  static unsigned get_quota(Utcb *utcb, unsigned _parent_cap, const char *name, long value_in, long *value_out=0) {
+  static unsigned get_quota(Utcb &utcb, unsigned _parent_cap, const char *name, long value_in, long *value_out=0) {
     return ParentProtocol::get_quota(utcb, _parent_cap, name, value_in, value_out);
   }
 
@@ -59,7 +59,7 @@ struct GenericClientData {
    * Close the session at the parent.  Implemented here so that
    * derived classes can overwrite it.
    */
-  void session_close(Utcb *utcb) {
+  void session_close(Utcb &utcb) {
     ParentProtocol::session_close(utcb, parent_cap);
   }
 };
@@ -72,7 +72,7 @@ struct GenericClientData {
 template <typename T> class ClientDataStorage {
   T *_head;
 public:
-  unsigned alloc_client_data(Utcb *utcb, T *&data, unsigned parent_cap) {
+  unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned parent_cap) {
     unsigned res;
     QuotaGuard<T> guard1(utcb, parent_cap, "mem", sizeof(T));
     QuotaGuard<T> guard2(utcb, parent_cap, "cap", 2, &guard1);
@@ -91,7 +91,7 @@ public:
   }
 
 
-  unsigned free_client_data(Utcb *utcb, T *data) {
+  unsigned free_client_data(Utcb &utcb, T *data) {
     for (T **prev = &_head; *prev; prev = reinterpret_cast<T **>(&(*prev)->next))
       if (*prev == data) {
 	*prev = reinterpret_cast<T *>(data->next);
@@ -108,7 +108,7 @@ public:
   }
 
 
-  unsigned get_client_data(Utcb *utcb, T *&data, unsigned identity) {
+  unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
     for (T * client = next(); client && identity; client = next(client))
       if (client->identity == identity) {
 	data = client;
@@ -135,7 +135,7 @@ template <class C> struct StaticPortalFunc {
     bool need_alloc = free_cap;
     Mtd mtr = utcb->head.mtr;
     utcb->add_frame().head.mtr.add_untyped();
-    utcb->msg[0] = tls->portal_func(utcb, free_cap, mtr);
+    utcb->msg[0] = tls->portal_func(*utcb, free_cap, mtr);
     unsigned res = utcb->skip_frame();
     if (free_cap)
       nova_revoke(Crd(utcb->get_received_cap(), 0, DESC_CAP_ALL), true);
