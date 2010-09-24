@@ -1138,7 +1138,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       assert(client <  MAXMODULES);
       assert(index);
       assert(index <= MAXDISKREQUESTS);
-      MessageDiskCommit item( _disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
+      MessageDiskCommit item(_disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
       if (!_disk_data[client].prod_disk.produce(item))
 	Logging::panic("produce disk (%x, %x) failed\n", client, index);
       _disk_data[client].tags[index-1].disk = 0;

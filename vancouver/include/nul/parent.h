@@ -44,6 +44,8 @@ struct ParentProtocol {
     CAP_PT_PERCPU = 256,
   };
 
+  static Utcb & init_frame(Utcb *utcb, unsigned op, unsigned id) { return utcb->add_frame() << op << Utcb::TypedIdentifyCap(id); }
+
   static unsigned call(Utcb *utcb, unsigned cap_base, bool drop_frame) {
     unsigned res;
     res = nova_call(cap_base + Cpu::cpunr(), utcb->head.mtr);
@@ -53,13 +55,13 @@ struct ParentProtocol {
   }
 
   static unsigned session_open(Utcb *utcb, const char *service, unsigned cap_parent_session) __attribute__((noinline)) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_OPEN << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned request_portal(Utcb *utcb, unsigned cap_parent_session, unsigned cap_portal, bool blocking) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REQUEST << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_REQUEST, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU, true);
 
     // block on the parent session until something happens
@@ -74,25 +76,25 @@ struct ParentProtocol {
 
 
   static unsigned session_close(Utcb *utcb, unsigned cap_parent_session) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_CLOSE << Utcb::TypedIdentifyCap(cap_parent_session);
+    init_frame(utcb, TYPE_CLOSE, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned register_service(Utcb *utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_REGISTER << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 
 
   static unsigned unregister_service(Utcb *utcb, unsigned cap_service) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_UNREGISTER << Utcb::TypedIdentifyCap(cap_service);
+    init_frame(utcb, TYPE_UNREGISTER, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_service);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
   static unsigned get_quota(Utcb *utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
-    utcb->add_frame() << Utcb::TypedIdentifyCap(CAP_PARENT_ID) << TYPE_GET_QUOTA << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
+    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue) {
       if (utcb->head.mtr.untyped() < 2)
@@ -184,7 +186,7 @@ public:
 /**
  * Client part of the log protocol.
  *
- * Missing: handle very-long strings, disable on EPERM
+ * Missing: handle very-long strings
  */
 struct LogProtocol : public GenericProtocol {
   enum {
@@ -192,8 +194,9 @@ struct LogProtocol : public GenericProtocol {
   };
   unsigned log(Utcb *utcb, const char *line) {
     if (_disabled) return EPERM;
+    init_frame(utcb, TYPE_LOG, _cap_base + CAP_SERVER_SESSION) << line;
+
     unsigned res;
-    utcb->add_frame() << TYPE_LOG << line << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION);
     do
       res = do_call(utcb);
     while (res == ERETRY);
