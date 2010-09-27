@@ -189,12 +189,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
   }
 
-  bool reraise_irq(unsigned gsi)
-  {
-    // XXX Is there a better way to get from GSI to semaphore capability?
-    return !nova_semup(_hip->cfg_exc + 3 + (gsi & 0xFF));
-  }
-
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
@@ -906,7 +900,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
 			case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
-			case MessageHostOp::OP_RERAISE_IRQ:
 			case MessageHostOp::OP_GUEST_MEM:
 			case MessageHostOp::OP_ALLOC_FROM_GUEST:
 			case MessageHostOp::OP_VIRT_TO_PHYS:
@@ -980,9 +973,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
 	  res = attach_irq(gsi, irq_cap, msg.len);
 	}
-	break;
-      case MessageHostOp::OP_RERAISE_IRQ:
-	res = reraise_irq(msg.value & 0xFF);
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	//Logging::printf("ALLOC_IOIO %lx\n", msg.value);

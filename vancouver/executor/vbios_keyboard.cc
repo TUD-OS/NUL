@@ -228,7 +228,6 @@ public:
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
       case MessageHostOp::OP_VCPU_BLOCK:
       case MessageHostOp::OP_VCPU_RELEASE:
-      case MessageHostOp::OP_RERAISE_IRQ:
       case MessageHostOp::OP_ALLOC_SEMAPHORE:
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
       default:
