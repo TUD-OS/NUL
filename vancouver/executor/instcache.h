@@ -486,7 +486,7 @@ public:
 	if (_cpu->esp != _oesp) _mtr_out |= MTD_RSP;
 
 	// XXX bugs?
-	_mtr_out |= _mtr_in & ~MTD_CR;
+	_mtr_out |= _mtr_in & ~(MTD_CR | MTD_TSC);
       }
     else
       {
