@@ -29,6 +29,7 @@ struct ClientData : public GenericClientData {
       char *cmdline = get_module_cmdline(utcb);
       if (cmdline && strstr(cmdline, "quota::guid")) {
 	*value_out = get_client_number(parent_cap);
+	Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
 	return ENONE;
       }
     }
@@ -66,23 +67,24 @@ unsigned free_service(Utcb &utcb, ServerData *sdata) {
 }
 
 
-unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
+unsigned portal_func(Utcb &utcb, bool &free_cap, unsigned untyped) {
   // we lock to protect our datastructures and the malloc implementation
   SemaphoreGuard l(_lock);
 
   unsigned res;
   ServerData *sdata;
   ClientData *cdata;
-  Logging::printf("parent request mtr %x/%x type %x id %x+%x %x+%x\n", mtr.untyped(), mtr.typed(), utcb.msg[0], utcb.get_identity(), utcb.get_identity(1),
+  Logging::printf("parent request words %x type %x id %x+%x %x+%x\n", untyped, utcb.msg[0], utcb.get_identity(), utcb.get_identity(1),
 		  utcb.msg[sizeof(utcb.msg) / sizeof(unsigned) - 2], utcb.msg[sizeof(utcb.msg) / sizeof(unsigned) - 1]);
-  if (mtr.untyped() < 1) return EPROTO;
+  if (untyped < 1) return EPROTO;
   switch (utcb.msg[0]) {
   case ParentProtocol::TYPE_OPEN:
     {
-      if (mtr.untyped() < 2) return EPROTO;
-      char *request = reinterpret_cast<char *>(utcb.msg+1);
-      unsigned request_len = sizeof(unsigned)*(mtr.untyped()-1);
-      request[request_len-1] = 0;
+      if (untyped < 3) return EPROTO;
+      unsigned instance = utcb.msg[1];
+      char *request = reinterpret_cast<char *>(utcb.msg+2);
+      unsigned request_len = sizeof(unsigned)*(untyped-2);
+      request[request_len - 1] = 0;
       request_len = strnlen(request, request_len);
 
       /**
@@ -99,6 +101,7 @@ unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
 	  cmdline = strstr(cmdline + namelen, "name::");
 	  continue;
 	}
+	if (instance--) continue;
 
 	// check whether such a session is already known from our client
 	for (ClientData * c = _client.next(); c; c = _client.next(c))
@@ -143,11 +146,11 @@ unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
 
   case ParentProtocol::TYPE_REGISTER:
     {
-      if (mtr.untyped() < 3) return EPROTO;
+      if (untyped < 3) return EPROTO;
 
       // sanitize the request
       char *request = reinterpret_cast<char *>(utcb.msg + 2);
-      unsigned request_len = sizeof(unsigned)*(mtr.untyped() - 2);
+      unsigned request_len = sizeof(unsigned)*(untyped - 2);
       request[request_len-1] = 0;
       request_len = strnlen(request, request_len);
 
@@ -201,9 +204,9 @@ unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
     {
       if ((res = _client.get_client_data(utcb, cdata, utcb.get_identity(1)))) return res;
       char *request = reinterpret_cast<char *>(utcb.msg+2);
-      unsigned request_len = sizeof(unsigned)*(mtr.untyped()-2);
+      unsigned request_len = sizeof(unsigned)*(untyped-2);
       request[request_len-1] = 0;
-      utcb.head.mtr.add_untyped();
+      utcb.head.untyped++;
       long outvalue = utcb.msg[1];
       res = ClientData::get_quota(utcb, cdata->parent_cap, request,  utcb.msg[1], &outvalue);
       utcb.msg[1] = outvalue;

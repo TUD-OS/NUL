@@ -188,13 +188,10 @@ asm volatile (".global __start;"
 asm volatile (".section .text.idc_reply_and_wait_fast;"
 	      ".global idc_reply_and_wait_fast;"
 	      "idc_reply_and_wait_fast:;"
-	      // w2: mtr
-	      "mov	%eax, %esi;"
 	      // w0: NOVA_IPC_REPLY
 	      "mov	$1, %al;"
-	      // keep a pointer to ourself
-	      "sub	$4, %esp;"
+	      // keep a pointer to ourself on the stack
 	      // ecx: stack
-	      "mov	%esp, %ecx;"
+	      "lea	-4(%esp), %ecx;"
 	      "sysenter;"
 	      );

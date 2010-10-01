@@ -153,13 +153,12 @@ class VirtualBiosKeyboard : public StaticReceiver<VirtualBiosKeyboard>, public B
       case 0x01: // check keystroke
 	{
 	  // XXX For AH=0x01 we need to discard extended keystrokes.
+	  cpu->efl |= 1U << 6;
 	  if (first != next)
 	    {
-	      cpu->efl &= ~EFL_ZERO;
+	      cpu->efl &= ~(1U << 6);
 	      cpu->ax = read_bda(next);
 	    }
-	  else
-	    cpu->efl |= EFL_ZERO;
 	break;
 	}
       case 0x02: // get shift flag

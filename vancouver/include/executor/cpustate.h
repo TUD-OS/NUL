@@ -16,7 +16,7 @@
  */
 #pragma once
 #include "sys/utcb.h"
-#include "service/helper.h"
+#include "service/cpu.h"
 
 /**
  * A generic cpu state class.

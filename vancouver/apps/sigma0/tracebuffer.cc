@@ -53,12 +53,13 @@ class Tracebuffer {
   }
 
 public:
-  unsigned portal_func(Utcb &utcb, bool &free_cap, Mtd mtr) {
+  unsigned portal_func(Utcb &utcb, bool &free_cap, unsigned untyped) {
     ClientData *data = 0;
     unsigned res = ENONE;
 
-    //Logging::printf("%s mtr %x/%x id %x t %x\n", __PRETTY_FUNCTION__, mtr.untyped(), mtr.typed(), utcb.get_identity(), utcb.msg[0]);
-    check1(EPROTO, mtr.untyped() < 1);
+    //Logging::printf("%s words %x id %x %x\n", __PRETTY_FUNCTION__, untyped,  utcb.get_identity(), utcb.msg[0]);
+    //asm volatile("ud2a" : : "a"(&utcb));
+    check1(EPROTO, untyped < 1);
     switch (utcb.msg[0]) {
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, utcb.get_received_cap()));
@@ -73,11 +74,11 @@ public:
       Logging::printf("close session for %lx\n", data->guid);
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
-      check1(EPROTO, mtr.untyped() < 2);
+      check1(EPROTO, untyped < 2);
       if ((res = _storage.get_client_data(utcb, data, utcb.get_identity())))  return res;
 
-      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb.msg + 1));
-      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(mtr.untyped() - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
       return ENONE;
     default:
       return EPROTO;

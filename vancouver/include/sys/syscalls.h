@@ -35,12 +35,12 @@ enum
   NOVA_ASSIGN_PCI,
   NOVA_ASSIGN_GSI,
 
-  NOVA_FLAG0          = 1 << 8,
+  NOVA_FLAG0          = 1 << 4,
   NOVA_CREATE_ECWORK  = NOVA_CREATE_EC | NOVA_FLAG0,
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
   NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0,
-  NOVA_SEMCTL_DOWN_MULTI = NOVA_SEMCTL_DOWN | (1 << 9)
+  NOVA_SEMCTL_DOWN_MULTI = NOVA_SEMCTL_DOWN | (1 << 5)
 };
 
 enum ERROR
@@ -69,17 +69,6 @@ static inline unsigned char nova_syscall2(unsigned w0, unsigned w1)
   return w0;
 }
 
-static inline unsigned char nova_syscall3(unsigned w0, unsigned w1, unsigned w2)
-{
-  asm volatile ("; mov %%esp, %%ecx"
-		"; mov $1f, %%edx"
-		"; sysenter"
-		"; 1:"
-		: "+a" (w0) :  "D" (w1), "S" (w2)
-		: "ecx", "edx", "memory");
-  return w0;
-}
-
 /**
  * Call to the kernel.
  */
@@ -101,8 +90,8 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 }
 
 
-inline unsigned char  nova_call(unsigned idx_pt, Mtd mtd_send)
-{  return nova_syscall3(NOVA_IPC_CALL, idx_pt, mtd_send.value()); }
+inline unsigned char  nova_call(unsigned idx_pt)
+{  return nova_syscall2(NOVA_IPC_CALL, idx_pt); }
 
 
 inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
@@ -117,12 +106,11 @@ inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
 {  return nova_syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
 
 
-inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, Mtd mtd)
-{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd.value() | MTD_EXCEPTION, eip); }
-
+inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd)
+{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd, eip); }
 
 inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial = 0)
-{  return nova_syscall3(NOVA_CREATE_SM, idx_sm, initial); }
+{  return nova_syscall(NOVA_CREATE_SM, idx_sm, initial, 0, 0); }
 
 
 inline unsigned char  nova_revoke(Crd crd, bool myself)

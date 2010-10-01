@@ -32,7 +32,7 @@ struct ParentProtocol {
 
   enum {
     // generic protocol functions
-    TYPE_OPEN,
+    TYPE_OPEN = 1,
     TYPE_CLOSE,
     TYPE_GENERIC_END,
     // server specific functions
@@ -51,15 +51,14 @@ struct ParentProtocol {
    */
   static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame) {
     unsigned res;
-    res = nova_call(cap_base + Cpu::cpunr(), utcb.head.mtr);
+    res = nova_call(cap_base + Cpu::cpunr());
     if (!res) res = utcb.msg[0];
     if (drop_frame) utcb.drop_frame();
     return res;
   }
 
-  static unsigned session_open(Utcb &utcb, const char *service, unsigned cap_parent_session) __attribute__((noinline)) {
-    init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << service << Crd(cap_parent_session, 0, DESC_CAP_ALL);
-    return call(utcb, CAP_PT_PERCPU, true);
+  static unsigned session_open(Utcb &utcb, const char *service, unsigned instance, unsigned cap_parent_session) __attribute__((noinline)) {
+    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << service << Crd(cap_parent_session, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
   }
 
 
@@ -85,6 +84,7 @@ struct ParentProtocol {
 
 
   static unsigned register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
+    assert(cap_service);
     init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
@@ -99,12 +99,7 @@ struct ParentProtocol {
   static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
     init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
-    if (!res && outvalue) {
-      if (utcb.head.mtr.untyped() < 2)
-	res = EPROTO;
-      else
-	*outvalue = utcb.msg[1];
-    }
+    if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();
     return res;
   }
@@ -122,6 +117,7 @@ struct ParentProtocol {
 class GenericProtocol : public ParentProtocol {
 protected:
   const char *_service;
+  unsigned    _instance;
   unsigned    _cap_base;
   Semaphore   _lock;
   bool        _blocking;
@@ -139,7 +135,7 @@ public:
   /**
    * Call a server and handles the parent and session errors after the call.
    */
-  unsigned do_call(Utcb &utcb) {
+  unsigned call_single(Utcb &utcb) {
     unsigned res = call(utcb, _cap_base + CAP_SERVER_PT, false);
     bool need_session = res == EEXISTS;
     bool need_pt      = res == NOVA_ECAP;
@@ -152,7 +148,7 @@ public:
       need_open = res == EEXISTS;
     }
     if (need_pt) {
-      Logging::printf("request portal for %s\n", _service);
+      Logging::printf("request portal for %s+%d\n", _service, _instance);
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
@@ -163,7 +159,7 @@ public:
       need_open = res == EEXISTS;
     }
     if (need_open) {
-      res = ParentProtocol::session_open(utcb, _service, _cap_base + CAP_PARENT_SESSION);
+      res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PARENT_SESSION);
       if (!res)  return ERETRY;
       _disabled = res == EPERM || res == EEXISTS;
     }
@@ -173,12 +169,13 @@ public:
   /**
    * Call the server in a loop to resolve all faults.
    */
-  unsigned call_server(Utcb &utcb) {
-    if (_disabled) return EPERM;
-    unsigned res;
-    do
-      res = do_call(utcb);
-    while (res == ERETRY);
+  unsigned call_server(Utcb &utcb, bool drop_frame) {
+    unsigned res = EPERM;
+    if (!_disabled)
+      do
+	res = call_single(utcb);
+      while (res == ERETRY);
+    if (drop_frame) utcb.drop_frame();
     return res;
   }
 
@@ -187,9 +184,10 @@ public:
     session_close(utcb, _cap_base + CAP_PARENT_SESSION);
   }
 
+  Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
 
-  GenericProtocol(const char *service, unsigned cap_base, bool blocking)
-    : _service(service), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
+  GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
+    : _service(service), _instance(instance), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
   {
     nova_create_sm(cap_base + CAP_LOCK);
     _lock.up();
@@ -208,10 +206,63 @@ struct LogProtocol : public GenericProtocol {
     TYPE_LOG = ParentProtocol::TYPE_GENERIC_END,
   };
   unsigned log(Utcb &utcb, const char *line) {
-    unsigned res = call_server(init_frame(utcb, TYPE_LOG, _cap_base + CAP_SERVER_SESSION) << line);
+    init_frame(utcb, TYPE_LOG) << line;
+    //asm volatile("ud2a");
+    return call_server(utcb, true);
+  }
+
+  LogProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("log", instance, cap_base, true) {}
+};
+
+
+#include "host/dma.h"
+
+
+/**
+ * Client part of the disk protocol.
+ * Missing: register shared memory producer/consumer.
+ */
+struct DiscProtocol : public GenericProtocol {
+  enum {
+    TYPE_GET_PARAMS = ParentProtocol::TYPE_GENERIC_END,
+    TYPE_READ,
+    TYPE_WRITE,
+    TYPE_FLUSH_CACHE,
+    TYPE_GET_COMPLETION,
+  };
+
+  unsigned get_params(Utcb &utcb, DiskParameter *params) {
+    unsigned res;
+    if (!(res = call_server(init_frame(utcb, TYPE_GET_PARAMS), false)))
+      if (utcb >> *params)  res = EPROTO;
     utcb.drop_frame();
     return res;
   }
 
- LogProtocol(unsigned cap_base) : GenericProtocol("log", cap_base, true) {}
+
+  unsigned read_write(Utcb &utcb, bool read, unsigned long usertag, unsigned long long sector,
+		unsigned long physoffset, unsigned long physsize,
+		unsigned dmacount, DmaDescriptor *dma)
+  {
+    init_frame(utcb, read ? TYPE_READ : TYPE_WRITE) << usertag << sector << physoffset << physsize << dmacount;
+    for (unsigned i=0; i < dmacount; i++)  utcb << dma[i];
+    return call_server(init_frame(utcb, TYPE_GET_PARAMS), true);
+  }
+
+
+
+  unsigned flush_cache(Utcb &utcb) {
+    return call_server(init_frame(utcb, TYPE_FLUSH_CACHE), true);
+  }
+
+
+  unsigned get_completion(Utcb &utcb, unsigned &tag, unsigned &status) {
+    unsigned res;
+    if (!(res = call_server(init_frame(utcb, TYPE_GET_COMPLETION), false)))
+      if (utcb >> tag || utcb >> status)  res = EPROTO;
+    utcb.drop_frame();
+    return res;
+  }
+
+  DiscProtocol(unsigned cap_base, unsigned disknr) : GenericProtocol("disk", disknr, cap_base, true) {}
 };

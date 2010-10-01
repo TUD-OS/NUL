@@ -52,9 +52,9 @@ class Sigma0Base : public BaseProgram
 
       utcb->msg[0] = OP;
       utcb->msg[1] = reinterpret_cast<unsigned long>(buffer);
-      utcb->head.mtr    = Mtd(2, 0);
+      utcb->set_header(2, 0);
       add_mappings(utcb, sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, 0x14 | DESC_TYPE_CAP);
-      check1(1, nova_call(14, utcb->head.mtr));
+      check1(1, nova_call(14));
       return utcb->msg[0];
     }
 
@@ -67,7 +67,8 @@ class Sigma0Base : public BaseProgram
     TemporarySave<Utcb::HEADER_SIZE + 1 + words> save(utcb);
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
-    if (nova_call(14, Mtd(1 + words, 0)))
+    utcb->set_header(1 + words, 0);
+    if (nova_call(14))
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return utcb->msg[0];

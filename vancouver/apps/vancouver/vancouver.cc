@@ -80,10 +80,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
-#define PT_FUNC(NAME)  static unsigned long  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
+#define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					\
   PT_FUNC(NAME)								\
-  {  CODE; return utcb->head.mtr.value(); }
+  {  CODE; }
   #include "vancouver.cc"
 
   // the portal functions follow
@@ -106,14 +106,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     Logging::printf("%s eip %x qual %llx\n", __func__, utcb->eip, utcb->qual[1]);
     request_mapping(0, ~0ul, utcb->qual[1]);
-    return 0;
+    utcb->set_header(0, 0);
   }
 
   PT_FUNC(do_gsi_boot)
   {
     utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
     Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
-    return  utcb->head.mtr.value();
   }
 
 
@@ -237,13 +236,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
     utcb->ctrl[1] = 0;
-    utcb->head.mtr = MTD_CTRL;
+    utcb->mtd = MTD_CTRL;
   };
 
   static void force_invalid_gueststate_intel(Utcb *utcb)
   {
-    assert(utcb->head.mtr.value() & MTD_RFLAGS);
+    assert(utcb->mtd & MTD_RFLAGS);
     utcb->efl &= ~2;
+    utcb->mtd = MTD_RFLAGS;
   };
 
 
@@ -267,7 +267,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, unsigned long __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *))
+  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *))
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
@@ -298,11 +298,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
-      if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), Mtd(MTD_ALL, 0)));
+      if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
 
     // create the gsi boot portal
-    nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    Mtd(MTD_RIP_LEN | MTD_QUAL, 0));
-    nova_create_pt(PT_IRQ + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+    check1(4, nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    MTD_RIP_LEN | MTD_QUAL));
+    check1(5, nova_create_pt(PT_IRQ + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  MTD_RSP | MTD_RIP_LEN));
     return 0;
   }
 
@@ -316,7 +316,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define VM_FUNC(NR, NAME, INPUT, CODE) {NR, NAME, INPUT},
     struct vm_caps {
       unsigned nr;
-      unsigned long __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *);
+      void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *);
       unsigned mtd;
     } vm_caps[] = {
 #include "vancouver.cc"
@@ -324,7 +324,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     unsigned cap_start = alloc_cap(0x100);
     for (unsigned i=0; i < sizeof(vm_caps)/sizeof(vm_caps[0]); i++) {
       if (use_svm == (vm_caps[i].nr < PT_SVM)) continue;
-      check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, reinterpret_cast<unsigned long>(vm_caps[i].func), Mtd(vm_caps[i].mtd, 0)));
+      check1(0, nova_create_pt(cap_start + (vm_caps[i].nr & 0xff), cap_worker, reinterpret_cast<unsigned long>(vm_caps[i].func), vm_caps[i].mtd));
     }
 
     Logging::printf("\tcreate VCPU\n");
@@ -356,7 +356,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
 
-    CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->head.mtr.untyped());
+    CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->mtd);
     skip_instruction(msg);
     VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
     SemaphoreGuard l(_lock);
@@ -369,7 +369,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false) {
 
     VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
-    CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+    CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->mtd);
     if (skip) skip_instruction(msg);
 
     SemaphoreGuard l(_lock);
@@ -397,7 +397,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (!vcpu->executor.send(msg, true))
 	Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, msg.cpu->cs.sel, msg.cpu->eip, pid);
     }
-    msg.cpu->head.mtr = msg.mtr_out;
+    msg.cpu->mtd = msg.mtr_out;
   }
 
 
@@ -414,13 +414,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
 
-      utcb->head.mtr = Mtd();
+      utcb->mtd = 0;
       add_mappings(utcb, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)), own.attr() | DESC_EPT | (_dpci ? DESC_DPT : 0));
 
       // EPT violation during IDT vectoring?
       if (utcb->inj_info & 0x80000000) {
-	utcb->head.mtr.add(MTD_INJ);
-	CpuMessage msg(CpuMessage::TYPE_CALC_IRQWINDOW, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+	utcb->mtd |= MTD_INJ;
+	CpuMessage msg(CpuMessage::TYPE_CALC_IRQWINDOW, static_cast<CpuState *>(utcb), utcb->mtd);
 	msg.mtr_out = MTD_INJ;
 	VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
 	if (!vcpu->executor.send(msg, true))
@@ -558,6 +558,7 @@ public:
 	}
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
+      case MessageHostOp::OP_REGISTER_SERVICE:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
@@ -762,10 +763,10 @@ VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	utcb->efl |= 2;
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
-	utcb->head.mtr.add(MTD_RFLAGS);
+	utcb->mtd |= MTD_RFLAGS;
 	)
 VM_FUNC(PT_VMX + 40,  vmx_pause, MTD_RIP_LEN | MTD_STATE,
-	CpuMessage msg(CpuMessage::TYPE_SINGLE_STEP, static_cast<CpuState *>(utcb), utcb->head.mtr.untyped());
+	CpuMessage msg(CpuMessage::TYPE_SINGLE_STEP, static_cast<CpuState *>(utcb), utcb->mtd);
 	skip_instruction(msg);
 	COUNTER_INC("pause");
 	)
@@ -782,7 +783,7 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 	Logging::printf("startup\n");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
-	utcb->head.mtr.add(MTD_CTRL);
+	utcb->mtd |= MTD_CTRL;
 	utcb->ctrl[0] = (1 << 3); // tscoffs
 	utcb->ctrl[1] = 0;
 	)
@@ -828,7 +829,7 @@ VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
 	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
-	utcb->head.mtr.add(MTD_CTRL);
+	utcb->mtd |= MTD_CTRL;
 	utcb->ctrl[0] = 1 << 18; // cpuid
 	utcb->ctrl[1] = 1 << 0;  // vmrun
 	)

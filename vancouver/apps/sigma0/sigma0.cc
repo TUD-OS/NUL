@@ -110,7 +110,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned long long _gsi;     // bitfield per used GSI
   unsigned _pcidirect[MAXPCIDIRECT];
 
-
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
   {
     assert(size);
@@ -139,33 +138,23 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long offset = 0;
     while (size > offset)
       {
-	utcb->head.mtr = Mtd();
+	utcb->set_header(0, 0);
 	unsigned long s = add_mappings(utcb, physmem + offset, size - offset, virt + offset, rights);
-	Logging::printf("\t\tmap self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.mtr.typed());
+	Logging::printf("\t\tmap self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.typed);
 	offset = size - s;
 	unsigned err;
-	memmove(utcb->msg, utcb->item_start(), sizeof(unsigned) * utcb->head.mtr.typed() * 2);
-	if ((err = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(utcb->head.mtr.typed()*2, 0)))) {
-	  Logging::printf("map_self failed with %x mtr %x\n", err, utcb->head.mtr.typed());
-	  res = 0;
-	  break;
-	}
+	memmove(utcb->msg, utcb->item_start(), sizeof(unsigned) * utcb->head.typed * 2);
+	utcb->set_header(2*utcb->head.typed, 0);
+	if ((err = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo)))
+	  {
+	    Logging::printf("map_self failed with %x mtr %x/%x\n", err, utcb->head.untyped, utcb->head.typed);
+	    res = 0;
+	    break;
+	  }
       }
     utcb->head.crd = old;
     if ((rights & 3) == 1)  _virt_phys.add(Region(virt, size, physmem));
     return res ? res + ofs : 0;
-  }
-
-  /**
-   * Map caps from the kernel.
-   */
-  unsigned map_caps(Utcb *utcb, unsigned src, unsigned dst, unsigned count) {
-    utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
-    for (unsigned i = 0; i < count; i++) {
-      utcb->msg[2*i + 0] = Crd(src++, 0, DESC_CAP_ALL).value();
-      utcb->msg[2*i + 1] = dst++ << Utcb::MINSHIFT | 1;
-    }
-    return nova_call(_percpu[Cpu::cpunr()].cap_pt_echo, Mtd(count * 2, 0));
   }
 
   /**
@@ -226,7 +215,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
     // alloc new cap for next request
     utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
-    utcb->head.mtr = Mtd(1, 0);
+    utcb->set_header(1, 0);
   }
 
 
@@ -315,7 +304,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _cpunr[_numcpus++] = i;
       _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, 0, i);
       _percpu[i].cap_pt_echo = alloc_cap();
-      check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), Mtd()));
+      check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, 0, i);
@@ -323,7 +312,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 
       // create parent portals
-      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), Mtd()));
+      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
       if (i == 0) check1(3, nova_create_sm(ParentProtocol::CAP_PARENT_ID));
     }
     return 0;
@@ -347,9 +336,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // create pf and gsi boot wrapper on this CPU
     assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper),    Mtd(MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN, 0)));
+    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper), MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
-    check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), Mtd(MTD_RSP | MTD_RIP_LEN, 0)));
+    check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), MTD_RSP | MTD_RIP_LEN));
 
     // map vga memory
     Logging::printf("map vga memory\n");
@@ -371,7 +360,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // map all IRQs
-    check1(7, map_caps(utcb, gsi, hip->cfg_exc + 3 + gsi, hip->cfg_gsi));
+    utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
+    for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
+      utcb->msg[gsi * 2 + 1] = ((hip->cfg_exc + 3 + gsi) << Utcb::MINSHIFT) | 1;
+      utcb->msg[gsi * 2 + 0] = Crd(gsi, 0, DESC_CAP_ALL).value();
+    }
+    unsigned res;
+    utcb->set_header(hip->cfg_gsi * 2, 0);
+    if ((res = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo)))
+      Logging::panic("map IRQ semaphore() failed = %x", res);
     return 0;
   };
 
@@ -551,15 +548,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // create special portal for every module
     unsigned pt = CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
-    check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), Mtd(MTD_RIP_LEN | MTD_QUAL, 0)));
-    check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), Mtd()));
+    check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
+    check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
     // create parent portals
     for (unsigned i = 0; i < _numcpus; i++)
       check1(9, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i],
 			       _percpu[_cpunr[i]].cap_ec_worker,
 			       reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func),
-			       Mtd()));
+			       0));
     check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
@@ -629,7 +626,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
  * Sigma0 portal functions.
  */
 #define PT_FUNC_NORETURN(NAME, CODE)					\
-  static unsigned long NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
+  static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
   { tls->NAME(pid, utcb); }						\
   									\
   void __attribute__((always_inline, noreturn))  NAME(unsigned pid, Utcb *utcb) \
@@ -638,13 +635,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 #define PT_FUNC(NAME, CODE, ...)					\
-  static unsigned long NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
-  { return tls->NAME(pid, utcb); } \
+  static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
+  { tls->NAME(pid, utcb); }						\
   									\
-  unsigned long __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
+  void __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
   {									\
     CODE;								\
-    return utcb->head.mtr.value();					\
   }
 
 
@@ -660,13 +656,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
-	  assert(~utcb->head.mtr.untyped() & 1);
+	  assert(~utcb->head.untyped & 1);
 	  // enable from kernel mappings
-	  for (unsigned i=0; i < utcb->head.mtr.untyped()/2; i++)
-	    utcb->msg[i*2 + 1] |= 2;
-	  utcb->head.mtr = Mtd(0, utcb->head.mtr.untyped()/2).value();
-	  memmove(utcb->item_start(), utcb->msg, sizeof(unsigned) * utcb->head.mtr.typed()*2);
+	  for (unsigned i=0; i < utcb->head.untyped / 2; i++)
+	    utcb->msg[i*2 + 1] |= 1 << 11;
+	  utcb->set_header(0, utcb->head.untyped / 2);
+	  memmove(utcb->item_start(), utcb->msg, sizeof(unsigned) * utcb->head.typed*2);
 	  )
+
   PT_FUNC(do_thread_startup,   utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0]; )
 
   PT_FUNC_NORETURN(do_gsi,
@@ -687,6 +684,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   )
 
   #include "parent_protocol.h"
+
   PT_FUNC(do_startup,
 	  unsigned short client = (pid - CLIENT_PT_OFFSET)>> CLIENT_PT_SHIFT;
 	  ModuleInfo *modinfo = _modinfo + client;
@@ -694,7 +692,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
-	  utcb->head.mtr = Mtd(MTD_RIP_LEN | MTD_RSP, 0);
+	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
 	  )
 
   PT_FUNC(do_request,
@@ -702,15 +700,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  ModuleInfo *modinfo = _modinfo + client;
 
 	  COUNTER_INC("request");
-	  if (utcb->head.mtr.untyped() < 0x1000) {
+
+	  if (utcb->head.untyped != EXCEPTION_WORDS) {
 	    if (request_timeouts(client, utcb) || request_pcicfg(client, utcb))
-	      return utcb->head.mtr.value();
+	      return;
 	  }
 
 	  //Logging::printf("%s %x %x\n", __func__, client, utcb->msg[0]);
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  SemaphoreGuard l(_lock);
-	  if (utcb->head.mtr.untyped() < 0x1000)
+	  if (utcb->head.untyped != EXCEPTION_WORDS)
 	    {
 	      if (!request_disks(client, utcb) && !request_console(client, utcb) && !request_network(client, utcb))
 		switch (utcb->msg[0])
@@ -718,7 +717,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		  case REQUEST_HOSTOP:
 		    {
 		      MessageHostOp *msg = reinterpret_cast<MessageHostOp *>(utcb->msg+1);
-		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
+		      if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
 
 		      switch (msg->type)
 			{
@@ -748,7 +747,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
 			    // build response
 			    memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
-			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/sizeof(unsigned), 0);
+			    utcb->set_header(1 + sizeof(*msg)/sizeof(unsigned), 0);
 			    msg->start   = cstart;
 			    msg->size    = mod->size;
 			    msg->cmdline = cstart + msize;
@@ -773,7 +772,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    Logging::printf("[%02x] gsi %lx granted\n", client, msg->value);
 			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
 			    nova_assign_gsi(gsi_cap, modinfo->cpunr);
-			    utcb->head.mtr = Mtd(1);
+			    utcb->set_header(1, 0);
 			    utcb->msg[0] = 0;
 			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
@@ -786,14 +785,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  {
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    utcb->msg[0] = 0;
-			    utcb->head.mtr = Mtd(1 + sizeof(*msg)/ sizeof(unsigned));
+			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
 			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
 			  // XXX make sure only one gets it
 			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
-			  utcb->head.mtr = Mtd(1);
+			  utcb->set_header(1, 0);
 			  utcb->msg[0] = 0;
 			  add_mappings(utcb, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
 			  break;
@@ -802,7 +801,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    // XXX make sure it is not physmem and only one gets it
 			    unsigned long addr = msg->value & ~0xffful;
 			    char *ptr = map_self(utcb, addr, msg->len);
-			    utcb->head.mtr = Mtd(1);
+			    utcb->set_header(1, 0);
 			    utcb->msg[1] = 0;
 			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
 			    Logging::printf("[%02x] iomem %lx+%lx granted from %p\n", client, addr, msg->len, ptr);
@@ -828,25 +827,24 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		  case REQUEST_ACPI:
 		    {
 		      MessageAcpi *msg = reinterpret_cast<MessageAcpi *>(utcb->msg+1);
-		      if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-			utcb->msg[0] = ~0x10u;
-		      else
-			if (msg->type == MessageAcpi::ACPI_GET_IRQ)
-			  utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
+		      if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) goto fail;
+		      if (msg->type == MessageAcpi::ACPI_GET_IRQ)
+			utcb->msg[0] = !_mb->bus_acpi.send(*msg, true);
 		    }
 		    break;
 		  default:
 		    Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    goto fail;
 		  }
-	      return utcb->head.mtr.value();
+	      return;
 	    fail:
 	      utcb->msg[0] = ~0x10u;
-	      utcb->head.mtr = Mtd(1, 0);
+	      utcb->set_header(1, 0);
 	    }
 	  else
 	    {
-	      Logging::printf("[%02x, %x] map for %x for %llx err %llx at %x\n", pid, client, utcb->head.mtr.value(), utcb->qual[1], utcb->qual[0], utcb->eip);
+	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
 	      // we can not overmap -> thus remove all rights first if the PTE was present
 	      if (utcb->qual[0] & 1) {
@@ -854,9 +852,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
 	      }
 
-	      utcb->head.mtr = Mtd(0, 0);
+	      utcb->mtd = 0;
 	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, DESC_MEM_ALL);
 	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip), DESC_MEM_ALL);
+	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    }
 	  )
 
@@ -935,15 +935,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	msg.mac = get_mac(_mac++ * MAXMODULES);
 	break;
       case MessageHostOp::OP_REGISTER_SERVICE:
-	for (unsigned i = 0; i < _numcpus; i++) {
-	  unsigned cpu = _cpunr[i];
-	  Utcb *utcb;
-	  unsigned ec_cap = create_ec_helper(msg.len, &utcb, 0, cpu);
-	  utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
-	  unsigned pt = alloc_cap();
-	  check1(false, nova_create_pt(pt, ec_cap, msg.value, Mtd()));
-	  check1(false, ParentProtocol::register_service(*myutcb(), msg.ptr, cpu, pt, 0));
-	  Logging::printf("service registered on cpu %x\n", cpu);
+	{
+	  unsigned service_cap = alloc_cap();
+	  for (unsigned i = 0; i < _numcpus; i++) {
+	    unsigned cpu = _cpunr[i];
+	    Utcb *utcb;
+	    unsigned ec_cap = create_ec_helper(msg.len, &utcb, 0, cpu);
+	    utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+	    unsigned pt = alloc_cap();
+	    check1(false, nova_create_pt(pt, ec_cap, msg.value, 0));
+	    check1(false, ParentProtocol::register_service(*myutcb(), msg.ptr, cpu, pt, service_cap));
+	    Logging::printf("service registered on cpu %x\n", cpu);
+	  }
+	  // XXX transfer the service_cap back
 	}
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
@@ -984,7 +988,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_NETWORK:
       {
 	MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
-	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 	  utcb->msg[0] = ~0x10u;
 	else
 	  {
@@ -1086,13 +1090,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_DISK:
       {
 	MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
-	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 	  return false;
 	else
 	  {
 	    MessageDisk msg2 = *msg;
 
-	    if (msg2.disknr >= disk_data->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; return Mtd(utcb->head.mtr.untyped(), 0).value(); }
+	    if (msg2.disknr >= disk_data->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; utcb->head.typed = 0; return true; }
 	    switch (msg2.type)
 	      {
 	      case MessageDisk::DISK_GET_PARAMS:
@@ -1222,7 +1226,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_CONSOLE:
       {
 	MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
-	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
+	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
 	{
 	  MessageConsole msg2 = *msg;
 	  if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
@@ -1342,7 +1346,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_TIMER:
       {
 	MessageTimer *msg = reinterpret_cast<MessageTimer *>(utcb->msg+1);
-	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 	  utcb->msg[0] = ~0x10u;
 	else
 	  if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
@@ -1361,7 +1365,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  {
 	    // XXX we assume the same mb->clock() source here
 	    *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
-	    utcb->head.mtr = Mtd((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
+	    utcb->set_header((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
 	    utcb->msg[0] = 0;
 	  }
       }
@@ -1396,7 +1400,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_PCICFG:
       {
 	MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
-	if (utcb->head.mtr.untyped()*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
 	  utcb->msg[0] = ~0x10u;
 	else {
 	  COUNTER_INC("request pci");
@@ -1508,3 +1512,5 @@ void  do_exit(const char *msg)
 
 
 
+
+//  LocalWords:  utcb

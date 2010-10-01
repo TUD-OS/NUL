@@ -75,11 +75,10 @@ public:
   typedef unsigned long __attribute__((regparm(1))) (*pt_func)(unsigned, Utcb *);
 
   __attribute__((regparm(1)))
-  static unsigned long do_thread_startup(unsigned m, unsigned eip)
+  static void do_thread_startup(unsigned m, unsigned eip)
   {
     Utcb *u = myutcb();
     u->eip = reinterpret_cast<unsigned *>(u->esp)[0];
-    return u->head.mtr.value();
   }
 
   __attribute__((noreturn)) void run(Utcb *utcb, Hip *hip)
@@ -110,7 +109,7 @@ public:
 
       unsigned cap_off = 0x10000 + c*0x20;
       unsigned exc_ec = create_ec_helper(0xDEAD, 0, 0, c /* cpunr */);
-      nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), Mtd(MTD_RSP | MTD_RIP_LEN, 0));
+      nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), MTD_RSP | MTD_RIP_LEN);
 
 
       unsigned ec_cap = create_ec_helper(reinterpret_cast<mword>(this), 0, cap_off, c, reinterpret_cast<void *>(&idle_thread));

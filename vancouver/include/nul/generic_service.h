@@ -129,18 +129,17 @@ public:
  * Define a static portal function.
  */
 template <class C> struct StaticPortalFunc {
-  static unsigned long portal_func(C *tls, Utcb *utcb) __attribute__((regparm(0)))
+  static void portal_func(C *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
     bool free_cap = utcb->get_received_cap();
     bool need_alloc = free_cap;
-    Mtd mtr = utcb->head.mtr;
-    utcb->add_frame().head.mtr.add_untyped();
-    utcb->msg[0] = tls->portal_func(*utcb, free_cap, mtr);
-    unsigned res = utcb->skip_frame();
+    unsigned untyped = utcb->head.untyped;
+    utcb->add_frame().head.untyped++;
+    utcb->msg[0] = tls->portal_func(*utcb, free_cap, untyped);
+    utcb->skip_frame();
     if (free_cap)
       nova_revoke(Crd(utcb->get_received_cap(), 0, DESC_CAP_ALL), true);
     else if (need_alloc)
       utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
-    return res;
   }
 };
