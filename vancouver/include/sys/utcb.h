@@ -149,6 +149,9 @@ struct Utcb
     TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
+  /**
+   * TODO: put error code at some fixed point
+   */
   Utcb &  add_frame() {
     unsigned ofs = msg[STACK_START] + STACK_START + 1;
 
@@ -207,6 +210,15 @@ struct Utcb
     return *this;
   }
 
+
+  template <typename T>
+  Utcb &  operator <<(T &value) {
+    unsigned words = (sizeof(T) + sizeof(unsigned) - 1)/ sizeof(unsigned);
+    *reinterpret_cast<T *>(msg + head.mtr.untyped()) = value;
+    head.mtr.add_untyped(words);
+    return *this;
+  }
+
   Utcb &  operator <<(const char *value) {
     unsigned olduntyped = head.mtr.untyped();
     unsigned slen =  strlen(value) + 1;
@@ -229,4 +241,15 @@ struct Utcb
   }
 
   Utcb &  operator <<(Crd value) { head.crd = value.value(); return *this; }
+
+  template <typename T>
+  bool  operator >> (T &value) {
+    unsigned offset = msg[0];
+    unsigned words = (sizeof(T) + sizeof(unsigned) - 1)/ sizeof(unsigned);
+    if (offset + words > head.mtr.untyped()) return true;
+    msg[0] += words;
+    value = *reinterpret_cast<T *>(msg+offset);
+    return false;
+  }
+
 };
