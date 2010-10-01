@@ -242,8 +242,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   static void force_invalid_gueststate_intel(Utcb *utcb)
   {
+    assert(utcb->head.mtr.value() & MTD_RFLAGS);
     utcb->efl &= ~2;
-    utcb->head.mtr = MTD_RFLAGS;
   };
 
 
@@ -740,7 +740,7 @@ VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
 	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
 	utcb->eip += utcb->inst_len;
 	)
-VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE,
+VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE | MTD_RFLAGS,
 	if (utcb->qual[0] & 0x10)
 	  {
 	    COUNTER_INC("IOS");
