@@ -26,7 +26,18 @@
  */
 class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 {
-  unsigned long _memsize;
+  DBus<MessageHostOp> &_bus_hostop;
+
+  /**
+   * Return the size of guest physical memory.
+   */
+  unsigned long memsize()
+  {
+    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
+    if (!_bus_hostop.send(msg1))
+      Logging::panic("%s can't get physical memory size", __PRETTY_FUNCTION__);
+    return msg1.len;
+  }
 
   /**
    * Memory+PS2 INT.
@@ -80,7 +91,7 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 		  break;
 		case 2:
 		  mmap.base = 1 << 20;
-		  mmap.size = _memsize - (1<<20);
+		  mmap.size = memsize() - (1<<20);
 		  cpu->ebx = 0;
 		  break;
 		default:
@@ -138,12 +149,8 @@ public:
     }
   }
 
-  VirtualBiosMem(Motherboard &mb) : BiosCommon(mb) {
-    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
-    if (!mb.bus_hostop.send(msg1))
-      Logging::panic("%s can't get physical memory size", __PRETTY_FUNCTION__);
-    _memsize = msg1.len;
-  }
+  VirtualBiosMem(Motherboard &mb) : BiosCommon(mb), _bus_hostop(mb.bus_hostop)
+  { }
 };
 
 PARAM(vbios_mem,
