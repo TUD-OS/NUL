@@ -62,6 +62,11 @@ struct ParentProtocol {
   }
 
 
+  static unsigned session_close(Utcb &utcb, unsigned cap_parent_session) {
+    init_frame(utcb, TYPE_CLOSE, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session);
+    return call(utcb, CAP_PT_PERCPU, true);
+  }
+
   static unsigned request_portal(Utcb &utcb, unsigned cap_parent_session, unsigned cap_portal, bool blocking) {
     init_frame(utcb, TYPE_REQUEST, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU, true);
@@ -74,12 +79,6 @@ struct ParentProtocol {
       else res = EABORT;
     }
     return res;
-  }
-
-
-  static unsigned session_close(Utcb &utcb, unsigned cap_parent_session) {
-    init_frame(utcb, TYPE_CLOSE, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session);
-    return call(utcb, CAP_PT_PERCPU, true);
   }
 
 
@@ -161,7 +160,7 @@ public:
     if (need_open) {
       res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PARENT_SESSION);
       if (!res)  return ERETRY;
-      _disabled = res == EPERM || res == EEXISTS;
+      _disabled = res && res != ERETRY;
     }
     return res;
   }
