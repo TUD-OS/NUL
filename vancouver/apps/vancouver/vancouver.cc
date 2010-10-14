@@ -273,6 +273,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Utcb *utcb;
     unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, PT_IRQ, Cpu::cpunr(), reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
+    utcb->head.untyped = 3;
+    utcb->head.typed = 0;
     utcb->msg[0] = irq_cap;
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
