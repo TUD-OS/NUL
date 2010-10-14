@@ -205,9 +205,7 @@ struct LogProtocol : public GenericProtocol {
     TYPE_LOG = ParentProtocol::TYPE_GENERIC_END,
   };
   unsigned log(Utcb &utcb, const char *line) {
-    init_frame(utcb, TYPE_LOG) << line;
-    //asm volatile("ud2a");
-    return call_server(utcb, true);
+    return call_server(init_frame(utcb, TYPE_LOG) << line, true);
   }
 
   LogProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("log", instance, cap_base, true) {}

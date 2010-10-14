@@ -5,6 +5,7 @@
 #include "service/string.h"
 #include "service/logging.h"
 
+struct UtcbFrame;
 struct Utcb
 {
   enum {
@@ -62,11 +63,12 @@ struct Utcb
       unsigned     dr7, sysenter_cs, sysenter_esp, sysenter_eip;
       Descriptor   es, cs, ss, ds, fs, gs;
       Descriptor   ld, tr, gd, id;
-      unsigned items[0];
     };
     unsigned msg[(4096 - sizeof(struct head)) / sizeof(unsigned)];
   };
-  void set_header(unsigned untyped, unsigned typed) { head.untyped = untyped; head.typed = typed;}
+
+
+  void set_header(unsigned untyped, unsigned typed) { head.untyped = untyped; head.typed = typed; }
   unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.typed; }
 
 
@@ -221,7 +223,11 @@ struct Utcb
   enum {
     HEADER_SIZE = sizeof(struct head),
   };
+
+
 };
 enum {
   EXCEPTION_WORDS = 72,
 };
+
+
