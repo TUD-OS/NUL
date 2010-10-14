@@ -64,7 +64,7 @@ public:
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, utcb.get_received_cap()));
       free_cap = false;
-      if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", data->guid, &data->guid))
+      if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", 0, &data->guid))
 	data->guid = --_anon_sessions;
       utcb << Utcb::TypedMapCap(data->identity);
       Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->parent_cap);
@@ -77,8 +77,8 @@ public:
       check1(EPROTO, untyped < 2);
       if ((res = _storage.get_client_data(utcb, data, utcb.get_identity())))  return res;
 
-      if (_verbose) Logging::printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
-      trace_printf("(%lx) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      trace_printf("(%ld) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
       return ENONE;
     default:
       return EPROTO;
