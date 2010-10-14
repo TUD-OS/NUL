@@ -179,6 +179,7 @@ public:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
       case MessageHostOp::OP_ALLOC_SEMAPHORE:
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
+      case MessageHostOp::OP_REGISTER_SERVICE:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
