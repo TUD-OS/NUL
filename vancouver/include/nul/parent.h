@@ -148,13 +148,11 @@ public:
       need_open = res == EEXISTS;
     }
     if (need_pt) {
-      //Logging::printf("request portal for %s+%d\n", _service, _instance);
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
 	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PARENT_SESSION, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
       }
-      //Logging::printf("request portal for %s returned %x\n", _service, res);
       if (!res)  return ERETRY;
       need_open = res == EEXISTS;
     }
@@ -162,7 +160,6 @@ public:
       res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PARENT_SESSION);
       if (!res)  return ERETRY;
       _disabled = res && res != ERETRY;
-      if (_disabled) Logging::panic("disabled due to %x\n", res);
     }
     return res;
   }

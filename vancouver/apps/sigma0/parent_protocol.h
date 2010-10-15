@@ -111,7 +111,6 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 	cdata->name = cmdline;
 	cdata->len  = namelen;
 	utcb << Utcb::TypedMapCap(cdata->identity);
-	Logging::printf("\treturn cap %x to client %x\n", cdata->identity, input.identity());
 	return ENONE;
       }
       // we do not have the permissions
@@ -129,7 +128,6 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->parent_cap, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
 	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
-	  Logging::printf("\tfound service cap %x\n", sdata->pt);
 
 	  // check that the portal still exists
 	  unsigned crdout;
@@ -137,7 +135,6 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 	    free_service(utcb, sdata);
 	    return ERETRY;
 	  }
-	  Logging::printf("mapping portal %x back\n", sdata->pt);
 	  utcb << Utcb::TypedMapCap(sdata->pt);
 	  return ENONE;
 	}
