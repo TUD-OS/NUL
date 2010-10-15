@@ -94,8 +94,8 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 inline unsigned char  nova_call(unsigned idx_pt)
 {  return nova_syscall1(idx_pt << 8 | NOVA_IPC_CALL); }
 
-inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
-{  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, dstpd, utcb | cpunr, qpd.value(), pt_crd.value()); }
+inline unsigned char  nova_create_pd (unsigned idx_pd, Crd pt_crd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, dstpd, pt_crd.value(), 0, 0); }
 
 inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {

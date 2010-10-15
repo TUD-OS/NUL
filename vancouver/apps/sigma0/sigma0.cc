@@ -559,8 +559,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
-    check1(11, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, 0xbfffe000, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
-
+    check1(11, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
+    check1(12, nova_create_ec(NOVA_DEFAULT_PD_CAP + 1,
+			     reinterpret_cast<void *>(0xbfffe000), reinterpret_cast<void *>(0xbfffe000),
+			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
+    check1(13, nova_create_sc(NOVA_DEFAULT_PD_CAP + 2, NOVA_DEFAULT_PD_CAP + 1, Qpd(1, 100000), pt + NOVA_DEFAULT_PD_CAP));
     return 0;
   }
 
