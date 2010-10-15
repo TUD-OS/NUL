@@ -5,7 +5,6 @@
 #include "service/string.h"
 #include "service/logging.h"
 
-struct UtcbFrame;
 struct Utcb
 {
   enum {
@@ -66,43 +65,69 @@ struct Utcb
     unsigned msg[(4096 - sizeof(struct head)) / sizeof(unsigned)];
   };
 
+  /**
+   * A smaller frame on the UTCB. Can only be used to read incoming messages.
+   */
+  class Frame {
+    Utcb *_utcb;
+    unsigned _end;
+    unsigned _consumed;
+  public:
 
-  void set_header(unsigned untyped, unsigned typed) { head.untyped = untyped; head.typed = typed; }
-  unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.typed; }
-
-
-  unsigned get_nested_mtr(unsigned &typed_offset) {
-    if (!msg[STACK_START]) {
-      typed_offset = sizeof(msg) / sizeof(unsigned) - 2 * head.typed;
-      return head.mtr;
+    unsigned received_cap() {
+      for (unsigned i=0; i < _utcb->head.typed; i++)
+	if (_utcb->msg[_end - i * 2 - 1] & 1)
+	  return Crd(_utcb->msg[_end - i * 2 - 2]).cap();
+      return 0;
     }
+
+    unsigned identity(unsigned skip=0) {
+      for (unsigned i=0; i < _utcb->head.typed; i++)
+	if (~_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
+	  return Crd(_utcb->msg[_end - i * 2 - 2]).cap();
+      return 0;
+    }
+
+    unsigned untyped() { return _utcb->head.untyped; }
+
+    template <typename T>
+    bool get_word(T &value) {
+      unsigned words = (sizeof(T) + sizeof(unsigned) - 1) / sizeof(unsigned);
+      if (_consumed + words > _utcb->head.untyped)
+	return true;
+      value = *reinterpret_cast<T *>(_utcb->msg+_consumed);
+      _consumed += words;
+      return false;
+    }
+    char *get_string(unsigned &len) {
+      if (_consumed >= _utcb->head.untyped)
+	return 0;
+      len = (_utcb->head.untyped - _consumed)*sizeof(unsigned);
+      char *res =  reinterpret_cast<char *>(_utcb->msg + _consumed);
+      _consumed = _utcb->head.untyped;
+      return res;
+    }
+
+    char *get_zero_string(unsigned &len) {
+      char *res = get_string(len);
+      if (res) {
+	res[len - 1] = 0;
+	len = strnlen(res, len);
+      }
+      return res;
+    }
+
+    Frame(Utcb *utcb, unsigned end) : _utcb(utcb), _end(end), _consumed() {}
+  };
+
+  Frame get_nested_frame() {
+    if (!msg[STACK_START])
+      return Frame(this, sizeof(this)/sizeof(unsigned));
     unsigned old_ofs = msg[msg[STACK_START] + STACK_START] + STACK_START + 1;
-    typed_offset = old_ofs + HEADER_SIZE/sizeof(unsigned) + (msg[old_ofs] & 0xffff);
-    return msg[old_ofs];
+    Utcb *x = reinterpret_cast<Utcb *>(msg+old_ofs);
+    return Frame(x, x->head.untyped + 2*x->head.typed);
   }
 
-
-  unsigned get_received_cap() {
-    unsigned typed_ofs;
-    unsigned mtr = get_nested_mtr(typed_ofs);
-    for (unsigned i=mtr >> 16; i > 0; i--)
-      if (msg[typed_ofs + i * 2 - 1] & 1)
-	return msg[typed_ofs + i * 2 - 2] >> Utcb::MINSHIFT;
-    return 0;
-  }
-
-  unsigned get_identity(unsigned skip=0) {
-    unsigned typed_ofs;
-    unsigned mtr = get_nested_mtr(typed_ofs);
-    //Logging::printf("iden %p %x %x %x\n", this, mtr, typed_ofs, msg[STACK_START]);
-    for (unsigned i=mtr >> 16; i > 0; i--)
-      if (~msg[typed_ofs + i * 2 - 1] & 1 && !skip--)
-	return msg[typed_ofs + i * 2 - 2] >> Utcb::MINSHIFT;
-    return 0;
-  }
-
-
-  // MessageBuffer abstraction
   struct TypedMapCap {
     unsigned value;
     void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 1;  }
@@ -169,6 +194,8 @@ struct Utcb
     msg[STACK_START] = old_ofs - STACK_START - 1;
   }
 
+  void set_header(unsigned untyped, unsigned typed) { head.untyped = untyped; head.typed = typed; }
+  unsigned *item_start() { return reinterpret_cast<unsigned *>(this + 1) - 2*head.typed; }
 
   Utcb &  operator <<(unsigned value) {
     msg[head.untyped++] = value;

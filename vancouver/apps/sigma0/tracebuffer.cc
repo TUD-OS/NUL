@@ -53,16 +53,17 @@ class Tracebuffer {
   }
 
 public:
-  unsigned portal_func(Utcb &utcb, bool &free_cap, unsigned untyped) {
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     ClientData *data = 0;
     unsigned res = ENONE;
+    unsigned op;
 
-    //Logging::printf("%s words %x id %x %x\n", __PRETTY_FUNCTION__, untyped,  utcb.get_identity(), utcb.msg[0]);
+    //Logging::printf("%s words %x id %x %x\n", __PRETTY_FUNCTION__, input.untyped(),  input.identity(), op);
     //asm volatile("ud2a" : : "a"(&utcb));
-    check1(EPROTO, untyped < 1);
-    switch (utcb.msg[0]) {
+    check1(EPROTO, input.get_word(op));
+    switch (op) {
     case ParentProtocol::TYPE_OPEN:
-      check1(res, res = _storage.alloc_client_data(utcb, data, utcb.get_received_cap()));
+      check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
       free_cap = false;
       if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", 0, &data->guid))
 	data->guid = --_anon_sessions;
@@ -70,15 +71,18 @@ public:
       Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->parent_cap);
       return res;
     case ParentProtocol::TYPE_CLOSE:
-      check1(res, res = _storage.get_client_data(utcb, data, utcb.get_identity()));
+      check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
       Logging::printf("close session for %lx\n", data->guid);
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
-      check1(EPROTO, untyped < 2);
-      if ((res = _storage.get_client_data(utcb, data, utcb.get_identity())))  return res;
-
-      if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
-      trace_printf("(%ld) %.*s\n", data->guid, sizeof(unsigned)*(untyped - 1), reinterpret_cast<char *>(utcb.msg + 1));
+      {
+	if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
+	unsigned len;
+	char *text = input.get_string(len);
+	check1(EPROTO, !text);
+	if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, len, text);
+	trace_printf("(%ld) %.*s\n", data->guid, len, text);
+      }
       return ENONE;
     default:
       return EPROTO;

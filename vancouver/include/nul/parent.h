@@ -32,7 +32,8 @@ struct ParentProtocol {
 
   enum {
     // generic protocol functions
-    TYPE_OPEN = 1,
+    TYPE_INVALID = 0, // used as error indicator
+    TYPE_OPEN,
     TYPE_CLOSE,
     TYPE_GENERIC_END,
     // server specific functions
@@ -147,7 +148,7 @@ public:
       need_open = res == EEXISTS;
     }
     if (need_pt) {
-      Logging::printf("request portal for %s+%d\n", _service, _instance);
+      //Logging::printf("request portal for %s+%d\n", _service, _instance);
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
@@ -161,6 +162,7 @@ public:
       res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PARENT_SESSION);
       if (!res)  return ERETRY;
       _disabled = res && res != ERETRY;
+      if (_disabled) Logging::panic("disabled due to %x\n", res);
     }
     return res;
   }

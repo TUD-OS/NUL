@@ -26,12 +26,11 @@ enum
     MTD_ALL             = (~0U >> 12) & ~MTD_CTRL
   };
 
-enum
-  {
-    INJ_IRQWIN = 0x1000,
-    INJ_NMIWIN = 0x0000, // XXX missing
-    INJ_WIN    = INJ_IRQWIN | INJ_NMIWIN
-  };
+enum {
+  INJ_IRQWIN = 0x1000,
+  INJ_NMIWIN = 0x0000, // XXX missing
+  INJ_WIN    = INJ_IRQWIN | INJ_NMIWIN
+};
 
 
 class Desc
@@ -67,6 +66,7 @@ public:
   unsigned size()  { return 1 << (order() + 12); }
   unsigned base()  { return _value & ~0xfff; }
   unsigned attr()  { return _value & 0x1f; }
+  unsigned cap()   { return _value >> 12; }
   Crd(unsigned offset, unsigned order, unsigned attr) : Desc((offset << 12) | (order << 7) | attr) { }
   Crd(unsigned v) : Desc(v) {}
 };
