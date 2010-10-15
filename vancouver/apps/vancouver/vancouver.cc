@@ -161,7 +161,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
 	  _debug = true;
 	  _mb->dump_counters();
-	  nova_syscall2(254, 0);
+	  nova_syscall(15, 0, 0, 0, 0);
 	  break;
 	case KBCODE_HOME: // reset VM
 	  {
@@ -443,7 +443,7 @@ public:
     switch (msg.cpuid_index) {
     case 0x40000020:
       // NOVA debug leaf
-      nova_syscall2(254, msg.cpu->ebx);
+      nova_syscall(15, msg.cpu->ebx, 0, 0, 0);
       break;
     case 0x40000021:
       // Vancouver debug leaf

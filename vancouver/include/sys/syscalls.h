@@ -58,14 +58,13 @@ enum ERROR
 /**
  * A fast syscall with only two parameters.
  */
-static inline unsigned char nova_syscall2(unsigned w0, unsigned w1)
+static inline unsigned char nova_syscall1(unsigned w0)
 {
   asm volatile ("; mov %%esp, %%ecx"
 		"; mov $1f, %%edx"
 		"; sysenter"
 		"; 1:"
-		: "+a" (w0) :  "D" (w1)
-		: "ecx", "edx", "memory");
+		: "+a" (w0) : : "ecx", "edx", "memory");
   return w0;
 }
 
@@ -91,58 +90,30 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 
 
 inline unsigned char  nova_call(unsigned idx_pt)
-{  return nova_syscall2(NOVA_IPC_CALL, idx_pt); }
+{  return nova_syscall1(idx_pt << 8 | NOVA_IPC_CALL); }
 
 
 inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
-{  return nova_syscall(NOVA_CREATE_PD, idx_pd, utcb | cpunr, qpd.value(), pt_crd.value()); }
+{  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, 0, utcb | cpunr, qpd.value(), pt_crd.value()); }
 
 
 inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker)
-{  return nova_syscall(worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC, idx_ec, reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); }
-
-
-inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
-{  return nova_syscall(NOVA_CREATE_SC, idx_sc, idx_ec, qpd.value(), 0); }
-
-
-inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd)
-{  return nova_syscall(NOVA_CREATE_PT, idx_pt, idx_ec, mtd, eip); }
-
-inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial = 0)
-{  return nova_syscall(NOVA_CREATE_SM, idx_sm, initial, 0, 0); }
-
-
-inline unsigned char  nova_revoke(Crd crd, bool myself)
-{  return nova_syscall2(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value()); }
-
-
-inline unsigned char  nova_recall(unsigned idx_ec)
-{  return nova_syscall2(NOVA_RECALL, idx_ec); }
-
-
-inline unsigned char  nova_semup(unsigned idx_sm)
-{  return nova_syscall2(NOVA_SEMCTL_UP, idx_sm); }
-
-
-inline unsigned char  nova_semdown(unsigned idx_sm)
-{  return nova_syscall2(NOVA_SEMCTL_DOWN, idx_sm); }
-
-inline unsigned char  nova_semdownmulti(unsigned idx_sm)
-{  return nova_syscall2(NOVA_SEMCTL_DOWN_MULTI, idx_sm); }
-
-inline unsigned char  nova_assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
-{  return nova_syscall(NOVA_ASSIGN_PCI, pd, pf_rid, vf_rid, 0); }
-
-
-inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
 {
-  unsigned out1;
-  unsigned char res = nova_syscall(NOVA_ASSIGN_GSI, idx_sm, cpu_nr, rid, 0, &out1, msi_value);
-  if (msi_address) *msi_address = out1;
-  return res;
+  return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC), 0,
+		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); 
 }
 
+inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
+{  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, 0, idx_ec, qpd.value(), 0); }
+
+inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd)
+{  return nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, 0, idx_ec, mtd, eip); }
+
+inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0)
+{  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, 0, initial, 0, 0); }
+
+inline unsigned char  nova_revoke(Crd crd, bool myself)
+{  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
 inline Crd nova_lookup(void *address)
 {
@@ -151,4 +122,30 @@ inline Crd nova_lookup(void *address)
   if (nova_syscall(NOVA_LOOKUP, crd.value(), 0, 0, 0, &res))
     return Crd(1, 0, 0);
   return Crd(res);
+}
+
+inline unsigned char  nova_recall(unsigned idx_ec)
+{  return nova_syscall1(idx_ec << 8 | NOVA_RECALL); }
+
+
+inline unsigned char  nova_semup(unsigned idx_sm)
+{  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_UP); }
+
+
+inline unsigned char  nova_semdown(unsigned idx_sm)
+{  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_DOWN); }
+
+inline unsigned char  nova_semdownmulti(unsigned idx_sm)
+{  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_DOWN_MULTI); }
+
+inline unsigned char  nova_assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
+{  return nova_syscall(pd << 8 | NOVA_ASSIGN_PCI, pf_rid, vf_rid, 0, 0); }
+
+
+inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
+{
+  unsigned out1;
+  unsigned char res = nova_syscall(idx_sm << 8 | NOVA_ASSIGN_GSI, cpu_nr, rid, 0, 0, &out1, msi_value);
+  if (msi_address) *msi_address = out1;
+  return res;
 }

@@ -26,8 +26,8 @@
 #include <nul/program.h>
 #include <nul/motherboard.h>
 
-static uint8 perfctl_init() { return nova_syscall2(128, 0); }
-static uint8 perfctl_read() { return nova_syscall2(128, 1); }
+static uint8 perfctl_init() { return nova_syscall(14, 0, 0, 0, 0); }
+static uint8 perfctl_read() { return nova_syscall(14, 1, 0, 0, 0); }
 
 enum {
   WIDTH  = 80,

@@ -1310,7 +1310,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
 	break;
       }
-      Logging::printf("DEBUG(%x) = %x time %llx\n", msg.id, nova_syscall2(254, msg.id), _mb->clock()->time());
+      Logging::printf("DEBUG(%x) = %x time %llx\n", msg.id, nova_syscall(15, msg.id, 0, 0, 0), _mb->clock()->time());
       return true;
     case MessageConsole::TYPE_ALLOC_CLIENT:
     case MessageConsole::TYPE_ALLOC_VIEW:
