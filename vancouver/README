@@ -1,4 +1,22 @@
-Structure
+Howto use the services?
+#######################
+
+1. The server needs to be able to register its service. A "namespace::" parameter has to be added to the servers
+   parameters. The exact position in the cmdline is unimportant.
+   Example: "namespace::/foo".
+
+2. Start the service. It will register itself in the namespace under a known protocol name. The tracebuffer for example
+   uses "log".
+   Example: "tracebuffer:32768"
+
+3. The client stub has to get access to the name. Add a "name::" parameter to the clients cmdline.
+   Example: "name::/foo/log"
+
+
+
+Directory Structure
+###################
+
 include/
 	service/
 		general service includes
