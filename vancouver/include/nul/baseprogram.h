@@ -30,7 +30,7 @@ struct BaseProgram {
   /**
    * Get the UTCB pointer from the top of the stack.
    */
-  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=r"(esp));
+  static Utcb *myutcb() { unsigned long esp; asm volatile ("mov %%esp, %0" : "=g"(esp));
     return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
   };
 

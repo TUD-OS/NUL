@@ -81,7 +81,6 @@ class NovaProgram : public BaseProgram
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %lx\n",
 		    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
     check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
-    utcb->head.tls = tls;
     if (utcb_out)
       *utcb_out = utcb;
     return cap;
@@ -173,6 +172,7 @@ asm volatile (".global __start;"
 	      "mov	%eax, %edx;"
 	      "sub	$0x1000, %edx;"
 	      "push	%edx;"           // push UTCB -- needed for myutcb()
+	      "push	$0;"             // tls
 	      "call	start;"
 	      "ud2a;"
 	      ".section .bss.stack;"

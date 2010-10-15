@@ -81,8 +81,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _iomem_start;
 
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
-#define VM_FUNC(NR, NAME, INPUT, CODE)					\
-  PT_FUNC(NAME)								\
+#define VM_FUNC(NR, NAME, INPUT, CODE)					             \
+  static void  NAME(unsigned pid, VCpu *tls, Utcb *utcb) __attribute__((regparm(1))) \
   {  CODE; }
   #include "vancouver.cc"
 
@@ -271,7 +271,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
-    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, PT_IRQ, Cpu::cpunr(), reinterpret_cast<void *>(func));
+    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned long>(this), &utcb, PT_IRQ, Cpu::cpunr(), reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
     utcb->head.untyped = 3;
     utcb->head.typed = 0;
@@ -296,12 +296,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _console_data.lock.sem = sem;
 
     // create exception EC
-    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned>(this), 0);
-
+    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned long>(this), 0);
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
       if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
-
     // create the gsi boot portal
     check1(4, nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    MTD_RIP_LEN | MTD_QUAL));
     check1(5, nova_create_pt(PT_IRQ + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  MTD_RSP | MTD_RIP_LEN));
@@ -311,14 +309,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned create_vcpu(VCpu *vcpu, bool use_svm)
   {
     // create worker
-    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned>(vcpu), 0, true);
+    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned long>(vcpu), 0, true);
 
     // create portals for VCPU faults
 #undef VM_FUNC
 #define VM_FUNC(NR, NAME, INPUT, CODE) {NR, NAME, INPUT},
     struct vm_caps {
       unsigned nr;
-      void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *);
+      void __attribute__((regparm(1))) (*func)(unsigned, VCpu *, Utcb *);
       unsigned mtd;
     } vm_caps[] = {
 #include "vancouver.cc"
@@ -356,11 +354,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void handle_io(Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
+  static void handle_io(VCpu *vcpu, Utcb *utcb, bool is_in, unsigned io_order, unsigned port)  __attribute__((regparm(1))){
 
+    assert(vcpu);
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->mtd);
     skip_instruction(msg);
-    VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
     SemaphoreGuard l(_lock);
     if (!vcpu->executor.send(msg, true))
       Logging::panic("nobody to excute %s at %x:%x\n", __func__, msg.cpu->cs.sel, msg.cpu->eip);
@@ -368,9 +366,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
 
-  static void handle_vcpu(unsigned pid, Utcb *utcb, CpuMessage::Type type, bool skip=false) {
+  static void handle_vcpu(unsigned pid, bool skip, CpuMessage::Type type, VCpu *vcpu, Utcb *utcb) __attribute__((regparm(1))) {
 
-    VCpu *vcpu = reinterpret_cast<VCpu*>(utcb->head.tls);
+    assert(vcpu);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->mtd);
     if (skip) skip_instruction(msg);
 
@@ -403,7 +401,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static bool map_memory_helper(Utcb *utcb, bool need_unmap)
+  static bool map_memory_helper(VCpu *vcpu, Utcb *utcb, bool need_unmap)
   {
 
     MessageMemRegion msg(utcb->qual[1] >> 12);
@@ -424,7 +422,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	utcb->mtd |= MTD_INJ;
 	CpuMessage msg(CpuMessage::TYPE_CALC_IRQWINDOW, static_cast<CpuState *>(utcb), utcb->mtd);
 	msg.mtr_out = MTD_INJ;
-	VCpu *vcpu= reinterpret_cast<VCpu*>(utcb->head.tls);
 	if (!vcpu->executor.send(msg, true))
 	  Logging::panic("nobody to execute %s at %x:%x\n", __func__, utcb->cs.sel, utcb->eip);
       }
@@ -671,7 +668,6 @@ public:
     create_irq_thread(~0u, 0, do_timer);
     create_irq_thread(~0u, 0, do_network);
 
-
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
 
@@ -723,21 +719,21 @@ ASMFUNCS(Vancouver, Vancouver)
 
 // the VMX portals follow
 VM_FUNC(PT_VMX + 2,  vmx_triple, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_TRIPLE);
+	handle_vcpu(pid, false, CpuMessage::TYPE_TRIPLE, tls, utcb);
 	)
 VM_FUNC(PT_VMX +  3,  vmx_init, MTD_ALL,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_INIT);
+	handle_vcpu(pid, false, CpuMessage::TYPE_INIT, tls, utcb);
 	)
 VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	COUNTER_INC("irqwin");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
+	handle_vcpu(pid, false, CpuMessage::TYPE_CHECK_IRQ, tls, utcb);
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE,
 	COUNTER_INC("cpuid");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CPUID, true);
+	handle_vcpu(pid, true, CpuMessage::TYPE_CPUID, tls, utcb);
 	)
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT, true);
+	handle_vcpu(pid, true, CpuMessage::TYPE_HLT, tls, utcb);
 	)
 VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
 	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
@@ -753,18 +749,18 @@ VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STAT
 	  {
 	    unsigned order = utcb->qual[0] & 7;
 	    if (order > 2) order = 2;
-	    handle_io(utcb, utcb->qual[0] & 8, order, utcb->qual[0] >> 16);
+	    handle_io(tls, utcb, utcb->qual[0] & 8, order, utcb->qual[0] >> 16);
 	  }
 	)
 VM_FUNC(PT_VMX + 31,  vmx_rdmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_SYSENTER | MTD_STATE,
 	COUNTER_INC("rdmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_RDMSR, true);)
+	handle_vcpu(pid, true, CpuMessage::TYPE_RDMSR, tls, utcb);)
 VM_FUNC(PT_VMX + 32,  vmx_wrmsr, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_SYSENTER | MTD_STATE | MTD_TSC,
 	COUNTER_INC("wrmsr");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_WRMSR, true);)
+	handle_vcpu(pid, true, CpuMessage::TYPE_WRMSR, tls, utcb);)
 VM_FUNC(PT_VMX + 33,  vmx_invalid, MTD_ALL,
 	utcb->efl |= 2;
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+	handle_vcpu(pid, false, CpuMessage::TYPE_SINGLE_STEP, tls, utcb);
 	utcb->mtd |= MTD_RFLAGS;
 	)
 VM_FUNC(PT_VMX + 40,  vmx_pause, MTD_RIP_LEN | MTD_STATE,
@@ -778,13 +774,13 @@ VM_FUNC(PT_VMX + 48,  vmx_mmio, MTD_ALL,
 	 * Idea: optimize the default case - mmio to general purpose register
 	 * Need state: GPR_ACDB, GPR_BSD, RIP_LEN, RFLAGS, CS, DS, SS, ES, RSP, CR, EFER
 	 */
-	if (!map_memory_helper(utcb, utcb->qual[0] & 0x38))
+	if (!map_memory_helper(tls, utcb, utcb->qual[0] & 0x38))
 	  // this is an access to MMIO
-	  handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+	  handle_vcpu(pid, false, CpuMessage::TYPE_SINGLE_STEP, tls, utcb);
 	)
 VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 	Logging::printf("startup\n");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_HLT);
+	handle_vcpu(pid, false, CpuMessage::TYPE_HLT, tls, utcb);
 	utcb->mtd |= MTD_CTRL;
 	utcb->ctrl[0] = (1 << 3); // tscoffs
 	utcb->ctrl[1] = 0;
@@ -798,7 +794,7 @@ MTD_IRQ,
 #endif
 	COUNTER_INC("recall");
 	COUNTER_SET("REIP", utcb->eip);
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_CHECK_IRQ);
+	handle_vcpu(pid, false, CpuMessage::TYPE_CHECK_IRQ, tls, utcb);
 	)
 
 
@@ -818,19 +814,19 @@ VM_FUNC(PT_SVM + 0x7b,  svm_ioio,    MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD
 	      unsigned order = ((utcb->qual[0] >> 4) & 7) - 1;
 	      if (order > 2)  order = 2;
 	      utcb->inst_len = utcb->qual[1] - utcb->eip;
-	      handle_io(utcb, utcb->qual[0] & 1, order, utcb->qual[0] >> 16);
+	      handle_io(tls, utcb, utcb->qual[0] & 1, order, utcb->qual[0] >> 16);
 	    }
 	}
 	)
 VM_FUNC(PT_SVM + 0x7c,  svm_msr,     MTD_ALL, svm_invalid(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0x7f,  svm_shutdwn, MTD_ALL, vmx_triple(pid, tls, utcb); )
 VM_FUNC(PT_SVM + 0xfc,  svm_npt,     MTD_ALL,
-	if (!map_memory_helper(utcb, utcb->qual[0] & 1))
+	if (!map_memory_helper(tls, utcb, utcb->qual[0] & 1))
 	  svm_invalid(pid, tls, utcb);
 	)
 VM_FUNC(PT_SVM + 0xfd, svm_invalid, MTD_ALL,
 	COUNTER_INC("invalid");
-	handle_vcpu(pid, utcb, CpuMessage::TYPE_SINGLE_STEP);
+	handle_vcpu(pid, false, CpuMessage::TYPE_SINGLE_STEP, tls, utcb);
 	utcb->mtd |= MTD_CTRL;
 	utcb->ctrl[0] = 1 << 18; // cpuid
 	utcb->ctrl[1] = 1 << 0;  // vmrun
