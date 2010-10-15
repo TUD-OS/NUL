@@ -92,7 +92,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     unsigned        mod_nr;
     unsigned        mod_count;
-    unsigned        cap_pd;
     unsigned        cpunr;
     unsigned long   rip;
     bool            log;
@@ -560,8 +559,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
-    modinfo->cap_pd = alloc_cap();
-    check1(11, nova_create_pd(modinfo->cap_pd, 0xbfffe000, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
+    check1(11, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, 0xbfffe000, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), Qpd(1, 100000), modinfo->cpunr));
 
     return 0;
   }
@@ -760,7 +758,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
-			      utcb->msg[0] = assign_pci_device(modinfo->cap_pd, msg->value, msg->len);
+			    utcb->msg[0] = assign_pci_device(NOVA_DEFAULT_PD_CAP + (client << CLIENT_PT_SHIFT) + CLIENT_PT_OFFSET, msg->value, msg->len);
 			      //Logging::printf("assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
 			  } else {
 			    Logging::printf("[%02x] DMA access denied.\n", client);
@@ -929,7 +927,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	}
 	break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !assign_pci_device(_hip->cfg_exc + 0, msg.value, msg.len);
+	res = !assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
 	break;
       case MessageHostOp::OP_GET_MAC:
 	msg.mac = get_mac(_mac++ * MAXMODULES);
@@ -1494,6 +1492,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 void Sigma0::start(Hip *hip, Utcb *utcb) {
   extern unsigned __nova_api_version;
   assert(hip->api_ver == __nova_api_version);
+  assert(hip->cfg_exc + 0 ==  NOVA_DEFAULT_PD_CAP);
   static Sigma0 s0;
   sigma0 = &s0;
   s0.run(utcb, hip);

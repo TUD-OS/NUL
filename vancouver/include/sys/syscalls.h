@@ -40,7 +40,9 @@ enum
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
   NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0,
-  NOVA_SEMCTL_DOWN_MULTI = NOVA_SEMCTL_DOWN | (1 << 5)
+  NOVA_SEMCTL_DOWN_MULTI = NOVA_SEMCTL_DOWN | (1 << 5),
+
+  NOVA_DEFAULT_PD_CAP = 32,
 };
 
 enum ERROR
@@ -92,25 +94,23 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 inline unsigned char  nova_call(unsigned idx_pt)
 {  return nova_syscall1(idx_pt << 8 | NOVA_IPC_CALL); }
 
+inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, dstpd, utcb | cpunr, qpd.value(), pt_crd.value()); }
 
-inline unsigned char  nova_create_pd (unsigned idx_pd, unsigned utcb, Crd pt_crd, Qpd qpd, unsigned char cpunr)
-{  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, 0, utcb | cpunr, qpd.value(), pt_crd.value()); }
-
-
-inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker)
+inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {
-  return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC), 0,
-		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base); 
+  return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC), dstpd,
+		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base);
 }
 
-inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd)
-{  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, 0, idx_ec, qpd.value(), 0); }
+inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, dstpd, idx_ec, qpd.value(), 0); }
 
-inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd)
-{  return nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, 0, idx_ec, mtd, eip); }
+inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, dstpd, idx_ec, mtd, eip); }
 
-inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0)
-{  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, 0, initial, 0, 0); }
+inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, dstpd, initial, 0, 0); }
 
 inline unsigned char  nova_revoke(Crd crd, bool myself)
 {  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
