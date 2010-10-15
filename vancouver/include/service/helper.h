@@ -50,3 +50,8 @@ static inline bool in_range(unsigned long address, unsigned long base, unsigned 
  * Check whether X is true, output an error and return RET.
  */
 #define check1(RET, X, ...) ({ unsigned __res; if ((__res = (X))) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, __res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); return RET; }})
+
+/**
+ * Make a dependency on the argument, to avoid that the compiler will touch them.
+ */
+#define asmlinkage_protect(...) __asm__ __volatile__ ("" : : __VA_ARGS__);

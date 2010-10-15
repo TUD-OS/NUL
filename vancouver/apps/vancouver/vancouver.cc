@@ -83,7 +83,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					             \
   static void  NAME(unsigned pid, VCpu *tls, Utcb *utcb) __attribute__((regparm(1))) \
-  {  CODE; }
+  {  CODE;								\
+    asmlinkage_protect("g"(tls), "g"(utcb));				\
+  }
   #include "vancouver.cc"
 
   // the portal functions follow
@@ -107,12 +109,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Logging::printf("%s eip %x qual %llx\n", __func__, utcb->eip, utcb->qual[1]);
     request_mapping(0, ~0ul, utcb->qual[1]);
     utcb->set_header(0, 0);
+    asmlinkage_protect("g"(tls), "g"(utcb));
   }
 
   PT_FUNC(do_gsi_boot)
   {
     utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
     Logging::printf("%s eip %x esp %x\n", __func__, utcb->eip, utcb->esp);
+    asmlinkage_protect("g"(tls), "g"(utcb));
   }
 
 
@@ -354,7 +358,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  static void handle_io(VCpu *vcpu, Utcb *utcb, bool is_in, unsigned io_order, unsigned port)  __attribute__((regparm(1))){
+  static void handle_io(VCpu *vcpu, Utcb *utcb, bool is_in, unsigned io_order, unsigned port) {
 
     assert(vcpu);
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->mtd);
@@ -366,7 +370,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
 
-  static void handle_vcpu(unsigned pid, bool skip, CpuMessage::Type type, VCpu *vcpu, Utcb *utcb) __attribute__((regparm(1))) {
+  static void handle_vcpu(unsigned pid, bool skip, CpuMessage::Type type, VCpu *vcpu, Utcb *utcb) {
 
     assert(vcpu);
     CpuMessage msg(type, static_cast<CpuState *>(utcb), utcb->mtd);

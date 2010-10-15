@@ -637,12 +637,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 #define PT_FUNC(NAME, CODE, ...)					\
   static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
-  { tls->NAME(pid, utcb); }						\
+  { tls->NAME(pid, utcb); asmlinkage_protect("g"(tls), "g"(utcb)); }	\
   									\
   void __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
-  {									\
-    CODE;								\
-  }
+  { CODE; }
 
 
   PT_FUNC_NORETURN(do_pf,
