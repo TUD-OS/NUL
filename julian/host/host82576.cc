@@ -357,13 +357,6 @@ public:
     _hwreg[DTXCTL] = 0;
     _hwreg[DTXSWC] = DTXSWC_LOOP_EN | 0xFF;
 
-    // Wait for Link Up and VM mailbox events.
-    msg(INFO, "Enabling interrupts...\n");
-    _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
-    _hwreg[EIMS] = 1;
-    _hwreg[EIAM] = 1;
-    _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
-
     msg(INFO, "Configuring link parameters...\n");
     // Direct Copper link mode (set link mode to 0)
     _hwreg[CTRL_EXT] &= ~CTRL_EXT_LINK_MODE;
@@ -384,6 +377,14 @@ public:
 
     msg(INFO, "Initialization complete.\n");
 
+    // Wait for Link Up and VM mailbox events.
+    msg(INFO, "Enabling interrupts...\n");
+    _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
+    _hwreg[EIMS] = 1;
+    _hwreg[EIAM] = 1;
+    _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
+
+    //_hwreg[EICS] = 1;
     // Starting timer (every 0.256s)
     //_hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
   }
