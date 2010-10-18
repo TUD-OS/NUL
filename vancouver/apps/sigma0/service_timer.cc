@@ -32,7 +32,8 @@
 class TimerService : public StaticReceiver<TimerService> {
 
   enum {
-    CLIENTS = Config::MAX_CLIENTS+3,
+    // Leave some room for services in sigma0 to allocate timers.
+    CLIENTS = Config::MAX_CLIENTS + 10,
     GRANULARITY = 1<<8
   };
   Motherboard &   _hostmb;
