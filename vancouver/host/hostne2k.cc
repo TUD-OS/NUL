@@ -167,7 +167,7 @@ public:
 		access_internal_ram(PG_START * PAGE_SIZE, (current_page - PG_START) * PAGE_SIZE / 4, _receive_buffer + pages * PAGE_SIZE, true);
 		pages += (current_page - PG_START);
 	      }
-	    Logging::printf("%s isr %x RX pages %x %x %x\n", __PRETTY_FUNCTION__, isr, pages, current_page, _next_packet);
+//	    Logging::printf("%s isr %x RX pages %x %x %x\n", __PRETTY_FUNCTION__, isr, pages, current_page, _next_packet);
 
 	    // prog new boundary
 	    _next_packet = current_page;
@@ -181,7 +181,7 @@ public:
 
 		// Please note that we receive only good packages, thus the status bits are not valid!
 		packet_len = _receive_buffer[offset + 2] + (_receive_buffer[offset + 3] << 8);
-		Logging::printf("PACKET next %x len %x\n", _receive_buffer[offset],  packet_len);
+//		Logging::printf("PACKET next %x len %x\n", _receive_buffer[offset],  packet_len);
 
 		MessageNetwork msg2(_receive_buffer + offset + 4, packet_len - 4, 0);
 		_bus_network.send(msg2);
@@ -219,6 +219,15 @@ PARAM(hostne2k,
 	      port &= ~3;
 	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
+
+        // alloc io-ports
+        MessageHostOp msg_io(MessageHostOp::OP_ALLOC_IOIO_REGION, port << 8 | 5);
+        if (!mb.bus_hostop.send(msg_io))
+        {
+          Logging::printf("%s could not allocate ioports %x-%x\n", __PRETTY_FUNCTION__, port, port + (1 << 5) - 1);
+          continue;
+        }
+
 	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
 	      mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
 	      mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
