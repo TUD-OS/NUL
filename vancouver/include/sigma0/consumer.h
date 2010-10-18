@@ -43,12 +43,16 @@ public:
   void free_buffer()  { _rpos = (_rpos + 1) % SIZE; }
 
 
-  Consumer(unsigned cap_sm) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0)
+  explicit
+  Consumer(unsigned cap_sm, bool createsm = true) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0)
   {
     unsigned res;
-    if ((res = nova_create_sm(cap_sm)))
-      Logging::panic("create Consumer failed with %x\n", res);
-    Logging::printf("create Consumer ok with %x nq %x\n", res, cap_sm);
+    if (createsm) {
+      if ((res = nova_create_sm(cap_sm)))
+        Logging::panic("create Consumer failed with %x\n", res);
+      Logging::printf("create Consumer ok with %x nq %x\n", res, cap_sm);
+    } else
+      Logging::printf("reused Consumer with nq %x\n", cap_sm);
   }
 };
 
