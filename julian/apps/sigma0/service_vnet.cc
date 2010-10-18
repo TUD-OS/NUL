@@ -23,32 +23,23 @@
 // OVERVIEW
 //
 // This software switch is designed to connect 82576VF models only. It
-// is implemented in a single thread running on a single CPU to avoid
-// locking overhead. It is currently not clear how well this approach
-// scales, but related work has been encouraging:
+// is implemented in a single thread running on a single CPU polling
+// each client's queues round-robin to avoid locking overhead. It is
+// currently not clear how well this approach scales, but related work
+// has been encouraging:
 // http://www.usenix.org/event/atc10/tech/full_papers/Shalev.pdf
 //
 // The switch has access to each client's DMA queues and physical
-// memory and implements all of the 82576VF's packet processing
-// features.
+// memory and implements all of the 82576VF's packet processing and
+// interrupt throttling features. Each client has its own notification
+// semaphore, which the switch uses to signal an interrupt.
 //
-// The basic work loop of the switch is entered whenever a client (a
-// VM with the 82576VF model) tries to send a packet, i.e. a tail
-// pointer in a send queue is moved. The model uses a semaphore to
-// signal this to the switch. The switch then inspects every send
-// queue and executes exactly one DMA program per queue in a
-// round-robin fashion until no queues have work left. It then sleeps
-// using the semaphore.
-//
-// Each queue has its own notification semaphore, which the switch
-// uses to signal packet reception.
-//
-// SWITCHING
-//
-// A switch is only a switch, if it does not broadcast every packet,
-// but remembers which port is associated with a given MAC address.
-// TODO Describe how this works.
-//
+// CLIENT PERFORMANCE TUNING
+// 
+// Operating Systems may need tuning to achieve optimal throughput,
+// especially for TCP connections. At least, Linux seems to autotune
+// itself well, given enough RAM.
+// 
 // REMARKS
 //
 // The first version of this switch suffered from overengineering,
