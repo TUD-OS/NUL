@@ -34,6 +34,7 @@ class Sigma0Base : public BaseProgram
     REQUEST_DISKS_ATTACH,
     REQUEST_TIMER_ATTACH,
     REQUEST_NETWORK_ATTACH,
+    REQUEST_VNET_ATTACH,
     REQUEST_DISK,
     REQUEST_TIMER,
     REQUEST_TIME,
@@ -42,6 +43,7 @@ class Sigma0Base : public BaseProgram
     REQUEST_NETWORK,
     REQUEST_PCICFG,
     REQUEST_ACPI,
+    REQUEST_VNET,
   };
  protected:
 
@@ -83,6 +85,7 @@ class Sigma0Base : public BaseProgram
   static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
+  static unsigned  request_vnet_attach   (Utcb *utcb, unsigned sem_nq) { return request_attach<REQUEST_VNET_ATTACH>(utcb, NULL, sem_nq); }
   static bool disk   (MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
   static bool console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
   static bool hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }
@@ -91,6 +94,7 @@ class Sigma0Base : public BaseProgram
   static bool time   (MessageTime &msg)     { return sigma0_message<MessageTime,      REQUEST_TIME>(msg); }
   static bool pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
   static bool acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI>(msg); }
+  static bool vnetop (MessageVirtualNet &msg){ return sigma0_message<MessageVirtualNet,REQUEST_VNET>(msg); }
 };
 
 

@@ -1,4 +1,4 @@
-/**
+/** -*- Mode: C++ -*-
  * Message Type defintions.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>
@@ -640,6 +640,39 @@ struct MessageNetwork
   unsigned len;
   unsigned client;
   MessageNetwork(const unsigned char *_buffer, unsigned _len, unsigned _client) : buffer(_buffer), len(_len), client(_client) {}
+};
+
+#include <nul/types.h>
+
+struct MessageVirtualNet
+{
+  enum ops {
+    ANNOUNCE,
+  };
+
+  unsigned op;
+  unsigned vnet;	 	// Virtual Net
+  unsigned client;
+
+  uint32  *registers;
+
+  // Filled in by forwarder
+  mword    physsize;
+  mword    physoffset;
+
+  MessageVirtualNet(unsigned vnet, uint32 *registers) :
+    op(ANNOUNCE), vnet(vnet), client(0), registers(registers)
+  {}
+
+};
+
+struct MessageVirtualNetPing
+{
+  unsigned client;
+
+  MessageVirtualNetPing(unsigned client)
+    : client(client)
+  { }
 };
 
 /* EOF */

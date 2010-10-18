@@ -22,6 +22,7 @@
 #include <service/time.h>
 #include <service/net.h>
 #include <service/endian.h>
+#include <nul/net.h>
 #include <model/pci.h>
 
 #include "82576vf.h"
@@ -83,12 +84,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 #include <model/82576vfmmio.inc>
 #include <model/82576vfpci.inc>
 
-  enum L4T {
-    L4T_UDP  = 0U,
-    L4T_TCP  = 1U,
-    L4T_SCTP = 2U,
-  };
-
   struct queue {
     Model82576vf *parent;
     unsigned n;
@@ -109,17 +104,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
   struct tx_queue : queue {
     uint32 txdctl_old;
 
-    typedef union {
-      uint64 raw[2];
-      struct {
-	uint64 buffer;
-	uint16 dtalen;
-	uint8  dtypmacrsv;
-	uint8  dcmd;
-	uint32 pay;
-      } advanced;
-    } tx_desc;
-
     // The driver can program 8 different offload contexts. We buffer
     // them as-is until they are needed.
     tx_desc ctx[8];
@@ -137,7 +121,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     // We use a huge buffer, because the VM may use segmentation
     // offload and put a whole TCP window worth of data here.
-    uint8 packet_buf[32 * 1024];
+    uint8 packet_buf[64 * 1024];
     unsigned packet_cur;
 
     void reset()
@@ -169,14 +153,13 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void handle_ctx(uint64 addr, tx_desc &desc)
     {
       // Store context descriptor as is, evaluate it when we need it.
-      unsigned cc = (desc.advanced.pay>>4) & 0x7;
-      ctx[cc] = desc;
+      ctx[desc.idx()] = desc;
     }
 
     void apply_segmentation(uint8 *packet, uint32 packet_len,
 			    const tx_desc &desc, bool tse)
     {
-      uint32 payload_len = desc.advanced.pay >> 14;
+      uint32 payload_len = desc.paylen();
 
       if (!tse) {
 	// Skip segmentation if it is not requested.
@@ -191,9 +174,9 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	// TCP segmentation is a bit weird, because the payload length
 	// in the TX descriptor does not include the prototype header.
 
-	uint8  cc     = (desc.advanced.pay>>4) & 0x7;
+	uint8  cc     = desc.idx();
 	const tx_desc &cur_ctx = ctx[cc];
-	uint16 tucmd  = (cur_ctx.raw[1]>>9) & 0x3FF;
+	uint16 tucmd  = cur_ctx.tucmd();
         uint8  l4t    = (tucmd >> 2) & 3;
 	bool   ipv6   = ((tucmd & 2) == 0);
 	//uint8  l4len  = (cur_ctx.raw[1]>>40) & 0xFF;
@@ -207,12 +190,12 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
 	//Logging::printf("SEGMENT header %x data %x (total %x) mss %x\n", header_len, data_left, packet_len, mss);
 
-	if (l4t == L4T_SCTP) {
+	if (l4t == tx_desc::L4T_SCTP) {
 	  Logging::printf("XXX SCTP segmentation?\n");
 	  return;
 	}
 
-	if (l4t == L4T_UDP) {
+	if (l4t == tx_desc::L4T_UDP) {
 	  Logging::printf("XXX UDP segmentation not implemented.\n");
 	  return;
 	}
@@ -244,7 +227,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
 	  // XXX UDP
 
-	  if (l4t == L4T_TCP)
+	  if (l4t == tx_desc::L4T_TCP)
 	    packet_tcp_flg = tcp_orig_flg &
 	      ((data_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
 
@@ -265,7 +248,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  // Prepare next chunk
 	  data_sent += chunk_size;
 	  if (!ipv6) packet_ip4_id = hton16(ntoh16(packet_ip4_id) + 1);
-	  if (l4t == L4T_TCP) packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk_size);
+	  if (l4t == tx_desc::L4T_TCP) packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk_size);
 	  i++;
 	}
 	//Logging::panic("INSPECT");
@@ -276,15 +259,14 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void apply_offload(uint8 *packet, uint32 packet_len,
                        const tx_desc &tx_desc)
     {
-      uint8 popts = (tx_desc.advanced.pay >> 8) & 0x3F;
+      uint8 popts = tx_desc.popts();
       // Short-Circuit return, if no interesting offloads are to be done.
       if ((popts & 7) == 0) return;
 
-      unsigned cc  = (tx_desc.advanced.pay>>4) & 0x7;
-      uint16 tucmd = (ctx[cc].raw[1]>>9) & 0x3FF;
-      uint16 iplen = ctx[cc].raw[0];
-      uint8 maclen = iplen >> 9;
-      iplen &= 0x1FF;
+      unsigned cc  = tx_desc.idx();
+      uint16 tucmd = ctx[cc].tucmd();
+      uint16 iplen = ctx[cc].iplen();
+      uint8 maclen = ctx[cc].maclen();
 
       // Sanity check maclen and iplen. We only cover the case that is
       // harmful to us.
@@ -310,18 +292,18 @@ class Model82576vf : public StaticReceiver<Model82576vf>
         uint8 l4t = (tucmd >> 2) & 3;
 
         switch (l4t) {
-        case L4T_UDP:		// UDP
-        case L4T_TCP:		// TCP
+        case tx_desc::L4T_UDP:		// UDP
+        case tx_desc::L4T_TCP:		// TCP
           {
-            uint8 *l4_sum = packet + maclen + iplen + ((l4t == L4T_UDP) ? 6 : 16);
+            uint8 *l4_sum = packet + maclen + iplen + ((l4t == tx_desc::L4T_UDP) ? 6 : 16);
             l4_sum[0] = l4_sum[1] = 0;
-            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == L4T_UDP) ? 17 : 6, maclen, iplen, packet_len);
+            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, packet_len);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
 	    //Logging::printf("%s CSO %x\n", (l4t == L4T_UDP) ? "UDP" : "TCP", sum);
           }
           break;
-        case L4T_SCTP:		// SCTP
+        case tx_desc::L4T_SCTP:		// SCTP
           // XXX Not implemented.
           Logging::printf("XXX SCTP CSO requested. Not implemented!\n");
           break;
@@ -335,8 +317,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     void handle_dta(uint64 addr, tx_desc &desc)
     {
       // uint32 payload_len = desc.advanced.pay >> 14;
-      uint32 data_len = desc.advanced.dtalen;
-      uint8  dcmd = desc.advanced.dcmd;
+      uint32 data_len = desc.dtalen();
+      uint8  dcmd = desc.dcmd();
       // uint8  cc   = (desc.advanced.pay>>4) & 0x7;
       // Logging::printf("TX advanced data descriptor: dcmd %x dta %x pay %x ctx %x\n",
       // 		      dcmd, data_len, payload_len, cc);
@@ -355,7 +337,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
       // Logging::printf("%s%s%s%s%s\n", (dcmd&EOP)?"EOP ":"", (dcmd&IFCS)?"IFCS ":"", (dcmd&RS)?"RS ":"",
       // 		      (dcmd&VLE)?"VLE ":"", (dcmd&TSE)?"TSE":"");
-      const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.advanced.buffer));
+      const uint8 *data = reinterpret_cast<uint8 *>(parent->guestmem(desc.raw[0]));
 
       if ((dcmd & IFCS) == 0)
         Logging::printf("IFCS not set, but we append FCS anyway in host82576vf.\n");
@@ -378,7 +360,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 
     done:
       // Descriptor is done
-      desc.advanced.pay |= 1;
+      desc.set_done();
       parent->copy_out(addr, desc.raw, sizeof(desc));
       if ((dcmd & (1<<3) /* Report Status */) != 0)
         parent->TX_irq(n);
@@ -482,7 +464,6 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     {
       memset(const_cast<uint32 *>(regs), 0, 0x100);
       regs[RXDCTL] = 1<<16 | ((n == 0) ? (1<<25) : 0);
-      regs[SRRCTL] = 0x400 | ((n != 0) ? 0x80000000U : 0);
       rxdctl_old = regs[RXDCTL];
 
       regs[RDBAL]  = 0;
@@ -681,6 +662,11 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     uint32 va = rVTIVAR >> (nr*16 + 8);
     if ((va & 0x80) != 0)
       MSIX_irq(va & 0x3);
+  }
+
+  void VTEITR_cb(uint32 old, uint32 val)
+  {
+    // Do nothing. Not implemented.
   }
 
   void VMMB_cb(uint32 old, uint32 val)

@@ -1,0 +1,105 @@
+#pragma once
+
+#include <nul/types.h>
+#include <nul/compiler.h>
+
+typedef struct {
+  enum {
+    DTYP_CONTEXT = 2U,
+    DTYP_DATA    = 3U,
+
+    DCMD_TSE     = (1U<<7),
+
+    POPTS_IXSM   = 1U,          // Insert IP checksum
+    POPTS_TXSM   = 2U,          // Insert L4 checksum
+    POPTS_IPSEC  = 4U,          // IPsec offloading
+    
+    L4T_UDP  = 0U,
+    L4T_TCP  = 1U,
+    L4T_SCTP = 2U,
+  };
+
+  union {
+    uint64 raw[2];
+    uint32 rawd[4];
+  };
+
+  void  set_done()      { raw[1] = (1ULL << 32 /* DD */); }
+  bool  rs()      const { return (rawd[2] & (1 << 27 /* RS */)); }
+  uint8 idx()     const { return (rawd[3] >> 4) & 0x7; } 
+  uint8 dtyp()    const { return (rawd[2] >> 20) & 0xF; }
+  uint8 dcmd()    const { return (rawd[2] >> 24) & 0xFF; }
+  uint8 popts()   const { return (rawd[3] >> 8) & 0x3F; }
+  bool  legacy()  const { return (rawd[2] & (1<<29 /* DEXT */)) == 0; }
+  uint16 paylen() const { return (rawd[3] >> 14); }
+  uint16 dtalen() const { return (rawd[2] & 0xFFFF); }
+  bool  eop() const
+  {
+    if (legacy())
+      return (raw[1] & (1<<24 /* EOP */)) != 0;
+    else
+      return (dtyp() == DTYP_CONTEXT) || ((raw[1] & (1<<24 /* EOP */)) != 0);
+  }
+
+  // Context
+  uint16 tucmd()  const { return (rawd[2] >> 9) & 0x3FF; }
+  uint8  l4t()    const { return (rawd[2] >> (9+2)) & 0x3; }
+  uint8  l4len()  const { return (rawd[3] >> 8) & 0xFF; }
+  uint16 mss()    const { return (rawd[3] >> 16) & 0xFFFF; }
+  uint16 iplen()  const { return rawd[0] & 0x1FF; }
+  uint8  maclen() const { return (rawd[0] >> 9) & 0x7F; }
+
+} tx_desc;
+
+typedef struct {
+  uint64 raw[2];
+
+  void set_done(uint8 type, uint16 len, bool eop)
+  {
+    switch (type) {
+    case 0:			// Legacy
+      raw[1] = ((eop ? 0x3ULL /* EOP, DD */ : 0x1ULL /* DD */) << 32) | len;
+      break;
+    case 1:			// Advanced, one buffer
+      raw[0] = 0;
+      raw[1] = static_cast<uint64>(len)<<32 | 
+	(eop ? 0x3 /* EOP, DD */ : 0x1 /* DD */);
+      break;
+    default:
+#ifndef BENCHMARK
+      Logging::printf("Invalid descriptor type %x\n", type);
+#endif
+      break;
+    }
+  }
+} rx_desc;
+
+
+struct QueueContext {
+  enum {
+    INVALID = 0,
+    VF_MODEL_TX,
+    VF_MODEL_RX,
+  } type;
+
+  bool irq_pending;
+  union {
+    struct {
+      uint32  tdh;
+      uint32  tdt;
+
+      // The driver can program 8 different offload contexts. We buffer
+      // them as-is until they are needed.
+      tx_desc ctx[8];
+    } vf_model_tx;
+
+    struct {
+      bool   promisc;
+      uint32 srrctl;
+      uint32 rdh;
+      uint32 rdt;
+    } vf_model_rx;
+  };
+};
+
+/* EOF */
