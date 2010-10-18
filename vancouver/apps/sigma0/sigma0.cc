@@ -994,7 +994,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    MessageNetwork msg2 = *msg;
 	    if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) return false;
 	    msg2.client = client;
-	    _mb->bus_network.send(msg2);
+	    utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
 	  }
       }
       break;
