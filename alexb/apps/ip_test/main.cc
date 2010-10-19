@@ -35,6 +35,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
       MessageNetwork net = MessageNetwork(data, len, 0);
 
       res = Sigma0Base::network(net);
+      if (res)
       Logging::printf("%s - sending packet to network, len = %u\n", 
                       (res == 0 ? "success" : "failure"), len);
     }
@@ -81,7 +82,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
       memset(tmconsumer->_buffer, 0xff, sizeof(tmconsumer->_buffer));
 
       unsigned long long timeout = nul_lwip_netif_next_timer();
-      Logging::printf("info    - next timeout in %llu ms\n", timeout);
+//      Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
       MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
       if (Sigma0Base::timer(to))
@@ -95,10 +96,12 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
       while (1) {
         unsigned char *buf;
-        unsigned size = netconsumer->get_buffer(buf);
+        TimerItem * item = tmconsumer->get_buffer();
 
-        if (tmconsumer->_buffer[tmconsumer->_rpos].time != ~0ULL) {
-          tmconsumer->_buffer[tmconsumer->_rpos].time = ~0ULL;
+//        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
+        //check whether timer triggered
+        if (item->time != ~0ULL) {
+          item->time = ~0ULL;
           tmconsumer->free_buffer();
           unsigned long long timeout = nul_lwip_netif_next_timer();
 
@@ -110,20 +113,8 @@ class TestLWIP : public NovaProgram, public ProgramConsole
           continue;
         }
 
-        //00:16:41:e2:fd:0d
-//        if (buf[5] == 0x0d && buf[4] == 0xfd && buf[3] == 0xe2 && buf[2] == 0x41 && buf[1] == 0x16 && buf[0] == 0x00)
-//          Logging::printf("Heho - you got me\n");
-/*
-        if (size < 14)
-          Logging::printf("got packet less than 14 bytes\n");
-        else
-          Logging::printf("%02x:%02x:%02x:%02x:%02x:%02x -> "
-                          "%02x:%02x:%02x:%02x:%02x:%02x type %02x%02x\n",
-                          buf[0], buf[1], buf[2], buf[3], buf[4], buf[5],
-                          buf[6], buf[7], buf[8], buf[9], buf[10], buf[11],
-                          buf[12], buf[13]);
-*/
-
+        //no timer triggered, is a network packet
+        unsigned size = netconsumer->get_buffer(buf);
 
         nul_lwip_input(buf, size);
 

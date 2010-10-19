@@ -47,6 +47,8 @@ void lwip_assert(const char *format, ...);
 #define LWIP_DHCP 1
 #define MEMP_NUM_SYS_TIMEOUT 5
 #define ETHARP_TMR_INTERVAL 5000
+#define LWIP_BROADCAST_PING 1
+#define LWIP_MULTICAST_PING 1
 
 #define LWIP_NETCONN 0
 #define LWIP_SOCKET 0
@@ -58,9 +60,9 @@ void lwip_assert(const char *format, ...);
  * DEBUG stuff
  */
 #define LWIP_DEBUG  1
-//#define PBUF_DEBUG  0x80U
-//#define MEMP_DEBUG   0x80U
-//#define IP_DEBUG 0x80U
-//#define ETHARP_DEBUG 0x80U
-//#define DHCP_DEBUG 0x80U
-//#define DHCP_DEBUG (LWIP_DBG_ON)
+//#define PBUF_DEBUG   (LWIP_DBG_ON)
+//#define MEMP_DEBUG   (LWIP_DBG_ON)
+//#define ETHARP_DEBUG (LWIP_DBG_ON)
+//#define IP_DEBUG     (LWIP_DBG_ON)
+//#define DHCP_DEBUG   (LWIP_DBG_ON)
+//#define ICMP_DEBUG   (LWIP_DBG_ON)
