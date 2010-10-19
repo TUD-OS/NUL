@@ -134,27 +134,38 @@ void nul_lwip_input(void * data, unsigned size) {
   //lwip_buf->payload = data; //required when used with PBUF_REF
 
   //debugging, should never trigger
-  if (memcmp(lwip_buf->payload, data, size) != 0) {
-    Logging::printf("payload data not equal to received data, size 0x%x %p, %p - start\n", size, data, lwip_buf->payload);
-    unsigned char const * src = (unsigned char const *)data;
-    unsigned char const * dst = (unsigned char const *)lwip_buf->payload;
-    unsigned i;
-    for (i=0; i < size - 8; i++) {
-      if (src[i] != dst[i]) {
-        Logging::printf("0x%04x: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", i,
-                        src[i], src[i+1], src[i+2], src[i+3], src[i+4], src[i+5], src[i+6], src[i+7],
-                        dst[i], dst[i+1], dst[i+2], dst[i+3], dst[i+4], dst[i+5], dst[i+6], dst[i+7]);
-        i += 7;
-      }
-    }
-    i = size - 8;
-    if (memcmp(&src[i], &dst[i], 8))
-      Logging::printf("0x%04x: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", i,
-                      src[i], src[i+1], src[i+2], src[i+3], src[i+4], src[i+5], src[i+6], src[i+7],
-                      dst[i], dst[i+1], dst[i+2], dst[i+3], dst[i+4], dst[i+5], dst[i+6], dst[i+7]);
-    Logging::printf("payload data not equal to received data, size 0x%x %p, %p - end\n", size, data, lwip_buf->payload);
-  }
+/*
+  unsigned rest_size        = size;
+  struct pbuf * check       = lwip_buf;
+  unsigned char const * src = (unsigned char const *)data;
 
+  do {
+    if (!check || check->len > rest_size)
+      Logging::panic("error\n");
+
+    rest_size -= check->len;
+    unsigned char const * dst = (unsigned char const *)check->payload;
+
+    if (memcmp(dst, src, check->len) != 0) {
+      Logging::printf("payload data != received data, size 0x%x %p, %p - start\n", size, data, check->payload);
+      unsigned i;
+      for (i=0; i + 8 < check->len; i++) {
+        if (src[i] != dst[i]) {
+          Logging::printf("0x%04x: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x\n", i,
+                          src[i], src[i+1], src[i+2], src[i+3], src[i+4], src[i+5], src[i+6], src[i+7],
+                          dst[i], dst[i+1], dst[i+2], dst[i+3], dst[i+4], dst[i+5], dst[i+6], dst[i+7]);
+          i += 7;
+        }
+      }
+      i = 8 > check->len ? 0 : check->len - 8;
+      if (memcmp(&src[i], &dst[i], check->len - i))
+        Logging::printf("0x%04x: \n", i);
+      Logging::printf("payload data not equal to received data, size 0x%x %p, %p - end\n", size, data, check->payload);
+    }
+    src += check->len;
+    check = check->next;
+  } while (rest_size);
+*/
   ethernet_input(lwip_buf, &nul_netif);
 
 }
