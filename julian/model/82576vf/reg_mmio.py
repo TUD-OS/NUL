@@ -56,6 +56,13 @@ rset = [
     { 'name' : 'rVTIVAR_MISC', 'offset' : 0x1740, 'initial' : 0, 'mutable' : 0x83 },
     ]
 
+# Interrupt moderation
+for n in range(3):
+    rset.append({'name' : 'rVTEITR%d' % n,
+                 'offset' : 0x1680 + 4*n,
+                 'initial' : 0,
+                 'callback' : 'VTEITR_cb'})
+
 # Mailbox memory
 for n in range(0x10):
     rset.append({'name' : 'rVFMBX%d' % n,

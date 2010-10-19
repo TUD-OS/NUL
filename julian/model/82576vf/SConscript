@@ -8,4 +8,8 @@ for f in ['mmio', 'pci']:
     host_env.Command('#include/model/82576vf%s.inc' % f, ['genreg.py', 'reg_%s.py' % f],
                      '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
 
+for f in ['mmio']:
+    host_env.Command('#include/model/82576vf%s_vnet.inc' % f, ['genreg2.py', 'reg_%s.py' % f],
+                     '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
+
 # EOF

@@ -42,7 +42,7 @@ class Host82576VF : public PciDriver,
 private:
   DBus<MessageNetwork> &_bus_network;
 
-  unsigned _hostirqs[3];
+  unsigned _hostirqs[2];
 
   volatile uint32 *_hwreg;     // Device MMIO registers (16K)
 

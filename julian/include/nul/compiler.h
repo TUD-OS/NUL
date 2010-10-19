@@ -24,5 +24,7 @@
 
 #define REGPARM(x) __attribute__((regparm(x)))
 #define NORETURN   __attribute__((noreturn))
+#define PURE       __attribute__((pure))
+#define COLD       __attribute__((cold))
 
 /* EOF */

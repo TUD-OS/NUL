@@ -196,12 +196,25 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Returns true on error.
    */
   template<typename T>
-  bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size)
+  static bool convert_client_ptr(ModuleInfo *modinfo, T *&ptr, unsigned size)
   {
     unsigned long offset = reinterpret_cast<unsigned long>(ptr);
+
     if (offset < MEM_OFFSET || modinfo->physsize + MEM_OFFSET <= offset || size > modinfo->physsize + MEM_OFFSET - offset)
       return true;
     ptr = reinterpret_cast<T *>(offset + modinfo->mem - MEM_OFFSET);
+    return false;
+  }
+
+  /**
+   * Returns true on error. (Why?!)
+   */
+  static bool adapt_ptr_map(ModuleInfo *modinfo, unsigned long &physoffset, unsigned long &physsize)
+  {
+    if (physoffset - MEM_OFFSET > modinfo->physsize) return true;
+    if (physsize > (modinfo->physsize - physoffset + MEM_OFFSET))
+      physsize = modinfo->physsize - physoffset + MEM_OFFSET;
+    physoffset += reinterpret_cast<unsigned long>(modinfo->mem) - MEM_OFFSET;
     return false;
   }
 
@@ -250,6 +263,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _mb->bus_timeout.add(this,  receive_static<MessageTimeout>);
     init_disks();
     init_network();
+    init_vnet();
     _mb->parse_args(cmdline);
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
@@ -710,7 +724,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  SemaphoreGuard l(_lock);
 	  if (utcb->head.untyped != EXCEPTION_WORDS)
 	    {
-	      if (!request_disks(client, utcb) && !request_console(client, utcb) && !request_network(client, utcb))
+	      if (!request_vnet(client, utcb) && !request_disks(client, utcb) &&
+		  !request_console(client, utcb) && !request_network(client, utcb))
 		switch (utcb->msg[0])
 		  {
 		  case REQUEST_HOSTOP:
@@ -898,7 +913,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
 	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], msg.ptr);
-	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(msg.len ? 3 : 2, 10000));
+	  unsigned prio;
+	  if (msg.len == ~0u)
+	    prio = 1;		// IDLE
+	  else
+	    prio = msg.len ? 3 : 2;
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
 	}
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
@@ -1010,6 +1030,50 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return true;
   }
 
+  // Virtual Network
+
+  unsigned vnet_sm[MAXMODULES];
+
+  void init_vnet()
+  {
+    _mb->bus_vnetping.add(this, receive_static<MessageVirtualNetPing>);
+  }
+
+  bool receive(MessageVirtualNetPing &msg)
+  {
+    return (nova_semup(vnet_sm[msg.client]) == 0);
+  }
+
+
+  bool request_vnet(unsigned client, Utcb *utcb)
+  {
+    switch (utcb->msg[0]) {
+    case REQUEST_VNET_ATTACH: {
+      vnet_sm[client] = utcb->head.crd >> Utcb::MINSHIFT;
+      Logging::printf("Client %u provided VNET wakeup semaphore: %u.\n", client, vnet_sm[client]);
+      utcb->msg[0] = 0;
+      prepare_cap_recv(utcb);
+      return true;
+    }
+    case REQUEST_VNET: {
+      ModuleInfo &modinfo = _modinfo[client];
+      MessageVirtualNet *msg = reinterpret_cast<MessageVirtualNet *>(utcb->msg+1);
+
+      if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) {
+	return false;
+      } else {
+	if (convert_client_ptr(&modinfo, msg->registers, 0x4000))  return false;
+	if (adapt_ptr_map(&modinfo, msg->physoffset, msg->physsize)) return false;
+	msg->client = client;
+	utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
+      }
+      return true;
+    }
+    }
+    
+    return false;
+  }
+
 
   /************************************************************
    *   DISK support                                           *
@@ -1105,11 +1169,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      case MessageDisk::DISK_READ:
 		if (convert_client_ptr(modinfo, msg2.dma, sizeof(*msg2.dma)*msg2.dmacount)) return false;
 
-		if (msg2.physoffset - MEM_OFFSET > modinfo->physsize) return false;
-		if (msg2.physsize > (modinfo->physsize - msg2.physoffset + MEM_OFFSET))
-		  msg2.physsize = modinfo->physsize - msg2.physoffset + MEM_OFFSET;
-		msg2.physoffset += reinterpret_cast<unsigned long>(modinfo->mem) - MEM_OFFSET;
-
+                if (adapt_ptr_map(modinfo, msg2.physoffset, msg2.physsize))
+                  return false;
+                
 		utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
 		if (utcb->msg[0]) break;
 		assert(msg2.usertag);

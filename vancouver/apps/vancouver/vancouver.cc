@@ -236,6 +236,23 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     }
   }
 
+  PT_FUNC(do_vnet) __attribute__((noreturn))
+  {
+    unsigned sm = alloc_cap();
+    if (nova_create_sm(sm)) Logging::panic("VNET semaphore creation failed.\n");
+    Sigma0Base::request_vnet_attach(utcb, sm);
+    
+    while (1) {
+      if (nova_semdownmulti(sm)) Logging::panic("VNET b0rken?\n");
+      {
+	SemaphoreGuard l(_lock);
+
+	MessageVirtualNetPing p(0);
+	_mb->bus_vnetping.send(p);
+      }
+    }
+  }
+
 
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
@@ -263,6 +280,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_timer.add   (this, receive_static<MessageTimer>);
     _mb->bus_time.add    (this, receive_static<MessageTime>);
     _mb->bus_network.add (this, receive_static<MessageNetwork>);
+    _mb->bus_vnet.add    (this, receive_static<MessageVirtualNet>);
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
 
@@ -504,6 +522,7 @@ public:
 	  }
 	break;
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
+	assert((msg.value & 0xFFF) == 0);
 	if (msg.value <= _physsize)
 	  {
 	    _physsize -= msg.value;
@@ -585,10 +604,16 @@ public:
     return true;
   }
 
-  bool  receive(MessageConsole &msg)   {  return !Sigma0Base::console(msg); }
-  bool  receive(MessagePciConfig &msg) {  return !Sigma0Base::pcicfg(msg);  }
-  bool  receive(MessageAcpi      &msg) {  return !Sigma0Base::acpi(msg);    }
+  bool receive(MessageVirtualNet &msg)
+  {
+    msg.physsize   = _physsize;
+    msg.physoffset = _physmem;
+    return Sigma0Base::vnetop(msg);
+  }
 
+  bool receive(MessageConsole &msg)    { return !Sigma0Base::console(msg); }
+  bool receive(MessagePciConfig &msg)  { return !Sigma0Base::pcicfg(msg);  }
+  bool receive(MessageAcpi      &msg)  { return !Sigma0Base::acpi(msg);    }
 
   /**
    * update timeout in sigma0
@@ -671,6 +696,7 @@ public:
     create_irq_thread(~0u, 0, do_disk);
     create_irq_thread(~0u, 0, do_timer);
     create_irq_thread(~0u, 0, do_network);
+    create_irq_thread(~0u, 0, do_vnet);
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
