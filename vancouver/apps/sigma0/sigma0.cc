@@ -109,7 +109,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned long long _gsi;     // bitfield per used GSI
   unsigned _pcidirect[MAXPCIDIRECT];
 
-  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL | DESC_DPT)
+  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
   {
     assert(size);
 
@@ -138,7 +138,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     while (size > offset)
       {
 	utcb->set_header(0, 0);
-	unsigned long s = add_mappings(utcb, physmem + offset, size - offset, virt + offset, rights);
+	unsigned long s = add_mappings(utcb, physmem + offset, size - offset, (virt + offset) | MAP_DPT, rights);
 	Logging::printf("\t\tmap self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.typed);
 	offset = size - s;
 	unsigned err;
@@ -672,7 +672,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  assert(~utcb->head.untyped & 1);
 	  // enable from kernel mappings
 	  for (unsigned i=0; i < utcb->head.untyped / 2; i++)
-	    utcb->msg[i*2 + 1] |= 1 << 11;
+	    utcb->msg[i*2 + 1] |= MAP_HBIT;
 	  utcb->set_header(0, utcb->head.untyped / 2);
 	  memmove(utcb->item_start(), utcb->msg, sizeof(unsigned) * utcb->head.typed*2);
 	  )
@@ -788,7 +788,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = 0;
-			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
+			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  else {
 			    Logging::printf("[%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
@@ -800,7 +800,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    utcb->msg[0] = 0;
 			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
-			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, 0, DESC_CAP_ALL);
+			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
@@ -808,7 +808,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
 			  utcb->set_header(1, 0);
 			  utcb->msg[0] = 0;
-			  add_mappings(utcb, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), 0, DESC_CAP_ALL);
+			  add_mappings(utcb, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_CAP_ALL);
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
 			  {
@@ -817,7 +817,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->set_header(1, 0);
 			    utcb->msg[1] = 0;
-			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, 0, DESC_MEM_ALL);
+			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
 			    Logging::printf("[%02x] iomem %lx+%lx granted from %p\n", client, addr, msg->len, ptr);
 			  }
 			  break;
@@ -867,8 +867,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      }
 
 	      utcb->mtd = 0;
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET, DESC_MEM_ALL);
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip), DESC_MEM_ALL);
+	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
+	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
 	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
 			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    }

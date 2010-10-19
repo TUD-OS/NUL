@@ -51,8 +51,10 @@ enum {
   DESC_MEM_ALL   = DESC_TYPE_MEM | DESC_RIGHTS_ALL,
   DESC_IO_ALL    = DESC_TYPE_IO  | DESC_RIGHTS_ALL,
   DESC_CAP_ALL   = DESC_TYPE_CAP | DESC_RIGHTS_ALL,
-  DESC_DPT       = 0x20,
-  DESC_EPT       = 0x40
+  MAP_HBIT      = 0x801,
+  MAP_EPT       = 0x401,
+  MAP_DPT       = 0x201,
+  MAP_MAP       =     1,
 };
 
 

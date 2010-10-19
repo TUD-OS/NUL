@@ -37,22 +37,21 @@ struct BaseProgram {
   /**
    * add mappings to a UTCB.
    */
-  static unsigned long add_mappings(Utcb *utcb, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights, bool domap = true)
+  static unsigned long add_mappings(Utcb *utcb, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
   {
-    while (size > 0)
-      {
-	unsigned minshift = Cpu::minshift(addr | hotspot, size);
-	assert(minshift >= Utcb::MINSHIFT);
-	utcb->head.typed++;
-	unsigned *item = utcb->item_start();
-	if (item <= utcb->msg+utcb->head.untyped) return size;
-	item[1] = (hotspot & ~0xffful) | domap;
-	item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
-	unsigned long mapsize = 1 << minshift;
-	size    -= mapsize;
-	addr    += mapsize;
-	hotspot += mapsize;
-      }
+    while (size > 0) {
+      unsigned minshift = Cpu::minshift(addr | (hotspot & ~0xffful) , size);
+      assert(minshift >= Utcb::MINSHIFT);
+      utcb->head.typed++;
+      unsigned *item = utcb->item_start();
+      if (item <= utcb->msg+utcb->head.untyped) return size;
+      item[1] = hotspot;
+      item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
+      unsigned long mapsize = 1 << minshift;
+      size    -= mapsize;
+      addr    += mapsize;
+      hotspot += mapsize;
+    }
     return size;
   }
 
