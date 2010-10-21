@@ -98,7 +98,7 @@ public:
         MessageTimer msg3(0, clock->abstime(1, 50));
         Sigma0Base::timer(msg3);
         sem.downmulti(); 
-        while (timerconsumer->isData()) {
+        while (timerconsumer->has_data()) {
           timerconsumer->get_buffer();
           timerconsumer->free_buffer();
         }

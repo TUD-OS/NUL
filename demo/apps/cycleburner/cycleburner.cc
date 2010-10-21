@@ -340,7 +340,7 @@ public:
       Sigma0Base::timer(timeout);
 
       sem.downmulti();
-      while (timerconsumer->isData()) {
+      while (timerconsumer->has_data()) {
         timerconsumer->get_buffer();
         timerconsumer->free_buffer();
       }

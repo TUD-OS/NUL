@@ -167,7 +167,7 @@ public:
       last_page = page;
 
       sem.downmulti();
-      while (stdinconsumer.isData()) {
+      while (stdinconsumer.has_data()) {
         MessageInput *kmsg = stdinconsumer.get_buffer();
         switch (kmsg->data & ~KBFLAG_NUM) {
         case KBCODE_SPACE:

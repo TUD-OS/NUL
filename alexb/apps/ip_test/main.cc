@@ -103,8 +103,8 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
 //        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
         //check whether timer triggered
-        if (tmconsumer->isData()) {
-          while (tmconsumer->isData()) {
+        if (tmconsumer->has_data()) {
+          while (tmconsumer->has_data()) {
             tmconsumer->get_buffer();
             tmconsumer->free_buffer();
           }
@@ -117,7 +117,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
             Logging::printf("failed  - starting timer\n");
         }
 
-        while (netconsumer->isData()) {
+        while (netconsumer->has_data()) {
           unsigned size = netconsumer->get_buffer(buf);
           nul_lwip_input(buf, size);
           netconsumer->free_buffer();

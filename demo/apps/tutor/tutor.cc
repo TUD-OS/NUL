@@ -34,7 +34,7 @@ struct Tutor : public NovaProgram,
     print_screen1(_console_data.screen_address, line);
     while (1) {
       sem.downmulti();
-      while (stdinconsumer.isData()) {
+      while (stdinconsumer.has_data()) {
         MessageInput *kmsg = stdinconsumer.get_buffer();
         switch (kmsg->data & ~KBFLAG_NUM) {
         case KBCODE_UP:    if (line > 0) line -= 1;

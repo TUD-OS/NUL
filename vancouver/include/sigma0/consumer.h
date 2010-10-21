@@ -21,7 +21,6 @@
 #include "service/profile.h"
 #include "service/helper.h"
 
-
 /**
  * Consumer with fixed items.
  */
@@ -33,7 +32,7 @@ public:
   volatile unsigned  _wpos;
   T         _buffer[SIZE];
 
-  inline bool isData() { return _rpos != _wpos;}
+  bool has_data() const { return _rpos != _wpos;}
 
   T * get_buffer() {
     return _buffer + _rpos;

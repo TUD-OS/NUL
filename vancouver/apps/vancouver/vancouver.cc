@@ -147,7 +147,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     while (1) {
       sem->downmulti();
-      while (stdinconsumer->isData()) {
+      while (stdinconsumer->has_data()) {
       MessageInput *msg = stdinconsumer->get_buffer();
       switch ((msg->data & ~KBFLAG_NUM) ^ _keyboard_modifier)
 	{
@@ -199,7 +199,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm());
     while (1) {
       sem->downmulti();
-      while (diskconsumer->isData()) {
+      while (diskconsumer->has_data()) {
         MessageDiskCommit *msg = diskconsumer->get_buffer();
         SemaphoreGuard l(_lock);
         _mb->bus_diskcommit.send(*msg);
@@ -216,7 +216,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Sigma0Base::request_timer_attach(utcb, timerconsumer, sem->sm());
     while (1) {
       sem->downmulti();
-      while (timerconsumer->isData()) {
+      while (timerconsumer->has_data()) {
         COUNTER_INC("timer");
         timerconsumer->get_buffer();
         timerconsumer->free_buffer();
@@ -233,7 +233,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Sigma0Base::request_network_attach(utcb, network_consumer, sem->sm());
     while (1) {
       sem->downmulti();
-      while (network_consumer->isData()) {
+      while (network_consumer->has_data()) {
         unsigned char *buf;
         unsigned size = network_consumer->get_buffer(buf);
 

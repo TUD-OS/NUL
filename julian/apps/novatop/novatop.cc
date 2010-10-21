@@ -129,7 +129,7 @@ public:
       Sigma0Base::timer(m);
 
       sem.downmulti();
-      while (tc.isData()) {
+      while (tc.has_data()) {
         tc.get_buffer();
         tc.free_buffer();
       }
