@@ -53,12 +53,4 @@ EXTERN_C char *strncpy(char *dst, const char *src, size_t n);
 EXTERN_C int strcmp(const char *dst, const char *src);
 EXTERN_C char *strcat(char *dst, const char *src);
 
-/** "Fast" memcpy for double-word aligned buffers. */
-static inline void *
-memcpyl(void *dst, const void *src, size_t count)
-{
-  asm volatile ("rep movsl" : "+D"(dst), "+S"(src), "+c" (count) : : "memory");
-  return dst;
-}
-
 /* EOF */
