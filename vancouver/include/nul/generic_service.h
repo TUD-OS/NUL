@@ -115,7 +115,7 @@ public:
 	return ENONE;
       }
     Logging::printf("could not find client data for %x\n", identity);
-    return EABORT;
+    return EEXISTS;
   }
 
   /**
