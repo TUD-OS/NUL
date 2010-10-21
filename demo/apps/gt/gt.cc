@@ -82,8 +82,9 @@ public:
 
 
     Logging::printf("request timer\n");
-    TimerConsumer *timerconsumer = new TimerConsumer(hip->cfg_exc + hip->cfg_gsi);
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
+    KernelSemaphore sem = KernelSemaphore(hip->cfg_exc + hip->cfg_gsi, true);
+    TimerConsumer *timerconsumer = new TimerConsumer();
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem.sm());
     Clock * clock = new Clock(hip->freq_tsc*1000);
 
     // switch to the graphic console
@@ -94,11 +95,14 @@ public:
     Logging::printf("start animation\n");
     while (1)
       {
-	MessageTimer msg3(0, clock->abstime(1, 50));
-	Sigma0Base::timer(msg3);
-	timerconsumer->get_buffer();
-	timerconsumer->free_buffer();
-	animate();
+        MessageTimer msg3(0, clock->abstime(1, 50));
+        Sigma0Base::timer(msg3);
+        sem.downmulti(); 
+        while (timerconsumer->isData()) {
+          timerconsumer->get_buffer();
+          timerconsumer->free_buffer();
+        }
+        animate();
       }
   }
 };

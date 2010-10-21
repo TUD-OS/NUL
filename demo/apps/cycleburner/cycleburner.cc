@@ -311,8 +311,9 @@ public:
 
     init(hip);
 
-    TimerConsumer *timerconsumer = new TimerConsumer(alloc_cap());
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
+    KernelSemaphore sem = KernelSemaphore(alloc_cap(), true);
+    TimerConsumer *timerconsumer = new TimerConsumer();
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem.sm());
 
     gen_sinlut();
     gen_sqrtlut();
@@ -337,8 +338,12 @@ public:
       // Wait
       MessageTimer timeout(0, clock->time() + 50000000);
       Sigma0Base::timer(timeout);
-      timerconsumer->get_buffer();
-      timerconsumer->free_buffer();
+
+      sem.downmulti();
+      while (timerconsumer->isData()) {
+        timerconsumer->get_buffer();
+        timerconsumer->free_buffer();
+      }
     }
 
     block_forever();

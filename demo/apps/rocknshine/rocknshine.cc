@@ -149,8 +149,9 @@ public:
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-    StdinConsumer stdinconsumer(alloc_cap());
-    Sigma0Base::request_stdin(utcb, &stdinconsumer, stdinconsumer.sm());
+    KernelSemaphore sem = KernelSemaphore(alloc_cap(), true);
+    StdinConsumer stdinconsumer;
+    Sigma0Base::request_stdin(utcb, &stdinconsumer, sem.sm());
 
     // switch to our view
     msg2.type = MessageConsole::TYPE_SWITCH_VIEW;
@@ -165,44 +166,46 @@ public:
       if (last_page != page) show_page(page);
       last_page = page;
 
-      MessageInput *kmsg = stdinconsumer.get_buffer();
-      switch (kmsg->data & ~KBFLAG_NUM) {
-      case KBCODE_SPACE:
-      case KBCODE_DOWN:
-      case KBCODE_RIGHT:
-	page = (page+1) % _header->pages;
-	break;
-      case KBCODE_BSPACE:
-      case KBCODE_UP:
-      case KBCODE_LEFT:
-	page = (page + _header->pages - 1) % _header->pages;
-	break;
-      case KBCODE_HOME:
-	page = 0;
-	break;
-      case KBCODE_END:
-	page = _header->pages - 1;
-	break;
-      case KBCODE_ENTER:
-	if (input && input <= _header->pages) page = input - 1;
-      case KBCODE_ESC:
-	input = 0;
-	break;
-      case KBCODE_SCROLL:
-	for (unsigned i=0; i < _header->pages; i++)
-	  {
-	    page = (page + 1) % _header->pages;
-	    show_page(page);
-	  }
-	break;
-      default:
-	{
-	  unsigned num;
-	  if ((num = is_numeric_key(kmsg->data, 0)))  input = input*10 + (num % 10);
-	}
+      sem.downmulti();
+      while (stdinconsumer.isData()) {
+        MessageInput *kmsg = stdinconsumer.get_buffer();
+        switch (kmsg->data & ~KBFLAG_NUM) {
+        case KBCODE_SPACE:
+        case KBCODE_DOWN:
+        case KBCODE_RIGHT:
+          page = (page+1) % _header->pages;
+          break;
+        case KBCODE_BSPACE:
+        case KBCODE_UP:
+        case KBCODE_LEFT:
+          page = (page + _header->pages - 1) % _header->pages;
+          break;
+        case KBCODE_HOME:
+          page = 0;
+          break;
+        case KBCODE_END:
+          page = _header->pages - 1;
+          break;
+        case KBCODE_ENTER:
+        	if (input && input <= _header->pages) page = input - 1;
+        case KBCODE_ESC:
+        	input = 0;
+        	break;
+        case KBCODE_SCROLL:
+        	for (unsigned i=0; i < _header->pages; i++)
+          {
+      	    page = (page + 1) % _header->pages;
+    	      show_page(page);
+      	  }
+        	break;
+        default:
+        	{
+        	  unsigned num;
+        	  if ((num = is_numeric_key(kmsg->data, 0)))  input = input*10 + (num % 10);
+        	}
+        }
+        stdinconsumer.free_buffer();
       }
-
-      stdinconsumer.free_buffer();
     }
   }
 };

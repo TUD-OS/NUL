@@ -25,22 +25,28 @@ struct Tutor : public NovaProgram,
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
-    StdinConsumer stdinconsumer(alloc_cap());
-    Sigma0Base::request_stdin(utcb, &stdinconsumer, stdinconsumer.sm());
+    KernelSemaphore sem(alloc_cap(), true);
+    StdinConsumer stdinconsumer;
+    Sigma0Base::request_stdin(utcb, &stdinconsumer, sem.sm());
 
     unsigned line = 0;
 
+    print_screen1(_console_data.screen_address, line);
     while (1) {
-      print_screen1(_console_data.screen_address, line);
-
-      MessageInput *kmsg = stdinconsumer.get_buffer();
-      switch (kmsg->data & ~KBFLAG_NUM) {
-      case KBCODE_UP:    if (line > 0) line -= 1; break;
-      case KBCODE_DOWN:  line +=  1; break;
-      case KBCODE_SPACE: line += 24; break;
+      sem.downmulti();
+      while (stdinconsumer.isData()) {
+        MessageInput *kmsg = stdinconsumer.get_buffer();
+        switch (kmsg->data & ~KBFLAG_NUM) {
+        case KBCODE_UP:    if (line > 0) line -= 1;
+        case KBCODE_DOWN:  line +=  1; 
+        case KBCODE_SPACE: line += 24;
+          print_screen1(_console_data.screen_address, line);
+          break;
+        default:
+          break;
+        }
+        stdinconsumer.free_buffer();
       }
-
-      stdinconsumer.free_buffer();
     }
     
     // Not reached.

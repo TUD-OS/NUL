@@ -140,11 +140,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_stdin) __attribute__((noreturn))
   {
-    StdinConsumer *stdinconsumer = new StdinConsumer(alloc_cap());
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    StdinConsumer *stdinconsumer = new StdinConsumer();
     assert(stdinconsumer);
-    Sigma0Base::request_stdin(utcb, stdinconsumer, stdinconsumer->sm());
+    Sigma0Base::request_stdin(utcb, stdinconsumer, sem->sm());
 
     while (1) {
+      sem->downmulti();
+      while (stdinconsumer->isData()) {
       MessageInput *msg = stdinconsumer->get_buffer();
       switch ((msg->data & ~KBFLAG_NUM) ^ _keyboard_modifier)
 	{
@@ -184,55 +187,66 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	SemaphoreGuard l(_lock);
 	_mb->bus_input.send(*msg);
 	stdinconsumer->free_buffer();
+      }
     }
   }
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    DiskConsumer *diskconsumer = new DiskConsumer(alloc_cap());
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    DiskConsumer *diskconsumer = new DiskConsumer();
     assert(diskconsumer);
-    Sigma0Base::request_disks_attach(utcb, diskconsumer, diskconsumer->sm());
+    Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm());
     while (1) {
-
-      MessageDiskCommit *msg = diskconsumer->get_buffer();
-      SemaphoreGuard l(_lock);
-      _mb->bus_diskcommit.send(*msg);
-      diskconsumer->free_buffer();
+      sem->downmulti();
+      while (diskconsumer->isData()) {
+        MessageDiskCommit *msg = diskconsumer->get_buffer();
+        SemaphoreGuard l(_lock);
+        _mb->bus_diskcommit.send(*msg);
+        diskconsumer->free_buffer();
+      }
     }
   }
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    TimerConsumer *timerconsumer = new TimerConsumer(alloc_cap());
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    TimerConsumer *timerconsumer = new TimerConsumer();
     assert(timerconsumer);
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, timerconsumer->sm());
+    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem->sm());
     while (1) {
-
-      COUNTER_INC("timer");
-      timerconsumer->get_buffer();
-      timerconsumer->free_buffer();
-      SemaphoreGuard l(_lock);
-      timeout_trigger();
+      sem->downmulti();
+      while (timerconsumer->isData()) {
+        COUNTER_INC("timer");
+        timerconsumer->get_buffer();
+        timerconsumer->free_buffer();
+        SemaphoreGuard l(_lock);
+        timeout_trigger();
+      }
     }
   }
 
   PT_FUNC(do_network) __attribute__((noreturn))
   {
-    NetworkConsumer *network_consumer = new NetworkConsumer(alloc_cap());
-    Sigma0Base::request_network_attach(utcb, network_consumer, network_consumer->sm());
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    NetworkConsumer *network_consumer = new NetworkConsumer();
+    Sigma0Base::request_network_attach(utcb, network_consumer, sem->sm());
     while (1) {
-      unsigned char *buf;
-      unsigned size = network_consumer->get_buffer(buf);
+      sem->downmulti();
+      while (network_consumer->isData()) {
+        unsigned char *buf;
+        unsigned size = network_consumer->get_buffer(buf);
 
-      MessageNetwork msg(buf, size, 0);
-      assert(!_forward_pkt);
-      _forward_pkt = msg.buffer;
-      {
-	SemaphoreGuard l(_lock);
-	_mb->bus_network.send(msg);
+        MessageNetwork msg(buf, size, 0);
+        assert(!_forward_pkt);
+        _forward_pkt = msg.buffer;
+        {
+          SemaphoreGuard l(_lock);
+          _mb->bus_network.send(msg);
+        }
+        _forward_pkt = 0;
+        network_consumer->free_buffer();
       }
-      _forward_pkt = 0;
-      network_consumer->free_buffer();
     }
   }
 

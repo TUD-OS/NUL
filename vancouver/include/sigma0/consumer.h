@@ -29,31 +29,17 @@ template <typename T, unsigned SIZE>
 class Consumer
 {
 public:
-  KernelSemaphore _sem;
   volatile unsigned  _rpos;
   volatile unsigned  _wpos;
   T         _buffer[SIZE];
-  unsigned sm() { return _sem.sm(); }
+
+  inline bool isData() { return _rpos != _wpos;}
 
   T * get_buffer() {
-    _sem.down();
     return _buffer + _rpos;
   }
 
   void free_buffer()  { _rpos = (_rpos + 1) % SIZE; }
-
-
-  explicit
-  Consumer(unsigned cap_sm, bool createsm = true) : _sem(KernelSemaphore(cap_sm)),  _rpos(0), _wpos(0)
-  {
-    unsigned res;
-    if (createsm) {
-      if ((res = nova_create_sm(cap_sm)))
-        Logging::panic("create Consumer failed with %x\n", res);
-      Logging::printf("create Consumer ok with %x nq %x\n", res, cap_sm);
-    } else
-      Logging::printf("reused Consumer with nq %x\n", cap_sm);
-  }
 };
 
 
@@ -107,6 +93,7 @@ public:
   unsigned get_buffer(unsigned char *&buffer)
   {
     unsigned *len = Parent::get_buffer();
+
     if (*len == ~0u)
       {
 	Parent::_rpos = 0;
@@ -121,8 +108,6 @@ public:
   {
     Parent::_rpos = (Parent::_rpos + (Parent::_buffer[Parent::_rpos] + 2*sizeof(unsigned) - 1)/sizeof(unsigned)) % SIZE;
   }
-
-  PacketConsumer(unsigned cap_sm) : Parent(cap_sm) {}
 };
 
 

@@ -43,22 +43,24 @@ class TestLWIP : public NovaProgram, public ProgramConsole
     bool use_network(Utcb *utcb, unsigned cpuid, Hip * hip, unsigned sm) {
       bool res;
 
-      NetworkConsumer * netconsumer = new NetworkConsumer(sm);
+      KernelSemaphore sem = KernelSemaphore(sm, true);
+
+      NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer)
         return false;
 
-      TimerConsumer * tmconsumer    = new TimerConsumer(sm, false);
+      TimerConsumer * tmconsumer    = new TimerConsumer();
       if (!tmconsumer)
         return false;
 
       res = Sigma0Base::request_network_attach(utcb, netconsumer,
-                                               netconsumer->sm());
+                                               sem.sm());
       Logging::printf("request network attach - %s\n",
                       (res == 0 ? "success" : "failure"));
       if (res)
         return false;
 
-      res = Sigma0Base::request_timer_attach(utcb, tmconsumer, tmconsumer->sm());
+      res = Sigma0Base::request_timer_attach(utcb, tmconsumer, sem.sm());
       Logging::printf("request timer attach - %s\n",
                       (res == 0 ? "success" : "failure"));
       if (res)
@@ -96,29 +98,30 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
       while (1) {
         unsigned char *buf;
-        TimerItem * item = tmconsumer->get_buffer();
+
+        sem.downmulti();
 
 //        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
         //check whether timer triggered
-        if (item->time != ~0ULL) {
-          item->time = ~0ULL;
-          tmconsumer->free_buffer();
+        if (tmconsumer->isData()) {
+          while (tmconsumer->isData()) {
+            tmconsumer->get_buffer();
+            tmconsumer->free_buffer();
+          }
+ 
           unsigned long long timeout = nul_lwip_netif_next_timer();
-
 //          Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
           MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
           if (Sigma0Base::timer(to))
             Logging::printf("failed  - starting timer\n");
-          continue;
         }
 
-        //no timer triggered, is a network packet
-        unsigned size = netconsumer->get_buffer(buf);
-
-        nul_lwip_input(buf, size);
-
-        netconsumer->free_buffer();
+        while (netconsumer->isData()) {
+          unsigned size = netconsumer->get_buffer(buf);
+          nul_lwip_input(buf, size);
+          netconsumer->free_buffer();
+        }
       }
 
       if (res)

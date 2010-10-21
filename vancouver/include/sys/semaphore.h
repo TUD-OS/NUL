@@ -30,7 +30,16 @@ class KernelSemaphore
 {
   unsigned _sm;
 public:
-  KernelSemaphore(unsigned cap_sm = 0) : _sm(cap_sm) {}
+  explicit
+  KernelSemaphore(unsigned cap_sm = 0, bool create = false) : _sm(cap_sm)
+  {
+    if (create) {
+      unsigned res;
+      if ((res = nova_create_sm(cap_sm)))
+        Logging::panic("create Consumer failed with %x\n", res);
+    }
+  }
+
   void down()
   {
     COUNTER_INC("LOCK krnl");

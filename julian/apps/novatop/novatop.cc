@@ -118,8 +118,9 @@ public:
 	Logging::panic("SC");
     }
 
-    TimerConsumer tc(alloc_cap());
-    Sigma0Base::request_timer_attach(utcb, &tc, tc.sm());
+    KernelSemaphore sem = KernelSemaphore(alloc_cap(), true);
+    TimerConsumer tc;
+    Sigma0Base::request_timer_attach(utcb, &tc, sem.sm());
 
     Clock c(_hip->freq_tsc*1000);
     while (1) {
@@ -127,8 +128,11 @@ public:
       MessageTimer m(0, c.abstime(1, 1));
       Sigma0Base::timer(m);
 
-      tc.get_buffer();
-      tc.free_buffer();
+      sem.downmulti();
+      while (tc.isData()) {
+        tc.get_buffer();
+        tc.free_buffer();
+      }
 
       for (unsigned i = 0; i < hip->cpu_count(); i++)
 	nova_semup(_wait_sm[i]);
