@@ -36,7 +36,8 @@ static_assert((sizeof(dma_desc[desc_ring_len]) & 0x7F) == 0,
 	      "Size of DMA descriptors must be 128-byte aligned.");
 
 class Host82576VF : public PciDriver,
-                    public Base82576,
+                    public Base82576VF,
+		    public Base82576,
                     public StaticReceiver<Host82576VF>
 {
 private:

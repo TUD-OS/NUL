@@ -28,7 +28,7 @@
 #include <model/pci.h>
 #include <nul/net.h>
 
-#include "82576vf.h"
+#include "utils.h"
 
 using namespace Endian;
 
@@ -49,8 +49,6 @@ class Model82576vf_vnet : public StaticReceiver<Model82576vf_vnet>
 {
   EthernetAddr             _mac;
   Clock                    _clock;
-  DBus<MessageHostOp>     &_hostop;
-  DBus<MessageVirtualNet> &_vnet;
 
 #include "model/simplemem.h"
 
@@ -402,28 +400,13 @@ public:
     return false;
   }
 
-  void *alloc_from_guest(size_t size)
-  {
-    MessageHostOp alloc(MessageHostOp::OP_ALLOC_FROM_GUEST, size);
-    if (not _hostop.send(alloc))
-      Logging::panic("Could not allocate register window.\n");
-
-    // Cannot translate alloc.phys directly, because it is beyond
-    // "normal" physical memory now and we would get NULL back.
-    MessageHostOp conv(MessageHostOp::OP_GUEST_MEM, 0);
-    if (not _hostop.send(conv) or (conv.ptr == NULL))
-      Logging::panic("Could not convert VM pointer?\n");
-
-    return conv.ptr + alloc.phys;
-  }
-
   Model82576vf_vnet(uint64 mac,
 		    Clock *clock,
 		    DBus<MessageHostOp> &hostop,
 		    DBus<MessageVirtualNet> &vnet,
 		    DBus<MessageMem> *bus_mem, DBus<MessageMemRegion> *bus_memregion,
 		    uint32 mem_mmio, uint32 mem_msix, unsigned bdf)
-    : _mac(mac), _clock(*clock), _hostop(hostop), _vnet(vnet),
+    : _mac(mac), _clock(*clock), 
       _bus_memregion(bus_memregion), _bus_mem(bus_mem),
       _mem_mmio(mem_mmio), _mem_msix(mem_msix),
       _bdf(bdf)
@@ -431,7 +414,7 @@ public:
     Logging::printf("Attached 82576VF model at %08x+0x4000, %08x+0x1000\n",
 		    mem_mmio, mem_msix);
 
-    _mmio = reinterpret_cast<uint32 *>(alloc_from_guest(_mmio_size));
+    _mmio = reinterpret_cast<uint32 *>(alloc_from_guest(hostop, _mmio_size));
     device_reset();
 
     MessageVirtualNet vnetmsg(0, _mmio);

@@ -20,13 +20,8 @@
 
 #include <nul/types.h>
 
-class Base82576 {
+class Base82576VF {
 protected:
-
-  enum Spec {
-    RX_QUEUES = 16,
-  };
-
   enum VRegister {
     VTCTRL      = 0x0000/4,
     VTSTATUS    = 0x0008/4,
@@ -64,6 +59,14 @@ protected:
 
     VMB         = 0x0C40/4, 	// 8.14.3
     VBMEM       = 0x0800/4,	// 8.14.4
+  };
+};
+
+class Base82576 {
+protected:
+
+  enum Spec {
+    RX_QUEUES = 16,
   };
   
   enum Register {
