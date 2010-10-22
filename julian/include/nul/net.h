@@ -74,32 +74,4 @@ typedef struct {
   }
 } rx_desc;
 
-
-struct QueueContext {
-  enum {
-    INVALID = 0,
-    VF_MODEL_TX,
-    VF_MODEL_RX,
-  } type;
-
-  bool irq_pending;
-  union {
-    struct {
-      uint32  tdh;
-      uint32  tdt;
-
-      // The driver can program 8 different offload contexts. We buffer
-      // them as-is until they are needed.
-      tx_desc ctx[8];
-    } vf_model_tx;
-
-    struct {
-      bool   promisc;
-      uint32 srrctl;
-      uint32 rdh;
-      uint32 rdt;
-    } vf_model_rx;
-  };
-};
-
 /* EOF */
