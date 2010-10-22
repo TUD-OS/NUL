@@ -60,6 +60,8 @@ private:
   packet_buffer _rx_buf[desc_ring_len];
   packet_buffer _tx_buf[desc_ring_len];
 
+  const bool _promisc;
+  
 public:
 
   void reset_complete()
@@ -68,7 +70,16 @@ public:
       msg(INFO, "Another reset?!\n");
 
     _up = true;
+
+    // Enable receive
     _hwreg[RXDCTL0] |= (1<<25);
+
+    if (_promisc) {
+      msg(INFO, "Asking to be promiscuous.\n");
+      _hwreg[VMB] = VFU;
+      _hwreg[VBMEM] = VF_SET_PROMISC | VF_SET_PROMISC_UNICAST;
+      _hwreg[VMB] = Sts;
+    }
   }
 
   void handle_rx()
@@ -188,10 +199,10 @@ public:
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageNetwork> &bus_network, Clock *clock,
-	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us)
+	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us, bool promisc)
     : PciDriver(clock, ALL, bdf), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
-      _up(false)
+      _up(false), _promisc(promisc)
   {
     msg(INFO, "Found Intel 82576VF-style controller.\n");
 
@@ -226,11 +237,6 @@ public:
     _hwreg[VTEIAC] = 3;
     _hwreg[VTEIAM] = 3;
     _hwreg[VTEIMS] = 3;
-
-    // Send RESET message
-    _hwreg[VMB] = VFU;
-    _hwreg[VBMEM] = VF_RESET;
-    _hwreg[VMB] = Sts;
 
     // Set single buffer mode
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
@@ -272,6 +278,12 @@ public:
     _hwreg[RDT0] = desc_ring_len - 1;
     _hwreg[VTEIMS] = 1;
 
+    // Send RESET message
+    _hwreg[VMB] = VFU;
+    _hwreg[VBMEM] = VF_RESET;
+    _hwreg[VMB] = Sts;
+
+
     // Get each IRQ once.
     //_hwreg[VTEICS] = 3;
   }
@@ -291,7 +303,8 @@ PARAM(host82576vf, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
     uint16 parent_bdf = argv[0];
     unsigned vf_no    = argv[1];
-    uint32 itr_us     = (argv[2] == ~0U) ? 0 : argv[2] ;
+    bool   promisc    = (argv[2] == ~0U) ? 0 : argv[2] ;
+    uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
     uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
 
@@ -335,12 +348,13 @@ PARAM(host82576vf, {
 
     Host82576VF *dev = new Host82576VF(pci, mb.bus_network,
                                        mb.clock(), vf_bdf,
-                                       irqs, reg_msg.ptr, itr_us);
+                                       irqs, reg_msg.ptr, itr_us,
+				       promisc);
 
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
     mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
   },
-  "host82576vf:parent,vf[,throttle_us] - provide driver for Intel 82576 virtual function.",
+  "host82576vf:parent,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.",
   "Example: 'host82576vf:0x100,0'");
 
 // EOF
