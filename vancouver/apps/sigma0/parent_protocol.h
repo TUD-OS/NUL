@@ -46,8 +46,7 @@ ClientDataStorage<ServerData> _server;
 ClientDataStorage<ClientData> _client;
 
 static unsigned get_client_number(unsigned cap) {
-  // we handle ourself as client 0!
-  if (cap >= CLIENT_PT_OFFSET) cap -= CLIENT_PT_OFFSET;
+  cap -= CLIENT_PT_OFFSET;
   if ((cap % (1 << CLIENT_PT_SHIFT)) != ParentProtocol::CAP_PARENT_ID) return ~0;
   return cap >> CLIENT_PT_SHIFT;
 }

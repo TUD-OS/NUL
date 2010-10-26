@@ -138,7 +138,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     while (size > offset)
       {
 	utcb->set_header(0, 0);
-	unsigned long s = add_mappings(utcb, physmem + offset, size - offset, (virt + offset) | MAP_DPT, rights);
+	unsigned long s = add_mappings(utcb, physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights);
 	Logging::printf("\t\tmap self %lx -> %lx size %lx offset %lx s %lx typed %x\n", physmem, virt, size, offset, s, utcb->head.typed);
 	offset = size - s;
 	unsigned err;
@@ -326,7 +326,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       // create parent portals
       check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
-      if (i == 0) check1(3, nova_create_sm(ParentProtocol::CAP_PARENT_ID));
     }
     return 0;
   }
@@ -372,16 +371,23 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::init(putc, &putcd);
 
 
+
+    // create the parent semaphore
+    check1(7, nova_create_sm(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID));
+
+
+    // map it to the parent id of module 0
+    Utcb::TypedMapCap(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(ParentProtocol::CAP_PARENT_ID, 0, MAP_MAP).value());
+    *utcb << Crd(0, 31, DESC_CAP_ALL);
+    utcb->set_header(2, 0);
+
     // map all IRQs
-    utcb->head.crd = Crd(0, 31, DESC_CAP_ALL).value();
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      utcb->msg[gsi * 2 + 1] = ((hip->cfg_exc + 3 + gsi) << Utcb::MINSHIFT) | 1;
-      utcb->msg[gsi * 2 + 0] = Crd(gsi, 0, DESC_CAP_ALL).value();
+      Utcb::TypedMapCap(gsi).fill_words(utcb->msg + utcb->head.untyped, Crd(hip->cfg_exc + 3 + gsi, 0, MAP_HBIT).value());
+      utcb->head.untyped += 2;
     }
-    unsigned res;
-    utcb->set_header(hip->cfg_gsi * 2, 0);
-    if ((res = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo)))
-      Logging::panic("map IRQ semaphore() failed = %x", res);
+
+    check1(8, nova_call(_percpu[Cpu::cpunr()].cap_pt_echo));
     return 0;
   };
 
@@ -670,9 +676,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
 	  assert(~utcb->head.untyped & 1);
-	  // enable from kernel mappings
-	  for (unsigned i=0; i < utcb->head.untyped / 2; i++)
-	    utcb->msg[i*2 + 1] |= MAP_HBIT;
 	  utcb->set_header(0, utcb->head.untyped / 2);
 	  memmove(utcb->item_start(), utcb->msg, sizeof(unsigned) * utcb->head.typed*2);
 	  )

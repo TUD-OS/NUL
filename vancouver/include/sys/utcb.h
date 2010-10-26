@@ -130,7 +130,7 @@ struct Utcb
 
   struct TypedMapCap {
     unsigned value;
-    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 1;  }
+    void fill_words(unsigned *ptr, unsigned hotspot=MAP_MAP) {   *ptr++ = value;  *ptr = hotspot;  }
     TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
