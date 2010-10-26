@@ -125,7 +125,7 @@ protected:
 public:
 
   enum {
-    CAP_PARENT_SESSION,
+    CAP_PSEUDONYM,
     CAP_LOCK,
     CAP_SERVER_SESSION,
     CAP_SERVER_PT,
@@ -141,7 +141,7 @@ public:
     bool need_pt      = res == NOVA_ECAP;
     bool need_open = false;
     if (need_session) {
-      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PARENT_SESSION) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
+      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
       if (!res)  return ERETRY;
       need_pt   = res == NOVA_ECAP;
@@ -151,13 +151,13 @@ public:
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
-	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PARENT_SESSION, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
+	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
       }
       if (!res)  return ERETRY;
       need_open = res == EEXISTS;
     }
     if (need_open) {
-      res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PARENT_SESSION);
+      res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PSEUDONYM);
       if (!res)  return ERETRY;
       _disabled = res && res != ERETRY;
     }
@@ -179,7 +179,7 @@ public:
 
 
   void close(Utcb &utcb) {
-    session_close(utcb, _cap_base + CAP_PARENT_SESSION);
+    session_close(utcb, _cap_base + CAP_PSEUDONYM);
   }
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }

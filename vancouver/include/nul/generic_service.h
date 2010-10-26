@@ -23,17 +23,17 @@
  */
 template <typename T> class QuotaGuard {
   Utcb &       _utcb;
-  unsigned     _parent_cap;
+  unsigned     _pseudonym;
   const char * _name;
   long         _value_in;
   QuotaGuard * _prev;
   unsigned     _res;
  public:
-  QuotaGuard(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, QuotaGuard *prev=0)
-    : _utcb(utcb), _parent_cap(parent_cap), _name(name), _value_in(value_in), _prev(prev), _res(ENONE) {
-    _res = T::get_quota(_utcb, _parent_cap, _name, _value_in);
+  QuotaGuard(Utcb &utcb, unsigned pseudonym, const char *name, long value_in, QuotaGuard *prev=0)
+    : _utcb(utcb), _pseudonym(pseudonym), _name(name), _value_in(value_in), _prev(prev), _res(ENONE) {
+    _res = T::get_quota(_utcb, _pseudonym, _name, _value_in);
   }
-  ~QuotaGuard()   { if (_value_in && !_res) T::get_quota(_utcb, _parent_cap, _name, _value_in); }
+  ~QuotaGuard()   { if (_value_in && !_res) T::get_quota(_utcb, _pseudonym, _name, _value_in); }
   void commit()   { for (QuotaGuard *g = this; g; g = g->_prev) g->_value_in = 0; }
   unsigned status() { for (QuotaGuard *g = this; g; g = g->_prev) if (g->_res) return g->_res; return _res; }
 };
@@ -44,15 +44,15 @@ template <typename T> class QuotaGuard {
  */
 struct GenericClientData {
   void              *next;
-  unsigned           parent_cap;
+  unsigned           pseudonym;
   unsigned           identity;
   /**
    * We implement a get_quota here, so that derived classes can
    * overwrite it.  Usefull for example in sigma0 that has a different
    * way to get the quota of a client.
    */
-  static unsigned get_quota(Utcb &utcb, unsigned _parent_cap, const char *name, long value_in, long *value_out=0) {
-    return ParentProtocol::get_quota(utcb, _parent_cap, name, value_in, value_out);
+  static unsigned get_quota(Utcb &utcb, unsigned _pseudonym, const char *name, long value_in, long *value_out=0) {
+    return ParentProtocol::get_quota(utcb, _pseudonym, name, value_in, value_out);
   }
 
   /**
@@ -60,7 +60,7 @@ struct GenericClientData {
    * derived classes can overwrite it.
    */
   void session_close(Utcb &utcb) {
-    ParentProtocol::session_close(utcb, parent_cap);
+    ParentProtocol::session_close(utcb, pseudonym);
   }
 };
 
@@ -72,15 +72,15 @@ struct GenericClientData {
 template <typename T> class ClientDataStorage {
   T *_head;
 public:
-  unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned parent_cap) {
+  unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym) {
     unsigned res;
-    QuotaGuard<T> guard1(utcb, parent_cap, "mem", sizeof(T));
-    QuotaGuard<T> guard2(utcb, parent_cap, "cap", 2, &guard1);
+    QuotaGuard<T> guard1(utcb, pseudonym, "mem", sizeof(T));
+    QuotaGuard<T> guard2(utcb, pseudonym, "cap", 2, &guard1);
     check1(res, res = guard2.status());
     guard2.commit();
 
     data = new T;
-    data->parent_cap = parent_cap;
+    data->pseudonym = pseudonym;
     data->identity   = alloc_cap();
     nova_create_sm(data->identity);
 
@@ -96,11 +96,11 @@ public:
       if (*prev == data) {
 	*prev = reinterpret_cast<T *>(data->next);
 	data->next = 0;
-	T::get_quota(utcb, data->parent_cap,"cap", -2);
-	T::get_quota(utcb, data->parent_cap, "mem", -sizeof(T));
+	T::get_quota(utcb, data->pseudonym,"cap", -2);
+	T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
 	data->session_close(utcb);
 	dealloc_cap(data->identity);
-	dealloc_cap(data->parent_cap);
+	dealloc_cap(data->pseudonym);
 	delete data;
 	return ENONE;
       }

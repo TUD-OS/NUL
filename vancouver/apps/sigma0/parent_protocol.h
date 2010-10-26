@@ -61,8 +61,8 @@ static char * get_module_cmdline(Utcb::Frame &input) {
 unsigned free_service(Utcb &utcb, ServerData *sdata) {
   dealloc_cap(sdata->pt);
   delete sdata->name;
-  ServerData::get_quota(utcb, sdata->parent_cap, "cap", -1);
-  ServerData::get_quota(utcb, sdata->parent_cap, "mem", -sdata->len);
+  ServerData::get_quota(utcb, sdata->pseudonym, "cap", -1);
+  ServerData::get_quota(utcb, sdata->pseudonym, "mem", -sdata->len);
   return _server.free_client_data(utcb, sdata);
 }
 
@@ -103,7 +103,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
 	// check whether such a session is already known from our client
 	for (ClientData * c = _client.next(); c; c = _client.next(c))
-	  if (c->name == cmdline && c->parent_cap == input.identity())
+	  if (c->name == cmdline && c->pseudonym == input.identity())
 	    return EEXISTS;
 
 	check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity()));
@@ -118,13 +118,13 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_CLOSE:
     if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
-    Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->parent_cap);
+    Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->pseudonym);
     return _client.free_client_data(utcb, cdata);
 
   case ParentProtocol::TYPE_REQUEST:
     {
       if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
-      Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->parent_cap, cdata->len, cdata->name);
+      Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
 	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
 
@@ -179,7 +179,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       // wakeup clients that wait for us
       for (ClientData * c = _client.next(); c; c = _client.next(c))
 	if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
-	  Logging::printf("\tnotify client %x\n", c->parent_cap);
+	  Logging::printf("\tnotify client %x\n", c->pseudonym);
 	  nova_semup(c->identity);
 	}
 
@@ -202,7 +202,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       if (input.get_word(invalue) || !(request = input.get_zero_string(request_len))) return EPROTO;
 
       long outvalue = invalue;
-      res = ClientData::get_quota(utcb, cdata->parent_cap, request,  invalue, &outvalue);
+      res = ClientData::get_quota(utcb, cdata->pseudonym, request,  invalue, &outvalue);
       utcb << outvalue;
       return res;
     }

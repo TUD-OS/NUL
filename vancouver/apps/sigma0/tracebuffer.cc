@@ -65,10 +65,10 @@ public:
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
       free_cap = false;
-      if (ParentProtocol::get_quota(utcb, data->parent_cap, "guid", 0, &data->guid))
+      if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
 	data->guid = --_anon_sessions;
       utcb << Utcb::TypedMapCap(data->identity);
-      Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->parent_cap);
+      Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->pseudonym);
       return res;
     case ParentProtocol::TYPE_CLOSE:
       check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
