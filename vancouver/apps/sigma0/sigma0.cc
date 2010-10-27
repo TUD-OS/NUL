@@ -1152,7 +1152,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     switch(utcb->msg[0]) {
     case REQUEST_DISKS_ATTACH:
       handle_attach<DiskConsumer>(modinfo, disk_data->prod_disk, utcb);
-      break;
+      return true;
     case REQUEST_DISK:
       {
 	MessageDisk *msg = reinterpret_cast<MessageDisk *>(utcb->msg+1);
@@ -1171,12 +1171,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      case MessageDisk::DISK_WRITE:
 	      case MessageDisk::DISK_READ:
 		if (convert_client_ptr(modinfo, msg2.dma, sizeof(*msg2.dma)*msg2.dmacount)) return false;
+                if (adapt_ptr_map(modinfo, msg2.physoffset, msg2.physsize))                 return false;
 
-                if (adapt_ptr_map(modinfo, msg2.physoffset, msg2.physsize))
-                  return false;
-                
 		utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
-		if (utcb->msg[0]) break;
+		if (utcb->msg[0]) return true;
 		assert(msg2.usertag);
 		break;
 	      case MessageDisk::DISK_FLUSH_CACHE:
@@ -1189,11 +1187,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    utcb->msg[0] = 0;
 	  }
       }
-      break;
+      return true;
     default:
       return false;
     }
-    return true;
   }
 
 
