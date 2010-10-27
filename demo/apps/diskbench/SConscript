@@ -1,0 +1,12 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'diskbench',
+        SOURCES = [ 'diskbench.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<16)
+
+# EOF
