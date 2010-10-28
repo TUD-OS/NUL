@@ -77,6 +77,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 {
 
   unsigned long  _physmem;
+  unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
 
@@ -620,7 +621,9 @@ public:
 
   bool receive(MessageVirtualNet &msg)
   {
-    msg.physsize   = _physsize;
+    // We need access to memory allocated via ALLOC_FROM_GUEST. That's
+    // why we use _original_physsize here.
+    msg.physsize   = _original_physsize;
     msg.physoffset = _physmem;
     return Sigma0Base::vnetop(msg);
   }
@@ -689,16 +692,17 @@ public:
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);
-    _physsize = 0;
+    _original_physsize = 0;
     // get physsize
     for (int i=0; i < (hip->length - hip->mem_offs) / hip->mem_size; i++) {
 	Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs) + i;
 	if (hmem->type == 1 && hmem->addr <= _physmem) {
-	  _physsize = hmem->size - (_physmem - hmem->addr);
+	  _original_physsize = hmem->size - (_physmem - hmem->addr);
 	  _iomem_start = hmem->addr + hmem->size;
 	  break;
 	}
     }
+    _physsize = _original_physsize;
 
     if (init_caps())
       Logging::panic("init_caps() failed\n");
