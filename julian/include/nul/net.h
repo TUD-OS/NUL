@@ -1,3 +1,5 @@
+// -*- Mode: C++ -*-
+
 #pragma once
 
 #include <nul/types.h>
@@ -52,7 +54,11 @@ typedef struct {
 } tx_desc;
 
 typedef struct {
-  uint64 raw[2];
+
+  union {
+    uint64 raw[2];
+    uint32 rawd[4];
+  };
 
   void set_done(uint8 type, uint16 len, bool eop)
   {
