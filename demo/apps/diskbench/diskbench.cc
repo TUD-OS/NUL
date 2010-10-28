@@ -89,9 +89,11 @@ public:
       sem->downmulti();
       while (diskconsumer->has_data()) {
 
+	MessageDiskCommit *msg = diskconsumer->get_buffer();
+	if (msg->status) Logging::panic("request %lx returned error %x\n", msg->usertag, msg->status);
+	requests_done++;
 	// consume the request
         diskconsumer->free_buffer();
-	requests_done++;
 
 	// check for a timeout
 	timevalue now = mb->clock()->clock(FREQ);
