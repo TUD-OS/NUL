@@ -513,7 +513,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       }
     }
 
-    // Deliver a simple packet to this queue. Returns true, iff
+    // Deliver a simple packet to this port. Returns true, iff
     // something was delivered.
     bool deliver_simple_from(TxQueue &txq)
     {
@@ -526,9 +526,10 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
       //Logging::printf("RDH %u\n", rdh);
 
-      rx_desc &rx 
-        = convert_ptr<rx_desc>(static_cast<uint64>(rx0[RDBAH] & ~0x7F)<<32 | rx0[RDBAL],
-                               rx0[RDLEN])[rdh];
+      rx_desc *rx_queue = convert_ptr<rx_desc>(static_cast<uint64>(rx0[RDBAH] & ~0x7F)<<32 | rx0[RDBAL],
+                                               rx0[RDLEN]);
+      if (rx_queue == NULL) { b0rken("rx == NULL"); return false; }
+      rx_desc &rx = rx_queue[rdh];
 
       size_t buffer_size = (rx0[SRRCTL] & 0x7F) * 1024;
       if (buffer_size == 0) buffer_size = 2048;
