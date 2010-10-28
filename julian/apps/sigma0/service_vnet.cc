@@ -604,11 +604,13 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       //Logging::printf("SCHED ICR %02x MSK %02x NEW %02x\n", VTEICR(), VTEIMS(), reg[0xF0/4]);
     }
 
-    // Check if IRQs have to be sent.
-    void irq(Clock &clock, timevalue now)
+    // Check if IRQs have to be sent. Returns true, iff interrupts are
+    // pending, but could not be sent yet.
+    bool irq(Clock &clock, timevalue now)
     {
       uint32 effective_icr = VTEICR() & VTEIMS() & reg[0xF0/4];
       uint32 irqs_pending  = 0;
+      bool pending_but_deferred = false;
 
       // if (effective_icr)
       // 	Logging::printf("ICR %02x IMS %02x NEW %02x INJ %02x\n",
@@ -643,6 +645,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	    // } while (old_itr != Cpu::cmpxchg4b(&VTEITR(i), old_itr, new_itr));
 
 	    // Defer sending this IRQ.
+	    pending_but_deferred = true;
 	    continue;
 	  }
 	}
@@ -665,6 +668,8 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	MessageVirtualNetPing p(client);
 	vnet->_bus_vnetping.send(p);
       }
+      
+      return pending_but_deferred;
     }
 
     void tx()
@@ -703,8 +708,14 @@ class VirtualNet : public StaticReceiver<VirtualNet>
   void check_irqs()
   {
     timevalue now = _clock.time();
+    bool deferred_irq_pending = false;
+
     for (unsigned i = 0; i < MAXPORT; i++)
-      if (_port[i].is_used()) _port[i].irq(_clock, now);
+      if (_port[i].is_used() && _port[i].irq(_clock, now))
+	deferred_irq_pending = true;
+
+    // XXX Use deferred_irq_pending together with activity on the TX
+    // queues to decide whether we should sleep.
   }
 
   NORETURN void work()
