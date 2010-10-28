@@ -60,7 +60,7 @@ struct GenericClientData {
    * derived classes can overwrite it.
    */
   void session_close(Utcb &utcb) {
-    ParentProtocol::session_close(utcb, pseudonym);
+    ParentProtocol::release_pseudonym(utcb, pseudonym);
   }
 };
 

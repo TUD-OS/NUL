@@ -89,6 +89,7 @@ struct Utcb
     }
 
     unsigned untyped() { return _utcb->head.untyped; }
+    unsigned typed()   { return _utcb->head.typed; }
 
     template <typename T>
     bool get_word(T &value) {

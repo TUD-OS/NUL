@@ -36,6 +36,7 @@ struct ParentProtocol {
     TYPE_OPEN,
     TYPE_CLOSE,
     TYPE_GENERIC_END,
+
     // server specific functions
     TYPE_REQUEST,
     TYPE_REGISTER,
@@ -58,12 +59,11 @@ struct ParentProtocol {
     return res;
   }
 
-  static unsigned session_open(Utcb &utcb, const char *service, unsigned instance, unsigned cap_parent_session) __attribute__((noinline)) {
+  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_parent_session) {
     return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << service << Crd(cap_parent_session, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
   }
 
-
-  static unsigned session_close(Utcb &utcb, unsigned cap_parent_session) {
+  static unsigned release_pseudonym(Utcb &utcb, unsigned cap_parent_session) {
     init_frame(utcb, TYPE_CLOSE, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session);
     return call(utcb, CAP_PT_PERCPU, true);
   }
@@ -82,19 +82,16 @@ struct ParentProtocol {
     return res;
   }
 
-
   static unsigned register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
     assert(cap_service);
     init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 
-
   static unsigned unregister_service(Utcb &utcb, unsigned cap_service) {
     init_frame(utcb, TYPE_UNREGISTER, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_service);
     return call(utcb, CAP_PT_PERCPU, true);
   }
-
 
   static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
     init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
@@ -133,56 +130,57 @@ public:
   };
 
   /**
-   * Call a server and handles the parent and session errors after the call.
+   * Call the server in a loop to resolve all faults.
    */
-  unsigned call_single(Utcb &utcb) {
-    unsigned res = call(utcb, _cap_base + CAP_SERVER_PT, false);
-    bool need_session = res == EEXISTS;
-    bool need_pt      = res == NOVA_ECAP;
-    bool need_open = false;
-    if (need_session) {
+  unsigned call_server(Utcb &utcb, bool drop_frame) {
+    unsigned res = EPERM;
+    unsigned mtr = utcb.head.mtr;
+    unsigned w0  = utcb.msg[0];
+    while (!_disabled) {
+    do_call:
+      res = call(utcb, _cap_base + CAP_SERVER_PT, false);
+      utcb.head.mtr = mtr;
+      utcb.msg[0]   = w0;
+      if (res == EEXISTS)   goto do_open_session;
+      if (res == NOVA_ECAP) goto do_request_portal;
+      goto do_out;
+
+    do_open_session:
       utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
-      if (!res)  return ERETRY;
-      need_pt   = res == NOVA_ECAP;
-      need_open = res == EEXISTS;
-    }
-    if (need_pt) {
+      if (res == ENONE)     goto do_call;
+      if (res == EEXISTS)   goto do_get_pseudonym;
+      if (res == NOVA_ECAP) goto do_request_portal;
+      goto do_out;
+    do_request_portal:
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
 	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
       }
-      if (!res)  return ERETRY;
-      need_open = res == EEXISTS;
-    }
-    if (need_open) {
-      res = ParentProtocol::session_open(utcb, _service, _instance, _cap_base + CAP_PSEUDONYM);
-      if (!res)  return ERETRY;
-      _disabled = res && res != ERETRY;
-    }
-    return res;
-  }
+      if (res == ENONE)     goto do_call;
+      if (res == EEXISTS)   goto do_get_pseudonym;
+      goto do_out;
 
-  /**
-   * Call the server in a loop to resolve all faults.
-   */
-  unsigned call_server(Utcb &utcb, bool drop_frame) {
-    unsigned res = EPERM;
-    if (!_disabled)
-      do
-	res = call_single(utcb);
-      while (res == ERETRY);
+    do_get_pseudonym:
+      res = ParentProtocol::get_pseudonym(utcb, _service, _instance, _cap_base + CAP_PSEUDONYM);
+      if (res == ENONE)     goto do_call;
+      _disabled = true;
+      goto do_out;
+    }
+  do_out:
     if (drop_frame) utcb.drop_frame();
     return res;
   }
 
+  /**
+   * Close the session.
+   */
+  void close(Utcb &utcb) { release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM); }
 
-  void close(Utcb &utcb) {
-    session_close(utcb, _cap_base + CAP_PSEUDONYM);
-  }
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
+
 
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
     : _service(service), _instance(instance), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)

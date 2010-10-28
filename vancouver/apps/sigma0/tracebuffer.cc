@@ -58,9 +58,8 @@ public:
     unsigned res = ENONE;
     unsigned op;
 
-    //Logging::printf("%s words %x id %x %x\n", __PRETTY_FUNCTION__, input.untyped(),  input.identity(), op);
-    //asm volatile("ud2a" : : "a"(&utcb));
     check1(EPROTO, input.get_word(op));
+    //Logging::printf("%s words %x/%x id %x %x\n", __PRETTY_FUNCTION__, input.untyped(), input.typed(),  input.identity(), op);
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));

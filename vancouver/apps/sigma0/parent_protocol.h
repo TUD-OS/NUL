@@ -76,7 +76,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   ClientData *cdata;
   unsigned op;
   if (input.get_word(op)) return EPROTO;
-  Logging::printf("parent request words %x type %x id %x+%x\n", input.untyped(), op, input.identity(), input.identity(1));
+  //Logging::printf("parent request words %x type %x id %x+%x\n", input.untyped(), op, input.identity(), input.identity(1));
   switch (op) {
   case ParentProtocol::TYPE_OPEN:
     {
@@ -103,8 +103,10 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
 	// check whether such a session is already known from our client
 	for (ClientData * c = _client.next(); c; c = _client.next(c))
-	  if (c->name == cmdline && c->pseudonym == input.identity())
-	    return EEXISTS;
+	  if (c->name == cmdline && c->pseudonym == input.identity()) {
+	    utcb << Utcb::TypedMapCap(cdata->identity);
+	    return ENONE;
+	  }
 
 	check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity()));
 	cdata->name = cmdline;
@@ -124,11 +126,11 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   case ParentProtocol::TYPE_REQUEST:
     {
       if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
-      Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
+      //Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
 	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
 
-	  // check that the portal still exists
+	  // check that the server portal still exists, if not free the server-data and tell the client to retry
 	  unsigned crdout;
 	  if (nova_syscall(NOVA_LOOKUP, Crd(sdata->pt, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout) || !(crdout & DESC_RIGHTS_ALL)) {
 	    free_service(utcb, sdata);
@@ -137,6 +139,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 	  utcb << Utcb::TypedMapCap(sdata->pt);
 	  return ENONE;
 	}
+      // we do not have a server portal yet, thus tell the client to retry later
       return ERETRY;
     }
 
