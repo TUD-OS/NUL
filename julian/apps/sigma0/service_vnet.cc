@@ -541,6 +541,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	uint16 psize = txq.data_in(data, buffer_size);
 
 	// XXX b0rken...
+        #warning Fix offloads
 	apply_offloads(txq.ctx[txq.packet[0]->idx()], *txq.packet[0], data, psize);
 	//Logging::printf("Received %u bytes.\n", psize);
 	uint8 desc_type = (rx0[SRRCTL] >> 25) & 0x7;
@@ -549,6 +550,11 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  vnet->debug();
 
 	}
+
+        // XXX Very very evil and slightly b0rken small packet padding.
+        #warning Implement PSP
+        if (not txq.tx_data_pending() && (psize < 60))
+          psize = 60;
 
 	rx.set_done(desc_type, psize, not txq.tx_data_pending());
 		
