@@ -26,7 +26,7 @@ typedef struct {
     uint32 rawd[4];
   };
 
-  bool  is_done()       { return (rawd[1] & 1); }
+  bool  is_done()       { return (rawd[3] & 1); }
   void  set_done()      { raw[1] = (1ULL << 32 /* DD */); }
   bool  rs()      const { return (rawd[2] & (1 << 27 /* RS */)); }
   uint8 idx()     const { return (rawd[3] >> 4) & 0x7; } 
