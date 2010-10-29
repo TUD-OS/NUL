@@ -748,7 +748,8 @@ public:
     case MessageVirtualNet::ANNOUNCE:
       for (unsigned i = 0; i < MAXPORT; i++) {
         if (not _port[i].is_used()) {
-          Logging::printf("VNET attached port %u\n", i);
+          Logging::printf("VNET attached port %u. Memory @ %08lx+%lx\n", i,
+                          msg.physoffset, msg.physsize);
 	  if (msg.registers[2] != 0x83U) {
 	    Logging::printf("Wrong window mapped! %p %x\n", msg.registers,
 			    msg.registers[2]);
