@@ -542,6 +542,8 @@ public:
 	  {
 	    _physsize -= msg.value;
 	    msg.phys =  _physsize;
+            Logging::printf("Allocating from guest %08x+%x\n",
+                            _physsize, msg.value);
 	  }
 	else
 	  res = false;
