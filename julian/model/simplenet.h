@@ -10,7 +10,7 @@ class SimpleNetworkClient : private Base82576VF {
 public:
   class Callback {
   public:
-    virtual void receive_callback(uint8 *data, size_t packet_len) = 0;
+    virtual void send_callback(uint8 const *data) = 0;
   };
 
   class Memory {
@@ -22,7 +22,7 @@ public:
     template <typename T>
     T *allocate(size_t bytes) { return reinterpret_cast<T *>(allocate_backend(bytes)); }
 
-    virtual mword ptr_to_phys(void *ptr, size_t size) = 0;
+    virtual mword ptr_to_phys(const void *ptr, size_t size) = 0;
   };
 
 private:
@@ -34,7 +34,10 @@ private:
 
   uint32 *_mmio;
 
-  Callback *_tx_callbacks[_ring_descs];
+  struct {
+    Callback    *cb;
+    uint8 const *data;
+  } _tx_meta[_ring_descs];
 
   struct {
     uint8    *data;
@@ -50,7 +53,27 @@ public:
 
   bool send_packet(uint8 const *data, size_t len, Callback *cb = NULL)
   {
-    return false;
+    assert(len <= 0xFFFFU);
+
+    unsigned tdt      = _mmio[TDT0];
+    unsigned next_tdt = (tdt+1) % _ring_descs;
+    if (next_tdt == _tx_to_clean)
+      // RX queue full.
+      return false;
+
+    _tx_meta[tdt].cb = cb;
+    _tx_meta[tdt].data = data;
+
+    // Advanced TX descriptor
+    _tx_ring[tdt].raw[0] = _mem.ptr_to_phys(data, len);
+    _tx_ring[tdt].raw[1] = (0x2bU << 24 /* CMD: RS, DEXT, IFCS, EOP */)
+      | (tx_desc::DTYP_DATA << 20) | len;
+    
+    asm ("" ::: "memory");
+
+    _mmio[TDT0] = next_tdt;
+
+    return true;
   }
 
   bool queue_buffer(uint8 *data, size_t len)
@@ -66,6 +89,8 @@ public:
     _rx_meta[rdt].data   = data;
     _rx_ring[rdt].raw[0] = _mem.ptr_to_phys(data, 2048);
     _rx_ring[rdt].raw[1] = 0;
+
+    asm ("" ::: "memory");
 
     _mmio[RDT0] = next_rdt;
     Logging::printf("Queue buffer %p at %x\n", data, rdt);
@@ -124,6 +149,14 @@ public:
   {
     // XXX Clear interrupt cause.
     _mmio[0xF4/4] = 0;
+
+    // Cleanup descriptors and send notifications.
+    while ((_tx_to_clean != _mmio[TDT0]) &&
+           _tx_ring[_tx_to_clean].is_done()) {
+      if (_tx_meta[_tx_to_clean].cb)
+        _tx_meta[_tx_to_clean].cb->send_callback(_tx_meta[_tx_to_clean].data);
+      _tx_to_clean = (_tx_to_clean + 1) % _ring_descs;
+    }
   }
 
   void unmask_wakeups()
@@ -177,7 +210,7 @@ public:
     return reinterpret_cast<void *>(alloc.phys + offset);
   }
 
-  virtual mword ptr_to_phys(void *ptr, size_t size)
+  virtual mword ptr_to_phys(const void *ptr, size_t size)
   {
     return reinterpret_cast<mword>(ptr) - offset;
   }

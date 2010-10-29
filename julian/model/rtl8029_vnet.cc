@@ -27,6 +27,9 @@
  * Features: PCI, send, receive, broadcast, promiscuous mode
  * Missing: multicast, CRC calculation, rep optimized
  */
+
+#define MEMSIZE (64*1024)
+
 #ifndef REGBASE
 class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
 {
@@ -67,10 +70,26 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
     unsigned char dcr;
     unsigned char imr;
   } __attribute__((packed)) _regs;
-  unsigned char _mem[65536];
+  unsigned char *_mem;
 #define  REGBASE "../model/rtl8029.cc"
 #include "model/reg.h"
 
+  class TxDone : public SimpleNetworkClient::Callback
+  {
+    Rtl8029Vnet &_dev;
+
+  public:
+    void send_callback(uint8 const *data)
+    {
+      Logging::printf("Packet sent!\n");
+      _dev._regs.cr &= ~4;
+      _dev._regs.tsr = 0x1;
+      _dev.update_isr(0x2);
+
+    }
+
+    TxDone(Rtl8029Vnet &dev) : _dev(dev) {}
+  } _tx_done;
 
   void update_isr(unsigned value)
   {
@@ -82,27 +101,19 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
       }
   }
 
-
   void send_packet()
   {
     COUNTER_INC("SEND packet");
     // check for buffer overflows or short packets
-    if (((_regs.tpsr << 8) + _regs.tbcr) < static_cast<int>(sizeof(_mem)) && _regs.tbcr >= 8u)
-      {
+    if (((_regs.tpsr << 8) + _regs.tbcr) < static_cast<int>(MEMSIZE) && _regs.tbcr >= 8u) {
         Logging::printf("Tx %u bytes\n", _regs.tbcr);
-        #warning TX
-	//MessageNetwork msg2(_mem + (_regs.tpsr << 8), _regs.tbcr, 0);
-	//_bus_network.send(msg2);
-	_regs.tsr = 0x1;
-	update_isr(0x2);
-      }
-    else
-      {
+        _net.send_packet(_mem + (_regs.tpsr << 8), _regs.tbcr, &_tx_done);
+    } else {
 	// transmit error
+        _regs.cr &= ~4;         // Clear TXP
 	_regs.tsr = 0x20;
 	update_isr(0x10);
-      }
-    _regs.cr &= ~4;
+    }
   }
 
   bool not_accept(const unsigned char *buffer, unsigned len)
@@ -231,6 +242,7 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
       }
     else if (!addr)
       {
+        unsigned set_to_one = (_regs.cr ^ value) & value; // Bits set to one
 	// keep the transmit bit
 	_regs.cr = value | (_regs.cr & 4);
 	if (~_regs.cr & 0x1)
@@ -239,7 +251,7 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
 	    _regs.isr &= ~0x80;
 
 	    // send packet
-	    if ((_regs.cr & 0x5) == 0x4) send_packet();
+	    if ((set_to_one & 0x5) == 0x4) send_packet();
 
 	    // check empty remote DMA request
 	    if (((_regs.cr ^ 0x20) & 0x38) && !_regs.rbcr) update_isr(40);
@@ -331,12 +343,15 @@ public:
               DBus<MessageIrq>        &bus_irqlines,
               unsigned char irq, unsigned long long mac, unsigned bdf)
     : _net_mem(bus_hostop), _net(_net_mem, bus_vnet),
-      _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac), _bdf(bdf)
+      _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac), _bdf(bdf),
+      _tx_done(*this)
   {
+    _mem = _net_mem.allocate<unsigned char>(MEMSIZE);
+
     PCI_reset();
 
     // init memory
-    memset(_mem, 0x00, sizeof(_mem));
+    memset(_mem, 0x00, MEMSIZE);
     for (unsigned i=0; i< 6; i++)  _mem[i] = reinterpret_cast<unsigned char *>(&_mac)[5 - i];
     memcpy(_mem + 0xe, "WW", 2);
 
