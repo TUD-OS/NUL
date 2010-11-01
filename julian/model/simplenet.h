@@ -100,10 +100,6 @@ public:
 
   bool poll_receive(uint8 **data, size_t *len)
   {
-    Logging::printf("clean %x rdt %x %016llx %016llx\n",
-                    _rx_to_clean, _mmio[RDT0],
-                    _rx_ring[_rx_to_clean].raw[0],
-                    _rx_ring[_rx_to_clean].raw[1]);
     if ((_rx_to_clean == _mmio[RDT0]) or
         ((_rx_ring[_rx_to_clean].rawd[2] & 1) == 0))
       return false;
