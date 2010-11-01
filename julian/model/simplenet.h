@@ -149,6 +149,7 @@ public:
     // Cleanup descriptors and send notifications.
     while ((_tx_to_clean != _mmio[TDT0]) &&
            _tx_ring[_tx_to_clean].is_done()) {
+      //Logging::printf("Sent %x.\n", _tx_to_clean);
       if (_tx_meta[_tx_to_clean].cb)
         _tx_meta[_tx_to_clean].cb->send_callback(_tx_meta[_tx_to_clean].data);
       _tx_to_clean = (_tx_to_clean + 1) % _ring_descs;
@@ -219,6 +220,23 @@ public:
       Logging::panic("Could not convert VM pointer?\n");
     offset = reinterpret_cast<mword>(conv.ptr);
   }
+};
+
+class NullMemory : public SimpleNetworkClient::Memory
+{
+public:
+  
+  virtual void *allocate_backend(size_t size)
+  {
+    return memalloc(size, 0x1000);
+  }
+
+  virtual mword ptr_to_phys(const void *ptr, size_t size)
+  {
+    return reinterpret_cast<mword>(ptr);
+  }
+
+  NullMemory() {}
 };
 
 // EOF
