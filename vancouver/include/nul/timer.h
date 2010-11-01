@@ -71,15 +71,16 @@ class Clock
 /**
  * Keeping track of the timeouts.
  */
-template <unsigned ENTRIES>
+template <unsigned ENTRIES, typename DATA>
 class TimeoutList
 {
   class TimeoutEntry
   {
-    friend class TimeoutList<ENTRIES>;
+    friend class TimeoutList<ENTRIES, DATA>;
     TimeoutEntry *_next;
     TimeoutEntry *_prev;
     timevalue _timeout;
+    DATA * data;
   };
 
   TimeoutEntry  _entries[ENTRIES];
@@ -88,9 +89,13 @@ public:
   /**
    * Alloc a new timeout object.
    */
-  unsigned alloc()
+  unsigned alloc(DATA * _data = 0)
   {
-    if (_count < ENTRIES-1) return ++_count;
+    if (_count < ENTRIES-1) {
+      unsigned i = ++_count;
+      _entries[i].data = _data;
+      return i;
+    }
     Logging::printf("can not alloc a timer %d vs %d!\n", _count, ENTRIES);
     return 0;
   }
@@ -138,8 +143,13 @@ public:
   /**
    * Get the head of the queue.
    */
-  unsigned  trigger(timevalue now) {
-    if (now >= timeout())  return (_entries[0]._next - _entries);
+  unsigned  trigger(timevalue now, DATA ** data = 0) {
+    if (now >= timeout()) {
+      unsigned i = _entries[0]._next - _entries;
+      if (data)
+        *data = _entries[i].data;
+      return i;
+    }
     return 0;
   }
 

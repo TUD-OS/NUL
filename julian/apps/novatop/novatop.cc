@@ -25,6 +25,7 @@
 #include <sigma0/console.h>
 #include <nul/program.h>
 #include <nul/motherboard.h>
+#include <nul/service_timer.h>
 
 static uint8 perfctl_init() { return nova_syscall(14, 0, 0, 0, 0); }
 static uint8 perfctl_read() { return nova_syscall(14, 1, 0, 0, 0); }
@@ -118,21 +119,20 @@ public:
 	Logging::panic("SC");
     }
 
-    KernelSemaphore sem = KernelSemaphore(alloc_cap(), true);
-    TimerConsumer tc;
-    Sigma0Base::request_timer_attach(utcb, &tc, sem.sm());
-
     Clock c(_hip->freq_tsc*1000);
+
+    TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    TimerProtocol::MessageTimer msg(c.abstime(0, 1000));
+    assert(!_timer_service->timer(*utcb, msg));
+
+    KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+
     while (1) {
 
-      MessageTimer m(0, c.abstime(1, 1));
-      Sigma0Base::timer(m);
+      TimerProtocol::MessageTimer m(c.abstime(1, 1));
+      assert(!_timer_service->timer(*utcb, m));
 
       sem.downmulti();
-      while (tc.has_data()) {
-        tc.get_buffer();
-        tc.free_buffer();
-      }
 
       for (unsigned i = 0; i < hip->cpu_count(); i++)
 	nova_semup(_wait_sm[i]);

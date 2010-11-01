@@ -32,12 +32,9 @@ class Sigma0Base : public BaseProgram
   enum {
     REQUEST_STDIN_ATTACH = 0x1001,
     REQUEST_DISKS_ATTACH,
-    REQUEST_TIMER_ATTACH,
     REQUEST_NETWORK_ATTACH,
     REQUEST_VNET_ATTACH,
     REQUEST_DISK,
-    REQUEST_TIMER,
-    REQUEST_TIME,
     REQUEST_CONSOLE,
     REQUEST_HOSTOP,
     REQUEST_NETWORK,
@@ -83,15 +80,12 @@ class Sigma0Base : public BaseProgram
   };
   static unsigned  request_stdin         (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_disks_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, buffer, sem_nq); }
-  static unsigned  request_timer_attach  (Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_TIMER_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_network_attach(Utcb *utcb, void *buffer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, buffer, sem_nq); }
   static unsigned  request_vnet_attach   (Utcb *utcb, unsigned sem_nq) { return request_attach<REQUEST_VNET_ATTACH>(utcb, NULL, sem_nq); }
   static unsigned disk(MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
   static unsigned console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
   static unsigned hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }
-  static unsigned timer  (MessageTimer &msg)    { return sigma0_message<MessageTimer,     REQUEST_TIMER>(msg); }
   static unsigned network(MessageNetwork &msg)  { return sigma0_message<MessageNetwork,   REQUEST_NETWORK>(msg); }
-  static unsigned time   (MessageTime &msg)     { return sigma0_message<MessageTime,      REQUEST_TIME>(msg); }
   static unsigned pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
   static unsigned acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI>(msg); }
   static unsigned vnetop (MessageVirtualNet &msg){ return sigma0_message<MessageVirtualNet,REQUEST_VNET>(msg); }
@@ -121,16 +115,6 @@ typedef Producer<MessageInput, STDIN_SIZE> StdinProducer;
 typedef Consumer<MessageDiskCommit, DISKS_SIZE> DiskConsumer;
 typedef Producer<MessageDiskCommit, DISKS_SIZE> DiskProducer;
 
-
-/**
- * Timer push interface.
- */
-struct TimerItem {
-  timevalue time;
-  TimerItem(timevalue _time = 0) : time(_time) {}
-};
-typedef Consumer<TimerItem, DISKS_SIZE> TimerConsumer;
-typedef Producer<TimerItem, DISKS_SIZE> TimerProducer;
 
 /**
  * Network push interface.

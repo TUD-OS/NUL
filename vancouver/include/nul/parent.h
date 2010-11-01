@@ -180,6 +180,9 @@ public:
    */
   void close(Utcb &utcb) { release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM); }
 
+  unsigned get_notify_sm() {
+    return _cap_base + CAP_SERVER_SESSION;
+  }
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
 
@@ -192,24 +195,6 @@ public:
     Logging::printf("New Protocol '%s' base %x\n", service, cap_base);
   }
 };
-
-
-/**
- * Client part of the log protocol.
- *
- * Missing: handle very-long strings
- */
-struct LogProtocol : public GenericProtocol {
-  enum {
-    TYPE_LOG = ParentProtocol::TYPE_GENERIC_END,
-  };
-  unsigned log(Utcb &utcb, const char *line) {
-    return call_server(init_frame(utcb, TYPE_LOG) << line, true);
-  }
-
-  LogProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("log", instance, cap_base, true) {}
-};
-
 
 #include "host/dma.h"
 

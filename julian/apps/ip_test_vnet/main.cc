@@ -20,6 +20,8 @@
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
 
+#include <nul/service_timer.h> //TimerService
+
 #include "../../model/simplenet.h"
 
 extern "C" void lwip_init();
@@ -82,23 +84,21 @@ namespace js {
       return Sigma0Base::vnetop(msg);
     }
 
-    bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
+    bool use_network(Utcb *utcb, Hip * hip) {
       bool res;
+      Clock * _clock = new Clock(hip->freq_tsc);
 
-      KernelSemaphore sem = KernelSemaphore(sm, true);
-
-      Sigma0Base::request_vnet_attach(utcb, sm);
-
-      TimerConsumer * tmconsumer    = new TimerConsumer();
-      if (!tmconsumer)
-        return false;
-
-      res = Sigma0Base::request_timer_attach(utcb, tmconsumer, sem.sm());
+      TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
+      res = _timer_service->timer(*utcb, msg);
       Logging::printf("request timer attach - %s\n",
                       (res == 0 ? "success" : "failure"));
       if (res)
         return false;
 
+      KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+
+      Sigma0Base::request_vnet_attach(utcb, _timer_service->get_notify_sm());
 
       MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0);
       res = Sigma0Base::hostop(msg_op);
@@ -107,15 +107,13 @@ namespace js {
                       MAC_SPLIT(&mac),
                       (res == 0 ? "success" : "failure"));
 
-      Clock * _clock = new Clock(hip->freq_tsc);
-      memset(tmconsumer->_buffer, 0xff, sizeof(tmconsumer->_buffer));
-
       unsigned long long timeout = nul_lwip_netif_next_timer();
       //      Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
-      MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
-      if (Sigma0Base::timer(to))
-        Logging::printf("failed  - starting timer\n");
+      TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
+      if (_timer_service->timer(*utcb, to))
+         Logging::printf("failed  - starting timer\n");
+
 
       //lwip init
       lwip_init();
@@ -134,24 +132,18 @@ namespace js {
       nul_lwip_dhcp_start();
 
       while (1) {
+        unsigned tcount = 0;
         sem.downmulti();
 
-        //        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
         //check whether timer triggered
-        if (tmconsumer->has_data()) {
-          while (tmconsumer->has_data()) {
-            tmconsumer->get_buffer();
-            tmconsumer->free_buffer();
-          }
- 
+        if (!_timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
           unsigned long long timeout = nul_lwip_netif_next_timer();
-          //          Logging::printf("info    - next timeout in %llu ms\n", timeout);
+          //Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
-          MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
-          if (Sigma0Base::timer(to))
+          TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
+          if (_timer_service->timer(*utcb,to))
             Logging::printf("failed  - starting timer\n");
         }
-
         
         uint8 *data;
         size_t len;
@@ -192,7 +184,7 @@ namespace js {
       net_mem  = new StrangeMemory;
       net      = new SimpleNetworkClient(*net_mem, *bus_vnet);
 
-      if (!use_network(utcb, hip, alloc_cap()))
+      if (!use_network(utcb, hip))
         Logging::printf("failed  - starting lwip stack\n");
     
     }

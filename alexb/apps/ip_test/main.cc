@@ -14,6 +14,7 @@
 
 #include <nul/program.h>
 #include <nul/timer.h> //clock
+#include <nul/service_timer.h> //TimerService
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
 
@@ -42,26 +43,24 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
     bool use_network(Utcb *utcb, unsigned cpuid, Hip * hip, unsigned sm) {
       bool res;
-
-      KernelSemaphore sem = KernelSemaphore(sm, true);
+      Clock * _clock = new Clock(hip->freq_tsc);
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer)
         return false;
 
-      TimerConsumer * tmconsumer    = new TimerConsumer();
-      if (!tmconsumer)
-        return false;
-
-      res = Sigma0Base::request_network_attach(utcb, netconsumer,
-                                               sem.sm());
-      Logging::printf("request network attach - %s\n",
+      TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
+      res = _timer_service->timer(*utcb, msg);
+      Logging::printf("request timer attach - %s\n",
                       (res == 0 ? "success" : "failure"));
       if (res)
         return false;
 
-      res = Sigma0Base::request_timer_attach(utcb, tmconsumer, sem.sm());
-      Logging::printf("request timer attach - %s\n",
+      KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+
+      res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
+      Logging::printf("request network attach - %s\n",
                       (res == 0 ? "success" : "failure"));
       if (res)
         return false;
@@ -80,14 +79,11 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
       unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
 
-      Clock * _clock = new Clock(hip->freq_tsc);
-      memset(tmconsumer->_buffer, 0xff, sizeof(tmconsumer->_buffer));
-
       unsigned long long timeout = nul_lwip_netif_next_timer();
 //      Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
-      MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
-      if (Sigma0Base::timer(to))
+      TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
+      if (_timer_service->timer(*utcb, to))
          Logging::printf("failed  - starting timer\n");
 
       //lwip init
@@ -98,22 +94,18 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
       while (1) {
         unsigned char *buf;
+        unsigned tcount = 0;
 
         sem.downmulti();
 
 //        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
         //check whether timer triggered
-        if (tmconsumer->has_data()) {
-          while (tmconsumer->has_data()) {
-            tmconsumer->get_buffer();
-            tmconsumer->free_buffer();
-          }
- 
+        if (!_timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
           unsigned long long timeout = nul_lwip_netif_next_timer();
-//          Logging::printf("info    - next timeout in %llu ms\n", timeout);
+          Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
-          MessageTimer to(0, _clock->time() + timeout * hip->freq_tsc);
-          if (Sigma0Base::timer(to))
+          TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
+          if (_timer_service->timer(*utcb,to))
             Logging::printf("failed  - starting timer\n");
         }
 

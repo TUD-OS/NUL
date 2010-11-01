@@ -21,6 +21,9 @@
 #include "sys/semaphore.h"
 #include "service/lifo.h"
 
+#include "nul/parent.h"
+#include "nul/generic_service.h"
+#include "nul/service_timer.h"
 
 /**
  * Timer service.
@@ -31,6 +34,13 @@
  */
 class TimerService : public StaticReceiver<TimerService> {
 
+  struct ClientData : public GenericClientData {
+    volatile unsigned reltime;
+    volatile unsigned count;
+    unsigned nr;
+    ClientData * volatile lifo_next;
+  };
+
   enum {
     // Leave some room for services in sigma0 to allocate timers.
     CLIENTS = Config::MAX_CLIENTS + 10,
@@ -38,15 +48,11 @@ class TimerService : public StaticReceiver<TimerService> {
   };
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
-  TimeoutList<CLIENTS> _abs_timeouts;
+  TimeoutList<CLIENTS, struct ClientData> _abs_timeouts;
   KernelSemaphore   _worker;
 
 
-  struct ClientData {
-    volatile unsigned reltime;
-    ClientData * volatile lifo_next;
-  } _data[CLIENTS];
-
+  ClientDataStorage<ClientData> _storage;
   AtomicLifo<ClientData> _queue;
 
   /**
@@ -62,30 +68,33 @@ class TimerService : public StaticReceiver<TimerService> {
       timevalue now = _mymb.clock()->time();
       ClientData *next;
       for (ClientData *head = _queue.dequeue_all(); head; head = next) {
-	nr = head - _data;
-	next = head->lifo_next;
-	head->lifo_next = 0;
-	asm volatile("");
-	timevalue t = Cpu::xchg(&head->reltime, 0);
-	t *= GRANULARITY;
-	_abs_timeouts.cancel(nr);
-	_abs_timeouts.request(nr, now + t);
+        nr = head->nr;
+        next = head->lifo_next;
+        head->lifo_next = 0;
+        asm volatile("");
+        timevalue t = Cpu::xchg(&head->reltime, 0);
+        t *= GRANULARITY;
+        _abs_timeouts.cancel(nr);
+        _abs_timeouts.request(nr, now + t);
       }
 
       /**
        * Check whether timeouts have fired.
        */
       now = _mymb.clock()->time();
-      while ((nr = _abs_timeouts.trigger(now))) {
-	MessageTimeout msg1(nr, now);
-	_abs_timeouts.cancel(nr);
-	_hostmb.bus_timeout.send(msg1);
+      ClientData * data;
+      while ((nr = _abs_timeouts.trigger(now, &data))) {
+        _abs_timeouts.cancel(nr);
+
+        assert(data);
+        data->count ++;
+        nova_semup(data->identity);
       }
 
       // update timeout upstream
       if (_abs_timeouts.timeout() != ~0ULL) {
-	MessageTimer msg2(0, _abs_timeouts.timeout());
-	_mymb.bus_timer.send(msg2);
+        MessageTimer msg2(0, _abs_timeouts.timeout());
+        assert(_mymb.bus_timer.send(msg2));
       }
     }
   }
@@ -93,38 +102,89 @@ class TimerService : public StaticReceiver<TimerService> {
 
 public:
 
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
+    ClientData *data = 0;
+    unsigned res = ENONE;
+    unsigned op;
 
-  bool  receive(MessageTimer &msg)
-  {
-    switch (msg.type) {
-    case MessageTimer::TIMER_NEW:
-      // XXX synchronization
-      msg.nr = _abs_timeouts.alloc();
-      break;
-    case MessageTimer::TIMER_REQUEST_TIMEOUT:
+    check1(EPROTO, input.get_word(op));
+
+    switch (op) {
+    case ParentProtocol::TYPE_OPEN:
+      check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
+      free_cap = false;
+
+      //XXX synchronization
+      data->nr = _abs_timeouts.alloc(data);
+      if (!data->nr) return EABORT;
+
+      utcb << Utcb::TypedMapCap(data->identity);
+      Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
+      return res;
+    case ParentProtocol::TYPE_CLOSE:
+      check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
+      Logging::printf("ts:: close session for %x\n", data->identity);
+      return _storage.free_client_data(utcb, data);
+    case TimerProtocol::TYPE_REQUEST_TIMER:
       {
-	assert(msg.nr < CLIENTS);
-	long long diff = msg.abstime - _hostmb.clock()->time();
-	if (diff < GRANULARITY)
-	  diff = 1;
-	else
-	  if (diff <= static_cast<long long>(~0u)*GRANULARITY)
-	    diff /= GRANULARITY;
-	  else
-	    diff = ~0u;
+        if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
+    
+        TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
+        if (input.get_word(msg)) return EABORT;
 
-	_data[msg.nr].reltime = diff;
-	asm volatile ("" : : : "memory");
-	if (!_data[msg.nr].lifo_next) _queue.enqueue(_data+msg.nr);
-	_worker.up();
+	      COUNTER_INC("request to");
+
+        assert(data->nr < CLIENTS);
+        long long diff = msg.abstime - _hostmb.clock()->time();
+        if (diff < GRANULARITY)
+          diff = 1;
+        else
+          if (diff <= static_cast<long long>(~0u)*GRANULARITY)
+            diff /= GRANULARITY;
+          else
+            diff = ~0u;
+
+        data->reltime = diff;
+        asm volatile ("" : : : "memory");
+        if (!data->lifo_next)
+          _queue.enqueue(data);
+        _worker.up();
       }
-      break;
-    default:
-      return false;
-    }
-    return true;
-  }
+      return ENONE;
+    case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
+      {
+        if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
 
+        utcb << data->count;
+
+        data->count = 0;
+
+        return ENONE;
+      }
+    case TimerProtocol::TYPE_REQUEST_TIME:
+      {
+        if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
+
+        TimerProtocol::MessageTime _msg;
+        if (!input.get_word(_msg)) return EABORT;
+  
+        MessageTime msg;
+        msg.wallclocktime = _msg.wallclocktime;
+        msg.timestamp = _msg.timestamp;
+        if (_hostmb.bus_time.send(msg)) {
+  	      // XXX we assume the same mb->clock() source here
+          _msg.wallclocktime = msg.wallclocktime;
+          _msg.timestamp = msg.timestamp;
+          utcb << _msg;
+          return ENONE;
+        }
+
+        return EABORT;
+      }
+    default:
+      return EPROTO;
+    }
+  }
 
   bool  receive(MessageTimeout &msg) {
     _worker.up();
@@ -138,7 +198,7 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())), _data() {
+  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
     if (!hostmb.bus_hostop.send(msg0))
@@ -148,12 +208,7 @@ public:
     // init timeouts
     _abs_timeouts.init();
 
-    // prealloc timeouts for every module
-    for (unsigned i=0; i < Config::MAX_CLIENTS; i++)  _abs_timeouts.alloc();
-
-
     // add to motherboards
-    _hostmb.bus_timer.add(this, receive_static<MessageTimer>);
     _hostmb.bus_hostirq.add(this, receive_static<MessageIrq>);
 
     _mymb.bus_timeout.add(this, receive_static<MessageTimeout>);
@@ -173,6 +228,11 @@ public:
 };
 
 PARAM(service_timer,
-      new TimerService(mb);
+      TimerService * t = new TimerService(mb);
+
+      MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), reinterpret_cast<unsigned long>(t));
+      msg.ptr = const_cast<char *>("/timer");
+      if (!mb.bus_hostop.send(msg))
+        Logging::panic("registering timer service failed");
       ,
       "service_timer - multiplexes either the hosthpet and hostpit between different clients");

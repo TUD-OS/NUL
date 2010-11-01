@@ -21,6 +21,10 @@
 #include "host/keyboard.h"
 #include "sys/semaphore.h"
 
+#include "nul/parent.h"
+#include "nul/baseprogram.h"
+#include "nul/service_timer.h"
+
 /**
  * A VGA console.
  *
@@ -54,11 +58,11 @@ private:
   unsigned short _last_cursor_pos;
   unsigned short _last_cursor_style;
   Vbe::ModeInfoBlock _modeinfo;
-  unsigned _timer;
-  Semaphore  _worker;
+  KernelSemaphore  _worker;
   timevalue _lastswitchtime;
   char *_graphic_ptr;
   bool _measure;
+  TimerProtocol * _timer_service;
 
   struct View {
     const char *name;
@@ -83,11 +87,12 @@ private:
   };
 
 
-  void update_timer()
+  void update_timer(Utcb &utcb)
   {
     if (!_refresh_freq) return;
-    MessageTimer msg(_timer, _mb.clock()->abstime(1, _refresh_freq));
-    _mb.bus_timer.send(msg);
+
+    TimerProtocol::MessageTimer msg(_mb.clock()->abstime(1, _refresh_freq));
+    assert(!_timer_service->timer(utcb, msg));
   }
 
 
@@ -100,9 +105,8 @@ private:
     if (!_active_mode) set_vga_reg(0x14, 0xc, 8*3);
 
     // do an immediate refresh
-    MessageTimeout msg(_timer, _mb.clock()->time());
-    bool res =  receive(msg);
-    return res;
+    _worker.up();
+    return true;
 
   }
 
@@ -236,7 +240,7 @@ private:
   }
 
 
-  bool refresh_textmode(struct View *view)
+  bool refresh_textmode(struct View *view, Utcb &utcb)
   {
     unsigned pos = draw_console_tag();
     if (view)
@@ -276,7 +280,7 @@ private:
 	  }
 	else
 	  memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
-	update_timer();
+	update_timer(utcb);
       }
     else
       memset(_backend + BACKEND_OFFSET + pos, 0, 0x1000 - pos);
@@ -284,9 +288,9 @@ private:
   }
 
 
-  void work() __attribute__((noreturn)) {
+  void work(Utcb &utcb) __attribute__((noreturn)) {
     while (1) {
-      _worker.down();
+      _worker.downmulti();
       unsigned mode = 0;
       struct View * view = 0;
       if (_active_client < _count && _clients[_active_client].num_views)
@@ -320,7 +324,7 @@ private:
 	}
 
       if (~_modeinfo.attr & 0x80)
-	refresh_textmode(view);
+	refresh_textmode(view, utcb);
       else {
 	unsigned long long start = Cpu::rdtsc();
 	if (_graphic_ptr)
@@ -328,20 +332,12 @@ private:
 	unsigned long long end = Cpu::rdtsc();
 	if (_measure) Logging::printf("memcpy %d bytes took %lld cycles\n", _modeinfo.resolution[1]*_modeinfo.bytes_per_scanline/4, end - start);
 	_measure = false;
-	update_timer();
+	update_timer(utcb);
       }
     }
   }
 
 public:
-  bool  receive(MessageTimeout &msg)
-  {
-    if (msg.nr != _timer) return false;
-    _worker.up();
-    return true;
-  }
-
-
   bool  receive(MessageConsole &msg)
   {
     switch (msg.type)
@@ -375,8 +371,7 @@ public:
 	    view->direct_map = 0;
 
 	  // do an immediate refresh
-	  MessageTimeout msg2(_timer, _mb.clock()->time());
-	  receive(msg2);
+	  _worker.up();
 	  return true;
 	}
 
@@ -424,7 +419,7 @@ public:
   }
 
 
-  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(); }
+  static void do_work(void *u, void *t, Utcb * utcb)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(*utcb); }
 
 
 
@@ -433,11 +428,13 @@ public:
     _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0), _clients()
   {
 
+    _timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+
     // get a timer
-    MessageTimer msg0;
-    if (!_mb.bus_timer.send(msg0))
-      Logging::panic("%s can't get a timer", __func__);
-    _timer = msg0.nr;
+    TimerProtocol::MessageTimer msg0(mb.clock()->abstime(0, 1000));
+    unsigned res;
+    if ((res = _timer_service->timer(*BaseProgram::myutcb(), msg0)))
+      Logging::panic("%s can't get a timer %x", __func__, res);
 
     // switch to sigma0 console
     set_vga_reg(0x14, 0xc, 0);
@@ -462,15 +459,11 @@ public:
 
     _mb.bus_input.add(this,   receive_static<MessageInput>);
     _mb.bus_console.add(this, receive_static<MessageConsole>);
-    _mb.bus_timeout.add(this, receive_static<MessageTimeout>);
-
+    
     //Logging::printf("%s with refresh frequency %d\n", __func__, _refresh_freq);
 
-
-    MessageHostOp msg4(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
-    if (!_mb.bus_hostop.send(msg4))
-      Logging::panic("%s alloc semaphore failed", __func__);
-    _worker = Semaphore(msg4.value);
+    //use notify semaphore of timer service
+    _worker = KernelSemaphore(_timer_service->get_notify_sm());
 
     // create the worker thread
     MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this));

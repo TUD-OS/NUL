@@ -21,6 +21,7 @@
 #include "nul/program.h"
 #include "nul/vcpu.h"
 #include "sigma0/console.h"
+#include "nul/service_timer.h"
 
 /**
  * Layout of the capability space.
@@ -41,7 +42,7 @@ unsigned       _debug;
 const void *   _forward_pkt;
 Semaphore      _lock;
 long           _consolelock;
-TimeoutList<32>_timeouts;
+TimeoutList<32, void>_timeouts;
 unsigned       _shared_sem[256];
 unsigned       _keyboard_modifier = KBFLAG_RWIN;
 bool           _dpci;
@@ -72,7 +73,6 @@ PARAM(vcpus,
 /****************************************************/
 
 
-
 class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiver<Vancouver>
 {
 
@@ -80,6 +80,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
+  static TimerProtocol   *timer_service;
 
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					             \
@@ -211,16 +212,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
-    TimerConsumer *timerconsumer = new TimerConsumer();
-    assert(timerconsumer);
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem->sm());
+    KernelSemaphore timer_sem = KernelSemaphore(timer_service->get_notify_sm());
+
     while (1) {
-      sem->downmulti();
-      while (timerconsumer->has_data()) {
+      timer_sem.down();
+      {
         COUNTER_INC("timer");
-        timerconsumer->get_buffer();
-        timerconsumer->free_buffer();
         SemaphoreGuard l(_lock);
         timeout_trigger();
       }
@@ -542,7 +539,7 @@ public:
 	  {
 	    _physsize -= msg.value;
 	    msg.phys =  _physsize;
-            Logging::printf("Allocating from guest %08x+%x\n",
+            Logging::printf("Allocating from guest %08lx+%lx\n",
                             _physsize, msg.value);
 	  }
 	else
@@ -639,8 +636,8 @@ public:
    */
   static void timeout_request() {
     if (_timeouts.timeout() != ~0ull) {
-      MessageTimer msg2(0, _timeouts.timeout());
-      Sigma0Base::timer(msg2);
+      TimerProtocol::MessageTimer msg2(_timeouts.timeout());
+      timer_service->timer(*myutcb(), msg2);
     }
   }
 
@@ -678,7 +675,12 @@ public:
     return true;
   }
 
-  bool  receive(MessageTime &msg) {  return !Sigma0Base::time(msg);  }
+  bool  receive(MessageTime &msg) {
+    TimerProtocol::MessageTime _msg;
+    _msg.wallclocktime = msg.wallclocktime;
+    _msg.timestamp = msg.timestamp;
+    return !timer_service->time(*myutcb(), _msg);
+  }
 
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
@@ -708,6 +710,11 @@ public:
 
     if (init_caps())
       Logging::panic("init_caps() failed\n");
+
+    //create timer service
+    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
+    assert(!timer_service->timer(*utcb, msg));
 
     create_devices(hip, args);
 
@@ -762,6 +769,8 @@ public:
   }
 
 };
+
+TimerProtocol * Vancouver::timer_service;
 
 ASMFUNCS(Vancouver, Vancouver)
 

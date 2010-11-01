@@ -260,7 +260,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
-    _mb->bus_timeout.add(this,  receive_static<MessageTimeout>);
     init_disks();
     init_network();
     init_vnet();
@@ -718,7 +717,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  COUNTER_INC("request");
 
 	  if (utcb->head.untyped != EXCEPTION_WORDS) {
-	    if (request_timeouts(client, utcb) || request_pcicfg(client, utcb))
+	    if (request_pcicfg(client, utcb))
 	      return;
 	  }
 
@@ -1387,72 +1386,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-
-
-  /************************************************************
-   *   TIME support                                           *
-   ************************************************************/
-
-  TimerProducer             _prod_timer[MAXMODULES];
-
-  /**
-   * Handle timeout requests from other PDs.
-   */
-  bool request_timeouts(unsigned client, Utcb *utcb) {
-
-    ModuleInfo *modinfo = _modinfo + client;
-    switch(utcb->msg[0]) {
-    case REQUEST_TIMER_ATTACH:
-      assert(client < sizeof(_prod_timer)/sizeof(_prod_timer[0]));
-      handle_attach<TimerConsumer>(modinfo, _prod_timer[client], utcb);
-      break;
-    case REQUEST_TIMER:
-      {
-	MessageTimer *msg = reinterpret_cast<MessageTimer *>(utcb->msg+1);
-	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-	  utcb->msg[0] = ~0x10u;
-	else
-	  if (msg->type == MessageTimer::TIMER_REQUEST_TIMEOUT)
-	    {
-	      COUNTER_INC("request to");
-	      msg->nr = client;
-	      if (_mb->bus_timer.send(*msg))
-		utcb->msg[0] = 0;
-	    }
-      }
-      break;
-    case REQUEST_TIME:
-      {
-	MessageTime msg;
-	if (_mb->bus_time.send(msg))
-	  {
-	    // XXX we assume the same mb->clock() source here
-	    *reinterpret_cast<MessageTime *>(utcb->msg+1) = msg;
-	    utcb->set_header((sizeof(msg)+2*sizeof(unsigned) - 1)/sizeof(unsigned), 0);
-	    utcb->msg[0] = 0;
-	  }
-      }
-      break;
-    default:
-      return false;
-    }
-    return true;
-  }
-
-
-  /**
-   * Forward timeout requests.
-   */
-  bool  receive(MessageTimeout &msg)
-  {
-    if (msg.nr < MAXMODULES) {
-	TimerItem item(msg.time);
-	assert(msg.nr < sizeof(_prod_timer)/sizeof(_prod_timer[0]));
-	_prod_timer[msg.nr].produce(item);
-	return true;
-    }
-    return false;
-  }
 
   /************************************************************
    * PCI Cfg                                                  *

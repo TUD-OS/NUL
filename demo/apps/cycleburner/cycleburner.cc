@@ -8,6 +8,7 @@
 
 #include <nul/program.h>
 #include <nul/timer.h>
+#include <nul/service_timer.h>
 #include <sigma0/console.h>
 
 #include "math.h"
@@ -311,9 +312,10 @@ public:
 
     init(hip);
 
-    KernelSemaphore sem = KernelSemaphore(alloc_cap(), true);
-    TimerConsumer *timerconsumer = new TimerConsumer();
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem.sm());
+
+    // attach to timer service 
+    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
 
     gen_sinlut();
     gen_sqrtlut();
@@ -336,14 +338,10 @@ public:
       }
 
       // Wait
-      MessageTimer timeout(0, clock->time() + 50000000);
-      Sigma0Base::timer(timeout);
+      TimerProtocol::MessageTimer timeout(clock->time() + 50000000);
+      assert(!timer_service->timer(*utcb, timeout));
 
       sem.downmulti();
-      while (timerconsumer->has_data()) {
-        timerconsumer->get_buffer();
-        timerconsumer->free_buffer();
-      }
     }
 
     block_forever();

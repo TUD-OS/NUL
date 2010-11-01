@@ -21,6 +21,7 @@
 #include "sigma0/sigma0.h"
 #include "nul/parent.h"
 #include "nul/baseprogram.h"
+#include "nul/service_log.h"
 
 class MultiEntranceLock {
   void *_lock_owner;

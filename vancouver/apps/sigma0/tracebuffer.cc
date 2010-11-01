@@ -17,8 +17,7 @@
  */
 
 #include "nul/motherboard.h"
-#include "nul/generic_service.h"
-
+#include "nul/service_log.h"
 
 /**
  * Tracebuffer service.

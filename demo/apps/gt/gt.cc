@@ -21,6 +21,8 @@
 #include "nul/timer.h"
 #include "sigma0/console.h"
 
+#include "nul/service_timer.h"
+
 class Gt : ProgramConsole
 {
 
@@ -82,10 +84,13 @@ public:
 
 
     Logging::printf("request timer\n");
-    KernelSemaphore sem = KernelSemaphore(hip->cfg_exc + hip->cfg_gsi, true);
-    TimerConsumer *timerconsumer = new TimerConsumer();
-    Sigma0Base::request_timer_attach(utcb, timerconsumer, sem.sm());
     Clock * clock = new Clock(hip->freq_tsc*1000);
+    TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    TimerProtocol::MessageTimer msg_ti(clock->abstime(0, 1000));
+    assert(_timer_service->timer(*utcb, msg_ti));
+
+    KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+    //KernelSemaphore sem = KernelSemaphore(hip->cfg_exc + hip->cfg_gsi);
 
     // switch to the graphic console
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
@@ -95,13 +100,11 @@ public:
     Logging::printf("start animation\n");
     while (1)
       {
-        MessageTimer msg3(0, clock->abstime(1, 50));
-        Sigma0Base::timer(msg3);
+        TimerProtocol::MessageTimer msg3(clock->abstime(1, 50));
+        _timer_service->timer(*utcb, msg3);
+
         sem.downmulti(); 
-        while (timerconsumer->has_data()) {
-          timerconsumer->get_buffer();
-          timerconsumer->free_buffer();
-        }
+
         animate();
       }
   }
