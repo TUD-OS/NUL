@@ -198,7 +198,11 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
+      ///XXX workaround:
+      // If client, service and parent are within the same PD,
+      //   we have to recursively translate the cap until we found the one we handed out first
+      if ((res = _client.get_client_data(utcb, cdata, input.identity(1), _percpu[Cpu::cpunr()].cap_pt_echo)))  return res;
+
       long invalue;
       char *request;
       unsigned request_len;
