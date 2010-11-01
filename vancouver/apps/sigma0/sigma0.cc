@@ -1044,7 +1044,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   bool receive(MessageVirtualNetPing &msg)
   {
-    return (nova_semup(vnet_sm[msg.client]) == 0);
+    // Client 0 is us. Don't wake up.
+    return (msg.client == 0) ? false : (nova_semup(vnet_sm[msg.client]) == 0);
   }
 
 
@@ -1052,6 +1053,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     switch (utcb->msg[0]) {
     case REQUEST_VNET_ATTACH: {
+      assert(client != 0);
       vnet_sm[client] = utcb->head.crd >> Utcb::MINSHIFT;
       Logging::printf("Client %u provided VNET wakeup semaphore: %u.\n", client, vnet_sm[client]);
       utcb->msg[0] = 0;
