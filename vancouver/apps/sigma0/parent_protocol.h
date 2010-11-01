@@ -104,7 +104,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 	// check whether such a session is already known from our client
 	for (ClientData * c = _client.next(); c; c = _client.next(c))
 	  if (c->name == cmdline && c->pseudonym == input.identity()) {
-	    utcb << Utcb::TypedMapCap(cdata->identity);
+	    utcb << Utcb::TypedMapCap(c->identity);
 	    return ENONE;
 	  }
 
