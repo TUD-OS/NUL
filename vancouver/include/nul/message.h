@@ -661,7 +661,8 @@ struct MessageVirtualNet
   mword    physoffset;
 
   MessageVirtualNet(unsigned vnet, uint32 *registers) :
-    op(ANNOUNCE), vnet(vnet), client(0), registers(registers)
+    op(ANNOUNCE), vnet(vnet), client(0), registers(registers),
+    physsize(~0UL), physoffset(0)
   {}
 
 };
