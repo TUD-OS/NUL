@@ -139,9 +139,11 @@ public:
     while (!_disabled) {
     do_call:
       res = call(utcb, _cap_base + CAP_SERVER_PT, false);
-      utcb.head.mtr = mtr;
-      utcb.msg[0]   = w0;
-      if (res == EEXISTS)   goto do_open_session;
+      if (res == EEXISTS) {
+        utcb.head.mtr = mtr;
+        utcb.msg[0]   = w0;
+        goto do_open_session;
+      }
       if (res == NOVA_ECAP) goto do_request_portal;
       goto do_out;
 
