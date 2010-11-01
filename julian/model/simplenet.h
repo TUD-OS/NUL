@@ -182,11 +182,11 @@ public:
     _mmio[TDBAH0] = txbase >> 32;
     _mmio[TDLEN0] = _ring_size;
 
-    Logging::printf("rxbase %llx txbase %llx\n", rxbase, txbase);
-
     MessageVirtualNet vnetmsg(0, _mmio);
     if (not bus_vnet.send(vnetmsg))
       Logging::panic("Could not attach to virtual network.\n");
+
+    Logging::printf("Network client is functional.\n");
   }
 };
 
