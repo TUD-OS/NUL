@@ -93,7 +93,7 @@ public:
     asm ("" ::: "memory");
 
     _mmio[RDT0] = next_rdt;
-    Logging::printf("Queue buffer %p at %x\n", data, rdt);
+    //Logging::printf("Queue buffer %p at %x\n", data, rdt);
 
     return true;
   }
@@ -104,9 +104,9 @@ public:
         ((_rx_ring[_rx_to_clean].rawd[2] & 1) == 0))
       return false;
 
-    Logging::printf("RCV %016llx %016llx\n",
-                    _rx_ring[_rx_to_clean].raw[0],
-                    _rx_ring[_rx_to_clean].raw[1]);
+    // Logging::printf("RCV %016llx %016llx\n",
+    //                 _rx_ring[_rx_to_clean].raw[0],
+    //                 _rx_ring[_rx_to_clean].raw[1]);
 
     // Descriptor done. Assert that this is a complete packet.
     assert((_rx_ring[_rx_to_clean].rawd[2] & 3) == 3);
@@ -149,7 +149,7 @@ public:
     // Cleanup descriptors and send notifications.
     while ((_tx_to_clean != _mmio[TDT0]) &&
            _tx_ring[_tx_to_clean].is_done()) {
-      //Logging::printf("Sent %x.\n", _tx_to_clean);
+      Logging::printf("Sent %x cb %p.\n", _tx_to_clean, _tx_meta[_tx_to_clean].cb);
       if (_tx_meta[_tx_to_clean].cb)
         _tx_meta[_tx_to_clean].cb->send_callback(_tx_meta[_tx_to_clean].data);
       _tx_to_clean = (_tx_to_clean + 1) % _ring_descs;
