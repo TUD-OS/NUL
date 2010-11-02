@@ -47,6 +47,7 @@ namespace js {
     StrangeMemory() {}
   };
 
+
   class TestLWIP : public NovaProgram, public ProgramConsole, public StaticReceiver<TestLWIP>
   {
     static StrangeMemory           *net_mem;
@@ -55,10 +56,23 @@ namespace js {
 
   public:
 
-    static void send_network(char unsigned const * data, unsigned len)
+    static void send_network(uint8 const * data, unsigned len)
     {
-      // XXX
-      Logging::printf("Send... But it's not implemented!\n");
+      static class TxDone : public SimpleNetworkClient::Callback
+      {
+      public:
+        void send_callback(uint8 const *data)
+        {
+          Logging::printf("%p sent!\n", data);
+          delete data;
+        }
+      } tx_done;
+
+
+      uint8 *bdata = new uint8[len];
+      Logging::printf("Send %p+%x\n", bdata, len);
+      memcpy(bdata, data, len);
+      net->send_packet(bdata, len, &tx_done);
     }
 
     bool receive(MessageVirtualNet &msg)
@@ -177,7 +191,6 @@ namespace js {
 
       net_mem  = new StrangeMemory;
       net      = new SimpleNetworkClient(*net_mem, *bus_vnet);
-
 
       if (!use_network(utcb, hip, alloc_cap()))
         Logging::printf("failed  - starting lwip stack\n");
