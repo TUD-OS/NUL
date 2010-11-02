@@ -30,7 +30,8 @@
  *
  * State: unstable
  * Features: pit, hpet, worker-thread, xcpu-timeouts, shmem to communicate
- * Missing:  cache optimization
+ * Missing:  hold _abs_timeouts-list in ClientData, remove nr, remove count and LAST_TIMEOUT,
+ *           split gethosttime, make device list configurable
  */
 class TimerService : public StaticReceiver<TimerService> {
 
@@ -235,4 +236,4 @@ PARAM(service_timer,
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering timer service failed");
       ,
-      "service_timer - multiplexes either the hosthpet and hostpit between different clients");
+      "service_timer - multiplexes either the hosthpet or the hostpit between different clients");
