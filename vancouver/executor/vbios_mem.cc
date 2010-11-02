@@ -110,9 +110,15 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
 	    }
 	  goto unsupported;
 	}
+      case 0x8800 ... 0x88ff: // get extended memory
+        {
+          unsigned mem_kb = (memsize() - (1<<20)) / 1024;
+          // Cap at 15MB for legacy compatibility.
+          cpu->ax = (mem_kb > (15*1024)) ? 15*1024 : mem_kb;
+          break;
+        }
       case 0x00c0:            // get rom configtable
       case 0x5300 ... 0x53ff: // apm installation check
-      case 0x8800 ... 0x88ff: // get extended memory
       case 0xc000 ... 0xc0ff: // get configuration
       case 0xc100 ... 0xc1ff: // get ebda
       case 0xe801:            // get memsize
