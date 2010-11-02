@@ -281,7 +281,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 
 
-  void create_devices(Hip *hip, char *args)
+  void create_devices(Utcb *utcb, Hip *hip, char *args)
   {
     _timeouts.init();
 
@@ -295,6 +295,12 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_vnet.add    (this, receive_static<MessageVirtualNet>);
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
+
+    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
+
+    if (timer_service->timer(*utcb, msg) != 0)
+      Logging::panic("Timer service unreachable.\n");
 
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();
@@ -711,12 +717,7 @@ public:
     if (init_caps())
       Logging::panic("init_caps() failed\n");
 
-    //create timer service
-    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
-    TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
-    assert(!timer_service->timer(*utcb, msg));
-
-    create_devices(hip, args);
+    create_devices(utcb, hip, args);
 
     // create backend connections
     create_irq_thread(~0u, 0, do_stdin);
