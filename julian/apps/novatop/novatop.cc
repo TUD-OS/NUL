@@ -123,19 +123,21 @@ public:
 
     TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg(c.abstime(0, 1000));
-    assert(!_timer_service->timer(*utcb, msg));
+    if (_timer_service->timer(*utcb, msg))
+      Logging::panic("setting timeout failed\n");
 
     KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
 
     while (1) {
 
       TimerProtocol::MessageTimer m(c.abstime(1, 1));
-      assert(!_timer_service->timer(*utcb, m));
+      if (_timer_service->timer(*utcb, m))
+        Logging::panic("setting timeout failed\n");
 
       sem.downmulti();
 
       for (unsigned i = 0; i < hip->cpu_count(); i++)
-	nova_semup(_wait_sm[i]);
+        nova_semup(_wait_sm[i]);
     }
   }
 

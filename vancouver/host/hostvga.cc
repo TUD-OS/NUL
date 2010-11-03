@@ -92,7 +92,8 @@ private:
     if (!_refresh_freq) return;
 
     TimerProtocol::MessageTimer msg(_mb.clock()->abstime(1, _refresh_freq));
-    assert(!_timer_service->timer(utcb, msg));
+    unsigned res = _timer_service->timer(utcb, msg);
+    assert(!res);
   }
 
 

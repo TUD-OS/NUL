@@ -339,7 +339,8 @@ public:
 
       // Wait
       TimerProtocol::MessageTimer timeout(clock->time() + 50000000);
-      assert(!timer_service->timer(*utcb, timeout));
+      if (timer_service->timer(*utcb, timeout))
+        Logging::panic("setting the timeout failed\n");
 
       sem.downmulti();
     }

@@ -87,7 +87,8 @@ public:
     Clock * clock = new Clock(hip->freq_tsc*1000);
     TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg_ti(clock->abstime(0, 1000));
-    assert(_timer_service->timer(*utcb, msg_ti));
+    if (_timer_service->timer(*utcb, msg_ti))
+      Logging::panic("setting timeout failed\n");
 
     KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
     //KernelSemaphore sem = KernelSemaphore(hip->cfg_exc + hip->cfg_gsi);

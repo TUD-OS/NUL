@@ -643,7 +643,8 @@ public:
   static void timeout_request() {
     if (_timeouts.timeout() != ~0ull) {
       TimerProtocol::MessageTimer msg2(_timeouts.timeout());
-      timer_service->timer(*myutcb(), msg2);
+      unsigned res = timer_service->timer(*myutcb(), msg2);
+      assert(!res);
     }
   }
 

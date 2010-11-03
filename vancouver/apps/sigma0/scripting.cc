@@ -65,7 +65,8 @@ struct Script : public StaticReceiver<Script> {
         if (item.type == ScriptItem::TYPE_WAIT) {
           TimerProtocol::MessageTimer msg1(_clock->abstime(item.param0, 1000));
           Logging::printf("wait %ld abs %llx now %llx\n", item.param0,msg1.abstime, _clock->time());
-          assert(_service_timer->timer(utcb, msg1));
+          if (_service_timer->timer(utcb, msg1))
+            Logging::printf("setting timeout failed\n");
           break;
       	} else
         if (item.type ==ScriptItem::TYPE_START) {
@@ -117,7 +118,8 @@ struct Script : public StaticReceiver<Script> {
     _service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
 
     TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
-    assert(!_service_timer->timer(*BaseProgram::myutcb(), msg1));
+    if (_service_timer->timer(*BaseProgram::myutcb(), msg1))
+      Logging::panic("setting timeout failed\n");
 
     _worker = KernelSemaphore(_service_timer->get_notify_sm());
 
