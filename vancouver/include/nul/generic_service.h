@@ -127,7 +127,8 @@ again:
       utcb2.msg[1] = 0;
       utcb2.set_header(2, 0);
       utcb2.head.crd = ~0;
-      assert((!nova_call(echo_pt)));
+      unsigned res = nova_call(echo_pt);
+      assert(!res);
 
       Crd cap_trans = Crd(utcb2.msg[sizeof(utcb2.msg)/sizeof(unsigned) - 2]);
       Logging::printf("\tloop for translation %x %x, id %x %x\n", utcb2.head.typed, utcb2.head.untyped, cap_trans.cap(), cap_trans.value() & 3);
