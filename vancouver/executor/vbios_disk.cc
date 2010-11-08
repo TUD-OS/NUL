@@ -220,7 +220,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
       default:
 	switch (msg.cpu->ax)
 	  {
-	  case 0x4b00:  // bootable CDROM Emulation termintate
+	  case 0x4b00:  // bootable CDROM Emulation terminate
 	  case 0x4b01:  // bootable CDROM Emulation status
 	    error(msg, 0x4b);
 	    break;
