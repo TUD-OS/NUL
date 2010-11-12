@@ -99,16 +99,6 @@ class Cpu
     return eax;
   }
 
-  /**
-   * Return the CPU number.
-   */
-  static  unsigned cpunr() {
-    unsigned ebx;
-    unsigned eax = 1;
-    asm volatile ("cpuid": "=b"(ebx), "+a"(eax) : : "ecx", "edx");
-    return (ebx >> 24) & 0xff;
-  }
-
   template<unsigned operand_size>
     static void move(void *tmp_dst, void *tmp_src) {
     // XXX aliasing!

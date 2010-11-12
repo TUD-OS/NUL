@@ -312,7 +312,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
-    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned long>(this), &utcb, PT_IRQ, Cpu::cpunr(), reinterpret_cast<void *>(func));
+    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned long>(this), myutcb()->head.nul_cpunr, PT_IRQ, &utcb, reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
     utcb->head.untyped = 3;
     utcb->head.typed = 0;
@@ -337,7 +337,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _console_data.lock.sem = sem;
 
     // create exception EC
-    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned long>(this), 0);
+    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned long>(this),  myutcb()->head.nul_cpunr);
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
       if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
@@ -347,10 +347,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     return 0;
   }
 
-  unsigned create_vcpu(VCpu *vcpu, bool use_svm)
+  unsigned create_vcpu(VCpu *vcpu, bool use_svm, unsigned cpunr)
   {
     // create worker
-    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned long>(vcpu), 0, true);
+    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned long>(vcpu), cpunr, true);
 
     // create portals for VCPU faults
 #undef VM_FUNC
@@ -372,7 +372,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     unsigned cap_block = alloc_cap(3);
     if (nova_create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
-    if (nova_create_ec(cap_block + 1, 0, 0, Cpu::cpunr(), cap_start, false)
+    if (nova_create_ec(cap_block + 1, 0, 0, cpunr, cap_start, false)
 	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     return cap_block;
@@ -575,7 +575,7 @@ public:
 	}
 	break;
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
-	msg.value = create_vcpu(msg.vcpu, _hip->has_svm());
+	msg.value = create_vcpu(msg.vcpu, _hip->has_svm(), myutcb()->head.nul_cpunr);
 
 	// handle cpuid overrides
 	msg.vcpu->executor.add(this, receive_static<CpuMessage>);
@@ -595,7 +595,7 @@ public:
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
-	  unsigned ec_cap = create_ec_helper(msg.value, 0, PT_IRQ, ~0, msg.ptr);
+	  unsigned ec_cap = create_ec_helper(msg.value, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
 	  // XXX Priority?
 	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
 	}

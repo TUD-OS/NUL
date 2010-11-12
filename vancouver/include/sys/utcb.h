@@ -27,7 +27,8 @@ struct Utcb
       unsigned mtr;
     };
     unsigned crd;
-    unsigned res[2];
+    unsigned nul_cpunr;
+    unsigned res;
   } head;
   union {
     struct {

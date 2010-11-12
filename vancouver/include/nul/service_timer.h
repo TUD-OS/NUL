@@ -85,8 +85,7 @@ struct TimerProtocol : public GenericProtocol {
   }
 
   unsigned timer(Utcb &utcb, TimerProtocol::MessageTimer &timer) {
-    init_frame(utcb, TYPE_REQUEST_TIMER) << timer;
-    return call_server(utcb, true);
+    return call_server(init_frame(utcb, TYPE_REQUEST_TIMER) << timer, true);
   }
 
   TimerProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("timer", instance, cap_base, true) {}

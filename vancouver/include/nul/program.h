@@ -68,19 +68,19 @@ class NovaProgram : public BaseProgram
   /**
    * Create an ec and setup the stack.
    */
-  unsigned  create_ec_helper(unsigned long tls, Utcb **utcb_out=0, unsigned excbase = 0, unsigned cpunr=~0, void *func=0)
+  unsigned  create_ec_helper(unsigned long tls, unsigned cpunr, unsigned excbase = 0, Utcb **utcb_out=0, void *func=0)
   {
     unsigned stack_top = stack_size/sizeof(void *);
     unsigned cap = alloc_cap();
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_top];
-    cpunr = (cpunr == ~0u) ? Cpu::cpunr() : cpunr;
     stack[--stack_top] = utcb; // push UTCB -- needed for myutcb()
     stack[--stack_top] = reinterpret_cast<void *>(tls);
     stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
     Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %lx\n",
 		    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
     check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
+    utcb->head.nul_cpunr = cpunr;
     if (utcb_out)
       *utcb_out = utcb;
     return cap;
@@ -94,6 +94,16 @@ class NovaProgram : public BaseProgram
   {
     check1(1, hip->calc_checksum());
     _hip = hip;
+
+    // search for the cpunr of the BSP.
+    for (int i=0; i < (_hip->mem_offs - _hip->cpu_offs) / _hip->cpu_size; i++) {
+      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(_hip) + _hip->cpu_offs + i*_hip->cpu_size);
+      if ((cpu->flags & 3) == 3) {
+	myutcb()->head.nul_cpunr = i;
+	break;
+      }
+    }
+
     assert(!_cap_free);
     alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
     nova_create_sm(_cap_block = alloc_cap());

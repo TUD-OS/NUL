@@ -128,7 +128,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
       //Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
-	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
+	if (sdata->cpu == utcb.head.nul_cpunr && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
 
 	  // check that the server portal still exists, if not free the server-data and tell the client to retry
 	  unsigned crdout;
@@ -198,10 +198,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      ///XXX workaround:
-      // If client, service and parent are within the same PD,
-      //   we have to recursively translate the cap until we found the one we handed out first
-      if ((res = _client.get_client_data(utcb, cdata, input.identity(1), _percpu[Cpu::cpunr()].cap_pt_echo)))  return res;
+      if ((res = _client.get_client_data(utcb, cdata, input.identity(1), _percpu[utcb.head.nul_cpunr].cap_pt_echo)))  return res;
 
       long invalue;
       char *request;

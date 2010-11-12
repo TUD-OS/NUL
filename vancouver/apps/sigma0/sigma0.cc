@@ -144,7 +144,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	unsigned err;
 	memmove(utcb->msg, utcb->item_start(), sizeof(unsigned) * utcb->head.typed * 2);
 	utcb->set_header(2*utcb->head.typed, 0);
-	if ((err = nova_call(_percpu[Cpu::cpunr()].cap_pt_echo)))
+	if ((err = nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo)))
 	  {
 	    Logging::printf("map_self failed with %x mtr %x/%x\n", err, utcb->head.untyped, utcb->head.typed);
 	    res = 0;
@@ -176,7 +176,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
     Utcb *u = 0;
-    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), &u, 0, _cpunr[CPUGSI % _numcpus], reinterpret_cast<void *>(&do_gsi_wrapper));
+    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), _cpunr[CPUGSI % _numcpus], 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
@@ -314,12 +314,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;
       _cpunr[_numcpus++] = i;
-      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), 0, 0, i);
+      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), i);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
       Utcb *utcb = 0;
-      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), &utcb, 0, i);
+      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), i, 0, &utcb);
       // initialize the receive window
       utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 
@@ -343,11 +343,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(2, nova_create_sm(_lock.sm()));
 
     Logging::printf("create pf echo+worker threads\n");
-    check1(3, create_worker_threads(hip, Cpu::cpunr()));
+    check1(3, create_worker_threads(hip, utcb->head.nul_cpunr));
 
     // create pf and gsi boot wrapper on this CPU
-    assert(_percpu[Cpu::cpunr()].cap_ec_echo);
-    check1(4, nova_create_pt(14, _percpu[Cpu::cpunr()].cap_ec_echo, reinterpret_cast<unsigned long>(do_pf_wrapper), MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN));
+    assert(_percpu[utcb->head.nul_cpunr].cap_ec_echo);
+    check1(4, nova_create_pt(14, _percpu[utcb->head.nul_cpunr].cap_ec_echo,
+			     reinterpret_cast<unsigned long>(do_pf_wrapper),
+			     MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN));
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
     check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), MTD_RSP | MTD_RIP_LEN));
 
@@ -386,7 +388,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       utcb->head.untyped += 2;
     }
 
-    check1(8, nova_call(_percpu[Cpu::cpunr()].cap_pt_echo));
+    check1(8, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
     return 0;
   };
 
@@ -543,18 +545,24 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     alloc_console(module, cmdline);
     attach_drives(cmdline, module);
 
+    // create a HIP for the client
     unsigned  slen = strlen(cmdline) + 1;
     assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
     modinfo->hip = new (0x1000) char[0x1000];
     Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
     memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
-
     memcpy(modhip, _hip, _hip->mem_offs);
     modhip->length = modhip->mem_offs;
     modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
     modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
     modhip->fix_checksum();
     assert(_hip->length > modhip->length);
+
+    // fix the BSP flag in the client HIP
+    for (unsigned i=0; i < static_cast<unsigned>(modhip->mem_offs - modhip->cpu_offs) / modhip->cpu_size; i++) {
+      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(modhip) + _hip->cpu_offs + i*modhip->cpu_size);
+      if (modinfo->cpunr == i)  cpu->flags |= 2; else  cpu->flags &= ~2;
+    }
 
     // count attached modules
     Hip_mem *cmod = mod;
@@ -914,7 +922,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
-	  unsigned ec_cap = create_ec_helper(msg.value, 0, 0, _cpunr[CPUGSI % _numcpus], msg.ptr);
+	  unsigned ec_cap = create_ec_helper(msg.value, _cpunr[CPUGSI % _numcpus], 0, 0, msg.ptr);
 	  unsigned prio;
 	  if (msg.len == ~0u)
 	    prio = 1;		// IDLE
@@ -961,7 +969,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  for (unsigned i = 0; i < _numcpus; i++) {
 	    unsigned cpu = _cpunr[i];
 	    Utcb *utcb;
-	    unsigned ec_cap = create_ec_helper(msg.len, &utcb, 0, cpu);
+	    unsigned ec_cap = create_ec_helper(msg.len, cpu, 0, &utcb);
 	    utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
 	    unsigned pt = alloc_cap();
 	    check1(false, nova_create_pt(pt, ec_cap, msg.value, 0));
