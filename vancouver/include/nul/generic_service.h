@@ -108,39 +108,14 @@ public:
   }
 
 
-  unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity, unsigned echo_pt = 0) {
+  unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
 
-again:
     for (T * client = next(); client && identity; client = next(client))
       if (client->identity == identity) {
 	data = client;
 	return ENONE;
       }
 
-    ///XXX workaround:
-    // If client, service and parent are within the same PD,
-    //   we have to recursively translate the cap until we found the one we handed out first
-    if (echo_pt) {
-      Utcb &utcb2 = utcb.add_frame();
-
-      utcb2.msg[0] = Crd (identity, 0, DESC_CAP_ALL).value();
-      utcb2.msg[1] = 0;
-      utcb2.set_header(2, 0);
-      utcb2.head.crd = ~0;
-      unsigned res = nova_call(echo_pt);
-      assert(!res);
-
-      Crd cap_trans = Crd(utcb2.msg[sizeof(utcb2.msg)/sizeof(unsigned) - 2]);
-      Logging::printf("\tloop for translation %x %x, id %x %x\n", utcb2.head.typed, utcb2.head.untyped, cap_trans.cap(), cap_trans.value() & 3);
-
-      utcb2.drop_frame();
-
-      if ((cap_trans.attr () & 3) == DESC_TYPE_CAP) {
-        identity = cap_trans.cap();
-        goto again;
-      }
-    }
-    //XXX end
     Logging::printf("could not find client data for %x\n", identity);
     return EEXISTS;
   }

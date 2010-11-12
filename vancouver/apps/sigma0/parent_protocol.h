@@ -198,7 +198,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      if ((res = _client.get_client_data(utcb, cdata, input.identity(1), _percpu[utcb.head.nul_cpunr].cap_pt_echo)))  return res;
+      if ((res = _client.get_client_data(utcb, cdata, input.identity(1))))  return res;
 
       long invalue;
       char *request;
