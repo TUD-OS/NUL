@@ -101,11 +101,15 @@ struct Utcb
       return false;
     }
     char *get_string(unsigned &len) {
-      if (_consumed >= _utcb->head.untyped)
-	return 0;
-      len = (_utcb->head.untyped - _consumed)*sizeof(unsigned);
+      if (_consumed >= _utcb->head.untyped) return 0;
+      len = *(_utcb->msg + _consumed);
+      _consumed += 1;
       char *res =  reinterpret_cast<char *>(_utcb->msg + _consumed);
-      _consumed = _utcb->head.untyped;
+      _consumed += (len + sizeof(unsigned) - 1) / sizeof(unsigned);
+      if (_consumed > _utcb->head.untyped) {
+        len = 0;
+        return 0;
+      }
       return res;
     }
 
@@ -215,9 +219,10 @@ struct Utcb
   Utcb &  operator <<(const char *value) {
     unsigned olduntyped = head.untyped;
     unsigned slen =  strlen(value) + 1;
-    head.untyped += (slen + sizeof(unsigned) - 1 ) / sizeof(unsigned);
+    msg[olduntyped] = slen;
+    head.untyped += 1 + (slen + sizeof(unsigned) - 1 ) / sizeof(unsigned);
     msg[head.untyped - 1] = 0;
-    memcpy(msg + olduntyped, value, slen);
+    memcpy(msg + olduntyped + 1, value, slen - 1);
     return *this;
   }
 
