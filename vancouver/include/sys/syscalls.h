@@ -36,7 +36,7 @@ enum
   NOVA_ASSIGN_GSI,
 
   NOVA_FLAG0          = 1 << 4,
-  NOVA_CREATE_ECWORK  = NOVA_CREATE_EC | NOVA_FLAG0,
+  NOVA_CREATE_ECCLIENT= NOVA_CREATE_EC | NOVA_FLAG0,
   NOVA_REVOKE_MYSELF  = NOVA_REVOKE | NOVA_FLAG0,
   NOVA_SEMCTL_UP      = NOVA_SEMCTL,
   NOVA_SEMCTL_DOWN    = NOVA_SEMCTL | NOVA_FLAG0,
@@ -99,7 +99,7 @@ inline unsigned char  nova_create_pd (unsigned idx_pd, Crd pt_crd, unsigned dstp
 
 inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {
-  return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_ECWORK : NOVA_CREATE_EC), dstpd,
+  return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_EC : NOVA_CREATE_ECCLIENT), dstpd,
 		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base);
 }
 
