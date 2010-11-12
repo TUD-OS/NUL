@@ -760,7 +760,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    if (!p) { p = cmdline + slen - 1; clearsize = 0; }
 			    memcpy(s, cmdline, p - cmdline);
 			    memset(s + (p - cmdline), ' ', clearsize);
-			    memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline));
+			    memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline) - clearsize);
 			    // build response
 			    memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
 			    utcb->set_header(1 + sizeof(*msg)/sizeof(unsigned), 0);
