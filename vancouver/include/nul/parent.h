@@ -38,7 +38,7 @@ struct ParentProtocol {
     TYPE_GENERIC_END,
 
     // server specific functions
-    TYPE_REQUEST,
+    TYPE_GET_PORTAL,
     TYPE_REGISTER,
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
@@ -59,24 +59,24 @@ struct ParentProtocol {
     return res;
   }
 
-  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_parent_session) {
-    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << service << Crd(cap_parent_session, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
+  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_pseudonym) {
+    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << service << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
   }
 
-  static unsigned release_pseudonym(Utcb &utcb, unsigned cap_parent_session) {
-    init_frame(utcb, TYPE_CLOSE, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session);
+  static unsigned release_pseudonym(Utcb &utcb, unsigned cap_pseudonym) {
+    init_frame(utcb, TYPE_CLOSE, cap_pseudonym);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
-  static unsigned request_portal(Utcb &utcb, unsigned cap_parent_session, unsigned cap_portal, bool blocking) {
-    init_frame(utcb, TYPE_REQUEST, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_parent_session) << Crd(cap_portal, 0, DESC_CAP_ALL);
+  static unsigned get_portal(Utcb &utcb, unsigned cap_pseudonym, unsigned cap_portal, bool blocking) {
+    init_frame(utcb, TYPE_GET_PORTAL, cap_pseudonym) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU, true);
 
     // block on the parent session until something happens
     if (res == ERETRY) {
-      Logging::printf("block waiting for session %x\n", cap_parent_session);
+      Logging::printf("block waiting for session %x\n", cap_pseudonym);
       if (blocking)
-	nova_semdownmulti(cap_parent_session);
+	nova_semdownmulti(cap_pseudonym);
       else res = EABORT;
     }
     return res;
@@ -89,12 +89,12 @@ struct ParentProtocol {
   };
 
   static unsigned unregister_service(Utcb &utcb, unsigned cap_service) {
-    init_frame(utcb, TYPE_UNREGISTER, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_service);
+    init_frame(utcb, TYPE_UNREGISTER, cap_service);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
-  static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long invalue, long *outvalue=0) {
-    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(parent_cap);
+  static unsigned get_quota(Utcb &utcb, unsigned cap_client_pseudonym, const char *name, long invalue, long *outvalue=0) {
+    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();
@@ -144,7 +144,7 @@ public:
         utcb.msg[0]   = w0;
         goto do_open_session;
       }
-      if (res == NOVA_ECAP) goto do_request_portal;
+      if (res == NOVA_ECAP) goto do_get_portal;
       goto do_out;
 
     do_open_session:
@@ -152,13 +152,13 @@ public:
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
       if (res == ENONE)     goto do_call;
       if (res == EEXISTS)   goto do_get_pseudonym;
-      if (res == NOVA_ECAP) goto do_request_portal;
+      if (res == NOVA_ECAP) goto do_get_portal;
       goto do_out;
-    do_request_portal:
+    do_get_portal:
       {
 	// we lock to avoid missing wakeups on retry
 	SemaphoreGuard guard(_lock);
-	res = ParentProtocol::request_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + Cpu::cpunr(), _blocking);
+	res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking);
       }
       if (res == ENONE)     goto do_call;
       if (res == EEXISTS)   goto do_get_pseudonym;

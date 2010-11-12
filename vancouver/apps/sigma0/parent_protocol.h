@@ -119,13 +119,13 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     }
 
   case ParentProtocol::TYPE_CLOSE:
-    if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
+    if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
     Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->pseudonym);
     return _client.free_client_data(utcb, cdata);
 
-  case ParentProtocol::TYPE_REQUEST:
+  case ParentProtocol::TYPE_GET_PORTAL:
     {
-      if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
+      if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
       //Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
       for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
 	if (sdata->cpu == Cpu::cpunr() && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
@@ -192,7 +192,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     }
 
   case ParentProtocol::TYPE_UNREGISTER:
-    if ((res = _server.get_client_data(utcb, sdata, input.identity(1)))) return res;
+    if ((res = _server.get_client_data(utcb, sdata, input.identity()))) return res;
     Logging::printf("\tunregister %s cpu %x\n", sdata->name, sdata->cpu);
     return free_service(utcb, sdata);
 

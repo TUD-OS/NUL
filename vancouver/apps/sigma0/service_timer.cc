@@ -130,11 +130,10 @@ public:
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
-    
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
         if (input.get_word(msg)) return EABORT;
 
-	      COUNTER_INC("request to");
+	COUNTER_INC("request to");
 
         assert(data->nr < CLIENTS);
         long long diff = msg.abstime - _hostmb.clock()->time();
