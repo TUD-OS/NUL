@@ -299,8 +299,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
 
-    if (timer_service->timer(*utcb, msg) != 0)
-      Logging::panic("Timer service unreachable.\n");
+    unsigned res;
+    if ((res = timer_service->timer(*utcb, msg)))
+      Logging::panic("Timer service unreachable (error: %x).\n", res);
 
     _mb->parse_args(args);
     _mb->bus_hwioin.debug_dump();

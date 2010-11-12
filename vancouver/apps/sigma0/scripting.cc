@@ -117,9 +117,10 @@ struct Script : public StaticReceiver<Script> {
     // alloc a timer
     _service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
 
+    unsigned res;
     TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
-    if (_service_timer->timer(*BaseProgram::myutcb(), msg1))
-      Logging::panic("setting timeout failed\n");
+    if ((res = _service_timer->timer(*BaseProgram::myutcb(), msg1)))
+      Logging::panic("setting timeout failed with %x\n", res);
 
     _worker = KernelSemaphore(_service_timer->get_notify_sm());
 
