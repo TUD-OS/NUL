@@ -41,7 +41,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
                       (res == 0 ? "success" : "failure"), len);
     }
 
-    bool use_network(Utcb *utcb, unsigned cpuid, Hip * hip, unsigned sm) {
+    bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
       bool res;
       Clock * _clock = new Clock(hip->freq_tsc);
 
@@ -134,7 +134,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
     _virt_phys.debug_dump("");
 
-    if (!use_network(utcb, Cpu::cpunr(), hip, alloc_cap()))
+    if (!use_network(utcb, hip, alloc_cap()))
       Logging::printf("failed  - starting lwip stack\n");
     
   }
