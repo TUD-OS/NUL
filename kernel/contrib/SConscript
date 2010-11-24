@@ -1,0 +1,20 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+Import('host_env')
+
+# If a NOVA directory exists, use it as-is, otherwise checkout a
+# known-good revision and apply our patches (if there are any).
+checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],
+                            "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
+
+build = host_env.Command("nova/build/hypervisor", "nova/README",
+                         "( cd `dirname $TARGET` && make CC=%s CXX=%s)" % (target_env["CC"], target_env["CXX"]))
+Depends(build, [checkout] + Glob("nova/src/*") + Glob("nova/include/*"))
+
+host_env.Install("#bin/apps/", build)
+                         
+
+# EOF
