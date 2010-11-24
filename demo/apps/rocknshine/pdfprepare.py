@@ -24,7 +24,7 @@ print("Directory for (huge) temporary files: " + tmpdir)
 print
 
 print("Converting to raw image data. Go get a coffee. This can take a while.")
-subprocess.check_call(['convert', '-format', 'bgr', '-density', '400',
+subprocess.check_call(['convert', '-density', '400',
                        pdf, '-resize', '%dx%d!' % (width, height), '-depth', '8',
                        tmpdir + '/page%d.bgr'])
 
@@ -50,6 +50,7 @@ outfile = open(out, "wb")
 outfile.write(struct.pack("ccccHHI", "P", "R", "E", "0",
                           width, height, len(compressed_pages)))
 
+# Add empty page at end to encode file size.
 offset = 12 + (len(compressed_pages)+1)*4
 for page in compressed_pages + [""]:
     outfile.write(struct.pack("I", offset))
