@@ -11,7 +11,7 @@ checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checko
                             "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
 
 build = host_env.Command("nova/build/hypervisor", "nova/README",
-                         "( cd `dirname $TARGET` && make CC=%s CXX=%s)" % (target_env["CC"], target_env["CXX"]))
+                         "make -C `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 Depends(build, [checkout] + Glob("nova/src/*") + Glob("nova/include/*"))
 
 host_env.Install("#bin/apps/", build)
