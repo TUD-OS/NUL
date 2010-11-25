@@ -1,0 +1,25 @@
+diff --git a/src/pd.cpp b/src/pd.cpp
+index 13727db..02f756e 100644
+--- a/src/pd.cpp
++++ b/src/pd.cpp
+@@ -218,7 +218,7 @@ void Pd::xfer_items (Pd *src, Crd rcv, Xfer *s, Xfer *d, unsigned long ti)
+ {
+     for (Crd crd; ti--; s--) {
+ 
+-        switch (s->flags() & 1) {
++        switch (s->flags() & 3) {
+ 
+             case 0:     // Translate
+                 Mdb *mdb, *node;
+@@ -237,6 +237,11 @@ void Pd::xfer_items (Pd *src, Crd rcv, Xfer *s, Xfer *d, unsigned long ti)
+             case 1:     // Delegate
+                 delegate_crd (src == &root && s->flags() & 0x800 ? &kern : src, rcv, crd = *s, s->flags() >> 9 & 3, s->hotspot());
+                 break;
++            case 2:     // Translate root
++              Capability cap; Kobject *obj;
++              crd = s->type() != Crd::OBJ || s->order() || !src->Space_obj::lookup (s->base(), cap) ||
++                    (obj = cap.obj())->type() == INVALID || obj->node_pd != this ? Crd (0) : Crd (Crd::OBJ, obj->node_base, obj->node_order, obj->node_attr);
++              break;
+         };
+ 
+         if (d)
