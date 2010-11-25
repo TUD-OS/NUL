@@ -142,8 +142,9 @@ struct Utcb
 
   struct TypedIdentifyCap {
     unsigned value;
-    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 0;  }
-    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+    bool translate_root;
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = translate_root ? 2 : 0;  }
+    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL, bool _root = true) : value(cap << MINSHIFT | attr), translate_root(_root) {}
   };
 
   /**
