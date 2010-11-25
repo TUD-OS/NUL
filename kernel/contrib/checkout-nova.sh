@@ -4,7 +4,7 @@ TARGET=$1
 URL=$2
 REVISION=$3
 
-rm -dRf "$TARGET" || exit 1
+rm -rf "$TARGET" || exit 1
 git clone "$URL" $TARGET || exit 1
 
 ( cd $TARGET && git checkout -b nul-local "$REVISION" ) || exit 1
