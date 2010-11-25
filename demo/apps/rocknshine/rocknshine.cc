@@ -61,7 +61,7 @@ class Rocknshine : public NovaProgram, ProgramConsole, GenericKeyboard
       return;
     }
 
-    assert(dest_len == _header->height * _header->width * 3); 
+    assert(dest_len == _header->height * _header->width * 3U); 
 
     unsigned long long start_display = Cpu::rdtsc();
     unsigned *cur_vesa = reinterpret_cast<unsigned *>(_vesa_console);
