@@ -26,18 +26,22 @@ print
 print("Converting to raw image data. Go get a coffee. This can take a while.")
 subprocess.check_call(['convert', '-density', '400',
                        pdf, '-resize', '%dx%d!' % (width, height), '-depth', '8',
-                       tmpdir + '/page%d.bgr'])
+                       tmpdir + '/page%d.png'])
 
 def numcomp(x, y):
     xnum = int(re.search('(?<=page)[0-9]+', x).group(0))
     ynum = int(re.search('(?<=page)[0-9]+', y).group(0))
     return xnum - ynum;
 
+# TODO Use ImageMagick python interface
 compressed_pages = []
-for page in sorted(glob.glob(tmpdir + '/page*.bgr'), numcomp):
-    uncompressed_len = os.stat(page)[ST_SIZE]
-    file = open(page, 'rb')
+for page in sorted(glob.glob(tmpdir + '/page*.png'), numcomp):
+    subprocess.check_call(['convert', page, '-separate', '-swap', '0,2', '-combine', page + '.rgb'])
     os.remove(page)
+    uncompressed_len = os.stat(page + '.rgb')[ST_SIZE]
+    assert (width*height*3) == uncompressed_len
+    file = open(page + '.rgb', 'rb')
+    os.remove(page + '.rgb')
     data = file.read()
     file.close()
     compressed = zlib.compress(data, 9)
@@ -57,6 +61,7 @@ for page in compressed_pages + [""]:
     print("offset " + hex(offset))
     offset += len(page)
 
+# Write image data
 for page in compressed_pages:
     print("CRC32 of compressed page: " + str(zlib.crc32(page)))
     outfile.write(page)
