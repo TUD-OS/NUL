@@ -1,0 +1,13 @@
+Configuration examples
+======================
+Some configuration which can be used with the current NUL repository.
+
+Grub of TUD
+-----------
+http://os.inf.tu-dresden.de/~adam/grub
+
+see file menu.lst in this directory
+
+Pulsar of TUD
+-------------
+http://os.inf.tu-dresden.de/~us15/pulsar
