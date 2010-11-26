@@ -145,6 +145,12 @@ static inline const char * strchr(const char *s, int c) {
 static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)); }
 
 
+static inline int strspn(const char *s, const char *accept) {
+  int res = 0;
+  while (s[res] && strchr(accept, s[res])) res++;
+  return res;
+}
+
 static inline int strcspn(const char *s, const char *reject) {
   int res = 0;
   while (s[res] && !strchr(reject, s[res])) res++;

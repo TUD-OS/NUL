@@ -103,7 +103,7 @@ private:
     for (unsigned modcount = 0; ; modcount++)
       {
 	offset = (offset + 0xfff) & ~0xffful;
-	MessageHostOp msg2(modcount + 1, physmem + offset);
+	MessageHostOp msg2(modcount + 1, physmem + offset, msg1.len - offset);
 	if (!(_mb.bus_hostop.send(msg2)) || !msg2.size)  break;
 	Logging::printf("\tmodule %x start %p+%lx cmdline %40s\n", modcount, msg2.start, msg2.size, msg2.cmdline);
 	switch(modcount)

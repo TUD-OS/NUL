@@ -22,6 +22,7 @@
 #include "nul/vcpu.h"
 #include "sigma0/console.h"
 #include "nul/service_timer.h"
+#include "nul/service_fs.h"
 
 /**
  * Layout of the capability space.
@@ -80,7 +81,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
+  FsProtocol * rom_fs;
   static TimerProtocol   *timer_service;
+  static const char * separator;
 
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					             \
@@ -285,7 +288,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     _timeouts.init();
 
-    _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
+    _mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     _mb->bus_hostop.add  (this, receive_static<MessageHostOp>);
     _mb->bus_console.add (this, receive_static<MessageConsole>);
     _mb->bus_disk.add    (this, receive_static<MessageDisk>);
@@ -298,12 +301,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
+    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM));
 
     unsigned res;
     if ((res = timer_service->timer(*utcb, msg)))
       Logging::panic("Timer service unreachable (error: %x).\n", res);
 
-    _mb->parse_args(args);
+    _mb->parse_args(args, separator);
+
     _mb->bus_hwioin.debug_dump();
   }
 
@@ -562,6 +567,87 @@ public:
 	Logging::printf("%s\n",_dpci ? "DPCI device assigned" : "DPCI failed");
 	break;
       case MessageHostOp::OP_GET_MODULE:
+        {
+          char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
+          char *cmdline = args;
+          unsigned slen, num = msg.module;
+          char *name, *end;
+
+          if (!cmdline) return false;
+          while (num-- && cmdline) cmdline = strstr(++cmdline, separator);
+          if (num != ~0U || !cmdline) return false;
+          cmdline +=2;
+
+          cmdline += strspn(cmdline, " "); //skip spaces
+          name = strstr(cmdline, "://");
+          if (!name) return false;
+          name += 3;
+          if (cmdline + strcspn(cmdline, " ") < name) return false; //don't allow spaces in fs name
+          ///XXX we only support rom for now
+          if (strcmp("rom", cmdline)) return false;
+
+          //name must be 0 terminated, make a temporary copy
+          end = name + strcspn(name, " \t\r\n\f");
+          if (name == end) return false;
+          if (msg.size < (1UL + (end - name))) return false;
+          memcpy(msg.start, name, end - name);
+          msg.start[end - name] = 0;
+          name = msg.start;
+
+          end  = strstr(cmdline, separator);
+          if (end && name > end) return false; //don't use 'xxx://' of next entry accidentally
+
+          if (end) slen = end - cmdline + 1;
+          else slen = strlen(cmdline) + 1;
+
+          //lookup file
+          FsProtocol::dirent fileinfo;
+          memset(&fileinfo, 0, sizeof(fileinfo));
+          if (rom_fs->get_file_info(*myutcb(), name, fileinfo)) return false; 
+
+          unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
+          if (msg.size < ((msg_start + fileinfo.size + 0xffful) & ~0xffful) - msg_start + slen) return false;
+
+          //XXX start - using copy feature of fs
+          //if (rom_fs->get_file_copy(*myutcb(), name, msg_start, fileinfo.size)) return false;
+          //var name is overriden and not valid after this point !
+          //XXX  end - using copy feature of fs
+
+          //XXX start - using map feature of fs
+          unsigned long file_size  = (fileinfo.size + 0xffful) & ~0xffful;
+          unsigned long order = file_size >> 12;
+          order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
+          unsigned long virt_size  = 1 << (order + 12);
+          unsigned long virt_start = _free_virt.alloc(virt_size, order + 12);
+          unsigned long offset = 0;
+          unsigned res;
+          //Logging::printf("virt_start %lx file_size %lx order %lx \n", virt_start, file_size, order + 12);
+          if (!virt_start) return false;
+          if (!(res = rom_fs->get_file_map(*myutcb(), name, virt_start, order, offset))) {
+            if (offset > virt_size - file_size) //don't fail if fs tries to cheat us
+              res = EPROTO;
+            else
+              memcpy(msg.start, reinterpret_cast<void *>(virt_start + offset), fileinfo.size);
+          }
+
+          revoke_all_mem(reinterpret_cast<void *>(virt_start), virt_size, DESC_MEM_ALL, true);
+          _free_virt.add(Region(virt_start, virt_size));
+          if (res) return false;
+          //XXX end - using map feature of fs          
+
+          //align the end of the module to get the cmdline on a new page.
+          char *s = reinterpret_cast<char *>((msg_start + fileinfo.size + 0xffful) & ~0xffful);
+          memcpy(s, cmdline, slen - 1);
+          s[slen - 1] = 0;
+
+          //build response 
+          msg.size    = fileinfo.size;
+          msg.cmdline = s;
+          msg.cmdlen  = slen;
+
+          res = true;
+        }
+        break;
       case MessageHostOp::OP_GET_MAC:
 	res = !Sigma0Base::hostop(msg);
 	break;
@@ -693,9 +779,9 @@ public:
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
+    assert(hip);
     char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     console_init("VMM");
-    assert(hip);
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
@@ -774,6 +860,7 @@ public:
 };
 
 TimerProtocol * Vancouver::timer_service;
+const char * Vancouver::separator = "||";
 
 ASMFUNCS(Vancouver, Vancouver)
 

@@ -199,7 +199,7 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock())) {
+  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
     if (!hostmb.bus_hostop.send(msg0))

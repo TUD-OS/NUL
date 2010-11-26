@@ -26,6 +26,7 @@
 #include "service/elf.h"
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
+#include "nul/service_fs.h"
 
 // global VARs
 unsigned     console_id;
@@ -41,7 +42,7 @@ PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 	    " ioio hostacpi hostrtc pcicfg mmconfig atare"
-	    " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer script")
+	    " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script")
 
 /**
  * Sigma0 application class.
@@ -90,8 +91,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   // module data
   struct ModuleInfo
   {
-    unsigned        mod_nr;
-    unsigned        mod_count;
+    unsigned        id;
     unsigned        cpunr;
     unsigned long   rip;
     bool            log;
@@ -101,8 +101,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned        mac;
     void *          hip;
     char *          cmdline;
+    Hip  *          mhip;
   } _modinfo[MAXMODULES];
   unsigned _mac;
+
+  //Client part of romfs
+  FsProtocol * rom_fs;
+
+  // Hip containing virtual address for aux, use _hip if physical addresses are needed
+  Hip * __hip;
 
   // IRQ handling
   unsigned  _msivector;        // next gsi vector
@@ -255,11 +262,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   unsigned create_host_devices(Utcb *utcb, Hip *hip)
   {
-    char * cmdline = map_string(utcb, hip->get_mod(0)->aux);
+    char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     _modinfo[0].cmdline = cmdline;
-    _mb = new Motherboard(new Clock(hip->freq_tsc*1000));
+    _mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
+
+    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM));
+
     init_disks();
     init_network();
     init_vnet();
@@ -456,7 +466,108 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // switch to another allocator
     memalloc = sigma0_memalloc;
 
+    // create a hip containing virtual addresses for aux
+    if (_hip->length > 0x1000) return 1;
+    __hip = reinterpret_cast<Hip *>(new (0x1000) char[0x1000]);
+    if (!__hip) return 1;
+    memcpy(__hip, _hip, _hip->length);
+
+    for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
+      if (hmem->type == -2)
+        hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
+	    if (hmem->aux)
+        hmem->aux = reinterpret_cast<unsigned>(map_string(utcb, hmem->aux));
+    }
+    __hip->fix_checksum();
+
     return 0;
+  }
+
+  void free_module(ModuleInfo * modi) {
+    modi->mem = 0;
+  }
+
+  ModuleInfo * get_module(char * cmdline, Hip * hip) {
+    // search for a free module
+    unsigned module = 1;
+    while (module < MAXMODULES && _modinfo[module].mem)  module++;
+
+    if (module >= MAXMODULES) return 0;
+
+    // init module parameters
+    ModuleInfo *modinfo = _modinfo + module;
+    memset(modinfo, 0, sizeof(*modinfo));
+    modinfo->id        = module;
+    char *p = strstr(cmdline, "sigma0::cpu");
+    modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
+    modinfo->dma       = strstr(cmdline, "sigma0::dma");
+    modinfo->log       = strstr(cmdline, "sigma0::log");
+    modinfo->cmdline   = cmdline;
+    modinfo->mhip      = hip;
+    modinfo->hip       = 0;
+
+    Logging::printf("module(%x) '", module);
+    fancy_output(cmdline, 4096);
+
+    return modinfo;
+  }
+
+  bool __receive_config(Utcb * utcb, unsigned long long mem_start, unsigned long long mem_end) {
+    if (_hip->length > mem_end - mem_start) return false;
+    assert(_hip->length <= 0x1000U);
+
+    ModuleInfo * modinfo;
+    Hip_mem    * fmod;
+    char       * cmdline;
+    unsigned res;
+
+    //copy the received hip
+    Hip * lhip = reinterpret_cast<Hip *>(new (0x1000) char[0x1000]);
+    memcpy(lhip, reinterpret_cast<void *>(start), _hip->length);
+
+    //sanity check the hip
+    if (lhip->length != _hip->length) goto cleanup;
+    if (lhip->mem_offs > lhip->length) goto cleanup;
+    if (lhip->mem_size > lhip->length - lhip->mem_offs) goto cleanup;
+
+    //XXX fill the other datastructures if needed
+    memset(lhip, 0, lhip->mem_offs);
+
+    fmod = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(lhip) + lhip->mem_offs + 0 * lhip->mem_size);
+    for (int i=0; lhip->mem_size && i < (lhip->length - lhip->mem_offs) / lhip->mem_size; i++)
+    {
+      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(lhip) + lhip->mem_offs + i * lhip->mem_size);
+      //sanity check - module and cmdline required 
+      if (hmem->type != -2 && !hmem->aux) goto cleanup;
+      if (hmem->addr < lhip->length || hmem->addr > mem_end - mem_start) goto cleanup;
+      if (hmem->size > mem_end - hmem->addr - lhip->length) goto cleanup;
+      if (hmem->aux  < lhip->length || hmem->aux > mem_end - mem_start) goto cleanup;
+      ///XXX prevent strlen(cmdline) to run over mem_start mem_end area !!!
+      
+      hmem->addr += mem_start;
+      hmem->aux += mem_start;
+    }
+    lhip->fix_checksum();
+
+    cmdline = reinterpret_cast<char *>(fmod->aux);
+    modinfo = get_module(cmdline, lhip);
+    if (!modinfo) goto cleanup;
+
+    res = _start_config(utcb, modinfo, reinterpret_cast<char *>(fmod->addr), fmod->size);
+    Logging::printf("start config - %s (%u)\n", res ? "failed" : "success", res);
+    if (res)
+      goto cleanup;
+
+    return true;
+
+    cleanup:
+      if (modinfo) {
+        free_module(modinfo);
+      }
+      delete [] lhip;
+
+    return false;    
   }
 
   /**
@@ -469,43 +580,81 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Hip_mem *mod;
     unsigned configs = 0;
     unsigned i;
+
     for (i=1; mod = _hip->get_mod(i); i++) {
       cmdline = map_string(utcb, mod->aux);
-      if (strstr(cmdline, "sigma0::attach")) continue;
+      if (mod->size != 1) continue;
       if (configs++ == which) break;
     }
     if (!mod) {
       Logging::printf("Configuration %u not found!\n", which);
       return __LINE__;
     }
+    char * name = strstr(cmdline,"rom://"); //we support only support rom for now
+    char * dummyfile = strstr(cmdline, " ");
+    if (!name || !dummyfile || dummyfile + strspn(dummyfile, " ") != name) {
+      Logging::printf("No file found, missing rom:// !\n");
+      return __LINE__;
+    }
+    name += 6;
+    unsigned namelen = strcspn(name, " \t\r\n\f");
+    char * tmp = name; //XXX name must be 0 terminated, so make temporary copy :-(
+    name = new char[namelen + 1];
+    memcpy(name, tmp, namelen);
+    name[namelen] = 0;
 
-    // search for a free module
-    unsigned module = 1;
-    while (module < MAXMODULES && _modinfo[module].mem)  module++;
-
-    if (module >= MAXMODULES) {
-      Logging::printf("to much modules to start -- increase MAXMODULES in %s\n", __FILE__);
+    FsProtocol::dirent fileinfo;
+    memset(&fileinfo, 0, sizeof(fileinfo));
+    if (rom_fs->get_file_info(*utcb, name, fileinfo)) {
+      Logging::printf("File not found %s.\n", name);
+      delete [] name;
+      return __LINE__;
+    }
+    unsigned long mod_size = (fileinfo.size + 0xfff) & ~0xffful;
+    unsigned order = mod_size >> 12;
+    order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
+    unsigned long virt_size = 1 << (order + 12);
+    unsigned long virt = _free_virt.alloc(virt_size, order + 12);
+    unsigned long offset = 0;
+    if (!virt) {
+      Logging::printf("Not enough memory.\n");
+      delete [] name;
+      return __LINE__;
+    }
+    if (rom_fs->get_file_map(*utcb, name, virt, order, offset)) {
+      Logging::printf("Could not map file %s.\n", name);
+      _free_virt.add(Region(virt, virt_size));
+      delete [] name;
       return __LINE__;
     }
 
-    // init module parameters
-    ModuleInfo *modinfo = _modinfo + module;
-    memset(modinfo, 0, sizeof(*modinfo));
-    modinfo->mod_nr    = i;
-    modinfo->mod_count = 1;
-    char *p = strstr(cmdline, "sigma0::cpu");
-    modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
-    modinfo->dma       = strstr(cmdline, "sigma0::dma");
-    modinfo->log       = strstr(cmdline, "sigma0::log");
-    modinfo->cmdline   = cmdline;
+    if (offset > virt_size - mod_size) {
+      Logging::printf("Got buggy offset for file %s.\n", name);
+      revoke_all_mem(reinterpret_cast<void *>(virt), virt_size, DESC_MEM_ALL, true);
+      _free_virt.add(Region(virt, virt_size));
+      delete [] name;
+      return __LINE__;
+    }
+    delete [] name;
 
-    Logging::printf("module(%x) '", module);
-    fancy_output(cmdline, 4096);
+    ModuleInfo *modinfo = get_module(cmdline, _hip);
+    if (!modinfo)
+    {
+      Logging::printf("to many modules to start -- increase MAXMODULES in %s\n", __FILE__);
+      return __LINE__;
+    }
+
+    unsigned res = _start_config(utcb, modinfo, reinterpret_cast<char *>(virt + offset), mod_size);
+    revoke_all_mem(reinterpret_cast<void *>(virt), virt_size, DESC_MEM_ALL, true);
+    _free_virt.add(Region(virt, virt_size));
+    return res;
+  }
+
+  unsigned _start_config(Utcb * utcb, ModuleInfo *modinfo, char * elf, unsigned long mod_size) {
 
     // alloc memory
-    char *elf = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
-    unsigned long psize_needed = elf ? Elf::loaded_memsize(elf, mod->size) : ~0u;
-    p = strstr(cmdline, "sigma0::mem:");
+    unsigned long psize_needed = elf ? Elf::loaded_memsize(elf, mod_size) : ~0u;
+    char *p = strstr(modinfo->cmdline, "sigma0::mem:");
     unsigned long psize_requested = p ? strtoul(p+12, 0, 0) << 20 : 0;
     modinfo->physsize = (psize_needed > psize_requested) ? psize_needed : psize_requested ;
     // Round up to page size
@@ -521,10 +670,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	_free_phys.debug_dump("free phys");
 	_virt_phys.debug_dump("virt phys");
 	_free_virt.debug_dump("free virt");
-	Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", module, modinfo->physsize >> 20, psize_needed >> 20);
+	Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
 	return __LINE__;
       }
-    Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", module, modinfo->physsize >> 20, modinfo->physsize, pmem);
+    Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
      * We memset the client memory to make sure we get an
@@ -535,28 +684,33 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // decode ELF
     unsigned long maxptr = 0;
-    if (Elf::decode_elf(elf, mod->size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
+    if (Elf::decode_elf(elf, mod_size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
       _free_phys.add(Region(pmem, modinfo->physsize));
-      modinfo->mem = 0;
+      free_module(modinfo);
       return __LINE__;
     }
 
+    modinfo->hip = new (0x1000) char[0x1000];
+
     // allocate a console for it
-    alloc_console(module, cmdline);
-    attach_drives(cmdline, module);
+    alloc_console(modinfo, modinfo->cmdline);
+    attach_drives(modinfo->cmdline, modinfo->id);
 
     // create a HIP for the client
-    unsigned  slen = strlen(cmdline) + 1;
-    assert(slen +  _hip->length + 2*sizeof(Hip_mem) < 0x1000);
-    modinfo->hip = new (0x1000) char[0x1000];
+    unsigned  slen = strlen(modinfo->cmdline) + 1;
+    if (slen + modinfo->mhip->length + 2*sizeof(Hip_mem) > 0x1000) {
+      Logging::printf("configuration to large\n");
+      return __LINE__;
+    }
     Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
-    memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, cmdline, slen);
-    memcpy(modhip, _hip, _hip->mem_offs);
+    memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, modinfo->cmdline, slen);
+
+    memcpy(modhip, modinfo->mhip, modinfo->mhip->mem_offs);
     modhip->length = modhip->mem_offs;
-    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
+    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, 0); //pmem - required ?!
+    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(modinfo->mhip) + 0x1000 - slen);
     modhip->fix_checksum();
-    assert(_hip->length > modhip->length);
+    assert(modinfo->mhip->length > modhip->length);
 
     // fix the BSP flag in the client HIP
     for (unsigned i=0; i < static_cast<unsigned>(modhip->mem_offs - modhip->cpu_offs) / modhip->cpu_size; i++) {
@@ -564,15 +718,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (modinfo->cpunr == i)  cpu->flags |= 2; else  cpu->flags &= ~2;
     }
 
-    // count attached modules
-    Hip_mem *cmod = mod;
-    unsigned j = i;
-    while ((cmod = _hip->get_mod(++j)) && strstr(map_string(utcb, cmod->aux), "sigma0::attach"))
-      modinfo->mod_count++;
-
-
     // create special portal for every module
-    unsigned pt = CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT);
+    unsigned pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
     check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
@@ -620,7 +767,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
-    //modinfo->mem = 0;
+    //free_module(modinfo);
     return __LINE__;
   }
 
@@ -714,7 +861,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
-	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
+	  utcb->esp = reinterpret_cast<unsigned long>(modinfo->mhip);
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
 	  )
 
@@ -745,39 +892,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 		      switch (msg->type)
 			{
-			case MessageHostOp::OP_GET_MODULE:
-			  {
-			    if (modinfo->mod_count <= msg->module)  break;
-			    Hip_mem *mod  = _hip->get_mod(modinfo->mod_nr + msg->module);
-			    char *cstart  = msg->start;
-			    char *s   = cstart;
-			    char *cmdline = map_string(utcb, mod->aux);
-			    unsigned slen = strlen(cmdline) + 1;
-			    // msg destroyed!
-
-			    // align the end of the module to get the cmdline on a new page.
-			    unsigned long msize =  (mod->size + 0xfff) & ~0xffful;
-			    if (convert_client_ptr(modinfo, s, msize + slen)) goto fail;
-
-			    char *module = map_self(utcb, mod->addr, (mod->size + 0xfff) & ~0xffful);
-			    if (!module) goto fail;
-			    memcpy(s, module, mod->size);
-			    s += msize;
-			    char *p = strstr(cmdline, "sigma0::attach");
-			    unsigned clearsize = 14;
-			    if (!p) { p = cmdline + slen - 1; clearsize = 0; }
-			    memcpy(s, cmdline, p - cmdline);
-			    memset(s + (p - cmdline), ' ', clearsize);
-			    memcpy(s + (p - cmdline) + clearsize, p + clearsize, slen - (p - cmdline) - clearsize);
-			    // build response
-			    memset(utcb->msg, 0, sizeof(unsigned) + sizeof(*msg));
-			    utcb->set_header(1 + sizeof(*msg)/sizeof(unsigned), 0);
-			    msg->start   = cstart;
-			    msg->size    = mod->size;
-			    msg->cmdline = cstart + msize;
-			    msg->cmdlen  = slen;
-			  }
-			  break;
 			case MessageHostOp::OP_GET_MAC:
 			  msg->mac = get_mac(modinfo->mac++ * MAXMODULES + client);
 			  utcb->msg[0] = 0;
@@ -841,6 +955,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_VCPU_BLOCK:
 			case MessageHostOp::OP_VCPU_RELEASE:
 			case MessageHostOp::OP_REGISTER_SERVICE:
+			case MessageHostOp::OP_GET_MODULE:
 			default:
 			  // unhandled
 			  Logging::printf("[%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
@@ -878,7 +993,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	      utcb->mtd = 0;
 	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
+	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(modinfo->mhip) | MAP_MAP, DESC_MEM_ALL);
 	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
 			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    }
@@ -943,20 +1058,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  res = false;
       }
       break;
-      case MessageHostOp::OP_GET_MODULE:
-	{
-	  Hip_mem *mod  = _hip->get_mod(msg.module);
-	  if (mod)
-	    {
-	      msg.start   =  map_self(myutcb(), mod->addr, (mod->size + 0xfff) & ~0xffful);
-	      msg.size    =  mod->size;
-	      msg.cmdline =  map_string(myutcb(), mod->aux);
-	      msg.cmdlen  =  strlen(msg.cmdline) + 1;
-	    }
-	  else
-	    res = false;
-	}
-	break;
       case MessageHostOp::OP_ASSIGN_PCI:
 	res = !assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
 	break;
@@ -985,6 +1086,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
       case MessageHostOp::OP_VCPU_BLOCK:
       case MessageHostOp::OP_VCPU_RELEASE:
+      case MessageHostOp::OP_GET_MODULE:
       default:
 	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
@@ -1258,8 +1360,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-  void alloc_console(unsigned client, const char *cmdline) {
-    ModuleInfo *modinfo = _modinfo + client;
+  void alloc_console(ModuleInfo const * modinfo, const char *cmdline) {
+    unsigned client = modinfo->id;
 
     // format the tag
     Vprintf::snprintf(_console_data[client].tag, sizeof(_console_data[client].tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
@@ -1480,7 +1582,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     // unblock the worker and IRQ threads
     _lock.up();
-    if ((res = create_host_devices(utcb, hip)))  Logging::panic("create host devices failed %x\n", res);
+    if ((res = create_host_devices(utcb, __hip)))  Logging::panic("create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
     Logging::printf("\t=> INIT done <=\n\n");

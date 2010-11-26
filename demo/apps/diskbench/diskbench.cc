@@ -67,7 +67,7 @@ public:
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
     Logging::printf("Benchmark up and running\n");
 
-    Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000));
+    Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     mb->parse_args(reinterpret_cast<const char *>(hip->get_mod(0)->aux));
 
     KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);

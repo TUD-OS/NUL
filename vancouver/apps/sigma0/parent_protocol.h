@@ -153,7 +153,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       // search for an allowed namespace
       char * cmdline = get_module_cmdline(input);
       if (!cmdline) return EPROTO;
-      Logging::printf("\tregister client %x cmdline '%.10s'\n", input.identity(), cmdline);
+      Logging::printf("\tregister client %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cmdline, request);
       cmdline = strstr(cmdline, "namespace::");
       if (!cmdline) return EPERM;
       cmdline += 11;

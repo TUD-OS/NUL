@@ -26,6 +26,7 @@
 #include "message.h"
 #include "timer.h"
 #include "templates.h"
+#include "sys/hip.h"
 
 class VCpu;
 
@@ -38,6 +39,7 @@ class VCpu;
 class Motherboard : public StaticReceiver<Motherboard>
 {
   Clock *_clock;
+  Hip   *_hip;
 
   /**
    * To avoid bugs we disallow the copy constuctor.
@@ -81,15 +83,17 @@ class Motherboard : public StaticReceiver<Motherboard>
 
   VCpu *last_vcpu;
   Clock *clock() { return _clock; }
+  Hip   *hip() { return _hip; }
 
   /**
    * Parse the cmdline and create devices.
    */
-  void parse_args(const char *args)
+  void parse_args(const char *args, const char * stop = 0)
   {
 #define WORD_SEPARATOR " \t\r\n\f"
 #define PARAM_SEPARATOR ",+"
     while (args[0]) {
+      if (stop && !strcmp(stop, args)) return;
       unsigned arglen = strcspn(args, WORD_SEPARATOR);
       if (!arglen) {
 	args++;
@@ -152,5 +156,5 @@ class Motherboard : public StaticReceiver<Motherboard>
       }
   }
 
-  Motherboard(Clock *__clock) : _clock(__clock), last_vcpu(0)  {}
+  Motherboard(Clock *__clock, Hip *__hip) : _clock(__clock), _hip(__hip), last_vcpu(0)  {}
 };

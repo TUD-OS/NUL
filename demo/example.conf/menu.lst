@@ -2,8 +2,13 @@ title vancouver
 kernel /nul/hypervisor.new
 modaddr 0x6000000
 module /nul/sigma0.nul.gz S0_DEFAULT hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 vnet script script_start:1,64 quota::guid \
-  namespace::/s0 name::/s0/timer 
-module /nul/vancouver.nul.gz sigma0::log sigma0::mem:512 82576vf_vnet PC_PS2 sigma0::dma sigma0::log name::/s0/log name::/s0/timer 
-module /tools/munich sigma0::attach
-module /linux/bzImage clocksource=tsc sigma0::attach
-module /linux/initramfs.lzma sigma0::attach
+  namespace::/s0 name::/s0/timer name::/s0/fs/rom
+module /nul/vancouver.nul.gz
+module /tools/munich
+module /linux/bzImage
+module /linux/initrd.lzma
+module /nul/onebytefile \
+  rom:///nul/vancouver.nul.gz sigma0::log sigma0::mem:512 82576vf_vnet PC_PS2 sigma0::dma sigma0::log name::/s0/log name::/s0/timer name::/s0/fs/rom || \
+  rom:///tools/munich || \
+  rom:///linux/bzImage clocksource=tsc || \
+  rom:///linux/initrd.lzma

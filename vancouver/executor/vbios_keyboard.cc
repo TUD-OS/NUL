@@ -270,7 +270,7 @@ public:
   VirtualBiosKeyboard(Motherboard &mb) : BiosCommon(mb) {
 
     // create hostmb and hostkeyb
-    _hostmb = new Motherboard(mb.clock());
+    _hostmb = new Motherboard(mb.clock(), mb.hip());
     _hostmb->bus_input.add(this,   receive_static<MessageInput>);
     _hostmb->bus_hostop .add(this, receive_static<MessageHostOp>);
     _hostmb->bus_hwioin .add(this, receive_static<MessageIOIn>);

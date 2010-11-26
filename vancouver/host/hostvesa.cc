@@ -232,7 +232,7 @@ public:
   }
 
 
-  HostVesa(Motherboard &hostmb, unsigned debug) : _hostmb(hostmb), _mb(hostmb.clock()), _memsize(1<<20), _timeout(~0ull),
+  HostVesa(Motherboard &hostmb, unsigned debug) : _hostmb(hostmb), _mb(hostmb.clock(), hostmb.hip()), _memsize(1<<20), _timeout(~0ull),
 						  _framebuffer_size(0), _framebuffer_phys(0),
 						  _modecount(0), _debug(debug)
   {

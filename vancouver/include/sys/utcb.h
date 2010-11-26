@@ -82,12 +82,24 @@ struct Utcb
       return 0;
     }
 
-    unsigned identity(unsigned skip=0) {
+    Crd translated_cap(unsigned skip=0) {
       for (unsigned i=0; i < _utcb->head.typed; i++)
-	if (~_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
-	  return Crd(_utcb->msg[_end - i * 2 - 2]).cap();
+        if (~_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
+          return Crd(_utcb->msg[_end - i * 2 - 2]);
       return 0;
     }
+
+    unsigned identity(unsigned skip=0) {
+      return translated_cap(skip).cap();
+    }
+
+    void dump_typed_items() {
+      for (unsigned i=0; i < _utcb->head.typed; i++)
+        Logging::printf("%x | %x - cap %x\n", _utcb->msg[_end - i * 2 - 1],
+                                              _utcb->msg[_end - i * 2 - 2],
+                                              Crd(_utcb->msg[_end - i * 2 - 2]).cap());
+    }
+
 
     unsigned untyped() { return _utcb->head.untyped; }
     unsigned typed()   { return _utcb->head.typed; }

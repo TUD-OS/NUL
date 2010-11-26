@@ -439,7 +439,7 @@ struct MessageHostOp
     };
   };
   MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
-  MessageHostOp(unsigned _module, char * _start) : type(OP_GET_MODULE), module(_module), start(_start), size(0), cmdlen(0)  {}
+  MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
   MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
 };
 
