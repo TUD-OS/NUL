@@ -94,14 +94,16 @@ static inline char * strcpy(char *dst, const char *src)  {
 }
 
 
-static inline char * strstr(char *haystack, const char *needle) {
+static inline char * strstr(char const *haystack, const char *needle) {
 
   int index;
   do {
     for (index=0; needle[index] == haystack[index] && needle[index];)
        index++;
-    if (!needle[index])
-      return haystack;
+    if (!needle[index]) {
+      char * tmp = reinterpret_cast<char *>(reinterpret_cast<unsigned long>(haystack));
+      return tmp;
+    }
     haystack += index ? index : 1;
   } while (*haystack);
   return 0;

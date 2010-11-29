@@ -351,6 +351,9 @@ struct MessageConsole
       unsigned input_device;
       unsigned input_data;
     };
+    struct {
+      char const * cmdline;
+    };
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
   MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}

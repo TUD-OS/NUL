@@ -100,8 +100,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long   physsize;
     unsigned        mac;
     void *          hip;
-    char *          cmdline;
-    Hip  *          mhip;
+    char const *    cmdline;
   } _modinfo[MAXMODULES];
   unsigned _mac;
 
@@ -488,7 +487,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modi->mem = 0;
   }
 
-  ModuleInfo * get_module(char * cmdline, Hip * hip) {
+  ModuleInfo * get_module(char const * cmdline) {
     // search for a free module
     unsigned module = 1;
     while (module < MAXMODULES && _modinfo[module].mem)  module++;
@@ -504,7 +503,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->dma       = strstr(cmdline, "sigma0::dma");
     modinfo->log       = strstr(cmdline, "sigma0::log");
     modinfo->cmdline   = cmdline;
-    modinfo->mhip      = hip;
     modinfo->hip       = 0;
 
     Logging::printf("module(%x) '", module);
@@ -513,76 +511,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return modinfo;
   }
 
-  bool __receive_config(Utcb * utcb, unsigned long long mem_start, unsigned long long mem_end) {
-    if (_hip->length > mem_end - mem_start) return false;
-    assert(_hip->length <= 0x1000U);
-
-    ModuleInfo * modinfo;
-    Hip_mem    * fmod;
-    char       * cmdline;
-    unsigned res;
-
-    //copy the received hip
-    Hip * lhip = reinterpret_cast<Hip *>(new (0x1000) char[0x1000]);
-    memcpy(lhip, reinterpret_cast<void *>(start), _hip->length);
-
-    //sanity check the hip
-    if (lhip->length != _hip->length) goto cleanup;
-    if (lhip->mem_offs > lhip->length) goto cleanup;
-    if (lhip->mem_size > lhip->length - lhip->mem_offs) goto cleanup;
-
-    //XXX fill the other datastructures if needed
-    memset(lhip, 0, lhip->mem_offs);
-
-    fmod = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(lhip) + lhip->mem_offs + 0 * lhip->mem_size);
-    for (int i=0; lhip->mem_size && i < (lhip->length - lhip->mem_offs) / lhip->mem_size; i++)
-    {
-      Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(lhip) + lhip->mem_offs + i * lhip->mem_size);
-      //sanity check - module and cmdline required 
-      if (hmem->type != -2 && !hmem->aux) goto cleanup;
-      if (hmem->addr < lhip->length || hmem->addr > mem_end - mem_start) goto cleanup;
-      if (hmem->size > mem_end - hmem->addr - lhip->length) goto cleanup;
-      if (hmem->aux  < lhip->length || hmem->aux > mem_end - mem_start) goto cleanup;
-      ///XXX prevent strlen(cmdline) to run over mem_start mem_end area !!!
-      
-      hmem->addr += mem_start;
-      hmem->aux += mem_start;
-    }
-    lhip->fix_checksum();
-
-    cmdline = reinterpret_cast<char *>(fmod->aux);
-    modinfo = get_module(cmdline, lhip);
-    if (!modinfo) goto cleanup;
-
-    res = _start_config(utcb, modinfo, reinterpret_cast<char *>(fmod->addr), fmod->size);
-    Logging::printf("start config - %s (%u)\n", res ? "failed" : "success", res);
-    if (res)
-      goto cleanup;
-
-    return true;
-
-    cleanup:
-      if (modinfo) {
-        free_module(modinfo);
-      }
-      delete [] lhip;
-
-    return false;    
-  }
-
   /**
    * Starts a configuration. Configuration numbers start at zero.
    */
   unsigned start_config(Utcb *utcb, unsigned which)
   {
     // Skip to interesting configuration
-    char *cmdline = 0;
+    char const *cmdline = 0;
     Hip_mem *mod;
     unsigned configs = 0;
     unsigned i;
 
-    for (i=1; mod = _hip->get_mod(i); i++) {
-      cmdline = map_string(utcb, mod->aux);
+    for (i=1; mod = __hip->get_mod(i); i++) {
+      cmdline = reinterpret_cast<char const *>(mod->aux);
       if (mod->size != 1) continue;
       if (configs++ == which) break;
     }
@@ -590,7 +531,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       Logging::printf("Configuration %u not found!\n", which);
       return __LINE__;
     }
-    char * name = strstr(cmdline,"rom://"); //we support only support rom for now
+    return start_config(utcb, cmdline);
+  }
+
+  unsigned start_config(Utcb *utcb, char const * cmdline)
+  {
+    char * name = strstr(cmdline,"rom://"); //we solely support rom for now
     char * dummyfile = strstr(cmdline, " ");
     if (!name || !dummyfile || dummyfile + strspn(dummyfile, " ") != name) {
       Logging::printf("No file found, missing rom:// !\n");
@@ -637,20 +583,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
     delete [] name;
 
-    ModuleInfo *modinfo = get_module(cmdline, _hip);
-    if (!modinfo)
-    {
-      Logging::printf("to many modules to start -- increase MAXMODULES in %s\n", __FILE__);
-      return __LINE__;
-    }
-
-    unsigned res = _start_config(utcb, modinfo, reinterpret_cast<char *>(virt + offset), mod_size);
+    unsigned res = _start_config(utcb, reinterpret_cast<char *>(virt + offset), mod_size, cmdline);
     revoke_all_mem(reinterpret_cast<void *>(virt), virt_size, DESC_MEM_ALL, true);
     _free_virt.add(Region(virt, virt_size));
     return res;
   }
 
-  unsigned _start_config(Utcb * utcb, ModuleInfo *modinfo, char * elf, unsigned long mod_size) {
+  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * cmdline) {
+
+    ModuleInfo *modinfo = get_module(cmdline);
+    if (!modinfo) {
+      Logging::printf("to many modules to start -- increase MAXMODULES in %s\n", __FILE__);
+      return __LINE__;
+    }
 
     // alloc memory
     unsigned long psize_needed = elf ? Elf::loaded_memsize(elf, mod_size) : ~0u;
@@ -671,6 +616,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	_virt_phys.debug_dump("virt phys");
 	_free_virt.debug_dump("free virt");
 	Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+	free_module(modinfo);
 	return __LINE__;
       }
     Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
@@ -698,19 +644,20 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // create a HIP for the client
     unsigned  slen = strlen(modinfo->cmdline) + 1;
-    if (slen + modinfo->mhip->length + 2*sizeof(Hip_mem) > 0x1000) {
+    if (slen + _hip->length + 2*sizeof(Hip_mem) > 0x1000) {
       Logging::printf("configuration to large\n");
+      free_module(modinfo);
       return __LINE__;
     }
     Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
     memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, modinfo->cmdline, slen);
 
-    memcpy(modhip, modinfo->mhip, modinfo->mhip->mem_offs);
+    memcpy(modhip, _hip, _hip->mem_offs);
     modhip->length = modhip->mem_offs;
     modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, 0); //pmem - required ?!
-    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(modinfo->mhip) + 0x1000 - slen);
+    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
     modhip->fix_checksum();
-    assert(modinfo->mhip->length > modhip->length);
+    assert(_hip->length > modhip->length);
 
     // fix the BSP flag in the client HIP
     for (unsigned i=0; i < static_cast<unsigned>(modhip->mem_offs - modhip->cpu_offs) / modhip->cpu_size; i++) {
@@ -746,7 +693,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   unsigned kill_module(unsigned module) {
     if (module < 1 || module > MAXMODULES || !_modinfo[module].mem || !_modinfo[module].physsize) return __LINE__;
-
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap all service portals
@@ -861,7 +807,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
-	  utcb->esp = reinterpret_cast<unsigned long>(modinfo->mhip);
+	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
 	  )
 
@@ -993,7 +939,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	      utcb->mtd = 0;
 	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(modinfo->mhip) | MAP_MAP, DESC_MEM_ALL);
+	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
 	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
 			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    }
@@ -1218,7 +1164,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Attach drives to a module.
    */
-  void attach_drives(char *cmdline, unsigned client)
+  void attach_drives(char const *cmdline, unsigned client)
   {
     for (char *p; p = strstr(cmdline,"sigma0::drive:"); cmdline = p + 1)
       {
@@ -1456,10 +1402,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case MessageConsole::TYPE_START:
       {
-	unsigned res = start_config(myutcb(), msg.id);
-	if (res)
-	  Logging::printf("start config(%d) = %x\n", msg.id, res);
-	return !res;
+        unsigned res;
+        if (msg.id == (~0U & ((1 << sizeof(msg.id)) - 1) ))
+          res = start_config(myutcb(), msg.cmdline);
+        else
+          res = start_config(myutcb(), msg.id);
+
+        if (res)
+          Logging::printf("start config(%d) = %x\n", msg.id, res);
+        return !res;
       }
     case MessageConsole::TYPE_KILL:
       {

@@ -49,7 +49,7 @@ struct FsProtocol : public GenericProtocol {
 
   unsigned get_file_copy(Utcb &utcb, const char * name, unsigned long addr, unsigned long size) {
     unsigned offset = addr & ((1UL << Utcb::MINSHIFT) - 1);
-    unsigned order  = (offset + size + 0xFFFU) / 0x1000U;
+    unsigned order  = (addr + size + 0xFFFU) / 0x1000U;
     order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
     //Logging::printf("offset %x size %lx order=%x addr=%lx\n", offset, size, order, addr >> Utcb::MINSHIFT);
     return call_server(init_frame(utcb, TYPE_GET_FILE_COPY) << name << offset << size << Utcb::TypedIdentifyCap(addr >> Utcb::MINSHIFT, (order << 7) | DESC_MEM_ALL, false), true);

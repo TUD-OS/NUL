@@ -20,14 +20,14 @@
  * Missing: kill a client, mem+cap quota support
  */
 struct ClientData : public GenericClientData {
-  char          * name;
+  char const    * name;
   unsigned        len;
   static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
     Utcb::Frame input = utcb.get_nested_frame();
     Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, input.identity(1), input.identity(0));
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
-      char *cmdline = get_module_cmdline(input);
+      char const *cmdline = get_module_cmdline(input);
       if (cmdline && strstr(cmdline, "quota::guid")) {
 	*value_out = get_client_number(parent_cap);
 	Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
@@ -51,7 +51,7 @@ static unsigned get_client_number(unsigned cap) {
   return cap >> CLIENT_PT_SHIFT;
 }
 
-static char * get_module_cmdline(Utcb::Frame &input) {
+static char const * get_module_cmdline(Utcb::Frame &input) {
   unsigned clientnr = get_client_number(input.identity(0));
   if (clientnr >= MAXMODULES) return 0;
   return sigma0->_modinfo[clientnr].cmdline;
@@ -89,7 +89,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
        * Parse the cmdline for "name::" prefixes and check whether the
        * postfix matches the requested name.
        */
-      char * cmdline = get_module_cmdline(input);
+      char const * cmdline = get_module_cmdline(input);
       if (!cmdline) return EPROTO;
       cmdline = strstr(cmdline, "name::");
       while (cmdline) {
@@ -151,7 +151,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       if (input.get_word(cpu) || !(request = input.get_zero_string(request_len))) return EPROTO;
 
       // search for an allowed namespace
-      char * cmdline = get_module_cmdline(input);
+      char const * cmdline = get_module_cmdline(input);
       if (!cmdline) return EPROTO;
       Logging::printf("\tregister client %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cmdline, request);
       cmdline = strstr(cmdline, "namespace::");
@@ -166,10 +166,11 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       guard2.commit();
 
       sdata->len = namespace_len + request_len + 1;
-      sdata->name = new char[sdata->len];
-      memcpy(sdata->name, cmdline, namespace_len);
-      memcpy(sdata->name + namespace_len, request, request_len);
-      sdata->name[sdata->len - 1] = 0;
+      char * tmp = new char[sdata->len];
+      sdata->name = tmp;
+      memcpy(tmp, cmdline, namespace_len);
+      memcpy(tmp + namespace_len, request, request_len);
+      tmp[sdata->len - 1] = 0;
       sdata->cpu  = cpu;
       sdata->pt   = input.received_cap();
 
