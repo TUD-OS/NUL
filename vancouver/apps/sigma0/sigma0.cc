@@ -531,22 +531,26 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       Logging::printf("Configuration %u not found!\n", which);
       return __LINE__;
     }
-    return start_config(utcb, cmdline);
+
+    char const * name = strstr(cmdline,"rom://"); //we solely support rom for now
+    char const * dummyfile = strstr(cmdline, " ");
+    if (!name || !dummyfile || dummyfile + strspn(dummyfile, " ") != name) {
+      Logging::printf("Configuration %u not found!\n", which);
+      return __LINE__;
+    }
+
+    return start_config(utcb, name);
   }
 
   unsigned start_config(Utcb *utcb, char const * cmdline)
   {
-    char * name = strstr(cmdline,"rom://"); //we solely support rom for now
-    char * dummyfile = strstr(cmdline, " ");
-    if (!name || !dummyfile || dummyfile + strspn(dummyfile, " ") != name) {
-      Logging::printf("No file found, missing rom:// !\n");
+    if (!cmdline || memcmp(cmdline, "rom://", 6)) { //we solely support rom for now
+      Logging::printf("No file found, missing rom://!\n");
       return __LINE__;
     }
-    name += 6;
-    unsigned namelen = strcspn(name, " \t\r\n\f");
-    char * tmp = name; //XXX name must be 0 terminated, so make temporary copy :-(
-    name = new char[namelen + 1];
-    memcpy(name, tmp, namelen);
+    unsigned namelen = strcspn(cmdline + 6, " \t\r\n\f");
+    char * name = new char[namelen + 1];
+    memcpy(name, cmdline + 6, namelen);
     name[namelen] = 0;
 
     FsProtocol::dirent fileinfo;
@@ -1403,7 +1407,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case MessageConsole::TYPE_START:
       {
         unsigned res;
-        if (msg.id == (~0U & ((1 << sizeof(msg.id)) - 1) ))
+        if (msg.id == (~0U & ((1 << (sizeof(msg.id) * 8)) - 1) ))
           res = start_config(myutcb(), msg.cmdline);
         else
           res = start_config(myutcb(), msg.id);

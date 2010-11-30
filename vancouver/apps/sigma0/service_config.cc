@@ -39,19 +39,23 @@ public:
       return ENONE;
     case ConfigProtocol::TYPE_START_CONFIG:
       {
-        unsigned len;
+        unsigned len = 0;
         char *_config = input.get_zero_string(len);
         check1(EPROTO, !_config);
 
-        char *config = new char[len];
-        if (!config) return ERESOURCE;
-        memcpy(config, _config, len);
+        char *config = new char[len + 1];
+        check1(ERESOURCE, !config);
+        memcpy(config, _config, len + 1);
 
         MessageConsole msg(MessageConsole::TYPE_START, ~0);
         msg.cmdline = config;
-        if (mb.bus_console.send(msg))
+        if (mb.bus_console.send(msg)) {
+          //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
+          utcb.head.untyped = 1;
           return ENONE;
-        else {
+        } else {
+          //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
+          utcb.head.untyped = 1;
           delete [] config;
           return EPROTO;
         }
