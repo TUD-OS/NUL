@@ -26,7 +26,6 @@
 #include "message.h"
 #include "timer.h"
 #include "templates.h"
-#include "sys/hip.h"
 
 class VCpu;
 
@@ -39,7 +38,7 @@ class VCpu;
 class Motherboard : public StaticReceiver<Motherboard>
 {
   Clock *_clock;
-  Hip   *_hip;
+  class Hip   *_hip;
 
   /**
    * To avoid bugs we disallow the copy constuctor.

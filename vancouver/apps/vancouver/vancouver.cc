@@ -569,9 +569,8 @@ public:
       case MessageHostOp::OP_GET_MODULE:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
-          char *cmdline = args;
+          char *cmdline = args, *name, *end;
           unsigned slen, num = msg.module;
-          char *name, *end;
 
           if (!cmdline) return false;
           while (num-- && cmdline) cmdline = strstr(++cmdline, separator);
@@ -602,38 +601,27 @@ public:
 
           //lookup file
           FsProtocol::dirent fileinfo;
-          memset(&fileinfo, 0, sizeof(fileinfo));
           if (rom_fs->get_file_info(*myutcb(), name, fileinfo)) return false; 
 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
           if (msg.size < ((msg_start + fileinfo.size + 0xffful) & ~0xffful) - msg_start + slen) return false;
 
-          //XXX start - using copy feature of fs
-          //if (rom_fs->get_file_copy(*myutcb(), name, msg_start, fileinfo.size)) return false;
-          //var name is overriden and not valid after this point !
-          //XXX  end - using copy feature of fs
-
-          //XXX start - using map feature of fs
+          // using map feature of fs
           unsigned long file_size  = (fileinfo.size + 0xffful) & ~0xffful;
-          unsigned long order = file_size >> 12;
-          order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
-          unsigned long virt_size  = 1 << (order + 12);
-          unsigned long virt_start = _free_virt.alloc(virt_size, order + 12);
-          unsigned long offset = 0;
+          unsigned order = Cpu::bsr(file_size | 1) == Cpu::bsf(file_size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(file_size | 1) : Cpu::bsr(file_size | 1) + 1;
+          unsigned long virt_start = _free_virt.alloc(1 << order, order), offset = 0;
           unsigned res;
-          //Logging::printf("virt_start %lx file_size %lx order %lx \n", virt_start, file_size, order + 12);
+
           if (!virt_start) return false;
-          if (!(res = rom_fs->get_file_map(*myutcb(), name, virt_start, order, offset))) {
-            if (offset > virt_size - file_size) //don't fail if fs tries to cheat us
+          if (!(res = rom_fs->get_file_map(*myutcb(), name, virt_start, order - 12, offset))) {
+            if (offset > (1 << order) - file_size) //don't fail if fs tries to cheat us
               res = EPROTO;
             else
               memcpy(msg.start, reinterpret_cast<void *>(virt_start + offset), fileinfo.size);
           }
-
-          revoke_all_mem(reinterpret_cast<void *>(virt_start), virt_size, DESC_MEM_ALL, true);
-          _free_virt.add(Region(virt_start, virt_size));
+          revoke_all_mem(reinterpret_cast<void *>(virt_start), 1 << order, DESC_MEM_ALL, true);
+          _free_virt.add(Region(virt_start, 1 << order));
           if (res) return false;
-          //XXX end - using map feature of fs          
 
           //align the end of the module to get the cmdline on a new page.
           char *s = reinterpret_cast<char *>((msg_start + fileinfo.size + 0xffful) & ~0xffful);

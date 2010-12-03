@@ -24,16 +24,8 @@
 struct ConfigProtocol : public GenericProtocol {
 
   enum {
-    TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END,
-    TYPE_START_CONFIG_TRANSLATE
+    TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END
   };
-
-  unsigned start_config(Utcb &utcb, unsigned long addr, unsigned long size) {
-    unsigned offset = addr & ((1UL << Utcb::MINSHIFT) - 1);
-    unsigned order  = (addr + size + 0xFFFU) / 0x1000U;
-    order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
-    return call_server(init_frame(utcb, TYPE_START_CONFIG_TRANSLATE) << offset << size << Utcb::TypedIdentifyCap(addr >> Utcb::MINSHIFT, (order << 7) | DESC_MEM_ALL, false), true);
-  }
 
   unsigned start_config(Utcb &utcb, char const * config) {
     return call_server(init_frame(utcb, TYPE_START_CONFIG) << config, true);

@@ -531,15 +531,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       Logging::printf("Configuration %u not found!\n", which);
       return __LINE__;
     }
-
-    char const * name = strstr(cmdline,"rom://"); //we solely support rom for now
-    char const * dummyfile = strstr(cmdline, " ");
-    if (!name || !dummyfile || dummyfile + strspn(dummyfile, " ") != name) {
-      Logging::printf("Configuration %u not found!\n", which);
-      return __LINE__;
-    }
-
-    return start_config(utcb, name);
+    return start_config(utcb, strstr(cmdline,"rom://"));
   }
 
   unsigned start_config(Utcb *utcb, char const * cmdline)
@@ -554,42 +546,32 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     name[namelen] = 0;
 
     FsProtocol::dirent fileinfo;
-    memset(&fileinfo, 0, sizeof(fileinfo));
     if (rom_fs->get_file_info(*utcb, name, fileinfo)) {
       Logging::printf("File not found %s.\n", name);
       delete [] name;
       return __LINE__;
     }
-    unsigned long mod_size = (fileinfo.size + 0xfff) & ~0xffful;
-    unsigned order = mod_size >> 12;
-    order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
-    unsigned long virt_size = 1 << (order + 12);
-    unsigned long virt = _free_virt.alloc(virt_size, order + 12);
-    unsigned long offset = 0;
-    if (!virt) {
-      Logging::printf("Not enough memory.\n");
-      delete [] name;
-      return __LINE__;
-    }
-    if (rom_fs->get_file_map(*utcb, name, virt, order, offset)) {
-      Logging::printf("Could not map file %s.\n", name);
-      _free_virt.add(Region(virt, virt_size));
-      delete [] name;
-      return __LINE__;
-    }
 
-    if (offset > virt_size - mod_size) {
-      Logging::printf("Got buggy offset for file %s.\n", name);
-      revoke_all_mem(reinterpret_cast<void *>(virt), virt_size, DESC_MEM_ALL, true);
-      _free_virt.add(Region(virt, virt_size));
+    fileinfo.size = (fileinfo.size + 0xfff) & ~0xffful;
+    unsigned order = Cpu::bsr(fileinfo.size | 1) == Cpu::bsf(fileinfo.size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(fileinfo.size | 1) : Cpu::bsr(fileinfo.size | 1) + 1;
+    unsigned long virt = _free_virt.alloc(1 << order, order), offset = 0;
+
+    if (!virt) { delete [] name; return __LINE__; }
+    if (rom_fs->get_file_map(*utcb, name, virt, order - 12, offset)) {
+      _free_virt.add(Region(virt, 1 << order));
       delete [] name;
       return __LINE__;
     }
     delete [] name;
+    if (offset > (1 << order) - fileinfo.size) {
+      revoke_all_mem(reinterpret_cast<void *>(virt), 1 << order, DESC_MEM_ALL, true);
+      _free_virt.add(Region(virt, 1 << order));
+      return __LINE__;
+    }
 
-    unsigned res = _start_config(utcb, reinterpret_cast<char *>(virt + offset), mod_size, cmdline);
-    revoke_all_mem(reinterpret_cast<void *>(virt), virt_size, DESC_MEM_ALL, true);
-    _free_virt.add(Region(virt, virt_size));
+    unsigned res = _start_config(utcb, reinterpret_cast<char *>(virt + offset), fileinfo.size, cmdline);
+    revoke_all_mem(reinterpret_cast<void *>(virt), 1 << order, DESC_MEM_ALL, true);
+    _free_virt.add(Region(virt, 1 << order));
     return res;
   }
 
@@ -658,7 +640,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     memcpy(modhip, _hip, _hip->mem_offs);
     modhip->length = modhip->mem_offs;
-    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, 0); //pmem - required ?!
+    modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
     modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
     modhip->fix_checksum();
     assert(_hip->length > modhip->length);

@@ -25,39 +25,25 @@ struct FsProtocol : public GenericProtocol {
 
   enum {
     TYPE_GET_FILE_MAPPED = ParentProtocol::TYPE_GENERIC_END,
-    TYPE_GET_FILE_COPY,
     TYPE_GET_FILE_INFO,
   };
 
-  enum type {
-    FH_REGULAR_FILE = 0x10,
-  };
-
   struct dirent {
-    enum type type;
     unsigned size;
-    unsigned name_len;
-    char name[128];
+    char const * name;
   };
 
   unsigned get_file_info(Utcb &utcb, const char * name, struct dirent & dirent) {
     unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << name, false);
-    utcb >> dirent;
+    utcb >> dirent.size;
+    dirent.name = name;
     utcb.drop_frame();
     return res;
   }
 
-  unsigned get_file_copy(Utcb &utcb, const char * name, unsigned long addr, unsigned long size) {
-    unsigned offset = addr & ((1UL << Utcb::MINSHIFT) - 1);
-    unsigned order  = (addr + size + 0xFFFU) / 0x1000U;
-    order = Cpu::bsr(order | 1) == Cpu::bsf(order | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(order | 1) : Cpu::bsr(order | 1) + 1;
-    //Logging::printf("offset %x size %lx order=%x addr=%lx\n", offset, size, order, addr >> Utcb::MINSHIFT);
-    return call_server(init_frame(utcb, TYPE_GET_FILE_COPY) << name << offset << size << Utcb::TypedIdentifyCap(addr >> Utcb::MINSHIFT, (order << 7) | DESC_MEM_ALL, false), true);
-  }
-
   unsigned get_file_map(Utcb &utcb, const char * name, unsigned long addr, unsigned order, unsigned long & offset) {
-    if (addr & ((1 << Utcb::MINSHIFT) - 1)) return EPROTO;
-    if (order >= (1 << 5)) return EPROTO;
+    assert (!(addr & ((1 << Utcb::MINSHIFT) - 1)));
+    assert (!(order >= (1 << 5)));
     unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_MAPPED) << name << Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL), false);
     utcb >> offset;
     utcb.drop_frame();
