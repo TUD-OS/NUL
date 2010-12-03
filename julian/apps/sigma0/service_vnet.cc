@@ -64,54 +64,19 @@
 #include <service/endian.h>
 #include <nul/net.h>
 
+#include "target_cache.h"
+
 using namespace Endian;
 
 #define WORKUNITS     4
 #define MAXPORT       16
 #define MAXDESC       32
 #define MAXHEADERSIZE 128
+#define MAXPACKETSIZE 2048      // No Jumbo frames
 
 template <typename T> T min(T a, T b) { return (a < b) ? a : b; }
 template <typename T> T max(T a, T b) { return (b < a) ? a : b; }
 
-template <unsigned SIZE, typename T>
-class TargetCache {
-  unsigned cur;
-
-  struct {
-    EthernetAddr addr;
-    T           *target;
-  } _targets[SIZE];
-
-public:
-
-  void remember(EthernetAddr const &addr, T *port)
-  {
-    if (_targets[(cur - 1) % SIZE].addr == addr) {
-      _targets[(cur - 1) % SIZE].target = port;
-    } else {
-      _targets[cur].addr    = addr;
-      _targets[cur].target  = port;
-      cur = (cur + 1) % SIZE;
-    }
-  }
-
-  T *lookup(EthernetAddr const &addr)
-  {
-    if (not addr.is_multicast())
-      for (unsigned i = 0; i < SIZE; i++)
-        if (_targets[i].addr == addr)
-          return _targets[i].target;
-    return NULL;
-  }
-
-  TargetCache()
-    : cur(0)
-  {
-    memset(_targets, 0, sizeof(_targets));
-  }
-
-};
 
 class VirtualNet : public StaticReceiver<VirtualNet>
 {
@@ -154,14 +119,25 @@ class VirtualNet : public StaticReceiver<VirtualNet>
     public:
       Port          &port;
       const unsigned no;
+
+      /// Context descriptors are stored as-is until they are needed.
       tx_desc        ctx[8];
 
+      unsigned char  dma_prog_len; // Length of the DMA program in descriptors
+      unsigned char  dma_prog_cur; // Current descriptor
+      tx_desc       *dma_prog[MAXDESC];
+      unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
+
       bool           tse_in_progress;
-      unsigned char  packet_len;
-      unsigned char  packet_cur;
-      bool           defer_writeback;
-      tx_desc       *packet[MAXDESC];
-      unsigned       packet_offset;
+      Port          *tse_dest;  // NULL -> Broadcast
+      tx_desc        tse_ctx;
+      unsigned       tse_sent;
+
+      /// Buffer used for broadcast packets instead of dma_prog
+      uint8          packet_data[MAXPACKETSIZE];
+
+      /// Bytes valid in packet_data. If zero, evaluate dma_prog instead.
+      unsigned       packet_extracted;           
       
       uint32 &operator[] (TxReg offset)
       {
@@ -173,58 +149,28 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       void writeback(tx_desc *d, bool force = false)
       {
 	//Logging::printf("WB %p %u TDH %x\n", d, force, (*this)[TDH]);
-	if (force or not defer_writeback) {
-	  bool irq = d->rs();
-	  // XXX Always write back?
-	  d->set_done();
-	  if (irq) port.irq_reason(2*no + 1);
-	}
-      }
-
-      void force_writeback()
-      {
-	for (unsigned i = 0; i < packet_len; i++)
-	  writeback(packet[i], true);
-
-	// XXX
-	memset(packet, 0, sizeof(packet));
+        bool irq = d->rs();
+        // XXX Always write back?
+        d->set_done();
+        if (irq) port.irq_reason(2*no + 1);
       }
 
       // The current DMA program has data pending.
       bool tx_data_pending()
       {
-	return (packet_cur != packet_len);
-      }
-
-      // Skip rest of pending data.
-      void skip_dma_program()
-      {
-	//Logging::printf("%s: defer %u\n", __func__, defer_writeback);
-	// If defer_writeback is set, we will do the writeback later
-	// anyway.
-	if (not defer_writeback)
-	  for (unsigned i = packet_cur; i < packet_len; i++)
-	    writeback(packet[i]);
-      }
-
-      void restart_dma_program()
-      {
-	//Logging::printf("%s\n", __func__);
-	assert(defer_writeback);
-	packet_cur = 0;
-	packet_offset = 0;
+	return (dma_prog_cur != dma_prog_len);
       }
 
       // Copy raw packet data into local buffer. Don't copy more than
       // `size' bytes. Do writeback of TX descriptors.
       size_t data_in(uint8 *dest, size_t size, size_t acc = 0)
       {
-	assert(packet_cur < packet_len);
-	assert(packet_offset < packet[packet_cur]->dtalen());
+	assert(dma_prog_cur < dma_prog_len);
+	assert(dma_prog_cur_offset < dma_prog[dma_prog_cur]->dtalen());
 	//Logging::printf("%s: %p+%x (%x) TDH %x\n", __func__, dest, size, acc, (*this)[TDH]);
-	size_t dtalen = packet[packet_cur]->dtalen();
-	size_t chunk = min<size_t>(size, dtalen - packet_offset);
-	uint8 const *src = port.convert_ptr<uint8>(packet[packet_cur]->raw[0] + packet_offset, chunk);
+	size_t dtalen = dma_prog[dma_prog_cur]->dtalen();
+	size_t chunk = min<size_t>(size, dtalen - dma_prog_cur_offset);
+	uint8 const *src = port.convert_ptr<uint8>(dma_prog[dma_prog_cur]->raw[0] + dma_prog_cur_offset, chunk);
 	if (src == NULL) { port.b0rken("data_in"); return 0; }
 	memcpy(dest, src, chunk);
 
@@ -232,62 +178,98 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	dest += chunk;
 	acc  += chunk;
 
-	if (packet_offset + chunk < dtalen) {
+	if (dma_prog_cur_offset + chunk < dtalen) {
 	  // Current descriptor not complete.
 	  assert(size == 0);
-	  packet_offset += chunk;
+	  dma_prog_cur_offset += chunk;
 	  return acc;
 	} else {
 	  // Consumed a full descriptor.
-	  packet_cur   += 1;
-	  packet_offset = 0;
-	  writeback(packet[packet_cur-1]);
+	  dma_prog_cur += 1;
+	  dma_prog_cur_offset = 0;
+	  writeback(dma_prog[dma_prog_cur-1]);
 
-	  if ((size == 0) or (packet_cur == packet_len))
+	  if ((size == 0) or (dma_prog_cur == dma_prog_len))
 	    return acc;
 	  else
 	    return data_in(dest, size, acc);
 	}
       }
 
+      void init_tse(Port *dest_port)
+      {
+        tse_in_progress = true;
+        tse_dest        = dest_port;
+        tse_ctx         = ctx[dma_prog[0]->idx()];
+        tse_sent        = 0;
+        // XXX TSE
+      }
+
+      // Extract one packet to internal storage.
+      void extract_to_buffer()
+      {
+        if (not tse_in_progress) {
+          packet_extracted = data_in(packet_data, sizeof(packet_data));
+          apply_offloads(ctx[dma_prog[0]->idx()], *dma_prog[0], packet_data, packet_extracted);
+
+          if (packet_extracted < 60) {
+            // Always pad small packets, disregarding PSP flag.
+            memset(packet_data + packet_extracted, 0, 60 - packet_extracted);
+            packet_extracted = 60;
+          }
+
+          assert(dma_prog_cur == dma_prog_len); // Consumed the whole program
+        } else {
+          // XXX Produce the next segment
+          assert(false);
+        }
+      }
+
+      void invalidate_buffer()
+      {
+        packet_extracted = 0;
+      }
+      
       void exec_dma_prog()
       {
 	// For simplicity's sake, we need at least the ethernet header
 	// in the first data block.
-	if (packet[0]->dtalen() < 12) { port.b0rken("complex"); return; }
+	if (dma_prog[0]->dtalen() < 12) { port.b0rken("complex"); return; }
 
-	uint8 const * const ethernet_header = port.convert_ptr<uint8>(packet[0]->raw[0], 12);
+	uint8 const * const ethernet_header = port.convert_ptr<uint8>(dma_prog[0]->raw[0], 12);
 	if (ethernet_header == NULL) { port.b0rken("ehdr"); return; }
 
 	EthernetAddr target(*reinterpret_cast<uint64 const * const>(ethernet_header));
 	EthernetAddr source(*reinterpret_cast<uint64 const * const>(ethernet_header + 6));
 
 	// Logging::printf("Packet from " MAC_FMT " to " MAC_FMT "\n",
-	// 		      MAC_SPLIT(&target), MAC_SPLIT(&source));
+        //                 MAC_SPLIT(&target), MAC_SPLIT(&source));
 
-	VirtualNet *vnet = port.vnet;
-	Port * const dest = vnet->_cache.lookup(target);
+	VirtualNet * const vnet = port.vnet;
+	Port       * const dest = vnet->_cache.lookup(target);
 	if (!source.is_multicast()) vnet->_cache.remember(source, &port);
 
-	if ((dest != NULL) and (dest->is_used())) {
+        bool tse = dma_prog[0]->dcmd() & tx_desc::DCMD_TSE;
+        bool unicast = (dest != NULL) and (dest->is_used());
+
+        if (tse) init_tse(unicast ? dest : NULL);
+
+	if (unicast) {
 	  // Unicast
 	  assert (dest != &port);
-	  defer_writeback = false;
 	  dest->deliver_from(*this);
 	} else {
 	  // Broadcast
-	  defer_writeback = true;
+#warning Broadcast
+          extract_to_buffer();
 	  for (unsigned i = 0; i < MAXPORT; i++)
-	    if (vnet->_port[i].is_used() and (&(vnet->_port[i]) != &port)) {
-	      restart_dma_program();
-	      vnet->_port[i].deliver_from(*this);
-	    }
-	  force_writeback();
+	     if (vnet->_port[i].is_used() and (&(vnet->_port[i]) != &port))
+               vnet->_port[i].deliver_from(*this);
+          invalidate_buffer();
 	}
       }
 
-      // Check for packets to be transmitted. Executes a single DMA
-      // program.
+      // Check for packets to be transmitted. Transmits a single packet.
       void tx()
       {
 	// Queue disabled?
@@ -295,16 +277,16 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  // Logging::printf("TXDCTL %x (disabled)\n", (*this)[TXDCTL]);
 	  // If you disable the queue, cancel pending TSE work.
 	  tse_in_progress = false;
-	  packet_cur = 0;
-	  packet_len = 0;
+	  dma_prog_cur = 0;
+	  dma_prog_len = 0;
 	  return;
 	}
 
-	if (tse_in_progress) {
+	if (tse_in_progress)
 	  continue_tse();
-	} else {
-	  next_dma_program();
-	}
+        else
+	  if (next_dma_prog())
+            exec_dma_prog();
       }
 
       void continue_tse()
@@ -313,7 +295,8 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	tse_in_progress = false;
       }
       
-      void next_dma_program()
+      /// Fetch a new DMA program. Returns true, iff successful.
+      bool next_dma_prog()
       {
 	TxQueue &txq = *this;
 	uint32 tdh = txq[TDH];
@@ -321,13 +304,13 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
 	//Logging::printf("%014llx P%u TDH %03x TDT %03x F0 %03x F4 %03x\n", port.vnet->_clock.time() >> 8, port.vnet->port_no(port), tdh, tdt, reg[0xF0/4], reg[0xF4/4]);
 	// No DMA descriptors?
-	if (tdt == tdh) return;
+	if (tdt == tdh) return false;
 
 	tx_desc *queue
 	  = port.convert_ptr<tx_desc>(static_cast<uint64>(txq[TDBAH] & ~0x7F)<<32 | txq[TDBAL],
 				      txq[TDLEN]);
 
-	if (queue == NULL) { port.b0rken("queue == NULL"); return; }
+	if (queue == NULL) { port.b0rken("queue == NULL"); return false; }
 
 	const unsigned queue_len = txq[TDLEN]/sizeof(tx_desc);
 
@@ -337,11 +320,11 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
 	// Collect a complete DMA program. Store pointers to descriptors
 	// to avoid expensive modulo operation later on.
-	if (tdh >= queue_len) { port.b0rken("tdh >= queue_len"); return; }
+	if (tdh >= queue_len) { port.b0rken("tdh >= queue_len"); return false; }
 
-	packet_cur = 0;
-	packet_len = 0;
-	packet_offset = 0;
+	dma_prog_cur = 0;
+	dma_prog_len = 0;
+	dma_prog_cur_offset = 0;
 
 	// We have at least one DMA descriptor to process.
 	do {
@@ -354,52 +337,52 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
 	  // Consume context descriptors first.
 	  if ((cur.dtyp() == tx_desc::DTYP_CONTEXT)) {
-	    if (packet_len != 0) {
+	    if (dma_prog_len != 0) {
 	      // DMA program is broken. Context descriptors between data
 	      // descriptors.
 	      port.b0rken("DTA CTX DTA");
-	      return;
+	      return false;
 	    }
 
 	    ctx[cur.idx()] = cur;
 	  } else {
 	    // DATA descriptor
 
-	    packet[packet_len++] = &cur;
+	    dma_prog[dma_prog_len++] = &cur;
 
-	    if (packet[packet_len-1]->eop())
+	    if (dma_prog[dma_prog_len-1]->eop())
 	      // Successfully read a DMA program
 	      goto handle_data;
 	  }
 
-	} while ((packet_len < MAXDESC) and (tdt != tdh));
+	} while ((dma_prog_len < MAXDESC) and (tdt != tdh));
 
-	if (packet_len == 0)
+	if (dma_prog_len == 0)
 	  // Only context descriptors were processed. Nothing left to
 	  // do.
-	  return;
+	  return false;
 
 	// EOP is always true for context descriptors.
-	if (not packet[packet_len-1]->eop()) {
-	  port.b0rken("EOP?"); return;
+	if (not dma_prog[dma_prog_len-1]->eop()) {
+	  port.b0rken("EOP?"); return false;
 	}
 
       handle_data:
 	// Legacy descriptors are not implemented.
-	if (packet[0]->legacy()) {
-	  Logging::printf("LEGACY(%u): (TDH %u TDH %u)\n", packet_len, txq[TDH], txq[TDT]);
-	  for (unsigned i = 0; i < packet_len; i++)
-	    Logging::printf(" %016llx %016llx\n", packet[i]->raw[0], packet[i]->raw[1]);
-	  return;
+	if (dma_prog[0]->legacy()) {
+	  Logging::printf("LEGACY(%u): (TDH %u TDH %u)\n", dma_prog_len, txq[TDH], txq[TDT]);
+	  for (unsigned i = 0; i < dma_prog_len; i++)
+	    Logging::printf(" %016llx %016llx\n", dma_prog[i]->raw[0], dma_prog[i]->raw[1]);
+	  return false;
 	}
 
-	uint8 dtyp = packet[0]->dtyp();
-	//const tx_desc cctx = txq.ctx[txq.packet[0]->idx()];
+	uint8 dtyp = dma_prog[0]->dtyp();
+	//const tx_desc cctx = txq.ctx[txq.dma_prog[0]->idx()];
 
-	//Logging::printf("REF%u = %016llx %016llx\n", packet[0]->idx(), cctx.raw[0], cctx.raw[1]);
+	//Logging::printf("REF%u = %016llx %016llx\n", dma_prog[0]->idx(), cctx.raw[0], cctx.raw[1]);
 	assert(dtyp == tx_desc::DTYP_DATA);
 
-	exec_dma_prog();
+        return true;
       }
 
       TxQueue(Port &port, uint32 *&reg, unsigned no)
@@ -450,7 +433,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       return false;
     }
 
-    void apply_offloads(const tx_desc ctx, const tx_desc d, uint8 *packet, size_t psize)
+    static void apply_offloads(const tx_desc ctx, const tx_desc d, uint8 *packet, size_t psize)
     {
       uint8 popts = d.popts();
       //Logging::printf("%016llx %016llx: POPTS %x\n", ctx.raw[0], ctx.raw[1], popts);
@@ -466,13 +449,13 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       if ((maclen+iplen > psize)) 
 	return;
 
-#ifndef BENCHMARK
       if ((popts & 4) != 0 /* IPSEC */) {
+#ifndef BENCHMARK
         Logging::printf("XXX IPsec offload requested. Not implemented!\n");
         // Since we don't do IPsec, we can skip the rest, too.
+#endif
         return;
       }
-#endif
 
       if (((popts & 1 /* IXSM     */) != 0) &&
           ((tucmd & 2 /* IPv4 CSO */) != 0)) {
@@ -515,6 +498,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
     // Deliver a simple packet to this port. Returns true, iff
     // something was delivered.
+    // XXX Cleanup/Refactor
     bool deliver_simple_from(TxQueue &txq)
     {
       uint32 rdh   = rx0[RDH];
@@ -531,37 +515,64 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       if (rx_queue == NULL) { b0rken("rx == NULL"); return false; }
       rx_desc &rx = rx_queue[rdh];
 
+      uint8 desc_type    = (rx0[SRRCTL] >> 25) & 0x7;
       size_t buffer_size = (rx0[SRRCTL] & 0x7F) * 1024;
       if (buffer_size == 0) buffer_size = 2048;
 
-      while (txq.tx_data_pending()) {
-	uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
-	if (data == NULL) { b0rken("data == NULL"); return false; }
+      unsigned packet_extracted = txq.packet_extracted;
 
-	uint16 psize = txq.data_in(data, buffer_size);
+      if (not packet_extracted) {
+        // Direct path, packet not extracted. Zero Copy!
+        while (txq.tx_data_pending()) {
+          rx = rx_queue[rdh];
+          uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
+          if (data == NULL) { b0rken("data == NULL"); return false; }
+          
+          uint16 psize = txq.data_in(data, buffer_size);
+          
+#warning XXX offloads broken when packet spread over multiple descriptors
+          apply_offloads(txq.ctx[txq.dma_prog[0]->idx()], *txq.dma_prog[0], data, psize);
+          //Logging::printf("Received %u bytes.\n", psize);
 
-	// XXX b0rken...
-        #warning Fix offloads
-	apply_offloads(txq.ctx[txq.packet[0]->idx()], *txq.packet[0], data, psize);
-	//Logging::printf("Received %u bytes.\n", psize);
-	uint8 desc_type = (rx0[SRRCTL] >> 25) & 0x7;
-	if (desc_type >> 1) {
-	  Logging::printf("srrctl %08x\n", rx0[SRRCTL]);
-	  vnet->debug();
+          if (desc_type >> 1) {
+            Logging::printf("srrctl %08x\n", rx0[SRRCTL]);
+            vnet->debug();
+          }
 
-	}
+          // XXX Very very evil and slightly b0rken small packet padding.
+#warning Implement PSP
+          if (not txq.tx_data_pending() && (psize < 60))
+            psize = 60;
+          
+          rx.set_done(desc_type, psize, not txq.tx_data_pending());
+          
+          if ((rdh+1) * sizeof(rx_desc) >= rdlen)
+            rx0[RDH] = rdh + 1 - rdlen/sizeof(rx_desc);
+          else
+            rx0[RDH] = rdh + 1;
+        }
+      } else {
+        // Packet extracted. PSP&offloads are already done. Slow
+        // broadcast.
+        uint8 *packet = txq.packet_data;
 
-        // XXX Very very evil and slightly b0rken small packet padding.
-        #warning Implement PSP
-        if (not txq.tx_data_pending() && (psize < 60))
-          psize = 60;
+        do {
+          rx = rx_queue[rdh];
+          uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
+          if (data == NULL) { b0rken("data == NULL"); return false; }
+          unsigned chunk = min(buffer_size, packet_extracted);
+          memcpy(data, packet, chunk);
+          packet += chunk;
+          packet_extracted -= chunk;
 
-	rx.set_done(desc_type, psize, not txq.tx_data_pending());
-		
-	if ((rdh+1) * sizeof(rx_desc) >= rdlen)
-	  rx0[RDH] = rdh + 1 - rdlen/sizeof(rx_desc);
-	else
-	  rx0[RDH] = rdh + 1;
+          rx.set_done(desc_type, chunk, packet_extracted == 0);
+          
+          if ((rdh+1) * sizeof(rx_desc) >= rdlen)
+            rx0[RDH] = rdh + 1 - rdlen/sizeof(rx_desc);
+          else
+            rx0[RDH] = rdh + 1;
+
+        } while (packet_extracted);
       }
 
       return true;
@@ -589,7 +600,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       bool res;
-      if (txq.packet[0]->dcmd() & tx_desc::DCMD_TSE)
+      if (txq.dma_prog[0]->dcmd() & tx_desc::DCMD_TSE)
 	res = deliver_tse_from(txq);
       else
 	res = deliver_simple_from(txq);
@@ -634,6 +645,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
 	// XXX We don't update ITR registers at the moment, as no one
 	// seem to use these values. Is this problematic?
+        // XXX Maybe Linux reads them. I have to check that.
 	if (iv != 0) {
 	  if (next_irq[i] <= now) {
 	    // Clear the counter. Indicates that the interrupt is
