@@ -260,7 +260,6 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  dest->deliver_from(*this);
 	} else {
 	  // Broadcast
-#warning Broadcast
           extract_to_buffer();
 	  for (unsigned i = 0; i < MAXPORT; i++)
 	     if (vnet->_port[i].is_used() and (&(vnet->_port[i]) != &port))
@@ -546,10 +545,9 @@ class VirtualNet : public StaticReceiver<VirtualNet>
           
           rx.set_done(desc_type, psize, not txq.tx_data_pending());
           
-          if ((rdh+1) * sizeof(rx_desc) >= rdlen)
-            rx0[RDH] = rdh + 1 - rdlen/sizeof(rx_desc);
-          else
-            rx0[RDH] = rdh + 1;
+          rdh += 1;
+          if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
+          rx0[RDH] = rdh;
         }
       } else {
         // Packet extracted. PSP&offloads are already done. Slow
@@ -567,11 +565,9 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
           rx.set_done(desc_type, chunk, packet_extracted == 0);
           
-          if ((rdh+1) * sizeof(rx_desc) >= rdlen)
-            rx0[RDH] = rdh + 1 - rdlen/sizeof(rx_desc);
-          else
-            rx0[RDH] = rdh + 1;
-
+          rdh += 1;
+          if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
+          rx0[RDH] = rdh;
         } while (packet_extracted);
       }
 
