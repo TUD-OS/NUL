@@ -83,6 +83,8 @@ static inline unsigned long strnlen(const char *src, unsigned long maxlen) {
 
 
 static inline unsigned long strlen(const char *src) { return strnlen(src, ~0ul); }
+
+
 static inline char * strcpy(char *dst, const char *src)  {
   char *res = dst;
   unsigned char ch;
@@ -142,7 +144,7 @@ static inline const char * strchr(const char *s, int c) {
 }
 
 
-static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)); }
+static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)+1); }
 
 
 static inline int strcspn(const char *s, const char *reject) {
