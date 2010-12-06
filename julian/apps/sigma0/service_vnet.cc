@@ -67,7 +67,7 @@
 using namespace Endian;
 
 #define WORKUNITS     4
-#define MAXPORT       2
+#define MAXPORT       16
 #define MAXDESC       32
 #define MAXHEADERSIZE 128
 

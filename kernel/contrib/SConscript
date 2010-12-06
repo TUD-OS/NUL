@@ -10,7 +10,7 @@ Import('host_env')
 checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],
                             "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
 
-build = host_env.Command("nova/build/hypervisor", "nova/README",
+build = target_env.Command("nova/build/hypervisor", "nova/README",
                          "make -C `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 Depends(build, [checkout] + Glob("nova/src/*") + Glob("nova/include/*"))
 
