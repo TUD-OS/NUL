@@ -92,7 +92,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 #define WORD_SEPARATOR " \t\r\n\f"
 #define PARAM_SEPARATOR ",+"
     while (args[0]) {
-      if (stop && !strcmp(stop, args)) return;
+      if (stop && !strncmp(stop, args, strlen(stop))) return;
       unsigned arglen = strcspn(args, WORD_SEPARATOR);
       if (!arglen) {
 	args++;

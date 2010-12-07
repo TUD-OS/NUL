@@ -583,7 +583,7 @@ public:
           name += 3;
           if (cmdline + strcspn(cmdline, " ") < name) return false; //don't allow spaces in fs name
           ///XXX we only support rom for now
-          if (strcmp("rom", cmdline)) return false;
+          if (strncmp("rom", cmdline, 3)) return false;
 
           //name must be 0 terminated, make a temporary copy
           end = name + strcspn(name, " \t\r\n\f");

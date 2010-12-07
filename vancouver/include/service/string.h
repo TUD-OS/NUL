@@ -146,7 +146,18 @@ static inline const char * strchr(const char *s, int c) {
 }
 
 
-static inline int strcmp(const char *dst, const char *src) {  return memcmp(dst, src, strlen(dst)+1); }
+static inline int strcmp(const char *dst, const char *src) {
+  if (!dst || !src) return -1;
+  while ((*dst != 0) && (*src != 0) && (*dst == *src)) {dst++; src++;}
+  return *dst - *src;
+}
+
+
+static inline int strncmp(const char *dst, const char *src, unsigned long size) {
+  if (size == 0 || !dst || !src) return -1;
+  while ((*dst != 0) && (*src != 0) && (*dst == *src) && --size) {dst++; src++;}
+  return *dst - *src;
+}
 
 
 static inline int strspn(const char *s, const char *accept) {
