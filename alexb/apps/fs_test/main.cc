@@ -61,17 +61,17 @@ class DummyFS : public NovaProgram, public ProgramConsole
       unsigned res;
       unsigned long object = 0;
 
-	    Utcb *worker_utcb;
-	    unsigned cap_ec = create_ec_helper(object, utcb->head.nul_cpunr, 0, &worker_utcb);
+      Utcb *worker_utcb;
+      unsigned cap_ec = create_ec_helper(object, utcb->head.nul_cpunr, 0, &worker_utcb);
       if (!cap_ec) return false;
-	    worker_utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+        worker_utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
 
       unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<DummyFS>::portal_func);
 
       res = nova_create_pt(pt, cap_ec, portal_func, 0);
       if (res) return false;
 
-	    res = ParentProtocol::register_service(*utcb, service_name, utcb->head.nul_cpunr, pt, service_cap);
+      res = ParentProtocol::register_service(*utcb, service_name, utcb->head.nul_cpunr, pt, service_cap);
       Logging::printf("%s - registing service\n", (res == 0 ? "success" : "failure"));
       if (res) return !res;
       //service part - end
