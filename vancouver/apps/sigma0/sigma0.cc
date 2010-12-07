@@ -267,7 +267,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
 
-    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM));
+    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/rom");
 
     init_disks();
     init_network();

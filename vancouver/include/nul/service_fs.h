@@ -29,7 +29,7 @@ struct FsProtocol : public GenericProtocol {
   };
 
   struct dirent {
-    unsigned size;
+    unsigned long long size;
     char const * name;
   };
 
@@ -50,5 +50,7 @@ struct FsProtocol : public GenericProtocol {
     return res;
   }
 
-  FsProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("fs/rom", instance, cap_base, true) {}
+  FsProtocol(unsigned cap_base, const char * name, unsigned instance=0) : GenericProtocol(name, instance, cap_base, true) {
+    assert(!strncmp("fs", name, 2));
+  }
 };

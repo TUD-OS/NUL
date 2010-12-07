@@ -301,7 +301,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
-    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM));
+    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/rom");
 
     unsigned res;
     if ((res = timer_service->timer(*utcb, msg)))
