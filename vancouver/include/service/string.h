@@ -147,14 +147,14 @@ static inline const char * strchr(const char *s, int c) {
 
 
 static inline int strcmp(const char *dst, const char *src) {
-  while ((*dst != 0) && (*src != 0) && (*dst == *src)) {dst++; src++;}
+  while ((*dst != 0) && (*dst == *src)) {dst++; src++;}
   return *dst - *src;
 }
 
 
 static inline int strncmp(const char *dst, const char *src, unsigned long size) {
   if (size == 0) return 0;
-  while ((*dst != 0) && (*src != 0) && (*dst == *src) && --size) {dst++; src++;}
+  while ((*dst != 0) && (*dst == *src) && --size) {dst++; src++;}
   return *dst - *src;
 }
 
