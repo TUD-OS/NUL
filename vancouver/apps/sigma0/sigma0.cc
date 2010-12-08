@@ -541,14 +541,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       return __LINE__;
     }
     unsigned namelen = strcspn(cmdline + 6, " \t\r\n\f");
-    char * name = new char[namelen + 1];
-    memcpy(name, cmdline + 6, namelen);
-    name[namelen] = 0;
 
     FsProtocol::dirent fileinfo;
-    if (rom_fs->get_file_info(*utcb, name, fileinfo)) {
-      Logging::printf("File not found %s.\n", name);
-      delete [] name;
+    if (rom_fs->get_file_info(*utcb, fileinfo, cmdline + 6, namelen)) {
+      Logging::printf("File not found %s.\n", cmdline + 6);
       return __LINE__;
     }
 
@@ -556,13 +552,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned order = Cpu::bsr(fileinfo.size | 1) == Cpu::bsf(fileinfo.size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(fileinfo.size | 1) : Cpu::bsr(fileinfo.size | 1) + 1;
     unsigned long virt = _free_virt.alloc(1 << order, order), offset = 0;
 
-    if (!virt) { delete [] name; return __LINE__; }
-    if (rom_fs->get_file_map(*utcb, name, virt, order - 12, offset)) {
+    if (!virt) return __LINE__;
+    if (rom_fs->get_file_map(*utcb, virt, order - 12, offset, cmdline + 6, namelen)) {
       _free_virt.add(Region(virt, 1 << order));
-      delete [] name;
       return __LINE__;
     }
-    delete [] name;
     if (offset > (1 << order) - fileinfo.size) {
       revoke_all_mem(reinterpret_cast<void *>(virt), 1 << order, DESC_MEM_ALL, true);
       _free_virt.add(Region(virt, 1 << order));

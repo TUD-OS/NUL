@@ -60,7 +60,7 @@ struct ParentProtocol {
   }
 
   static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_pseudonym) {
-    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << service << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
+    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << Utcb::String(service) << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
   }
 
   static unsigned release_pseudonym(Utcb &utcb, unsigned cap_pseudonym) {
@@ -84,7 +84,7 @@ struct ParentProtocol {
 
   static unsigned register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
     assert(cap_service);
-    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << service << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service) << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 
@@ -94,7 +94,7 @@ struct ParentProtocol {
   }
 
   static unsigned get_quota(Utcb &utcb, unsigned cap_client_pseudonym, const char *name, long invalue, long *outvalue=0) {
-    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << name << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << Utcb::String(name) << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();

@@ -27,7 +27,7 @@ struct LogProtocol : public GenericProtocol {
     TYPE_LOG = ParentProtocol::TYPE_GENERIC_END,
   };
   unsigned log(Utcb &utcb, const char *line) {
-    return call_server(init_frame(utcb, TYPE_LOG) << line, true);
+    return call_server(init_frame(utcb, TYPE_LOG) << Utcb::String(line), true);
   }
 
   LogProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("log", instance, cap_base, true) {}

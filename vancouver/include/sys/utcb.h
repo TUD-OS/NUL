@@ -159,6 +159,12 @@ struct Utcb
     TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL, bool _root = true) : value(cap << MINSHIFT | attr), translate_root(_root) {}
   };
 
+  struct String {
+    const char * value;
+    unsigned long long len;
+    String (const char *_value, unsigned long long _len = ~0ULL) : value(_value), len(_len) {}
+  };
+
   /**
    * TODO: put error code at some fixed point
    */
@@ -230,13 +236,17 @@ struct Utcb
     return *this;
   }
 
-  Utcb &  operator <<(const char *value) {
+  Utcb &  operator <<(String string) {
     unsigned olduntyped = head.untyped;
-    unsigned slen =  strlen(value) + 1;
+    unsigned slen;
+    if (string.len == ~0ULL)
+      slen = strlen(string.value) + 1;
+    else
+      slen = string.len + 1;
     msg[olduntyped] = slen;
     head.untyped += 1 + (slen + sizeof(unsigned) - 1 ) / sizeof(unsigned);
     msg[head.untyped - 1] = 0;
-    memcpy(msg + olduntyped + 1, value, slen - 1);
+    memcpy(msg + olduntyped + 1, string.value, slen - 1);
     return *this;
   }
 

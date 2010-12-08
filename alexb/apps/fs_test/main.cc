@@ -80,7 +80,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       FsProtocol * rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/dummy");
 
       FsProtocol::dirent fileinfo;
-      res = rom_fs->get_file_info(*utcb, "myfile", fileinfo);
+      res = rom_fs->get_file_info(*utcb, fileinfo, "myfile");
       Logging::printf("fs %x dirent.size %llx\n", res, fileinfo.size);
       if (res) return false;
       

@@ -33,18 +33,18 @@ struct FsProtocol : public GenericProtocol {
     char const * name;
   };
 
-  unsigned get_file_info(Utcb &utcb, const char * name, struct dirent & dirent) {
-    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << name, false);
+  unsigned get_file_info(Utcb &utcb, struct dirent & dirent, const char * name, unsigned long long name_len = ~0ULL) {
+    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << Utcb::String(name, name_len), false);
     utcb >> dirent.size;
     dirent.name = name;
     utcb.drop_frame();
     return res;
   }
 
-  unsigned get_file_map(Utcb &utcb, const char * name, unsigned long addr, unsigned order, unsigned long & offset) {
+  unsigned get_file_map(Utcb &utcb, unsigned long addr, unsigned order, unsigned long & offset, const char * name, unsigned long long name_len = ~0ULL) {
     assert (!(addr & ((1 << Utcb::MINSHIFT) - 1)));
     assert (!(order >= (1 << 5)));
-    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_MAPPED) << name << Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL), false);
+    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_MAPPED) << Utcb::String(name, name_len) << Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL), false);
     utcb >> offset;
     utcb.drop_frame();
     return res;

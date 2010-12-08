@@ -570,7 +570,7 @@ public:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
           char *cmdline = args, *name, *end;
-          unsigned slen, num = msg.module;
+          unsigned slen, nlen, num = msg.module;
 
           if (!cmdline) return false;
           while (num-- && cmdline) cmdline = strstr(++cmdline, separator);
@@ -581,17 +581,12 @@ public:
           name = strstr(cmdline, "://");
           if (!name) return false;
           name += 3;
-          if (cmdline + strcspn(cmdline, " ") < name) return false; //don't allow spaces in fs name
+          if (cmdline + strcspn(cmdline, " \t\r\n\f") < name) return false; //don't allow some characters in fs name
           ///XXX we only support rom for now
           if (strncmp("rom", cmdline, 3)) return false;
 
-          //name must be 0 terminated, make a temporary copy
-          end = name + strcspn(name, " \t\r\n\f");
-          if (name == end) return false;
-          if (msg.size < (1UL + (end - name))) return false;
-          memcpy(msg.start, name, end - name);
-          msg.start[end - name] = 0;
-          name = msg.start;
+          nlen = strcspn(name, " \t\r\n\f");
+          if (!nlen) return false;
 
           end  = strstr(cmdline, separator);
           if (end && name > end) return false; //don't use 'xxx://' of next entry accidentally
@@ -601,7 +596,7 @@ public:
 
           //lookup file
           FsProtocol::dirent fileinfo;
-          if (rom_fs->get_file_info(*myutcb(), name, fileinfo)) return false; 
+          if (rom_fs->get_file_info(*myutcb(), fileinfo, name, nlen)) return false; 
 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
           if (msg.size < ((msg_start + fileinfo.size + 0xffful) & ~0xffful) - msg_start + slen) return false;
@@ -613,7 +608,7 @@ public:
           unsigned res;
 
           if (!virt_start) return false;
-          if (!(res = rom_fs->get_file_map(*myutcb(), name, virt_start, order - 12, offset))) {
+          if (!(res = rom_fs->get_file_map(*myutcb(), virt_start, order - 12, offset, name, nlen))) {
             if (offset > (1 << order) - file_size) //don't fail if fs tries to cheat us
               res = EPROTO;
             else
