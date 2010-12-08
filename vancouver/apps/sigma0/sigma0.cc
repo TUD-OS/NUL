@@ -94,7 +94,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned        mod_count;
     unsigned        cpunr;
     unsigned long   rip;
-    bool            log;
     bool            dma;
     char *          mem;
     unsigned long   physsize;
@@ -496,7 +495,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     char *p = strstr(cmdline, "sigma0::cpu");
     modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
     modinfo->dma       = strstr(cmdline, "sigma0::dma");
-    modinfo->log       = strstr(cmdline, "sigma0::log");
     modinfo->cmdline   = cmdline;
 
     Logging::printf("module(%x) '", module);
