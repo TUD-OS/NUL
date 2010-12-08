@@ -65,6 +65,7 @@
 #include <nul/net.h>
 
 #include "target_cache.h"
+#include "monitor.h"
 
 using namespace Endian;
 
@@ -80,6 +81,7 @@ template <typename T> T max(T a, T b) { return (b < a) ? a : b; }
 
 class VirtualNet : public StaticReceiver<VirtualNet>
 {
+  VnetMonitor                  _monitor;
   DBus<MessageVirtualNetPing> &_bus_vnetping;
   Clock                        _clock;
 
@@ -173,6 +175,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	uint8 const *src = port.convert_ptr<uint8>(dma_prog[dma_prog_cur]->raw[0] + dma_prog_cur_offset, chunk);
 	if (src == NULL) { port.b0rken("data_in"); return 0; }
 	memcpy(dest, src, chunk);
+        port.vnet->_monitor.add<MONITOR_DATA_IN>(chunk);
 
 	size -= chunk;
 	dest += chunk;
@@ -251,6 +254,8 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
         bool tse = dma_prog[0]->dcmd() & tx_desc::DCMD_TSE;
         bool unicast = (dest != NULL) and (dest->is_used());
+
+        vnet->_monitor.add<MONITOR_PACKET_IN>(1);
 
         if (tse) init_tse(unicast ? dest : NULL);
 
@@ -528,6 +533,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
           if (data == NULL) { b0rken("data == NULL"); return false; }
           
           uint16 psize = txq.data_in(data, buffer_size);
+          vnet->_monitor.add<MONITOR_DATA_OUT>(psize);
           
 #warning XXX offloads broken when packet spread over multiple descriptors
           apply_offloads(txq.ctx[txq.dma_prog[0]->idx()], *txq.dma_prog[0], data, psize);
@@ -544,6 +550,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
             psize = 60;
           
           rx.set_done(desc_type, psize, not txq.tx_data_pending());
+          vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
           
           rdh += 1;
           if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
@@ -553,6 +560,9 @@ class VirtualNet : public StaticReceiver<VirtualNet>
         // Packet extracted. PSP&offloads are already done. Slow
         // broadcast.
         uint8 *packet = txq.packet_data;
+
+        vnet->_monitor.add<MONITOR_DATA_OUT>(packet_extracted);
+        vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
 
         do {
           rx = rx_queue[rdh];
@@ -786,7 +796,7 @@ public:
   }
 
   VirtualNet(Motherboard &mb)
-    : _bus_vnetping(mb.bus_vnetping), _clock(*mb.clock()), _port()
+    : _monitor(mb.bus_hostop), _bus_vnetping(mb.bus_vnetping), _clock(*mb.clock()), _port()
   {
     for (unsigned i = 0; i < MAXPORT; i++)
       _port[i].vnet = this;
