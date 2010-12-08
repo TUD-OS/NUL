@@ -83,7 +83,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _iomem_start;
   FsProtocol * rom_fs;
   static TimerProtocol   *timer_service;
-  static const char * separator;
+  #define VANCOUVER_CONFIG_SEPARATOR "||"
 
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
 #define VM_FUNC(NR, NAME, INPUT, CODE)					             \
@@ -307,7 +307,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if ((res = timer_service->timer(*utcb, msg)))
       Logging::panic("Timer service unreachable (error: %x).\n", res);
 
-    _mb->parse_args(args, separator);
+    _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
     _mb->bus_hwioin.debug_dump();
   }
@@ -573,7 +573,7 @@ public:
           unsigned slen, nlen, num = msg.module;
 
           if (!cmdline) return false;
-          while (num-- && cmdline) cmdline = strstr(++cmdline, separator);
+          while (num-- && cmdline) cmdline = strstr(++cmdline, VANCOUVER_CONFIG_SEPARATOR);
           if (num != ~0U || !cmdline) return false;
           cmdline +=2;
 
@@ -588,7 +588,7 @@ public:
           nlen = strcspn(name, " \t\r\n\f");
           if (!nlen) return false;
 
-          end  = strstr(cmdline, separator);
+          end  = strstr(cmdline, VANCOUVER_CONFIG_SEPARATOR);
           if (end && name > end) return false; //don't use 'xxx://' of next entry accidentally
 
           if (end) slen = end - cmdline + 1;
@@ -843,7 +843,6 @@ public:
 };
 
 TimerProtocol * Vancouver::timer_service;
-const char * Vancouver::separator = "||";
 
 ASMFUNCS(Vancouver, Vancouver)
 
