@@ -23,7 +23,7 @@ class Cpu
 {
  public:
   static  void  pause() { asm volatile("pause"); }
-  static  void  hlt()   { asm volatile("hlt"); }
+
   template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" : : "r"(ptr), "r"(value) : "memory"); }
   template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" : : "r"(ptr), "r"(value) : "memory"); }
 
