@@ -74,17 +74,8 @@ class Cpu
     return union64(high, low);
   }
 
-  static   unsigned bsr(unsigned value) {
-    unsigned res = 0;
-    asm volatile ("bsr %1, %0" : "=r"(res) : "r"(value));
-    return res;
-  }
-
-  static  unsigned bsf(unsigned value) {
-    unsigned res = 0;
-    asm volatile ("bsf %1, %0" : "=r"(res) : "r"(value));
-    return res;
-  }
+  static  unsigned bsr(unsigned value) { return __builtin_clz(value) ^ 0x1F; }
+  static  unsigned bsf(unsigned value) { return __builtin_ctz(value); }
 
   static  unsigned minshift(unsigned long start, unsigned long size, unsigned minshift = 31) {
     unsigned shift = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
