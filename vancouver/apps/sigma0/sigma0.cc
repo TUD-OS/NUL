@@ -191,7 +191,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   /**
-   * Converts client ptr to a pointer in our addressspace.
+   * Converts client ptr to a pointer in our address space.
    * Returns true on error.
    */
   template<typename T>
