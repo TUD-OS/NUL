@@ -64,9 +64,8 @@ class Cpu
     return  union64(ohigh, olow);
   }
 
-  static  unsigned long atomic_xadd(unsigned long *ptr, unsigned long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr) : "memory"); return value; }
-  static  long  atomic_xadd(long *ptr, long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr) : "memory"); return value; }
-  static  long  atomic_xadd(long volatile *ptr, long value) { asm volatile ("lock; xadd %0, (%1)" : "+r"(value) : "r"(ptr) : "memory"); return value; }
+  static  unsigned long  atomic_xadd(unsigned long *ptr, unsigned long value) { return __sync_fetch_and_add(ptr, value); }
+  static  long           atomic_xadd(long *ptr, long value)                   { return __sync_fetch_and_add(ptr, value); }
 
   static unsigned long long rdtsc() {
     unsigned low, high;
