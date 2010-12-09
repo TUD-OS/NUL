@@ -48,20 +48,14 @@ class Cpu
     return y;
   }
 
-  static  unsigned cmpxchg4b(volatile void *var, unsigned oldvalue, unsigned newvalue) {
-    asm volatile ("lock; cmpxchg %2, (%0)": "+r"(var), "+a"(oldvalue): "r"(newvalue) : "memory");
-    return oldvalue;
-  }
+  static  unsigned cmpxchg4b(unsigned *var, unsigned oldvalue, unsigned newvalue) {
+    return __sync_val_compare_and_swap(reinterpret_cast<unsigned *>(var), oldvalue, newvalue); }
 
-  static  unsigned long long cmpxchg8b(volatile void *var, unsigned long long oldvalue, unsigned long long newvalue) {
-    unsigned olow;
-    unsigned ohigh;
-    split64(oldvalue, ohigh, olow);
-    unsigned nlow;
-    unsigned nhigh;
-    split64(newvalue, nhigh, nlow);
-    asm volatile ("lock; cmpxchg8b (%0)": "+r"(var), "+d"(ohigh), "+a"(olow): "c"(nhigh), "b"(nlow) : "memory");
-    return  union64(ohigh, olow);
+  static  unsigned cmpxchg4b(volatile void *var, unsigned oldvalue, unsigned newvalue) {
+    return __sync_val_compare_and_swap(reinterpret_cast<volatile unsigned *>(var), oldvalue, newvalue); }
+
+  static  unsigned long long cmpxchg8b(void *var, unsigned long long oldvalue, unsigned long long newvalue) {
+    return __sync_val_compare_and_swap(reinterpret_cast<unsigned long long *>(var), oldvalue, newvalue);
   }
 
   static  unsigned long  atomic_xadd(unsigned long *ptr, unsigned long value) { return __sync_fetch_and_add(ptr, value); }
