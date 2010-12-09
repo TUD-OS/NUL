@@ -24,8 +24,8 @@ class Cpu
  public:
   static  void  pause() { asm volatile("pause"); }
 
-  template <typename T> static  void  atomic_and(T *ptr, T value) { asm volatile ("lock; and %1, (%0)" : : "r"(ptr), "r"(value) : "memory"); }
-  template <typename T> static  void  atomic_or(T *ptr, T value)  { asm volatile ("lock; or %1, (%0)" : : "r"(ptr), "r"(value) : "memory"); }
+  template <typename T> static  void  atomic_and(T *ptr, T value) { __sync_and_and_fetch(ptr, value); }
+  template <typename T> static  void  atomic_or(T *ptr, T value)  { __sync_or_and_fetch(ptr, value); }
 
   static void atomic_set_bit(unsigned *vector, unsigned bit, bool value=true) {
     unsigned index = bit >> 5;
