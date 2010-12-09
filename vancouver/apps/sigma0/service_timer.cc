@@ -95,8 +95,8 @@ class TimerService : public StaticReceiver<TimerService> {
       // update timeout upstream
       if (_abs_timeouts.timeout() != ~0ULL) {
         MessageTimer msg2(0, _abs_timeouts.timeout());
-        unsigned res = _mymb.bus_timer.send(msg2);
-        assert(res);
+        _mymb.bus_timer.send(msg2);
+        // Returns false in PIT-mode.
       }
     }
   }
