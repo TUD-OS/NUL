@@ -141,7 +141,7 @@ public:
 
   bool  receive(MessageTimer &msg)
   {
-    if (msg.abstime == ~0ull || msg.nr != 0) return false;
+    if ((msg.abstime == ~0ull) or (msg.nr != 0)) return false;
 
     // delta is truncated, it should be rounded "upwards" :-)
     unsigned delta = _clock->delta(msg.abstime, _freq);

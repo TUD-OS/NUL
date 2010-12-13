@@ -447,7 +447,7 @@ PARAM(82576vf_vnet,
       "82576vf_vnet:[promisc][,mem_mmio][,mem_msix] - attach an Intel 82576VF to the PCI bus.",
       "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
       // XXX promisc = 0 is ignored for now.
-      "Example: 82576vf"
+      "Example: 82576vf_vnet"
       );
 
 // EOF

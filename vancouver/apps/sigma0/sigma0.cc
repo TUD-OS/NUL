@@ -94,7 +94,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned        id;
     unsigned        cpunr;
     unsigned long   rip;
-    bool            log;
     bool            dma;
     char *          mem;
     unsigned long   physsize;
@@ -501,7 +500,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     char *p = strstr(cmdline, "sigma0::cpu");
     modinfo->cpunr     = _cpunr[( p ? strtoul(p+12, 0, 0) : ++_last_affinity) % _numcpus];
     modinfo->dma       = strstr(cmdline, "sigma0::dma");
-    modinfo->log       = strstr(cmdline, "sigma0::log");
     modinfo->cmdline   = cmdline;
     modinfo->hip       = 0;
 
@@ -551,7 +549,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     fileinfo.size = (fileinfo.size + 0xfff) & ~0xffful;
     unsigned order = Cpu::bsr(fileinfo.size | 1) == Cpu::bsf(fileinfo.size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(fileinfo.size | 1) : Cpu::bsr(fileinfo.size | 1) + 1;
     unsigned long virt = _free_virt.alloc(1 << order, order), offset = 0;
-
     if (!virt) return __LINE__;
     if (rom_fs->get_file_map(*utcb, virt, order - 12, offset, cmdline + 6, namelen)) {
       _free_virt.add(Region(virt, 1 << order));
