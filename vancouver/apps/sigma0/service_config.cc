@@ -28,6 +28,8 @@ class Service_config {
 public:
   Service_config(Motherboard &_mb, bool readonly = true ) : mb(_mb) {}
 
+  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     unsigned op;
 
@@ -69,7 +71,7 @@ public:
 
 PARAM(service_config,
       Service_config *service_config = new Service_config(mb);
-      MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func), reinterpret_cast<unsigned long>(service_config));
+      MessageHostOp msg(service_config, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
       msg.ptr = const_cast<char *>("/config");
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");

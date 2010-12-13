@@ -21,30 +21,67 @@ namespace ab {
 
 class DummyFS : public NovaProgram, public ProgramConsole
 {
+  private:
+    RegionList<512> * cap_range;
+    #define RECV_WINDOW_ORDER 22
+    #define RECV_WINDOW_SIZE (1 << RECV_WINDOW_ORDER)
+
   public:
+
+  void init_service() {
+    cap_range = new RegionList<512>;
+    cap_range->add(Region(0x1000,0x3000));
+  }
+
+  inline unsigned alloc_cap(unsigned num = 1) { return cap_range->alloc(num, 0); }
+
+  unsigned alloc_crd() {
+    unsigned long addr = _free_virt.alloc(RECV_WINDOW_SIZE, RECV_WINDOW_ORDER);
+    if (!addr) Logging::panic("out of free virt space\n");
+    return Crd(addr >> Utcb::MINSHIFT, RECV_WINDOW_ORDER - 12, DESC_MEM_ALL).value();
+  }
 
   static unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
     {
       unsigned op, len;
       check1(EPROTO, input.get_word(op));
+      const char rawfile[]= "TestTest!!!";
 
       switch (op) {
       case FsProtocol::TYPE_GET_FILE_INFO:
         {
           const char * name = input.get_zero_string(len);
-          unsigned long long size = 0;
           if (!name || !len) return EPROTO;
-          Logging::printf("file info - file '%s'\n", name);
-
+          Logging::printf("file info - file size=0x%x '%s' \n", sizeof(rawfile), name);
+          unsigned long long size = sizeof(rawfile);
           utcb << size;
         }
         return ENONE;
-      case FsProtocol::TYPE_GET_FILE_MAPPED:
+      case FsProtocol::TYPE_GET_FILE_COPIED:
         {
           const char * name = input.get_zero_string(len);
           if (!name || !len) return EPROTO;
+
+          unsigned long foffset;
+          check1(EPROTO, input.get_word(foffset));
+          if (foffset > sizeof(rawfile)) return ERESOURCE;
+
           Logging::printf("file map - file '%s'\n", name);
-          //mapping code to place here
+
+          //XXX you may get multiple items !
+          unsigned long addr = input.received_item(0);
+          if (!(addr >> 12)) return EPROTO;
+
+          input.dump_typed_items();
+
+          unsigned long long csize = sizeof(rawfile) - foffset;
+          if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
+          if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
+
+          //Logging::printf("addr=%lx csize=%llx recv_order=%lx foffset=%lx", addr, csize, (addr >> 7) & 0x1f, foffset);
+
+          memcpy(reinterpret_cast<void *>(addr & ~0xffful), rawfile + foffset, csize); 
+          Logging::printf("send %p '%s'\n", reinterpret_cast<char*>(addr & ~0xffful), reinterpret_cast<char*>(addr & ~0xffful));
         }
         return ENONE;
       default:
@@ -59,13 +96,12 @@ class DummyFS : public NovaProgram, public ProgramConsole
       unsigned service_cap = alloc_cap();
       unsigned pt = alloc_cap();
       unsigned res;
-      unsigned long object = 0;
 
       Utcb *worker_utcb;
-      unsigned cap_ec = create_ec_helper(object, utcb->head.nul_cpunr, 0, &worker_utcb);
+      unsigned cap_ec = create_ec_helper(this, utcb->head.nul_cpunr, 0, &worker_utcb, 0, alloc_cap());
       if (!cap_ec) return false;
-        worker_utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
 
+      worker_utcb->head.crd = alloc_crd();
       unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<DummyFS>::portal_func);
 
       res = nova_create_pt(pt, cap_ec, portal_func, 0);
@@ -77,13 +113,19 @@ class DummyFS : public NovaProgram, public ProgramConsole
       //service part - end
 
       //client part
-      FsProtocol * rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/dummy");
+      FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/dummy");
 
       FsProtocol::dirent fileinfo;
-      res = rom_fs->get_file_info(*utcb, fileinfo, "myfile");
-      Logging::printf("fs %x dirent.size %llx\n", res, fileinfo.size);
+      res = fs->get_file_info(*utcb, fileinfo, "myfile");
+      Logging::printf("fs size %llx err=%x\n", fileinfo.size, res);
       if (res) return false;
-      
+
+      char * text = new (0x1000) char [0x1000];
+      unsigned long addr = reinterpret_cast<unsigned long>(text);
+      res = fs->get_file_copy(*utcb, addr, fileinfo.size, "myfile");
+      revoke_all_mem(text, 0x1000, DESC_MEM_ALL, false);
+      if (res) return false;
+      Logging::printf("received '%s'\n", text);
       return true;
     }
 
@@ -92,6 +134,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
 
       init(hip);
       init_mem(hip);
+      init_service();
 
       console_init("dummy fs");
 
@@ -101,6 +144,8 @@ class DummyFS : public NovaProgram, public ProgramConsole
 
       if (!use_filesystem(utcb, hip))
         Logging::printf("failed - starting fs failed \n");
+
+      block_forever(); //required, otherwise "this" objected will be deleted
     }
 };
 

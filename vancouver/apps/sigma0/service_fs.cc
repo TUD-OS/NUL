@@ -24,8 +24,13 @@ class Service_fs {
   Hip * hip;
   unsigned _rights;
 
+  #define RECV_WINDOW_SIZE (1 << 22)
+
 public:
   Service_fs(Motherboard &mb, bool readonly = true ) : hip(mb.hip()), _rights(readonly ? DESC_RIGHT_R : DESC_RIGHTS_ALL) {}
+
+  //inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new one"); }
 
   Hip_mem * get_file(char const * text) {
     Hip_mem *hmem;
@@ -48,14 +53,34 @@ public:
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
-    case ParentProtocol::TYPE_OPEN:
-    case ParentProtocol::TYPE_CLOSE:
-      return ENONE;
     case FsProtocol::TYPE_GET_FILE_INFO:
       {
         Hip_mem * hmem = get_file(input.get_zero_string(len));
         check1(EPROTO, !hmem || !len);
         utcb << hmem->size;
+      }
+      return ENONE;
+    case FsProtocol::TYPE_GET_FILE_COPIED:
+      {
+        Hip_mem * hmem = get_file(input.get_zero_string(len));
+        check1(EPROTO, !hmem || !len);
+
+        unsigned long long foffset;
+        check1(EPROTO, input.get_word(foffset));
+        if (foffset > hmem->size) return ERESOURCE;
+
+        //XXX handle multiple map items !!!
+        //input.dump_typed_items();
+
+        unsigned long addr = input.received_item();
+        if (!(addr >> 12)) return EPROTO;
+
+        unsigned long long csize = hmem->size - foffset;
+        if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
+        if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
+
+        //XXX pagefault handler must recognize this window in case of pagefault
+        memcpy(reinterpret_cast<void *>(addr & ~0xffful), reinterpret_cast<void *>(hmem->addr + foffset), csize); 
       }
       return ENONE;
     case FsProtocol::TYPE_GET_FILE_MAPPED:
@@ -100,7 +125,7 @@ public:
 
 PARAM(service_romfs,
       Service_fs *t = new Service_fs(mb);
-      MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), reinterpret_cast<unsigned long>(t));
+      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), false);
       msg.ptr = const_cast<char *>("/fs/rom");
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");

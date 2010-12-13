@@ -412,7 +412,10 @@ struct MessageHostOp
       OP_VCPU_RELEASE,
       OP_REGISTER_SERVICE,
     } type;
-  unsigned long value;
+  union {
+    unsigned long value;
+    void * obj;
+  };
   union {
     struct {
       unsigned long phys;
@@ -421,6 +424,7 @@ struct MessageHostOp
     struct {
       char *ptr;
       unsigned long len;
+      bool cap;
     };
     struct {
       unsigned module;
@@ -444,6 +448,7 @@ struct MessageHostOp
   MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
   MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
+  MessageHostOp(void * _obj, Type _type, unsigned long _len=0, bool _cap = true) : type(_type), obj(_obj), ptr(0), len(_len), cap(_cap) {}
 };
 
 

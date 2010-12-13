@@ -181,7 +181,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
     Utcb *u = 0;
-    unsigned cap = create_ec_helper(reinterpret_cast<unsigned>(this), _cpunr[CPUGSI % _numcpus], 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
+    unsigned cap = create_ec_helper(this, _cpunr[CPUGSI % _numcpus], 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
@@ -313,6 +313,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("'\n");
   }
 
+  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+
   unsigned create_worker_threads(Hip *hip, int cpunr) {
     for (int i = 0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
 
@@ -322,12 +324,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;
       _cpunr[_numcpus++] = i;
-      _percpu[i].cap_ec_echo = create_ec_helper(reinterpret_cast<unsigned>(this), i);
+      _percpu[i].cap_ec_echo = create_ec_helper(this, i);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
       Utcb *utcb = 0;
-      _percpu[i].cap_ec_worker = create_ec_helper(reinterpret_cast<unsigned>(this), i, 0, &utcb);
+      _percpu[i].cap_ec_worker = create_ec_helper(this, i, 0, &utcb);
       // initialize the receive window
       utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 
@@ -546,23 +548,23 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       return __LINE__;
     }
 
-    fileinfo.size = (fileinfo.size + 0xfff) & ~0xffful;
-    unsigned order = Cpu::bsr(fileinfo.size | 1) == Cpu::bsf(fileinfo.size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(fileinfo.size | 1) : Cpu::bsr(fileinfo.size | 1) + 1;
-    unsigned long virt = _free_virt.alloc(1 << order, order), offset = 0;
-    if (!virt) return __LINE__;
-    if (rom_fs->get_file_map(*utcb, virt, order - 12, offset, cmdline + 6, namelen)) {
-      _free_virt.add(Region(virt, 1 << order));
-      return __LINE__;
-    }
-    if (offset > (1 << order) - fileinfo.size) {
-      revoke_all_mem(reinterpret_cast<void *>(virt), 1 << order, DESC_MEM_ALL, true);
-      _free_virt.add(Region(virt, 1 << order));
+    unsigned long long msize = (fileinfo.size + 0xfff) & ~0xffful;
+    unsigned long long physaddr = _free_phys.alloc(msize, 12);
+    if (!physaddr || !msize) return __LINE__;
+    unsigned long addr = reinterpret_cast<unsigned long >(map_self(utcb, physaddr, msize));
+    if (!addr) return __LINE__;
+    if (rom_fs->get_file_copy(*utcb, addr, fileinfo.size, cmdline + 6, namelen)) {
+      Logging::printf("Getting file failed %s.\n", cmdline + 6);
       return __LINE__;
     }
 
-    unsigned res = _start_config(utcb, reinterpret_cast<char *>(virt + offset), fileinfo.size, cmdline);
-    revoke_all_mem(reinterpret_cast<void *>(virt), 1 << order, DESC_MEM_ALL, true);
-    _free_virt.add(Region(virt, 1 << order));
+    unsigned res = _start_config(utcb, reinterpret_cast<char *>(addr), fileinfo.size, cmdline);
+
+    //don't try to unmap from ourself "revoke(..., true)"
+    //map_self may return a already mapped page (backed by 4M) which contains the requested phys. page
+    //revoking a small junk of a larger one unmaps the whole area ...
+    revoke_all_mem(reinterpret_cast<void *>(addr), msize, DESC_MEM_ALL, false);
+    _free_phys.add(Region(physaddr, msize));
     return res;
   }
 
@@ -960,7 +962,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
-	  unsigned ec_cap = create_ec_helper(msg.value, _cpunr[CPUGSI % _numcpus], 0, 0, msg.ptr);
+	  unsigned ec_cap = create_ec_helper(msg.obj, _cpunr[CPUGSI % _numcpus], 0, 0, msg.ptr);
 	  unsigned prio;
 	  if (msg.len == ~0u)
 	    prio = 1;		// IDLE
@@ -993,12 +995,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  for (unsigned i = 0; i < _numcpus; i++) {
 	    unsigned cpu = _cpunr[i];
 	    Utcb *utcb;
-	    unsigned ec_cap = create_ec_helper(msg.len, cpu, 0, &utcb);
-	    utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+	    unsigned ec_cap = create_ec_helper(msg.obj, cpu, 0, &utcb);
+	    if (msg.cap)
+	      utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+	    else {
+	      unsigned long addr = _free_virt.alloc(1 << 22, 22);
+	      if (!addr) return false;
+	      utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
+	    }
 	    unsigned pt = alloc_cap();
-	    check1(false, nova_create_pt(pt, ec_cap, msg.value, 0));
+	    check1(false, nova_create_pt(pt, ec_cap, msg.len, 0));
 	    check1(false, ParentProtocol::register_service(*myutcb(), msg.ptr, cpu, pt, service_cap));
-	    Logging::printf("service registered on cpu %x\n", cpu);
+	    Logging::printf("service registered on cpu %x crd=%x\n", cpu, utcb->head.crd);
 	  }
 	  // XXX transfer the service_cap back
 	}

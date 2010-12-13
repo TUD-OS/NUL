@@ -317,7 +317,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
-    unsigned cap_ec = create_ec_helper(reinterpret_cast<unsigned long>(this), myutcb()->head.nul_cpunr, PT_IRQ, &utcb, reinterpret_cast<void *>(func));
+    unsigned cap_ec = create_ec_helper(this, myutcb()->head.nul_cpunr, PT_IRQ, &utcb, reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
     utcb->head.untyped = 3;
     utcb->head.typed = 0;
@@ -342,7 +342,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _console_data.lock.sem = sem;
 
     // create exception EC
-    unsigned cap_ex = create_ec_helper(reinterpret_cast<unsigned long>(this),  myutcb()->head.nul_cpunr);
+    unsigned cap_ex = create_ec_helper(this,  myutcb()->head.nul_cpunr);
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
       if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
@@ -355,7 +355,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned create_vcpu(VCpu *vcpu, bool use_svm, unsigned cpunr)
   {
     // create worker
-    unsigned cap_worker = create_ec_helper(reinterpret_cast<unsigned long>(vcpu), cpunr, true);
+    unsigned cap_worker = create_ec_helper(vcpu, cpunr, true);
 
     // create portals for VCPU faults
 #undef VM_FUNC
@@ -599,25 +599,8 @@ public:
           if (rom_fs->get_file_info(*myutcb(), fileinfo, name, nlen)) return false; 
 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
-          if (msg.size < ((msg_start + fileinfo.size + 0xffful) & ~0xffful) - msg_start + slen) return false;
-
-          // using map feature of fs
-          unsigned long file_size  = (fileinfo.size + 0xffful) & ~0xffful;
-          unsigned order = Cpu::bsr(file_size | 1) == Cpu::bsf(file_size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(file_size | 1) : Cpu::bsr(file_size | 1) + 1;
-          unsigned long virt_start = _free_virt.alloc(1 << order, order), offset = 0;
-          unsigned res;
-
-          if (!virt_start) return false;
-          if (!(res = rom_fs->get_file_map(*myutcb(), virt_start, order - 12, offset, name, nlen))) {
-            if (offset > (1 << order) - file_size) //don't fail if fs tries to cheat us
-              res = EPROTO;
-            else
-              memcpy(msg.start, reinterpret_cast<void *>(virt_start + offset), fileinfo.size);
-          }
-          revoke_all_mem(reinterpret_cast<void *>(virt_start), 1 << order, DESC_MEM_ALL, true);
-          _free_virt.add(Region(virt_start, 1 << order));
-          if (res) return false;
-
+          if (rom_fs->get_file_copy(*myutcb(), msg_start, fileinfo.size, name, nlen)) return false;
+          
           //align the end of the module to get the cmdline on a new page.
           char *s = reinterpret_cast<char *>((msg_start + fileinfo.size + 0xffful) & ~0xffful);
           memcpy(s, cmdline, slen - 1);
@@ -664,7 +647,7 @@ public:
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
 	{
-	  unsigned ec_cap = create_ec_helper(msg.value, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
+	  unsigned ec_cap = create_ec_helper(msg.obj, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
 	  // XXX Priority?
 	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
 	}

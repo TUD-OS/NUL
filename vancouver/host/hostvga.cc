@@ -467,7 +467,7 @@ public:
     _worker = KernelSemaphore(_timer_service->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this));
+    MessageHostOp msg5(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD);
     msg5.ptr = reinterpret_cast<char *>(do_work);
     if (!_mb.bus_hostop.send(msg5))
       Logging::panic("%s alloc service thread failed", __func__);

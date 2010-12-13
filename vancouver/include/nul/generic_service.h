@@ -139,9 +139,9 @@ template <class C> struct StaticPortalFunc {
     utcb->msg[0] = tls->portal_func(*utcb, input, free_cap);
     utcb->skip_frame();
     if (free_cap)
-      nova_revoke(Crd(input.received_cap(), 0, DESC_CAP_ALL), true);
+      nova_revoke(Crd(utcb->head.crd), true);
     else if (input.received_cap())
-      utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+      utcb->head.crd = tls->alloc_crd();
     asmlinkage_protect("g"(tls), "g"(utcb));
   }
 };

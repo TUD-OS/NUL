@@ -75,11 +75,15 @@ struct Utcb
     unsigned _consumed;
   public:
 
-    unsigned received_cap() {
+    unsigned received_item(unsigned skip=0) {
       for (unsigned i=0; i < _utcb->head.typed; i++)
-	if (_utcb->msg[_end - i * 2 - 1] & 1)
-	  return Crd(_utcb->msg[_end - i * 2 - 2]).cap();
+        if (_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
+          return _utcb->msg[_end - i * 2 - 2];
       return 0;
+    }
+
+    unsigned received_cap() {
+      return Crd(received_item()).cap();
     }
 
     Crd translated_cap(unsigned skip=0) {
@@ -161,8 +165,8 @@ struct Utcb
 
   struct String {
     const char * value;
-    unsigned long long len;
-    String (const char *_value, unsigned long long _len = ~0ULL) : value(_value), len(_len) {}
+    unsigned long len;
+    String (const char *_value, unsigned long _len = ~0UL) : value(_value), len(_len == ~0UL ? strlen(_value) + 1 : _len) {}
   };
 
   /**
@@ -237,12 +241,11 @@ struct Utcb
   }
 
   Utcb &  operator <<(String string) {
+    // Ever send a extra byte so that receiver has place to put a 0 behind the string (see get_zero_string)
+    // add len of string so that receiver has not to scan for the end of the string or has to rely on a 0 termination
+    // len also required to stream words after a string
     unsigned olduntyped = head.untyped;
-    unsigned slen;
-    if (string.len == ~0ULL)
-      slen = strlen(string.value) + 1;
-    else
-      slen = string.len + 1;
+    unsigned slen = string.len + 1;
     msg[olduntyped] = slen;
     head.untyped += 1 + (slen + sizeof(unsigned) - 1 ) / sizeof(unsigned);
     msg[head.untyped - 1] = 0;

@@ -68,16 +68,16 @@ class NovaProgram : public BaseProgram
   /**
    * Create an ec and setup the stack.
    */
-  unsigned  create_ec_helper(unsigned long tls, unsigned cpunr, unsigned excbase = 0, Utcb **utcb_out=0, void *func=0)
+  template <class C>
+  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase = 0, Utcb **utcb_out=0, void *func=0, unsigned cap = alloc_cap())
   {
     unsigned stack_top = stack_size/sizeof(void *);
-    unsigned cap = alloc_cap();
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_top];
     stack[--stack_top] = utcb; // push UTCB -- needed for myutcb()
-    stack[--stack_top] = reinterpret_cast<void *>(tls);
+    stack[--stack_top] = tls;
     stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
-    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %lx\n",
+    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %p\n",
 		    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
     check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
     utcb->head.nul_cpunr = cpunr;

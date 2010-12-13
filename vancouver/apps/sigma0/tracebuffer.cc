@@ -52,6 +52,8 @@ class Tracebuffer {
   }
 
 public:
+  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     ClientData *data = 0;
     unsigned res = ENONE;
@@ -106,7 +108,7 @@ public:
 PARAM(tracebuffer,
       unsigned long size = ~argv[0] ? argv[0] : 32768;
       Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1]);
-      MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), reinterpret_cast<unsigned long>(t));
+      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
       msg.ptr = const_cast<char *>("/log");
       if (!mb.bus_hostop.send(msg))
 	Logging::panic("registering the service failed");

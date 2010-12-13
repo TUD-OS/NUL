@@ -104,6 +104,8 @@ class TimerService : public StaticReceiver<TimerService> {
 
 public:
 
+  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     ClientData *data = 0;
     unsigned res = ENONE;
@@ -221,7 +223,7 @@ public:
     _mymb.parse_args("hostpit:1000,0x40,2 hosthpet");
 
     // create the worker thread
-    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, reinterpret_cast<unsigned long>(this), 1);
+    MessageHostOp msg2(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD, 1);
     msg2.ptr = reinterpret_cast<char *>(TimerService::do_work);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
@@ -231,7 +233,7 @@ public:
 PARAM(service_timer,
       TimerService * t = new TimerService(mb);
 
-      MessageHostOp msg(MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), reinterpret_cast<unsigned long>(t));
+      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
       msg.ptr = const_cast<char *>("/timer");
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering timer service failed");
