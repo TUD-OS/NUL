@@ -109,11 +109,11 @@ public:
       Logging::printf("_wait_sm[%u] = %x\n", i, _wait_sm[i]);
 
       unsigned cap_off = 0x10000 + c*0x20;
-      unsigned exc_ec = create_ec_helper(0xDEAD, c);
+      unsigned exc_ec = create_ec_helper(this, c);
       nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), MTD_RSP | MTD_RIP_LEN);
 
 
-      unsigned ec_cap = create_ec_helper(reinterpret_cast<mword>(this), c, cap_off, 0, reinterpret_cast<void *>(&idle_thread));
+      unsigned ec_cap = create_ec_helper(this, c, cap_off, 0, reinterpret_cast<void *>(&idle_thread));
 
       if (0 != nova_create_sc(alloc_cap(), ec_cap, Qpd(4, 10000)))
 	Logging::panic("SC");
