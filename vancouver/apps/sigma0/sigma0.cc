@@ -990,35 +990,35 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	msg.mac = get_mac(_mac++ * MAXMODULES);
 	break;
       case MessageHostOp::OP_REGISTER_SERVICE:
-	{
-	  unsigned service_cap = alloc_cap();
-	  for (unsigned i = 0; i < _numcpus; i++) {
-	    Utcb *utcb;
-	    unsigned cpu = _cpunr[i];
-	    unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
-	    unsigned pt = alloc_cap();
-      if (!ec_cap || !utcb || !pt) return false;
-	    if (msg.cap)
-	      utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
-	    else {
-	      unsigned long addr = _free_virt.alloc(1 << 22, 22);
-	      if (!addr) return false;
-	      utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
-	    }
-	    check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
-	    check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
-	    Logging::printf("service registered on cpu %x\n", cpu);
-      if (msg.portal_pf) {
-	      unsigned ec_pf = create_ec_helper(msg.obj, cpu, 0, &utcb);
-        if (!ec_pf || !utcb) return false;
-        utcb->head.crd = 0;
-	      check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));
+      {
+        unsigned service_cap = alloc_cap();
+        for (unsigned i = 0; i < _numcpus; i++) {
+          Utcb *utcb;
+          unsigned cpu = _cpunr[i];
+          unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
+          unsigned pt = alloc_cap();
+          if (!ec_cap || !utcb || !pt) return false;
+          if (msg.cap)
+            utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+          else {
+            unsigned long addr = _free_virt.alloc(1 << 22, 22);
+            if (!addr) return false;
+            utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
+          }
+          check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
+          check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
+          Logging::printf("service registered on cpu %x\n", cpu);
+          if (msg.portal_pf) {
+            unsigned ec_pf = create_ec_helper(msg.obj, cpu, 0, &utcb);
+            if (!ec_pf || !utcb) return false;
+            utcb->head.crd = 0;
+            check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));
+          }
+          msg.excbase += msg.excinc;
+        }
+        // XXX transfer the service_cap back
       }
-      msg.excbase += msg.excinc;
-	  }
-	  // XXX transfer the service_cap back
-	}
-	break;
+      break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
