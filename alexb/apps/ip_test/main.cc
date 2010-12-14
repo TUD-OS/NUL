@@ -2,11 +2,13 @@
  * (C) 2010 Alexander Boettcher
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
- * This is free software: you can redistribute it and/or
+ * This file is part of NUL (NOVA user land).
+ *
+ * NUL is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
  * 2 as published by the Free Software Foundation.
  *
- * This is distributed in the hope that it will be useful,
+ * NUL is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
@@ -66,7 +68,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
         return false;
 
 
-	    MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0);
+	    MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
       res = Sigma0Base::hostop(msg_op);
       Logging::printf("got mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx - %s\n",
                       (msg_op.mac >> 40) & 0xFF,
