@@ -377,7 +377,7 @@ public:
 
 PARAM(rtl8029_vnet,
       {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
+	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
 	if (!mb.bus_hostop.send(msg))  Logging::panic("Could not get a MAC address");
 	Rtl8029Vnet *dev = new Rtl8029Vnet(mb.bus_vnet, mb.bus_hostop, mb.bus_irqlines, argv[1], msg.mac, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
 	mb.bus_pcicfg.add (dev, Rtl8029Vnet::receive_static<MessagePciConfig>);

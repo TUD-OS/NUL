@@ -108,8 +108,7 @@ public:
 PARAM(tracebuffer,
       unsigned long size = ~argv[0] ? argv[0] : 32768;
       Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1]);
-      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
-      msg.ptr = const_cast<char *>("/log");
+      MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
       if (!mb.bus_hostop.send(msg))
 	Logging::panic("registering the service failed");
       ,

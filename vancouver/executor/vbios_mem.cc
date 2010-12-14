@@ -33,7 +33,7 @@ class VirtualBiosMem : public StaticReceiver<VirtualBiosMem>, public BiosCommon
    */
   unsigned long memsize()
   {
-    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
+    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0UL);
     if (!_bus_hostop.send(msg1))
       Logging::panic("%s can't get physical memory size", __PRETTY_FUNCTION__);
     return msg1.len;

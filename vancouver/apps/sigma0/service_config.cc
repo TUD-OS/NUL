@@ -71,8 +71,7 @@ public:
 
 PARAM(service_config,
       Service_config *service_config = new Service_config(mb);
-      MessageHostOp msg(service_config, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
-      msg.ptr = const_cast<char *>("/config");
+      MessageHostOp msg(service_config, "/config", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");
       Logging::printf("start service - config\n");

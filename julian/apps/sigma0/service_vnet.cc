@@ -808,7 +808,7 @@ public:
 
     mb.bus_vnet.add(this, receive_static<MessageVirtualNet>);
 
-    MessageHostOp msg2(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD, ~0u);
+    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, ~0ul);
     msg2.ptr = reinterpret_cast<char *>(VirtualNet::do_work);
     if (!mb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed.", __func__);

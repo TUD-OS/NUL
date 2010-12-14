@@ -55,7 +55,7 @@ public:
 
 PARAM(mem,
       {
-	MessageHostOp msg(MessageHostOp::OP_GUEST_MEM, 0);
+	MessageHostOp msg(MessageHostOp::OP_GUEST_MEM, 0UL);
 	if (!mb.bus_hostop.send(msg))
 	  Logging::panic("%s failed to get physical memory\n", __PRETTY_FUNCTION__);
 	unsigned long start = ~argv[0] ? argv[0] : 0;

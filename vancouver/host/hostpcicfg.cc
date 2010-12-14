@@ -55,7 +55,7 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
 
 PARAM(pcicfg,
       {
-	MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
+	MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
 	check0(!mb.bus_hostop.send(msg0), "%s could not allocate semaphore\n", __PRETTY_FUNCTION__);
 
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (PciConfigAccess::BASE << 8) | 3);

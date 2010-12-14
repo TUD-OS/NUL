@@ -125,7 +125,7 @@ struct Script : public StaticReceiver<Script> {
     _worker = KernelSemaphore(_service_timer->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD, 1);
+    MessageHostOp msg(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1);
     msg.ptr = reinterpret_cast<char *>(Script::do_work);
     if (!mb->bus_hostop.send(msg))
       Logging::panic("%s alloc service thread failed", __func__);

@@ -24,7 +24,7 @@ struct ClientData : public GenericClientData {
   unsigned        len;
   static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
     Utcb::Frame input = utcb.get_nested_frame();
-    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, input.identity(1), input.identity(0));
+//    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, input.identity(1), input.identity(0));
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
       char const *cmdline = get_module_cmdline(input);
@@ -153,7 +153,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       // search for an allowed namespace
       char const * cmdline = get_module_cmdline(input);
       if (!cmdline) return EPROTO;
-      Logging::printf("\tregister client %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cmdline, request);
+      Logging::printf("\tregister client %x @ cpu %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, cmdline, request);
       cmdline = strstr(cmdline, "namespace::");
       if (!cmdline) return EPERM;
       cmdline += 11;

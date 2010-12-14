@@ -100,7 +100,7 @@ namespace js {
 
       Sigma0Base::request_vnet_attach(utcb, _timer_service->get_notify_sm());
 
-      MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0);
+      MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
       res = Sigma0Base::hostop(msg_op);
       EthernetAddr mac(Endian::hton64(msg_op.mac) >> 16);
       Logging::printf("got mac " MAC_FMT " - %s\n",

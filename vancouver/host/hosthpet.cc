@@ -182,7 +182,7 @@ public:
       }
       else {
 	// MSI?
-	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0, 1);
+	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0UL, 1);
 	if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1)) {
 	  _irq = msg1.msi_gsi;
 	  _timerreg->msi[0] = msg1.msi_value;

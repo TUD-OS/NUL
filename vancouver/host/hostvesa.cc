@@ -243,7 +243,7 @@ public:
     _mb.bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
 
 
-    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0 , 1<<20);
+    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0UL , 1<<20);
     if (!_hostmb.bus_hostop.send(msg) || !msg.ptr)
       Logging::panic("%s could not map the first megabyte", __PRETTY_FUNCTION__);
     _mem = msg.ptr;

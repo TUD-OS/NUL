@@ -77,8 +77,8 @@ class NovaProgram : public BaseProgram
     stack[--stack_top] = utcb; // push UTCB -- needed for myutcb()
     stack[--stack_top] = tls;
     stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
-    Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %p\n",
-		    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
+    //Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %p\n",
+		//    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
     check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
     utcb->head.nul_cpunr = cpunr;
     if (utcb_out)

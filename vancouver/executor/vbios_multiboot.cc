@@ -91,7 +91,7 @@ private:
    */
   unsigned long init_mbi(unsigned long &rip) {
 
-    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0);
+    MessageHostOp msg1(MessageHostOp::OP_GUEST_MEM, 0UL);
     if (!(_mb.bus_hostop.send(msg1))) Logging::panic("could not find base address %x\n", 0);
     char *physmem = msg1.ptr;
     unsigned long memsize = msg1.len;

@@ -426,7 +426,7 @@ public:
 
 PARAM(82576vf_vnet,
       {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
+	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
 	Model82576vf_vnet *dev = new Model82576vf_vnet(hton64(msg.mac) >> 16,

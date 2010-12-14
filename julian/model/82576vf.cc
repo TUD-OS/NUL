@@ -948,7 +948,7 @@ public:
 
 PARAM(82576vf,
       {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0);
+	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
 	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
 	Model82576vf *dev = new Model82576vf(hton64(msg.mac) >> 16,

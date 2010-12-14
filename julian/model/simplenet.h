@@ -215,7 +215,7 @@ public:
   VancouverMemory(DBus<MessageHostOp> &bus_hostop)
     : _bus_hostop(bus_hostop)
   {
-    MessageHostOp conv(MessageHostOp::OP_GUEST_MEM, 0);
+    MessageHostOp conv(MessageHostOp::OP_GUEST_MEM, 0UL);
     if (not _bus_hostop.send(conv) or (conv.ptr == NULL))
       Logging::panic("Could not convert VM pointer?\n");
     offset = reinterpret_cast<mword>(conv.ptr);

@@ -203,7 +203,7 @@ public:
 
   TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())) {
 
-    MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0);
+    MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
     if (!hostmb.bus_hostop.send(msg0))
       Logging::panic("%s alloc semaphore failed", __func__);
     _worker = KernelSemaphore(msg0.value);
@@ -223,7 +223,7 @@ public:
     _mymb.parse_args("hostpit:1000,0x40,2 hosthpet");
 
     // create the worker thread
-    MessageHostOp msg2(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD, 1);
+    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1UL);
     msg2.ptr = reinterpret_cast<char *>(TimerService::do_work);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
@@ -233,8 +233,7 @@ public:
 PARAM(service_timer,
       TimerService * t = new TimerService(mb);
 
-      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
-      msg.ptr = const_cast<char *>("/timer");
+      MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering timer service failed");
       ,

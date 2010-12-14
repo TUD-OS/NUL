@@ -447,7 +447,7 @@ public:
 	// its a textmode, belief me
 	_modeinfo.attr = 1;
 
-    MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0, 0x1000);
+    MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0UL, 0x1000);
     if (_mb.bus_hostop.send(msg2) && msg2.ptr) {
       unsigned vec = reinterpret_cast<unsigned *>(msg2.ptr)[0x43];
       unsigned ofs = (vec & 0xffff) + ((vec >> 12) & 0xffff0);
@@ -467,7 +467,7 @@ public:
     _worker = KernelSemaphore(_timer_service->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg5(this, MessageHostOp::OP_ALLOC_SERVICE_THREAD);
+    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this);
     msg5.ptr = reinterpret_cast<char *>(do_work);
     if (!_mb.bus_hostop.send(msg5))
       Logging::panic("%s alloc service thread failed", __func__);

@@ -422,9 +422,16 @@ struct MessageHostOp
       unsigned long phys_len;
     };
     struct {
+      char const *service_name;
+      unsigned long portal_func;
+      bool cap;
+      unsigned long portal_pf;
+      unsigned excbase;
+      unsigned excinc;
+    };
+    struct {
       char *ptr;
       unsigned long len;
-      bool cap;
     };
     struct {
       unsigned module;
@@ -445,10 +452,12 @@ struct MessageHostOp
       VCpu *vcpu;
     };
   };
-  MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
-  MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
-  MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
-  MessageHostOp(void * _obj, Type _type, unsigned long _len=0, bool _cap = true) : type(_type), obj(_obj), ptr(0), len(_len), cap(_cap) {}
+  explicit MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
+  explicit MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
+  explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
+  explicit MessageHostOp(Type _type, void * _value, unsigned long _len=0) : type(_type), obj(_value), ptr(0), len(_len) {}
+  explicit MessageHostOp(void * _obj, char const * _name, unsigned long _pfu, bool _cap = true)
+    : type(OP_REGISTER_SERVICE), obj(_obj), service_name(_name), portal_func(_pfu), cap(_cap), portal_pf(0), excbase(0), excinc(0) {}
 };
 
 

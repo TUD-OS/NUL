@@ -19,18 +19,28 @@
 #include "nul/motherboard.h"
 #include "nul/generic_service.h"
 #include "nul/service_fs.h"
+#include "nul/region.h"
+#include "nul/baseprogram.h"
 
 class Service_fs {
   Hip * hip;
   unsigned _rights;
+  RegionList<8> * cap_range;
 
-  #define RECV_WINDOW_SIZE (1 << 22)
+  static const unsigned long RECV_WINDOW_SIZE = (1 << 22);
+  static char * backup_page;
 
 public:
-  Service_fs(Motherboard &mb, bool readonly = true ) : hip(mb.hip()), _rights(readonly ? DESC_RIGHT_R : DESC_RIGHTS_ALL) {}
+  Service_fs(Motherboard &mb, unsigned cap_start, unsigned cap_size, bool readonly = true )
+    : hip(mb.hip()), _rights(readonly ? DESC_RIGHT_R : DESC_RIGHTS_ALL)
+  {
+    cap_range = new RegionList<8>;
+    cap_range->add(Region(cap_start, cap_size));
+    backup_page = new (0x1000) char [0x1000];
+  }
 
-  //inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
-  unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new one"); }
+  inline unsigned alloc_cap(unsigned num = 1, unsigned align = 0) { return cap_range->alloc(num, align); }
+  unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new ones"); }
 
   Hip_mem * get_file(char const * text) {
     Hip_mem *hmem;
@@ -46,6 +56,25 @@ public:
     }
 
     return 0;
+  }
+
+  static void portal_pagefault(Service_fs *tls, Utcb *utcb) __attribute__((regparm(0)))
+  {
+    //XXX sanity checks ?  whether stack and utcb is reasonable ...
+    Utcb * utcb_wo = BaseProgram::myutcb(utcb->esp);
+
+    //Logging::printf("worker utcb %p region %x order %x\n", utcb_wo, utcb_wo->get_nested_frame().get_crd() >> 12, (utcb_wo->get_nested_frame().get_crd() >> 7) & 0x1f);
+    unsigned long region_start = utcb_wo->get_nested_frame().get_crd() >> 12;
+    unsigned long region_end = region_start + ((utcb_wo->get_nested_frame().get_crd() >> 7) & 0x1f);
+
+    if ((region_start <= (utcb->qual[1] & ~0xffful)) && ((utcb->qual[1] & ~0xffful) < region_end))
+      Logging::panic("got #PF at %llx eip %x esp %x error %llx\n", utcb->qual[1], utcb->eip, utcb->esp, utcb->qual[0]);
+
+    utcb_wo->head.res = 1; //flag abort
+    utcb->head.mtr = 0;
+    utcb->mtd = 0;
+    BaseProgram::add_mappings(utcb, reinterpret_cast<unsigned long>(backup_page), 0x1000, (utcb->qual[1] & ~0xffful) | MAP_MAP, DESC_MEM_ALL);
+    asmlinkage_protect("g"(tls), "g"(utcb));
   }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
@@ -67,20 +96,29 @@ public:
 
         unsigned long long foffset;
         check1(EPROTO, input.get_word(foffset));
-        if (foffset > hmem->size) return ERESOURCE;
+        check1(ERESOURCE, foffset > hmem->size);
 
         //XXX handle multiple map items !!!
         //input.dump_typed_items();
 
         unsigned long addr = input.received_item();
-        if (!(addr >> 12)) return EPROTO;
+        check1(EPROTO, !(addr >> 12));
 
         unsigned long long csize = hmem->size - foffset;
         if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
         if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
 
-        //XXX pagefault handler must recognize this window in case of pagefault
-        memcpy(reinterpret_cast<void *>(addr & ~0xffful), reinterpret_cast<void *>(hmem->addr + foffset), csize); 
+        unsigned long _addr = addr & ~0xffful;
+        unsigned long long _size = csize;
+        while (!utcb.head.res && _size <= csize) {
+          memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem->addr + foffset), 0x1000); 
+          _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
+        }
+        //Logging::printf("abort %x _size %llx foffset %llx\n", utcb.head.res, _size, foffset);
+        if (utcb.head.res) { //got pf
+          utcb.head.res = 0;
+          return ERESOURCE;
+        }
       }
       return ENONE;
     case FsProtocol::TYPE_GET_FILE_MAPPED:
@@ -123,11 +161,15 @@ public:
 
 };
 
+char * Service_fs::backup_page;
+
 PARAM(service_romfs,
-      Service_fs *t = new Service_fs(mb);
-      MessageHostOp msg(t, MessageHostOp::OP_REGISTER_SERVICE, reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), false);
-      msg.ptr = const_cast<char *>("/fs/rom");
-      if (!mb.bus_hostop.send(msg))
+      Service_fs *t = new Service_fs(mb, alloc_cap(15 + mb.hip()->cpu_count() * 16), 15 + mb.hip()->cpu_count() * 16);
+      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), false);
+      msg.portal_pf = reinterpret_cast<unsigned long>(Service_fs::portal_pagefault);
+      msg.excbase = t->alloc_cap(16 * mb.hip()->cpu_count(), 4);
+      msg.excinc  = 4;
+      if (!msg.excbase || !mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");
       Logging::printf("start service - romfs\n");
       ,
