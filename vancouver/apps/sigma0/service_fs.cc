@@ -108,17 +108,15 @@ public:
         if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
         if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
 
+        utcb.head.res = 0; //set pf indicator to off
         unsigned long _addr = addr & ~0xffful;
         unsigned long long _size = csize;
-        while (!utcb.head.res && _size <= csize) {
+        while (!utcb.head.res && _size && _size <= csize) {
           memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem->addr + foffset), 0x1000); 
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
-        //Logging::printf("abort %x _size %llx foffset %llx\n", utcb.head.res, _size, foffset);
-        if (utcb.head.res) { //got pf
-          utcb.head.res = 0;
-          return ERESOURCE;
-        }
+        //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
+        if (utcb.head.res) return ERESOURCE; //got pf
       }
       return ENONE;
     case FsProtocol::TYPE_GET_FILE_MAPPED:
