@@ -595,7 +595,7 @@ public:
           else slen = strlen(cmdline) + 1;
 
           //lookup file
-          FsProtocol::dirent fileinfo;
+          FsProtocol::dirent fileinfo = {0,0};
           if (rom_fs->get_file_info(*myutcb(), fileinfo, name, nlen)) return false; 
 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);

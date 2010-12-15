@@ -71,8 +71,8 @@ struct FsProtocol : public GenericProtocol {
 
       res = call_server(init_frame(utcb, TYPE_GET_FILE_COPIED) << Utcb::String(name, name_len) << file_offset 
                      << Utcb::TypedMapCap((addr + file_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), true);
-      file_offset += 1 << order;
-      file_size   -= (1 << order) > file_size ? file_size : (1 << order);
+      file_offset += 1ULL << order;
+      file_size   -= (1ULL << order) > file_size ? file_size : (1ULL << order);
     }
     return res;
   }

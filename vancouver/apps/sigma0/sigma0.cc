@@ -542,7 +542,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
     unsigned namelen = strcspn(cmdline + 6, " \t\r\n\f");
 
-    FsProtocol::dirent fileinfo;
+    FsProtocol::dirent fileinfo = {0,0};
     if (rom_fs->get_file_info(*utcb, fileinfo, cmdline + 6, namelen)) {
       Logging::printf("File not found %s.\n", cmdline + 6);
       return __LINE__;
