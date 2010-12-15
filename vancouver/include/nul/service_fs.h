@@ -58,21 +58,21 @@ struct FsProtocol : public GenericProtocol {
    * Caller maps its own memory to the fileservice and the fileservice copies the data into the provided memory.
    * Service has to take care that memory may be revoked by the client at anytime!
    */
-  unsigned get_file_copy(Utcb &utcb, unsigned long addr, unsigned long long file_size, const char * name, unsigned long name_len = ~0UL) {
-    unsigned long long file_offset = 0;
+  unsigned get_file_copy(Utcb &utcb, unsigned long addr, unsigned long long addr_size, const char * name, unsigned long name_len = ~0UL, unsigned long long file_offset = 0) {
+    unsigned long local_offset = 0;
     unsigned res = 0, order;
-    assert (!(addr & 0xffful) && file_size);
+    assert (!(addr & 0xffful) && addr_size);
 
     //XXX support multiple send items 
-    while(!res && file_size) {
-      order = Cpu::minshift(file_offset + addr, ((file_size + 0xfffull) & ~0xfffull));
+    while(!res && addr_size) {
+      order = Cpu::minshift(local_offset + addr, ((addr_size + 0xfffull) & ~0xfffull));
       assert (order >= 12);
       if (order > 22) order = 22;
 
-      res = call_server(init_frame(utcb, TYPE_GET_FILE_COPIED) << Utcb::String(name, name_len) << file_offset 
-                     << Utcb::TypedMapCap((addr + file_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), true);
-      file_offset += 1ULL << order;
-      file_size   -= (1ULL << order) > file_size ? file_size : (1ULL << order);
+      res = call_server(init_frame(utcb, TYPE_GET_FILE_COPIED) << Utcb::String(name, name_len) << file_offset
+                     << Utcb::TypedMapCap((addr + local_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), true);
+      file_offset += 1ULL << order; local_offset += 1UL << order;
+      addr_size   -= (1ULL << order) > addr_size ? addr_size : (1ULL << order);
     }
     return res;
   }
