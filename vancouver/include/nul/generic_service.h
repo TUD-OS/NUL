@@ -91,7 +91,7 @@ public:
   }
 
 
-  unsigned free_client_data(Utcb &utcb, T *data) {
+  unsigned free_client_data(Utcb &utcb, T *data, bool free_pseudonym = true) {
     for (T **prev = &_head; *prev; prev = reinterpret_cast<T **>(&(*prev)->next))
       if (*prev == data) {
 	*prev = reinterpret_cast<T *>(data->next);
@@ -100,7 +100,7 @@ public:
 	T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
 	data->session_close(utcb);
 	dealloc_cap(data->identity);
-	dealloc_cap(data->pseudonym);
+	if (free_pseudonym) dealloc_cap(data->pseudonym);
 	delete data;
 	return ENONE;
       }
