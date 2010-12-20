@@ -103,9 +103,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   } _modinfo[MAXMODULES];
   unsigned _mac;
 
-  //Client part of romfs
-  FsProtocol * rom_fs;
-
   // Hip containing virtual address for aux, use _hip if physical addresses are needed
   Hip * __hip;
 
@@ -265,8 +262,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
-
-    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/rom");
 
     init_disks();
     init_network();
@@ -520,51 +515,65 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     char const *cmdline = 0;
     Hip_mem *mod;
     unsigned configs = 0;
-    unsigned i;
+    unsigned i, len;
 
     for (i=1; mod = __hip->get_mod(i); i++) {
       cmdline = reinterpret_cast<char const *>(mod->aux);
       if (mod->size != 1) continue;
       if (configs++ == which) break;
     }
-    if (!mod) {
-      Logging::printf("Configuration %u not found!\n", which);
-      return __LINE__;
-    }
-    return start_config(utcb, strstr(cmdline,"rom://"));
+    if (!mod) { Logging::printf("Configuration %u not found!\n", which); return __LINE__; }
+    if (!(len = strcspn(cmdline, " \t\r\n\f"))) { Logging::printf("Could not parse file service name\n"); return __LINE__; }
+    cmdline += len;
+    cmdline += strspn(cmdline, " \t\r\n\f");
+    return start_config(utcb, cmdline);
   }
 
   unsigned start_config(Utcb *utcb, char const * cmdline)
   {
-    if (!cmdline || memcmp(cmdline, "rom://", 6)) { //we solely support rom for now
-      Logging::printf("No file found, missing rom://!\n");
+    char const * file_name;
+    if (!cmdline || !(file_name = strstr(cmdline, "://")) ||
+         cmdline + strcspn(cmdline, " \t\r\n\f") < file_name) //don't allow some characters in fs name
+    {
+      Logging::printf("Could not parse file service name\n");
       return __LINE__;
     }
-    unsigned namelen = strcspn(cmdline + 6, " \t\r\n\f");
+    if (file_name - cmdline > 64 - 4) { Logging::printf("file service name too long"); return __LINE__; }
+    char fs_name [64] = "fs/";
+    memcpy(&fs_name[3], cmdline, file_name - cmdline);
+    fs_name[file_name - cmdline + 3] = 0;
 
+    file_name += 3;
+    unsigned namelen = strcspn(file_name, " \t\r\n\f");
+    unsigned cap_base, res;
+    unsigned long long msize, physaddr;
+    unsigned long addr;
+
+    FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), fs_name);
     FsProtocol::dirent fileinfo = {0,0};
-    if (rom_fs->get_file_info(*utcb, fileinfo, cmdline + 6, namelen)) {
-      Logging::printf("File not found %s.\n", cmdline + 6);
-      return __LINE__;
-    }
+    if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("File not found %s.\n", file_name); res = __LINE__; goto fs_out; }
 
-    unsigned long long msize = (fileinfo.size + 0xfff) & ~0xffful;
-    unsigned long long physaddr = _free_phys.alloc(msize, 12);
-    if (!physaddr || !msize) return __LINE__;
-    unsigned long addr = reinterpret_cast<unsigned long >(map_self(utcb, physaddr, msize));
-    if (!addr) return __LINE__;
-    if (rom_fs->get_file_copy(*utcb, addr, fileinfo.size, cmdline + 6, namelen)) {
-      Logging::printf("Getting file failed %s.\n", cmdline + 6);
-      return __LINE__;
-    }
+    msize = (fileinfo.size + 0xfff) & ~0xffful;
+    physaddr = _free_phys.alloc(msize, 12);
+    if (!physaddr || !msize) { Logging::printf("Not enough memory\n"); res = __LINE__; goto fs_out; }
 
-    unsigned res = _start_config(utcb, reinterpret_cast<char *>(addr), fileinfo.size, cmdline);
+    addr = reinterpret_cast<unsigned long >(map_self(utcb, physaddr, msize));
+    if (!addr) { Logging::printf("Could not map file\n"); res= __LINE__; goto phys_out; }
+    if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
+    res = _start_config(utcb, reinterpret_cast<char *>(addr), fileinfo.size, cmdline);
+
+  map_out:
     //don't try to unmap from ourself "revoke(..., true)"
     //map_self may return a already mapped page (backed by 4M) which contains the requested phys. page
     //revoking a small junk of a larger one unmaps the whole area ...
     revoke_all_mem(reinterpret_cast<void *>(addr), msize, DESC_MEM_ALL, false);
+  phys_out:
     _free_phys.add(Region(physaddr, msize));
+  fs_out:
+    fs_obj.close(*utcb);
+    dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+
     return res;
   }
 

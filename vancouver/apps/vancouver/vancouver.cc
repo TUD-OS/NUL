@@ -81,7 +81,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
-  FsProtocol * rom_fs;
   static TimerProtocol   *timer_service;
   #define VANCOUVER_CONFIG_SEPARATOR "||"
 
@@ -301,7 +300,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
-    rom_fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/rom");
 
     unsigned res;
     if ((res = timer_service->timer(*utcb, msg)))
@@ -570,46 +568,52 @@ public:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
           char *cmdline = args, *name, *end;
-          unsigned slen, nlen, num = msg.module;
+          unsigned cmdlen, namelen, num = msg.module;
 
           if (!cmdline) return false;
           while (num-- && cmdline) cmdline = strstr(++cmdline, VANCOUVER_CONFIG_SEPARATOR);
           if (num != ~0U || !cmdline) return false;
           cmdline +=2;
 
-          cmdline += strspn(cmdline, " "); //skip spaces
+          cmdline += strspn(cmdline, " \t\r\n\f"); //skip characters
           name = strstr(cmdline, "://");
           if (!name) return false;
           name += 3;
           if (cmdline + strcspn(cmdline, " \t\r\n\f") < name) return false; //don't allow some characters in fs name
-          ///XXX we only support rom for now
-          if (strncmp("rom", cmdline, 3)) return false;
+          if (msg.size < (0UL + (name - cmdline))) return false;
 
-          nlen = strcspn(name, " \t\r\n\f");
-          if (!nlen) return false;
-
+          namelen = strcspn(name, " \t\r\n\f");
+          if (!namelen) return false;
           end  = strstr(cmdline, VANCOUVER_CONFIG_SEPARATOR);
           if (end && name > end) return false; //don't use 'xxx://' of next entry accidentally
-
-          if (end) slen = end - cmdline + 1;
-          else slen = strlen(cmdline) + 1;
+          if (end) cmdlen = end - cmdline + 1;
+          else cmdlen = strlen(cmdline) + 1;
 
           //lookup file
-          FsProtocol::dirent fileinfo = {0,0};
-          if (rom_fs->get_file_info(*myutcb(), fileinfo, name, nlen)) return false; 
+          memcpy(msg.start, "fs/", 3);
+          memcpy(msg.start + 3, cmdline, name - cmdline);
+          msg.start[name - cmdline] = 0;
 
+          unsigned cap_base;
+          FsProtocol::dirent fileinfo = {0,0};
+          FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
+          if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) return false; 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
-          if (rom_fs->get_file_copy(*myutcb(), msg_start, fileinfo.size, name, nlen)) return false;
+          res = fs_obj.get_file_copy(*myutcb(), msg_start, fileinfo.size, name, namelen);
+          //Note: msg.start used as service name in fs_obj is now overwritten
+          fs_obj.close(*myutcb());
+          dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+          if (res) return false;
           
           //align the end of the module to get the cmdline on a new page.
           char *s = reinterpret_cast<char *>((msg_start + fileinfo.size + 0xffful) & ~0xffful);
-          memcpy(s, cmdline, slen - 1);
-          s[slen - 1] = 0;
+          memcpy(s, cmdline, cmdlen - 1);
+          s[cmdlen - 1] = 0;
 
           //build response 
           msg.size    = fileinfo.size;
           msg.cmdline = s;
-          msg.cmdlen  = slen;
+          msg.cmdlen  = cmdlen;
 
           res = true;
         }
