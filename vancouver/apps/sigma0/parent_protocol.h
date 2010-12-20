@@ -63,7 +63,7 @@ unsigned free_service(Utcb &utcb, ServerData *sdata) {
   delete sdata->name;
   ServerData::get_quota(utcb, sdata->pseudonym, "cap", -1);
   ServerData::get_quota(utcb, sdata->pseudonym, "mem", -sdata->len);
-  return _server.free_client_data(utcb, sdata);
+  return _server.free_client_data(utcb, sdata, false);
 }
 
 
@@ -121,7 +121,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   case ParentProtocol::TYPE_CLOSE:
     if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
     Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->pseudonym);
-    return _client.free_client_data(utcb, cdata);
+    return _client.free_client_data(utcb, cdata, false);
 
   case ParentProtocol::TYPE_GET_PORTAL:
     {
