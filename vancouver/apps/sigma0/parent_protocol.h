@@ -69,7 +69,7 @@ unsigned free_service(Utcb &utcb, ServerData *sdata) {
 
 unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   // we lock to protect our datastructures and the malloc implementation
-  SemaphoreGuard l(_lock);
+  SemaphoreGuard l(_lock_parent);
 
   unsigned res;
   ServerData *sdata;

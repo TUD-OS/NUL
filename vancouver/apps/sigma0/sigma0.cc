@@ -73,7 +73,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   // synchronisation of GSIs+worker
-  Semaphore _lock;
+  Semaphore _lock_gsi;
+  // lock for parent protocol
+  Semaphore _lock_parent;
+  // lock for memory allocator
+  static Semaphore _lock_mem;
 
   // putc+vga
   char    * _vga;
@@ -114,6 +118,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
   {
     assert(size);
+
+    SemaphoreGuard l(_lock_mem);
 
     // we align to order but not more than 4M
     unsigned order = Cpu::bsr(size | 1);
@@ -343,9 +349,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("preinit %p\n\n", hip);
     check1(1, init(hip));
 
-    Logging::printf("create lock\n");
-    _lock = Semaphore(alloc_cap());
-    check1(2, nova_create_sm(_lock.sm()));
+    Logging::printf("create locks\n");
+    _lock_gsi    = Semaphore(alloc_cap());
+    _lock_parent = Semaphore(alloc_cap());
+    _lock_mem    = Semaphore(alloc_cap());
+    check1(2, nova_create_sm(_lock_gsi.sm()) || nova_create_sm(_lock_mem.sm()) ||  nova_create_sm(_lock_parent.sm()));
+    _lock_mem.up();
 
     Logging::printf("create pf echo+worker threads\n");
     check1(3, create_worker_threads(hip, utcb->head.nul_cpunr));
@@ -405,13 +414,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!size) return 0;
     if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
 
-    unsigned long pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1));
+    unsigned long pmem;
+    {
+      SemaphoreGuard l(_lock_mem);
+      pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1));
+    }
     void *res;
     if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size))) Logging::panic("%s(%lx, %lx) EOM!\n", __func__, size, align);
     memset(res, 0, size);
     return res;
   }
-
 
   /**
    * Init the memory map from the Hip.
@@ -554,7 +566,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("File not found %s.\n", file_name); res = __LINE__; goto fs_out; }
 
     msize = (fileinfo.size + 0xfff) & ~0xffful;
-    physaddr = _free_phys.alloc(msize, 12);
+    {
+      SemaphoreGuard l(_lock_mem);
+      physaddr = _free_phys.alloc(msize, 12);
+    }
     if (!physaddr || !msize) { Logging::printf("Not enough memory\n"); res = __LINE__; goto fs_out; }
 
     addr = reinterpret_cast<unsigned long >(map_self(utcb, physaddr, msize));
@@ -569,7 +584,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     //revoking a small junk of a larger one unmaps the whole area ...
     revoke_all_mem(reinterpret_cast<void *>(addr), msize, DESC_MEM_ALL, false);
   phys_out:
-    _free_phys.add(Region(physaddr, msize));
+    {
+      SemaphoreGuard l(_lock_mem);
+      _free_phys.add(Region(physaddr, msize));
+    }
   fs_out:
     fs_obj.close(*utcb);
     dealloc_cap(cap_base, FsProtocol::CAP_NUM);
@@ -593,20 +611,29 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Round up to page size
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
+    if ((psize_needed > modinfo->physsize) || !elf)
+    {
+      Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+      free_module(modinfo);
+      return __LINE__;
+    }
     unsigned long pmem = 0;
-    if ((psize_needed > modinfo->physsize)
-	|| !(pmem = _free_phys.alloc(modinfo->physsize, 22))
-	|| !((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))
-	|| !elf)
-      {
-	if (pmem) _free_phys.add(Region(pmem, modinfo->physsize));
-	_free_phys.debug_dump("free phys");
-	_virt_phys.debug_dump("virt phys");
-	_free_virt.debug_dump("free virt");
-	Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
-	free_module(modinfo);
-	return __LINE__;
+    {
+      SemaphoreGuard l(_lock_mem);
+      if (!(pmem = _free_phys.alloc(modinfo->physsize, 22))) {
+        _free_phys.debug_dump("free phys");
+        _virt_phys.debug_dump("virt phys");
+        _free_virt.debug_dump("free virt");
+        return __LINE__;
       }
+    }
+    if (!((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))) {
+      if (pmem) {
+        SemaphoreGuard l(_lock_mem);
+        _free_phys.add(Region(pmem, modinfo->physsize));
+      }
+      return __LINE__;
+    }
     Logging::printf("module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
@@ -619,7 +646,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // decode ELF
     unsigned long maxptr = 0;
     if (Elf::decode_elf(elf, mod_size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
-      _free_phys.add(Region(pmem, modinfo->physsize));
+      {
+        SemaphoreGuard l(_lock_mem);
+        _free_phys.add(Region(pmem, modinfo->physsize));
+      }
       free_module(modinfo);
       return __LINE__;
     }
@@ -693,6 +723,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
 
     // free resources
+    SemaphoreGuard l(_lock_mem);
     Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
     assert(r);
     assert(r->size >= modinfo->physsize);
@@ -753,9 +784,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   PT_FUNC_NORETURN(do_pf,
 #if 0
-		   _free_phys.debug_dump("free phys");
-		   _free_virt.debug_dump("free virt");
-		   _virt_phys.debug_dump("virt->phys");
+		   {
+		     SemaphoreGuard l(_lock_mem);
+		     _free_phys.debug_dump("free phys");
+		     _free_virt.debug_dump("free virt");
+		     _virt_phys.debug_dump("virt->phys");
+		   }
 #endif
 		   if (consolesem) consolesem->up();
 		   Logging::panic("got #PF at %llx eip %x error %llx esi %x edi %x ecx %x\n", utcb->qual[1], utcb->eip, utcb->qual[0], utcb->esi, utcb->edi, utcb->ecx);
@@ -780,9 +814,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
 		   while (!(res = nova_semdownmulti(cap_irq))) {
 		     COUNTER_INC("GSI");
-		     if (locked) _lock.down();
+		     if (locked) _lock_gsi.down();
 		     _mb->bus_hostirq.send(msg);
-		     if (locked) _lock.up();
+		     if (locked) _lock_gsi.up();
 		   }
 		   Logging::panic("%s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
@@ -812,7 +846,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  //Logging::printf("%s %x %x\n", __func__, client, utcb->msg[0]);
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
-	  SemaphoreGuard l(_lock);
+	  SemaphoreGuard l(_lock_gsi);
 	  if (utcb->head.untyped != EXCEPTION_WORDS)
 	    {
 	      if (!request_vnet(client, utcb) && !request_disks(client, utcb) &&
@@ -982,14 +1016,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       {
-	Region * r = _virt_phys.find(msg.value);
-	if (r)
-	  {
-	    msg.phys_len = r->end() - msg.value;
-	    msg.phys     = r->phys  + msg.value - r->virt;
-	  }
-	else
-	  res = false;
+        Region * r;
+        {
+          SemaphoreGuard l(_lock_mem);
+          r = _virt_phys.find(msg.value);
+        }
+        if (r) {
+          msg.phys_len = r->end() - msg.value;
+          msg.phys     = r->phys  + msg.value - r->virt;
+        } else
+          res = false;
       }
       break;
       case MessageHostOp::OP_ASSIGN_PCI:
@@ -1010,7 +1046,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (msg.cap)
             utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
           else {
-            unsigned long addr = _free_virt.alloc(1 << 22, 22);
+            unsigned long addr;
+            {
+              SemaphoreGuard l(_lock_mem);
+              addr = _free_virt.alloc(1 << 22, 22);
+            }
             if (!addr) return false;
             utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
           }
@@ -1534,7 +1574,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = init_memmap(utcb)))               Logging::panic("init memmap failed %x\n", res);
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("create worker threads failed %x\n", res);
     // unblock the worker and IRQ threads
-    _lock.up();
+    _lock_gsi.up();
+    _lock_parent.up();
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
@@ -1571,6 +1612,7 @@ void  do_exit(const char *msg)
 }
 
 
+Semaphore Sigma0::_lock_mem;
 
 
 //  LocalWords:  utcb
