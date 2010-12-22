@@ -953,10 +953,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
 			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
+	      if ((utcb->qual[1] < MEM_OFFSET) ||
+	          (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < reinterpret_cast<unsigned long>(_hip)) ||
+	          (reinterpret_cast<unsigned long>(_hip) + 0x1000 < utcb->qual[1]))
+	      {
+	        Logging::printf("Unresolvable pagefault - killing client ...\n");
+	        kill_module(client);
+	        return;
+	      }
 	      // we can not overmap -> thus remove all rights first if the PTE was present
 	      if (utcb->qual[0] & 1) {
-		revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
-		revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
+	        revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
+	        revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
 	      }
 
 	      utcb->mtd = 0;
