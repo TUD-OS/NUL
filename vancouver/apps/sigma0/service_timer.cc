@@ -212,9 +212,9 @@ public:
     _worker = KernelSemaphore(msg0.value);
 
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
-    if (!hostmb.bus_hostop.send(msg0))
+    if (!hostmb.bus_hostop.send(msg1))
       Logging::panic("%s alloc semaphore failed", __func__);
-    _clients = Semaphore(msg0.value);
+    _clients = Semaphore(msg1.value);
     _clients.up();
 
     // init timeouts
