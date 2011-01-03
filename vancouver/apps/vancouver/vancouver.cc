@@ -687,7 +687,10 @@ public:
     TimerProtocol::MessageTime _msg;
     _msg.wallclocktime = msg.wallclocktime;
     _msg.timestamp = msg.timestamp;
-    return !timer_service->time(*myutcb(), _msg);
+    bool res = !timer_service->time(*myutcb(), _msg);
+    msg.wallclocktime = _msg.wallclocktime;
+    msg.timestamp = _msg.timestamp;
+    return res;
   }
 
 public:

@@ -51,6 +51,7 @@ class TimerService : public StaticReceiver<TimerService> {
   Motherboard &   _mymb;
   TimeoutList<CLIENTS, struct ClientData> _abs_timeouts;
   KernelSemaphore   _worker;
+  Semaphore   _clients;
 
 
   ClientDataStorage<ClientData> _storage;
@@ -109,6 +110,9 @@ public:
     unsigned res = ENONE;
     unsigned op;
 
+    //XXX more fine granular synchronization
+    SemaphoreGuard l(_clients);
+
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
@@ -116,7 +120,6 @@ public:
       check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
       free_cap = false;
 
-      //XXX synchronization
       data->nr = _abs_timeouts.alloc(data);
       if (!data->nr) return EABORT;
 
@@ -205,6 +208,12 @@ public:
     if (!hostmb.bus_hostop.send(msg0))
       Logging::panic("%s alloc semaphore failed", __func__);
     _worker = KernelSemaphore(msg0.value);
+
+    MessageHostOp msg1(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
+    if (!hostmb.bus_hostop.send(msg0))
+      Logging::panic("%s alloc semaphore failed", __func__);
+    _clients = Semaphore(msg0.value);
+    _clients.up();
 
     // init timeouts
     _abs_timeouts.init();
