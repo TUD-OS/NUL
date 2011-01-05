@@ -29,6 +29,7 @@ def chomp(line):
 # Compiler override
 target_cc  = ARGUMENTS.get('target_cc')
 target_cxx = ARGUMENTS.get('target_cxx')
+ld_path    = ARGUMENTS.get('ld_path')
 # Optimization flags
 
 debug = ARGUMENTS.get('debug', 0)
@@ -66,6 +67,10 @@ if target_cxx:
     if not target_cc:
         print("!!! You probably want to set a proper target_cc !!!")
     target_env['CXX'] = target_cxx
+
+if ld_path:
+    print("Add LD_LIBRARY_PATH = '%s' to Target env" % ld_path)
+    target_env['ENV']['LD_LIBRARY_PATH'] = ld_path
 
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
