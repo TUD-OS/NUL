@@ -1,0 +1,9 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+#uncomment to build whole OCaml compiler and runtime
+
+#AlwaysBuild(target_env.Command("dummy_dependency",["Makefile", "ocaml-3.11.0.patch"],"make -C `dirname $TARGET` -f ${SOURCES[0]} PATCH=${SOURCES[1]}"))

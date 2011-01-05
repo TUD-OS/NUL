@@ -1,0 +1,204 @@
+diff -Naur v1/ocaml-3.11.0/asmrun/startup.c v2/ocaml-3.11.0/asmrun/startup.c
+--- v1/ocaml-3.11.0/asmrun/startup.c	2008-11-18 11:24:31.000000000 +0100
++++ v2/ocaml-3.11.0/asmrun/startup.c	2009-07-01 09:22:48.000000000 +0200
+@@ -150,26 +150,28 @@
+ #ifdef DEBUG
+   caml_verb_gc = 63;
+ #endif
+-  parse_camlrunparam();
++  //parse_camlrunparam(); BENJAMIN: calls getenv, which FAILs
+   caml_init_gc (minor_heap_init, heap_size_init, heap_chunk_init,
+                 percent_free_init, max_percent_free_init);
+   init_atoms();
+   caml_init_signals();
+   exe_name = argv[0];
+   if (exe_name == NULL) exe_name = "";
+-#ifdef __linux__
+-  if (caml_executable_name(proc_self_exe, sizeof(proc_self_exe)) == 0)
+-    exe_name = proc_self_exe;
+-  else
+-    exe_name = caml_search_exe_in_path(exe_name);
+-#else
+-  exe_name = caml_search_exe_in_path(exe_name);
+-#endif
++//#ifdef __linux__
++//  if (caml_executable_name(proc_self_exe, sizeof(proc_self_exe)) == 0)
++//    exe_name = proc_self_exe;
++//  else
++//    exe_name = caml_search_exe_in_path(exe_name);
++//#else
++//  exe_name = caml_search_exe_in_path(exe_name);
++//#endif
+   caml_sys_init(exe_name, argv);
++/* BENJAMIN
+   if (sigsetjmp(caml_termination_jmpbuf.buf, 0)) {
+     if (caml_termination_hook != NULL) caml_termination_hook(NULL);
+     return;
+   }
++*/
+   res = caml_start_program();
+   if (Is_exception_result(res))
+     caml_fatal_uncaught_exception(Extract_exception(res));
+diff -Naur v1/ocaml-3.11.0/byterun/ints.c v2/ocaml-3.11.0/byterun/ints.c
+--- v1/ocaml-3.11.0/byterun/ints.c	2008-01-11 17:13:16.000000000 +0100
++++ v2/ocaml-3.11.0/byterun/ints.c	2009-07-01 09:21:39.000000000 +0200
+@@ -432,14 +432,18 @@
+ {
+   int64 divisor = Int64_val(v2);
+   if (I64_is_zero(divisor)) caml_raise_zero_divide();
+-  return caml_copy_int64(I64_div(Int64_val(v1), divisor));
++//  return caml_copy_int64(I64_div(Int64_val(v1), divisor)); BENJAMIN
++  __builtin_trap(); // fail
++  return caml_copy_int64(Int64_val(v1));
+ }
+ 
+ CAMLprim value caml_int64_mod(value v1, value v2)
+ {
+   int64 divisor = Int64_val(v2);
+   if (I64_is_zero(divisor)) caml_raise_zero_divide();
+-  return caml_copy_int64(I64_mod(Int64_val(v1), divisor));
++//  return caml_copy_int64(I64_mod(Int64_val(v1), divisor)); BENJAMIN
++  __builtin_trap(); // fail
++  return caml_copy_int64(Int64_val(v1));
+ }
+ 
+ CAMLprim value caml_int64_and(value v1, value v2)
+@@ -526,7 +530,8 @@
+   int sign, base, d;
+ 
+   p = parse_sign_and_base(String_val(s), &base, &sign);
+-  I64_udivmod(max_uint64, I64_of_int32(base), &threshold, &res);
++  //I64_udivmod(max_uint64, I64_of_int32(base), &threshold, &res); BENJAMIN
++  __builtin_trap(); // fail
+   d = parse_digit(*p);
+   if (d < 0 || d >= base) caml_failwith("int_of_string");
+   res = I64_of_int32(d);
+diff -Naur v1/ocaml-3.11.0/byterun/str.c v2/ocaml-3.11.0/byterun/str.c
+--- v1/ocaml-3.11.0/byterun/str.c	2007-01-30 10:52:08.000000000 +0100
++++ v2/ocaml-3.11.0/byterun/str.c	2009-07-01 09:21:39.000000000 +0200
+@@ -145,7 +145,8 @@
+   }
+ #endif
+   c = Int_val(chr);
+-  return Val_bool(isprint(c));
++//  return Val_bool(isprint(c));    BENJAMIN
++  return Val_bool(c>=32/*SPACE*/ && c<127/*DEL*/);
+ }
+ 
+ CAMLprim value caml_bitvect_test(value bv, value n)
+diff -Naur v1/ocaml-3.11.0/byterun/sys.c v2/ocaml-3.11.0/byterun/sys.c
+--- v1/ocaml-3.11.0/byterun/sys.c	2007-03-01 14:37:39.000000000 +0100
++++ v2/ocaml-3.11.0/byterun/sys.c	2009-07-01 09:21:39.000000000 +0200
+@@ -307,10 +307,11 @@
+   gettimeofday(&tv, NULL);
+   seed = tv.tv_sec ^ tv.tv_usec;
+ #else
+-  seed = time (NULL);
++//  seed = time (NULL); BENJAMIN
++  seed = 0;
+ #endif
+ #ifdef HAS_UNISTD
+-  seed ^= (getppid() << 16) ^ getpid();
++  //seed ^= (getppid() << 16) ^ getpid(); BENJAMIN
+ #endif
+   return Val_long(seed);
+ #endif
+diff -Naur v1/ocaml-3.11.0/config/Makefile v2/ocaml-3.11.0/config/Makefile
+--- v1/ocaml-3.11.0/config/Makefile	2009-07-01 09:21:01.000000000 +0200
++++ v2/ocaml-3.11.0/config/Makefile	2009-07-01 09:21:39.000000000 +0200
+@@ -47,7 +47,7 @@
+ ASPPPROFFLAGS=-DPROFILING
+ PROFILING=prof
+ DYNLINKOPTS= -ldl
+-OTHERLIBRARIES=unix str num dynlink bigarray threads graph
++OTHERLIBRARIES=unix str num dynlink bigarray  graph
+ DEBUGGER=ocamldebugger
+ CC_PROFILE=-pg
+ SYSTHREAD_SUPPORT=false
+diff -Naur v1/ocaml-3.11.0/config/s.h v2/ocaml-3.11.0/config/s.h
+--- v1/ocaml-3.11.0/config/s.h	2009-07-01 09:21:01.000000000 +0200
++++ v2/ocaml-3.11.0/config/s.h	2009-07-01 09:21:39.000000000 +0200
+@@ -1,43 +1,43 @@
+ #define OCAML_OS_TYPE "Unix"
+ #define OCAML_STDLIB_DIR "/usr/local/lib/ocaml"
+ #define POSIX_SIGNALS
+-#define HAS_GETRUSAGE
+-#define HAS_TIMES
+-#define HAS_SOCKETS
+-#define HAS_SOCKLEN_T
+-#define HAS_INET_ATON
+-#define HAS_IPV6
++//#define HAS_GETRUSAGE
++//#define HAS_TIMES
++//#define HAS_SOCKETS
++//#define HAS_SOCKLEN_T
++//#define HAS_INET_ATON
++//#define HAS_IPV6
+ #define HAS_UNISTD
+-#define HAS_OFF_T
+-#define HAS_DIRENT
+-#define HAS_REWINDDIR
+-#define HAS_LOCKF
+-#define HAS_MKFIFO
+-#define HAS_GETCWD
+-#define HAS_GETWD
+-#define HAS_GETPRIORITY
+-#define HAS_UTIME
+-#define HAS_UTIMES
+-#define HAS_DUP2
+-#define HAS_FCHMOD
+-#define HAS_TRUNCATE
+-#define HAS_SYS_SELECT_H
+-#define HAS_SELECT
+-#define HAS_SYMLINK
+-#define HAS_WAITPID
+-#define HAS_WAIT4
+-#define HAS_GETGROUPS
+-#define HAS_TERMIOS
+-#define HAS_ASYNC_IO
+-#define HAS_SETITIMER
+-#define HAS_GETHOSTNAME
+-#define HAS_UNAME
+-#define HAS_GETTIMEOFDAY
+-#define HAS_MKTIME
+-#define HAS_SETSID
+-#define HAS_PUTENV
+-#define HAS_LOCALE
+-#define HAS_MMAP
+-#define HAS_GETHOSTBYNAME_R 6
+-#define HAS_GETHOSTBYADDR_R 8
+-#define HAS_STACK_OVERFLOW_DETECTION
++//#define HAS_OFF_T
++//#define HAS_DIRENT
++//#define HAS_REWINDDIR
++//#define HAS_LOCKF
++//#define HAS_MKFIFO
++//#define HAS_GETCWD
++//#define HAS_GETWD
++//#define HAS_GETPRIORITY
++//#define HAS_UTIME
++//#define HAS_UTIMES
++//#define HAS_DUP2
++//#define HAS_FCHMOD
++//#define HAS_TRUNCATE
++//#define HAS_SYS_SELECT_H
++//#define HAS_SELECT
++//#define HAS_SYMLINK
++//#define HAS_WAITPID
++//#define HAS_WAIT4
++//#define HAS_GETGROUPS
++//#define HAS_TERMIOS
++//#define HAS_ASYNC_IO
++//#define HAS_SETITIMER
++//#define HAS_GETHOSTNAME
++//#define HAS_UNAME
++//#define HAS_GETTIMEOFDAY
++//#define HAS_MKTIME
++//#define HAS_SETSID
++//#define HAS_PUTENV
++//#define HAS_LOCALE
++//#define HAS_MMAP
++//#define HAS_GETHOSTBYNAME_R 6
++//#define HAS_GETHOSTBYADDR_R 8
++//#define HAS_STACK_OVERFLOW_DETECTION
++#define DEBUG
