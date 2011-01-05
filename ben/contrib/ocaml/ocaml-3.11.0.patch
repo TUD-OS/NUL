@@ -103,18 +103,6 @@ diff -Naur v1/ocaml-3.11.0/byterun/sys.c v2/ocaml-3.11.0/byterun/sys.c
  #endif
    return Val_long(seed);
  #endif
-diff -Naur v1/ocaml-3.11.0/config/Makefile v2/ocaml-3.11.0/config/Makefile
---- v1/ocaml-3.11.0/config/Makefile	2009-07-01 09:21:01.000000000 +0200
-+++ v2/ocaml-3.11.0/config/Makefile	2009-07-01 09:21:39.000000000 +0200
-@@ -47,7 +47,7 @@
- ASPPPROFFLAGS=-DPROFILING
- PROFILING=prof
- DYNLINKOPTS= -ldl
--OTHERLIBRARIES=unix str num dynlink bigarray threads graph
-+OTHERLIBRARIES=unix str num dynlink bigarray  graph
- DEBUGGER=ocamldebugger
- CC_PROFILE=-pg
- SYSTHREAD_SUPPORT=false
 diff -Naur v1/ocaml-3.11.0/config/s.h v2/ocaml-3.11.0/config/s.h
 --- v1/ocaml-3.11.0/config/s.h	2009-07-01 09:21:01.000000000 +0200
 +++ v2/ocaml-3.11.0/config/s.h	2009-07-01 09:21:39.000000000 +0200

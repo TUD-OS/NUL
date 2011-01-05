@@ -35,6 +35,7 @@ ocamlopt.opt :
 	$(MAKE) -C $(OCAML) opt     | tee $(OCAML)/log.opt
 	$(MAKE) -C $(OCAML) opt.opt | tee $(OCAML)/log.opt.opt
 	cd $(OCAML) && patch -p2 < $(PATCH)
+	sed -i 's/^OTHERLIBRARIES.*/OTHERLIBRARIES=str num bigarray/g' $(OCAML)/config/Makefile
 	make -C $(OCAML)/asmrun
 	make -C $(OCAML)/stdlib allopt
 	make -C $(OCAML)/otherlibs/str allopt
