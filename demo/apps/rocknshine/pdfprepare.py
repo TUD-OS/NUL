@@ -36,7 +36,7 @@ def numcomp(x, y):
 # TODO Use ImageMagick python interface
 compressed_pages = []
 for page in sorted(glob.glob(tmpdir + '/page*.png'), numcomp):
-    subprocess.check_call(['convert', page, '-separate', '-swap', '0,2', '-combine', page + '.rgb'])
+    subprocess.check_call(['convert', page, '-separate', '-swap', '0,2', '-combine', '-depth', '8', page + '.rgb'])
     os.remove(page)
     uncompressed_len = os.stat(page + '.rgb')[ST_SIZE]
     assert (width*height*3) == uncompressed_len
