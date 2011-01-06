@@ -67,6 +67,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   // data per physical CPU number
   struct {
     unsigned  cap_ec_worker;
+    unsigned  cap_ec_parent;
     unsigned  cap_ec_echo;
     unsigned  cap_pt_echo;
   } _percpu[MAXCPUS];
@@ -329,13 +330,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
+
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec_helper(this, i, 0, &utcb);
-      // initialize the receive window
       utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
 
+      _percpu[i].cap_ec_parent = create_ec_helper(this, i, 0, &utcb);
+      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
       // create parent portals
-      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_worker, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
+      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_parent, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
     }
     return 0;
   }
@@ -686,13 +689,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // create special portal for every module
     unsigned pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
+    assert(_percpu[modinfo->cpunr].cap_ec_parent);
     check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
     check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
     // create parent portals
     for (unsigned i = 0; i < _numcpus; i++)
       check1(9, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i],
-			       _percpu[_cpunr[i]].cap_ec_worker,
+			       _percpu[_cpunr[i]].cap_ec_parent,
 			       reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func),
 			       0));
     check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
@@ -839,18 +843,39 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  COUNTER_INC("request");
 
-	  if (utcb->head.untyped != EXCEPTION_WORDS) {
-	    if (request_pcicfg(client, utcb))
+	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
+	  if (utcb->head.untyped == EXCEPTION_WORDS) {
+	    Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+		      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+
+	    if ((utcb->qual[1] < MEM_OFFSET) ||
+	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < reinterpret_cast<unsigned long>(_hip)) ||
+	        (reinterpret_cast<unsigned long>(_hip) + 0x1000 < utcb->qual[1]))
+	    {
+	      Logging::printf("Unresolvable pagefault - killing client ...\n");
+	      kill_module(client);
 	      return;
+	    }
+	    // we can not overmap -> thus remove all rights first if the PTE was present
+	    if (utcb->qual[0] & 1) {
+	      revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
+	      revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
+	    }
+
+	    utcb->mtd = 0;
+	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
+	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
+	    Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+	      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+	    return;
 	  }
 
-	  //Logging::printf("%s %x %x\n", __func__, client, utcb->msg[0]);
-	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
+	  if (request_pcicfg(client, utcb)) return;
+
 	  SemaphoreGuard l(_lock_gsi);
-	  if (utcb->head.untyped != EXCEPTION_WORDS)
-	    {
-	      if (!request_vnet(client, utcb) && !request_disks(client, utcb) &&
-		  !request_console(client, utcb) && !request_network(client, utcb))
+
+	  if (!request_vnet(client, utcb) && !request_disks(client, utcb) &&
+	      !request_console(client, utcb) && !request_network(client, utcb))
 		switch (utcb->msg[0])
 		  {
 		  case REQUEST_HOSTOP:
@@ -947,32 +972,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    fail:
 	      utcb->msg[0] = ~0x10u;
 	      utcb->set_header(1, 0);
-	    }
-	  else
-	    {
-	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
-			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
-
-	      if ((utcb->qual[1] < MEM_OFFSET) ||
-	          (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < reinterpret_cast<unsigned long>(_hip)) ||
-	          (reinterpret_cast<unsigned long>(_hip) + 0x1000 < utcb->qual[1]))
-	      {
-	        Logging::printf("Unresolvable pagefault - killing client ...\n");
-	        kill_module(client);
-	        return;
-	      }
-	      // we can not overmap -> thus remove all rights first if the PTE was present
-	      if (utcb->qual[0] & 1) {
-	        revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
-	        revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
-	      }
-
-	      utcb->mtd = 0;
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	      add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
-	      Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
-			      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
-	    }
 	  )
 
 
