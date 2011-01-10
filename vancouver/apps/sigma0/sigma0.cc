@@ -185,7 +185,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
   {
     Utcb *u = 0;
-    SemaphoreGuard l(_lock_mem);
     unsigned cap = create_ec_helper(this, _cpunr[CPUGSI % _numcpus], 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
@@ -1012,20 +1011,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	check1(false, nova_create_sm(msg.value));
 	break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
-      {
-        unsigned ec_cap;
-        {
-          SemaphoreGuard l(_lock_mem);
-          ec_cap = create_ec_helper(msg.obj, _cpunr[CPUGSI % _numcpus], 0, 0, msg.ptr);
-        }
-        unsigned prio;
-        if (msg.len == ~0u)
-          prio = 1;		// IDLE
-        else
-          prio = msg.len ? 3 : 2;
-        return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
-      }
-      break;
+	{
+	  unsigned ec_cap = create_ec_helper(msg.obj, _cpunr[CPUGSI % _numcpus], 0, 0, msg.ptr);
+	  unsigned prio;
+	  if (msg.len == ~0u)
+	    prio = 1;		// IDLE
+	  else
+	    prio = msg.len ? 3 : 2;
+	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
+	}
+	break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       {
         Region * r;
@@ -1052,11 +1047,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         for (unsigned i = 0; i < _numcpus; i++) {
           Utcb *utcb;
           unsigned cpu = _cpunr[i];
-          unsigned ec_cap;
-          {
-            SemaphoreGuard l(_lock_mem);
-            ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
-          }
+          unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
           unsigned pt = alloc_cap();
           if (!ec_cap || !utcb || !pt) return false;
           if (msg.cap)
@@ -1074,11 +1065,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
           Logging::printf("service registered on cpu %x\n", cpu);
           if (msg.portal_pf) {
-            unsigned ec_pf;
-            {
-              SemaphoreGuard l(_lock_mem);
-              ec_pf = create_ec_helper(msg.obj, cpu, 0, &utcb);
-            }
+            unsigned ec_pf = create_ec_helper(msg.obj, cpu, 0, &utcb);
             if (!ec_pf || !utcb) return false;
             utcb->head.crd = 0;
             check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));
