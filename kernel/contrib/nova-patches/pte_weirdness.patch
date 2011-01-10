@@ -1,0 +1,22 @@
+diff --git a/src/pte.cpp b/src/pte.cpp
+index 4a5b0fc..1a4e28d 100644
+--- a/src/pte.cpp
++++ b/src/pte.cpp
+@@ -70,11 +70,15 @@ size_t Pte<P,E,L,B,F>::lookup (E v, Paddr &p)
+ template <typename P, typename E, unsigned L, unsigned B, bool F>
+ bool Pte<P,E,L,B,F>::update (E v, mword o, E p, mword a, bool d)
+ {
+-    unsigned long l = o / B, n = 1UL << o % B, s = 1UL << (l * B + PAGE_BITS);
++    unsigned long l = o / B, n = 1UL << o % B, s;
+ 
+     P *e = walk (v, l, d);
+ 
+-    p |= P::order (o % B) | (l ? P::PTE_S : 0) | a;
++    if (a) {
++        p |= P::order (o % B) | (l ? P::PTE_S : 0) | a;
++        s = 1UL << (l * B + PAGE_BITS);
++    } else
++        p = s = 0;
+ 
+     for (unsigned long i = 0; i < n; i++, p += s)
+         e[i].val = p;
