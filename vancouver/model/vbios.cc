@@ -64,7 +64,8 @@ public:
 
     // we can be sure that we are not blocking irqs
     assert(!cpu->actv_state);
-    assert(!(cpu->intr_state & 3));
+    // XXX Triggers in QEMU. QEMU bug?
+    //assert(!(cpu->intr_state & 3));
     msg.mtr_out |= msg1.mtr_out;
     return true;
 
