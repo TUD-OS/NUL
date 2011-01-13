@@ -545,7 +545,7 @@ public:
   }
 };
 
-unsigned long _default_vga_fbsize;
+static unsigned long _default_vga_fbsize = 128;
 PARAM(vga_fbsize,  _default_vga_fbsize = argv[0];, "vga_fbsize:size - override the default fbsize for the 'vga' parameter")
 PARAM(vga,
       {
