@@ -143,14 +143,14 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	if (data == 0xaa)
 	  _mousestate++;
 	else
-	  Logging::printf("%s no reset ack %x\n", __PRETTY_FUNCTION__, data);
+	  LOG("%s no reset ack %x\n", __PRETTY_FUNCTION__, data);
 	return;
       case 0xff: // wait for reset id
 	if (data == 0)
 	  {
 	    _mousestate = 0;
 	    if (!write_mouse_ack(0xf4))
-	      Logging::printf("%s could not enable data reporting\n", __PRETTY_FUNCTION__);
+	      LOG("%s could not enable data reporting\n", __PRETTY_FUNCTION__);
 	  }
 	else
 	  Logging::printf("%s unknown mouse id %x\n", __PRETTY_FUNCTION__, data);
@@ -159,7 +159,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
       case 0:  // first byte of packet
 	if (~data & 0x8) // not in sync?
 	  {
-	    Logging::printf("%s mouse not in sync - drop %x\n", __PRETTY_FUNCTION__, data);
+	    LOG("%s mouse not in sync - drop %x\n", __PRETTY_FUNCTION__, data);
 	    return;
 	  }
       case 1 ... 2:
