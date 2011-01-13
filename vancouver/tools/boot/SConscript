@@ -1,13 +1,18 @@
 # -*- Mode: Python -*-
 
+Import('target_env')
+
+boot_env = target_env.Clone()
+# XXX Decouple this from target_env. This fails when we port to 64-bit.
+boot_env.Link('munich/munich', Glob('munich/*.[cS]'), linkscript='munich/munich.ld')
+
 prebuilt = [ 'coswig',
              'marburg',
-             'munich',
              'santamonica',
              'vilo', 
              'bender',
              ]
 
-Install('#bin/boot', prebuilt)
+Install('#bin/boot', prebuilt + ['munich/munich'])
 
 # EOF
