@@ -182,10 +182,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked)
+  bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked, unsigned cpunr)
   {
     Utcb *u = 0;
-    unsigned cap = create_ec_helper(this, _cpunr[CPUGSI % _numcpus], 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
+    unsigned cap = create_ec_helper(this, cpunr, 0,  &u, reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  sm_cap;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
@@ -986,7 +986,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	{
 	  bool unlocked = msg.len;
 	  unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(msg.msi_gsi, cap, unlocked);
+	  res = attach_irq(msg.msi_gsi, cap, unlocked, _cpunr[CPUGSI % _numcpus]);
 	}
 	break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -996,7 +996,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  _gsi |=  1 << gsi;
 	  unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
 	  nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(gsi, irq_cap, msg.len);
+	  res = attach_irq(gsi, irq_cap, msg.len, _cpunr[CPUGSI % _numcpus]);
 	}
 	break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
