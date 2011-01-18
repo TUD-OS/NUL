@@ -177,7 +177,7 @@ public:
         MessageTime msg;
         msg.wallclocktime = _msg.wallclocktime;
         msg.timestamp = _msg.timestamp;
-        if (_hostmb.bus_time.send(msg)) {
+        if (_mymb.bus_time.send(msg)) {
   	      // XXX we assume the same mb->clock() source here
           _msg.wallclocktime = msg.wallclocktime;
           _msg.timestamp = msg.timestamp;
@@ -201,6 +201,7 @@ public:
   static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<TimerService *>(t)->work(); }
   bool  receive(MessageHostOp  &msg) { return _hostmb.bus_hostop.send(msg); }
   bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(msg); }
+  bool  receive(MessageIOIn &msg)    { return _hostmb.bus_hwioin.send(msg); }
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
@@ -226,10 +227,11 @@ public:
     _mymb.bus_timeout.add(this, receive_static<MessageTimeout>);
     _mymb.bus_hostop.add(this, receive_static<MessageHostOp>);
     _mymb.bus_hwioout.add(this, receive_static<MessageIOOut>);
+    _mymb.bus_hwioin.add(this, receive_static<MessageIOIn>);
     _mymb.bus_acpi.add(this, receive_static<MessageAcpi>);
 
     // create backend devices
-    _mymb.parse_args("hostpit:1000,0x40,2 hosthpet");
+    _mymb.parse_args("hostpit:1000,0x40,2 hosthpet hostrtc");
 
     // create the worker thread
     MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1UL);

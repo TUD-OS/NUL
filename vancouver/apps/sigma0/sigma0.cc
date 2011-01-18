@@ -41,7 +41,7 @@ unsigned     mac_host;
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
-	    " ioio hostacpi hostrtc pcicfg mmconfig atare"
+	    " ioio hostacpi pcicfg mmconfig atare"
 	    " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script")
 
 /**
