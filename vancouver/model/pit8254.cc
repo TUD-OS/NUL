@@ -45,6 +45,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     FCOUNTDOWN              = 1 << 4,
   };
 
+  bool           _constructed;  // XXX Just make sure we don't call incomplete instances.
   unsigned short _modus;
   unsigned short _latch;
   unsigned short _new_counter;
@@ -63,7 +64,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   DBus<MessageTimer> * _bus_timer;
   DBus<MessageIrq>   * _bus_irq;
   unsigned             _irq;
-  Clock              * _clock;
+  Clock                _clock;
   unsigned             _timer;
   static const long FREQ = 1193180;
 
@@ -104,7 +105,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   {
     _latch = get_counter();
     _stopped_out = feature(FPERIODIC) || get_out();
-    _start = _clock->clock(FREQ);
+    _start = _clock.clock(FREQ);
     _stopped = 1;
   }
 
@@ -115,11 +116,12 @@ class PitCounter : public StaticReceiver<PitCounter>
   void update_timer()
   {
     if (_irq == ~0U)  return;
-    timevalue t = _clock->clock(FREQ);
+    assert(_constructed);
+    timevalue t = _clock.clock(FREQ);
     timevalue to= _start;
     if (feature(FPERIODIC))
       to = t + Math::mod64(_initial + _start - t, _initial);
-    MessageTimer msg(_timer, _clock->abstime(to - t, FREQ));
+    MessageTimer msg(_timer, _clock.abstime(to - t, FREQ));
     _bus_timer->send(msg);
   }
 
@@ -129,13 +131,14 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   unsigned short get_counter()
   {
+    assert(_constructed);
     if (_stopped)  return _latch;
 
-    long long res = _start - _clock->clock(FREQ);
+    long long res = _start - _clock.clock(FREQ);
     if (_modus & BCD) res = Math::imod64(res, 10000);
 
     // are we still having an old value?
-    if (_start - _initial - 1 == _clock->clock(FREQ))
+    if (_start - _initial - 1 == _clock.clock(FREQ))
       return _latch;
 
     if (res <= 0)  load_counter();
@@ -150,7 +153,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     _latch = get_counter();
     _stopped_out = (_modus & 0xe) != 0 ? get_out() : 0;
     _stopped = 0;
-    _start = _clock->clock(FREQ) + _new_counter + 1;
+    _start = _clock.clock(FREQ) + _new_counter + 1;
     load_counter();
     update_timer();
   }
@@ -215,7 +218,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 	else if (_stopped)
 	  {
 	    _initial = _latch ? _latch : 65536;
-	    _start = _clock->clock(FREQ) + _initial + 1;
+	    _start = _clock.clock(FREQ) + _initial + 1;
 	    _stopped = 0;
 	  }
       }
@@ -226,17 +229,17 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   bool get_out()
   {
-    if (_stopped || _start - _initial -1 == _clock->clock(FREQ))
+    if (_stopped || _start - _initial -1 == _clock.clock(FREQ))
       return _stopped_out;
 
     if (feature(FCOUNTDOWN))
-      return _clock->clock(FREQ) >= _start;
+      return _clock.clock(FREQ) >= _start;
     if (feature(FPERIODIC))
       if (!feature(FSQUARE_WAVE))
 	return get_counter() != 1;
       else
-	return Math::mod64(_clock->clock(FREQ) - _start + _initial, _initial)*2 < _initial;
-    return _clock->clock(FREQ) != _start;
+	return Math::mod64(_clock.clock(FREQ) - _start + _initial, _initial)*2 < _initial;
+    return _clock.clock(FREQ) != _start;
   }
 
   /**
@@ -315,7 +318,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 	  if (_stopped)
 	    reload_counter();
 	  else
-	    _start = _clock->clock(FREQ) + get_counter();
+	    _start = _clock.clock(FREQ) + get_counter();
 	}
   }
 
@@ -342,8 +345,9 @@ class PitCounter : public StaticReceiver<PitCounter>
 
 
   PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrq> *bus_irq, unsigned irq, Clock *clock)
-  : _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(clock), _timer(0)
+    : _constructed(true), _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock), _timer(0)
   {
+    assert(_clock.freq() != 0);
     if (_irq != ~0U)
       {
 	MessageTimer msg0;
@@ -352,7 +356,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 	_timer = msg0.nr;
       };
   }
-  PitCounter() {}
+  PitCounter() : _constructed(false), _clock(0) {}
 };
 
 
