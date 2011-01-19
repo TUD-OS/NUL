@@ -135,10 +135,4 @@ PARAM(hostreboot,
       "Example: 'hostreboot:0' uses the keyboard to reboot the host.",
       "type is one of [0:Keyboard, 1:FastGate, 2:PCI, 3:ACPI].")
 
-PARAM(autoreboot,
-      MessageConsole m(MessageConsole::TYPE_RESET);
-      mb.bus_console.send(m);
-      ,
-      "autoreboot - reboot host immediately (useful for testing)")
-
 // EOF

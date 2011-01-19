@@ -29,6 +29,7 @@ struct ScriptItem {
   enum Type {
     TYPE_WAIT,
     TYPE_START,
+    TYPE_REBOOT,
   } type;
   ScriptItem *next;
   unsigned long param0;
@@ -84,6 +85,11 @@ struct Script : public StaticReceiver<Script> {
           if (cont) continue;
           break;
         } else
+          if (item.type == ScriptItem::TYPE_REBOOT) {
+            Logging::printf("reboot\n");
+            MessageConsole m(MessageConsole::TYPE_RESET);
+            _bus_console.send(m);
+          } else
           assert(0);
       }
       Logging::printf("<< script done;\n");
@@ -150,3 +156,11 @@ PARAM(script_start,
       _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[1] : 1));,
       "script_start:config=1,number=1,count=1 - start a config count times",
       "Example: 'script_start:5,3,4' - starts 4 times the configs 5, 6 and 7")
+
+PARAM(script_reboot,
+      check0(_script == 0);
+      _script->add(new ScriptItem(ScriptItem::TYPE_REBOOT, 0, 0 ,0));
+      ,
+      "script_reboot - schedule a reboot")
+
+// EOF
