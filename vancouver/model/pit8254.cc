@@ -45,7 +45,6 @@ class PitCounter : public StaticReceiver<PitCounter>
     FCOUNTDOWN              = 1 << 4,
   };
 
-  bool           _constructed;  // XXX Just make sure we don't call incomplete instances.
   unsigned short _modus;
   unsigned short _latch;
   unsigned short _new_counter;
@@ -116,7 +115,6 @@ class PitCounter : public StaticReceiver<PitCounter>
   void update_timer()
   {
     if (_irq == ~0U)  return;
-    assert(_constructed);
     timevalue t = _clock.clock(FREQ);
     timevalue to= _start;
     if (feature(FPERIODIC))
@@ -131,7 +129,6 @@ class PitCounter : public StaticReceiver<PitCounter>
    */
   unsigned short get_counter()
   {
-    assert(_constructed);
     if (_stopped)  return _latch;
 
     long long res = _start - _clock.clock(FREQ);
@@ -345,7 +342,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 
 
   PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrq> *bus_irq, unsigned irq, Clock *clock)
-    : _constructed(true), _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock), _timer(0)
+    : _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock), _timer(0)
   {
     assert(_clock.freq() != 0);
     if (_irq != ~0U)
@@ -356,7 +353,7 @@ class PitCounter : public StaticReceiver<PitCounter>
 	_timer = msg0.nr;
       };
   }
-  PitCounter() : _constructed(false), _clock(0) {}
+  PitCounter() : _clock(0) {}
 };
 
 
