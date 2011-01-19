@@ -375,11 +375,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("create pf echo+worker threads\n");
     check1(3, create_worker_threads(hip, utcb->head.nul_cpunr));
 
-    // create pf and gsi boot wrapper on this CPU
+    // Create error handling portals.
     assert(_percpu[utcb->head.nul_cpunr].cap_ec_echo);
-    check1(4, nova_create_pt(14, _percpu[utcb->head.nul_cpunr].cap_ec_echo,
-			     reinterpret_cast<unsigned long>(do_pf_wrapper),
-			     MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN));
+    for (unsigned pt = 0; pt <= 0x1D; pt++)
+      check1(4, nova_create_pt(pt, _percpu[utcb->head.nul_cpunr].cap_ec_echo,
+                               reinterpret_cast<unsigned long>(do_error_wrapper),
+                               MTD_ALL));
+
+    // Create GSI boot wrapper.
     unsigned gsi = _cpunr[CPUGSI % _numcpus];
     check1(5, nova_create_pt(30, _percpu[gsi].cap_ec_echo, reinterpret_cast<unsigned long>(do_thread_startup_wrapper), MTD_RSP | MTD_RIP_LEN));
 
@@ -799,7 +802,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   { CODE; }
 
 
-  PT_FUNC_NORETURN(do_pf,
+  PT_FUNC_NORETURN(do_error,
 #if 0
 		   {
 		     SemaphoreGuard l(_lock_mem);
@@ -809,7 +812,25 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   }
 #endif
 		   if (consolesem) consolesem->up();
-		   Logging::panic("got #PF at %llx eip %x error %llx esi %x edi %x ecx %x\n", utcb->qual[1], utcb->eip, utcb->qual[0], utcb->esi, utcb->edi, utcb->ecx);
+
+                   Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n", pid, utcb->eip);
+                   Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
+                                   utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
+                   Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
+                                   utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
+                   Logging::printf(">> ESI %08x EDI %08x EBP %08x ESP %08x\n>>\n",
+                                   utcb->esi, utcb->edi, utcb->ebp, utcb->esp);
+
+                   Logging::printf(">> Optimistic stack dump (may fault again):\n");
+                   for (unsigned i = 0; (i < 8); i++) {
+                     unsigned *esp = reinterpret_cast<unsigned  *>(utcb->esp);
+                     Logging::printf(">> %p: %08x (decimal %u)\n", &esp[-i], esp[-i], esp[-i]);
+                   }
+                   Logging::printf(">> Stack dump done!\n");
+
+                   // All those moments will be lost in time like tears in the rain.
+                   // Time to die.
+                   Logging::panic("Unhandled exception %u at EIP %08x\n", pid, utcb->eip);
 		   )
 
   PT_FUNC(do_map,
