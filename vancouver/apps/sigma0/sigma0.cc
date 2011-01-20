@@ -55,6 +55,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     MAXMODULES         = 1 << Config::MAX_CLIENTS_ORDER,
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31,
+    CLIENT_HIP         = 0xBFFFF000U,
+    CLIENT_BOOT_UTCB   = CLIENT_HIP - 0x1000,
     CLIENT_PT_OFFSET   = 0x10000,
     CLIENT_PT_SHIFT    = 10,
     CLIENT_PT_ORDER    = CLIENT_PT_SHIFT + Config::MAX_CLIENTS_ORDER,
@@ -630,6 +632,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Round up to page size
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
+    if (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)) {
+      Logging::printf("(%x) Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
+                      CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
+      return __LINE__;
+    }
+
     if ((psize_needed > modinfo->physsize) || !elf)
     {
       Logging::printf("(%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
@@ -692,7 +700,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     memcpy(modhip, _hip, _hip->mem_offs);
     modhip->length = modhip->mem_offs;
     modhip->append_mem(MEM_OFFSET, modinfo->physsize, 1, pmem);
-    modhip->append_mem(0, 0, -2, reinterpret_cast<unsigned long>(_hip) + 0x1000 - slen);
+    modhip->append_mem(0, slen, -2, CLIENT_HIP + 0x1000 - slen);
     modhip->fix_checksum();
     assert(_hip->length > modhip->length);
 
@@ -720,7 +728,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("Creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
     check1(11, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
     check1(12, nova_create_ec(NOVA_DEFAULT_PD_CAP + 1,
-			     reinterpret_cast<void *>(0xbfffe000), reinterpret_cast<void *>(0xbfffe000),
+			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
     check1(13, nova_create_sc(NOVA_DEFAULT_PD_CAP + 2, NOVA_DEFAULT_PD_CAP + 1, Qpd(1, 100000), pt + NOVA_DEFAULT_PD_CAP));
     return 0;
@@ -867,7 +875,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  // Logging::printf("[%02x] eip %lx mem %p size %lx\n",
 	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
-	  utcb->esp = reinterpret_cast<unsigned long>(_hip);
+	  utcb->esp = CLIENT_HIP;
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
 	  )
 
@@ -879,12 +887,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
-	    Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+	    Logging::printf("[%02x, %x] pagefault %x/%x for %llx err %llx at %x\n",
 		      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
+            assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
+
 	    if ((utcb->qual[1] < MEM_OFFSET) ||
-	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < reinterpret_cast<unsigned long>(_hip)) ||
-	        (reinterpret_cast<unsigned long>(_hip) + 0x1000 < utcb->qual[1]))
+	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
+	        (CLIENT_BOOT_UTCB + 0x2000 < utcb->qual[1]))
 	    {
 	      Logging::printf("Unresolvable pagefault - killing client ...\n");
 	      kill_module(client);
@@ -898,8 +908,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	    utcb->mtd = 0;
 	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, reinterpret_cast<unsigned long>(_hip) | MAP_MAP, DESC_MEM_ALL);
-	    Logging::printf("[%02x, %x] map for %x/%x for %llx err %llx at %x\n",
+	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
+	    Logging::printf("[%02x, %x] map %x/%x for %llx err %llx at %x\n",
 	      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    return;
 	  }
