@@ -21,13 +21,13 @@ struct Utcb
   struct head {
     union {
       struct {
-	unsigned short untyped;
-	unsigned short typed;
+        unsigned short untyped;
+        unsigned short typed;
       };
       unsigned mtr;
     };
-    unsigned crd;
     unsigned crd_translate;
+    unsigned crd;
     unsigned nul_cpunr;
   } head;
   union {
@@ -159,9 +159,8 @@ struct Utcb
 
   struct TypedIdentifyCap {
     unsigned value;
-    bool translate_root;
-    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = translate_root ? 2 : 0;  }
-    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL, bool _root = true) : value(cap << MINSHIFT | attr), translate_root(_root) {}
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 0;  }
+    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
   struct String {
