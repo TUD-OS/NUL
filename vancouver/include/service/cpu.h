@@ -44,7 +44,7 @@ class Cpu
   static bool get_bit(unsigned *vector, unsigned bit) { return vector[bit >> 5] & (1 << (bit & 0x1f)); }
 
   static  unsigned xchg(volatile unsigned *x, unsigned y) {
-    asm volatile ("xchg %1, (%0)": "+r"(x), "+r"(y));
+    asm volatile ("xchg %1, %0": "+m"(*x), "+r"(y) :: "memory");
     return y;
   }
 

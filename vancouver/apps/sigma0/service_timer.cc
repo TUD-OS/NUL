@@ -74,7 +74,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
         nr = head->nr;
         next = head->lifo_next;
         head->lifo_next = 0;
-        asm volatile("");
+        // xchg is a memory barrier
         timevalue t = Cpu::xchg(&head->reltime, 0);
         t *= GRANULARITY;
         _abs_timeouts.cancel(nr);
