@@ -19,27 +19,22 @@
 #include "nul/motherboard.h"
 #include "nul/generic_service.h"
 #include "nul/service_fs.h"
-#include "nul/region.h"
 #include "nul/baseprogram.h"
 
 class Service_fs {
   Hip * hip;
   unsigned _rights;
-  RegionList<8> * cap_range;
 
   static const unsigned long RECV_WINDOW_SIZE = (1 << 22);
   static char * backup_page;
 
 public:
-  Service_fs(Motherboard &mb, unsigned cap_start, unsigned cap_size, bool readonly = true )
+  Service_fs(Motherboard &mb, bool readonly = true )
     : hip(mb.hip()), _rights(readonly ? DESC_RIGHT_R : DESC_RIGHTS_ALL)
   {
-    cap_range = new RegionList<8>;
-    cap_range->add(Region(cap_start, cap_size));
     backup_page = new (0x1000) char [0x1000];
   }
 
-  inline unsigned alloc_cap(unsigned num = 1, unsigned align = 0) { return cap_range->alloc(num, align); }
   unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new ones"); }
 
   Hip_mem * get_file(char const * text) {
@@ -70,7 +65,7 @@ public:
     if ((region_start <= (utcb->qual[1] & ~0xffful)) && ((utcb->qual[1] & ~0xffful) < region_end))
       Logging::panic("got #PF at %llx eip %x esp %x error %llx\n", utcb->qual[1], utcb->eip, utcb->esp, utcb->qual[0]);
 
-    utcb_wo->head.res = 1; //flag abort
+    utcb_wo->head.crd_translate = 1; //flag abort
     utcb->head.mtr = 0;
     utcb->mtd = 0;
     BaseProgram::add_mappings(utcb, reinterpret_cast<unsigned long>(backup_page), 0x1000, (utcb->qual[1] & ~0xffful) | MAP_MAP, DESC_MEM_ALL);
@@ -108,15 +103,21 @@ public:
         if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
         if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
 
-        utcb.head.res = 0; //set pf indicator to off
+        unsigned tmp_crd = utcb.head.crd_translate; //XXX find better place for pf indicator ?
+        utcb.head.crd_translate = 0; //set pf indicator to off
+
         unsigned long _addr = addr & ~0xffful;
         unsigned long long _size = csize;
-        while (!utcb.head.res && _size && _size <= csize) {
+        while (!utcb.head.crd_translate && _size && _size <= csize) {
           memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem->addr + foffset), 0x1000); 
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
         //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
-        if (utcb.head.res) return ERESOURCE; //got pf
+        if (utcb.head.crd_translate) {
+          utcb.head.crd_translate = tmp_crd;
+          return ERESOURCE; //got pf
+        } else
+          utcb.head.crd_translate = tmp_crd;
       }
       return ENONE;
     case FsProtocol::TYPE_GET_FILE_MAPPED:
@@ -162,14 +163,13 @@ public:
 char * Service_fs::backup_page;
 
 PARAM(service_romfs,
-      Service_fs *t = new Service_fs(mb, alloc_cap(15 + mb.hip()->cpu_count() * 16), 15 + mb.hip()->cpu_count() * 16);
+      Service_fs *t = new Service_fs(mb);
       MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), false);
       msg.portal_pf = reinterpret_cast<unsigned long>(Service_fs::portal_pagefault);
-      msg.excbase = t->alloc_cap(16 * mb.hip()->cpu_count(), 4);
+      msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
       msg.excinc  = 4;
       if (!msg.excbase || !mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");
-      Logging::printf("start service - romfs\n");
       ,
       "romfs - instanciate a file service providing the boot files");
 

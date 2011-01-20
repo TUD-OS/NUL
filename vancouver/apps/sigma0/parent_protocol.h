@@ -42,8 +42,8 @@ struct ServerData : public ClientData {
   unsigned        cpu;
   unsigned        pt;
 };
-ClientDataStorage<ServerData> _server;
-ClientDataStorage<ClientData> _client;
+ClientDataStorage<ServerData, Sigma0> _server;
+ClientDataStorage<ClientData, Sigma0> _client;
 
 static unsigned get_client_number(unsigned cap) {
   cap -= CLIENT_PT_OFFSET;
@@ -65,7 +65,6 @@ unsigned free_service(Utcb &utcb, ServerData *sdata) {
   ServerData::get_quota(utcb, sdata->pseudonym, "mem", -sdata->len);
   return _server.free_client_data(utcb, sdata, false);
 }
-
 
 unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   // we lock to protect our datastructures and the malloc implementation
@@ -93,26 +92,26 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       if (!cmdline) return EPROTO;
       cmdline = strstr(cmdline, "name::");
       while (cmdline) {
-	cmdline += 6;
-	unsigned namelen = strcspn(cmdline, " \t\r\n\f");
-	if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
-	  cmdline = strstr(cmdline + namelen, "name::");
-	  continue;
-	}
-	if (instance--) continue;
+        cmdline += 6;
+        unsigned namelen = strcspn(cmdline, " \t\r\n\f");
+        if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
+          cmdline = strstr(cmdline + namelen, "name::");
+          continue;
+        }
+        if (instance--) continue;
 
-	// check whether such a session is already known from our client
-	for (ClientData * c = _client.next(); c; c = _client.next(c))
-	  if (c->name == cmdline && c->pseudonym == input.identity()) {
-	    utcb << Utcb::TypedMapCap(c->identity);
-	    return ENONE;
-	  }
+        // check whether such a session is already known from our client
+        for (ClientData * c = _client.next(); c; c = _client.next(c))
+        if (c->name == cmdline && c->pseudonym == input.identity()) {
+          utcb << Utcb::TypedMapCap(c->identity);
+          return ENONE;
+        }
 
-	check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity()));
-	cdata->name = cmdline;
-	cdata->len  = namelen;
-	utcb << Utcb::TypedMapCap(cdata->identity);
-	return ENONE;
+        check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity()));
+        cdata->name = cmdline;
+        cdata->len  = namelen;
+        utcb << Utcb::TypedMapCap(cdata->identity);
+        return ENONE;
       }
       // we do not have the permissions
       return EPERM;
@@ -153,7 +152,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       // search for an allowed namespace
       char const * cmdline = get_module_cmdline(input);
       if (!cmdline) return EPROTO;
-      Logging::printf("\tregister client %x @ cpu %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, cmdline, request);
+//      Logging::printf("\tregister client %x @ cpu %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, cmdline, request);
       cmdline = strstr(cmdline, "namespace::");
       if (!cmdline) return EPERM;
       cmdline += 11;

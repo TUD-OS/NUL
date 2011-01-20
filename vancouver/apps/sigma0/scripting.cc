@@ -115,7 +115,7 @@ struct Script : public StaticReceiver<Script> {
   {
 
     // alloc a timer
-    _service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    _service_timer = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_NUM, 0));
 
     unsigned res;
     TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
@@ -129,7 +129,6 @@ struct Script : public StaticReceiver<Script> {
     msg.ptr = reinterpret_cast<char *>(Script::do_work);
     if (!mb->bus_hostop.send(msg))
       Logging::panic("%s alloc service thread failed", __func__);
-
   }
 };
 

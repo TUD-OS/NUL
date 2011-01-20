@@ -69,8 +69,8 @@ struct GenericClientData {
  * A generic container that stores per-client data.
  * Missing: dequeue-from-list, iterator
  */
-template <typename T> class ClientDataStorage {
-  T *_head;
+template <typename T, typename A> class ClientDataStorage {
+  T * _head;
 public:
   unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym) {
     unsigned res;
@@ -81,7 +81,7 @@ public:
 
     data = new T;
     data->pseudonym = pseudonym;
-    data->identity   = alloc_cap();
+    data->identity  = A::alloc_cap();
     nova_create_sm(data->identity);
 
     // enqueue it
@@ -99,8 +99,8 @@ public:
 	T::get_quota(utcb, data->pseudonym,"cap", -2);
 	T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
 	data->session_close(utcb);
-	dealloc_cap(data->identity);
-	if (free_pseudonym) dealloc_cap(data->pseudonym);
+	A::dealloc_cap(data->identity);
+	if (free_pseudonym) A::dealloc_cap(data->pseudonym);
 	delete data;
 	return ENONE;
       }
@@ -112,8 +112,8 @@ public:
 
     for (T * client = next(); client && identity; client = next(client))
       if (client->identity == identity) {
-	data = client;
-	return ENONE;
+        data = client;
+        return ENONE;
       }
 
 //    Logging::printf("could not find client data for %x\n", identity);

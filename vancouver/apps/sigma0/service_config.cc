@@ -21,12 +21,14 @@
 #include "nul/service_config.h"
 #include "nul/service_fs.h"
 #include "nul/region.h"
+#include "nul/capalloc.h"
 
-class Service_config {
+class Service_config : public CapAllocator<Service_config> {
   Motherboard &mb;
 
 public:
-  Service_config(Motherboard &_mb, bool readonly = true ) : mb(_mb) {}
+  Service_config(Motherboard &_mb, unsigned long capstart, unsigned long cap_order)
+    : CapAllocator<Service_config> (capstart, capstart, cap_order), mb(_mb) {}
 
   inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
 
@@ -70,7 +72,9 @@ public:
 };
 
 PARAM(service_config,
-      Service_config *service_config = new Service_config(mb);
+      unsigned cap_region = alloc_cap_region(1 << 12, 12);
+      Service_config *service_config = new Service_config(mb, cap_region, 12);
+
       MessageHostOp msg(service_config, "/config", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
       if (!mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");

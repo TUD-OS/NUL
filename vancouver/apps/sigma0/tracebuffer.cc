@@ -18,22 +18,24 @@
 
 #include "nul/motherboard.h"
 #include "nul/service_log.h"
+#include "nul/capalloc.h"
 
 /**
  * Tracebuffer service.
  *
  * Missing: trace-buffer output on debug key
  */
-class Tracebuffer {
+class Tracebuffer: public CapAllocator<Tracebuffer> {
   unsigned long _size;
   unsigned long _pos;
   char        * _buf;
   bool          _verbose;
   long          _anon_sessions;
+
   struct ClientData : public GenericClientData {
     long guid;
   };
-  ClientDataStorage<ClientData> _storage;
+  ClientDataStorage<ClientData, Tracebuffer> _storage;
 
 
   static void trace_putc(void *data, int value) {
@@ -66,7 +68,7 @@ public:
       check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
       free_cap = false;
       if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
-	data->guid = --_anon_sessions;
+        data->guid = --_anon_sessions;
       utcb << Utcb::TypedMapCap(data->identity);
       Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->pseudonym);
       return res;
@@ -76,12 +78,12 @@ public:
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
       {
-	if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
-	unsigned len;
-	char *text = input.get_string(len);
-	check1(EPROTO, !text);
-	if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, len, text);
-	trace_printf("(%ld) %.*s\n", data->guid, len, text);
+        if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
+        unsigned len;
+        char *text = input.get_string(len);
+        check1(EPROTO, !text);
+        if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, len, text);
+        trace_printf("(%ld) %.*s\n", data->guid, len, text);
       }
       return ENONE;
     default:
@@ -90,8 +92,9 @@ public:
   }
 
 public:
-  Tracebuffer(unsigned long size, char *buf, bool verbose) : _size(size), _pos(0), _buf(buf), _verbose(verbose) {}
-
+  Tracebuffer(unsigned long size, char *buf, bool verbose, unsigned _cap, unsigned _cap_order)
+    : CapAllocator<Tracebuffer> (_cap, _cap, _cap_order), _size(size), _pos(0), _buf(buf), _verbose(verbose) {
+  }
 
 
 #if 0
@@ -107,9 +110,12 @@ public:
 
 PARAM(tracebuffer,
       unsigned long size = ~argv[0] ? argv[0] : 32768;
-      Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1]);
+      unsigned cap_region = alloc_cap_region(1 << 12, 12);
+
+      Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1], cap_region, 12);
       MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
-      if (!mb.bus_hostop.send(msg))
-	Logging::panic("registering the service failed");
+      msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
+      if (!cap_region || !mb.bus_hostop.send(msg))
+        Logging::panic("registering the service failed");
       ,
       "tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients")

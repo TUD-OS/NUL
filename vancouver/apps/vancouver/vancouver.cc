@@ -313,7 +313,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *))
   {
-    Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
+    //Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
     unsigned cap_ec = create_ec_helper(this, myutcb()->head.nul_cpunr, PT_IRQ, &utcb, reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));

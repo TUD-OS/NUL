@@ -24,6 +24,7 @@
 #include "nul/parent.h"
 #include "nul/generic_service.h"
 #include "nul/service_timer.h"
+#include "nul/capalloc.h"
 
 /**
  * Timer service.
@@ -33,7 +34,7 @@
  * Missing:  hold _abs_timeouts-list in ClientData, remove nr, remove count and LAST_TIMEOUT,
  *           split gethosttime, make device list configurable
  */
-class TimerService : public StaticReceiver<TimerService> {
+class TimerService : public StaticReceiver<TimerService>, public CapAllocator<TimerService> {
 
   struct ClientData : public GenericClientData {
     volatile unsigned reltime;
@@ -44,7 +45,7 @@ class TimerService : public StaticReceiver<TimerService> {
 
   enum {
     // Leave some room for services in sigma0 to allocate timers.
-    CLIENTS = Config::MAX_CLIENTS + 10,
+    CLIENTS = (1 << Config::MAX_CLIENTS_ORDER) + 10,
     GRANULARITY = 1<<8
   };
   Motherboard &   _hostmb;
@@ -54,7 +55,7 @@ class TimerService : public StaticReceiver<TimerService> {
   Semaphore   _clients;
 
 
-  ClientDataStorage<ClientData> _storage;
+  ClientDataStorage<ClientData, TimerService> _storage;
   AtomicLifo<ClientData> _queue;
 
   /**
@@ -112,17 +113,22 @@ public:
     unsigned res = ENONE;
     unsigned op;
 
+    check1(EPROTO, input.get_word(op));
+
     //XXX more fine granular synchronization
     SemaphoreGuard l(_clients);
-
-    check1(EPROTO, input.get_word(op));
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
       check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
       free_cap = false;
 
-      data->nr = _abs_timeouts.alloc(data);
+//      {
+//        //XXX more fine granular synchronization
+//        SemaphoreGuard l(_clients);
+
+        data->nr = _abs_timeouts.alloc(data);
+//      }
       if (!data->nr) return EABORT;
 
       utcb << Utcb::TypedMapCap(data->identity);
@@ -205,7 +211,8 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb) : _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())) {
+  TimerService(Motherboard &hostmb, unsigned _cap, unsigned _cap_order)
+    : CapAllocator<TimerService> (_cap, _cap, _cap_order), _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
     if (!hostmb.bus_hostop.send(msg0))
@@ -242,10 +249,13 @@ public:
 };
 
 PARAM(service_timer,
-      TimerService * t = new TimerService(mb);
+      unsigned cap_region = alloc_cap_region(1 << 12, 12);
+      TimerService * t = new TimerService(mb, cap_region, 12);
 
+      Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
       MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
-      if (!mb.bus_hostop.send(msg))
-        Logging::panic("registering timer service failed");
+      msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
+      if (!cap_region || !mb.bus_hostop.send(msg))
+        Logging::panic("starting of timer service failed");
       ,
       "service_timer - multiplexes either the hosthpet or the hostpit between different clients");

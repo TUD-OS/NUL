@@ -23,9 +23,8 @@
 
 #include "nul/service_timer.h"
 
-class Gt : ProgramConsole
+class Gt : ProgramConsole, CapAllocator<Gt>
 {
-
   char *  _vesa_console;
   VgaRegs _vesaregs;
   ConsoleModeInfo _modeinfo;
@@ -50,6 +49,8 @@ class Gt : ProgramConsole
 
 
 public:
+  Gt() : CapAllocator<Gt>(0,0,0) {}
+
   int run(Utcb *utcb, Hip *hip)
   {
     console_init("GT");

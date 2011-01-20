@@ -429,7 +429,7 @@ public:
     _count(0), _active_client(0), _last_cursor_pos(0), _last_cursor_style(0), _clients()
   {
 
-    _timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    _timer_service = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_NUM, 0));
 
     // get a timer
     TimerProtocol::MessageTimer msg0(mb.clock()->abstime(0, 1000));

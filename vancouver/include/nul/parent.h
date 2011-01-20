@@ -156,9 +156,9 @@ public:
       goto do_out;
     do_get_portal:
       {
-	// we lock to avoid missing wakeups on retry
-	SemaphoreGuard guard(_lock);
-	res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking);
+        // we lock to avoid missing wakeups on retry
+        SemaphoreGuard guard(_lock);
+        res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking);
       }
       if (res == ENONE)     goto do_call;
       if (res == EEXISTS)   goto do_get_pseudonym;

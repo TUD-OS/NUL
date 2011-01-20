@@ -26,24 +26,21 @@
 #include "config.h"
 #include "parent.h"
 
+#include "capalloc.h"
+
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
 
-long  _cap_free;
-unsigned alloc_cap(unsigned count) {  return Cpu::atomic_xadd(&_cap_free,  count); }
-void   dealloc_cap(unsigned cap, unsigned count) {
-  while (count--)
-    nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true);
-  // XXX add it back to the cap-allocator
-};
-
+// cap map
+RegionList<512> _cap_region;
+// not multi-threaded safe - lock by your own or use separate cap allocator !
+unsigned alloc_cap_region(unsigned count, unsigned align_order) { return _cap_region.alloc(count, align_order); }
 
 /**
  * Contains common code for nova programms.
  */
-class NovaProgram : public BaseProgram
+class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
 {
-
   enum {
     VIRT_START       = 0x1000,
     UTCB_PAD         = 0x1000,
@@ -58,7 +55,6 @@ class NovaProgram : public BaseProgram
   RegionList<512> _free_virt;
   RegionList<512> _free_phys;
   RegionList<512> _virt_phys;
-
 
   /**
    * Alloc a region of virtual memory to put an EC into
@@ -81,6 +77,7 @@ class NovaProgram : public BaseProgram
 		//    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
     check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
     utcb->head.nul_cpunr = cpunr;
+    utcb->head.crd = utcb->head.crd_translate = 0;
     if (utcb_out)
       *utcb_out = utcb;
     return cap;
@@ -99,18 +96,25 @@ class NovaProgram : public BaseProgram
     for (int i=0; i < (_hip->mem_offs - _hip->cpu_offs) / _hip->cpu_size; i++) {
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(_hip) + _hip->cpu_offs + i*_hip->cpu_size);
       if ((cpu->flags & 3) == 3) {
-	myutcb()->head.nul_cpunr = i;
-	break;
+        myutcb()->head.nul_cpunr = i;
+        break;
       }
     }
 
-    assert(!_cap_free);
-    alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
+    // add caps
+    assert(!CapAllocator<NovaProgram>::_cap_ && !CapAllocator<NovaProgram>::_cap_start);
+    CapAllocator<NovaProgram>::_cap_order = 16;
+    assert((1 << 16) < hip->cfg_cap);
+    _cap_region.add(Region(1 << 16, (hip->cfg_cap < (1 << 20) ? hip->cfg_cap : (1 << 20)) - (1 << 16)));
+
+    unsigned cap_reserved = alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
+    assert(!cap_reserved);
     nova_create_sm(_cap_block = alloc_cap());
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
     _free_virt.del(Region(reinterpret_cast<unsigned long>(&__image_start), &__image_end - &__image_start));
+
     return 0;
   };
 
@@ -124,9 +128,9 @@ class NovaProgram : public BaseProgram
 
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(_hip) + _hip->mem_offs) + i;
       if (hmem->type == 1) {
-	_free_virt.del(Region(hmem->addr, hmem->size));
-	_free_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
-	_virt_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
+        _free_virt.del(Region(hmem->addr, hmem->size));
+        _free_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
+        _virt_phys.add(Region(hmem->addr, hmem->size, hmem->aux));
       }
     }
 
@@ -141,6 +145,8 @@ class NovaProgram : public BaseProgram
 
 
 public:
+  NovaProgram () : CapAllocator<NovaProgram>(0,0,0) {}
+
   /**
    * Default exit function.
    */

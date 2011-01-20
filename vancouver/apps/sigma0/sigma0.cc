@@ -50,13 +50,15 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   enum {
-    MAXCPUS            = 256,
+    MAXCPUS            = Config::MAX_CPUS,
     MAXPCIDIRECT       = 64,
-    MAXMODULES         = Config::MAX_CLIENTS,
+    MAXMODULES         = 1 << Config::MAX_CLIENTS_ORDER,
     CPUGSI             = 0,
     MEM_OFFSET         = 1ul << 31,
     CLIENT_PT_OFFSET   = 0x10000,
-    CLIENT_PT_SHIFT    = 10
+    CLIENT_PT_SHIFT    = 10,
+    CLIENT_PT_ORDER    = CLIENT_PT_SHIFT + Config::MAX_CLIENTS_ORDER,
+    CLIENT_ALL_ORDER   = CLIENT_PT_ORDER > 16 ? CLIENT_PT_ORDER + 1 : 16 + 1
   };
 
   // a mapping from virtual cpus to the physical numbers
@@ -333,10 +335,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec_helper(this, i, 0, &utcb);
-      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
+      utcb->head.crd = Crd(alloc_cap(), 0, DESC_TYPE_CAP).value();
 
       _percpu[i].cap_ec_parent = create_ec_helper(this, i, 0, &utcb);
-      utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
+      utcb->head.crd = Crd(alloc_cap(), 0, DESC_TYPE_CAP).value();
+      utcb->head.crd_translate = Crd(0, CLIENT_ALL_ORDER, DESC_TYPE_CAP).value();
+
       // create parent portals
       check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_parent, reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
     }
@@ -351,6 +355,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::init(putc, 0);
     Logging::printf("preinit %p\n\n", hip);
     check1(1, init(hip));
+
+    //cap range from 0 - 0x10000 assumed to be reserved by program.h -> assertion
+    //reserve cap range from 0x10000 (CLIENT_PT_OFFSET) to MAX_CLIENTS (CLIENT_ALL_SHIFT) - is used by sigma0 implicitly without a cap allocator !
+    assert(_cap_start == 0 && _cap_order == 16 && CLIENT_PT_OFFSET == 0x10000);
+    Region * reserve = _cap_region.find(CLIENT_PT_OFFSET);
+    assert(reserve && reserve->virt == CLIENT_PT_OFFSET && reserve->size > (1 << CLIENT_PT_ORDER));
+    _cap_region.del(Region(CLIENT_PT_OFFSET, 1 << CLIENT_PT_ORDER));
+    assert(!_cap_region.find(CLIENT_PT_OFFSET));
+    assert(!_cap_region.find(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER) - 1));
 
     Logging::printf("create locks\n");
     _lock_gsi    = Semaphore(alloc_cap());
@@ -1049,6 +1062,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           unsigned cpu = _cpunr[i];
           unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
           unsigned pt = alloc_cap();
+
           if (!ec_cap || !utcb || !pt) return false;
           if (msg.cap)
             utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
@@ -1061,9 +1075,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             if (!addr) return false;
             utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
           }
+          if (msg.crd_t) utcb->head.crd_translate = msg.crd_t;
+
           check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
           check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
-          Logging::printf("service registered on cpu %x\n", cpu);
+          //Logging::printf("service registered on cpu %x\n", cpu);
           if (msg.portal_pf) {
             unsigned ec_pf = create_ec_helper(msg.obj, cpu, 0, &utcb);
             if (!ec_pf || !utcb) return false;
