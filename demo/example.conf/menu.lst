@@ -1,7 +1,7 @@
 title vancouver
 kernel /nul/hypervisor.new
 modaddr 0x6000000
-module /nul/sigma0.nul.gz S0_DEFAULT hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 vnet script script_start:1,64 quota::guid \
+module /nul/sigma0.nul.gz S0_DEFAULT hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 vnet script_start:1,64 quota::guid \
   namespace::/s0 name::/s0/timer name::/s0/fs/rom
 module /nul/vancouver.nul.gz
 module /tools/munich
