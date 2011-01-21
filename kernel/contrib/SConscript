@@ -13,7 +13,7 @@ checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checko
 build = target_env.Command("nova/build/hypervisor", "nova/README",
                          "make -C `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 AlwaysBuild(build)
-#Depends(build, [checkout] + Glob("nova/src/*") + Glob("nova/include/*"))
+Precious(build)
 
 host_env.Install("#bin/apps/", build)
                          
