@@ -1089,7 +1089,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
         unsigned service_cap = alloc_cap();
         for (unsigned i = 0; i < _numcpus; i++) {
-          Utcb *utcb;
+          Utcb *utcb = NULL;
           unsigned cpu = _cpunr[i];
           unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
           unsigned pt = alloc_cap();
