@@ -119,7 +119,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_CLOSE:
     if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
-    Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->pseudonym);
+    //Logging::printf("\tclose session for %x for %x\n", cdata->identity, cdata->pseudonym);
     return _client.free_client_data(utcb, cdata, false);
 
   case ParentProtocol::TYPE_GET_PORTAL:
@@ -182,7 +182,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       // wakeup clients that wait for us
       for (ClientData * c = _client.next(); c; c = _client.next(c))
 	if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
-	  Logging::printf("\tnotify client %x\n", c->pseudonym);
+//	  Logging::printf("\tnotify client %x\n", c->pseudonym);
 	  nova_semup(c->identity);
 	}
 
@@ -193,7 +193,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_UNREGISTER:
     if ((res = _server.get_client_data(utcb, sdata, input.identity()))) return res;
-    Logging::printf("\tunregister %s cpu %x\n", sdata->name, sdata->cpu);
+//    Logging::printf("\tunregister %s cpu %x\n", sdata->name, sdata->cpu);
     return free_service(utcb, sdata);
 
   case ParentProtocol::TYPE_GET_QUOTA:

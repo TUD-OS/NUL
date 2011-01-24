@@ -597,7 +597,10 @@ public:
           unsigned cap_base;
           FsProtocol::dirent fileinfo;
           FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
-          if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) return false; 
+          if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) {
+            Logging::printf("FAILED: loading file ...%10s\n", namelen >= 10 ? name + namelen - 10 : "");
+            return false;
+          }
           res = fs_obj.get_file_copy(*myutcb(), msg.start, fileinfo.size, name, namelen);
           //Note: msg.start used as service name in fs_obj is now overwritten
           fs_obj.close(*myutcb());

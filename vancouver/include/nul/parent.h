@@ -74,9 +74,9 @@ struct ParentProtocol {
 
     // block on the parent session until something happens
     if (res == ERETRY) {
-      Logging::printf("block waiting for session %x\n", cap_pseudonym);
+//      Logging::printf("block waiting for session %x\n", cap_pseudonym);
       if (blocking)
-	nova_semdownmulti(cap_pseudonym);
+        nova_semdownmulti(cap_pseudonym);
       else res = EABORT;
     }
     return res;
@@ -192,7 +192,7 @@ public:
   {
     nova_create_sm(cap_base + CAP_LOCK);
     _lock.up();
-    Logging::printf("New Protocol '%s' base %x\n", service, cap_base);
+//    Logging::printf("New Protocol '%s' base %x\n", service, cap_base);
   }
 };
 
