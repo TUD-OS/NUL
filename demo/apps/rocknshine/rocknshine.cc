@@ -137,7 +137,7 @@ public:
 
       fs.close(*myutcb());
       dealloc_cap(cap_base, FsProtocol::CAP_NUM);
-
+      break;
     }
     
     if (pmem == NULL)
