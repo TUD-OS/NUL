@@ -68,7 +68,8 @@ struct FsProtocol : public GenericProtocol {
   }
 
   /*
-   * Get a file mapped by the service. Client has to take care that memory can be revoked by the service at anytime !
+   * Get a file mapped by the service. Client has to take care that
+   * memory can be revoked by the service at anytime !
    */
   unsigned get_file_map(Utcb &utcb, unsigned long addr, unsigned order, unsigned long & offset, const char * name, unsigned long name_len = ~0UL) {
     assert (!(addr & ((1 << Utcb::MINSHIFT) - 1)));
@@ -80,8 +81,9 @@ struct FsProtocol : public GenericProtocol {
   }
 
   /*
-   * Caller maps its own memory to the fileservice and the fileservice copies the data into the provided memory.
-   * Service has to take care that memory may be revoked by the client at anytime!
+   * Caller maps its own memory to the fileservice and the fileservice
+   * copies the data into the provided memory.  Service has to take
+   * care that memory may be revoked by the client at anytime!
    */
   unsigned get_file_copy(Utcb &utcb, void *addr, unsigned long addr_size, const char * name,
                          unsigned long name_len = ~0UL, unsigned long long file_offset = 0) {
