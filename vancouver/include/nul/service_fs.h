@@ -18,6 +18,7 @@
 #pragma once
 
 #include <nul/generic_service.h>
+#include <service/string.h>
 
 /**
  */
@@ -35,6 +36,28 @@ struct FsProtocol : public GenericProtocol {
 
     dirent() : size(0), name(NULL) {}
   };
+
+  // Parse a string of the form "proto://foo/bar" into foo/bar (return
+  // value) and "proto". Return value shares structure with url. This
+  // function does not trim or remove spaces (it's your job!).  If
+  // string is not parsable or proto buffer is to small, return
+  // NULL. Needed size is returned in proto_len.
+  static const char *
+  parse_file_name(const char *url, char *proto, size_t &proto_len)
+  {
+    const char *name = strstr(url, "://");
+    if (name == NULL) { return NULL; }
+
+    if ((name - url + 1) > proto_len) {
+      proto_len = name - url + 1;
+      return NULL;
+    }
+
+    memcpy(proto, url, name - url);
+    proto[name - url] = 0;
+
+    return name + 3;
+  }
 
   unsigned get_file_info(Utcb &utcb, dirent & dirent, const char * name, unsigned long name_len = ~0UL) {
     unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << Utcb::String(name, name_len), false);
