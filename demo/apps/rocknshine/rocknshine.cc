@@ -131,7 +131,10 @@ public:
       Logging::printf("Presentation is %llu bytes large.\n", file_info.size);
 
       size_t size = (file_info.size + 0xFFFU) & ~0xFFFU;
-      pmem = new(0x1000) char[size];
+      pmem = reinterpret_cast<char *>(_free_phys.alloc(size, 12));
+      if (pmem == NULL)
+        Logging::panic("Not enough memory to load presentation.\n");
+
       if (ENONE != fs.get_file_copy(*myutcb(), pmem, size, name))
         Logging::panic("Failed to read file.");
 
