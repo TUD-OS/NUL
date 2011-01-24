@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <nul/types.h>
 #include <nul/generic_service.h>
 #include <service/string.h>
 

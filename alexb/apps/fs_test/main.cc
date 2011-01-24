@@ -121,8 +121,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       if (res) return false;
 
       char * text = new (0x1000) char [0x1000];
-      unsigned long addr = reinterpret_cast<unsigned long>(text);
-      res = fs->get_file_copy(*utcb, addr, fileinfo.size, "myfile");
+      res = fs->get_file_copy(*utcb, text, fileinfo.size, "myfile");
       revoke_all_mem(text, 0x1000, DESC_MEM_ALL, false);
       if (res) return false;
       Logging::printf("received '%s'\n", text);
