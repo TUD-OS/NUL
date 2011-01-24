@@ -17,9 +17,11 @@
  * General Public License version 2 for more details.
  */
 
-#include "sigma0/console.h"
-#include "host/keyboard.h"
-#include "nul/program.h"
+#include <sigma0/console.h>
+#include <host/keyboard.h>
+#include <nul/program.h>
+#include <service/cmdline.h>
+#include <nul/service_fs.h>
 #include <tinf.h>
 
 
@@ -99,24 +101,57 @@ public:
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
     init_mem(hip);
-    Logging::printf("rocknshine up and running\n");
+    Logging::printf("rocknshine up and running.\n");
 
-    // Look for an module
-    extern char __image_end;
-    char *pmem = &__image_end;
-    MessageHostOp msg1(1, pmem);
-    if (Sigma0Base::hostop(msg1))
-      Logging::panic("no enough memory for the module");
+    char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    char *args[16];
+    char proto[32] = "fs/";
 
+    Logging::printf("Command line: %s\n", cmdline);
+    unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+    FsProtocol::dirent file_info;
+    char *pmem = NULL;
+
+    // Need to search through our arguments, because of sigma0
+    // directives...
+    for (unsigned i = 1; i < argv; i++) {
+      size_t proto_len = sizeof(proto) - 3;
+      const char *name = FsProtocol::parse_file_name(args[i], proto + 3, proto_len);
+      if (name == NULL) continue;
+
+      Logging::printf("Presentation is '%s' proto '%s'\n", name, proto);
+
+      // Get the file
+      unsigned cap_base = alloc_cap(FsProtocol::CAP_NUM);
+      FsProtocol fs(cap_base, proto);
+
+      if (ENONE != fs.get_file_info(*myutcb(), file_info, name))
+        Logging::panic("No such file?\n");
+
+      Logging::printf("Presentation is %llu bytes large.\n", file_info.size);
+
+      size_t size = (file_info.size + 0xFFFU) & ~0xFFFU;
+      pmem = new(0x1000) char[size];
+      if (ENONE != fs.get_file_copy(*myutcb(), reinterpret_cast<unsigned long>(pmem), size,
+                                    name))
+        Logging::panic("Failed to read file.");
+
+      fs.close(*myutcb());
+      dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+
+    }
+    
+    if (pmem == NULL)
+      Logging::panic("No presentation found.");
+
+    // Check if it is really a presentation we can unpack.
     _header = reinterpret_cast<pheader *>(pmem);
-    _free_phys.del(Region(reinterpret_cast<unsigned long>(pmem), msg1.size));
     if (memcmp(_header->magic, "PRE0", sizeof(_header->magic)) != 0)
-      Logging::panic("invalid module");
+      Logging::panic("Seems not to be a presentation.");
 
     Logging::printf("Loaded presentation: (%d, %d), %d page%s.\n",
 		    _header->width, _header->height, _header->pages,
 		    (_header->pages == 1) ? "" : "s");
-
 
     // Initialize tiny zlib library.
     tinf_init();
@@ -141,7 +176,7 @@ public:
     unsigned size = _modeinfo.resolution[1] * _modeinfo.bytes_per_scanline;
     _scratch      = reinterpret_cast<unsigned *>(_free_phys.alloc(3 * _header->width * _header->height, 12));
     _vesa_console = reinterpret_cast<char *>(_free_phys.alloc(size, 12));
-    if (!_scratch || !_vesa_console) Logging::panic("not enough memory - %ld MB should be sufficient", ((3 * _header->width * _header->height + size + msg1.size) >> 20) + 2);
+    if (!_scratch || !_vesa_console) Logging::panic("not enough memory - %llu MB should be sufficient", ((3 * _header->width * _header->height + size + file_info.size) >> 20) + 2);
     Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
