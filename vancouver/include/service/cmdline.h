@@ -22,12 +22,8 @@ class Cmdline {
 
 public:
 
-#define CASE_WHITESPACE \
-  case ' ':             \
- case '\t':             \
- case '\r':             \
- case '\n':             \
- case '\f':
+#define WHITESPACE_CHARS ' ': case '\t': case '\r': case '\n': case '\f'
+
   
   // Parse a string into substrings separated by spaces. Backspaces
   // quote spaces. To insert a literal backspace, use \\. cmdline is
@@ -48,7 +44,7 @@ public:
       switch (state) {
       case WHITESPACE:
         switch (c) {
-          CASE_WHITESPACE
+        case WHITESPACE_CHARS:
             break;
         default:
           argv[cur] = cmdline;
@@ -58,7 +54,7 @@ public:
         break;
       case ARG:
         switch (c) {
-          CASE_WHITESPACE
+        case WHITESPACE_CHARS:
             *cmdline = 0; cur++;
           state = WHITESPACE;
           break;
