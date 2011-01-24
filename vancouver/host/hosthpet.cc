@@ -121,10 +121,6 @@ public:
     return true;
   }
 
-
-  unsigned irq() { return _irq; }
-
-
   bool  receive(MessageIrq &msg)
   {
     if (msg.line == _irq && msg.type == MessageIrq::ASSERT_IRQ)
