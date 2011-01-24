@@ -598,15 +598,14 @@ public:
           FsProtocol::dirent fileinfo;
           FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
           if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) return false; 
-          unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
-          res = fs_obj.get_file_copy(*myutcb(), msg_start, fileinfo.size, name, namelen);
+          res = fs_obj.get_file_copy(*myutcb(), msg.start, fileinfo.size, name, namelen);
           //Note: msg.start used as service name in fs_obj is now overwritten
           fs_obj.close(*myutcb());
           dealloc_cap(cap_base, FsProtocol::CAP_NUM);
           if (res) return false;
           
           //align the end of the module to get the cmdline on a new page.
-          char *s = reinterpret_cast<char *>((msg_start + fileinfo.size + 0xffful) & ~0xffful);
+          char *s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(msg.start) + fileinfo.size + 0xffful) & ~0xffful);
           memcpy(s, cmdline, cmdlen - 1);
           s[cmdlen - 1] = 0;
 

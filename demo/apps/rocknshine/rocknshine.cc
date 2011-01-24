@@ -132,8 +132,7 @@ public:
 
       size_t size = (file_info.size + 0xFFFU) & ~0xFFFU;
       pmem = new(0x1000) char[size];
-      if (ENONE != fs.get_file_copy(*myutcb(), reinterpret_cast<unsigned long>(pmem), size,
-                                    name))
+      if (ENONE != fs.get_file_copy(*myutcb(), pmem, size, name))
         Logging::panic("Failed to read file.");
 
       fs.close(*myutcb());

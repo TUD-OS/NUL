@@ -580,7 +580,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned namelen = strcspn(file_name, " \t\r\n\f");
     unsigned cap_base, res;
     unsigned long long msize, physaddr;
-    unsigned long addr;
+    char *addr;
 
     FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), fs_name);
     FsProtocol::dirent fileinfo;
@@ -593,11 +593,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
     if (!physaddr || !msize) { Logging::printf("Not enough memory\n"); res = __LINE__; goto fs_out; }
 
-    addr = reinterpret_cast<unsigned long >(map_self(utcb, physaddr, msize));
+    addr = map_self(utcb, physaddr, msize);
     if (!addr) { Logging::printf("Could not map file\n"); res= __LINE__; goto phys_out; }
     if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
-    res = _start_config(utcb, reinterpret_cast<char *>(addr), fileinfo.size, cmdline);
+    res = _start_config(utcb, addr, fileinfo.size, cmdline);
 
   map_out:
     //don't try to unmap from ourself "revoke(..., true)"
