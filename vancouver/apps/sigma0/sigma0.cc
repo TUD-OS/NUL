@@ -583,7 +583,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long addr;
 
     FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), fs_name);
-    FsProtocol::dirent fileinfo = {0,0};
+    FsProtocol::dirent fileinfo;
     if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("File not found %s.\n", file_name); res = __LINE__; goto fs_out; }
 
     msize = (fileinfo.size + 0xfff) & ~0xffful;

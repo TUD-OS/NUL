@@ -595,8 +595,8 @@ public:
           msg.start[name - cmdline] = 0;
 
           unsigned cap_base;
-          FsProtocol::dirent fileinfo = {0,0};
-          FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
+          FsProtocol::dirent fileinfo;
+          FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
           if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) return false; 
           unsigned long msg_start = reinterpret_cast<unsigned long>(msg.start);
           res = fs_obj.get_file_copy(*myutcb(), msg_start, fileinfo.size, name, namelen);

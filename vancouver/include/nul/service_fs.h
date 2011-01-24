@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "nul/generic_service.h"
+#include <nul/generic_service.h>
 
 /**
  */
@@ -32,11 +32,13 @@ struct FsProtocol : public GenericProtocol {
   struct dirent {
     unsigned long long size;
     char const * name;
+
+    dirent() : size(0), name(NULL) {}
   };
 
-  unsigned get_file_info(Utcb &utcb, struct dirent & dirent, const char * name, unsigned long long name_len = ~0ULL) {
+  unsigned get_file_info(Utcb &utcb, dirent & dirent, const char * name, unsigned long name_len = ~0UL) {
     unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << Utcb::String(name, name_len), false);
-    utcb >> dirent.size;
+    dirent.size = 0; utcb >> dirent.size;
     dirent.name = name;
     utcb.drop_frame();
     return res;
@@ -58,7 +60,7 @@ struct FsProtocol : public GenericProtocol {
    * Caller maps its own memory to the fileservice and the fileservice copies the data into the provided memory.
    * Service has to take care that memory may be revoked by the client at anytime!
    */
-  unsigned get_file_copy(Utcb &utcb, unsigned long addr, unsigned long long addr_size, const char * name, unsigned long name_len = ~0UL, unsigned long long file_offset = 0) {
+  unsigned get_file_copy(Utcb &utcb, unsigned long addr, unsigned long addr_size, const char * name, unsigned long name_len = ~0UL, unsigned long long file_offset = 0) {
     unsigned long local_offset = 0;
     unsigned res = 0, order;
     assert (!(addr & 0xffful) && addr_size);
@@ -81,3 +83,5 @@ struct FsProtocol : public GenericProtocol {
     assert(!strncmp("fs", name, 2));
   }
 };
+
+// EOF
