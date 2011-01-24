@@ -184,7 +184,6 @@ public:
         msg.wallclocktime = _msg.wallclocktime;
         msg.timestamp = _msg.timestamp;
         if (_mymb.bus_time.send(msg)) {
-  	      // XXX we assume the same mb->clock() source here
           _msg.wallclocktime = msg.wallclocktime;
           _msg.timestamp = msg.timestamp;
           utcb << _msg;
