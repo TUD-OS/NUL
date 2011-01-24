@@ -120,39 +120,6 @@ public:
           utcb.head.crd_translate = tmp_crd;
       }
       return ENONE;
-    case FsProtocol::TYPE_GET_FILE_MAPPED:
-      {
-        Hip_mem * hmem = get_file(input.get_zero_string(len));
-        check1(EPROTO, !hmem || !len);
-
-        unsigned long long addr = hmem->addr, order;
-        unsigned long long size = (hmem->size + 0xfff) & ~0xffful;
-        unsigned long hotspot = 0;
-        unsigned long virt_size = 1 << (Cpu::bsr(size | 1) == Cpu::bsf(size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(size | 1) : Cpu::bsr(size | 1) + 1);
-
-        if ((addr & ~(virt_size - 1)) + virt_size > addr + size) {
-          hotspot = addr & (virt_size - 1);
-          utcb << hotspot;
-        } else {
-          hotspot = addr & (1 << Cpu::bsr(virt_size - size)) - 1;
-          utcb << hotspot;
-        }
-        //Logging::printf("virt_size=%lx ('hotspot'=%lx !<= restsize=%llx) \n",virt_size, hotspot, virt_size - size);
-        while (size) {
-          order = Cpu::minshift(addr | hotspot, size);
-
-          //Logging::printf("typed %x addr %llx order %llx size %llx hotspot %lx msg %p START %x &msg[START]=%p item_start %p\n",
-          //  utcb.head.typed, addr, order, size, hotspot, utcb.msg, utcb.msg[Utcb::STACK_START], &utcb.msg[Utcb::STACK_START], utcb.item_start());
-
-          Utcb::TypedMapCap value = Utcb::TypedMapCap(addr >> Utcb::MINSHIFT, ((order - 12) << 7) | DESC_TYPE_MEM | _rights);
-          utcb.head.typed++;
-          value.fill_words(utcb.item_start(), hotspot | MAP_MAP); //MAP_HBIT);
-          addr    += 1 << order;
-          size    -= 1 << order;
-          hotspot += 1 << order;
-        }
-      }
-      return ENONE;
     default:
       return EPROTO;
     }

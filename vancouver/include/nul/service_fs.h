@@ -25,8 +25,7 @@
 struct FsProtocol : public GenericProtocol {
 
   enum {
-    TYPE_GET_FILE_MAPPED = ParentProtocol::TYPE_GENERIC_END,
-    TYPE_GET_FILE_INFO,
+    TYPE_GET_FILE_INFO = ParentProtocol::TYPE_GENERIC_END,
     TYPE_GET_FILE_COPIED,
   };
 
@@ -63,19 +62,6 @@ struct FsProtocol : public GenericProtocol {
     unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_INFO) << Utcb::String(name, name_len), false);
     dirent.size = 0; utcb >> dirent.size;
     dirent.name = name;
-    utcb.drop_frame();
-    return res;
-  }
-
-  /*
-   * Get a file mapped by the service. Client has to take care that
-   * memory can be revoked by the service at anytime !
-   */
-  unsigned get_file_map(Utcb &utcb, unsigned long addr, unsigned order, unsigned long & offset, const char * name, unsigned long name_len = ~0UL) {
-    assert (!(addr & ((1 << Utcb::MINSHIFT) - 1)));
-    assert (!(order >= (1 << 5)));
-    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_MAPPED) << Utcb::String(name, name_len) << Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL), false);
-    utcb >> offset;
     utcb.drop_frame();
     return res;
   }
