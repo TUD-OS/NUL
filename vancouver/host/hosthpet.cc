@@ -16,7 +16,8 @@
  * General Public License version 2 for more details.
  */
 
-#include "nul/motherboard.h"
+#include <nul/motherboard.h>
+#include <host/hpet.h>
 
 /**
  * Use the HPET as timer backend.
@@ -24,32 +25,11 @@
  * State: testing
  * Features: periodic timer, support different timers, one-shot, HPET ACPI table, MSI
  */
-class HostHpet : public StaticReceiver<HostHpet>
+class HostHpet : public BasicHpet, public StaticReceiver<HostHpet>
 {
   DBus<MessageTimeout> &_bus_timeout;
   Clock *_clock;
-  struct HostHpetTimer {
-    volatile unsigned config;
-    volatile unsigned int_route;
-    volatile unsigned comp[2];
-    volatile unsigned msi[2];
-    unsigned res[2];
-  };
-  struct HostHpetRegister {
-    volatile unsigned cap;
-    volatile unsigned period;
-    unsigned res0[2];
-    volatile unsigned config;
-    unsigned res1[3];
-    volatile unsigned isr;
-    unsigned res2[51];
-    union {
-      volatile unsigned  counter[2];
-      volatile unsigned long long main;
-    };
-    unsigned res3[2];
-    struct HostHpetTimer timer[24];
-  } *_regs;
+  struct HostHpetRegister *_regs;
   unsigned  _isrclear;
   struct HostHpetTimer *_timerreg;
   unsigned  _irq;
@@ -57,69 +37,6 @@ class HostHpet : public StaticReceiver<HostHpet>
   unsigned  _mindelta;
 public:
 
-  /**
-   * Get the HPET address from the ACPI table.
-   */
-  static unsigned long get_hpet_address(DBus<MessageAcpi> &bus_acpi, unsigned long address_overrride)
-  {
-    if (address_overrride != ~0ul) return address_overrride;
-
-    MessageAcpi msg0("HPET");
-    if (bus_acpi.send(msg0, true) && msg0.table)
-      {
-	struct HpetAcpiTable
-	{
-	  char res[40];
-	  unsigned char gas[4];
-	unsigned long address[2];
-	} *table = reinterpret_cast<HpetAcpiTable *>(msg0.table);
-
-	if (table->gas[0])
-	  Logging::printf("HPET access must be MMIO but is %d", table->gas[0]);
-	else if (table->address[1])
-	  Logging::printf("HPET must be below 4G");
-	else
-	  return table->address[0];
-      }
-
-    Logging::printf("Warning: no HPET ACPI table, trying default value 0xfed00000\n");
-    return 0xfed00000;
-  }
-
-
-  /**
-   * Check whether some address points to an hpet.
-   */
-  static bool check_hpet_present(void *address, unsigned timer, unsigned irq)
-  {
-    HostHpetRegister *regs = reinterpret_cast<HostHpetRegister *>(address);
-
-    // check whether this looks like an HPET
-    if (regs->cap == ~0u || !(regs->cap & 0xff))
-      Logging::printf("%s: Invalid HPET cap\n", __func__);
-    else {
-      unsigned num_timer = ((regs->cap & 0x1f00) >> 8) + 1;
-      if (timer >= num_timer)
-	Logging::printf("%s: Timer %x not supported\n", __func__, timer);
-
-      // output some debugging
-      Logging::printf("HostHpet: cap %x config %x period %d\n", regs->cap, regs->config, regs->period);
-      for (unsigned i=0; i < num_timer; i++)
-	Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, regs->timer[i].config, regs->timer[i].int_route);
-
-      if (timer >= num_timer)
-	Logging::printf("%s: Timer %x not supported\n", __func__, timer);
-      else if (regs->period > 0x05f5e100 || !regs->period)
-	Logging::printf("%s: Invalid HPET period\n", __func__);
-      else if ((irq != ~0u) && (irq >= 32 || ~regs->timer[timer].int_route & (1 << irq)))
-	Logging::printf("%s: IRQ routing to GSI %x impossible\n", __func__, irq);
-      else if (~regs->timer[timer].config & (1<<15) && !regs->timer[timer].int_route && !(regs->cap & 0x8000 && timer < 2))
-	Logging::printf("%s: No IRQ routing possible\n", __func__);
-      else
-	return false;
-    }
-    return true;
-  }
 
   bool  receive(MessageIrq &msg)
   {
@@ -220,13 +137,13 @@ public:
 PARAM(hosthpet,
       {
 	unsigned timer = ~argv[0] ? argv[0] : 0;
-	unsigned long address = HostHpet::get_hpet_address(mb.bus_acpi, argv[1]);
+	unsigned long address = BasicHpet::get_hpet_address(mb.bus_acpi, argv[1]);
 	unsigned irq = argv[2];
 
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
 	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
 
-	if (HostHpet::check_hpet_present(msg1.ptr, timer, irq)) {
+	if (not BasicHpet::check_hpet_present(msg1.ptr, timer, irq)) {
 	  Logging::printf("This is not an HPET timer at %lx timer %x\n", address, timer);
 	  return;
 	}
