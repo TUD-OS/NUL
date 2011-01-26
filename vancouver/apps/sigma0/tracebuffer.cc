@@ -70,11 +70,11 @@ public:
       if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
         data->guid = --_anon_sessions;
       utcb << Utcb::TypedMapCap(data->identity);
-      Logging::printf("client data %x guid %lx parent %x\n", data->identity, data->guid, data->pseudonym);
+      if (_verbose) Logging::printf("tb: client data %x guid %lx parent %x\n", data->identity, data->guid, data->pseudonym);
       return res;
     case ParentProtocol::TYPE_CLOSE:
       check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-      Logging::printf("close session for %lx\n", data->guid);
+      if (_verbose) Logging::printf("tb: close session for %lx\n", data->guid);
       return _storage.free_client_data(utcb, data);
     case LogProtocol::TYPE_LOG:
       {
@@ -82,7 +82,7 @@ public:
         unsigned len;
         char *text = input.get_string(len);
         check1(EPROTO, !text);
-        if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, len, text);
+        if (_verbose) Logging::printf("tb: (%ld) %.*s\n", data->guid, len, text);
         trace_printf("(%ld) %.*s\n", data->guid, len, text);
       }
       return ENONE;
@@ -112,7 +112,7 @@ PARAM(tracebuffer,
       unsigned long size = ~argv[0] ? argv[0] : 32768;
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
 
-      Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1], cap_region, 12);
+      Tracebuffer *t = new Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12);
       MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))

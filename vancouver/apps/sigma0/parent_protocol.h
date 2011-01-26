@@ -27,11 +27,12 @@ struct ClientData : public GenericClientData {
 //    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, input.identity(1), input.identity(0));
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
-      char const *cmdline = get_module_cmdline(input);
-      if (cmdline && strstr(cmdline, "quota::guid")) {
-	*value_out = get_client_number(parent_cap);
-	Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
-	return ENONE;
+      unsigned long s0_cmdlen;
+      char const *pos, *cmdline = get_module_cmdline(input, s0_cmdlen);
+      if (cmdline && (pos = strstr(cmdline, "quota::guid")) && pos < cmdline + s0_cmdlen) {
+        *value_out = get_client_number(parent_cap);
+//        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
+        return ENONE;
       }
     }
     return ERESOURCE;
@@ -51,9 +52,10 @@ static unsigned get_client_number(unsigned cap) {
   return cap >> CLIENT_PT_SHIFT;
 }
 
-static char const * get_module_cmdline(Utcb::Frame &input) {
+static char const * get_module_cmdline(Utcb::Frame &input, unsigned long &s0_cmdlen) {
   unsigned clientnr = get_client_number(input.identity(0));
   if (clientnr >= MAXMODULES) return 0;
+  s0_cmdlen = sigma0->_modinfo[clientnr].sigma0_cmdlen;
   return sigma0->_modinfo[clientnr].cmdline;
 }
 
@@ -88,10 +90,12 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
        * Parse the cmdline for "name::" prefixes and check whether the
        * postfix matches the requested name.
        */
-      char const * cmdline = get_module_cmdline(input);
+      unsigned long s0_cmdlen;
+      char const * cmdline = get_module_cmdline(input, s0_cmdlen);
+      char const * cmdline_end = cmdline + s0_cmdlen;
       if (!cmdline) return EPROTO;
       cmdline = strstr(cmdline, "name::");
-      while (cmdline) {
+      while (cmdline && cmdline < cmdline_end) {
         cmdline += 6;
         unsigned namelen = strcspn(cmdline, " \t\r\n\f");
         if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
@@ -144,17 +148,17 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_REGISTER:
     {
-      unsigned cpu;
       char *request;
-      unsigned request_len;
+      unsigned cpu, request_len;
       if (input.get_word(cpu) || !(request = input.get_zero_string(request_len))) return EPROTO;
 
       // search for an allowed namespace
-      char const * cmdline = get_module_cmdline(input);
-      if (!cmdline) return EPROTO;
-//      Logging::printf("\tregister client %x @ cpu %x cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, cmdline, request);
-      cmdline = strstr(cmdline, "namespace::");
-      if (!cmdline) return EPERM;
+      unsigned long s0_cmdlen;
+      char const * cmdline, * _cmdline = get_module_cmdline(input, s0_cmdlen);
+      if (!_cmdline) return EPROTO;
+//      Logging::printf("\tregister client %x @ cpu %x _cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, _cmdline, request);
+      cmdline = strstr(_cmdline, "namespace::");
+      if (!cmdline || cmdline > _cmdline + s0_cmdlen) return EPERM;
       cmdline += 11;
       unsigned namespace_len = strcspn(cmdline, " \t");
 
@@ -174,17 +178,17 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       sdata->pt   = input.received_cap();
 
       for (ServerData * s2 = _server.next(); s2; s2 = _server.next(s2))
-	if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
-	  free_service(utcb, sdata);
-	  return EEXISTS;
-	}
+      if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
+        free_service(utcb, sdata);
+        return EEXISTS;
+      }
 
       // wakeup clients that wait for us
       for (ClientData * c = _client.next(); c; c = _client.next(c))
-	if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
-//	  Logging::printf("\tnotify client %x\n", c->pseudonym);
-	  nova_semup(c->identity);
-	}
+      if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
+        //Logging::printf("\tnotify client %x\n", c->pseudonym);
+        nova_semup(c->identity);
+      }
 
       utcb << Utcb::TypedMapCap(sdata->identity);
       free_cap = false;

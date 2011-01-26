@@ -95,35 +95,35 @@ class Motherboard : public StaticReceiver<Motherboard>
       if (stop && !strncmp(stop, args, strlen(stop))) return;
       unsigned arglen = strcspn(args, WORD_SEPARATOR);
       if (!arglen) {
-	args++;
-	continue;
+        args++;
+        continue;
       }
       long *p = &__param_table_start;
       bool handled = false;
       while (!handled && p < &__param_table_end) {
-	typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
-	CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
-	char **strings = reinterpret_cast<char **>(*p++);
+        typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
+        CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
+        char **strings = reinterpret_cast<char **>(*p++);
 
-	unsigned prefixlen = strcspn(args, ":" WORD_SEPARATOR);
-	if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
-	  Logging::printf("\t=> %.*s <=\n", arglen, args);
+        unsigned prefixlen = strcspn(args, ":" WORD_SEPARATOR);
+        if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
+          Logging::printf("\t=> %.*s <=\n", arglen, args);
 
-	  const char *s = args + prefixlen;
-	  if (args[prefixlen] == ':') s++;
-	  unsigned long argv[16];
-	  for (unsigned j=0; j < 16; j++) {
-	    unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
-	    if (alen)
-	      argv[j] = strtoul(s, 0, 0);
-	    else
-	      argv[j] = ~0UL;
-	    s+= alen;
-	    if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
-	  }
-	  func(this, argv);
-	  handled = true;
-	};
+          const char *s = args + prefixlen;
+          if (args[prefixlen] == ':') s++;
+          unsigned long argv[16];
+          for (unsigned j=0; j < 16; j++) {
+            unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
+            if (alen)
+              argv[j] = strtoul(s, 0, 0);
+            else
+              argv[j] = ~0UL;
+            s+= alen;
+            if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
+          }
+          func(this, argv);
+          handled = true;
+        }
       }
       if (!handled) Logging::printf("Ignored parameter: '%.*s'\n", arglen, args);
       args += arglen;

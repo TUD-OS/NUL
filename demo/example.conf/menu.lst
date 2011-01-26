@@ -6,9 +6,17 @@ module /nul/sigma0.nul.gz S0_DEFAULT hostvga hostkeyb:0,0x60,1,12 hostserial tra
 module /nul/vancouver.nul.gz
 module /tools/munich
 module /linux/bzImage
-module /linux/initrd.lzma
+module /linux/initrd1.lzma
+module /linux/initrd2.lzma
 module /nul/onebytefile \
-  rom:///nul/vancouver.nul.gz sigma0::mem:512 82576vf_vnet PC_PS2 sigma0::dma name::/s0/log name::/s0/timer name::/s0/fs/rom || \
+  sigma0::mem:512 sigma0::dma name::/s0/log name::/s0/timer name::/s0/fs/rom || \
+  rom:///nul/vancouver.nul.gz 82576vf_vnet PC_PS2 || \
   rom:///tools/munich || \
   rom:///linux/bzImage clocksource=tsc || \
-  rom:///linux/initrd.lzma
+  rom:///linux/initrd1.lzma
+module /nul/onebytefile \
+  sigma0::mem:512 sigma0::dma name::/s0/log name::/s0/timer name::/s0/fs/rom || \
+  rom:///nul/vancouver.nul.gz 82576vf_vnet PC_PS2 || \
+  rom:///tools/munich || \
+  rom:///linux/bzImage clocksource=tsc || \
+  rom:///linux/initrd2.lzma
