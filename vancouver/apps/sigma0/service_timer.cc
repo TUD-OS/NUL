@@ -132,11 +132,11 @@ public:
       if (!data->nr) return EABORT;
 
       utcb << Utcb::TypedMapCap(data->identity);
-      Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
+//      Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
       return res;
     case ParentProtocol::TYPE_CLOSE:
       check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-      Logging::printf("ts:: close session for %x\n", data->identity);
+//      Logging::printf("ts:: close session for %x\n", data->identity);
       return _storage.free_client_data(utcb, data);
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
@@ -251,7 +251,7 @@ PARAM(service_timer,
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
       TimerService * t = new TimerService(mb, cap_region, 12);
 
-      Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
+      //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
       MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
