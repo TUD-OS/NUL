@@ -40,6 +40,10 @@ unsigned     mac_host;
 // extra params
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
+PARAM(namespace,, "namespace - used by parent protocol")
+PARAM(name,, "name - used by parent protocol")
+PARAM(quota,, "quota - used by parent protocol")
+
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 	    " ioio hostacpi pcicfg mmconfig atare"
 	    " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script")
@@ -315,6 +319,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         unsigned value = st[x];
         if (value == '\n' || value == '\t' || value == '\r' || value == 0) value = ' ';
         if (value == ' ' && lastchar == value) continue;
+        if (value == ' ' && lastchar == '|') Logging::printf("' \\\ns0: ... '");
         Logging::printf("%c", value);
         lastchar = value;
       }
@@ -1559,13 +1564,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     switch(utcb->msg[0]) {
     case REQUEST_PCICFG:
       {
-	MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
-	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-	  utcb->msg[0] = ~0x10u;
-	else {
-	  COUNTER_INC("request pci");
-	  utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg, true);
-	}
+        MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
+        if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+          utcb->msg[0] = ~0x10u;
+        else {
+          COUNTER_INC("request pci");
+          utcb->msg[0] = !_mb->bus_hwpcicfg.send(*msg, true);
+        }
       }
       break;
     default:
@@ -1595,22 +1600,21 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     for (unsigned bus = 0; bus < 256; bus++) {
       for (unsigned dev=0; dev < 32; dev++) {
-	unsigned char maxfunc = 1;
-	for (unsigned func=0; func < maxfunc; func++) {
-	  unsigned short bdf =  (bus << 8) | (dev << 3) | func;
-	  unsigned devid = pci.conf_read(bdf, 0);
-	  if (devid == ~0UL) continue;
-	  if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000)
-	    maxfunc = 8;
+        unsigned char maxfunc = 1;
+        for (unsigned func=0; func < maxfunc; func++) {
+          unsigned short bdf =  (bus << 8) | (dev << 3) | func;
+          unsigned devid = pci.conf_read(bdf, 0);
+          if (devid == ~0UL) continue;
+          if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000) maxfunc = 8;
 
-	  state = hash(state, bdf);
-	  state = hash(state, devid);
+          state = hash(state, bdf);
+          state = hash(state, devid);
 
-	  // find device serial number
-	  unsigned offset = pci.find_extended_cap(bdf, 0x0003);
-	  if (offset)
-	    state = hash(hash(state, pci.conf_read(bdf, offset + 1)), pci.conf_read(bdf, offset + 2));
-	}
+          // find device serial number
+          unsigned offset = pci.find_extended_cap(bdf, 0x0003);
+          if (offset)
+            state = hash(hash(state, pci.conf_read(bdf, offset + 1)), pci.conf_read(bdf, offset + 2));
+        }
       }
     }
     return state;

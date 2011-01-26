@@ -57,7 +57,7 @@ struct Script : public StaticReceiver<Script> {
       _worker.down();
 
       while (_head) {
-        Logging::printf(">> run script: ");
+        Logging::printf("sc: << run script: >>\n");
         ScriptItem * tmp = _head;
         ScriptItem item = *tmp;
         delete tmp;
@@ -65,13 +65,13 @@ struct Script : public StaticReceiver<Script> {
 
         if (item.type == ScriptItem::TYPE_WAIT) {
           TimerProtocol::MessageTimer msg1(_clock->abstime(item.param0, 1000));
-          Logging::printf("wait %ld abs %llx now %llx\n", item.param0,msg1.abstime, _clock->time());
+          Logging::printf("sc: wait %ld abs %llx now %llx\n", item.param0,msg1.abstime, _clock->time());
           if (_service_timer->timer(utcb, msg1))
-            Logging::printf("setting timeout failed\n");
+            Logging::printf("sc: setting timeout failed\n");
           break;
       	} else
         if (item.type ==ScriptItem::TYPE_START) {
-          Logging::printf("start %ld-%ld count %ld\n", item.param0, item.param1, item.param2);
+          Logging::printf("sc: start %ld-%ld count %ld\n", item.param0, item.param1, item.param2);
           bool cont = false;
           while (item.param2--) {
             for (unsigned long nr = 0; nr < item.param1; nr++) {
@@ -86,13 +86,13 @@ struct Script : public StaticReceiver<Script> {
           break;
         } else
           if (item.type == ScriptItem::TYPE_REBOOT) {
-            Logging::printf("reboot\n");
+            Logging::printf("sc: reboot\n");
             MessageConsole m(MessageConsole::TYPE_RESET);
             _bus_console.send(m);
           } else
           assert(0);
       }
-      Logging::printf("<< script done;\n");
+      Logging::printf("sc: << script done >>\n");
     }
   }
 
@@ -126,7 +126,7 @@ struct Script : public StaticReceiver<Script> {
     unsigned res;
     TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
     if ((res = _service_timer->timer(*BaseProgram::myutcb(), msg1)))
-      Logging::panic("setting timeout failed with %x\n", res);
+      Logging::panic("sc: setting timeout failed with %x\n", res);
 
     _worker = KernelSemaphore(_service_timer->get_notify_sm());
 
@@ -134,7 +134,7 @@ struct Script : public StaticReceiver<Script> {
     MessageHostOp msg(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1);
     msg.ptr = reinterpret_cast<char *>(Script::do_work);
     if (!mb->bus_hostop.send(msg))
-      Logging::panic("%s alloc service thread failed", __func__);
+      Logging::panic("sc: %s alloc service thread failed", __func__);
   }
 };
 

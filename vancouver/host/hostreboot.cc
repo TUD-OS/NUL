@@ -88,7 +88,7 @@ struct HostReboot : public StaticReceiver<HostReboot>
   bool  receive(MessageConsole &msg) {
     if ((msg.type != MessageConsole::TYPE_RESET) || (msg.id != 0))  return false;
 
-    Logging::printf("resetting machine via method %d addr %llx value %x\n", _method, _acpi_address, _acpi_value);
+    Logging::printf("hr: resetting machine via method %d addr %llx value %x\n", _method, _acpi_address, _acpi_value);
     switch (_method) {
     case METHOD_KEYBOARD: outb(0xfe, 0x64);    break;
     case METHOD_FASTGATE: outb(0x01, 0x92);    break;
@@ -109,7 +109,7 @@ struct HostReboot : public StaticReceiver<HostReboot>
 	  msg.value |= (_acpi_address & 0x70000) >> (16 - 8);
 	  msg.value |= _acpi_address & 0x3c;
 	  if (!_bus_hwioout.send(msg, true))
-	    Logging::panic("%s could not send to ioport %x\n", __PRETTY_FUNCTION__, msg.port);
+	    Logging::panic("hr: %s could not send to ioport %x\n", __PRETTY_FUNCTION__, msg.port);
 	  outb(_acpi_value, 0xcfc | (_acpi_address & 0x3));
 	}
 	break;
@@ -128,8 +128,8 @@ struct HostReboot : public StaticReceiver<HostReboot>
 PARAM(hostreboot,
       HostReboot *r = new HostReboot(mb.bus_hwioin, mb.bus_hwioout, argv[0]);
       if (r->init(mb)) {
-	Logging::printf("add reset method %ld\n", argv[0]);
-	mb.bus_console.add(r, HostReboot::receive_static);
+        Logging::printf("hr: add reset method %ld\n", argv[0]);
+        mb.bus_console.add(r, HostReboot::receive_static);
       },
       "hostreboot:type - provide the functionality to reboot the host.",
       "Example: 'hostreboot:0' uses the keyboard to reboot the host.",

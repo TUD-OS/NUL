@@ -143,23 +143,23 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 	if (data == 0xaa)
 	  _mousestate++;
 	else
-	  LOG("%s no reset ack %x\n", __PRETTY_FUNCTION__, data);
+	  LOG("kb: %s no reset ack %x\n", __PRETTY_FUNCTION__, data);
 	return;
       case 0xff: // wait for reset id
 	if (data == 0)
 	  {
 	    _mousestate = 0;
 	    if (!write_mouse_ack(0xf4))
-	      LOG("%s could not enable data reporting\n", __PRETTY_FUNCTION__);
+	      LOG("kb: %s could not enable data reporting\n", __PRETTY_FUNCTION__);
 	  }
 	else
-	  Logging::printf("%s unknown mouse id %x\n", __PRETTY_FUNCTION__, data);
+	  Logging::printf("kb: %s unknown mouse id %x\n", __PRETTY_FUNCTION__, data);
 	return;
       default:
       case 0:  // first byte of packet
 	if (~data & 0x8) // not in sync?
 	  {
-	    LOG("%s mouse not in sync - drop %x\n", __PRETTY_FUNCTION__, data);
+	    LOG("kb: %s mouse not in sync - drop %x\n", __PRETTY_FUNCTION__, data);
 	    return;
 	  }
       case 1 ... 2:
@@ -293,7 +293,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 	#if 0
 	if (!disable_devices())
-	  LOG("%s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
+	  LOG("kb: %s() failed at %d with %x\n",__func__, __LINE__, inb(_base+4));
 	#endif
 
 	// clear keyboard buffer
@@ -301,7 +301,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 
 	if (!read_cmd(0x20, cmdbyte))
-	  LOG("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 
 	cmdbyte &= ~0x40;
 	// we enable translation if scset == 1
@@ -309,36 +309,36 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 	// set translation and enable irqs
 	if (!write_cmd(0x60, cmdbyte | 3) || !read_cmd(0x20, cmdbyte))
-	  LOG("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 	_scset1 |= !!(cmdbyte & 0x40);
 
 	if (!enable_devices())
-	  LOG("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 
 	// default+disable Keyboard
 	if (!write_keyboard_ack(0xf5))
-	  LOG("%s() failed at %d\n",__func__, __LINE__);
+	  LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 
 	// switch to our scancode set
 	if (!(write_keyboard_ack(0xf0) && write_keyboard_ack(2)))
 	  {
-	    Logging::printf("%s() failed at %d -- buggy keyboard?\n",__func__, __LINE__);
+	    Logging::printf("kb: %s() failed at %d -- buggy keyboard?\n",__func__, __LINE__);
 	    _scset1 = true;
 	  }
 
 	// enable Keyboard
 	if (!write_keyboard_ack(0xf4))
-	  LOG("%s() failed at %d\n",__PRETTY_FUNCTION__, __LINE__);
+	  LOG("kb: %s() failed at %d\n",__PRETTY_FUNCTION__, __LINE__);
 
 	if (irqaux != ~0U)
 	  {
 	    // reset mouse, we enable data reporting later after the reset is completed
 	    if (!write_mouse_ack(0xff))
-	      LOG("%s() failed at %d\n",__func__, __LINE__);
+	      LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 
 	    // wait until we got response from the mice
 	    if (!wait_output_full())
-	      LOG("%s() failed at %d\n",__func__, __LINE__);
+	      LOG("kb: %s() failed at %d\n",__func__, __LINE__);
 	  }
 
 	// enable receiving

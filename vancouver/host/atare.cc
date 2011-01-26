@@ -65,21 +65,21 @@ class Atare : public StaticReceiver<Atare>
   void debug_show_items() {
     Atare::NamedRef *ref = _head;
     for (unsigned i=0; ref; ref = ref->next, i++)
-      Logging::printf("%3d %p+%04x type %02x %.*s\n", i, ref->ptr, ref->len, ref->ptr[0], ref->namelen, ref->name);
+      Logging::printf("at: %3d %p+%04x type %02x %.*s\n", i, ref->ptr, ref->len, ref->ptr[0], ref->namelen, ref->name);
   }
 
 
   void debug_show_routing() {
-    if (!Atare::search_ref(_head, 0, "_PIC", false)) Logging::printf("APIC mode unavailable - no _PIC method\n");
+    if (!Atare::search_ref(_head, 0, "_PIC", false)) Logging::printf("at: APIC mode unavailable - no _PIC method\n");
 
     for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
       if (dev->ptr[0] == 0x82) {
-	unsigned bdf = Atare::get_device_bdf(_head, dev);
-	Logging::printf("%04x:%02x:%02x.%x tag %p name %.*s\n",
-			bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
-	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
-	  Logging::printf("\t  parent %p addr %02x_%x gsi %x\n",
-			  dev->ptr - 1, p->adr >> 16, p->pin, p->gsi);
+        unsigned bdf = Atare::get_device_bdf(_head, dev);
+        Logging::printf("at: %04x:%02x:%02x.%x tag %p name %.*s\n",
+          bdf >> 16, (bdf >> 8) & 0xff, (bdf >> 3) & 0x1f, bdf & 7, dev->ptr - 1, 4, dev->name + dev->namelen - 4);
+        for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
+          Logging::printf("at:\t  parent %p addr %02x_%x gsi %x\n",
+        dev->ptr - 1, p->adr >> 16, p->pin, p->gsi);
       }
   }
 
@@ -377,7 +377,7 @@ public:
   {
     if (msg.type != MessageAcpi::ACPI_GET_IRQ) return false;
 
-    Logging::printf("ATARE: search for %x_%x parent %x\n", msg.bdf, msg.pin, msg.parent_bdf);
+    Logging::printf("at: ATARE - search for %x_%x parent %x\n", msg.bdf, msg.pin, msg.parent_bdf);
 
     // find the device
     for (Atare::NamedRef *dev = _head; dev; dev = dev->next)
@@ -387,13 +387,13 @@ public:
 	for (Atare::PciRoutingEntry *p = dev->routing; p; p = p->next)
 	  if ((p->adr >> 16) == ((msg.bdf >> 3) & 0x1f) && (msg.pin == p->pin)) {
 
-	    Logging::printf("ATARE: found %x for %x_%x parent %x\n", p->gsi, msg.bdf, msg.pin, msg.parent_bdf);
+	    Logging::printf("at: ATARE - found %x for %x_%x parent %x\n", p->gsi, msg.bdf, msg.pin, msg.parent_bdf);
 
 	    msg.gsi = p->gsi;
 	    return true;
 	  }
       }
-    Logging::printf("ATARE: search for %x_%x parent %x failed\n", msg.bdf, msg.pin, msg.parent_bdf);
+    Logging::printf("at: ATARE - search for %x_%x parent %x failed\n", msg.bdf, msg.pin, msg.parent_bdf);
     return false;
   }
 
@@ -415,7 +415,7 @@ public:
     if (debug & 1) debug_show_items();
     if (debug & 2) debug_show_routing();
 
-    Logging::printf("ATARE initialized\n");
+    Logging::printf("at: ATARE initialized\n");
 
   };
 };

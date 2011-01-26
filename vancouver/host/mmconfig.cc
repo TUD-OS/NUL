@@ -69,13 +69,13 @@ public:
 PARAM(mmconfig,
       {
 	MessageAcpi msg("MCFG");
-	check0(!mb.bus_acpi.send(msg, true) || !msg.table, "XXX No MCFG table found.");
+	check0(!mb.bus_acpi.send(msg, true) || !msg.table, "mm: XXX No MCFG table found.");
 
 	AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
 
 	for (unsigned i = 0; i < (mcfg->len - sizeof(AcpiMCFG)) / sizeof(AcpiMCFG::Entry); i++) {
 	  AcpiMCFG::Entry *entry = mcfg->entries + i;
-	  Logging::printf("mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
+	  Logging::printf("mm: mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
 			  entry->base, entry->pci_seg,
 			  entry->pci_bus_start, entry->pci_bus_end);
 
@@ -84,7 +84,7 @@ PARAM(mmconfig,
 	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
 
 	  if (!mb.bus_hostop.send(msg) || !msg.ptr) {
-	    Logging::printf("%s failed to allocate iomem %llx+%lx\n", __PRETTY_FUNCTION__, entry->base, size);
+	    Logging::printf("mm: %s failed to allocate iomem %llx+%lx\n", __PRETTY_FUNCTION__, entry->base, size);
 	    return;
 	  }
 

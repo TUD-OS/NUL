@@ -34,8 +34,8 @@ class HostAcpi : public StaticReceiver<HostAcpi>
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, address, size);
     if (!_bus_hostop.send(msg) || !msg.ptr)
       {
-	Logging::printf("%s failed to allocate iomem %lx+%x\n", __PRETTY_FUNCTION__, address, size);
-	return 0;
+        Logging::printf("ac: %s failed to allocate iomem %lx+%x\n", __PRETTY_FUNCTION__, address, size);
+        return 0;
       }
     return msg.ptr;
   }
@@ -61,8 +61,8 @@ class HostAcpi : public StaticReceiver<HostAcpi>
     char *area = map_self(0xe0000, 0x100000 - 0xe0000);
     for (long addr = 0; area && addr < 0x100000 - 0xe0000; addr += 16)
       {
-	if (!memcmp(area + addr, "RSD PTR ", 8) && !acpi_checksum(area + addr, 20))
-	  return area+addr;
+        if (!memcmp(area + addr, "RSD PTR ", 8) && !acpi_checksum(area + addr, 20))
+        return area+addr;
       }
 
     // search in ebda
@@ -70,8 +70,8 @@ class HostAcpi : public StaticReceiver<HostAcpi>
     if (area)  area = map_self((*reinterpret_cast<unsigned short *>(area + 0x40e)) << 4, 1024);
     for (long addr = 0; area && addr < 1024; addr += 16)
       {
-	if (!memcmp(area + addr, "RSD PTR ", 8) && !acpi_checksum(area + addr, 20))
-	  return area+addr;
+        if (!memcmp(area + addr, "RSD PTR ", 8) && !acpi_checksum(area + addr, 20))
+        return area+addr;
       }
     return 0;
   }
@@ -79,15 +79,15 @@ class HostAcpi : public StaticReceiver<HostAcpi>
 
   bool check_table(unsigned address, MessageAcpi &msg, const char *name) {
     char * t = map_self(address, 0x1000);
-    Logging::printf("acpi table at %x %p sig %4s\n", address, t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
+    Logging::printf("ac: acpi table at %x %p sig %4s\n", address, t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
     if (!memcmp(reinterpret_cast<GenericAcpiTable *>(t)->signature, name, 4))
       {
-	unsigned size = reinterpret_cast<GenericAcpiTable *>(t)->size;
-	if (size > 0x1000)  t = map_self(address, size);
-	if (acpi_checksum(t, size)) return false;
-	msg.table = t;
-	msg.len = size;
-	return true;
+        unsigned size = reinterpret_cast<GenericAcpiTable *>(t)->size;
+        if (size > 0x1000)  t = map_self(address, size);
+        if (acpi_checksum(t, size)) return false;
+        msg.table = t;
+        msg.len = size;
+        return true;
       }
     return false;
   }
@@ -110,37 +110,37 @@ public:
   bool  receive(MessageAcpi &msg)
   {
     switch (msg.type)
-      {
+    {
       case MessageAcpi::ACPI_GET_TABLE:
-	{
-	  unsigned instance = msg.instance;
-	  Logging::printf("search ACPI table %s\n", msg.name);
-	  char *table = acpi_get_rsdp();
-	  if (!table) break;
+      {
+        unsigned instance = msg.instance;
+        Logging::printf("ac: search ACPI table %s\n", msg.name);
+        char *table = acpi_get_rsdp();
+        if (!table) break;
 
-	  bool search_for_dsdt = !memcmp(msg.name, "DSDT", 4);
-	  const char *name = search_for_dsdt ? "FACP" : msg.name;
+        bool search_for_dsdt = !memcmp(msg.name, "DSDT", 4);
+        const char *name = search_for_dsdt ? "FACP" : msg.name;
 
-	  // get rsdt
-	  table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), 0x1000);
-	  if (!table) break;
-	  unsigned rsdt_size = reinterpret_cast<GenericAcpiTable *>(table)->size;
-	  if (rsdt_size > 0x1000) table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), rsdt_size);
-	  if (!table || !rsdt_size) break;
-	  if (acpi_checksum(table, rsdt_size)) { Logging::printf("RSDT checksum invalid\n"); break; }
+        // get rsdt
+        table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), 0x1000);
+        if (!table) break;
+        unsigned rsdt_size = reinterpret_cast<GenericAcpiTable *>(table)->size;
+        if (rsdt_size > 0x1000) table = map_self(*reinterpret_cast<unsigned *>(table + 0x10), rsdt_size);
+        if (!table || !rsdt_size) break;
+        if (acpi_checksum(table, rsdt_size)) { Logging::printf("ac: RSDT checksum invalid\n"); break; }
 
-	  // iterate over rsdt_entries
-	  unsigned *rsdt_entries = reinterpret_cast<unsigned *>(table + sizeof(GenericAcpiTable));
-	  for (unsigned i=0; i < ((rsdt_size - sizeof(GenericAcpiTable)) / 4); i++)
-	    if (check_table(rsdt_entries[i], msg, name) && !instance--) {
-	      if (search_for_dsdt)
-		return check_table(*reinterpret_cast<unsigned *>(msg.table + 40), msg, "DSDT");
-	      return true;
-	    }
-	}
-      case MessageAcpi::ACPI_GET_IRQ:
-	break;
+        // iterate over rsdt_entries
+        unsigned *rsdt_entries = reinterpret_cast<unsigned *>(table + sizeof(GenericAcpiTable));
+        for (unsigned i=0; i < ((rsdt_size - sizeof(GenericAcpiTable)) / 4); i++)
+          if (check_table(rsdt_entries[i], msg, name) && !instance--) {
+            if (search_for_dsdt)
+              return check_table(*reinterpret_cast<unsigned *>(msg.table + 40), msg, "DSDT");
+            return true;
+          }
       }
+      case MessageAcpi::ACPI_GET_IRQ:
+        break;
+    }
     return false;
   }
 
@@ -150,7 +150,7 @@ public:
 
 PARAM(hostacpi,
       {
-	Device *dev = new HostAcpi(mb.bus_hostop);
-	mb.bus_acpi.add(dev, HostAcpi::receive_static<MessageAcpi>);
+        Device *dev = new HostAcpi(mb.bus_hostop);
+        mb.bus_acpi.add(dev, HostAcpi::receive_static<MessageAcpi>);
       },
       "hostacpi - provide ACPI tables to drivers.")
