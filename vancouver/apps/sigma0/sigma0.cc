@@ -629,12 +629,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = get_module(cmdline, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
 
-    // alloc memory
+    // Figure out how much memory we give the client. If the user
+    // didn't give a limit, we give it enough to unpack the ELF.
     unsigned long psize_needed = elf ? Elf::loaded_memsize(elf, mod_size) : ~0u;
     char *p = strstr(modinfo->cmdline, "sigma0::mem:");
-    if (p > modinfo->cmdline + modinfo->sigma0_cmdlen) p = 0;
-    unsigned long psize_requested = p ? strtoul(p+12, 0, 0) << 20 : 0;
-    modinfo->physsize = (psize_needed > psize_requested) ? psize_needed : psize_requested ;
+    if (p > modinfo->cmdline + modinfo->sigma0_cmdlen) p = NULL;
+    modinfo->physsize = (p == NULL) ? psize_needed : (strtoul(p+sizeof("sigma0::mem:")-1, 0, 0) << 20);
+
     // Round up to page size
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
@@ -646,7 +647,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if ((psize_needed > modinfo->physsize) || !elf)
     {
-      Logging::printf("s0: (%x) could not allocate %ld MB physmem needed %ld MB\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+      Logging::printf("s0: (%x) Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
       free_module(modinfo);
       return __LINE__;
     }
