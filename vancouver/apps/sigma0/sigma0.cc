@@ -844,7 +844,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
                    // All those moments will be lost in time like tears in the rain.
                    // Time to die.
-                   Logging::panic("Unhandled exception %u at EIP %08x\n", pid, utcb->eip);
+                   nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
+                   nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
+                   Logging::panic("Zombie?\n");
 		   )
 
   PT_FUNC(do_map,
