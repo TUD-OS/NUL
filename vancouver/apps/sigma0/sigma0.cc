@@ -1099,9 +1099,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ATTACH_MSI:
         {
           bool unlocked = msg.len;
-          unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
+          unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
+          Logging::printf("Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
+          assert(cpu < 32);
+          unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
-          res = attach_irq(msg.msi_gsi, cap, unlocked, _cpunr[CPUGSI % _numcpus]);
+          res = attach_irq(msg.msi_gsi, cap, unlocked, cpu);
         }
         break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -1110,9 +1113,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (_gsi & (1 << gsi)) return true;
            _gsi |=  1 << gsi;
           unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
-          res = nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
+          unsigned cpu = _cpunr[CPUGSI % _numcpus];
+          res = nova_assign_gsi(irq_cap, cpu);
           check1(false, res != NOVA_ESUCCESS);
-          res = attach_irq(gsi, irq_cap, msg.len, _cpunr[CPUGSI % _numcpus]);
+          res = attach_irq(gsi, irq_cap, msg.len, cpu);
         }
         break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
