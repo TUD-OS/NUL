@@ -2,6 +2,7 @@
  * Main sigma0 code.
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
