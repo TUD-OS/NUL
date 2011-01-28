@@ -108,8 +108,10 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
     _cap_region.add(Region(1 << 16, (hip->cfg_cap < (1 << 20) ? hip->cfg_cap : (1 << 20)) - (1 << 16)));
 
     unsigned cap_reserved = alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
+    unsigned res;
     assert(!cap_reserved);
-    nova_create_sm(_cap_block = alloc_cap());
+    res = nova_create_sm(_cap_block = alloc_cap());
+    assert(res == NOVA_ESUCCESS);
 
     // add all memory, this does not include the boot_utcb, the HIP and the kernel!
     _free_virt.add(Region(VIRT_START, reinterpret_cast<unsigned long>(reinterpret_cast<Utcb *>(hip) - 1) - VIRT_START));
@@ -141,7 +143,7 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
   /**
    * Block ourself.
    */
-  void __attribute__((noreturn)) block_forever() { while (1) nova_semdown(_cap_block); };
+  void __attribute__((noreturn)) block_forever() { while (1) nova_semdown(_cap_block);};
 
 
 public:

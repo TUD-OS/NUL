@@ -187,7 +187,8 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       for (ClientData * c = _client.next(); c; c = _client.next(c))
       if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
         //Logging::printf("\tnotify client %x\n", c->pseudonym);
-        nova_semup(c->identity);
+        unsigned res = nova_semup(c->identity);
+        assert(res == ENONE); //c->identity is allocated by us
       }
 
       utcb << Utcb::TypedMapCap(sdata->identity);

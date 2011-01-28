@@ -75,8 +75,15 @@ struct ParentProtocol {
     // block on the parent session until something happens
     if (res == ERETRY) {
 //      Logging::printf("block waiting for session %x\n", cap_pseudonym);
-      if (blocking)
-        nova_semdownmulti(cap_pseudonym);
+      if (blocking) {
+        res = nova_semdownmulti(cap_pseudonym);
+        if (res == ENONE) res = ERETRY;
+        else {
+          res = nova_revoke(cap_pseudonym, true);
+          assert(res == ENONE);
+          res = EEXISTS;
+        }
+      }
       else res = EABORT;
     }
     return res;
@@ -190,7 +197,9 @@ public:
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
     : _service(service), _instance(instance), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
   {
-    nova_create_sm(cap_base + CAP_LOCK);
+    unsigned res;
+    res = nova_create_sm(cap_base + CAP_LOCK);
+    assert(res == NOVA_ESUCCESS);
     _lock.up();
 //    Logging::printf("New Protocol '%s' base %x\n", service, cap_base);
   }

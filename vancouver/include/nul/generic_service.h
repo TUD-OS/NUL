@@ -82,7 +82,8 @@ public:
     data = new T;
     data->pseudonym = pseudonym;
     data->identity  = A::alloc_cap();
-    nova_create_sm(data->identity);
+    res = nova_create_sm(data->identity);
+    if (res != ENONE) return res; 
 
     // enqueue it
     data->next = _head;
@@ -138,8 +139,10 @@ template <class C> struct StaticPortalFunc {
     bool free_cap = input.received_cap();
     utcb->msg[0] = tls->portal_func(*utcb, input, free_cap);
     utcb->skip_frame();
-    if (free_cap)
-      nova_revoke(Crd(utcb->head.crd), true);
+    if (free_cap) {
+      unsigned res = nova_revoke(Crd(utcb->head.crd), true);
+      assert(res == NOVA_ESUCCESS);
+    }
     else if (input.received_cap())
       utcb->head.crd = tls->alloc_crd();
     asmlinkage_protect("g"(tls), "g"(utcb));
