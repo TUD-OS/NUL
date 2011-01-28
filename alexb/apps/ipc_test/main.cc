@@ -120,15 +120,15 @@ class IPCTest : public NovaProgram, public ProgramConsole
     Logging::printf("                                                        7. sends ipc to B\n");
     Logging::printf("                                                        8. gets ipc timeout\n");
 
-    Logging::printf("t1: ... ");
+    Logging::printf("A: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_ABORT ? "success" : "failure", TEST_IPC_ABORT, res);
 
-    Logging::printf("t2: ... ");
+    Logging::printf("B: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_TIMEOUT ? "success" : "failure", TEST_IPC_TIMEOUT, res);
 
-    Logging::printf("t3: ... ");
+    Logging::printf("C: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_TIMEOUT ? "success" : "failure", TEST_IPC_TIMEOUT, res);
 
