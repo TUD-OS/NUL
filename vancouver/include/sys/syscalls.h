@@ -51,6 +51,7 @@ enum ERROR
   {
     NOVA_ESUCCESS = 0,
     NOVA_ETIMEOUT,
+    NOVA_EABORT,
     NOVA_ESYS,
     NOVA_ECAP,
     NOVA_EMEM,
