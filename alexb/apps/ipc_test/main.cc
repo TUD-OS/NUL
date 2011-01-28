@@ -67,12 +67,6 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
   private:
 
-  enum {
-    TEST_SYS_SUCCESS = 0,
-    TEST_IPC_TIMEOUT = 1,
-    TEST_IPC_ABORT = 8
-  };
-
   bool create_setup(unsigned long cpu) {
 
     unsigned exc_base_wo, exc_base_pf;
@@ -122,15 +116,15 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
     Logging::printf("A: ... ");
     res = nova_call(pt_wo);
-    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_ABORT ? "success" : "failure", TEST_IPC_ABORT, res);
+    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_EABORT ? "success" : "failure", NOVA_EABORT, res);
 
     Logging::printf("B: ... ");
     res = nova_call(pt_wo);
-    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_TIMEOUT ? "success" : "failure", TEST_IPC_TIMEOUT, res);
+    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ETIMEOUT ? "success" : "failure", NOVA_ETIMEOUT, res);
 
     Logging::printf("C: ... ");
     res = nova_call(pt_wo);
-    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == TEST_IPC_TIMEOUT ? "success" : "failure", TEST_IPC_TIMEOUT, res);
+    Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ETIMEOUT ? "success" : "failure", NOVA_ETIMEOUT, res);
 
     return true;
   }
