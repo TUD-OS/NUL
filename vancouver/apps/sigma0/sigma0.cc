@@ -1113,7 +1113,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (_gsi & (1 << gsi)) return true;
            _gsi |=  1 << gsi;
           unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
-          unsigned cpu = _cpunr[CPUGSI % _numcpus];
+          unsigned cpu = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
           res = nova_assign_gsi(irq_cap, cpu);
           check1(false, res != NOVA_ESUCCESS);
           res = attach_irq(gsi, irq_cap, msg.len, cpu);
