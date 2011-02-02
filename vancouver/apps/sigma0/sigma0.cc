@@ -204,11 +204,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
+    //XXX if attach failed msivector should be reused!
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
-    //Logging::printf("s0: %s %x cap %x cpu %x\n", __func__, msg->msi_gsi, irq_cap, cpunr);
-    nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
-    return irq_cap;
+    unsigned res = nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
+    if (res != NOVA_ESUCCESS)
+      Logging::printf("s0: failed to setup msi - err=%x, msi_gsi=%x irq_cap=%x cpu=%x\n", res, msg->msi_gsi, irq_cap, cpunr);
+    return res == NOVA_ESUCCESS ? irq_cap : 0;
   }
 
 
@@ -757,7 +759,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     ModuleInfo *modinfo = _modinfo + module;
 
     // unmap all service portals
-    nova_revoke(Crd(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
+    unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
+    if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
@@ -853,9 +856,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
                    // All those moments will be lost in time like tears in the rain.
                    // Time to die.
-                   nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
-                   nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
-                   Logging::panic("Zombie?\n");
+                   unsigned res;
+                   res = nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
+                   res = nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
+                   Logging::panic("Zombie? %x\n", res);
 		   )
 
   PT_FUNC(do_map,
@@ -961,9 +965,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ATTACH_IRQ:
 			  if ((msg->value & 0xff) < _hip->cfg_gsi) {
 			    // XXX make sure only one gets it
-			    Logging::printf("s0: [%02x] gsi %lx granted\n", client, msg->value);
 			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
-			    nova_assign_gsi(gsi_cap, modinfo->cpunr);
+			    unsigned res = nova_assign_gsi(gsi_cap, modinfo->cpunr);
+			    if (res != NOVA_ESUCCESS) goto fail;
+			    Logging::printf("s0: [%02x] gsi %lx granted\n", client, msg->value);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = 0;
 			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
@@ -976,6 +981,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ATTACH_MSI:
 			  {
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
+          if (!cap) goto fail;
 			    utcb->msg[0] = 0;
 			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
 			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
@@ -1044,102 +1050,104 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     switch (msg.type)
       {
       case MessageHostOp::OP_ATTACH_MSI:
-	{
-	  bool unlocked = msg.len;
-	  unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(msg.msi_gsi, cap, unlocked, _cpunr[CPUGSI % _numcpus]);
-	}
-	break;
-      case MessageHostOp::OP_ATTACH_IRQ:
-	{
-	  unsigned gsi = msg.value & 0xff;
-	  if (_gsi & (1 << gsi)) return true;
-	  _gsi |=  1 << gsi;
-	  unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
-	  nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
-	  res = attach_irq(gsi, irq_cap, msg.len, _cpunr[CPUGSI % _numcpus]);
-	}
-	break;
-      case MessageHostOp::OP_ALLOC_IOIO_REGION:
-	//Logging::printf("s0: ALLOC_IOIO %lx\n", msg.value);
-	map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
-	break;
-      case MessageHostOp::OP_ALLOC_IOMEM:
-	msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);
-	break;
-      case MessageHostOp::OP_ALLOC_SEMAPHORE:
-	msg.value = alloc_cap();
-	check1(false, nova_create_sm(msg.value));
-	break;
-      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
-	{
-          unsigned cpu = _cpunr[CPUGSI % _numcpus];
-	  unsigned ec_cap = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, 0, msg.ptr);
-	  unsigned prio;
-	  if (msg.len == ~0u)
-	    prio = 1;		// IDLE
-	  else
-	    prio = msg.len ? 3 : 2;
-	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
-	}
-	break;
-      case MessageHostOp::OP_VIRT_TO_PHYS:
-      {
-        Region * r;
         {
-          SemaphoreGuard l(_lock_mem);
-          r = _virt_phys.find(msg.value);
+          bool unlocked = msg.len;
+          unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
+          check1(false, !cap);
+          res = attach_irq(msg.msi_gsi, cap, unlocked, _cpunr[CPUGSI % _numcpus]);
         }
-        if (r) {
-          msg.phys_len = r->end() - msg.value;
-          msg.phys     = r->phys  + msg.value - r->virt;
-        } else
-          res = false;
-      }
-      break;
+        break;
+      case MessageHostOp::OP_ATTACH_IRQ:
+        {
+          unsigned gsi = msg.value & 0xff;
+          if (_gsi & (1 << gsi)) return true;
+           _gsi |=  1 << gsi;
+          unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
+          res = nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
+          check1(false, res != NOVA_ESUCCESS);
+          res = attach_irq(gsi, irq_cap, msg.len, _cpunr[CPUGSI % _numcpus]);
+        }
+        break;
+      case MessageHostOp::OP_ALLOC_IOIO_REGION:
+        //Logging::printf("s0: ALLOC_IOIO %lx\n", msg.value);
+        map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
+        break;
+      case MessageHostOp::OP_ALLOC_IOMEM:
+        msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);
+        break;
+      case MessageHostOp::OP_ALLOC_SEMAPHORE:
+        msg.value = alloc_cap();
+        check1(false, nova_create_sm(msg.value));
+        break;
+      case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
+        {
+          unsigned cpu = _cpunr[CPUGSI % _numcpus];
+          unsigned ec_cap = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, 0, msg.ptr);
+          unsigned prio;
+          if (msg.len == ~0u)
+            prio = 1;		// IDLE
+          else
+            prio = msg.len ? 3 : 2;
+          return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
+        }
+        break;
+      case MessageHostOp::OP_VIRT_TO_PHYS:
+        {
+          Region * r;
+          {
+            SemaphoreGuard l(_lock_mem);
+            r = _virt_phys.find(msg.value);
+          }
+          if (r) {
+            msg.phys_len = r->end() - msg.value;
+            msg.phys     = r->phys  + msg.value - r->virt;
+          } else
+            res = false;
+        }
+        break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
-	break;
+        res = !assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
+        break;
       case MessageHostOp::OP_GET_MAC:
-	msg.mac = get_mac(_mac++ * MAXMODULES);
-	break;
+        msg.mac = get_mac(_mac++ * MAXMODULES);
+        break;
       case MessageHostOp::OP_REGISTER_SERVICE:
-      {
-        unsigned service_cap = alloc_cap();
-        for (unsigned i = 0; i < _numcpus; i++) {
-          Utcb *utcb = NULL;
-          unsigned cpu = _cpunr[i];
-          unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
-          unsigned pt = alloc_cap();
+        {
+          unsigned service_cap = alloc_cap();
+          for (unsigned i = 0; i < _numcpus; i++) {
+            Utcb *utcb = NULL;
+            unsigned cpu = _cpunr[i];
+            unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
+            unsigned pt = alloc_cap();
 
-          if (!ec_cap || !utcb || !pt) return false;
-          if (msg.cap)
-            utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
-          else {
-            unsigned long addr;
-            {
-              SemaphoreGuard l(_lock_mem);
-              addr = _free_virt.alloc(1 << 22, 22);
+            if (!ec_cap || !utcb || !pt) return false;
+            if (msg.cap)
+              utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+            else {
+              unsigned long addr;
+              {
+                SemaphoreGuard l(_lock_mem);
+                addr = _free_virt.alloc(1 << 22, 22);
+              }
+              if (!addr) return false;
+              utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
             }
-            if (!addr) return false;
-            utcb->head.crd = Crd(addr >> Utcb::MINSHIFT, 22 - 12, DESC_MEM_ALL).value();
-          }
-          if (msg.crd_t) utcb->head.crd_translate = msg.crd_t;
+            if (msg.crd_t) utcb->head.crd_translate = msg.crd_t;
 
-          check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
-          check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
-          //Logging::printf("s0: service registered on cpu %x\n", cpu);
-          if (msg.portal_pf) {
-            unsigned ec_pf = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, &utcb);
-            if (!ec_pf || !utcb) return false;
-            utcb->head.crd = 0;
-            check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));
+            check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
+            check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
+            //Logging::printf("s0: service registered on cpu %x\n", cpu);
+            if (msg.portal_pf) {
+              unsigned ec_pf = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, &utcb);
+              if (!ec_pf || !utcb) return false;
+              utcb->head.crd = 0;
+              check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));
+            }
+            msg.excbase += msg.excinc;
           }
-          msg.excbase += msg.excinc;
+          // XXX transfer the service_cap back
         }
-        // XXX transfer the service_cap back
-      }
-      break;
+        break;
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:

@@ -60,6 +60,7 @@ class App : public NovaProgram, ProgramConsole
   }
 
 public:
+  NORETURN
   int run(Utcb *utcb, Hip *hip)
   {
     console_init("Disk Benchmark");
@@ -109,7 +110,6 @@ public:
 	submit_disk();
       }
     }
-    return 0;
   }
 };
 

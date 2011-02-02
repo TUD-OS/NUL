@@ -144,7 +144,6 @@ class DummyFS : public NovaProgram, public ProgramConsole
       if (!use_filesystem(utcb, hip))
         Logging::printf("failed - starting fs failed \n");
 
-      block_forever(); //required, otherwise "this" objected will be deleted
     }
 };
 

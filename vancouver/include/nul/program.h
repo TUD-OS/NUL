@@ -143,7 +143,7 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
   /**
    * Block ourself.
    */
-  void __attribute__((noreturn)) block_forever() { while (1) nova_semdown(_cap_block);};
+  void __attribute__((noreturn)) block_forever() { while (1) { unsigned res = nova_semdown(_cap_block); Logging::printf("curiosity: block forever returned %x\n", res); }};
 
 
 public:
