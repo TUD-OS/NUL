@@ -981,7 +981,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ATTACH_MSI:
 			  {
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
-          if (!cap) goto fail;
+			    if (!cap) goto fail;
 			    utcb->msg[0] = 0;
 			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
 			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
