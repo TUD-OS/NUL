@@ -91,7 +91,8 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
 
         assert(data);
         data->count ++;
-        nova_semup(data->identity);
+        unsigned res = nova_semup(data->identity);
+        if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared\n"); //should not happen, cap ->identity is allocated by service timer
       }
 
       // update timeout upstream
@@ -144,7 +145,7 @@ public:
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
         if (input.get_word(msg)) return EABORT;
 
-	COUNTER_INC("request to");
+        COUNTER_INC("request to");
 
         assert(data->nr < CLIENTS);
         long long diff = msg.abstime - _hostmb.clock()->time();

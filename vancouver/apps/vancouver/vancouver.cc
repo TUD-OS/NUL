@@ -131,13 +131,16 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     Logging::printf("%s(%x, %x, %x) %p\n", __func__, utcb->msg[0], utcb->msg[1], utcb->msg[2], utcb);
     while (1) {
       if ((res = nova_semdown(utcb->msg[0])))
-	Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
+        Logging::panic("%s(%x) request failed with %x\n", __func__, utcb->msg[0], res);
       {
-	SemaphoreGuard l(_lock);
-	MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
-	_mb->bus_hostirq.send(msg);
+        SemaphoreGuard l(_lock);
+        MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, utcb->msg[1] & 0xff);
+        _mb->bus_hostirq.send(msg);
       }
-      if (shared)  nova_semdown(utcb->msg[2]);
+      if (shared) {
+        res = nova_semdown(utcb->msg[2]);
+        if (res != NOVA_ESUCCESS) Logging::panic("%s(%x) blocking failed with %x\n", __func__, utcb->msg[2], res);
+      }
     }
   }
 
@@ -556,14 +559,14 @@ public:
 	  res = false;
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
-	nova_semup(_shared_sem[msg.value & 0xff]);
-	res = true;
-	break;
+        res = nova_semup(_shared_sem[msg.value & 0xff]);
+        res = res == NOVA_ESUCCESS ? true : false;
+        break;
       case MessageHostOp::OP_ASSIGN_PCI:
-	res = !Sigma0Base::hostop(msg);
-	_dpci |= res;
-	Logging::printf("%s\n",_dpci ? "DPCI device assigned" : "DPCI failed");
-	break;
+        res = !Sigma0Base::hostop(msg);
+        _dpci |= res;
+        Logging::printf("%s\n",_dpci ? "DPCI device assigned" : "DPCI failed");
+        break;
       case MessageHostOp::OP_GET_MODULE:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
@@ -621,47 +624,47 @@ public:
         }
         break;
       case MessageHostOp::OP_GET_MAC:
-	res = !Sigma0Base::hostop(msg);
-	break;
+        res = !Sigma0Base::hostop(msg);
+        break;
       case MessageHostOp::OP_ATTACH_MSI:
       case MessageHostOp::OP_ATTACH_IRQ:
-	{
-	  unsigned irq_cap = alloc_cap();
-	  myutcb()->head.crd = Crd(irq_cap, 0, DESC_CAP_ALL).value();
-	  res  = !Sigma0Base::hostop(msg);
-	  create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
-	}
-	break;
+        {
+          unsigned irq_cap = alloc_cap();
+          myutcb()->head.crd = Crd(irq_cap, 0, DESC_CAP_ALL).value();
+          res  = !Sigma0Base::hostop(msg);
+          create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
+        }
+        break;
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
-	msg.value = create_vcpu(msg.vcpu, _hip->has_svm(), myutcb()->head.nul_cpunr);
+        msg.value = create_vcpu(msg.vcpu, _hip->has_svm(), myutcb()->head.nul_cpunr);
 
-	// handle cpuid overrides
-	msg.vcpu->executor.add(this, receive_static<CpuMessage>);
-	break;
+        // handle cpuid overrides
+        msg.vcpu->executor.add(this, receive_static<CpuMessage>);
+        break;
       case MessageHostOp::OP_VCPU_BLOCK:
-	_lock.up();
-	nova_semdown(msg.value);
-	_lock.down();
-	break;
+        _lock.up();
+        res = NOVA_ESUCCESS == nova_semdown(msg.value);
+        _lock.down();
+        break;
       case MessageHostOp::OP_VCPU_RELEASE:
-	if (msg.len)  nova_semup(msg.value);
-	nova_recall(msg.value + 1);
-	break;
+        if (msg.len) { res = NOVA_ESUCCESS == nova_semup(msg.value); if (!res) Logging::printf("vcpu release: semup failed\n");}
+        res = NOVA_ESUCCESS == nova_recall(msg.value + 1);
+        break;
       case MessageHostOp::OP_ALLOC_SEMAPHORE:
-	msg.value = alloc_cap();
-	if (nova_create_sm(msg.value) != 0) Logging::panic("??");
-	break;
+        msg.value = alloc_cap();
+        if (nova_create_sm(msg.value) != 0) Logging::panic("??");
+        break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
-	{
-	  unsigned ec_cap = create_ec_helper(msg.obj, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
-	  // XXX Priority?
-	  return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
-	}
-	break;
+        {
+          unsigned ec_cap = create_ec_helper(msg.obj, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
+          // XXX Priority?
+          return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+        }
+        break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_REGISTER_SERVICE:
       default:
-	Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
+        Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
       return res;
   }
