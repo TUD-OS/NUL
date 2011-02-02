@@ -559,8 +559,7 @@ public:
 	  res = false;
 	break;
       case MessageHostOp::OP_NOTIFY_IRQ:
-        res = nova_semup(_shared_sem[msg.value & 0xff]);
-        res = res == NOVA_ESUCCESS ? true : false;
+        res = NOVA_ESUCCESS == nova_semup(_shared_sem[msg.value & 0xff]);
         break;
       case MessageHostOp::OP_ASSIGN_PCI:
         res = !Sigma0Base::hostop(msg);
