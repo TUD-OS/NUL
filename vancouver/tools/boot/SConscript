@@ -6,11 +6,11 @@ boot_env = target_env.Clone()
 # XXX Decouple this from target_env. This fails when we port to 64-bit.
 boot_env.Link('munich/munich', Glob('munich/*.[cS]'), linkscript='munich/munich.ld')
 
-prebuilt = [ 'coswig',
-             'marburg',
-             'santamonica',
-             'vilo', 
-             'bender',
+#boot_env.Command("gzip $SOURCE", "munich/munich.gz", "munich/munich")
+
+prebuilt = [ 'bender.gz',
+             'unzip',
+             'vilo.gz', 
              ]
 
 Install('#bin/boot', prebuilt + ['munich/munich'])
