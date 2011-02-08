@@ -85,8 +85,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   // synchronisation of GSIs+worker
   Semaphore _lock_gsi;
-  // lock for parent protocol
-  Semaphore _lock_parent;
   // lock for memory allocator
   static Semaphore _lock_mem;
 
@@ -397,9 +395,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     Logging::printf("s0: create locks\n");
     _lock_gsi    = Semaphore(alloc_cap());
-    _lock_parent = Semaphore(alloc_cap());
     _lock_mem    = Semaphore(alloc_cap());
-    check1(2, nova_create_sm(_lock_gsi.sm()) || nova_create_sm(_lock_mem.sm()) ||  nova_create_sm(_lock_parent.sm()));
+    check1(2, nova_create_sm(_lock_gsi.sm()) || nova_create_sm(_lock_mem.sm()));
     _lock_mem.up();
 
     Logging::printf("s0: create pf echo+worker threads\n");
@@ -1660,7 +1657,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = create_worker_threads(hip, -1)))  Logging::panic("s0: create worker threads failed %x\n", res);
     // unblock the worker and IRQ threads
     _lock_gsi.up();
-    _lock_parent.up();
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
