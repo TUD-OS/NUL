@@ -80,7 +80,7 @@ class TimeoutList
     TimeoutEntry *_next;
     TimeoutEntry *_prev;
     timevalue _timeout;
-    DATA * data;
+    DATA volatile * data;
   };
 
   TimeoutEntry  _entries[ENTRIES];
@@ -89,7 +89,7 @@ public:
   /**
    * Alloc a new timeout object.
    */
-  unsigned alloc(DATA * _data = 0)
+  unsigned alloc(DATA volatile * _data = 0)
   {
     if (_count < ENTRIES-1) {
       unsigned i = ++_count;
@@ -143,7 +143,7 @@ public:
   /**
    * Get the head of the queue.
    */
-  unsigned  trigger(timevalue now, DATA ** data = 0) {
+  unsigned  trigger(timevalue now, DATA volatile ** data = 0) {
     if (now >= timeout()) {
       unsigned i = _entries[0]._next - _entries;
       if (data)

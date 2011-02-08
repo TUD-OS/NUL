@@ -28,7 +28,7 @@ class AtomicLifo {
 public:
   AtomicLifo() : _head(0) {}
 
-  void enqueue(T *value) {
+  void enqueue(T volatile *value) {
     T *old;
     do {
       old = _head;

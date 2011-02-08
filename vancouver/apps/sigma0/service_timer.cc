@@ -54,8 +54,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
   KernelSemaphore   _worker;
   Semaphore   _clients;
 
-
-  ClientDataStorage<ClientData, TimerService> _storage;
+  __attribute__((aligned(8))) ClientDataStorage<ClientData, TimerService> _storage;
   AtomicLifo<ClientData> _queue;
 
   /**
@@ -85,7 +84,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
        * Check whether timeouts have fired.
        */
       now = _mymb.clock()->time();
-      ClientData * data;
+      ClientData volatile * data;
       while ((nr = _abs_timeouts.trigger(now, &data))) {
         _abs_timeouts.cancel(nr);
 
@@ -110,38 +109,45 @@ public:
   inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
-    ClientData *data = 0;
     unsigned res = ENONE;
     unsigned op;
 
     check1(EPROTO, input.get_word(op));
 
-    //XXX more fine granular synchronization
-    SemaphoreGuard l(_clients);
-
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
-      check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
-      free_cap = false;
+      {
+        ClientData *data = 0;
+        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
+        free_cap = false;
 
-//      {
-//        //XXX more fine granular synchronization
-//        SemaphoreGuard l(_clients);
+        {
+          //XXX more fine granular synchronization
+          SemaphoreGuard l(_clients);
 
-        data->nr = _abs_timeouts.alloc(data);
-//      }
-      if (!data->nr) return EABORT;
+          data->nr = _abs_timeouts.alloc(data);
+        }
+        if (!data->nr) return EABORT;
 
-      utcb << Utcb::TypedMapCap(data->identity);
-//      Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
-      return res;
+        utcb << Utcb::TypedMapCap(data->identity);
+        //Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
+        return res;
+      }
     case ParentProtocol::TYPE_CLOSE:
-      check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-//      Logging::printf("ts:: close session for %x\n", data->identity);
-      return _storage.free_client_data(utcb, data);
+      {
+        ClientData volatile *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
+
+        Logging::printf("ts:: close session for %x\n", data->identity);
+        return _storage.free_client_data(utcb, data);
+      }
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
+        ClientData volatile *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
+
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
         if (input.get_word(msg)) return EABORT;
 
@@ -166,7 +172,9 @@ public:
       return ENONE;
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
-        if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
+        ClientData volatile *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         utcb << data->count;
 
@@ -176,7 +184,9 @@ public:
       }
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
-        if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
+        ClientData volatile *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTime _msg;
         if (!input.get_word(_msg)) return EABORT;
@@ -246,11 +256,13 @@ public:
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
   }
+
+  void * operator new (unsigned size, unsigned alignment) { return  new (alignment) char [sizeof(TimerService)]; }
 };
 
 PARAM(service_timer,
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      TimerService * t = new TimerService(mb, cap_region, 12);
+      TimerService * t = new (8) TimerService(mb, cap_region, 12);
 
       //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
       MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));

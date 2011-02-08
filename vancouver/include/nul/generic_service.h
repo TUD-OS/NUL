@@ -21,7 +21,7 @@
 /**
  * Optimize the request of different resources and the rollback if one failes.
  */
-template <typename T> class QuotaGuard {
+template <class T> class QuotaGuard {
   Utcb &       _utcb;
   unsigned     _pseudonym;
   const char * _name;
@@ -43,7 +43,8 @@ template <typename T> class QuotaGuard {
  * Data that is stored by every client.
  */
 struct GenericClientData {
-  void              *next;
+  void volatile * volatile next;
+  void volatile * volatile del;
   unsigned           pseudonym;
   unsigned           identity;
   /**
@@ -69,9 +70,45 @@ struct GenericClientData {
  * A generic container that stores per-client data.
  * Missing: dequeue-from-list, iterator
  */
-template <typename T, typename A> class ClientDataStorage {
-  T * _head;
+template <class T, class A, bool free_pseudonym = true, bool __DEBUG__ = false>
+class ClientDataStorage {
+  struct recycl {
+    T volatile * volatile head;
+    unsigned long volatile t_in;
+  };
+  struct recycl_nv {
+    T * head;
+    unsigned long volatile t_in;
+  };
+
+  T volatile * volatile _head;
+  union {
+    __attribute__((aligned(8))) struct recycl recycling;
+    __attribute__((aligned(8))) unsigned long long volatile recyc64;
+  };
+
+
 public:
+  class Guard {
+    ClientDataStorage * storage;
+    Utcb &utcb;
+
+    public:
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb) : storage(_storage), utcb(_utcb) {
+        storage->cleanup(utcb);
+        Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
+      }
+      ~Guard() {
+        Cpu::atomic_xadd(&storage->recycling.t_in, -1U);
+        storage->cleanup(utcb);
+      }
+  };
+
+  ClientDataStorage() : _head(0), recyc64(0) {
+    assert(sizeof(T *) == 4);
+    assert(!(reinterpret_cast<unsigned long>(&recyc64) & 0x7));
+  }
+
   unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym) {
     unsigned res;
     QuotaGuard<T> guard1(utcb, pseudonym, "mem", sizeof(T));
@@ -80,51 +117,175 @@ public:
     guard2.commit();
 
     data = new T;
+    memset(data, 0, sizeof(T));
     data->pseudonym = pseudonym;
     data->identity  = A::alloc_cap();
     res = nova_create_sm(data->identity);
     if (res != ENONE) return res; 
 
     // enqueue it
-    data->next = _head;
-    _head = data;
+    T volatile * __head;
+    do {
+      __head = _head;
+      data->next = __head;
+    } while (reinterpret_cast<unsigned long>(__head) != Cpu::cmpxchg4b(&_head, reinterpret_cast<unsigned long>(__head), reinterpret_cast<unsigned long>(data)));
+    if (__DEBUG__) Logging::printf("gs: alloc_client_data %p\n", data);
     return ENONE;
   }
 
+  unsigned free_client_data(Utcb &utcb, T volatile *data) {
+    Guard count(this, utcb);
 
-  unsigned free_client_data(Utcb &utcb, T *data, bool free_pseudonym = true) {
-    for (T **prev = &_head; *prev; prev = reinterpret_cast<T **>(&(*prev)->next))
-      if (*prev == data) {
-	*prev = reinterpret_cast<T *>(data->next);
-	data->next = 0;
-	T::get_quota(utcb, data->pseudonym,"cap", -2);
-	T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
-	data->session_close(utcb);
-	A::dealloc_cap(data->identity);
-	if (free_pseudonym) A::dealloc_cap(data->pseudonym);
-	delete data;
-	return ENONE;
+    for (T volatile * volatile * prev = &_head; T volatile * volatile current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+      if (current == data) {
+
+        again:
+
+        void volatile * volatile data_next = data->next;
+        if (reinterpret_cast<unsigned long>(data) != Cpu::cmpxchg4b(prev, reinterpret_cast<unsigned long>(data), reinterpret_cast<unsigned long>(data_next))) {
+          if (__DEBUG__) Logging::printf("gs: another thread concurrently removed same data item - nothing todo\n");
+          return 0;
+        }
+
+        if (data->next != data_next) {
+          // somebody dequeued our direct next in between ...
+          //
+          // Example: A and B dequeued in parallel
+          //   prev = Y->next, data = A, data_next = B
+          //
+          //   X -> Y -> A -> B -> C -> D
+          //
+          //             A ------> C -> D
+          //   X -> Y ------> B -> C -> D
+
+          // AAA is performance optimization - AAA can also be removed. Issues caused by AAA can also be handled by BBB.
+          // (AAA avoid searching for 'data' again.)
+          
+          // AAA start
+          retry:
+
+          void volatile * tmp2_next = data->next;
+          void * got_next = reinterpret_cast<void *>(Cpu::cmpxchg4b(prev, reinterpret_cast<unsigned long>(data_next), reinterpret_cast<unsigned long>(tmp2_next)));
+          if (got_next == data_next) {
+            //ok - we managed to update the bogus pointer
+            //
+            // Example:
+            //   prev = Y->next, data = A, data_next = B, tmp2_next = C
+            //
+            //             A ------> C -> D
+            //   X -> Y ------> B -> C -> D
+            //
+            //             A ------> C -> D
+            //                  B -> C -> D
+            //   X -> Y -----------> C -> D
+            if (data->next != tmp2_next) {
+              // Is update still valid or we updated the bogus pointer by a pointer which became bogus ?
+              //             A -----------> D
+              //   X -> Y -----------> C -> D
+              data_next = tmp2_next;
+              if (__DEBUG__) Logging::printf("gs: bogus pointer update - retry loop\n");
+              goto retry; //if yes - we retry to update
+            }
+          } else {
+            // ok - somebody else removed the bogus pointer for us
+            //
+            // Example:
+            //             A ------> C -> D
+            //   X -> Y ------> B -> C -> D
+            //
+            //             A ------> C -> D
+            //                  B -> C -> D
+            //   X -> Y ----------------> D
+            if (__DEBUG__) Logging::printf("gs: bogus pointer removed by someone else\n");
+          }
+          //AAA end
+          if (__DEBUG__) Logging::printf("gs: dequeue failed - fixup: success %p\n", data);
+        }// else if (__DEBUG__) Logging::printf("gs: dequeue succeeded\n");
+
+        //check that we are not in list anymore
+        //BBB start
+        for (prev = &_head; current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+          if (current == data) {
+            if (__DEBUG__) Logging::printf("gs: still in list - again loop %p\n", data);
+            goto again;
+          }
+        //BBB end
+
+        T volatile * tmp;
+        do {
+          tmp = recycling.head;
+          data->del = tmp;
+        } while (reinterpret_cast<unsigned long>(tmp) != Cpu::cmpxchg4b(&recycling.head, reinterpret_cast<unsigned long>(tmp), reinterpret_cast<unsigned long>(data)));
+
+        return 0;
       }
+
+    if (__DEBUG__) {
+      Logging::printf("didn't found item %p\n list:", data);
+    
+      for (T volatile * volatile * prev = &_head; T volatile * current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+        Logging::printf(" %p ->", current);
+    }
     assert(0);
-  }
-
-
-  unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
-
-    for (T * client = next(); client && identity; client = next(client))
-      if (client->identity == identity) {
-        data = client;
-        return ENONE;
-      }
-
-//    Logging::printf("could not find client data for %x\n", identity);
-    return EEXISTS;
   }
 
   /**
    * Iterator.
    */
-  T* next(T *prev=0) { if (!prev) return _head;  return reinterpret_cast<T *>(prev->next); }
+  T volatile * next(T volatile *prev = 0) {
+    assert(recycling.t_in);
+    if (!prev) return reinterpret_cast<T volatile *>(_head);
+    return reinterpret_cast<T volatile *>(prev->next);
+  }
+
+  /**
+   * Remove items which are unused 
+   */
+  void cleanup(Utcb &utcb) {
+    unsigned long long tmp = recyc64;
+    struct recycl tmp_expect = *reinterpret_cast<struct recycl *>(&tmp);
+    if (tmp_expect.head && tmp_expect.t_in == 0) {
+      unsigned long long tmp_read;
+      tmp_read = Cpu::cmpxchg8b(&recyc64, *reinterpret_cast<unsigned long long *>(&tmp_expect), 0);
+      if (!memcmp(&tmp_read, &tmp_expect, sizeof(tmp_read))) {
+        unsigned long counter = 0;
+        T * data, * tmp;
+        struct recycl_nv nv_tmp;
+
+        memcpy(&nv_tmp, &tmp_expect, sizeof(nv_tmp));
+        data = nv_tmp.head;
+        while(data) {
+          T::get_quota(utcb, data->pseudonym,"cap", -2);
+          T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
+          data->session_close(utcb);
+          A::dealloc_cap(data->identity); 
+          if (free_pseudonym) A::dealloc_cap(data->pseudonym);
+          //tmp = data->del;
+          unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
+          tmp = *reinterpret_cast<T **>(nv_del);
+          delete data;
+          if (__DEBUG__) Logging::printf("gs: delete %p\n", data);
+          data = tmp;
+          counter ++;
+        }
+        if (__DEBUG__) Logging::printf("gs: cleaned objects 0x%lx\n", counter);
+      } else
+        if (__DEBUG__) Logging::printf("gs: did not get cleaning list\n");
+    }
+  }
+
+  unsigned get_client_data(Utcb &utcb, T volatile *&data, unsigned identity) {
+    T volatile * client1 = 0; 
+    for (T volatile * client = next(client1); client && identity; client = next(client))
+      if (client->identity == identity) {
+        data = client;
+        return ENONE;
+      }
+
+    //Logging::printf("gs: could not find client data for %x\n", identity);
+    return EEXISTS;
+  }
+
 };
 
 

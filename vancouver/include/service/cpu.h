@@ -55,10 +55,12 @@ class Cpu
     return __sync_val_compare_and_swap(reinterpret_cast<volatile unsigned *>(var), oldvalue, newvalue); }
 
   static  unsigned long long cmpxchg8b(void *var, unsigned long long oldvalue, unsigned long long newvalue) {
-    return __sync_val_compare_and_swap(reinterpret_cast<unsigned long long *>(var), oldvalue, newvalue);
-  }
+    return __sync_val_compare_and_swap(reinterpret_cast<unsigned long long *>(var), oldvalue, newvalue); }
 
-  static  unsigned long  atomic_xadd(unsigned long *ptr, unsigned long value) { return __sync_fetch_and_add(ptr, value); }
+  static  unsigned long long cmpxchg8b(volatile void *var, unsigned long long oldvalue, unsigned long long newvalue) {
+    return __sync_val_compare_and_swap(reinterpret_cast<volatile unsigned long long *>(var), oldvalue, newvalue); }
+
+  static  unsigned long  atomic_xadd(unsigned long volatile *ptr, unsigned long value) { return __sync_fetch_and_add(ptr, value); }
   static  long           atomic_xadd(long *ptr, long value)                   { return __sync_fetch_and_add(ptr, value); }
 
   static unsigned long long rdtsc() {
