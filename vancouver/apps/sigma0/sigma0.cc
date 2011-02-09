@@ -108,12 +108,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned        cpunr;
     unsigned long   rip;
     bool            dma;
-    char *          mem;
     unsigned long   physsize;
     unsigned        mac;
     void *          hip;
     char const *    cmdline;
     unsigned long   sigma0_cmdlen;
+    char *          mem; //have to be last element - see free_module
   } _modinfo[MAXMODULES];
   unsigned _mac;
 
@@ -527,7 +527,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   void free_module(ModuleInfo * modinfo) {
-    memset(modinfo, 0, sizeof(*modinfo));
+    assert(reinterpret_cast<unsigned long>(&modinfo->mem) + sizeof(modinfo->mem) == reinterpret_cast<unsigned long>(modinfo) + sizeof(*modinfo));
+    memset(modinfo, 0, sizeof(*modinfo) - sizeof(modinfo->mem));
+    MEMORY_BARRIER;
+    modinfo->mem = 0;
   }
 
   ModuleInfo * get_module(char const * cmdline, unsigned sigma0_cmdlen) {

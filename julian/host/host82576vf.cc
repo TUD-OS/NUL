@@ -17,6 +17,7 @@
  */
 
 #include <nul/motherboard.h>
+#include <nul/compiler.h>
 #include <host/hostvf.h>
 #include <host/host82576.h>
 #include <host/jsdriver.h>
@@ -192,7 +193,7 @@ public:
       | (1U<<27 /* Report Status = IRQ */);
     //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
 
-    asm volatile ("" ::: "memory");
+    MEMORY_BARRIER;
     _hwreg[TDT0] = (tail+1) % desc_ring_len;
 
     return true;

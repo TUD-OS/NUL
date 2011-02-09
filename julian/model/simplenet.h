@@ -69,7 +69,7 @@ public:
     _tx_ring[tdt].raw[1] = (0x2bU << 24 /* CMD: RS, DEXT, IFCS, EOP */)
       | (tx_desc::DTYP_DATA << 20) | len;
     
-    asm ("" ::: "memory");
+    MEMORY_BARRIER;
 
     _mmio[TDT0] = next_tdt;
 
@@ -90,7 +90,7 @@ public:
     _rx_ring[rdt].raw[0] = _mem.ptr_to_phys(data, 2048);
     _rx_ring[rdt].raw[1] = 0;
 
-    asm ("" ::: "memory");
+    MEMORY_BARRIER;
 
     _mmio[RDT0] = next_rdt;
     //Logging::printf("Queue buffer %p at %x\n", data, rdt);

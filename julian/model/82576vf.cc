@@ -404,7 +404,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	}
 	  
 	// Advance queue head
-	asm ( "" ::: "memory");
+	MEMORY_BARRIER;
 	regs[TDH] = (((tdh+1)*16 ) % tdlen) / 16;
       }
     }
@@ -544,7 +544,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
        	  if(!parent->copy_out(desc.legacy.buffer, buf, size))
        	    desc.legacy.status |= 0x8000; // RX error
        	  desc.legacy.sumlen = size;
-	  asm ("" ::: "memory");
+          MEMORY_BARRIER;
        	  desc.legacy.status |= 0x3; // EOP, DD
        	}
        	break;
@@ -557,7 +557,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	  desc.advanced_write.len = size;
 	  if (!parent->copy_out(target_buf, buf, size))
        	    desc.advanced_write.status |= 0x80000000U; // RX error
-	  asm ("" ::: "memory");
+	  MEMORY_BARRIER;
 	  desc.advanced_write.status = 0x3; // EOP, DD
 	}
 	break;
@@ -570,7 +570,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
 	Logging::printf("RX descriptor writeback failed.\n");
 
       // Advance queue head
-      asm ( "" ::: "memory");
+      MEMORY_BARRIER;
       regs[RDH] = (((rdh+1)*16 ) % rdlen) / 16;
 
       parent->RX_irq(n);

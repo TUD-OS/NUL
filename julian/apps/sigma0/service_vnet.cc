@@ -788,7 +788,7 @@ public:
 	  _port[i].client     = msg.client;
           _port[i].physoffset = msg.physoffset;
           _port[i].physsize   = msg.physsize;
-          asm ("" ::: "memory");
+          MEMORY_BARRIER;
           _port[i].reg        = msg.registers;
           return true;;
         }

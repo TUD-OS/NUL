@@ -164,7 +164,7 @@ public:
             diff = ~0u;
 
         data->reltime = diff;
-        asm volatile ("" : : : "memory");
+        MEMORY_BARRIER;
         if (!data->lifo_next)
           _queue.enqueue(data);
         _worker.up();
