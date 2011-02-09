@@ -526,20 +526,20 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return 0;
   }
 
-  void free_module(ModuleInfo * modi) {
-    modi->mem = 0;
+  void free_module(ModuleInfo * modinfo) {
+    memset(modinfo, 0, sizeof(*modinfo));
   }
 
   ModuleInfo * get_module(char const * cmdline, unsigned sigma0_cmdlen) {
     // search for a free module
+    again:
     unsigned module = 1;
-    while (module < MAXMODULES && _modinfo[module].mem)  module++;
-
+    while (module < MAXMODULES && *reinterpret_cast<unsigned long volatile *>(&_modinfo[module].mem)) module++;
     if (module >= MAXMODULES) return 0;
+    if (0 != Cpu::cmpxchg4b(&_modinfo[module].mem, 0, 1)) goto again;
 
     // init module parameters
     ModuleInfo *modinfo = _modinfo + module;
-    memset(modinfo, 0, sizeof(*modinfo));
     modinfo->id             = module;
     char *p = strstr(cmdline, "sigma0::cpu");
     if (p > cmdline + sigma0_cmdlen) p = 0;
@@ -633,6 +633,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * cmdline, char const * client_cmdline, unsigned sigma0_cmdlen) {
 
+    unsigned res = 0, slen, pt = 0;
+    unsigned long pmem = 0, maxptr = 0;
+    Hip * modhip = 0;
+
     ModuleInfo *modinfo = get_module(cmdline, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
 
@@ -646,35 +650,25 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Round up to page size
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
-    if (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)) {
-      Logging::printf("s0: (%x) Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
-                      CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
-      return __LINE__;
-    }
+    check2(_free_module, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
+           "s0: (%x) Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
+           CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
 
-    if ((psize_needed > modinfo->physsize) || !elf)
-    {
-      Logging::printf("s0: (%x) Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
-      free_module(modinfo);
-      return __LINE__;
-    }
-    unsigned long pmem = 0;
+    check2(_free_module, ((psize_needed > modinfo->physsize) || !elf),
+           "s0: (%x) Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+
     {
       SemaphoreGuard l(_lock_mem);
       if (!(pmem = _free_phys.alloc(modinfo->physsize, 22))) {
         _free_phys.debug_dump("free phys");
         _virt_phys.debug_dump("virt phys");
         _free_virt.debug_dump("free virt");
-        return __LINE__;
       }
+      check2(_free_module, !pmem);
     }
-    if (!((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))) {
-      if (pmem) {
-        SemaphoreGuard l(_lock_mem);
-        _free_phys.add(Region(pmem, modinfo->physsize));
-      }
-      return __LINE__;
-    }
+
+    check2(_free_pmem, (!((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))));
+
     Logging::printf("s0: module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
@@ -685,15 +679,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     memset(modinfo->mem, 0, modinfo->physsize);
 
     // decode ELF
-    unsigned long maxptr = 0;
-    if (Elf::decode_elf(elf, mod_size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)) {
-      {
-        SemaphoreGuard l(_lock_mem);
-        _free_phys.add(Region(pmem, modinfo->physsize));
-      }
-      free_module(modinfo);
-      return __LINE__;
-    }
+    check2(_free_pmem, (Elf::decode_elf(elf, mod_size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)));
 
     modinfo->hip = new (0x1000) char[0x1000];
 
@@ -702,13 +688,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     attach_drives(modinfo->cmdline, modinfo->sigma0_cmdlen, modinfo->id);
 
     // create a HIP for the client
-    unsigned  slen = strlen(client_cmdline) + 1;
-    if (slen + _hip->length + 2*sizeof(Hip_mem) > 0x1000) {
-      Logging::printf("s0: configuration to large\n");
-      free_module(modinfo);
-      return __LINE__;
-    }
-    Hip * modhip = reinterpret_cast<Hip *>(modinfo->hip);
+    slen = strlen(client_cmdline) + 1;
+    check2(_free_caps, (slen + _hip->length + 2*sizeof(Hip_mem) > 0x1000), "s0: configuration to large\n");
+
+    modhip = reinterpret_cast<Hip *>(modinfo->hip);
     memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, client_cmdline, slen);
 
     memcpy(modhip, _hip, _hip->mem_offs);
@@ -725,27 +708,46 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
 
     // create special portal for every module
-    unsigned pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
+    pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
     assert(_percpu[modinfo->cpunr].cap_ec_parent);
-    check1(6, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
-    check1(7, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
+    check2(_free_caps, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
+    check2(_free_caps, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
     // create parent portals
     for (unsigned i = 0; i < _numcpus; i++)
-      check1(9, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i],
+      check2(_free_caps, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i],
 			       _percpu[_cpunr[i]].cap_ec_parent,
 			       reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func),
 			       0));
-    check1(10, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
+    check2(_free_caps, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     Logging::printf("s0: creating PD%s on CPU %d\n", modinfo->dma ? " with DMA" : "", modinfo->cpunr);
-    check1(11, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
-    check1(12, nova_create_ec(NOVA_DEFAULT_PD_CAP + 1,
+    check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
+    check2(_free_caps, nova_create_ec(NOVA_DEFAULT_PD_CAP + 1,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
-    check1(13, nova_create_sc(NOVA_DEFAULT_PD_CAP + 2, NOVA_DEFAULT_PD_CAP + 1, Qpd(1, 100000), pt + NOVA_DEFAULT_PD_CAP));
-    return 0;
+    check2(_free_caps, nova_create_sc(NOVA_DEFAULT_PD_CAP + 2, NOVA_DEFAULT_PD_CAP + 1, Qpd(1, 100000), pt + NOVA_DEFAULT_PD_CAP));
+
+    _free_caps:
+    if (res) {
+      delete [] reinterpret_cast<char *>(modhip);
+
+      // unmap all caps
+      if (NOVA_ESUCCESS != nova_revoke(Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), true))
+        Logging::printf("s0: curiosity - nova_revoke failed\n");
+    }
+
+    _free_pmem:
+    if (res) {
+      SemaphoreGuard l(_lock_mem);
+      _free_phys.add(Region(pmem, modinfo->physsize));
+    }
+
+    _free_module:
+    if (res) free_module(modinfo);
+
+    return res;
   }
 
   /**
@@ -1668,7 +1670,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
+  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  { memset(_modinfo, 0, sizeof(_modinfo)); }
 };
 
 

@@ -127,7 +127,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       ClientData volatile *cdata;
 
       if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
-      Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
+      //Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
       return _client.free_client_data(utcb, cdata);
     }
   case ParentProtocol::TYPE_GET_PORTAL:
@@ -217,7 +217,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       ServerData volatile *sdata;
 
       if ((res = _server.get_client_data(utcb, sdata, input.identity()))) return res;
-      Logging::printf("pp: unregister %s cpu %x\n", sdata->name, sdata->cpu);
+      //Logging::printf("pp: unregister %s cpu %x\n", sdata->name, sdata->cpu);
       return free_service(utcb, sdata);
     }
   case ParentProtocol::TYPE_GET_QUOTA:

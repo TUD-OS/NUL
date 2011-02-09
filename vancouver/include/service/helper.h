@@ -51,6 +51,11 @@ static inline bool in_range(unsigned long address, unsigned long base, unsigned 
 #define check1(RET, X, ...) ({ unsigned __res; if ((__res = (X))) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, __res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); return RET; }})
 
 /**
+ * Check whether X is true, output an error and goto RET.
+ */
+#define check2(GOTO, X, ...) ({ if ((res = (X))) { Logging::printf("%s() line %d: '" #X "' error = %x", __func__, __LINE__, res); Logging::printf(" " __VA_ARGS__); Logging::printf("\n"); goto GOTO; }})
+
+/**
  * Make a dependency on the argument, to avoid that the compiler will touch them.
  */
 #define asmlinkage_protect(...) __asm__ __volatile__ ("" : : __VA_ARGS__);
