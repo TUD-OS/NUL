@@ -72,7 +72,7 @@ struct HostAhciRegister {
 };
 
 
-#define check2(X) { unsigned __res = X; if (__res) return __res; }
+#define check3(X) { unsigned __res = X; if (__res) return __res; }
 
 
 /**
@@ -203,7 +203,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     unsigned tag = start_command(0);
 
     // there is no IRQ on identify, as this is PIO data-in command
-    check2(wait_timeout(&_regs->ci, 1 << tag, 0));
+    check3(wait_timeout(&_regs->ci, 1 << tag, 0));
     _inprogress &= ~(1 << tag);
 
     // we do not support spinup
@@ -217,7 +217,7 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     unsigned tag = start_command(0);
 
     // there is no IRQ on set_features, as this is a PIO command
-    check2(wait_timeout(&_regs->ci, 1 << tag, 0));
+    check3(wait_timeout(&_regs->ci, 1 << tag, 0));
     _inprogress &= ~(1 << tag);
 
     return 0;
@@ -234,12 +234,12 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
     if (_regs->cmd & 0xc009) {
       // stop processing by clearing ST
       _regs->cmd &= ~1;
-      check2(wait_timeout(&_regs->cmd, 1<<15, 0));
+      check3(wait_timeout(&_regs->cmd, 1<<15, 0));
 
       // stop FIS receiving
       _regs->cmd &= ~0x10;
       // wait until no fis is received anymore
-      check2(wait_timeout(&_regs->cmd, 1<<14, 0));
+      check3(wait_timeout(&_regs->cmd, 1<<14, 0));
     }
 
     // set CL and FIS pointer
@@ -253,11 +253,11 @@ class HostAhciPort : public StaticReceiver<HostAhciPort>
 
     // enable FIS processing
     _regs->cmd |= 0x10;
-    check2(wait_timeout(&_regs->cmd, 1<<15, 0));
+    check3(wait_timeout(&_regs->cmd, 1<<15, 0));
 
     // CLO clearing
     _regs->cmd |= 0x8;
-    check2(wait_timeout(&_regs->cmd, 0x8, 0));
+    check3(wait_timeout(&_regs->cmd, 0x8, 0));
     _regs->cmd |= 0x1;
 
     // nothing in progress anymore
