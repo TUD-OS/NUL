@@ -153,7 +153,7 @@ PARAM(script_wait,
 
 PARAM(script_start,
       check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[1] : 1));,
+      _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[2] : 1));,
       "script_start:config=1,number=1,count=1 - start a config count times",
       "Example: 'script_start:5,3,4' - starts 4 times the configs 5, 6 and 7")
 
