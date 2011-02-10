@@ -560,7 +560,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   /**
-   * Starts a configuration. Configuration numbers start at zero.
+   * Starts a configuration loaded during boottime. Configuration numbers start at zero.
    */
   unsigned start_config(Utcb *utcb, unsigned which)
   {
@@ -594,12 +594,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return start_config(utcb, cmdline);
   }
 
-  unsigned start_config(Utcb *utcb, char const * cmdline)
+  /**
+   * Start a configuration from a stable memory region (mconfig). Region has to be zero terminated.
+   */
+  unsigned start_config(Utcb *utcb, char const * mconfig)
   {
     char const * file_name, * client_cmdline;
 
-    if (!cmdline || (!(client_cmdline = strstr(cmdline, "||")))) return __LINE__;
-    unsigned long sigma0_cmdlen = client_cmdline - cmdline;
+    if (!mconfig || (!(client_cmdline = strstr(mconfig, "||")))) return __LINE__;
+    unsigned long sigma0_cmdlen = client_cmdline - mconfig;
     client_cmdline += 2 + strspn(client_cmdline + 2, " \t\r\n\f");
     if (!(file_name = strstr(client_cmdline, "://")) || client_cmdline + strcspn(client_cmdline, " \t\r\n\f") < file_name) return __LINE__;
 
@@ -629,7 +632,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
-    res = _start_config(utcb, addr, fileinfo.size, cmdline, client_cmdline, sigma0_cmdlen);
+    res = _start_config(utcb, addr, fileinfo.size, mconfig, client_cmdline, sigma0_cmdlen);
 
   map_out:
     //don't try to unmap from ourself "revoke(..., true)"
@@ -648,14 +651,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * cmdline, char const * client_cmdline, unsigned sigma0_cmdlen) {
+  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * mconfig, char const * client_cmdline, unsigned sigma0_cmdlen) {
 
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
     Hip * modhip = 0;
     char * tmem;
 
-    ModuleInfo *modinfo = get_module(cmdline, sigma0_cmdlen);
+    ModuleInfo *modinfo = get_module(mconfig, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
 
     // Figure out how much memory we give the client. If the user
