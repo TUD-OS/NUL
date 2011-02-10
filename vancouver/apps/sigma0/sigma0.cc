@@ -278,8 +278,24 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned create_host_devices(Utcb *utcb, Hip *hip)
   {
     char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-    _modinfo[0].cmdline = cmdline;
     _modinfo[0].sigma0_cmdlen = strlen(cmdline);
+
+    char * s0_pos;
+    if (s0_pos = strstr(cmdline, "S0_DEFAULT")) {
+      unsigned long s0_size = strlen(__parameter_S0_DEFAULT_strings[2]);
+      unsigned long cmd_size = s0_size + _modinfo[0].sigma0_cmdlen - 10;
+      char * expanded = new char[cmd_size + 1];
+      memcpy(expanded, cmdline, s0_pos - cmdline);
+      memcpy(expanded + (s0_pos - cmdline), __parameter_S0_DEFAULT_strings[2], s0_size);
+      memcpy(expanded + (s0_pos - cmdline) + s0_size, s0_pos + 10, _modinfo[0].sigma0_cmdlen - 10 - (s0_pos - cmdline));
+      *(expanded + cmd_size) = 0;
+
+      //XXX free old cmdline - change aux stuff in phys/virt
+      _modinfo[0].cmdline = expanded;
+      _modinfo[0].sigma0_cmdlen = cmd_size;
+    } else
+      _modinfo[0].cmdline = cmdline;
+
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
@@ -1685,7 +1701,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!mac_host) mac_host = generate_hostmac();
     Logging::printf("s0:\t=> INIT done <=\n\n");
-
 
     // block ourself since we have finished initialization
     block_forever();
