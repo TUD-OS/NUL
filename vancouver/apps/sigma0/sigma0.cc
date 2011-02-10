@@ -510,7 +510,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       if (hmem->type == -2) {
 	// map all the modules early to be sure that we have enough virtual memory left
-	map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful);
+        // skip modules with length zero
+        if (hmem->size != 0) {
+          map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful);
+        }
 
 	// Make sure to remove the commandline as well.
 	if (hmem->aux)
@@ -533,9 +536,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
-      if (hmem->type == -2)
-        hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
-	    if (hmem->aux)
+      if (hmem->type == -2) {
+        if (hmem->size == 0) {
+          // It is an error to access this module, because it is zero bytes long.
+          hmem->addr = 0;
+        } else 
+          hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
+      } 
+      if (hmem->aux)
         hmem->aux = reinterpret_cast<unsigned>(map_string(utcb, hmem->aux));
     }
     __hip->fix_checksum();
@@ -599,7 +607,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     } else {
       char endc;
       cmdline = reinterpret_cast<char const *>(mod->addr);
-      if ((endc = *(cmdline + mod->size - 1)) != 0) {
+      if ((mod->size > 0) && ((endc = *(cmdline + mod->size - 1)) != 0)) {
         if (endc > 32) {
           Logging::printf("s0: config %u has invalid end character (got %x : expected 0 - 32)\n", which, endc);
           return __LINE__;
