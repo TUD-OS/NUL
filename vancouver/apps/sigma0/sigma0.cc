@@ -571,7 +571,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     for (i=1; mod = __hip->get_mod(i); i++) {
       cmdline = reinterpret_cast<char const *>(mod->aux);
-      if (mod->size != 1) continue;
+      len = strcspn(cmdline, " \t\r\n\f");
+      if (!(len >= 10 && !strncmp(cmdline + len - 10, ".nulconfig", 10))) continue;
       if (configs++ == which) break;
     }
     if (!mod) return __LINE__;
