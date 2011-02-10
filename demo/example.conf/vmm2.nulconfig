@@ -1,0 +1,5 @@
+sigma0::mem:512 sigma0::dma name::/s0/log name::/s0/timer name::/s0/fs/rom ||
+rom:///nul/vancouver.nul.gz 82576vf_vnet PC_PS2 ||
+rom:///tools/munich ||
+rom:///linux/bzImage clocksource=tsc ||
+rom:///linux/initrd2.lzma
