@@ -527,9 +527,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   void free_module(ModuleInfo * modinfo) {
-    assert(reinterpret_cast<unsigned long>(&modinfo->mem) + sizeof(modinfo->mem) == reinterpret_cast<unsigned long>(modinfo) + sizeof(*modinfo));
-    memset(modinfo, 0, sizeof(*modinfo) - sizeof(modinfo->mem));
-    MEMORY_BARRIER;
     modinfo->mem = 0;
   }
 
@@ -543,6 +540,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // init module parameters
     ModuleInfo *modinfo = _modinfo + module;
+    assert(reinterpret_cast<unsigned long>(&modinfo->mem) + sizeof(modinfo->mem) == reinterpret_cast<unsigned long>(modinfo) + sizeof(*modinfo));
+    memset(modinfo, 0, sizeof(*modinfo) - sizeof(modinfo->mem));
+
     modinfo->id             = module;
     char *p = strstr(cmdline, "sigma0::cpu");
     if (p > cmdline + sigma0_cmdlen) p = 0;
@@ -639,6 +639,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
     Hip * modhip = 0;
+    char * tmem;
 
     ModuleInfo *modinfo = get_module(cmdline, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
@@ -670,7 +671,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       check2(_free_module, !pmem);
     }
 
-    check2(_free_pmem, (!((modinfo->mem = map_self(utcb, pmem, modinfo->physsize)))));
+    check2(_free_pmem, (!((tmem = map_self(utcb, pmem, modinfo->physsize))))); //don't assign modinfo->mem = map_self directly (double free may happen)
+    modinfo->mem = tmem;
 
     Logging::printf("s0: module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
@@ -1673,7 +1675,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
-  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  { memset(_modinfo, 0, sizeof(_modinfo)); }
+  Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
 
