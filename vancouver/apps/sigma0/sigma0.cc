@@ -576,8 +576,20 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (configs++ == which) break;
     }
     if (!mod) return __LINE__;
-    if (!(len = strcspn(cmdline, " \t\r\n\f"))) return __LINE__;
-    cmdline += len;
+    if (mod->size == 1) {
+      if (!(len = strcspn(cmdline, " \t\r\n\f"))) return __LINE__;
+      cmdline += len;
+    } else {
+      char endc;
+      cmdline = reinterpret_cast<char const *>(mod->addr);
+      if ((endc = *(cmdline + mod->size - 1)) != 0) {
+        if (endc > 32) {
+          Logging::printf("s0: config %u has invalid end character (got %x : expected 0 - 32)\n", which, endc);
+          return __LINE__;
+        }
+        *(reinterpret_cast<char *>(mod->addr) + mod->size - 1) = 0;
+      }
+    }
     return start_config(utcb, cmdline);
   }
 

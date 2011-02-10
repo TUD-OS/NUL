@@ -26,7 +26,7 @@ class Hip_cpu
         unsigned char  thread;
         unsigned char  core;
         unsigned char  package;
-	unsigned  reserved;
+        unsigned  reserved;
 };
 
 class Hip_mem
