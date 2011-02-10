@@ -46,8 +46,9 @@ PARAM(name,, "name - used by parent protocol")
 PARAM(quota,, "quota - used by parent protocol")
 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
-	    " ioio hostacpi pcicfg mmconfig atare"
-	    " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script")
+            " ioio hostacpi pcicfg mmconfig atare"
+            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script"
+            " namespace::/s0 name::/s0/timer name::/s0/fs/rom quota::guid")
 
 /**
  * Sigma0 application class.
