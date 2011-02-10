@@ -884,7 +884,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 #endif
 		   if (consolesem) consolesem->up();
 
-                   Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n", pid, utcb->eip);
+                   Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n",
+                                   pid - _percpu[myutcb()->head.nul_cpunr].exc_base, utcb->eip);
                    Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
                                    utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
                    Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
