@@ -510,15 +510,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (hmem->type != 1) _free_phys.del(Region(hmem->addr, (hmem->size + 0xfff) & ~0xffful));
 
       if (hmem->type == -2) {
-	// map all the modules early to be sure that we have enough virtual memory left
+        // map all the modules early to be sure that we have enough virtual memory left
         // skip modules with length zero
         if (hmem->size != 0) {
           map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful);
         }
 
-	// Make sure to remove the commandline as well.
-	if (hmem->aux)
-	  _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
+        // Make sure to remove the commandline as well.
+        if (hmem->aux)
+          _free_phys.del(Region(hmem->aux, (strlen(map_string(utcb, hmem->aux)) + 0xfff) & ~0xffful));
       }
     }
 
