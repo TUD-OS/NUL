@@ -47,8 +47,9 @@ PARAM(quota,, "quota - used by parent protocol")
 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"
-            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script"
-            " namespace::/s0 name::/s0/timer name::/s0/fs/rom quota::guid")
+            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script")
+
+#define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom quota::guid"
 
 /**
  * Sigma0 application class.
@@ -282,11 +283,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     char * s0_pos;
     if (s0_pos = strstr(cmdline, "S0_DEFAULT")) {
-      unsigned long s0_size = strlen(__parameter_S0_DEFAULT_strings[2]);
+      unsigned long s0_size = strlen(S0_DEFAULT_CMDLINE);
       unsigned long cmd_size = s0_size + _modinfo[0].sigma0_cmdlen - 10;
       char * expanded = new char[cmd_size + 1];
       memcpy(expanded, cmdline, s0_pos - cmdline);
-      memcpy(expanded + (s0_pos - cmdline), __parameter_S0_DEFAULT_strings[2], s0_size);
+      memcpy(expanded + (s0_pos - cmdline), S0_DEFAULT_CMDLINE, s0_size);
       memcpy(expanded + (s0_pos - cmdline) + s0_size, s0_pos + 10, _modinfo[0].sigma0_cmdlen - 10 - (s0_pos - cmdline));
       *(expanded + cmd_size) = 0;
 
