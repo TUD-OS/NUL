@@ -47,7 +47,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
   static void portal_pf(IPCTest *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
-    Logging::printf("got pagefault\n");
+    //Logging::printf("got pagefault\n");
 
     *reinterpret_cast<unsigned long *>(0) = 0xaffe;
 
@@ -57,7 +57,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
   static void portal_wo(IPCTest *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
-    Logging::printf("got ipc\n");
+    //Logging::printf("got ipc\n");
 
     *reinterpret_cast<unsigned long *>(0) = 0xaffe;
 
