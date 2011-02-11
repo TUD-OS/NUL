@@ -1,0 +1,234 @@
+'vancouver help' output 11/02/11
+
+Supported cmdline parameters:  
+
+  0) kbmodifier:value - change the kbmodifier. Default: RWIN.  
+   
+ 	Example: 'kbmodifier:0x40000' uses LWIN as modifier.  
+ 	See keyboard.h for definitions.  
+   
+  1) panic - panic the system at creation time  
+   
+   
+  2) PC_PS2 - an alias to create an PS2 compatible PC  
+   
+ 	value:  mem:0,0xa0000 mem:0x100000 ioio nullio:0x80 pic:0x20,,0x4d0 pic:0xa0,2,0x4d1 pit:0x40,0
+		scp:0x92,0x61 kbc:0x60,1,12 keyb:0,0x10000 mouse:1,0x10001 rtc:0x70,8 serial:0x3f8,0x4,0x4711
+		hosts ink:0x4712,80 vga:0x03c0 vbios_disk vbios_keyboard vbios_mem vbios_time vbios_reset
+		vbios_multiboot msi ioapic pcihostbridge:0,0x10,0xcf8,0xe0000000 pmtimer:0x8000 vcpus  
+   
+  3) ncpu - change the number of vcpus that are created  
+   
+   
+  4)  vcpus - instantiate the vcpus defined with 'ncpu'  
+   
+   
+  5) hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).  
+   
+ 	Example: 'hostkeyb:0x17,0x60,1,12,2'.  
+ 	A missing auxirq omits the mouse initialisation.   
+   
+  6) ioio - provide HW IO port access.  
+   
+   
+  7) halifax - create a halifax that emulatates instructions.  
+   
+   
+  8) vbios_disk- provide disk related virtual BIOS functions.  
+   
+   
+  9) vbios_keyboard - provide keyboard related virtual BIOS functions.  
+   
+   
+ 10) vbios_mem - provide memory related virtual BIOS functions.  
+   
+   
+ 11) vbios_multiboot_modaddr:modaddr - override the default modaddr parameter of vbios_multiboot  
+   
+   
+ 12) vbios_multiboot:modaddr=0x1800000,lowmem=0xa0000 - create a BIOS extension that supports multiboot  
+   
+ 	Example:  'vbios_multiboot'  
+ 	modaddr defines where the modules are loaded in guest memory.  
+ 	lowmem allows to restrict memory below 1M to less than 640k.  
+   
+ 13) x2apic_mode - enable x2apic mode in the LAPICs  
+   
+   
+ 14) vbios_reset - provide reset handling for virtual BIOS functions.  
+   
+   
+ 15) vbios_time - provide time related virtual BIOS functions.  
+   
+   
+ 16) 82576vf:[promisc][,mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.  
+   
+ 	promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)  
+ 	txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)  
+ 	rx_map    - if !=0, map RX registers to guest. (Default: Yes)  
+ 	Example: 82576vf  
+   
+ 17) 82576vf_vnet:[promisc][,mem_mmio][,mem_msix] - attach an Intel 82576VF to the PCI bus.  
+   
+ 	promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)  
+ 	Example: 82576vf_vnet  
+   
+ 18) ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.  
+   
+ 	Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.  
+ 	If no bdf is given, the first free one is searched.  
+ 	The AHCI controllers are automatically numbered, starting with 0.  
+   
+ 19) dio:<range> - directly assign ioports to the VM.  
+   
+ 	Example: 'dio:0x3f8+8'.  
+ 	Forward access to given ioports to the hardware ones.  
+ 	Please note that a 'ioio' as backend for this device is needed too.  
+   
+ 20) mio:base,size,dest=base - map hostmemory directly into the VM.  
+   
+ 	Example: 'mio:0xa0000,0x10000'.  
+   
+ 21) ioapic - create an ioapic.  
+   
+ 	The GSIs are automatically distributed, so that the first IOAPIC gets GSI0-23, the next 24-47...  
+   
+ 22) hostirq:hostgsi,irq,msi - add an IRQ redirection from host vectors to guest IRQs.  
+   
+ 	Example: 'hostirq:0x08,0x00,0x50'.  
+   
+ 23) kbc:iobase,irqkeyb,irqaux - attach an PS2 keyboard controller at the given iobase.  
+   
+ 	Example: 'kbc:0x60,1,12'  
+ 	The PS2 ports are automatically distributed, such that the first KBC gets 0-1, the second one 2-3, ...  
+   
+ 24) lapic:inital_apic_id - provide an x2APIC for the last VCPU  
+   
+ 	Example: 'lapic:2'  
+ 	If no inital_apic_id is given the lapic number is used.  
+   
+ 25) mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.  
+   
+ 	Example: 'mem:0,0xa0000' for the first 640k region  
+ 	Example: 'mem:0x100000' for all the memory above 1M  
+   
+ 26) msi - provide MSI support by forwarding access to 0xfee00000 to the LocalAPICs.  
+   
+   
+ 27) nullio:<range>[,value] - ignore IOIO at given port range. An optional value can be given to return a fixed value on read..
+   
+ 	Example: 'nullio:0x80+1'.  
+   
+ 28) nullmem:<range> - ignore Memory access to the given physical address range.  
+   
+ 	Example: 'nullmem:0xfee00000,0x1000'.  
+   
+ 29) dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.  
+   
+ 	Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.  
+ 	If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.  
+ 	If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.  
+ 	If assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.  
+ 	If irq is zero, IRQs are disabled.  
+   
+ 30) vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.  
+   
+ 	If no guest_bdf is given, a free one is used.  
+   
+ 31) pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.  
+   
+ 	Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'  
+ 	If not iobase is given, no io-accesses are performed.  
+ 	Similar if membase is not given, MMCFG is disabled.  
+   
+ 32) pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.  
+   
+ 	Example: 'pic:0x20,,0x4d0 pic:0xa0,2'  
+ 	The first PIC is always the master. An irq can be given when creating  
+ 	a slave pic.  The irqlines are automatically distributed, such that  
+ 	the first pic gets 0-7, the second one 8-15,... The optional elcr  
+ 	parameter specifies the io address of the ELCR register  
+   
+ 33) pit:iobase,irq - attach a PIT8254 to the system.  
+   
+ 	Example: 'pit:0x40,0'  
+   
+ 34) pmtimer:ioport - provide an PMTimer at the given ioport.  
+   
+ 	Example: 'pmtimer:0x8000'.  
+   
+ 35) keyb:ps2port,hostkeyboard - attach a PS2 keyboard at the given PS2 port that gets input from the given hostkeyboard.  
+   
+ 	Example: 'keyb:0,0x17'  
+   
+ 36) mouse:ps2port,hostmouse:  attach a PS2 mouse at the given PS2 port that gets input from the given hostmouse.  
+   
+ 	Example: 'mouse:1,0x17'  
+   
+ 37) rtc:iobase,irq - Attach a realtime clock including its CMOS RAM.  
+   
+ 	Example: 'rtc:0x70,8'  
+   
+ 38) rtl8029:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus  
+   
+ 	Example: 'rtl8029:,9,0x300'.  
+ 	If no bdf is given a free one is used.  
+   
+ 39) rtl8029_vnet:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus  
+   
+ 	Example: 'rtl8029_vnet:,9,0x300'.  
+ 	if no bdf is given a free one is used.  
+   
+ 40) drive:sigma0drive,controller,port - put a drive to the given port of an ahci controller by using a drive from sigma0 as backend.  
+   
+ 	Example: 'drive:0,1,2' to put the first sigma0 drive on the third port of the second controller.  
+   
+ 41) serial:iobase,irq,hdev -  attach a virtual serial port that should use the given hostdev as backend.  
+   
+ 	Example: 'serial:0x3f8,8,0x47'.  
+ 	The input comes from hdev and the output is redirected to hdev+1.  
+   
+ 42) scp:porta,portb - provide the system control ports A+B.  
+   
+ 	Example: 'scp:0x92,0x61'  
+   
+ 43) vbios - create a bridge between VCPU and the BIOS bus.  
+   
+   
+ 44) vcpu - create a new VCPU  
+   
+   
+ 45) vga_fbsize:size - override the default fbsize for the 'vga' parameter  
+   
+   
+ 46) vga:iobase,fbsize=128 - attach a virtual VGA controller.  
+   
+ 	Example: 'vga:0x3c0,4096'  
+ 	The framebuffersize is given in kilobyte and the minimum is 128k.  
+ 	This also adds support for VGA and VESA graphics BIOS.  
+   
+ 47) help:nr - prints a list of valid parameters and give detailed help for a given parameter.  
+   
+   
+ 48) hostsink:hostdevnr,bufferlen,sinkchar,contchar - provide an output for a serial port.  
+   
+ 	Example: 'hostsink:0x4712,80'.  
+   
+ 49) kbd2serial:src,dst - attach a bridge between keyboard and keyboard.  
+   
+ 	Example: 'kbd2serial:0x2bad,0x4711'.  
+ 	The keystrokes at src hostdevice are transformed to serial chars at the dest hostdev.  
+   
+ 50) serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.  
+   
+ 	Example: 'serial2kbd:0x4711,0x2bad'.  
+ 	The serial input at source serialbus is transformed to keystrokes on the dest keycodebus.  
+   
+ 51) arping:dstip - test the network driver.  
+   
+ 	Example: arping:0x0a000202.  
+   
+ 52) bootp:ip,netmask - provide a simple BOOTP server.  
+   
+ 	Example: 'bootp:0x0a000000,8'.  
+ 	Please note that we deduce IP addresses from the MAC address, thus the same MAC will result in the same IP.  
