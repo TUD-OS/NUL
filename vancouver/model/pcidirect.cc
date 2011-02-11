@@ -452,8 +452,8 @@ PARAM(dpci,
       "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
       "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
       "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.",
-      "if assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.",
-      "if irq is zero, IRQs are disabled.")
+      "If assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.",
+      "If irq is zero, IRQs are disabled.")
 
 
 #include "host/hostvf.h"
@@ -472,4 +472,4 @@ PARAM(vfpci,
 	new DirectPciDevice(mb, 0, argv[2], true, true, parent_bdf, vf_no, true);
       },
       "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
-      "if no guest_bdf is given, a free one is used.")
+      "If no guest_bdf is given, a free one is used.")

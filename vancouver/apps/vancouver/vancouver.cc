@@ -65,9 +65,9 @@ PARAM_ALIAS(PC_PS2, "an alias to create an PS2 compatible PC",
 PARAM(ncpu, _ncpu = argv[0];, "ncpu - change the number of vcpus that are created" );
 PARAM(vcpus,
       for (unsigned count = 0; count < _ncpu; count++)
-	mb.parse_args("vcpu halifax vbios lapic");
+        mb.parse_args("vcpu halifax vbios lapic");
       ,
-      " instantiate the vcpus defined with 'ncpu'");
+      " vcpus - instantiate the vcpus defined with 'ncpu'");
 
 /****************************************************/
 /* Vancouver class                                  */
