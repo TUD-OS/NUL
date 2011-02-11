@@ -621,9 +621,7 @@ int helper_far_jmp(unsigned tmp_cs, unsigned tmp_eip, unsigned tmp_flag)
     // realmode + v86mode
     {
       if (tmp_eip > _cpu->cs.limit) GP0;
-      _cpu->cs.sel = tmp_cs;
-      _cpu->cs.base= tmp_cs << 4;
-      _cpu->cs.ar  = _cpu->v86() ? 0xf3 : 0x93;
+      set_realmode_segment(&_cpu->cs, tmp_cs, _cpu->v86());
       _cpu->eip    = tmp_eip;
       _cpu->efl    = (_cpu->efl & (EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL)) | (tmp_flag  & ~(EFL_VIP | EFL_VIF | EFL_VM | EFL_IOPL));
     }
