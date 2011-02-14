@@ -14,6 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+
 extern "C" void __cxa_pure_virtual(void) __attribute__((noreturn));
 extern "C" void __cxa_pure_virtual(void) { __builtin_trap(); }
 

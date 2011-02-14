@@ -10,7 +10,6 @@ nul.App(target_env, 'cycleburner',
         OBJS    = [ '#service/simplemalloc.o',
                     '#service/logging.o',
                     '#service/vprintf.o',
-                    '#service/cpp-support.o',
                     ],
         MEMSIZE = 1<<19)
 
