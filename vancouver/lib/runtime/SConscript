@@ -1,0 +1,13 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.Lib(target_env,
+        "runtime",
+        SOURCES = [
+        'cpp-support.cc',
+        ])
+
+# EOF
