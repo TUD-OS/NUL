@@ -2,7 +2,7 @@ title example nul config
 kernel /nul/hypervisor.new
 modaddr 0x6000000
 module /nul/sigma0.nul.gz S0_DEFAULT \
-  hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 vnet script_start:1,64
+  hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 script_start:1,64
 module /nul/vancouver.nul.gz
 module /tools/munich
 module /linux/bzImage
@@ -13,7 +13,7 @@ module /cfg/vmm1.nulconfig
 module /cfg/vmm2.nulconfig
 module /cfg/empty.nulconfig \
   sigma0::mem:512 sigma0::dma name::/s0/log name::/s0/timer name::/s0/fs/rom || \
-  rom:///nul/vancouver.nul.gz 82576vf_vnet PC_PS2 || \
+  rom:///nul/vancouver.nul.gz 82576vf PC_PS2 || \
   rom:///tools/munich || \
   rom:///linux/bzImage clocksource=tsc || \
   rom:///linux/initrd3.lzma

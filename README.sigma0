@@ -24,61 +24,58 @@ Supported cmdline parameters:
  6) service_timer - multiplexes either the hosthpet or the hostpit between different clients
 
 
- 7) vnet - virtual network switch
+ 7) mac_prefix:value=0x42000000 - override the MAC prefix.
 
 
- 8) mac_prefix:value=0x42000000 - override the MAC prefix.
+ 8) mac_host:value - override the host part of the MAC.
 
 
- 9) mac_host:value - override the host part of the MAC.
+ 9) namespace - used by parent protocol
 
 
-10) namespace - used by parent protocol
+10) name - used by parent protocol
 
 
-11) name - used by parent protocol
+11) quota - used by parent protocol
 
 
-12) quota - used by parent protocol
-
-
-13) S0_DEFAULT - an alias for the default sigma0 parameters
+12) S0_DEFAULT - an alias for the default sigma0 parameters
 
 	value:  ioio hostacpi pcicfg mmconfig atare hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_timer service_romfs script
 
-14) tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients
+13) tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients
 
 
-15) hostvesa:debug=0 - provide a VESA console as backend for a VESA model.
+14) hostvesa:debug=0 - provide a VESA console as backend for a VESA model.
 
 	Use 'hostvesa:3' for debug output.
 
-16) mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.
+15) mem:start=0:end=~0 - create a memory controller that handles physical memory accesses.
 
 	Example: 'mem:0,0xa0000' for the first 640k region
 	Example: 'mem:0x100000' for all the memory above 1M
 
-17) vcpu - create a new VCPU
+16) vcpu - create a new VCPU
 
 
-18) halifax - create a halifax that emulatates instructions.
+17) halifax - create a halifax that emulatates instructions.
 
 
-19) pit:iobase,irq - attach a PIT8254 to the system.
+18) pit:iobase,irq - attach a PIT8254 to the system.
 
 	Example: 'pit:0x40,0'
 
-20) scp:porta,portb - provide the system control ports A+B.
+19) scp:porta,portb - provide the system control ports A+B.
 
 	Example: 'scp:0x92,0x61'
 
-21) pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.
+20) pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.
 
 	Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'
 	If not iobase is given, no io-accesses are performed.
 	Similar if membase is not given, MMCFG is disabled.
 
-22) dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.
+21) dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.
 
 	Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.
 	If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.
@@ -86,88 +83,84 @@ Supported cmdline parameters:
 	If assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.
 	If irq is zero, IRQs are disabled.
 
-23) vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.
+22) vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.
 
 	If no guest_bdf is given, a free one is used.
 
-24) dio:<range> - directly assign ioports to the VM.
+23) dio:<range> - directly assign ioports to the VM.
 
 	Example: 'dio:0x3f8+8'.
 	Forward access to given ioports to the hardware ones.
 	Please note that a 'ioio' as backend for this device is needed too.
 
-25) atare:debug=0 - provide GSI lookup to PCI drivers.
+24) atare:debug=0 - provide GSI lookup to PCI drivers.
 
 
-26) gsi_override:bdf,gsi - allow to override GSI interrupts.
+25) gsi_override:bdf,gsi - allow to override GSI interrupts.
 
 	Example: 'gsi_override:0xfa,19' specifies gsi 19 for device 0:1f:2.
 
-27) host82576:instance - provide driver for Intel 82576 Ethernet controller.
+26) host82576:instance - provide driver for Intel 82576 Ethernet controller.
 
 	Example: host82576:0
 
-28) host82576vf:parent,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.
+27) host82576vf:parent,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.
 
 	Example: 'host82576vf:0x100,0'
 
-29) hostacpi - provide ACPI tables to drivers.
+28) hostacpi - provide ACPI tables to drivers.
 
 
-30) hostahci:mask - provide a hostdriver for all AHCI controller.
+29) hostahci:mask - provide a hostdriver for all AHCI controller.
 
 	Example: Use 'hostahci:5' to have a driver for the first and third AHCI controller.
 	The mask allows to ignore certain controllers. The default is to use all controllers.
 
-31) hosthpet:timer=0,address,irq=~0u,level=1,maxfreq=10000 - use the host HPET as timer.
+30) hosthpet:timer=0,address,irq=~0u,level=1,maxfreq=10000 - use the host HPET as timer.
 
 	If no address is given, the ACPI HPET table or 0xfed00000 is used.
 	If no irq is given, either the legacy or the lowest possible IRQ is used.
 	The maxfreq parameter defines the maximum IRQ rate and therefore accuracy of the device.
 	Example: 'hosthpet:1,0xfed00000' - for the second timer of the hpet at 0xfed00000.
 
-32) quirk_hpet_ich - force enable the HPET on an ICH chipset.
+31) quirk_hpet_ich - force enable the HPET on an ICH chipset.
 
 	Please note that this does not check whether this is done on the right chipset - use it on your own risk!
 
-33) hostide:mask - provide a hostdriver for all IDE controller.
+32) hostide:mask - provide a hostdriver for all IDE controller.
 
 	Example: Use 'hostide:1' to have a driver for the first IDE controller.
 	The mask allows to ignore certain controllers. The default is to use all controllers.
 
-34) ioio - provide HW IO port access.
+33) ioio - provide HW IO port access.
 
 
-35) hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).
+34) hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).
 
 	Example: 'hostkeyb:0x17,0x60,1,12,2'.
 	A missing auxirq omits the mouse initialisation. 
 
-36) hostne2k - provide ne2k-pci drivers.
+35) hostne2k - provide ne2k-pci drivers.
 
 	Example: hostne2k.
 
-37) hostne2k_vnet - provide ne2k-pci drivers.
-
-	Example: hostne2k.
-
-38) pcicfg - provide HW PCI config space access through IO ports 0xcf8/0xcfc.
+36) pcicfg - provide HW PCI config space access through IO ports 0xcf8/0xcfc.
 
 
-39) hostpit:period,hostiobase,hostirq - use the host PIT as timer, the period is given in microseconds.
+37) hostpit:period,hostiobase,hostirq - use the host PIT as timer, the period is given in microseconds.
 
 	Example: 'hostpit:4000,0x40,2'.
 
-40) hostreboot:type - provide the functionality to reboot the host.
+38) hostreboot:type - provide the functionality to reboot the host.
 
 	Example: 'hostreboot:0' uses the keyboard to reboot the host.
 	type is one of [0:Keyboard, 1:FastGate, 2:PCI, 3:ACPI].
 
-41) hostrtc:hostiobase=0x70 - use the host RTC as wall clock time backend.
+39) hostrtc:hostiobase=0x70 - use the host RTC as wall clock time backend.
 
 	Example: 'hostrtc'.
 
-42) hostserial:hostdevnr,hostiobase,hostirq,speed=115200,lcr=3 - provide an in+output backend from the host serial port.
+40) hostserial:hostdevnr,hostiobase,hostirq,speed=115200,lcr=3 - provide an in+output backend from the host serial port.
 
 	Example:   'hostserial:0x4711,0x3f8,4,115200,3'.
 	If no iobase is given, the first serial port from the BIOS is used.
@@ -175,42 +168,42 @@ Supported cmdline parameters:
 	See the LCR encoding of the 16550. The default is lcr=3, which means 8N1.
 	The output is received from hostdevnr+1.
 
-43) hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.
+41) hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.
 
 	Example: 'hostvga'.
 	Use 'hostvga:0x10000,0x20000' to use LCTRL and RCTRL as keymodifier.See keyboard.h for definitions.
 
-44) mmconfig - provide HW PCI config space access via mmconfig.
+42) mmconfig - provide HW PCI config space access via mmconfig.
 
 
-45) nubus - PCI bus manager
+43) nubus - PCI bus manager
 
 
-46) vdisk - create virtual disks from all modules
+44) vdisk - create virtual disks from all modules
 
 
-47) help:nr - prints a list of valid parameters and give detailed help for a given parameter.
+45) help:nr - prints a list of valid parameters and give detailed help for a given parameter.
 
 
-48) hostsink:hostdevnr,bufferlen,sinkchar,contchar - provide an output for a serial port.
+46) hostsink:hostdevnr,bufferlen,sinkchar,contchar - provide an output for a serial port.
 
 	Example: 'hostsink:0x4712,80'.
 
-49) kbd2serial:src,dst - attach a bridge between keyboard and keyboard.
+47) kbd2serial:src,dst - attach a bridge between keyboard and keyboard.
 
 	Example: 'kbd2serial:0x2bad,0x4711'.
 	The keystrokes at src hostdevice are transformed to serial chars at the dest hostdev.
 
-50) serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.
+48) serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.
 
 	Example: 'serial2kbd:0x4711,0x2bad'.
 	The serial input at source serialbus is transformed to keystrokes on the dest keycodebus.
 
-51) arping:dstip - test the network driver.
+49) arping:dstip - test the network driver.
 
 	Example: arping:0x0a000202.
 
-52) bootp:ip,netmask - provide a simple BOOTP server.
+50) bootp:ip,netmask - provide a simple BOOTP server.
 
 	Example: 'bootp:0x0a000000,8'.
 	Please note that we deduce IP addresses from the MAC address, thus the same MAC will result in the same IP.
