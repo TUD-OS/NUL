@@ -4,9 +4,6 @@
 #+TODO: TODO INPROGRESS | CLOSED CANCELED
 #+STARTUP: showall hidestars
 
-Thank you for obtaining your personal NOVA userland (NUL) source
-tree. You will not be disappointed.
-
 * Org-Mode HOWTO						   :noexport:
 
   This file uses Org-Mode, which ships with a nice manual that you can
@@ -30,17 +27,17 @@ tree. You will not be disappointed.
 
   The code is still experimental and far from feature complete.  Use
   it on your own risk.  If it breaks, you get to keep both pieces.  If
-  you have feedback, please sent it to =bk@vmmon.org=.
+  you have feedback, please sent it to =jsteckli@os.inf.tu-dresden.de=.
 
 * Prerequisites
 
   - *Binutils* 2.20 or later
-  - *GCC* 4.4 or later
+  - *GCC* 4.4.4, 4.5.2 or later
   - *SCons* 1.2.0 or later
   - *Python* 2.6 or later
   - *Git* 1.6 or later
 
-* Where To Get It
+* Where To Get It                                                  :noexport:
 
   The latest public version is available by cloning our Git
   repository. You have to be member of the =nul-hackers= group to
@@ -66,7 +63,7 @@ tree. You will not be disappointed.
   preconfigured one in /build/. We use a minimal SCons-based build
   system that mostly does what we want. So to build the default
   configuration just cd into build and type =scons=. Binaries will be
-  installed in build/bin by default.
+  installed in build/bin and build/boot by default.
 
   To use a customized build configuration, copy the default build
   repository and adapt its SConstruct file.
@@ -83,9 +80,9 @@ tree. You will not be disappointed.
   |------------------+-----------------------------|
 
   To compile nul with an old version of GCC, type:
-  =scons target_cc=gcc-4.2.4 target_cxx=g++-4.2.4=
+  =scons target_cc=gcc-4.4.4 target_cxx=g++-4.4.4=
 
-** Using Git
+** Using Git                                                       :noexport:
 
    We use git to manage our source code. (Un)fortunately, there are
    many ways to use git. Let's summarize some hints and "best
@@ -140,3 +137,9 @@ tree. You will not be disappointed.
     central repository with your commits on top of them. If you wish
     to commit them, you can now do =git push= to send them to the
     central repository.
+
+* Booting a Vancouver System
+
+  An example GRUB configuration can be found in
+  demo/example.conf. Another example is the Demo CD. For explanation
+  of the individual parameters refer to README.sigma0 and README.vmm.
