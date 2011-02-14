@@ -1,15 +1,24 @@
-/// -*- Mode: C++ -*-
-/// Show a screenful of helpful tips.
-///
-/// Copyright (C) 2009-2010, Julian Stecklina
-//
-/// This file is part of NUL, the NOVA userland. See LICENSE for
-/// licensing details.
+/** -*- Mode: C++ -*-
+ * Show a screenful of helpful tips.
+ *
+ * Copyright (C) 2009-2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * Vancouver is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
 
 #include <nul/program.h>
 #include <host/keyboard.h>
 #include <sigma0/console.h>
-
 
 void print_screen1(unsigned short *dst, unsigned &line);
 
