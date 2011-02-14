@@ -13,6 +13,11 @@ find . \( -name "*.[chS]" -or -name "*.cc" \) \! -exec grep -E -q "[Ee]conomic r
 echo  ... done
 
 echo
+echo Checking for files with obsolete license plates ...
+find . \( -name "*.[chS]" -or -name "*.cc" \) -exec grep -E -q "(is part of Vancouver|Vancouver.*is free sofware)" {} \; -print
+echo  ... done
+
+echo
 echo Checking for temporary files ...
 find . -name "*~"
 
