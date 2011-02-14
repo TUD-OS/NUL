@@ -2,6 +2,7 @@
  * C++ Runtime Stubs
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
  *
