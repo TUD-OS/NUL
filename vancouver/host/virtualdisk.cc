@@ -109,7 +109,7 @@ PARAM(vdisk,
         return;
       }
 
-      char *module = new(512) char[fileinfo.size];
+      char *module = new(4096) char[fileinfo.size];
 
       unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                  url_sep+3);
@@ -129,7 +129,7 @@ PARAM(vdisk,
                                      mb.bus_disk.count(),
                                      module,
                                      fileinfo.size,
-                                     "");
+                                     "virtualdisk");
       mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
       ,
       "vdisk:file - create a virtual disk from the given file"
