@@ -11,6 +11,7 @@ nul.App(target_env, 'cycleburner',
                     '#service/logging.o',
                     '#service/vprintf.o',
                     ],
+        LIBS    = [ 'runtime' ],
         MEMSIZE = 1<<19)
 
 # EOF
