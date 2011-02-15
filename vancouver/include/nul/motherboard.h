@@ -101,7 +101,8 @@ class Motherboard : public StaticReceiver<Motherboard>
       long *p = &__param_table_start;
       bool handled = false;
       while (!handled && p < &__param_table_end) {
-        typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv);
+        typedef void  (*CreateFunction)(Motherboard *, unsigned long *argv,
+                                        const char *args, unsigned args_len);
         CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
         char **strings = reinterpret_cast<char **>(*p++);
 
@@ -111,6 +112,7 @@ class Motherboard : public StaticReceiver<Motherboard>
 
           const char *s = args + prefixlen;
           if (args[prefixlen] == ':') s++;
+          const char *start = s;
           unsigned long argv[16];
           for (unsigned j=0; j < 16; j++) {
             unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
@@ -121,7 +123,7 @@ class Motherboard : public StaticReceiver<Motherboard>
             s+= alen;
             if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
           }
-          func(this, argv);
+          func(this, argv, start, s - start);
           handled = true;
         }
       }

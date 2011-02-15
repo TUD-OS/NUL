@@ -28,7 +28,7 @@
  */
 #define PARAM(NAME, CODE, ...)						\
   const char * __parameter_##NAME##_strings[] asm ("__parameter_" #NAME "_strings") = { #NAME, ##__VA_ARGS__, 0}; \
-  extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv) { CODE; } \
+  extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len) { CODE; } \
   asm volatile (".section .param; .long __parameter_" #NAME "_function, __parameter_" #NAME "_strings; .previous;");
 
 #define PARAMSTART asm volatile (".section .param,\"wa\"; .globl __param_table_start; __param_table_start:")
