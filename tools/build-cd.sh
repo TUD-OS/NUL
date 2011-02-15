@@ -54,7 +54,7 @@ MENU TITLE NOVA snapshot 2011.2
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
-        /nul/hypervisor spinner dmar --- \
+        /nul/hypervisor spinner iommu --- \
         /nul/sigma0_nul.gz $SARGS script_start:1 script_wait:100 script_start:1,1,3 --- \
         /nul/vancouver_nul.gz --- \
         /tools/munich --- \
@@ -74,7 +74,7 @@ ENDTEXT
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
-        /nul/hypervisor spinner dmar --- \
+        /nul/hypervisor spinner iommu --- \
         /nul/sigma0_nul.gz $SARGS_K script_start:1 script_wait:100 script_start:1,1,3 --- \
         /nul/vancouver_nul.gz --- \
         /tools/munich --- \
@@ -93,7 +93,7 @@ ENDTEXT
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
-        /nul/hypervisor spinner dmar --- \
+        /nul/hypervisor spinner iommu --- \
         /nul/sigma0_nul.gz $SARGS_K hostvesa script_start:1 --- \
         /nul/vancouver_nul.gz --- \
         /tools/munich --- \
