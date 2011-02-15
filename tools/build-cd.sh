@@ -11,7 +11,7 @@ fi
 echo "Working in $TMPDIR ..."; sleep 1
 
 ISO_DIR=$TMPDIR/iso
-rm -fdR $ISO_DIR
+rm -fr $ISO_DIR
 
 mkdir -p $ISO_DIR/nul
 mkdir -p $ISO_DIR/tools
