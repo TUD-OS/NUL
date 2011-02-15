@@ -126,12 +126,15 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   void handle_cpu_init(CpuMessage &msg, bool reset) {
     CpuState *cpu = msg.cpu;
 
+    // http://www.sandpile.org/ia32/initial.htm
+    // XXX Review initial settings of {tr,ld,gd,id}.ar
+
     // this also clears inj_info
     memset(cpu->msg, 0, sizeof(cpu->msg));
     cpu->efl      = 2;
     cpu->eip      = 0xfff0;
     cpu->cr0      = 0x10;
-    cpu->cs.ar    = 0x9b;
+    cpu->cs.ar    = 0x93;
     cpu->cs.limit = 0xffff;
     cpu->cs.base  = 0xffff0000;
     cpu->cs.sel   = 0xf000;
