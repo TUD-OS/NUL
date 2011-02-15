@@ -15,8 +15,12 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+
 #include "host/dma.h"
 #include "nul/motherboard.h"
+#include <nul/service_fs.h>
+#include <nul/baseprogram.h>
+#include <nul/capalloc.h>
 
 /**
  * Provide a memory backed disk.
@@ -30,7 +34,7 @@ class VirtualDisk : public StaticReceiver<VirtualDisk>
   unsigned      _disknr;
   char *        _data;
   unsigned long _length;
-  char *        _cmdline;
+  const char *  _cmdline;
 
 public:
   bool  receive(MessageDisk &msg)
@@ -78,24 +82,55 @@ public:
   }
 
 
-  VirtualDisk(DBus<MessageDiskCommit> &bus_commit, unsigned disknr, char *data, unsigned long length, char *cmdline) :
+  VirtualDisk(DBus<MessageDiskCommit> &bus_commit, unsigned disknr, char *data, unsigned long length, const char *cmdline) :
     _bus_commit(bus_commit), _disknr(disknr), _data(data), _length(length), _cmdline(cmdline) {}
 };
 
 PARAM(vdisk,
-      /**
-       * Create virtual disks from the modules.
-       */
-      for (unsigned modcount = 1; ; modcount++)
-	{
-	  MessageHostOp msg(modcount, 0);
-	  if (!(mb.bus_hostop.send(msg)) || !msg.start)  break;
+      char name[128];
+      memcpy(name, args, args_len);
+      name[args_len] = 0;
 
-	  Device * dev = new VirtualDisk(mb.bus_diskcommit,
-					 mb.bus_disk.count(),
-					 msg.start,
-					 msg.size,
-					 msg.cmdline);
-	  mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
-	},
-      "vdisk - create virtual disks from all modules")
+      char *url_sep = strstr(name, "://");
+      if (url_sep == NULL) {
+        Logging::printf("Virtual disk not created: '%s' is not a filename.\n", name);
+      }
+
+      char service_name[32] = "fs/";
+      if ((url_sep - name) + 4 > 32) return;
+      memcpy(service_name + 3, name, url_sep - name);
+      service_name[3 + (url_sep - name)] = 0;
+
+      unsigned cap_base = alloc_cap_region(FsProtocol::CAP_NUM, 0);
+      FsProtocol::dirent fileinfo;
+      FsProtocol fs_obj(cap_base, service_name);
+      if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, url_sep+3)) {
+        Logging::printf("vdisk: Failed to load file '%s'\n", url_sep+3);
+        return;
+      }
+
+      char *module = new(512) char[fileinfo.size];
+
+      unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
+                                 url_sep+3);
+      //Note: msg.start used as service name in fs_obj is now overwritten
+      fs_obj.close(*BaseProgram::myutcb());
+
+      // XXX Uh? Where is the dealloc cap function?
+      //dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+      if (res) { Logging::printf("vdisk: Couldn't read file.\n"); return; }
+
+      Logging::printf("vdisk: Opened '%s' 0x%llx bytes.\n"
+                      "vdisk: Attached as vdisk %u.\n",
+                      fileinfo.name, fileinfo.size, mb.bus_disk.count());
+          
+
+      Device * dev = new VirtualDisk(mb.bus_diskcommit,
+                                     mb.bus_disk.count(),
+                                     module,
+                                     fileinfo.size,
+                                     "");
+      mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
+      ,
+      "vdisk:file - create a virtual disk from the given file"
+      "Example: vdisk:rom://foo/bar creates a virtual disk from the module foo/bar")
