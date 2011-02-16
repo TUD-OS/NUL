@@ -2,7 +2,7 @@
                           ==================
 
 Author: Julian Stecklina <jsteckli@tudos.org>
-Date: 2011-02-16 18:44:44 CET
+Date: 2011-02-16 21:38:54 CET
 
 
 Table of Contents
@@ -33,7 +33,6 @@ Table of Contents
   - *GCC* 4.4.4, 4.5.2 or later
   - *SCons* 1.2.0 or later
   - *Python* 2.6 or later
-  - *Git* 1.6 or later
 
 3 Development 
 ~~~~~~~~~~~~~~

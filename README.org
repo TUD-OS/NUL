@@ -1,5 +1,6 @@
 #+TITLE: NUL: NOVA Userland
 #+AUTHOR: Julian Stecklina
+#+EMAIL: jsteckli@tudos.org
 #+LANGUAGE: en
 #+TODO: TODO INPROGRESS | CLOSED CANCELED
 #+STARTUP: showall hidestars
@@ -33,7 +34,6 @@
   - *GCC* 4.4.4, 4.5.2 or later
   - *SCons* 1.2.0 or later
   - *Python* 2.6 or later
-  - *Git* 1.6 or later
 
 * Where To Get It                                                  :noexport:
 
