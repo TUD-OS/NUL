@@ -1,16 +1,16 @@
 ################################################################################
- [NOVA Xmas Alpha]
+ [NUL 2011.2]
 
- [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to screen 0
+ [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to NOVA console
  screens. Screens are arranged in a 2D   [LWin+<F1-F12>] Jump to screen 1-12
  layout as follows:                      [RWin+End]      Reboot the system 
                                          [RWin+Home]     Reset VM
-   +---------+                           [LWin+2]        Start Fiasco VM
-2  |  boot   |                           [LWin+3]        Start Pistachio VM 
-   +---------+                           [LWin+4]        Start Linux VM
-                                         [LWin+5]        Start ASCII Plasma
-   +---------+                +-----+
-1  |   HV    |                | VM  |
+   +---------+                           [LWin+2]        Start Linux Bridge VM
+2  |  boot   |                           [LWin+3]        Start GRML Live CD
+   +---------+                           [LWin+4]        Start Fiasco
+                                         [LWin+5]        Start Pistachio
+   +---------+                +-----+    [LWin+6]        Start ASCII Plasma
+1  |   HV    |                | VM  |    [LWin+7]        NOVA presentation
    +---------+                +-----+
 
    +---------+  [+==========+]  +-----+
@@ -18,9 +18,9 @@
    +---------+  [+==========+]  +-----+
         0             1          2  ...
 
-  Feedback to:
-    Udo Steinberg <[udo@hypervisor.org]>
-    Bernhard Kauer <[bk@vmmon.org]>
+   If you start the Linux Bridge VM ([LWin+2]), your first Ethernet adapter is
+   connected to the virtual network and other VMs such as GRML have network
+   access.
 
    Operating Systems Group
    Technische Universitaet Dresden
