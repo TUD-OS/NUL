@@ -6,9 +6,9 @@
  layout as follows:                      [RWin+End]      Reboot the system 
                                          [RWin+Home]     Reset VM
    +---------+                           [LWin+2]        Start Linux Bridge VM
-2  |  boot   |                           [LWin+3]        Start GRML Live CD
-   +---------+                           [LWin+4]        Start Fiasco
-                                         [LWin+5]        Start Pistachio
+2  |  boot   |                           [LWin+3]        Start GRML Live CD VM
+   +---------+                           [LWin+4]        Start L4/Fiasco VM
+                                         [LWin+5]        Start L4/Pistachio VM
    +---------+                +-----+    [LWin+6]        Start ASCII Plasma
 1  |   HV    |                | VM  |    [LWin+7]        NOVA presentation
    +---------+                +-----+
@@ -20,7 +20,7 @@
 
    If you start the Linux Bridge VM ([LWin+2]), your first Ethernet adapter is
    connected to the virtual network and other VMs such as GRML have network
-   access.
+   access. Btw, you can start multiple instances of a VM.
 
    Operating Systems Group
    Technische Universitaet Dresden
