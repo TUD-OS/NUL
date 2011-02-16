@@ -1,10 +1,10 @@
 ################################################################################
  [NUL 2011.2]
 
- [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to NOVA console
+ [LWin+<arrow>] navigates between          [LWin+Escape]   Jump to HV console
  screens. Screens are arranged in a 2D   [LWin+<F1-F12>] Jump to screen 1-12
- layout as follows:                      [RWin+End]      Reboot the system 
-                                         [RWin+Home]     Reset VM
+ layout as follows:                      [LWin+End]      Reboot the system 
+                                         [LWin+Home]     Reset VM
    +---------+                           [LWin+2]        Start Linux Bridge VM
 2  |  boot   |                           [LWin+3]        Start GRML Live CD VM
    +---------+                           [LWin+4]        Start L4/Fiasco VM
