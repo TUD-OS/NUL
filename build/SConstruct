@@ -7,7 +7,6 @@ sys.path.append(os.path.abspath("../vancouver/tools/"))
 # are declared. The first match wins. Order repositories from most to
 # least specific!
 Repository('../demo')
-Repository('../julian')
 Repository('../vancouver')
 
 # We pull the top-level SCons logic from the first repository that has
