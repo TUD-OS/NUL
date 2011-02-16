@@ -1,4 +1,7 @@
 
+* Changes since 2010.7
+ - bug fixes and cleanup
+
 * Changes since the XMas Alpha:
 
 - added support for one-shot timers (HPET)

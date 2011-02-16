@@ -21,13 +21,11 @@
 * Introduction
 
   This is the development version of NUL, the NOVA UserLand.  It
-  complements the NOVA microhypervisor with a couple of applications,
-  mainly a virtual machine monitor and a hardware resource
-  multiplexer.
+  complements the NOVA microhypervisor with applications, mainly a
+  virtual machine monitor and a hardware resource multiplexer.
 
   The code is still experimental and far from feature complete.  Use
-  it on your own risk.  If it breaks, you get to keep both pieces.  If
-  you have feedback, please sent it to =jsteckli@os.inf.tu-dresden.de=.
+  it on your own risk.  If it breaks, you get to keep both pieces.
 
 * Prerequisites
 
@@ -143,3 +141,10 @@
   An example GRUB configuration can be found in
   demo/example.conf. Another example is the Demo CD. For explanation
   of the individual parameters refer to README.sigma0 and README.vmm.
+
+* Feedback
+
+  NUL is the work of Bernhard Kauer <bk@vmmon.org>, Alexander
+  Böttcher <boettcher@tudos.org>, and Julian Stecklina
+  <jsteckli@tudos.org>. The author of the NOVA hypervisor is Udo
+  Steinberg <udo@hypervisor.org>.
