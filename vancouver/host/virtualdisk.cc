@@ -87,32 +87,30 @@ public:
 };
 
 PARAM(vdisk,
-      char name[128];
-      memcpy(name, args, args_len);
-      name[args_len] = 0;
-
-      char *url_sep = strstr(name, "://");
-      if (url_sep == NULL) {
-        Logging::printf("Virtual disk not created: '%s' is not a filename.\n", name);
-      }
+      char url[128];
+      memcpy(url, args, args_len);
+      url[args_len] = 0;
 
       char service_name[32] = "fs/";
-      if ((url_sep - name) + 4 > 32) return;
-      memcpy(service_name + 3, name, url_sep - name);
-      service_name[3 + (url_sep - name)] = 0;
+      size_t service_name_len = sizeof(service_name) - 4;
+      const char *filename = FsProtocol::parse_file_name(url, service_name + 3, service_name_len);
+      if (filename == NULL) {
+        Logging::printf("vdisk: Could not parse '%s'.\n", url);
+        return;
+      }
 
       unsigned cap_base = alloc_cap_region(FsProtocol::CAP_NUM, 0);
       FsProtocol::dirent fileinfo;
       FsProtocol fs_obj(cap_base, service_name);
-      if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, url_sep+3)) {
-        Logging::printf("vdisk: Failed to load file '%s'\n", url_sep+3);
+      if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, filename)) {
+        Logging::printf("vdisk: Failed to load file '%s'\n", url);
         return;
       }
 
       char *module = new(4096) char[fileinfo.size];
 
       unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
-                                 url_sep+3);
+                                 filename);
       //Note: msg.start used as service name in fs_obj is now overwritten
       fs_obj.close(*BaseProgram::myutcb());
 
