@@ -16,8 +16,11 @@ rm -fr $ISO_DIR
 mkdir -p $ISO_DIR/nul
 mkdir -p $ISO_DIR/tools
 
-cp -v $BINARIES/nul/{hypervisor,sigma0.nul.gz,vancouver.nul.gz} $ISO_DIR/nul/
+cp -v $BINARIES/nul/hypervisor $ISO_DIR/nul/
+cp -v $BINARIES/nul/{sigma0,vancouver,rocknshine,tutor,cycleburner}.nul.gz $ISO_DIR/nul/
 cp -v $BINARIES/tools/{unzip,bender.gz,munich} $ISO_DIR/tools/
+cp -rv $BINARIES/pistachio $ISO_DIR/
+cp -rv $BINARIES/fiasco    $ISO_DIR/
 
 # Syslinux
 
@@ -31,15 +34,32 @@ cp $SYSLINUX_DIR/mboot.c32 $ISO_DIR/isolinux
 
 # Scenarios
 
-mkdir -p $ISO_DIR/demo/linux || exit 4
+mkdir -p $ISO_DIR/linux || exit 4
 
-cp $BINARIES/linux/bzImage.x $ISO_DIR/demo/linux/bzImage.x || exit 4
-cp $BINARIES/linux/initrd-udo $ISO_DIR/demo/linux/initrd || exit 4
+cat $BINARIES/tutor.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' > $ISO_DIR/tutor.nulconfig || exit 4
+cat $BINARIES/rocknshine.nulconfig | sed 's,rom://nul/r,rom:///nul/r,' | sed 's,rom://nul/e,rom:///nul/e,' | sed 's/\.nul\.gz/_nul.gz/' > $ISO_DIR/rocknshine.nulconfig || exit 4
+cat $BINARIES/cycleburner.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' > $ISO_DIR/cycleburner.nulconfig || exit 4
+cat $BINARIES/grml.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' > $ISO_DIR/grml.nulconfig || exit 4
+cat $BINARIES/linux.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' | sed 's/initrd-udo/initrd/' > $ISO_DIR/linux.nulconfig || exit 4
+cat $ISO_DIR/linux.nulconfig | sed 's/bzImage\.x/bzImage/' > $ISO_DIR/linux_novesa.nulconfig
+cat $BINARIES/pistachio/pistachio.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' | sed 's/i686-kernel/i686_kernel/' > $ISO_DIR/pistachio/pistachio.nulconfig
+cat $BINARIES/fiasco/fiasco.nulconfig | sed 's,rom://,rom:///,' | sed 's/\.nul\.gz/_nul.gz/' > $ISO_DIR/fiasco/fiasco.nulconfig
+
+
+cp $BINARIES/linux/grml.iso $ISO_DIR/linux/ || exit 4
+cp $BINARIES/nul/eurosys.slides $ISO_DIR/nul/ || exit 4
+cp $BINARIES/linux/bzImage.x $ISO_DIR/linux/bzImage.x || exit 4
+cp $BINARIES/linux/bzImage $ISO_DIR/linux/bzImage || exit 4
+cp $BINARIES/linux/initrd-udo $ISO_DIR/linux/initrd || exit 4
 
 # ISOLINUX config
 
-SARGS="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12 tracebuffer:10240 "
-SARGS_K="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12,1,1 tracebuffer:10240 "
+SARGS="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12 tracebuffer:10240 vdisk:rom:///linux/grml.iso"
+SARGS_K="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12,1,1 tracebuffer:10240 vdisk:rom:///linux/grml.iso "
+
+BINARIES=" /nul/tutor_nul.gz --- /nul/cycleburner_nul.gz  --- /nul/rocknshine_nul.gz --- /nul/eurosys.slides  --- /nul/vancouver_nul.gz  --- /tools/munich --- /linux/bzImage.x --- /linux/bzImage --- /linux/initrd  --- /linux/grml.iso  --- /pistachio/i686_kernel  --- /pistachio/kickstart  --- /pistachio/sigma0  --- /pistachio/pingpong  --- /fiasco/fiasco  --- /fiasco/bootstrap  --- /fiasco/pingpong  --- /fiasco/roottask  --- /fiasco/sigma0  --- /tutor.nulconfig --- /linux.nulconfig  --- /grml.nulconfig  --- /pistachio/pistachio.nulconfig  --- /fiasco/fiasco.nulconfig  --- /cycleburner.nulconfig --- /rocknshine.nulconfig "
+
+BINARIES_NOVESA=" /nul/tutor_nul.gz --- /nul/cycleburner_nul.gz  --- /nul/rocknshine_nul.gz --- /nul/eurosys.slides  --- /nul/vancouver_nul.gz  --- /tools/munich --- /linux/bzImage.x --- /linux/bzImage --- /linux/initrd  --- /linux/grml.iso  --- /pistachio/i686_kernel  --- /pistachio/kickstart  --- /pistachio/sigma0  --- /pistachio/pingpong  --- /fiasco/fiasco  --- /fiasco/bootstrap  --- /fiasco/pingpong  --- /fiasco/roottask  --- /fiasco/sigma0  --- /tutor.nulconfig --- /linux_novesa.nulconfig  --- /grml.nulconfig  --- /pistachio/pistachio.nulconfig  --- /fiasco/fiasco.nulconfig  --- /cycleburner.nulconfig --- /rocknshine.nulconfig "
 
 cat > $ISO_DIR/isolinux/isolinux.cfg <<EOF
 
@@ -47,75 +67,56 @@ DEFAULT menu
 
 MENU HELPMSGROW 21
 MENU HELPMSGENDROW -2
-MENU TITLE NOVA snapshot 2011.2
+MENU TITLE NOVA Userland 2011.2
 
- LABEL novanbridge
- MENU LABEL NOVA: Network Bridge
+ LABEL nova1
+ MENU LABEL NOVA Userland Demo (VESA)
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
         /nul/hypervisor spinner iommu --- \
-        /nul/sigma0_nul.gz $SARGS script_start:1 script_wait:100 script_start:1,1,3 --- \
-        /nul/vancouver_nul.gz --- \
-        /tools/munich --- \
-        /nul/hypervisor --- \
-        /demo/linux/bzImage.x  --- \
-        /demo/linux/initrd --- \
-        /demo/linux/bridge.nulconfig
+        /nul/sigma0_nul.gz $SARGS hostvesa script_start:1 --- \
+        $BINARIES
 TEXT HELP
-Starts NOVA and four Linux VMs. The first VM gets the first network card
-assigned via PCI passthrough and bridges traffic from the virtual network.
-Use Win-[arrow] to navigate between hypervisor consoles.
+Needs VT-x/VT-d for full functionality.
 ENDTEXT
 
-
- LABEL novanbridge2
- MENU LABEL NOVA: Network Bridge (keyb)
+ LABEL nova2
+ MENU LABEL NOVA Userland Demo (No VESA)
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
         /nul/hypervisor spinner iommu --- \
-        /nul/sigma0_nul.gz $SARGS_K script_start:1 script_wait:100 script_start:1,1,3 --- \
-        /nul/vancouver_nul.gz --- \
-        /tools/munich --- \
-        /nul/hypervisor --- \
-        /demo/linux/bzImage.x  --- \
-        /demo/linux/initrd --- \
-        /demo/linux/bridge.nulconfig
+        /nul/sigma0_nul.gz $SARGS script_start:1 --- \
+        $BINARIES_NOVESA
 TEXT HELP
-Starts NOVA and four Linux VMs. The first VM gets the first network card
-assigned via PCI passthrough and bridges traffic from the virtual network.
-Use Win-[arrow] to navigate between hypervisor consoles.
+Use this if graphics are garbled.
 ENDTEXT
 
- LABEL novavesa
- MENU LABEL NOVA: VESA
+ LABEL nova3
+ MENU LABEL NOVA Userland Demo (VESA, broken keyboard)
  KERNEL mboot.c32
  APPEND /tools/unzip --- \
         /tools/bender.gz --- \
         /nul/hypervisor spinner iommu --- \
         /nul/sigma0_nul.gz $SARGS_K hostvesa script_start:1 --- \
-        /nul/vancouver_nul.gz --- \
-        /tools/munich --- \
-        /nul/hypervisor --- \
-        /demo/linux/bzImage.x  --- \
-        /demo/linux/initrd --- \
-        /demo/linux/bridge.nulconfig
+        $BINARIES
 TEXT HELP
-Starts NOVA and four Linux VMs. The first VM gets the first network card
-assigned via PCI passthrough and bridges traffic from the virtual network.
-Use Win-[arrow] to navigate between hypervisor consoles.
+Use this if your BIOS has weird USB legacy support.
 ENDTEXT
 
 
-EOF
-
-cat > $ISO_DIR/demo/linux/bridge.nulconfig <<EOF
-name::/s0/log name::/s0/timer name::/s0/fs/rom sigma0::mem:128 sigma0::dma sigma0::log ||
-rom:///nul/vancouver_nul.gz vga_fbsize=4096 PC_PS2 dpci:2,,0 82576vf ||
-rom:///tools/munich ||
-rom:///demo/linux/bzImage.x root=/dev/ram0 quiet ||
-rom:///demo/linux/initrd
+ LABEL nova4
+ MENU LABEL NOVA Userland Demo (No VESA, broken keyboard)
+ KERNEL mboot.c32
+ APPEND /tools/unzip --- \
+        /tools/bender.gz --- \
+        /nul/hypervisor spinner iommu --- \
+        /nul/sigma0_nul.gz $SARGS_K script_start:1 --- \
+        $BINARIES_NOVESA
+TEXT HELP
+You poor soul. :-)
+ENDTEXT
 
 EOF
 
