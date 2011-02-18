@@ -289,7 +289,8 @@ private:
   }
 
 
-  void work(Utcb &utcb) __attribute__((noreturn)) {
+  void work() __attribute__((noreturn)) {
+    Utcb &utcb = *BaseProgram::myutcb();
     while (1) {
       _worker.downmulti();
       unsigned mode = 0;
@@ -420,7 +421,7 @@ public:
   }
 
 
-  static void do_work(void *u, void *t, Utcb * utcb)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(*utcb); }
+  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(); }
 
 
 
@@ -467,8 +468,7 @@ public:
     _worker = KernelSemaphore(_timer_service->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg5(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this);
-    msg5.ptr = reinterpret_cast<char *>(do_work);
+    MessageHostOp msg5 = MessageHostOp::alloc_service_thread(do_work, this);
     if (!_mb.bus_hostop.send(msg5))
       Logging::panic("%s alloc service thread failed", __func__);
 

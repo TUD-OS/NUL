@@ -655,7 +655,9 @@ public:
         break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
-          unsigned ec_cap = create_ec_helper(msg.obj, myutcb()->head.nul_cpunr, PT_IRQ, 0, msg.ptr);
+          unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg,
+                                             myutcb()->head.nul_cpunr, PT_IRQ, 0,
+                                             reinterpret_cast<void *>(msg._alloc_service_thread.work));
           // XXX Priority?
           return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
         }

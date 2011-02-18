@@ -1128,13 +1128,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
-          unsigned cpu = _cpunr[CPUGSI % _numcpus];
-          unsigned ec_cap = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, 0, msg.ptr);
-          unsigned prio;
-          if (msg.len == ~0u)
+          unsigned cpu = msg._alloc_service_thread.cpu;
+          if (cpu == ~0U) cpu = _cpunr[CPUGSI % _numcpus];
+          unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg, cpu,
+                                             _percpu[cpu].exc_base, 0,
+                                             reinterpret_cast<void *>(msg._alloc_service_thread.work));
+          unsigned prio = msg._alloc_service_thread.prio;
+          if (prio == ~0u)
             prio = 1;		// IDLE
           else
-            prio = msg.len ? 3 : 2;
+            prio = prio ? 3 : 2;
           return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
         }
         break;

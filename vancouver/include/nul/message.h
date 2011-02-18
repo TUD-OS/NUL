@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <nul/compiler.h>
+
 /****************************************************/
 /* IOIO messages                                    */
 /****************************************************/
@@ -387,6 +389,8 @@ struct MessageVesa
 /****************************************************/
 
 class VCpu;
+typedef void (*ServiceThreadFn)(void *, void*) REGPARM(1) NORETURN;
+
 /**
  * Request to the host, such as notify irq or request IO region.
  */
@@ -452,7 +456,22 @@ struct MessageHostOp
     struct {
       VCpu *vcpu;
     };
+    struct {
+      ServiceThreadFn work;
+      void *work_arg;
+      unsigned prio;
+      unsigned cpu;
+    } _alloc_service_thread;
   };
+
+  static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg, unsigned prio = ~0U, unsigned cpu = ~0U)
+  {
+    MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
+    n._alloc_service_thread.work = work; n._alloc_service_thread.work_arg = arg;
+    n._alloc_service_thread.prio = prio; n._alloc_service_thread.cpu      = cpu;
+    return n;
+  }
+
   explicit MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   explicit MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
   explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}

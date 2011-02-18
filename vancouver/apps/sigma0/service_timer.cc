@@ -249,8 +249,8 @@ public:
     _mymb.parse_args("hostpit:1000,0x40,2 hosthpet hostrtc");
 
     // create the worker thread
-    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1UL);
-    msg2.ptr = reinterpret_cast<char *>(TimerService::do_work);
+    MessageHostOp msg2 = MessageHostOp::alloc_service_thread(TimerService::do_work,
+                                                             this, 1UL);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
   }
