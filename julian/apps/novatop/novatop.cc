@@ -105,13 +105,14 @@ public:
       unsigned c = hip->cpu_physical(i);
 
       Logging::printf("Starting idle thread for CPU %u.\n", c);
-      nova_create_sm(_wait_sm[i] = alloc_cap());
+      unsigned res = nova_create_sm(_wait_sm[i] = alloc_cap());
+      assert(res == NOVA_ESUCCESS);
       Logging::printf("_wait_sm[%u] = %x\n", i, _wait_sm[i]);
 
       unsigned cap_off = 0x10000 + c*0x20;
       unsigned exc_ec = create_ec_helper(this, c);
-      nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), MTD_RSP | MTD_RIP_LEN);
-
+      res = nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), MTD_RSP | MTD_RIP_LEN);
+      assert(res == NOVA_ESUCCESS);
 
       unsigned ec_cap = create_ec_helper(this, c, cap_off, 0, reinterpret_cast<void *>(&idle_thread));
 
@@ -136,8 +137,10 @@ public:
 
       sem.downmulti();
 
-      for (unsigned i = 0; i < hip->cpu_count(); i++)
-        nova_semup(_wait_sm[i]);
+      for (unsigned i = 0; i < hip->cpu_count(); i++) {
+        unsigned res = nova_semup(_wait_sm[i]);
+        assert(res == NOVA_ESUCCESS);
+      }
     }
   }
 
@@ -214,7 +217,8 @@ public:
 
     perfctl_init();
     while (1) {
-      nova_semdown(_wait_sm[cpu]);
+      unsigned res = nova_semdown(_wait_sm[cpu]);
+      assert(res == NOVA_ESUCCESS);
       perfctl_read();
 
       uint64 total = m[0] - tsc;
