@@ -72,7 +72,7 @@ if ld_path:
 
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
-target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -minline-all-stringops --param max-inline-insns-single=100  -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
+target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -mincoming-stack-boundary=2 -minline-all-stringops --param max-inline-insns-single=100  -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
 target_env.Append(CCFLAGS = (' -march=pentium3 -mtune=generic '))
 
 target_env['CXXFLAGS'] = "-std=gnu++0x -fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics -Wold-style-cast "
