@@ -176,9 +176,7 @@ public:
         ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-        utcb << data->count;
-
-        data->count = 0;
+        utcb << Cpu::xchg(&data->count, 0);
 
         return ENONE;
       }
