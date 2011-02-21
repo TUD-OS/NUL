@@ -102,7 +102,9 @@ class Hip
 	  return cpucnt;
 	}
 
+        Hip_cpu *cpus() { return reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs); }
 
+        // Maps a logical CPU number to an index into the Hip_cpu array.
 	unsigned cpu_physical (unsigned logical) {
 	  logical %= cpu_count();
 	  for (int i=0; i < (mem_offs - cpu_offs) / cpu_size; i++) {

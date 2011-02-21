@@ -38,6 +38,11 @@ struct BaseProgram {
   };
 
   /**
+   * Return my CPU number.
+   */
+  static unsigned mycpu() { return myutcb()->head.nul_cpunr; }
+
+  /**
    * add mappings to a UTCB.
    */
   static unsigned long add_mappings(Utcb *utcb, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
