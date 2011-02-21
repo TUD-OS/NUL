@@ -764,7 +764,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
     }
   }
 
-  REGPARM(1) NORETURN static void do_work(void *u, void *t)
+  static void do_work(void *t) REGPARM(0) NORETURN 
   {
     reinterpret_cast<VirtualNet *>(t)->work();
   }

@@ -212,7 +212,7 @@ public:
   }
 
   // wrapper
-  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<TimerService *>(t)->work(); }
+  static void do_work(void *t) REGPARM(0) NORETURN { reinterpret_cast<TimerService *>(t)->work(); }
   bool  receive(MessageHostOp  &msg) { return _hostmb.bus_hostop.send(msg); }
   bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(msg); }
   bool  receive(MessageIOIn &msg)    { return _hostmb.bus_hwioin.send(msg); }

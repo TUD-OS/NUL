@@ -421,7 +421,7 @@ public:
   }
 
 
-  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<HostVga *>(t)->work(); }
+  static void do_work(void *t) REGPARM(0) NORETURN { reinterpret_cast<HostVga *>(t)->work(); }
 
 
 

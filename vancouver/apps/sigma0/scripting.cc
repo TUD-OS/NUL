@@ -98,7 +98,7 @@ struct Script : public StaticReceiver<Script> {
   }
 
   // wrapper
-  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<Script *>(t)->work(); }
+  static void do_work(void *t)  REGPARM(0) NORETURN { reinterpret_cast<Script *>(t)->work(); }
 
   void add(ScriptItem *item) {
     assert(!item->next);
