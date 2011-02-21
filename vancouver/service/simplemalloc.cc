@@ -48,6 +48,7 @@ void *(*memalloc)(unsigned long size, unsigned long align) = memalloc_mempool;
 void * operator new(unsigned size)   { return memalloc(size, 0); }
 void * operator new[](unsigned size) { return memalloc(size, 0); }
 void * operator new[](unsigned size, unsigned alignment) { return memalloc(size, alignment); }
+void * operator new(unsigned size, unsigned alignment) { return memalloc(size, alignment); }
 void (*memfree)(void *ptr) = memfree_mempool;
 void   operator delete(void *ptr)    { memfree(ptr); }
 void   operator delete[](void *ptr)  { memfree(ptr);  }

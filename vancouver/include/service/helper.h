@@ -18,6 +18,7 @@
 #pragma once
 
 void * operator new[](unsigned size, unsigned alignment);
+void * operator new(unsigned size, unsigned alignment);
 void  do_exit(const char *msg) __attribute__((noreturn));
 extern void *(*memalloc)(unsigned long size, unsigned long align);
 extern void (*memfree)(void *ptr);
