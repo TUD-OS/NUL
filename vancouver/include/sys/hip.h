@@ -92,9 +92,13 @@ class Hip
 	bool has_vmx() {  return api_flg &  (1 << 1); }
 	bool has_svm() {  return api_flg &  (1 << 2); }
 
+        // Returns the number of Hip_cpu descriptors.
+        unsigned cpu_desc_count() const { return (mem_offs - cpu_offs) / cpu_size; }
+
+        // Returns the number of enabled CPUs.
 	unsigned cpu_count() {
 	  unsigned cpucnt = 0;
-	  for (int i=0; i < (mem_offs - cpu_offs) / cpu_size; i++) {
+	  for (unsigned i=0; i < cpu_desc_count(); i++) {
 	    Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
 	    if (~cpu->flags & 1) continue;
 	    cpucnt++;
@@ -107,7 +111,7 @@ class Hip
         // Maps a logical CPU number to an index into the Hip_cpu array.
 	unsigned cpu_physical (unsigned logical) {
 	  logical %= cpu_count();
-	  for (int i=0; i < (mem_offs - cpu_offs) / cpu_size; i++) {
+	  for (unsigned i=0; i < cpu_desc_count(); i++) {
 	    Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
 	    if (~cpu->flags & 1) continue;
 	    if (!logical--) return i;
