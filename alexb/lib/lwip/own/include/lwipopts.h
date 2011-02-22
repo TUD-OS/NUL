@@ -59,10 +59,15 @@ void lwip_assert(const char *format, ...);
 /*
  * DEBUG stuff
  */
-#define LWIP_DEBUG  1
+//#define LWIP_DEBUG  1
+//#define UDP_DEBUG   (LWIP_DBG_ON)
+//#define TCP_DEBUG   (LWIP_DBG_ON)
+//#define TCP_INPUT_DEBUG   (LWIP_DBG_ON)
+//#define TCP_OUTPUT_DEBUG   (LWIP_DBG_ON)
 //#define PBUF_DEBUG   (LWIP_DBG_ON)
 //#define MEMP_DEBUG   (LWIP_DBG_ON)
 //#define ETHARP_DEBUG (LWIP_DBG_ON)
 //#define IP_DEBUG     (LWIP_DBG_ON)
+//#define IP_REASS_DEBUG (LWIP_DBG_ON)
 //#define DHCP_DEBUG   (LWIP_DBG_ON)
 //#define ICMP_DEBUG   (LWIP_DBG_ON)

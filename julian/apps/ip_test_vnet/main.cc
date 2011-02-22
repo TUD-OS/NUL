@@ -26,7 +26,7 @@
 
 extern "C" void lwip_init();
 extern "C" void nul_lwip_input(void * data, unsigned size);
-extern "C" void nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
+extern "C" bool nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" void nul_lwip_dhcp_start(void);
 extern "C" unsigned long long nul_lwip_netif_next_timer(void);
 

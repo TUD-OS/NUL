@@ -243,16 +243,16 @@ dhcp_handle_offer(struct netif *netif)
   /* obtain the server address */
   if (dhcp_option_given(dhcp, DHCP_OPTION_IDX_SERVER_ID)) {
     ip4_addr_set_u32(&dhcp->server_ip_addr, htonl(dhcp_get_option_value(dhcp, DHCP_OPTION_IDX_SERVER_ID)));
-    LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_handle_offer(): server 0x%08"X32_F"\n",
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_handle_offer(): server 0x%08"X32_F"\n",
       ip4_addr_get_u32(&dhcp->server_ip_addr)));
     /* remember offered address */
     ip_addr_copy(dhcp->offered_ip_addr, dhcp->msg_in->yiaddr);
-    LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_handle_offer(): offer for 0x%08"X32_F"\n",
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_handle_offer(): offer for 0x%08"X32_F"\n",
       ip4_addr_get_u32(&dhcp->offered_ip_addr)));
 
     dhcp_select(netif);
   } else {
-    LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
+    LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_LEVEL_SERIOUS,
       ("dhcp_handle_offer(netif=%p) did not get server ID!\n", (void*)netif));
   }
 }
@@ -590,6 +590,23 @@ dhcp_set_struct(struct netif *netif, struct dhcp *dhcp)
   memset(dhcp, 0, sizeof(struct dhcp));
   /* dhcp_set_state(&dhcp, DHCP_OFF); */
   netif->dhcp = dhcp;
+}
+
+/** Removes a struct dhcp from a netif.
+ *
+ * ATTENTION: Only use this when not using dhcp_set_struct() to allocate the
+ *            struct dhcp since the memory is passed back to the heap.
+ *
+ * @param netif the netif from which to remove the struct dhcp
+ */
+void dhcp_cleanup(struct netif *netif)
+{
+  LWIP_ASSERT("netif != NULL", netif != NULL);
+
+  if (netif->dhcp != NULL) {
+    mem_free(netif->dhcp);
+    netif->dhcp = NULL;
+  }
 }
 
 /**
@@ -948,11 +965,11 @@ dhcp_bind(struct netif *netif)
     /* subnet mask not given, choose a safe subnet mask given the network class */
     u8_t first_octet = ip4_addr1(&dhcp->offered_ip_addr);
     if (first_octet <= 127) {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xff000000));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xff000000UL));
     } else if (first_octet >= 192) {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffffff00));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffffff00UL));
     } else {
-      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffff0000));
+      ip4_addr_set_u32(&sn_mask, PP_HTONL(0xffff0000UL));
     }
   }
 
@@ -962,7 +979,7 @@ dhcp_bind(struct netif *netif)
     /* copy network address */
     ip_addr_get_network(&gw_addr, &dhcp->offered_ip_addr, &sn_mask);
     /* use first host address on network as gateway */
-    ip4_addr_set_u32(&gw_addr, ip4_addr_get_u32(&gw_addr) | PP_HTONL(0x00000001));
+    ip4_addr_set_u32(&gw_addr, ip4_addr_get_u32(&gw_addr) | PP_HTONL(0x00000001UL));
   }
 
 #if LWIP_DHCP_AUTOIP_COOP
@@ -972,13 +989,13 @@ dhcp_bind(struct netif *netif)
   }
 #endif /* LWIP_DHCP_AUTOIP_COOP */
 
-  LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): IP: 0x%08"X32_F"\n",
+  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): IP: 0x%08"X32_F"\n",
     ip4_addr_get_u32(&dhcp->offered_ip_addr)));
   netif_set_ipaddr(netif, &dhcp->offered_ip_addr);
-  LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): SN: 0x%08"X32_F"\n",
+  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): SN: 0x%08"X32_F"\n",
     ip4_addr_get_u32(&sn_mask)));
   netif_set_netmask(netif, &sn_mask);
-  LWIP_DEBUGF(0x80U | DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): GW: 0x%08"X32_F"\n",
+  LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_bind(): GW: 0x%08"X32_F"\n",
     ip4_addr_get_u32(&gw_addr)));
   netif_set_gw(netif, &gw_addr);
   /* bring the interface up */
