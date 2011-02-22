@@ -111,12 +111,10 @@ PARAM(vdisk,
 
       unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                  filename);
-      //Note: msg.start used as service name in fs_obj is now overwritten
       fs_obj.close(*BaseProgram::myutcb());
+      dealloc_cap_region(cap_base, FsProtocol::CAP_NUM);
 
-      // XXX Uh? Where is the dealloc cap function?
-      //dealloc_cap(cap_base, FsProtocol::CAP_NUM);
-      if (res) { Logging::printf("vdisk: Couldn't read file.\n"); return; }
+      if (res) { Logging::printf("vdisk: Couldn't read file.\n"); delete module; return; }
 
       Logging::printf("vdisk: Opened '%s' 0x%llx bytes.\n"
                       "vdisk: Attached as vdisk %u.\n",

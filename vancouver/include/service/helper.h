@@ -22,7 +22,9 @@ void * operator new(unsigned size, unsigned alignment);
 void  do_exit(const char *msg) __attribute__((noreturn));
 extern void *(*memalloc)(unsigned long size, unsigned long align);
 extern void (*memfree)(void *ptr);
+// Not multi-threaded safe - lock by your own or use separate cap allocator -> alloc_cap/dealloc_cap in nul/capalloc.h !
 unsigned alloc_cap_region(unsigned count, unsigned align);
+void dealloc_cap_region(unsigned base, unsigned count);
 
 
 /**
