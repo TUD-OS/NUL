@@ -276,7 +276,7 @@ public:
 
   bool receive(MessageVirtualNetPing &msg)
   {
-    uint32 eicr = Cpu::xchg(&_mmio[0xF4/4], 0);
+    uint32 eicr = Cpu::xchg(&_mmio[0xF4/4], 0U);
 
     //Logging::printf("INJ %02x (now %02x)\n", eicr, _mmio[0xF4/4]);
 

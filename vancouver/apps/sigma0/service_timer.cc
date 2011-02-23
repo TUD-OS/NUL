@@ -71,10 +71,12 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
       ClientData *next;
       for (ClientData *head = _queue.dequeue_all(); head; head = next) {
         nr = head->nr;
+        // XXX Race with lifo_next check below?
         next = head->lifo_next;
         head->lifo_next = 0;
+        // XXX End race
         // xchg is a memory barrier
-        timevalue t = Cpu::xchg(&head->reltime, 0);
+        timevalue t = Cpu::xchg(&head->reltime, 0U);
         t *= GRANULARITY;
         _abs_timeouts.cancel(nr);
         _abs_timeouts.request(nr, now + t);
@@ -176,7 +178,7 @@ public:
         ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-        utcb << Cpu::xchg(&data->count, 0);
+        utcb << Cpu::xchg(&data->count, 0U);
 
         return ENONE;
       }
