@@ -17,23 +17,26 @@
 #include <nul/program.h>
 #include <nul/timer.h> //clock
 #include <nul/service_timer.h> //TimerService
-#include <nul/service_config.h> //ConfigService
+#include <nul/service_log.h>
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
-#include "nul/service_log.h"
 
-extern "C" void lwip_init();
-extern "C" void nul_lwip_input(void * data, unsigned size);
-extern "C" bool nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
-extern "C" void nul_lwip_dhcp_start(void);
-extern "C" unsigned long long nul_lwip_netif_next_timer(void);
-extern "C" void nul_lwip_udp_test(void);
-extern "C" void nul_lwip_tcp_test(void);
-extern "C" bool get_ip_addr(void);
+extern "C" void nul_ip_input(void * data, unsigned size);
+extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
+extern "C" void nul_ip_udp_test(void);
+extern "C" void nul_ip_tcp_test(void);
+extern "C" bool nul_ip_config(unsigned para, void * arg);
+
+enum {
+  IP_NUL_VERSION  = 0,
+  IP_DHCP_START   = 1,
+  IP_IPADDR_DUMP  = 2,
+  IP_TIMEOUT_NEXT = 3
+};
 
 namespace ab {
 
-class TestLWIP : public NovaProgram, public ProgramConsole
+class TestIP : public NovaProgram, public ProgramConsole
 {
   public:
 
@@ -50,55 +53,46 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
     bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
       bool res;
+      unsigned long long arg = 0;
       Clock * _clock = new Clock(hip->freq_tsc);
 
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
+
       NetworkConsumer * netconsumer = new NetworkConsumer();
-      if (!netconsumer)
-        return false;
+      if (!netconsumer) return false;
 
-      TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-      res = _timer_service->timer(*utcb, msg);
-      Logging::printf("request timer attach - %s\n",
-                      (res == 0 ? "success" : "failure"));
-      if (res)
-        return false;
+      res = timer_service->timer(*utcb, msg);
 
-      KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+      Logging::printf("request timer attach - %s\n", (res == 0 ? "success" : "failure"));
+      if (res) return false;
 
+      KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
       res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
-      Logging::printf("request network attach - %s\n",
-                      (res == 0 ? "success" : "failure"));
-      if (res)
-        return false;
 
+      Logging::printf("request network attach - %s\n", (res == 0 ? "success" : "failure"));
+      if (res) return false;
 
 	    MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
       res = Sigma0Base::hostop(msg_op);
       Logging::printf("got mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx - %s\n",
-                      (msg_op.mac >> 40) & 0xFF,
-                      (msg_op.mac >> 32) & 0xFF,
-                      (msg_op.mac >> 24) & 0xFF,
-                      (msg_op.mac >> 16) & 0xFF,
-                      (msg_op.mac >> 8) & 0xFF,
-                      (msg_op.mac) & 0xFF,
+                      (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
+                      (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
+                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF,
                       (res == 0 ? "success" : "failure"));
 
       unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
 
-      unsigned long long timeout = nul_lwip_netif_next_timer();
-//      Logging::printf("info    - next timeout in %llu ms\n", timeout);
+      if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failed - requesting timeout\n");
 
-      TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-      if (_timer_service->timer(*utcb, to)) Logging::panic("failed  - starting timer\n");
+      TimerProtocol::MessageTimer to(_clock->time() + arg * hip->freq_tsc);
+      if (timer_service->timer(*utcb, to)) Logging::panic("failed  - starting timer\n");
+      if (!nul_ip_init(send_network, mac)) Logging::panic("failed - starting ip\n");
+      if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failed - starting dhcp\n");
 
-      lwip_init();
-      if (!nul_lwip_init(send_network, mac)) Logging::panic("failed - starting lwip\n");
-
-      nul_lwip_dhcp_start();
-
-      nul_lwip_udp_test();
-      nul_lwip_tcp_test();
+      nul_ip_udp_test();
+      nul_ip_tcp_test();
 
       while (1) {
         unsigned char *buf;
@@ -106,67 +100,28 @@ class TestLWIP : public NovaProgram, public ProgramConsole
 
         sem.downmulti();
 
-//        Logging::printf("time r:w %x:%x, netconsumer r:w %x:%x\n", tmconsumer->_rpos, tmconsumer->_wpos, netconsumer->_rpos, netconsumer->_wpos);
         //check whether timer triggered
-        if (!_timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
-          unsigned long long timeout = nul_lwip_netif_next_timer();
-//          Logging::printf("info    - next timeout in %llu ms\n", timeout);
+        if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
+          unsigned long long timeout;
+          nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
+          //Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
           TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-          if (_timer_service->timer(*utcb,to))
+          if (timer_service->timer(*utcb,to))
             Logging::printf("failed  - starting timer\n");
 
-          get_ip_addr();
+          //dump ip addr if we got one
+          nul_ip_config(IP_IPADDR_DUMP, NULL);
         }
 
         while (netconsumer->has_data()) {
           unsigned size = netconsumer->get_buffer(buf);
-          nul_lwip_input(buf, size);
+          nul_ip_input(buf, size);
           netconsumer->free_buffer();
         }
       }
 
-      if (res)
-        return false;
-
-      return true;
-    }
-
-  bool use_config (Utcb *utcb, Hip * hip)
-    {
-      char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-      char * name = strstr(args, "rom://");
-      if (!name) return false;
-      name +=6;
-      char * end = strstr(name, " ");
-      if (!end) return false;
-      char * dir = strstr(name, "/nova/bin/test_lwip.nul");
-      if (!dir || dir > end) return false;
-
-      char const * const_config [] = {
-        "/nova/bin/vancouver.nul.gz sigma0::log sigma0::mem:256 82576vf_vnet PC_PS2 sigma0::dma sigma0::log name::/s0/log name::/s0/timer name::/s0/fs/rom || ",
-        "/nova/tools/munich || ",
-        "/nova/linux/bzImage-js clocksource=tsc || ",
-        "/nova/linux/initrd-js.lzma",
-        0
-      };
-      char * _config = new (0x1000) char[0x1000];
-      char const * config = _config;
-      unsigned i = 0;
-
-      while (const_config[i]) {
-        memcpy(_config, "rom://", 6); _config += 6;
-        memcpy(_config, name, dir - name); _config += dir - name;
-        memcpy(_config, const_config[i], strlen(const_config[i])); _config += strlen(const_config[i]);
-        i ++;
-      }
-      *_config = 0;
-
-      Logging::printf("cmdline %lx %s\n", strlen(config), config);
-
-      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_NUM));
-
-      return (!service_config->start_config(*utcb, config));
+      return !res;
     }
 
   void run(Utcb *utcb, Hip *hip)
@@ -175,7 +130,7 @@ class TestLWIP : public NovaProgram, public ProgramConsole
     init(hip);
     init_mem(hip);
 
-    console_init("LWIP test");
+    console_init("IP test");
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
 
     Logging::printf("Hello\n");
@@ -183,13 +138,11 @@ class TestLWIP : public NovaProgram, public ProgramConsole
     _virt_phys.debug_dump("");
 
     if (!use_network(utcb, hip, alloc_cap()))
-      Logging::printf("failed  - starting lwip stack\n");
+      Logging::printf("failed  - starting ip stack\n");
 
-//    if (!use_config(utcb, hip)) 
-//      Logging::printf("failed  - starting config service\n");
   }
 };
 
 } /* namespace */
 
-ASMFUNCS(ab::TestLWIP, NovaProgram)
+ASMFUNCS(ab::TestIP, NovaProgram)

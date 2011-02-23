@@ -24,11 +24,9 @@
 
 #include "../../model/simplenet.h"
 
-extern "C" void lwip_init();
-extern "C" void nul_lwip_input(void * data, unsigned size);
-extern "C" bool nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
-extern "C" void nul_lwip_dhcp_start(void);
-extern "C" unsigned long long nul_lwip_netif_next_timer(void);
+extern "C" void nul_ip_input(void * data, unsigned size);
+extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
+extern "C" bool nul_ip_config(unsigned para, void * arg);
 
 namespace js {
 
@@ -50,12 +48,18 @@ namespace js {
   };
 
 
-  class TestLWIP : public NovaProgram, public ProgramConsole, public StaticReceiver<TestLWIP>
+  class TestIP : public NovaProgram, public ProgramConsole, public StaticReceiver<TestIP>
   {
     static StrangeMemory           *net_mem;
     static SimpleNetworkClient     *net;
     static DBus<MessageVirtualNet> *bus_vnet;
 
+    enum {
+      IP_NUL_VERSION  = 0,
+      IP_DHCP_START   = 1,
+      IP_IPADDR_DUMP  = 2,
+      IP_TIMEOUT_NEXT = 3
+    };
   public:
 
     static void send_network(uint8 const * data, unsigned len)
@@ -86,19 +90,20 @@ namespace js {
 
     bool use_network(Utcb *utcb, Hip * hip) {
       bool res;
+      unsigned long long arg;
       Clock * _clock = new Clock(hip->freq_tsc);
 
-      TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
+
+      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-      res = _timer_service->timer(*utcb, msg);
-      Logging::printf("request timer attach - %s\n",
-                      (res == 0 ? "success" : "failure"));
-      if (res)
-        return false;
+      res = timer_service->timer(*utcb, msg);
+      Logging::printf("request timer attach - %s\n", (res == 0 ? "success" : "failure"));
+      if (res) return false;
 
-      KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
+      KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
 
-      Sigma0Base::request_vnet_attach(utcb, _timer_service->get_notify_sm());
+      Sigma0Base::request_vnet_attach(utcb, timer_service->get_notify_sm());
 
       MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
       res = Sigma0Base::hostop(msg_op);
@@ -107,17 +112,15 @@ namespace js {
                       MAC_SPLIT(&mac),
                       (res == 0 ? "success" : "failure"));
 
-      unsigned long long timeout = nul_lwip_netif_next_timer();
-      //      Logging::printf("info    - next timeout in %llu ms\n", timeout);
+      if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failed - requesting timeout\n");
 
-      TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-      if (_timer_service->timer(*utcb, to))
+      TimerProtocol::MessageTimer to(_clock->time() + arg * hip->freq_tsc);
+      if (timer_service->timer(*utcb, to))
          Logging::printf("failed  - starting timer\n");
 
 
-      //lwip init
-      lwip_init();
-      nul_lwip_init(send_network, mac.raw);
+      //ip init
+      if (!nul_ip_init(send_network, mac.raw)) Logging::panic("failed - starting ip\n");
 
       net->set_link(true);
       net->enable_wakeups();
@@ -129,20 +132,23 @@ namespace js {
         net->queue_buffer(buffer + 2048, 2048);
       }
 
-      nul_lwip_dhcp_start();
+      if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failed - starting dhcp\n");
 
       while (1) {
         unsigned tcount = 0;
         sem.downmulti();
 
         //check whether timer triggered
-        if (!_timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
-          unsigned long long timeout = nul_lwip_netif_next_timer();
-          //Logging::printf("info    - next timeout in %llu ms\n", timeout);
+        if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
+          unsigned long long timeout;
+          nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
 
           TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-          if (_timer_service->timer(*utcb,to))
+          if (timer_service->timer(*utcb,to))
             Logging::printf("failed  - starting timer\n");
+
+          //dump ip addr if we got one
+          nul_ip_config(IP_IPADDR_DUMP, NULL);
         }
         
         uint8 *data;
@@ -153,7 +159,7 @@ namespace js {
         while (net->poll_receive(&data, &len)) {
           Logging::printf("Received %p+%x: " MAC_FMT "\n", data, len,
                           MAC_SPLIT(reinterpret_cast<EthernetAddr *>(data)));
-          nul_lwip_input(data, len);
+          nul_ip_input(data, len);
           net->queue_buffer(data, 2048);
         }
 
@@ -172,30 +178,30 @@ namespace js {
       init(hip);
       init_mem(hip);
 
-      console_init("LWIP test");
+      console_init("VNET IP test");
 
       Logging::printf("Hello\n");
 
       _virt_phys.debug_dump("");
 
       bus_vnet = new DBus<MessageVirtualNet>;
-      bus_vnet->add(this, TestLWIP::receive_static<MessageVirtualNet>);
+      bus_vnet->add(this, TestIP::receive_static<MessageVirtualNet>);
 
       net_mem  = new StrangeMemory;
       net      = new SimpleNetworkClient(*net_mem, *bus_vnet);
 
       if (!use_network(utcb, hip))
-        Logging::printf("failed  - starting lwip stack\n");
+        Logging::printf("failed  - starting ip stack\n");
     
     }
   };
 
-  StrangeMemory           *TestLWIP::net_mem;
-  SimpleNetworkClient     *TestLWIP::net;
-  DBus<MessageVirtualNet> *TestLWIP::bus_vnet;
+  StrangeMemory           *TestIP::net_mem;
+  SimpleNetworkClient     *TestIP::net;
+  DBus<MessageVirtualNet> *TestIP::bus_vnet;
 } /* namespace */
 
-ASMFUNCS(js::TestLWIP, NovaProgram)
+ASMFUNCS(js::TestIP, NovaProgram)
 
 
 // EOF

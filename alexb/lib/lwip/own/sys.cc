@@ -1,4 +1,19 @@
-#include <sys/syscalls.h>
+/*
+ * (C) 2011 Alexander Boettcher
+ *     economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of NUL (NOVA user land).
+ *
+ * NUL is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * NUL is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
+
 #include <service/logging.h>
 #include <service/string.h> //memcpy
 
@@ -9,10 +24,11 @@ extern "C" {
   #include "netif/etharp.h"
   #include "lwip/dhcp.h"
   #include "lwip/tcp.h"
+
+ void lwip_init(void);
 }
 
-void sys_init(void) {
-}
+void sys_init(void) { }
 
 extern "C"
 void lwip_print(const char *format, ...) {
@@ -40,34 +56,6 @@ void lwip_assert(const char *format, ...) {
  */
 u32_t sys_now(void) {
   Logging::printf("time\n"); return 0;
-}
-
-extern "C"
-unsigned long long nul_lwip_netif_next_timer(void) {
-  static unsigned long long etharp_timer = ETHARP_TMR_INTERVAL;
-  static unsigned long long dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
-  static unsigned long long dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
-
-  if (!etharp_timer) {
-    etharp_timer = ETHARP_TMR_INTERVAL;
-    etharp_tmr();
-  }
-  if (!dhcp_fine_timer) {
-    dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
-    dhcp_fine_tmr();
-  }
-  if (!dhcp_coarse_timer) {
-    dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
-    dhcp_coarse_tmr();
-  }
-  unsigned long long next = etharp_timer < dhcp_fine_timer ? etharp_timer : dhcp_fine_timer;
-  next = next < dhcp_coarse_timer ? next : dhcp_coarse_timer;
-
-  etharp_timer -= next;
-  dhcp_fine_timer -= next;
-  dhcp_coarse_timer -= next;
-
-  return next;
 }
 
 /*
@@ -101,8 +89,10 @@ nul_lwip_netif_init(struct netif *netif)
 }
 
 extern "C"
-bool nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac)
+bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac)
 {
+  lwip_init();
+
   __send_network = send_network;
 
   ip_addr_t _ipaddr, _netmask, _gw;
@@ -120,42 +110,10 @@ bool nul_lwip_init(void (*send_network)(char unsigned const * data, unsigned len
   return true;
 }
 
-extern "C" void nul_lwip_dhcp_start(void) {
-  dhcp_start(&nul_netif);
-}
-
-extern "C" bool get_ip_addr(void) {
-  static ip_addr last_ip_addr;
-  
-  if (last_ip_addr.addr != nul_netif.ip_addr.addr) {
-    Logging::printf("ip addr changed = %u.%u.%u.%u\n",
-      nul_netif.ip_addr.addr & 0xff,
-      (nul_netif.ip_addr.addr >> 8) & 0xff,
-      (nul_netif.ip_addr.addr >> 16) & 0xff,
-      (nul_netif.ip_addr.addr >> 24) & 0xff);
-    last_ip_addr.addr = nul_netif.ip_addr.addr;
-    return true;
-  }
-  return false;
-}
-
-void debug_dump(char * test, unsigned len) {
-    unsigned i = 0;
-    while ( i + 8 <= len && i < 64) {
-      Logging::printf("%02x %02x|%02x|%02x|%02x|%02x|%02x|%02x|%02x\n", i, test[i]&0xff, test[i+1]&0xff, test[i+2]&0xff, test[i+3]&0xff,
-        test[i+4]&0xff, test[i+5]&0xff, test[i+6]&0xff, test[i+7]&0xff);
-      i += 8;
-    }
-}
 extern "C"
-void nul_lwip_input(void * data, unsigned size) {
+void nul_ip_input(void * data, unsigned size) {
   struct pbuf *lwip_buf;
 
-/*  if (size > 25)
-    Logging::printf("paket %02x%02x %02x\n",
-      *((char *)data + 12), *((char *)data + 13),
-      *((char *)data + 14 + 9));
-*/
   if (size > 25 && (*((char *)data + 12) == 0x8) && (*((char *)data + 13) == 0) && (*((char *)data + 14 + 9)) == 0x1) { //ICMP
     lwip_buf = pbuf_alloc(PBUF_RAW, size, PBUF_POOL);
     if (!lwip_buf) Logging::panic("pbuf allocation failed size=%x data=%p\n", size, data);
@@ -188,10 +146,10 @@ static void nul_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct
   pbuf_free(p);
 }
 
-extern "C" void nul_lwip_udp_test(void) {
+extern "C"
+bool nul_ip_udp_test(void) {
   struct udp_pcb * udp_pcb = udp_new();
   if (!udp_pcb) Logging::panic("udp new failed\n");
-// void udp_remove(struct udp_pcb *pcb)
 
   ip_addr _ipaddr;
   IP4_ADDR(&_ipaddr, 0,0,0,0);
@@ -203,6 +161,7 @@ extern "C" void nul_lwip_udp_test(void) {
   void * recv_arg = 0;
   udp_recv(udp_pcb, nul_udp_recv, recv_arg); //set callback
 
+  return true;
 }
 
 /*
@@ -239,7 +198,8 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   return ERR_OK;
 }
 
-extern "C" void nul_lwip_tcp_test(void) {
+extern "C"
+bool nul_ip_tcp_test(void) {
   struct tcp_pcb * tmp_pcb = tcp_new();
   if (!tmp_pcb) Logging::panic("tcp new failed\n");
 
@@ -257,4 +217,63 @@ extern "C" void nul_lwip_tcp_test(void) {
   tcp_arg(listening_pcb, listening_pcb);
   tcp_accept(listening_pcb, nul_tcp_accept);
 
+  return true;
+}
+
+extern "C"
+bool nul_ip_config(unsigned para, void * arg) {
+  static unsigned long long etharp_timer = ETHARP_TMR_INTERVAL;
+  static unsigned long long dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
+  static unsigned long long dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
+  static ip_addr last_ip_addr;
+
+  switch (para) {
+    case 0: /* ask for version of this implementation */
+      if (!arg) return false;
+      *reinterpret_cast<unsigned long long *>(arg) = 0x1;
+      return true;
+    case 1: /* enable dhcp to get an ip address */
+      dhcp_start(&nul_netif);
+      return true;
+    case 2: /* dump ip addr to screen */
+      if (last_ip_addr.addr != nul_netif.ip_addr.addr) {
+        Logging::printf("ip addr changed = %u.%u.%u.%u\n",
+                        nul_netif.ip_addr.addr & 0xff,
+                        (nul_netif.ip_addr.addr >> 8) & 0xff,
+                        (nul_netif.ip_addr.addr >> 16) & 0xff,
+                        (nul_netif.ip_addr.addr >> 24) & 0xff);
+       last_ip_addr.addr = nul_netif.ip_addr.addr;
+       return true;
+      }
+      return false;
+    case 3: /* return next timeout to be fired */
+    {
+      if (!arg) return false;
+
+      if (!etharp_timer) {
+        etharp_timer = ETHARP_TMR_INTERVAL;
+        etharp_tmr();
+      }
+      if (!dhcp_fine_timer) {
+        dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
+        dhcp_fine_tmr();
+      }
+      if (!dhcp_coarse_timer) {
+        dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
+        dhcp_coarse_tmr();
+      }
+      unsigned long long next = etharp_timer < dhcp_fine_timer ? etharp_timer : dhcp_fine_timer;
+      next = next < dhcp_coarse_timer ? next : dhcp_coarse_timer;
+
+      etharp_timer -= next;
+      dhcp_fine_timer -= next;
+      dhcp_coarse_timer -= next;
+
+      *reinterpret_cast<unsigned long long *>(arg) = next;
+      return true;
+    }
+    default:
+      Logging::panic("unknown parameter %u\n", para);
+  }
+  return false;
 }

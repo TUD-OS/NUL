@@ -4,7 +4,7 @@ import nul
 
 Import('target_env')
 
-nul.App(target_env, 'test_lwip',
+nul.App(target_env, 'test_ip',
         SOURCES = [ 'main.cc' ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
