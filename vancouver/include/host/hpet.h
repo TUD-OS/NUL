@@ -25,10 +25,34 @@
 class BasicHpet {
 public:
 
+  enum {
+    // General Configuration Register
+    ENABLE_CNF = (1U << 0),
+    LEG_RT_CNF = (1U << 1),
+
+    // General Capabilities Register
+    LEG_RT_CAP = (1U << 15),
+    BIT64_CAP  = (1U << 13),
+
+    // Timer Configuration
+    FSB_INT_DEL_CAP = (1U << 15),
+    FSB_INT_EN_CNF  = (1U << 14),
+
+    MODE32_CNF      = (1U << 8),
+    PER_INT_CAP     = (1U << 4),
+    TYPE_CNF        = (1U << 3),
+    INT_ENB_CNF     = (1U << 2),
+    INT_TYPE_CNF    = (1U << 1),
+
+  };
+
   struct HostHpetTimer {
     volatile uint32 config;
     volatile uint32 int_route;
-    volatile uint32 comp[2];
+    union {
+      volatile uint32 comp[2];
+      volatile uint64 comp64;
+    };
     volatile uint32 msi[2];
     uint32 res[2];
   };
@@ -73,8 +97,7 @@ public:
 	  return table->address[0];
       }
 
-    Logging::printf("Warning: no HPET ACPI table, trying default value 0xfed00000\n");
-    return 0xfed00000;
+    return 0;
   }
 
 

@@ -258,7 +258,7 @@ public:
     _mymb.bus_acpi.add(this, receive_static<MessageAcpi>);
 
     // create backend devices
-    _mymb.parse_args("hostpit:1000,0x40,2 hosthpet hostrtc");
+    _mymb.parse_args("hostpit:1000,0x40,2 hostrtc");
 
     // create the worker thread
     MessageHostOp msg2 = MessageHostOp::alloc_service_thread(TimerService::do_work,
