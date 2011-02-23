@@ -28,7 +28,9 @@ void *memalloc_mempool(unsigned long size, unsigned long align)
 {
   // align needs to be a power of two
   assert(!(align & (align - 1)));
-  if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
+  // Force a minimum alignment of 16 to be on the safe side with SSE
+  // and atomic ops.
+  if (align < 16) align = 16;
 
   extern char __mempoolstart, __mempoolend;
   static char *s = &__mempoolend;
