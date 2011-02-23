@@ -71,12 +71,22 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
       ClientData *next;
       for (ClientData *head = _queue.dequeue_all(); head; head = next) {
         nr = head->nr;
-        // XXX Race with lifo_next check below?
+
         next = head->lifo_next;
         head->lifo_next = 0;
-        // XXX End race
-        // xchg is a memory barrier
-        timevalue t = Cpu::xchg(&head->reltime, 0U);
+
+        MEMORY_BARRIER;
+
+        // Dequeuing and reading reltime can race with setting reltime
+        // and enqueuing in the REQUEST_TIMER code, when reprogramming
+        // timers back-to-back. The requestor will enqueue the
+        // ClientData instance again, but we have already programmed
+        // the new timeout. When we dequeue it here, we program the
+        // same timeout again. If the timeout triggered in between,
+        // the client gets two wakeups, but since he called
+        // REQUEST_TIMER twice, he has to cope with that.
+        timevalue t = head->reltime;
+
         t *= GRANULARITY;
         _abs_timeouts.cancel(nr);
         _abs_timeouts.request(nr, now + t);
