@@ -92,7 +92,7 @@ public:
 
         char *text = input.get_string(len);
         check1(EPROTO, !text);
-        if (_verbose) Logging::printf("tb: (%ld) %.*s\n", data->guid, len, text);
+        if (_verbose) Logging::printf("(%ld) %.*s\n", data->guid, len, text);
         trace_printf("(%ld) %.*s\n", data->guid, len, text);
       }
       return ENONE;
