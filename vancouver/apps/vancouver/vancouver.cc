@@ -23,6 +23,7 @@
 #include "sigma0/console.h"
 #include "nul/service_timer.h"
 #include "nul/service_fs.h"
+#include "nul/service_log.h"
 
 /**
  * Layout of the capability space.

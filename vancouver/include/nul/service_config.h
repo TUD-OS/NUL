@@ -1,7 +1,7 @@
 /*
  * Client part of the config protocol.
  *
- * Copyright (C) 2010, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -24,11 +24,19 @@
 struct ConfigProtocol : public GenericProtocol {
 
   enum {
-    TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END
+    TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END,
+    TYPE_KILL,
   };
 
-  unsigned start_config(Utcb &utcb, char const * config) {
-    return call_server(init_frame(utcb, TYPE_START_CONFIG) << config, true);
+  unsigned start_config(Utcb &utcb, char const * config, unsigned &id) {
+    unsigned res = call_server(init_frame(utcb, TYPE_START_CONFIG) << Utcb::String(config), false);
+    utcb >> id;
+    utcb.drop_frame();
+    return res;
+  }
+
+  unsigned kill(Utcb &utcb, unsigned id) {
+    return call_server(init_frame(utcb, TYPE_KILL) << id, true);
   }
 
   ConfigProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("config", instance, cap_base, true) {}

@@ -56,13 +56,24 @@ public:
         if (mb.bus_console.send(msg)) {
           //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
           utcb.head.untyped = 1;
+          utcb << msg.id;
           return ENONE;
-        } else {
-          //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
-          utcb.head.untyped = 1;
-          delete [] config;
-          return EPROTO;
         }
+
+        //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
+        utcb.head.untyped = 1;
+        delete [] config;
+        return EPROTO;
+      }
+    case ConfigProtocol::TYPE_KILL:
+      {
+        unsigned id;
+        check1(EPROTO, input.get_word(id));
+
+        MessageConsole msg(MessageConsole::TYPE_KILL, id);
+        if (mb.bus_console.send(msg)) return ENONE;
+
+        return EPROTO; 
       }
     default:
       return EPROTO;
