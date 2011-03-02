@@ -178,30 +178,39 @@ public:
 
   bool receive(MessageNetwork &nmsg)
   {
-    // Protect against our own packets. WTF?
-    if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
-        (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
-    //msg(INFO, "Send packet (size %u)\n", nmsg.len);
+    switch (nmsg.type) {
+    case MessageNetwork::QUERY_MAC:
+      nmsg.mac = Endian::hton64(_mac.raw) >> 16;
+      return true;
+    case MessageNetwork::PACKET:
+      {
+        // Protect against our own packets. WTF?
+        if ((nmsg.buffer >= static_cast<void *>(_rx_buf)) &&
+            (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
+        //msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
-    // XXX Lock?
-    unsigned tail = _hwreg[TDT0];
-    memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
+        // XXX Lock?
+        unsigned tail = _hwreg[TDT0];
+        memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
 
-    // If the dma descriptor is not zero, it is still in use.
-    if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
+        // If the dma descriptor is not zero, it is still in use.
+        if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0) return false;
 
-    _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
-    _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
-      | (3U<<20 /* adv descriptor */)
-      | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
-      | (1U<<25 /* Append MAC FCS */)
-      | (1U<<27 /* Report Status = IRQ */);
-    //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
+        _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
+        _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
+          | (3U<<20 /* adv descriptor */)
+          | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
+          | (1U<<25 /* Append MAC FCS */)
+          | (1U<<27 /* Report Status = IRQ */);
+        //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
 
-    MEMORY_BARRIER;
-    _hwreg[TDT0] = (tail+1) % desc_ring_len;
-
-    return true;
+        MEMORY_BARRIER;
+        _hwreg[TDT0] = (tail+1) % desc_ring_len;
+        return true;
+      }
+    default:
+      return false;
+    }
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageNetwork> &bus_network, Clock *clock,
