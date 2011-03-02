@@ -830,11 +830,16 @@ public:
 
 };
 
+static bool default_force_hpet_legacy = false;
+static bool default_force_pit         = false;
 
-PARAM(hpettest,
+PARAM(timer_hpet_legacy, default_force_hpet_legacy = true);
+PARAM(timer_force_pit,   default_force_pit         = true);
+
+PARAM(service_per_cpu_timer,
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      bool     hpet_legacy   = (argv[0] == ~0U) ? false : argv[0];
-      bool     force_pit     = (argv[1] == ~0U) ? false : argv[1];
+      bool     hpet_legacy   = (argv[0] == ~0U) ? default_force_hpet_legacy : argv[0];
+      bool     force_pit     = (argv[1] == ~0U) ? default_force_pit : argv[1];
       unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
       PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
 
