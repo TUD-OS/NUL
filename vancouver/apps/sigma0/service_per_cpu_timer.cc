@@ -125,9 +125,9 @@ public:
   }
 } ALIGNED(16);
 
-class HpetTest : private BasicHpet,
-                 public StaticReceiver<HpetTest>,
-                 public CapAllocator<HpetTest>
+class PerCpuTimerService : private BasicHpet,
+                 public StaticReceiver<PerCpuTimerService>,
+                 public CapAllocator<PerCpuTimerService>
 {
   Motherboard      &_mb;
   #include "host/simplehwioout.h"
@@ -160,7 +160,7 @@ class HpetTest : private BasicHpet,
   };
 
   ALIGNED(8)
-  ClientDataStorage<ClientData, HpetTest> _storage;
+  ClientDataStorage<ClientData, PerCpuTimerService> _storage;
 
   struct RemoteSlot {
     ClientData data;
@@ -245,7 +245,7 @@ class HpetTest : private BasicHpet,
 public:
 
   static void do_per_cpu_thread(void *t) REGPARM(0) NORETURN
-  { reinterpret_cast<HpetTest *>(t)->per_cpu_thread(); }
+  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_thread(); }
 
 
   void process_new_timeout_requests(PerCpu *per_cpu)
@@ -387,7 +387,7 @@ public:
   }
 
   static void do_test_thread(void *t) REGPARM(0) NORETURN
-  { reinterpret_cast<HpetTest *>(t)->test_thread(); }
+  { reinterpret_cast<PerCpuTimerService *>(t)->test_thread(); }
 
   void test_thread() NORETURN
   {
@@ -641,7 +641,7 @@ public:
     case ParentProtocol::TYPE_CLOSE:
       {
         ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, HpetTest>::Guard guard_c(&_storage, utcb);
+        ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
 
         Logging::printf("ts:: close session for %x\n", data->identity);
@@ -651,7 +651,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
         ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, HpetTest>::Guard guard_c(&_storage, utcb);
+        ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
@@ -663,7 +663,8 @@ public:
 
         int64 diff = msg.abstime - _mb.clock()->time();
         if (diff < 0) {
-          nova_semup(data->identity);
+          unsigned res = nova_semup(data->identity);
+          assert(res == NOVA_ESUCCESS);
           return ENONE;
         }
 
@@ -695,7 +696,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
         ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, HpetTest>::Guard guard_c(&_storage, utcb);
+        ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         // utcb << Cpu::xchg(&data->count, 0U);
@@ -706,7 +707,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
         ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, HpetTest>::Guard guard_c(&_storage, utcb);
+        ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         // TimerProtocol::MessageTime _msg;
@@ -731,9 +732,9 @@ public:
 
 
 
-  HpetTest(Motherboard &mb, unsigned cap, unsigned cap_order,
+  PerCpuTimerService(Motherboard &mb, unsigned cap, unsigned cap_order,
            bool hpet_force_legacy, bool force_pit, unsigned pit_period_us)
-    : CapAllocator<HpetTest>(cap, cap, cap_order), _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
+    : CapAllocator<PerCpuTimerService>(cap, cap, cap_order), _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
   {
     unsigned cpus = mb.hip()->cpu_count();
     _per_cpu = new(64) PerCpu[cpus];
@@ -815,7 +816,7 @@ public:
     _workers_up = KernelSemaphore(alloc_cap(), true);
 
     for (unsigned i = 0; i < cpus; i ++)
-      start_thread(HpetTest::do_per_cpu_thread, 1, i);
+      start_thread(PerCpuTimerService::do_per_cpu_thread, 1, i);
 
     Logging::printf("Waiting for per CPU workers to come up...\n");
     for (unsigned i = 0; i < 1; i++)
@@ -824,7 +825,7 @@ public:
 
     // Testing
     // for (unsigned i = 0; i < cpus; i++) 
-    //   start_thread(HpetTest::do_test_thread, 0, i);
+    //   start_thread(PerCpuTimerService::do_test_thread, 0, i);
   }
 
 };
@@ -835,11 +836,11 @@ PARAM(hpettest,
       bool     hpet_legacy   = (argv[0] == ~0U) ? false : argv[0];
       bool     force_pit     = (argv[1] == ~0U) ? false : argv[1];
       unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
-      HpetTest *h = new(16) HpetTest(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
+      PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
 
-      MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<HpetTest>::portal_func));
+      MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<PerCpuTimerService>::portal_func));
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
         Logging::panic("starting of timer service failed");
       ,
-      "hpettest:[hpet_force_legacy=0][,force_pit=0][,pit_period_us]");
+      "service_per_cpu_timer:[hpet_force_legacy=0][,force_pit=0][,pit_period_us]");
