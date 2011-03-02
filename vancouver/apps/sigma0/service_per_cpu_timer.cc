@@ -552,7 +552,7 @@ public:
     for (unsigned i = 0; i < _usable_timers; i++) {
       // Interrupts will be disabled now. Will be enabled when the
       // corresponding per_cpu thread comes up.
-      _timer[i]._reg->config |= MODE32_CNF | (legacy_only ? LEG_RT_CNF : 0);
+      _timer[i]._reg->config |= MODE32_CNF;
       _timer[i]._reg->config &= ~(INT_ENB_CNF | TYPE_CNF);
       _timer[i]._reg->comp64 = 0;
     }
@@ -565,7 +565,7 @@ public:
                                    // before wraparound to trigger
                                    // edge cases early
     _reg->isr     = ~0U;
-    _reg->config |= ENABLE_CNF;
+    _reg->config |= ENABLE_CNF | (legacy_only ? LEG_RT_CNF : 0);
 
 
     // HPET configuration
