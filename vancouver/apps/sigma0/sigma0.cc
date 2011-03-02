@@ -825,7 +825,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
     //free_module(modinfo);
-    return __LINE__;
+    return 0;
   }
 
 
@@ -962,7 +962,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	    if ((utcb->qual[1] < MEM_OFFSET) ||
 	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
-	        (CLIENT_BOOT_UTCB + 0x2000 < utcb->qual[1]))
+	        (utcb->qual[1] >= CLIENT_BOOT_UTCB + 0x2000))
 	    {
 	      Logging::printf("s0: unresolvable pagefault - killing client ...\n");
 	      kill_module(client);
