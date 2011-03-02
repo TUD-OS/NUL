@@ -813,6 +813,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // change the tag
     Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+    // switch to view 0 so that you can see the changed tag
+    switch_view(global_mb, 0, _console_data[module].console);
 
     // free resources
     SemaphoreGuard l(_lock_mem);
@@ -1498,11 +1500,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Switch to our view.
    */
-  static void switch_view(Motherboard *mb, int view=0)
+  static void switch_view(Motherboard *mb, int view=0, unsigned short consoleid = console_id)
   {
     MessageConsole msg;
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
-    msg.id = console_id;
+    msg.id = consoleid;
     msg.view = view;
     mb->bus_console.send(msg);
   }
