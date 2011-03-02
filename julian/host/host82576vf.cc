@@ -99,11 +99,16 @@ public:
       MessageNetwork nmsg(_rx_buf[last_rx], plen, 0);
       _bus_network.send(nmsg);
 
-      cur->lo = reinterpret_cast<mword>(_rx_buf[last_rx]);
+      cur->lo = 0;
       cur->hi = 0; 
 
       last_rx = (last_rx+1) % desc_ring_len;
-      _hwreg[RDT0] = last_rx;
+
+      // XXX Use shadow RDT
+      unsigned rdt = _hwreg[RDT0];
+      _rx_ring[rdt].lo = reinterpret_cast<mword>(_rx_buf[rdt]);
+      _rx_ring[rdt].hi = 0;
+      _hwreg[RDT0] = (rdt+1) % desc_ring_len;
     }
 
   }
@@ -270,13 +275,14 @@ public:
     _hwreg[TDT0] = 0;		// TDH == TDT -> queue empty
     _hwreg[RDT0] = 0;		// RDH == RDT -> queue empty
 
-    for (unsigned i = 0; i < desc_ring_len; i++) {
-      _rx_ring[i].lo = reinterpret_cast<uint64>(_rx_buf[i]);
+    for (unsigned i = 0; i < desc_ring_len - 1; i++) {
+      _rx_ring[i].lo = reinterpret_cast<mword>(_rx_buf[i]);
       _rx_ring[i].hi = 0;
+
+      // Tell NIC about receive descriptor.
+      _hwreg[RDT0] = i+1;
     }
 
-    // Tell NIC about receive descriptors.
-    _hwreg[RDT0] = desc_ring_len - 1;
     _hwreg[VTEIMS] = 1;
 
     // Send RESET message
