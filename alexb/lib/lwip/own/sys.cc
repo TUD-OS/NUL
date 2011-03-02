@@ -16,6 +16,7 @@
 
 #include <service/logging.h>
 #include <service/string.h> //memcpy
+#include <service/helper.h> //assert
 
 extern "C" {
   #include "lwip/sys.h"
@@ -51,11 +52,16 @@ void lwip_assert(const char *format, ...) {
   Logging::panic("panic\n");
 }
 
+struct nul_tcp_struct {
+  struct tcp_pcb * listening_pcb;
+  void (*fn_recv_call)(void * in_data, size_t in_len, void * &out_data, size_t & out_len);
+} nul_tcp_single;
+
 /*
  * time
  */
 u32_t sys_now(void) {
-  Logging::printf("time\n"); return 0;
+  Logging::printf("unimpl. - time\n"); return 0;
 }
 
 /*
@@ -64,12 +70,33 @@ u32_t sys_now(void) {
 static struct netif nul_netif;
 static void (*__send_network)(char unsigned const * data, unsigned len);
 
+static char * snd_buf;
+static unsigned long snd_buf_size = 1; //in pages
+
 static err_t
 nul_lwip_netif_output(struct netif *netif, struct pbuf *p)
 {
-  __send_network(reinterpret_cast<unsigned char const *>(p->payload), p->len);
-  if (p->next)
-    Logging::panic("unimpl. next\n");
+  if (!p->next) {
+    __send_network(reinterpret_cast<unsigned char const *>(p->payload), p->len);
+    return ERR_OK;
+  }
+
+  if (snd_buf && (p->tot_len / 4096) > snd_buf_size) {
+    delete [] snd_buf;
+    snd_buf = 0;
+    snd_buf_size = p->tot_len / 4096;
+  }
+  if (!snd_buf) snd_buf = new (4096) char[snd_buf_size * 4096];
+  if (!snd_buf) return ERR_MEM;
+  char * pos = snd_buf;
+
+  while (p) {
+    memcpy(pos, p->payload, p->len);
+    pos += p->len;
+    p = p->next;
+  }
+
+  __send_network(reinterpret_cast<unsigned char const *>(snd_buf), pos - snd_buf);
   return ERR_OK;
 }
 
@@ -96,9 +123,9 @@ bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len),
   __send_network = send_network;
 
   ip_addr_t _ipaddr, _netmask, _gw;
-  IP4_ADDR(&_gw, 0,0,0,0);
-  IP4_ADDR(&_ipaddr, 0,0,0,0);
-  IP4_ADDR(&_netmask, 0,0,0,0);
+  memset(&_gw, 0, sizeof(_gw));
+  memset(&_ipaddr, 0, sizeof(_ipaddr));
+  memset(&_netmask, 0, sizeof(_netmask));
 
   if (&nul_netif != netif_add(&nul_netif, &_ipaddr, &_netmask, &_gw, NULL, nul_lwip_netif_init, ethernet_input))
     return false;
@@ -146,14 +173,14 @@ static void nul_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct
   pbuf_free(p);
 }
 
-extern "C"
-bool nul_ip_udp_test(void) {
+static
+bool nul_ip_udp(unsigned _port) {
   struct udp_pcb * udp_pcb = udp_new();
   if (!udp_pcb) Logging::panic("udp new failed\n");
 
   ip_addr _ipaddr;
-  IP4_ADDR(&_ipaddr, 0,0,0,0);
-  u16_t port = 5555;
+  memset(&_ipaddr, 0, sizeof(_ipaddr));
+  u16_t port = _port;
 
   err_t err = udp_bind(udp_pcb, &_ipaddr, port);
   if (err != ERR_OK) Logging::panic("udp bind failed\n");
@@ -169,14 +196,28 @@ bool nul_ip_udp_test(void) {
  */
 static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
   static unsigned long total = 0;
+  struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
 
   if (p) {
-    total += p->tot_len;
 
-    Logging::printf("[tcp] %u.%u.%u.%u:%u -> %u - len %u, first part %u - total %lu\n",
-                    (tpcb->remote_ip.addr) & 0xff, (tpcb->remote_ip.addr >> 8) & 0xff,
-                    (tpcb->remote_ip.addr >> 16) & 0xff, (tpcb->remote_ip.addr >> 24) & 0xff,
-                    tpcb->remote_port, tpcb->local_port, p->tot_len, p->len, total);
+    if (!tcp_struct || !tcp_struct->fn_recv_call) {
+      total += p->tot_len;
+      Logging::printf("[tcp] %u.%u.%u.%u:%u -> %u - len %u, first part %u - total %lu\n",
+                      (tpcb->remote_ip.addr) & 0xff, (tpcb->remote_ip.addr >> 8) & 0xff,
+                      (tpcb->remote_ip.addr >> 16) & 0xff, (tpcb->remote_ip.addr >> 24) & 0xff,
+                      tpcb->remote_port, tpcb->local_port, p->tot_len, p->len, total);
+    }
+
+    if (tcp_struct && tcp_struct->fn_recv_call) {
+      void * data = 0;
+      size_t count = 0;
+      tcp_struct->fn_recv_call(p->payload, p->len, data, count);
+
+      if (data && count) {
+        err_t err = tcp_write(tpcb, data, count, 0);
+        if (err != ERR_OK) Logging::printf("failed sending packet\n");
+      }
+    }
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
@@ -189,23 +230,24 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
 }
 
 static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
-  struct tcp_pcb * listening_pcb = reinterpret_cast<struct tcp_pcb *>(arg);
+  struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
 
   tcp_recv(newpcb, nul_tcp_recv); 
+  tcp_arg(newpcb, tcp_struct);
 
-  tcp_accepted(listening_pcb);
+  tcp_accepted(tcp_struct->listening_pcb);
 
   return ERR_OK;
 }
 
-extern "C"
-bool nul_ip_tcp_test(void) {
+static
+bool nul_ip_tcp(unsigned _port, void (*fn_call_me)(void * data, unsigned len, void * & out_data, unsigned & out_len)) {
   struct tcp_pcb * tmp_pcb = tcp_new();
   if (!tmp_pcb) Logging::panic("tcp new failed\n");
 
   ip_addr _ipaddr;
-  IP4_ADDR(&_ipaddr, 0,0,0,0);
-  u16_t port = 7777;
+  memset(&_ipaddr, 0, sizeof(_ipaddr));
+  u16_t port = _port;
 
   err_t err = tcp_bind(tmp_pcb, &_ipaddr, port);
   if (err != ERR_OK) Logging::panic("tcp bind failed\n");
@@ -214,7 +256,14 @@ bool nul_ip_tcp_test(void) {
   if (!listening_pcb) Logging::panic("tcp listen failed\n");
 
   //set callbacks
-  tcp_arg(listening_pcb, listening_pcb);
+  //XXX currently one connection is only supported
+  assert(nul_tcp_single.listening_pcb == 0);
+  assert(nul_tcp_single.fn_recv_call  == 0);
+
+  nul_tcp_single.listening_pcb = listening_pcb;
+  nul_tcp_single.fn_recv_call = fn_call_me;
+
+  tcp_arg(listening_pcb, &nul_tcp_single);
   tcp_accept(listening_pcb, nul_tcp_accept);
 
   return true;
@@ -271,6 +320,19 @@ bool nul_ip_config(unsigned para, void * arg) {
 
       *reinterpret_cast<unsigned long long *>(arg) = next;
       return true;
+    }
+    case 4: /* open udp connection */
+    {
+      unsigned port = *reinterpret_cast<unsigned *>(arg);
+      return nul_ip_udp(port);
+      break;
+    }
+    case 5: /* open tcp connection */
+    {
+      assert(sizeof(unsigned long) == sizeof(void *));
+      unsigned long * port = reinterpret_cast<unsigned long *>(arg);
+      return nul_ip_tcp(*port, reinterpret_cast<void (*)(void * data, unsigned len, void * & out_data, unsigned & out_len)>(*(port + 1)));
+      break;
     }
     default:
       Logging::panic("unknown parameter %u\n", para);

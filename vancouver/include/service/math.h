@@ -79,4 +79,6 @@ class Math
   static void to_bcd(unsigned char &value)  {  value =  ((value / 10) << 4) + (value % 10); }
   static unsigned long  htonl(unsigned long value)  { asm ("bswap %0" : "+r"(value)); return value; }
   static unsigned short htons(unsigned short value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
+  static unsigned long  ntohl(unsigned long value)  { asm ("bswap %0" : "+r"(value)); return value; }
+  static unsigned short ntohs(unsigned short value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
 };

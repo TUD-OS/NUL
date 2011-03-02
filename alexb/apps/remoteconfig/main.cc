@@ -1,5 +1,5 @@
 /*
- * (C) 2010 Alexander Boettcher
+ * (C) 2011 Alexander Boettcher
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -18,8 +18,12 @@
 #include <nul/timer.h> //clock
 #include <nul/service_timer.h> //TimerService
 #include <nul/service_log.h>
+#include <nul/service_config.h>
+
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
+
+#include "server.h"
 
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
@@ -36,8 +40,11 @@ enum {
 
 namespace ab {
 
-class TestIP : public NovaProgram, public ProgramConsole
+class RemoteConfig : public NovaProgram, public ProgramConsole
 {
+  private:
+    static Remcon * remcon;
+
   public:
 
     static void send_network(char unsigned const * data, unsigned len) {
@@ -46,9 +53,14 @@ class TestIP : public NovaProgram, public ProgramConsole
       MessageNetwork net = MessageNetwork(data, len, 0);
 
       res = Sigma0Base::network(net);
-      if (res)
-      Logging::printf("%s - sending packet to network, len = %u\n", 
-                      (res == 0 ? "success" : "failure"), len);
+
+      if (res) Logging::printf("%s - sending packet to network, len = %u, res= %u\n", 
+                               (res == 0 ? "success" : "failure"), len, res);
+    }
+
+    static
+    void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len) {
+      remcon->recv_call_back(in, in_len, out, out_len);    
     }
 
     bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
@@ -65,37 +77,43 @@ class TestIP : public NovaProgram, public ProgramConsole
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
 
-      Logging::printf("request timer attach - %s\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request timer attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
 
       KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
       res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
 
-      Logging::printf("request network attach - %s\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request network attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
 
 	    MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
       res = Sigma0Base::hostop(msg_op);
-      Logging::printf("got mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx - %s\n",
+      Logging::printf("%s - mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx\n",
+                      (res == 0 ? "success" : "failure"),
                       (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
                       (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
-                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF,
-                      (res == 0 ? "success" : "failure"));
+                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF);
 
       unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
 
-      if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failed - requesting timeout\n");
+      if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failure - request for timeout\n");
 
       TimerProtocol::MessageTimer to(_clock->time() + arg * hip->freq_tsc);
-      if (timer_service->timer(*utcb, to)) Logging::panic("failed  - starting timer\n");
-      if (!nul_ip_init(send_network, mac)) Logging::panic("failed - starting ip\n");
-      if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failed - starting dhcp\n");
+      if (timer_service->timer(*utcb, to)) Logging::panic("failure - programming timer\n");
+      if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
+      if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
 
-      unsigned long port[2] = { 5555, 0 };
-      if (!nul_ip_config(IP_UDP_OPEN, &port[0])) Logging::panic("failed - creating udp port\n");
-      port[0] = 7777;
-      port[1] = 0;
-      if (!nul_ip_config(IP_TCP_OPEN, &port[0])) Logging::panic("failed - creating tcp port\n");
+      //create server object
+      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_NUM));
+      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config);
+
+      struct {
+        unsigned long port;
+        void (*fn)(void * in_data, size_t in_len, void * &out_data, size_t & out_len);
+      } conn = { 9999, recv_call_back };
+      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
+
+      Logging::printf("success - remote config is online, tcp port=%lu\n", conn.port);
 
       while (1) {
         unsigned char *buf;
@@ -106,12 +124,10 @@ class TestIP : public NovaProgram, public ProgramConsole
         //check whether timer triggered
         if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) {
           unsigned long long timeout;
-          nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
-          //Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
+          nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
           TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-          if (timer_service->timer(*utcb,to))
-            Logging::printf("failed  - starting timer\n");
+          if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
 
           //dump ip addr if we got one
           nul_ip_config(IP_IPADDR_DUMP, NULL);
@@ -133,19 +149,17 @@ class TestIP : public NovaProgram, public ProgramConsole
     init(hip);
     init_mem(hip);
 
-    console_init("IP test");
+    console_init("remote config");
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
 
-    Logging::printf("Hello\n");
+    Logging::printf("booting - remote config ...\n");
 
-    _virt_phys.debug_dump("");
-
-    if (!use_network(utcb, hip, alloc_cap()))
-      Logging::printf("failed  - starting ip stack\n");
-
+    if (!use_network(utcb, hip, alloc_cap())) Logging::printf("failure - starting ip stack\n");
   }
 };
 
 } /* namespace */
 
-ASMFUNCS(ab::TestIP, NovaProgram)
+Remcon * ab::RemoteConfig::remcon;
+
+ASMFUNCS(ab::RemoteConfig, NovaProgram)
