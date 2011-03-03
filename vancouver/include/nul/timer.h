@@ -62,7 +62,11 @@ class Clock
     return Math::muldiv128(theabstime - now, freq, _source_freq);
   }
 
-  Clock(timevalue source_freq) : _source_freq(source_freq) { Logging::printf("source freq %lld\n", source_freq); }
+  Clock(timevalue source_freq) : _source_freq(source_freq) {
+    #ifndef NDEBUG
+    Logging::printf("source freq %lld\n", source_freq);
+    #endif
+  }
 };
 
 
