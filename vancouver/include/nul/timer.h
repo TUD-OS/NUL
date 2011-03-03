@@ -63,7 +63,7 @@ class Clock
   }
 
   Clock(timevalue source_freq) : _source_freq(source_freq) {
-    #ifdef NDEBUG
+    #ifndef NDEBUG
     Logging::printf("source freq %lld\n", source_freq);
     #endif
   }
