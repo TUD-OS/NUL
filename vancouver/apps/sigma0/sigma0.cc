@@ -1252,9 +1252,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	else
 	  {
 	    MessageNetwork msg2 = *msg;
-	    if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) return false;
+	    if ((msg2.type == MessageNetwork::PACKET) &&
+                convert_client_ptr(modinfo, msg2.buffer, msg2.len))
+              return false;
 	    msg2.client = client;
 	    utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
+            if (msg2.type == MessageNetwork::QUERY_MAC)
+              msg->mac = msg2.mac;
 	  }
       }
       break;
@@ -1265,9 +1269,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   bool  receive(MessageNetwork &msg)
   {
-    for (unsigned i = 0; i < MAXMODULES; i++)
-      if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
-    return true;
+    if (msg.type == MessageNetwork::PACKET) {
+      const uint8 *buf = msg.buffer;
+      Logging::printf("FWD Packet %u %02x%02x%02x%02x\n", msg.len, buf[0], buf[1], buf[2], buf[3]);
+      for (unsigned i = 0; i < MAXMODULES; i++) {
+        if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
+      }
+      return true;
+    }
+
+    // Don't pass along MAC queries.
+    return false;
   }
 
   // Virtual Network

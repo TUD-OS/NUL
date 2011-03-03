@@ -675,12 +675,26 @@ struct MessageTime
 
 struct MessageNetwork
 {
-  const unsigned char *buffer;
-  unsigned len;
-  unsigned client;
-  MessageNetwork(const unsigned char *_buffer, unsigned _len, unsigned _client) : buffer(_buffer), len(_len), client(_client) {}
-};
+  enum ops {
+    PACKET,
+    QUERY_MAC
+  };
 
+  unsigned type;
+
+  union {
+    struct {
+      const unsigned char *buffer;
+      unsigned len;
+    };
+    unsigned long long mac;
+  };
+
+  unsigned client;
+
+  MessageNetwork(const unsigned char *buffer, unsigned len, unsigned client) : type(PACKET), buffer(buffer), len(len), client(client) {}
+  MessageNetwork(unsigned type, unsigned client) : type(type), mac(0), client(client) { }
+};
 #include <nul/types.h>
 
 struct MessageVirtualNet

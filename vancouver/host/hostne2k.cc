@@ -16,8 +16,10 @@
  * General Public License version 2 for more details.
  */
 
-#include "nul/motherboard.h"
-#include "host/hostpci.h"
+#include <nul/motherboard.h>
+#include <host/hostpci.h>
+#include <service/net.h>
+#include <service/endian.h>
 
 /**
  * A simple ne2k pci driver, mainly used on qemu devices.
@@ -46,7 +48,7 @@ class HostNe2k : public StaticReceiver<HostNe2k>
   unsigned _irq;
   unsigned char _next_packet;
   unsigned char _receive_buffer[BUFFER_SIZE];
-
+  EthernetAddr _mac;
 
   /**
    * Read/Write to internal ram of the network card.
@@ -129,8 +131,16 @@ public:
 public:
   bool  receive(MessageNetwork &msg)
   {
-    if (msg.buffer >= _receive_buffer && msg.buffer < _receive_buffer + BUFFER_SIZE) return false;
-    return send_packet(msg.buffer, msg.len);
+    switch (msg.type) {
+    case MessageNetwork::PACKET:
+      if (msg.buffer >= _receive_buffer && msg.buffer < _receive_buffer + BUFFER_SIZE) return false;
+      return send_packet(msg.buffer, msg.len);
+    case MessageNetwork::QUERY_MAC:
+      msg.mac = Endian::hton64(_mac.raw) >> 16;
+      return true;
+    default:
+      return false;
+    }
   }
 
 
@@ -197,9 +207,11 @@ public:
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_network(bus_network), _clock(clock), _port(port), _irq(irq)
   {
     reset();
+
     unsigned short buffer[6];
     access_internal_ram(0, 3, buffer, true);
-    Logging::printf("ne2k MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", buffer[0] & 0xff, buffer[1] & 0xff, buffer[2] & 0xff, buffer[3] & 0xff, buffer[4] & 0xff, buffer[5] & 0xff);
+    for (unsigned i = 0; i < 6; i++) _mac.byte[i] = buffer[i];
+    Logging::printf("ne2k MAC:" MAC_FMT "\n", MAC_SPLIT(&_mac));
   }
 };
 
