@@ -58,6 +58,16 @@ class Remcon {
 
     void handle_packet(void);
 
+    void gen_uuid(char const * text, char uuid[UUID_LEN]) { //XXX not really uuid
+      unsigned i = 0;
+      while (text[0]) {
+        uuid[i % UUID_LEN] += text[0];
+        i++; text++;
+      }
+    }
+
+    bool check_uuid(char uuid[UUID_LEN]);
+
   public:
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig) : data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig) {
@@ -95,9 +105,13 @@ class Remcon {
         len = strcspn(cmdl, " \t\r\n\f");
         if (filename > cmdl + len) { cmdl += len; continue; }
       
+        char _uuid[UUID_LEN];
+        gen_uuid(filename, _uuid);
+        if (!check_uuid(_uuid)) Logging::panic("Generating uuid failed\n");
+        memcpy(server_data[pos].uuid, _uuid, UUID_LEN);
+
         server_data[pos].id = pos + 1;
         server_data[pos].istemplate = 1;
-        memcpy(server_data[pos].uuid, filename, UUID_LEN); //XXX generate uuid && check len of filename
         server_data[pos].showname = showname;
         server_data[pos].showname_len = showname_len;
         server_data[pos].filename = filename;

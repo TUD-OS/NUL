@@ -23,6 +23,13 @@
 
 #include "server.h"
 
+bool Remcon::check_uuid(char uuid[UUID_LEN]) {
+  unsigned i;
+  for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++)
+    if (!memcmp(server_data[i].uuid, uuid, UUID_LEN)) return false;
+  return true;
+}
+
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
 
   memcpy(buf_in, in_mem, data_received + in_len > sizeof(buf_in) ? sizeof(buf_in) - data_received : in_len);
@@ -76,7 +83,7 @@ void Remcon::handle_packet(void) {
           k++;
           ids[k] = Math::htonl(server_data[i].id);
   
-          if (reinterpret_cast<unsigned char *>(&ids[k + 1]) >= buf_out + NOVA_PACKET_LEN) break; //XXX no space left
+          if (reinterpret_cast<unsigned char *>(&ids[k + 1]) >= buf_out + NOVA_PACKET_LEN) break; //no space left
         }
         ids[0] = Math::htonl(k); //num of ids
         _out->result  = NOVA_OP_SUCCEDED;
@@ -172,6 +179,7 @@ void Remcon::handle_packet(void) {
     case NOVA_VM_START:
       {
         char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
+        if (!check_uuid(_uuid + UUID_LEN)) break; //if we have this uuid already deny starting
 
         unsigned i, j;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
@@ -183,7 +191,7 @@ void Remcon::handle_packet(void) {
 
               server_data[j].id = j + 1;
               server_data[j].active = 1;
-              memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN); //XXX check that uuid is only used once
+              memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
               server_data[j].filename     = server_data[i].filename;
               server_data[j].filename_len = server_data[i].filename_len;
               server_data[j].showname     = server_data[i].showname; //XXX which name to choose
@@ -198,7 +206,7 @@ void Remcon::handle_packet(void) {
               if (res = fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo,
                                              server_data[j].filename, server_data[j].filename_len))
               {
-                Logging::printf("failure - err=0x%x, config %s could not load file '%30s'\n", res, server_data[j].showname, server_data[j].filename);
+                Logging::printf("failure - err=0x%x, config %30s could not load file '%s'\n", res, server_data[j].showname, server_data[j].filename);
                 goto cleanup;
               }
 
