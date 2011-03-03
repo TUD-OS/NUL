@@ -61,8 +61,8 @@ class Cpu
   static  unsigned long long cmpxchg8b(volatile void *var, unsigned long long oldvalue, unsigned long long newvalue) {
     return __sync_val_compare_and_swap(reinterpret_cast<volatile unsigned long long *>(var), oldvalue, newvalue); }
 
-  static  unsigned long  atomic_xadd(unsigned long volatile *ptr, unsigned long value) { return __sync_fetch_and_add(ptr, value); }
-  static  long           atomic_xadd(long *ptr, long value)                   { return __sync_fetch_and_add(ptr, value); }
+  template <typename T, typename Y>
+  static  T  atomic_xadd(T volatile *ptr, Y value) { return __sync_fetch_and_add(ptr, value); }
 
   static unsigned long long rdtsc() {
     unsigned low, high;
