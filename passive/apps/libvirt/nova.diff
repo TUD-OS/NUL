@@ -1,0 +1,591 @@
+diff --git a/configure.ac b/configure.ac
+index 22884e2..c629a64 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -274,6 +274,8 @@ AC_ARG_WITH([remote],
+   AC_HELP_STRING([--with-remote], [add remote driver support @<:@default=yes@:>@]),[],[with_remote=yes])
+ AC_ARG_WITH([libvirtd],
+   AC_HELP_STRING([--with-libvirtd], [add libvirtd support @<:@default=yes@:>@]),[],[with_libvirtd=yes])
++AC_ARG_WITH([nova],
++  AC_HELP_STRING([--with-nova], [add Nova support @<:@default=check@:>@]),[],[with_nova=yes])
+ 
+ dnl
+ dnl in case someone want to build static binaries
+@@ -443,6 +445,11 @@ if test "$with_test" = "yes" ; then
+ fi
+ AM_CONDITIONAL([WITH_TEST], [test "$with_test" = "yes"])
+ 
++if test "$with_nova" = "yes" ; then
++    AC_DEFINE_UNQUOTED([WITH_NOVA], 1, [whether NOVA driver is enabled])
++fi
++AM_CONDITIONAL([WITH_NOVA], [test "$with_nova" = "yes"])
++
+ if test "$with_remote" = "yes" ; then
+     AC_DEFINE_UNQUOTED([WITH_REMOTE], 1, [whether Remote driver is enabled])
+ fi
+@@ -2356,6 +2363,7 @@ AC_MSG_NOTICE([     LXC: $with_lxc])
+ AC_MSG_NOTICE([    PHYP: $with_phyp])
+ AC_MSG_NOTICE([     ONE: $with_one])
+ AC_MSG_NOTICE([     ESX: $with_esx])
++AC_MSG_NOTICE([    NOVA: $with_nova])
+ AC_MSG_NOTICE([    Test: $with_test])
+ AC_MSG_NOTICE([  Remote: $with_remote])
+ AC_MSG_NOTICE([ Network: $with_network])
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 2f94efd..67541a9 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -244,6 +244,9 @@ LXC_CONTROLLER_SOURCES =					\
+ 		lxc/lxc_controller.c				\
+ 		lxc/veth.c lxc/veth.h
+ 
++NOVA_DRIVER_SOURCES =						\
++		nova/nova_driver.c nova/nova_driver.h
++
+ SECURITY_DRIVER_APPARMOR_HELPER_SOURCES =			\
+ 		security/virt-aa-helper.c
+ 
+@@ -488,6 +491,21 @@ endif
+ libvirt_driver_test_la_SOURCES = $(TEST_DRIVER_SOURCES)
+ endif
+ 
++if WITH_NOVA
++if WITH_DRIVER_MODULES
++mod_LTLIBRARIES += libvirt_driver_nova.la
++else
++noinst_LTLIBRARIES += libvirt_driver_nova.la
++libvirt_la_BUILT_LIBADD += libvirt_driver_nova.la
++endif
++libvirt_driver_nova_la_CFLAGS = \
++		-I@top_srcdir@/src/conf $(AM_CFLAGS)
++if WITH_DRIVER_MODULES
++libvirt_driver_nova_la_LDFLAGS = -module -avoid-version $(AM_LDFLAGS)
++endif
++libvirt_driver_nova_la_SOURCES = $(NOVA_DRIVER_SOURCES)
++endif
++
+ if WITH_REMOTE
+ if WITH_DRIVER_MODULES
+ mod_LTLIBRARIES += libvirt_driver_remote.la
+@@ -976,6 +994,7 @@ EXTRA_DIST +=							\
+ 		$(XENAPI_DRIVER_SOURCES)			\
+ 		$(ESX_DRIVER_SOURCES)				\
+ 		$(ESX_DRIVER_EXTRA_DIST)			\
++		$(NOVA_DRIVER_SOURCES)				\
+ 		$(NETWORK_DRIVER_SOURCES)			\
+ 		$(INTERFACE_DRIVER_SOURCES)			\
+ 		$(STORAGE_DRIVER_SOURCES)			\
+@@ -1226,6 +1245,10 @@ if WITH_LXC
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/lxc"
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/lxc"
+ endif
++if WITH_NOVA
++	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/nova"
++	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/nova"
++endif
+ if WITH_UML
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/uml"
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/uml"
+@@ -1263,6 +1286,10 @@ if WITH_LXC
+ 	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/lxc" ||:
+ 	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/lxc" ||:
+ endif
++if WITH_NOVA
++	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/nova" ||:
++	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/nova" ||:
++endif
+ if WITH_UML
+ 	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/uml" ||:
+ 	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
+diff --git a/src/driver.h b/src/driver.h
+index 7451004..e79fa78 100644
+--- a/src/driver.h
++++ b/src/driver.h
+@@ -28,7 +28,8 @@ typedef enum {
+     VIR_DRV_ESX = 10,
+     VIR_DRV_PHYP = 11,
+     VIR_DRV_XENAPI = 12,
+-    VIR_DRV_VMWARE = 13
++    VIR_DRV_VMWARE = 13,
++    VIR_DRV_NOVA = 14
+ } virDrvNo;
+ 
+ 
+diff --git a/src/libvirt.c b/src/libvirt.c
+index f65cc24..c8ea227 100644
+--- a/src/libvirt.c
++++ b/src/libvirt.c
+@@ -69,6 +69,9 @@
+ # ifdef WITH_XENAPI
+ #  include "xenapi/xenapi_driver.h"
+ # endif
++# ifdef WITH_NOVA
++#  include "nova/nova_driver.h"
++# endif
+ #endif
+ 
+ #define VIR_FROM_THIS VIR_FROM_NONE
+@@ -398,6 +401,9 @@ virInitialize(void)
+ # ifdef WITH_XENAPI
+     virDriverLoadModule("xenapi");
+ # endif
++# ifdef WITH_NOVA
++    virDriverLoadModule("nova");
++#endif
+ # ifdef WITH_REMOTE
+     virDriverLoadModule("remote");
+ # endif
+@@ -426,6 +432,9 @@ virInitialize(void)
+ # ifdef WITH_XENAPI
+     if (xenapiRegister() == -1) return -1;
+ # endif
++# ifdef WITH_NOVA
++    if (novaRegister () == -1) return -1;
++# endif
+ # ifdef WITH_REMOTE
+     if (remoteRegister () == -1) return -1;
+ # endif
+@@ -940,6 +949,10 @@ virGetVersion(unsigned long *libVer, const char *type,
+         if (STRCASEEQ(type, "ESX"))
+             *typeVer = LIBVIR_VERSION_NUMBER;
+ # endif
++# if WITH_NOVA
++        if (STRCASEEQ(type, "NOVA"))
++            *typeVer = LIBVIR_VERSION_NUMBER;
++# endif
+ # if WITH_XENAPI
+         if (STRCASEEQ(type, "XenAPI"))
+             *typeVer = LIBVIR_VERSION_NUMBER;
+diff --git a/src/nova/nova_driver.c b/src/nova/nova_driver.c
+new file mode 100644
+index 0000000..ea92965
+--- /dev/null
++++ b/src/nova/nova_driver.c
+@@ -0,0 +1,380 @@
++#include <sys/socket.h> //socket
++#include <arpa/inet.h> //inet_pton
++
++#include "virterror_internal.h"
++#include "datatypes.h"
++#include "nova_driver.h"
++#include "buf.h"
++#include "util.h"
++#include "uuid.h"
++#include "capabilities.h"
++#include "memory.h"
++#include "network_conf.h"
++#include "interface_conf.h"
++#include "domain_conf.h"
++#include "domain_event.h"
++#include "event.h"
++#include "storage_conf.h"
++#include "node_device_conf.h"
++#include "xml.h"
++#include "threads.h"
++#include "logging.h"
++
++#include "nova_types.h"
++
++static virDrvOpenStatus novaOpen(virConnectPtr conn,
++                    virConnectAuthPtr auth ATTRIBUTE_UNUSED,
++                    int flags ATTRIBUTE_UNUSED)
++{
++    int res = 0;
++    int sockfd;
++
++    if (!conn->uri)
++        return VIR_DRV_OPEN_DECLINED;
++
++    if (!conn->uri->scheme || STRNEQ(conn->uri->scheme, "nova"))
++        return VIR_DRV_OPEN_DECLINED;
++
++    if (!conn->uri->server || !conn->uri->port || conn->privateData)
++        return VIR_DRV_OPEN_DECLINED;
++
++    sockfd = socket(AF_INET, SOCK_STREAM, 0);
++    if (sockfd < 0)
++      return VIR_DRV_OPEN_DECLINED;
++
++    struct sockaddr_in addr;
++    addr.sin_family = AF_INET;
++    addr.sin_port = htons(conn->uri->port);
++    if (1 != inet_pton(AF_INET, conn->uri->server, &addr.sin_addr))
++      return VIR_DRV_OPEN_DECLINED;
++
++    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr)))
++      return VIR_DRV_OPEN_DECLINED;
++
++    unsigned long _tmpsock = sockfd;
++    conn->privateData = (void *)_tmpsock;
++    printf("nova - %s - open connection to ...\n", res ? "failure" : "success");
++    return res;
++}
++
++static int novaClose(virConnectPtr conn)
++{
++    int res;
++
++    if (!conn->privateData) return -1;
++
++    res = close((long int)conn->privateData);
++    conn->privateData = 0;
++
++    printf("nova - %s - close connection to ...\n", res ? "failure" : "success");
++    return res;
++}
++
++#define create_nova_request(CONN, NOVAOPCODE, ERRORCODE, CODE) \
++  int sockfd = (long int)((CONN)->privateData); \
++\
++  unsigned char buf[NOVA_PACKET_LEN]; \
++  struct incoming_packet * _out = (struct incoming_packet *)&buf; \
++\
++  _out->version = htons(0xaffe); \
++  _out->opcode  = htons(NOVAOPCODE); \
++\
++  CODE \
++\
++  if (sizeof(buf) != write(sockfd, buf, sizeof(buf))) return ERRORCODE; \
++  unsigned ___count___ = 0; \
++  unsigned ___res___; \
++  while(___count___ < sizeof(buf)) { \
++    ___res___ = read(sockfd, buf, sizeof(buf) - ___count___); \
++    if (___res___ == -1) return ERRORCODE; \
++    ___count___ += ___res___; \
++  } \
++\
++  struct outgoing_packet * _in = (struct outgoing_packet *)&buf; \
++\
++  if (_in->version != htons(0xaffe)) return ERRORCODE; \
++  if (_in->opcode != htons(NOVAOPCODE)) return ERRORCODE; \
++  if (_in->result != NOVA_OP_SUCCEDED) return ERRORCODE 
++
++static int numOfDomains(virConnectPtr conn) {
++
++  create_nova_request(conn, NOVA_NUM_OF_ACTIVE_DOMAINS, -1, {});
++
++  uint32_t * num = (uint32_t *)&_in->opspecific;
++  uint32_t res = ntohl(*num);
++  return res;
++}
++
++static int listDomains (virConnectPtr conn,
++                            int *ids,
++                            int maxids)
++{
++  create_nova_request(conn, NOVA_LIST_ACTIVE_DOMAINS, -1, {});
++
++  unsigned i;
++  uint32_t * _ids  = (uint32_t *)&_in->opspecific;
++  uint32_t _maxids = ntohl(*_ids);
++
++  _ids++;
++
++  uint32_t max = _maxids < maxids ? _maxids : maxids;
++
++  for (i=0; i < max; i++) {
++    *ids = ntohl(*_ids);
++    ids++;
++    _ids++; 
++  }
++
++  return max;
++}
++
++static int numOfDefinedDomains(virConnectPtr conn) {
++  create_nova_request(conn, NOVA_NUM_OF_DEFINED_DOMAINS, -1, {});
++
++  uint32_t * num = (uint32_t *)&_in->opspecific;
++  uint32_t res = ntohl(*num);
++
++  return res;
++}
++
++static virDomainPtr domainLookupByID(virConnectPtr conn, int id)
++{
++  create_nova_request(conn, NOVA_GET_NAME_ID, NULL, 
++    {
++      uint32_t * out_id = (uint32_t *)&_out->opspecific;
++      *out_id = htonl(id);
++    });
++
++  unsigned char const * uuid = (unsigned char const *)&_in->opspecific;
++  char const * name = (char const *)&_in->opspecific + 16;
++
++  virDomainPtr res = virGetDomain(conn, name, uuid);
++  if (res) res->id = id;
++
++  return res;
++}
++
++static int domainCreate(virDomainPtr domain) {
++  create_nova_request(domain->conn, NOVA_VM_START, -1, {
++    unsigned char _uuid[VIR_UUID_BUFLEN];
++    if (-1 == virUUIDGenerate(_uuid)) return -1;
++
++    char * uuid = (char *)&_out->opspecific;
++    memcpy(uuid, domain->uuid, VIR_UUID_BUFLEN);
++    uuid += VIR_UUID_BUFLEN;
++    memcpy(uuid, _uuid, VIR_UUID_BUFLEN);
++  });
++
++  uint32_t * _op = (uint32_t *)&_in->opspecific;
++  int id = ntohl(*_op);
++
++  if (id) {
++    virDomainPtr res = domainLookupByID(domain->conn, id);
++    if (res) res->id = id;
++    else return -1;
++  }
++  return 0;
++}
++
++static int domainIsPersistent(virDomainPtr dom ATTRIBUTE_UNUSED) {
++  if (!dom) return -1;
++
++  if (dom->id == -1) return 1; //XXX fix it - guessing
++  return 0;
++}
++
++static int listDefinedDomains(virConnectPtr conn, char ** const names, int maxnames)
++{
++  unsigned i;
++  char * out;
++
++  create_nova_request(conn, NOVA_LIST_DEFINED_DOMAINS, -1, {
++      uint32_t * max = (uint32_t *)&_out->opspecific;
++      *max = htonl(maxnames);
++    });
++
++  uint32_t * _num = (uint32_t *)&_in->opspecific;
++  uint32_t    num = ntohl(*_num);
++  char     * name = (char *)&_in->opspecific + 4;
++
++  for (i=0; i < num; i++) {
++    uint32_t len   = strlen(name) + 1;
++  
++    if (-1 == virAlloc(&out, len)) return -1;
++    memcpy(out, name, len);
++    names[i] = out;
++    name += len;
++  }
++
++  return num;
++}
++
++static virDomainPtr domainLookupByName(virConnectPtr conn, const char * name)
++{
++  create_nova_request(conn, NOVA_GET_NAME, NULL,
++    {
++      //XXX sanity checks max len
++      memcpy(&_out->opspecific, name, strlen(name) + 1);
++    });
++
++  unsigned char const * uuid = (unsigned char const *)&_in->opspecific;
++  char const * _name = (char const *)&_in->opspecific + 16;
++
++  if (memcmp(name, _name, strlen(name) + 1)) return NULL;
++  virDomainPtr res = virGetDomain(conn, name, uuid);
++  if (res) res->id = -1;
++
++  return res;
++}
++
++static int domainShutdown (virDomainPtr domain)
++{
++  if (!domain || domain->id == -1) return -1;
++
++  create_nova_request(domain->conn, NOVA_VM_SHUTDOWN, -1, {
++      uint32_t * out_id = (uint32_t *)&_out->opspecific;
++      *out_id = htonl(domain->id);
++  });
++
++  return 0;
++}
++
++static int domainGetInfo (virDomainPtr domain,
++                          virDomainInfoPtr info)
++{
++  if (!info || !domain) return -1;
++
++  if (domain->id == -1)
++    info->state  = VIR_DOMAIN_NOSTATE;
++  else
++    info->state  = VIR_DOMAIN_RUNNING;
++
++  info->maxMem = 1024 * 1024; //: the maximum memory in KBytes allowed
++  info->memory = 1024 * 1024; //: the memory in KBytes used by the domain
++  info->nrVirtCpu = 1;        //: the number of virtual CPUs for the domain
++  info->cpuTime   = 5000000;     //  the CPU time used in nanoseconds
++
++  return 0;
++}
++
++static virDriver novaDriver = {
++    VIR_DRV_NOVA,
++    "NOVA",
++    novaOpen, /* open */
++    novaClose, /* close */
++    NULL, /* supports_feature */
++    NULL, /* type */
++    NULL, /* version */
++    NULL, /* libvirtVersion (impl. in libvirt.c) */
++    NULL, /* getHostname */
++    NULL, /* getSysinfo */
++    NULL, /* getMaxVcpus */
++    NULL, /* nodeGetInfo */
++    NULL, /* getCapabilities */
++    listDomains, /* listDomains */
++    numOfDomains, /* numOfDomains */
++    NULL, /* domainCreateXML */
++    domainLookupByID, /* domainLookupByID */
++    NULL, /* domainLookupByUUID */
++    domainLookupByName, /* domainLookupByName */
++    NULL, /* domainSuspend */
++    NULL, /* domainResume */
++    domainShutdown, /* domainShutdown */
++    NULL, /* domainReboot */
++    NULL, /* domainDestroy */
++    NULL, /* domainGetOSType */
++    NULL, /* domainGetMaxMemory */
++    NULL, /* domainSetMaxMemory */
++    NULL, /* domainSetMemory */
++    domainGetInfo, /* domainGetInfo */
++    NULL, /* domainSave */
++    NULL, /* domainRestore */
++    NULL, /* domainCoreDump */
++    NULL, /* domainSetVcpus */
++    NULL, /* domainSetVcpusFlags */
++    NULL, /* domainGetVcpusFlags */
++    NULL, /* domainPinVcpu */
++    NULL, /* domainGetVcpus */
++    NULL, /* domainGetMaxVcpus */
++    NULL, /* domainGetSecurityLabel */
++    NULL, /* nodeGetSecurityModel */
++    NULL, /* domainDumpXML */
++    NULL, /* domainXMLFromNative */
++    NULL, /* domainXMLToNative */
++    listDefinedDomains, /* listDefinedDomains */
++    numOfDefinedDomains, /* numOfDefinedDomains */
++    domainCreate, /* domainCreate */
++    NULL, /* domainCreateWithFlags */
++    NULL, /* domainDefineXML */
++    NULL, /* domainUndefine */
++
++    NULL, /* domainAttachDevice */
++    NULL, /* domainAttachDeviceFlags */
++    NULL, /* domainDetachDevice */
++    NULL, /* domainDetachDeviceFlags */
++    NULL, /* domainUpdateDeviceFlags */
++    NULL, /* domainGetAutostart */
++    NULL, /* domainSetAutostart */
++    NULL, /* domainGetSchedulerType */
++    NULL, /* domainGetSchedulerParameters */
++    NULL, /* domainSetSchedulerParameters */
++    NULL, /* domainMigratePrepare */
++    NULL, /* domainMigratePerform */
++    NULL, /* domainMigrateFinish */
++    NULL, /* domainBlockStats */
++    NULL, /* domainInterfaceStats */
++    NULL, /* domainMemoryStats */
++    NULL, /* domainBlockPeek */
++    NULL, /* domainMemoryPeek */
++    NULL, /* domainGetBlockInfo */
++    NULL, /* nodeGetCellsFreeMemory */
++    NULL, /* getFreeMemory */
++    NULL, /* domainEventRegister */
++    NULL, /* domainEventDeregister */
++    NULL, /* domainMigratePrepare2 */
++    NULL, /* domainMigrateFinish2 */
++    NULL, /* nodeDeviceDettach */
++    NULL, /* nodeDeviceReAttach */
++    NULL, /* nodeDeviceReset */
++    NULL, /* domainMigratePrepareTunnel */
++    NULL, /* isEncrypted */
++    NULL, /* isEncrypted */
++    NULL, /* domainIsActive */
++    domainIsPersistent, /* domainIsPersistent */
++    NULL, /* domainIsUpdated */
++    NULL, /* cpuCompare */
++    NULL, /* cpuBaseline */
++    NULL, /* domainGetJobInfo */
++    NULL, /* domainAbortJob */
++    NULL, /* domainMigrateSetMaxDowntime */
++    NULL, /* domainEventRegisterAny */
++    NULL, /* domainEventDeregisterAny */
++    NULL, /* domainManagedSave */
++    NULL, /* domainHasManagedSaveImage */
++    NULL, /* domainManagedSaveRemove */
++    NULL, /* domainSnapshotCreateXML */
++    NULL, /* domainSnapshotDumpXML */
++    NULL, /* domainSnapshotNum */
++    NULL, /* domainSnapshotListNames */
++    NULL, /* domainSnapshotLookupByName */
++    NULL, /* domainHasCurrentSnapshot */
++    NULL, /* domainSnapshotCurrent */
++    NULL, /* domainRevertToSnapshot */
++    NULL, /* domainSnapshotDelete */
++    NULL, /* qemuDomainMonitorCommand */
++    NULL, /* domainSetMemoryParameters */
++    NULL, /* domainGetMemoryParameters */
++    NULL, /* domainOpenConsole */
++};
++
++/**
++ * NOVA Register:
++ *
++ * Registers the NOVA driver
++ */
++int
++novaRegister(void)
++{
++    if (virRegisterDriver(&novaDriver) < 0) return -1;
++    return 0;
++}
+diff --git a/src/nova/nova_driver.h b/src/nova/nova_driver.h
+new file mode 100644
+index 0000000..a0253df
+--- /dev/null
++++ b/src/nova/nova_driver.h
+@@ -0,0 +1,8 @@
++#ifndef __VIR_NOVA_INTERNAL_H__
++# define __VIR_NOVA_INTERNAL_H__
++
++# include "internal.h"
++
++int novaRegister(void);
++
++#endif /* __VIR_NOVA_INTERNAL_H__ */
+diff --git a/src/nova/nova_types.h b/src/nova/nova_types.h
+new file mode 100644
+index 0000000..c8836bf
+--- /dev/null
++++ b/src/nova/nova_types.h
+@@ -0,0 +1,27 @@
++enum LIBVIRT_NOVA_OPCODE {
++  NOVA_OP_FAILED   = 0x8,
++  NOVA_OP_SUCCEDED = 0x9,
++  NOVA_PACKET_LEN  = 0x40,
++  NOVA_NUM_OF_ACTIVE_DOMAINS = 0x20,
++  NOVA_NUM_OF_DEFINED_DOMAINS,
++  NOVA_LIST_ACTIVE_DOMAINS,
++  NOVA_LIST_DEFINED_DOMAINS,
++  NOVA_GET_NAME_ID,
++  NOVA_GET_NAME,
++  NOVA_VM_START,
++  NOVA_VM_SHUTDOWN,
++  NOVA_UNSUPPORTED_VERSION
++};
++
++struct incoming_packet {
++  uint16_t version;
++  uint16_t opcode;
++  unsigned char opspecific;
++} __attribute__((packed));
++
++struct outgoing_packet {
++  uint16_t version;
++  uint16_t opcode;
++  uint8_t  result;
++  unsigned char opspecific;
++} __attribute__((packed));

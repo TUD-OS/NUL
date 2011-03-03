@@ -1,0 +1,14 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'remote_config',
+        SOURCES = [ 'main.cc', 'server.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        LIBS    = [ 'libip_lwip.a' ],
+        MEMSIZE = 2<<20)
+
+# EOF

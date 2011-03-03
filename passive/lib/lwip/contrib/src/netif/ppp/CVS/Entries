@@ -1,0 +1,27 @@
+/auth.c/1.21/Tue Feb 22 08:17:01 2011//
+/auth.h/1.5/Tue Feb 22 08:17:01 2011//
+/chap.c/1.15/Tue Feb 22 08:17:01 2011//
+/chap.h/1.6/Tue Feb 22 08:17:01 2011//
+/chpms.c/1.9/Tue Feb 22 08:17:01 2011//
+/chpms.h/1.5/Tue Feb 22 08:17:01 2011//
+/fsm.c/1.12/Tue Feb 22 08:17:01 2011//
+/fsm.h/1.5/Tue Feb 22 08:17:01 2011//
+/ipcp.c/1.15/Tue Feb 22 08:17:01 2011//
+/ipcp.h/1.4/Tue Feb 22 08:17:01 2011//
+/lcp.c/1.17/Tue Feb 22 08:17:01 2011//
+/lcp.h/1.4/Tue Feb 22 08:17:01 2011//
+/magic.c/1.6/Tue Feb 22 08:17:01 2011//
+/magic.h/1.3/Tue Feb 22 08:17:01 2011//
+/md5.c/1.8/Tue Feb 22 08:17:01 2011//
+/md5.h/1.2/Tue Feb 22 08:17:01 2011//
+/pap.c/1.16/Tue Feb 22 08:17:01 2011//
+/pap.h/1.6/Tue Feb 22 08:17:01 2011//
+/ppp.c/1.55/Tue Feb 22 10:36:07 2011//
+/ppp.h/1.20/Tue Feb 22 08:17:01 2011//
+/ppp_oe.c/1.19/Tue Feb 22 08:17:01 2011//
+/pppdebug.h/1.7/Tue Feb 22 08:17:01 2011//
+/randm.c/1.9/Tue Feb 22 08:17:01 2011//
+/randm.h/1.5/Tue Feb 22 08:17:01 2011//
+/vj.c/1.18/Tue Feb 22 08:17:01 2011//
+/vj.h/1.7/Tue Feb 22 08:17:01 2011//
+D
