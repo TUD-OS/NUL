@@ -1270,8 +1270,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   bool  receive(MessageNetwork &msg)
   {
     if (msg.type == MessageNetwork::PACKET) {
-      const uint8 *buf = msg.buffer;
-      Logging::printf("FWD Packet %u %02x%02x%02x%02x\n", msg.len, buf[0], buf[1], buf[2], buf[3]);
       for (unsigned i = 0; i < MAXMODULES; i++) {
         if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
       }
