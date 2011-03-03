@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <nul/compiler.h>
+
 /****************************************************/
 /* IOIO messages                                    */
 /****************************************************/
@@ -387,6 +389,8 @@ struct MessageVesa
 /****************************************************/
 
 class VCpu;
+typedef void (*ServiceThreadFn)(void *) REGPARM(0) NORETURN;
+
 /**
  * Request to the host, such as notify irq or request IO region.
  */
@@ -445,6 +449,7 @@ struct MessageHostOp
       unsigned msi_gsi;
       unsigned msi_value;
       unsigned long long msi_address;
+      unsigned cpu;
     };
     struct {
       unsigned long long mac;
@@ -452,10 +457,26 @@ struct MessageHostOp
     struct {
       VCpu *vcpu;
     };
+    struct {
+      ServiceThreadFn work;
+      void *work_arg;
+      unsigned prio;
+      unsigned cpu;
+    } _alloc_service_thread;
   };
+
+  static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg, unsigned prio = ~0U, unsigned cpu = ~0U)
+  {
+    MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
+    n._alloc_service_thread.work = work; n._alloc_service_thread.work_arg = arg;
+    n._alloc_service_thread.prio = prio; n._alloc_service_thread.cpu      = cpu;
+    return n;
+  }
+
   explicit MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   explicit MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
-  explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0) : type(_type), value(_value), ptr(0), len(_len) {}
+  explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0, unsigned _cpu=~0U) : type(_type), value(_value),
+                                                                                                      ptr(0), len(_len), cpu(_cpu) {}
   explicit MessageHostOp(Type _type, void * _value, unsigned long _len=0) : type(_type), obj(_value), ptr(0), len(_len) {}
   explicit MessageHostOp(void * _obj, char const * _name, unsigned long _pfu, bool _cap = true)
     : type(OP_REGISTER_SERVICE), obj(_obj), service_name(_name), portal_func(_pfu), cap(_cap), portal_pf(0), excbase(0), excinc(0), crd_t(0) {}
@@ -654,12 +675,26 @@ struct MessageTime
 
 struct MessageNetwork
 {
-  const unsigned char *buffer;
-  unsigned len;
-  unsigned client;
-  MessageNetwork(const unsigned char *_buffer, unsigned _len, unsigned _client) : buffer(_buffer), len(_len), client(_client) {}
-};
+  enum ops {
+    PACKET,
+    QUERY_MAC
+  };
 
+  unsigned type;
+
+  union {
+    struct {
+      const unsigned char *buffer;
+      unsigned len;
+    };
+    unsigned long long mac;
+  };
+
+  unsigned client;
+
+  MessageNetwork(const unsigned char *buffer, unsigned len, unsigned client) : type(PACKET), buffer(buffer), len(len), client(client) {}
+  MessageNetwork(unsigned type, unsigned client) : type(type), mac(0), client(client) { }
+};
 #include <nul/types.h>
 
 struct MessageVirtualNet

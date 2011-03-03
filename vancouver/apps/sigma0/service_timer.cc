@@ -71,10 +71,22 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
       ClientData *next;
       for (ClientData *head = _queue.dequeue_all(); head; head = next) {
         nr = head->nr;
+
         next = head->lifo_next;
         head->lifo_next = 0;
-        // xchg is a memory barrier
-        timevalue t = Cpu::xchg(&head->reltime, 0);
+
+        MEMORY_BARRIER;
+
+        // Dequeuing and reading reltime can race with setting reltime
+        // and enqueuing in the REQUEST_TIMER code, when reprogramming
+        // timers back-to-back. The requestor will enqueue the
+        // ClientData instance again, but we have already programmed
+        // the new timeout. When we dequeue it here, we program the
+        // same timeout again. If the timeout triggered in between,
+        // the client gets two wakeups, but since he called
+        // REQUEST_TIMER twice, he has to cope with that.
+        timevalue t = head->reltime;
+
         t *= GRANULARITY;
         _abs_timeouts.cancel(nr);
         _abs_timeouts.request(nr, now + t);
@@ -176,9 +188,7 @@ public:
         ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-        utcb << data->count;
-
-        data->count = 0;
+        utcb << Cpu::xchg(&data->count, 0U);
 
         return ENONE;
       }
@@ -214,7 +224,7 @@ public:
   }
 
   // wrapper
-  static void do_work(void *u, void *t)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<TimerService *>(t)->work(); }
+  static void do_work(void *t) REGPARM(0) NORETURN { reinterpret_cast<TimerService *>(t)->work(); }
   bool  receive(MessageHostOp  &msg) { return _hostmb.bus_hostop.send(msg); }
   bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(msg); }
   bool  receive(MessageIOIn &msg)    { return _hostmb.bus_hwioin.send(msg); }
@@ -251,8 +261,8 @@ public:
     _mymb.parse_args("hostpit:1000,0x40,2 hosthpet hostrtc");
 
     // create the worker thread
-    MessageHostOp msg2(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1UL);
-    msg2.ptr = reinterpret_cast<char *>(TimerService::do_work);
+    MessageHostOp msg2 = MessageHostOp::alloc_service_thread(TimerService::do_work,
+                                                             this, 1UL);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
   }

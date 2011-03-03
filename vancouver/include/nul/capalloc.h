@@ -17,6 +17,7 @@
 
 #pragma once
 #include <service/cpu.h>
+#include <sys/syscalls.h>
 
 /**
  * allocator and deallocator required which handle concurrency threads well XXX

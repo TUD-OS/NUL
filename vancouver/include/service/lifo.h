@@ -36,6 +36,6 @@ public:
     } while (Cpu::cmpxchg4b(reinterpret_cast<unsigned *>(&_head), reinterpret_cast<unsigned>(old), reinterpret_cast<unsigned>(value)) != reinterpret_cast<unsigned>(old));
   }
 
-  T *dequeue_all() { return reinterpret_cast<T *>(Cpu::xchg(reinterpret_cast<unsigned *>(&_head), 0)); }
+  T *dequeue_all() { return Cpu::xchg(&_head, static_cast<T*>(NULL)); }
   T *head() { return _head; }
 };

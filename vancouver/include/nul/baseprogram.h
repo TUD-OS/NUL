@@ -18,6 +18,8 @@
 #pragma once
 
 #include <sys/utcb.h>
+#include <sys/syscalls.h>
+
 /**
  * A simple program that allows to get the UTCB pointer from the stack.
  */
@@ -34,6 +36,11 @@ struct BaseProgram {
     if (!esp) asm volatile ("mov %%esp, %0" : "=g"(esp));
     return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
   };
+
+  /**
+   * Return my CPU number.
+   */
+  static unsigned mycpu() { return myutcb()->head.nul_cpunr; }
 
   /**
    * add mappings to a UTCB.

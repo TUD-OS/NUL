@@ -53,10 +53,8 @@ public:
   /**
    * Get the HPET address from the ACPI table.
    */
-  static unsigned long get_hpet_address(DBus<MessageAcpi> &bus_acpi, unsigned long address_overrride)
+  static unsigned long get_hpet_address(DBus<MessageAcpi> &bus_acpi)
   {
-    if (address_overrride != ~0ul) return address_overrride;
-
     MessageAcpi msg0("HPET");
     if (bus_acpi.send(msg0, true) && msg0.table)
       {

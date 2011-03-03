@@ -795,7 +795,7 @@ REGSET(Lapic,
        REG_RW(_LDR,           0x0d,          0, 0xff000000,)
        REG_RW(_DFR,           0x0e, 0xffffffff, 0xf0000000,)
        REG_RW(_SVR,           0x0f, 0x000000ff, 0x11ff,     update_irqs();)
-       REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0); return !value; )
+       REG_RW(_ESR,           0x28,          0, 0xffffffff, _ESR = Cpu::xchg(&_esr_shadow, 0U); return !value; )
        REG_RW(_ICR,           0x30,          0, 0x000ccfff, if (!send_ipi(_ICR, _ICR1)) COUNTER_INC("IPI missed");)
        REG_RW(_ICR1,          0x31,          0, 0xff000000,)
        REG_RW(_TIMER,         0x32, 0x00010000, 0x310ff, )

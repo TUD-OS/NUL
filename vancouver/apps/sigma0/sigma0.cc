@@ -587,7 +587,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Starts a configuration loaded during boottime. Configuration numbers start at zero.
    */
-  unsigned start_config(Utcb *utcb, unsigned which)
+  unsigned start_config(Utcb *utcb, unsigned which, unsigned &internal_id)
   {
     // Skip to interesting configuration
     char const *cmdline = 0;
@@ -616,13 +616,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         *(reinterpret_cast<char *>(mod->addr) + mod->size - 1) = 0;
       }
     }
-    return start_config(utcb, cmdline);
+    return start_config(utcb, cmdline, internal_id);
   }
 
   /**
    * Start a configuration from a stable memory region (mconfig). Region has to be zero terminated.
    */
-  unsigned start_config(Utcb *utcb, char const * mconfig)
+  unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id)
   {
     char const * file_name, * client_cmdline;
 
@@ -657,7 +657,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
-    res = _start_config(utcb, addr, fileinfo.size, mconfig, client_cmdline, sigma0_cmdlen);
+    res = _start_config(utcb, addr, fileinfo.size, mconfig, client_cmdline, sigma0_cmdlen, internal_id);
 
   map_out:
     //don't try to unmap from ourself "revoke(..., true)"
@@ -676,8 +676,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * mconfig, char const * client_cmdline, unsigned sigma0_cmdlen) {
-
+  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * mconfig,
+                         char const * client_cmdline, unsigned sigma0_cmdlen, unsigned &internal_id)
+  {
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
     Hip * modhip = 0;
@@ -794,6 +795,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _free_module:
     if (res) free_module(modinfo);
 
+    if (!res) internal_id = modinfo->id;
+
     return res;
   }
 
@@ -813,6 +816,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // change the tag
     Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+    // switch to view 0 so that you can see the changed tag
+    switch_view(global_mb, 0, _console_data[module].console);
 
     // free resources
     SemaphoreGuard l(_lock_mem);
@@ -821,11 +826,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     assert(r->size >= modinfo->physsize);
     _free_phys.add(Region(r->phys, modinfo->physsize));
     modinfo->physsize = 0;
+
     // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
     //free_module(modinfo);
-    return __LINE__;
+    return 0;
   }
 
 
@@ -962,7 +968,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	    if ((utcb->qual[1] < MEM_OFFSET) ||
 	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
-	        (CLIENT_BOOT_UTCB + 0x2000 < utcb->qual[1]))
+	        (utcb->qual[1] >= CLIENT_BOOT_UTCB + 0x2000))
 	    {
 	      Logging::printf("s0: unresolvable pagefault - killing client ...\n");
 	      kill_module(client);
@@ -1099,9 +1105,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ATTACH_MSI:
         {
           bool unlocked = msg.len;
-          unsigned cap = attach_msi(&msg, _cpunr[CPUGSI % _numcpus]);
+          unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
+          Logging::printf("Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
+          assert(cpu < 32);
+          unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
-          res = attach_irq(msg.msi_gsi, cap, unlocked, _cpunr[CPUGSI % _numcpus]);
+          res = attach_irq(msg.msi_gsi, cap, unlocked, cpu);
         }
         break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -1110,9 +1119,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (_gsi & (1 << gsi)) return true;
            _gsi |=  1 << gsi;
           unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
-          res = nova_assign_gsi(irq_cap, _cpunr[CPUGSI % _numcpus]);
+          unsigned cpu = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
+          res = nova_assign_gsi(irq_cap, cpu);
           check1(false, res != NOVA_ESUCCESS);
-          res = attach_irq(gsi, irq_cap, msg.len, _cpunr[CPUGSI % _numcpus]);
+          res = attach_irq(gsi, irq_cap, msg.len, cpu);
         }
         break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
@@ -1128,13 +1138,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
-          unsigned cpu = _cpunr[CPUGSI % _numcpus];
-          unsigned ec_cap = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, 0, msg.ptr);
-          unsigned prio;
-          if (msg.len == ~0u)
+          unsigned cpu = msg._alloc_service_thread.cpu;
+          if (cpu == ~0U) cpu = _cpunr[CPUGSI % _numcpus];
+          unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg, cpu,
+                                             _percpu[cpu].exc_base, 0,
+                                             reinterpret_cast<void *>(msg._alloc_service_thread.work));
+          unsigned prio = msg._alloc_service_thread.prio;
+          if (prio == ~0u)
             prio = 1;		// IDLE
           else
-            prio = msg.len ? 3 : 2;
+            prio = prio ? 3 : 2;
           return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
         }
         break;
@@ -1239,9 +1252,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	else
 	  {
 	    MessageNetwork msg2 = *msg;
-	    if (convert_client_ptr(modinfo, msg2.buffer, msg2.len)) return false;
+	    if ((msg2.type == MessageNetwork::PACKET) &&
+                convert_client_ptr(modinfo, msg2.buffer, msg2.len))
+              return false;
 	    msg2.client = client;
 	    utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
+            if (msg2.type == MessageNetwork::QUERY_MAC)
+              msg->mac = msg2.mac;
 	  }
       }
       break;
@@ -1252,9 +1269,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   bool  receive(MessageNetwork &msg)
   {
-    for (unsigned i = 0; i < MAXMODULES; i++)
-      if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
-    return true;
+    if (msg.type == MessageNetwork::PACKET) {
+      for (unsigned i = 0; i < MAXMODULES; i++) {
+        if (i != msg.client) _prod_network[i].produce(msg.buffer, msg.len);
+      }
+      return true;
+    }
+
+    // Don't pass along MAC queries.
+    return false;
   }
 
   // Virtual Network
@@ -1491,11 +1514,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Switch to our view.
    */
-  static void switch_view(Motherboard *mb, int view=0)
+  static void switch_view(Motherboard *mb, int view=0, unsigned short consoleid = console_id)
   {
     MessageConsole msg;
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
-    msg.id = console_id;
+    msg.id = consoleid;
     msg.view = view;
     mb->bus_console.send(msg);
   }
@@ -1551,45 +1574,47 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case MessageConsole::TYPE_KEY:
       // forward the key to the named console
       for (unsigned i=1; i < MAXMODULES; i++)
-	if (_console_data[i].console == msg.id)
-	  {
-	    MessageInput item((msg.view << 16) | (msg.input_device & 0xffff), msg.input_data);
-	    _console_data[i].prod_stdin.produce(item);
-	    return true;
-	  }
+        if (_console_data[i].console == msg.id)
+        {
+          MessageInput item((msg.view << 16) | (msg.input_device & 0xffff), msg.input_data);
+          _console_data[i].prod_stdin.produce(item);
+          return true;
+        }
       Logging::printf("s0: drop input %x at console %x.%x\n", msg.input_data, msg.id, msg.view);
       break;
     case MessageConsole::TYPE_RESET:
       if (msg.id == 0)
-	{
-	  Logging::printf("s0: flush disk caches for reboot\n");
-	  for (unsigned i = 0; i < _mb->bus_disk.count(); i++) {
-	    MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, i, 0, 0, 0, 0, 0, 0);
-	    if (!_mb->bus_disk.send(msg2))  Logging::printf("s0: could not flush disk %d\n", i);
-	  }
-	  return true;
-	}
+        {
+          Logging::printf("s0: flush disk caches for reboot\n");
+          for (unsigned i = 0; i < _mb->bus_disk.count(); i++) {
+            MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, i, 0, 0, 0, 0, 0, 0);
+            if (!_mb->bus_disk.send(msg2))  Logging::printf("s0: could not flush disk %d\n", i);
+          }
+          return true;
+        }
       break;
     case MessageConsole::TYPE_START:
       {
         unsigned res;
+        unsigned internal_id;
         if (msg.id == (~0U & ((1 << (sizeof(msg.id) * 8)) - 1) )) {
-          res = start_config(myutcb(), msg.cmdline);
+          res = start_config(myutcb(), msg.cmdline, internal_id);
           if (res) {
-            Logging::printf("s0: starting configuration failed, error line = %d, config :\n", res);
+            Logging::printf("s0: start of config failed, error line = %d, config :\n'", res);
             fancy_output(msg.cmdline, 4096);
-          }
+          } else msg.id = internal_id;
         } else {
-          res = start_config(myutcb(), msg.id);
+          res = start_config(myutcb(), msg.id, internal_id);
           if (res)
-            Logging::printf("s0: starting configuration failed, error line = %d, config id=%d\n", res, msg.id);
+            Logging::printf("s0: start of config failed, error line = %d, config id=%d\n", res, msg.id);
+          else msg.id = internal_id;
         }
         return !res;
       }
     case MessageConsole::TYPE_KILL:
       {
         unsigned res = kill_module(msg.id);
-        if (res)   Logging::printf("s0: kill module(%d) = %x\n", msg.id, res);
+        if (res)   Logging::printf("s0: kill module(%d) = %u\n", msg.id, res);
       }
       return true;
     case MessageConsole::TYPE_DEBUG:

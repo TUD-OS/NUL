@@ -47,7 +47,7 @@ public:
       if (hmem->type != -2 || !hmem->size || !hmem->aux) continue;
       char * virt_aux = reinterpret_cast<char *>(hmem->aux);
       len = strcspn(virt_aux, " \t\r\n\f");
-      if (len >= 10 && !strncmp(virt_aux + len - 10, ".nulconfig", 10)) continue; //skip configuration files for security/spying reasons
+//      if (len >= 10 && !strncmp(virt_aux + len - 10, ".nulconfig", 10)) continue; //skip configuration files for security/spying reasons
       if (strcmp(virt_aux, text)) continue;
       return hmem;
     }

@@ -132,8 +132,7 @@ struct Utcb
     template <typename T>
     bool get_word(T &value) {
       unsigned words = (sizeof(T) + sizeof(unsigned) - 1) / sizeof(unsigned);
-      if (_consumed + words > _utcb->head.untyped)
-	return true;
+      if (_consumed + words > _utcb->head.untyped) return true;
       value = *reinterpret_cast<T *>(_utcb->msg+_consumed);
       _consumed += words;
       return false;
@@ -154,8 +153,8 @@ struct Utcb
     char *get_zero_string(unsigned &len) {
       char *res = get_string(len);
       if (res) {
-	res[len - 1] = 0;
-	len = strnlen(res, len);
+        res[len - 1] = 0;
+        len = strnlen(res, len);
       }
       return res;
     }

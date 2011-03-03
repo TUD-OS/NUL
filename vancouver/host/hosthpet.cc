@@ -137,7 +137,8 @@ public:
 PARAM(hosthpet,
       {
 	unsigned timer = ~argv[0] ? argv[0] : 0;
-	unsigned long address = BasicHpet::get_hpet_address(mb.bus_acpi, argv[1]);
+        unsigned long address = argv[1];
+        if (address == ~0U) address = BasicHpet::get_hpet_address(mb.bus_acpi);
 	unsigned irq = argv[2];
 
 	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
@@ -147,7 +148,6 @@ PARAM(hosthpet,
 	  Logging::printf("This is not an HPET timer at %lx timer %x\n", address, timer);
 	  return;
 	}
-
 
 	// create device
 	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, argv[3], argv[4]);

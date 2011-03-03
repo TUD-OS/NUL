@@ -28,7 +28,9 @@ void *memalloc_mempool(unsigned long size, unsigned long align)
 {
   // align needs to be a power of two
   assert(!(align & (align - 1)));
-  if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
+  // Force a minimum alignment of 16 to be on the safe side with SSE
+  // and atomic ops.
+  if (align < 16) align = 16;
 
   extern char __mempoolstart, __mempoolend;
   static char *s = &__mempoolend;
@@ -48,6 +50,7 @@ void *(*memalloc)(unsigned long size, unsigned long align) = memalloc_mempool;
 void * operator new(unsigned size)   { return memalloc(size, 0); }
 void * operator new[](unsigned size) { return memalloc(size, 0); }
 void * operator new[](unsigned size, unsigned alignment) { return memalloc(size, alignment); }
+void * operator new(unsigned size, unsigned alignment) { return memalloc(size, alignment); }
 void (*memfree)(void *ptr) = memfree_mempool;
 void   operator delete(void *ptr)    { memfree(ptr); }
 void   operator delete[](void *ptr)  { memfree(ptr);  }

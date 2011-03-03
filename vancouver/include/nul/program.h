@@ -33,8 +33,9 @@ extern char __image_start, __image_end;
 
 // cap map
 RegionList<512> _cap_region;
-// not multi-threaded safe - lock by your own or use separate cap allocator !
+// Not multi-threaded safe - lock by your own or use separate cap allocator -> alloc_cap/dealloc_cap in nul/capalloc.h !
 unsigned alloc_cap_region(unsigned count, unsigned align_order) { return _cap_region.alloc(count, align_order); }
+void dealloc_cap_region(unsigned base, unsigned count) { return _cap_region.add(Region(base, count)); }
 
 /**
  * Contains common code for nova programms.

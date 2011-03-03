@@ -52,7 +52,8 @@ struct Script : public StaticReceiver<Script> {
   /**
    * Do the actual work.
    */
-  void work(Utcb &utcb) __attribute__((noreturn))  {
+  void work() __attribute__((noreturn))  {
+    Utcb &utcb = *BaseProgram::myutcb();
     while (1) {
       _worker.down();
 
@@ -97,7 +98,7 @@ struct Script : public StaticReceiver<Script> {
   }
 
   // wrapper
-  static void do_work(void *u, void *t, Utcb * utcb)  __attribute__((regparm(1), noreturn)) { reinterpret_cast<Script *>(t)->work(*utcb); }
+  static void do_work(void *t)  REGPARM(0) NORETURN { reinterpret_cast<Script *>(t)->work(); }
 
   void add(ScriptItem *item) {
     assert(!item->next);
@@ -131,8 +132,8 @@ struct Script : public StaticReceiver<Script> {
     _worker = KernelSemaphore(_service_timer->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg(MessageHostOp::OP_ALLOC_SERVICE_THREAD, this, 1);
-    msg.ptr = reinterpret_cast<char *>(Script::do_work);
+    MessageHostOp msg = MessageHostOp::alloc_service_thread(Script::do_work,
+                                                             this, 1UL);
     if (!mb->bus_hostop.send(msg))
       Logging::panic("sc: %s alloc service thread failed", __func__);
   }
