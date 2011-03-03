@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath("../vancouver/tools/"))
 # least specific!
 Repository('../demo')
 Repository('../vancouver')
+Repository('../passive')
 
 # We pull the top-level SCons logic from the first repository that has
 # a SConscript file in its root directory.

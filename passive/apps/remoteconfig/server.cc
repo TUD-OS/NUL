@@ -152,9 +152,8 @@ void Remcon::handle_packet(void) {
       
           memcpy(&_out->opspecific, server_data[i].uuid, UUID_LEN);
           memcpy(&_out->opspecific + UUID_LEN, server_data[i].showname, len);
-          *(&_out->opspecific +UUID_LEN + len) = 0;
+          *(&_out->opspecific + UUID_LEN + len) = 0;
           _out->result  = NOVA_OP_SUCCEDED;
-
           break;
         }
         break;
@@ -171,8 +170,7 @@ void Remcon::handle_packet(void) {
 
         memcpy(&_out->opspecific, server_data[localid].uuid, UUID_LEN);
         memcpy(&_out->opspecific + UUID_LEN, server_data[localid].showname, len);
-        *(&_out->opspecific +UUID_LEN + len) = 0;
-
+        *(&_out->opspecific + UUID_LEN + len - 1) = 0;
         _out->result  = NOVA_OP_SUCCEDED;
         break;
       }
