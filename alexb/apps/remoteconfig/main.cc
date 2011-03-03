@@ -86,8 +86,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       Logging::printf("%s - request network attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
 
-	    MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
-      res = Sigma0Base::hostop(msg_op);
+      //MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
+      //res = Sigma0Base::hostop(msg_op);
+      MessageNetwork msg_op(MessageNetwork::QUERY_MAC, 0);
+      res = Sigma0Base::network(msg_op);
       Logging::printf("%s - mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx\n",
                       (res == 0 ? "success" : "failure"),
                       (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
