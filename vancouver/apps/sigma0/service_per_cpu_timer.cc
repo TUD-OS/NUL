@@ -710,6 +710,14 @@ public:
         ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
+        Logging::printf("Timer: RT dummy!\n");
+        #warning Dummy
+        MessageTime msg;
+        msg.wallclocktime = 0;
+        msg.timestamp = _mb.clock()->time();
+        utcb << msg;
+        return ENONE;
+
         // TimerProtocol::MessageTime _msg;
         // if (!input.get_word(_msg)) return EABORT;
   
