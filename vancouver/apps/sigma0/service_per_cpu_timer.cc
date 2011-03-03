@@ -151,7 +151,8 @@ class PerCpuTimerService : private BasicHpet,
     // the nice benefit of helping.
     // volatile uint64 now;
     // volatile uint64 delta;
-    volatile uint64 abstimeout;
+    volatile uint64   abstimeout;
+    volatile unsigned count;
 
     unsigned nr;
     unsigned cpu;
@@ -291,6 +292,7 @@ public:
     while ((nr = per_cpu->abstimeouts.trigger(now, &data))) {
       per_cpu->abstimeouts.cancel(nr);
       assert(data);
+      Cpu::atomic_xadd(&data->count, 1U);
       unsigned res = nova_semup(data->identity);
       if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared\n");
     }
@@ -699,10 +701,8 @@ public:
         ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-        // utcb << Cpu::xchg(&data->count, 0U);
-
-        // return ENONE;
-        return EABORT;
+        utcb << Cpu::xchg(&data->count, 0U);
+        return ENONE;
       }
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
