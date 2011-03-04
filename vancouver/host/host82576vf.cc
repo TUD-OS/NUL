@@ -317,12 +317,25 @@ public:
 
 PARAM(host82576vf, {
     HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-    uint16 parent_bdf = argv[0];
     unsigned vf_no    = argv[1];
     bool   promisc    = (argv[2] == ~0U) ? 0 : argv[2] ;
     uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
-    uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
+    // Find parent BDF
+    uint16 parent_bdf = argv[0];
+    unsigned found = 0;
+
+    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+      unsigned cfg0 = pci.conf_read(bdf, 0x0);
+      if (cfg0 == 0x10c98086) {
+	if (found++ == argv[0]) {
+          parent_bdf = bdf;
+          break;
+	}
+      }
+    }
+
+    uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
     if (pci.vf_device_id(parent_bdf) != 0x10ca8086) {
       Logging::printf("Invalid device.\n");
@@ -370,7 +383,7 @@ PARAM(host82576vf, {
     mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
     mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
   },
-  "host82576vf:parent,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.",
-  "Example: 'host82576vf:0x100,0'");
+  "host82576vf:pf,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.",
+  "Example: 'host82576vf:0,0'");
 
 // EOF
