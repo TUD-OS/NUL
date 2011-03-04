@@ -55,7 +55,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       res = Sigma0Base::network(net);
 
       if (res) Logging::printf("%s - sending packet to network, len = %u, res= %u\n", 
-                               (res == 0 ? "success" : "failure"), len, res);
+                               (res == 0 ? "done   " : "failure"), len, res);
     }
 
     static
@@ -77,21 +77,23 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
 
-      Logging::printf("%s - request timer attach\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request timer attach\n", (res == 0 ? "done   " : "failure"));
       if (res) return false;
 
       KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
       res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
 
-      Logging::printf("%s - request network attach\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request network attach\n", (res == 0 ? "done   " : "failure"));
       if (res) return false;
 
-      //MessageHostOp msg_op(MessageHostOp::OP_GET_MAC, 0UL);
-      //res = Sigma0Base::hostop(msg_op);
       MessageNetwork msg_op(MessageNetwork::QUERY_MAC, 0);
       res = Sigma0Base::network(msg_op);
+      if (res) {
+        MessageHostOp msg_op1(MessageHostOp::OP_GET_MAC, 0UL);
+        res = Sigma0Base::hostop(msg_op1);
+      }
       Logging::printf("%s - mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx\n",
-                      (res == 0 ? "success" : "failure"),
+                      (res == 0 ? "done   " : "failure"),
                       (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
                       (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
                       (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF);
@@ -115,7 +117,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       } conn = { 9999, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      Logging::printf("success - configuration done, tcp port=%lu\n", conn.port);
+      Logging::printf("done    - tcp port=%lu\n", conn.port);
 
       while (1) {
         unsigned char *buf;
