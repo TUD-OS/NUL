@@ -461,15 +461,28 @@ PARAM(dpci,
 PARAM(vfpci,
       {
 	HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	unsigned parent_bdf = argv[0];
-	unsigned vf_no      = argv[1];
+	unsigned vf_no      = argv[2];
+
+        // Find parent BDF
+        uint16 parent_bdf = 0;
+        unsigned found = 0;
+
+        for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+          unsigned cfg0 = pci.conf_read(bdf, 0x0);
+          if (cfg0 == argv[0]) {
+            if (found++ == argv[1]) {
+              parent_bdf = bdf;
+              break;
+            }
+          }
+        }
 
 	// Check if VF exists, before creating the object.
 	unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
 	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
 	Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[2], true, true, parent_bdf, vf_no, true);
+	new DirectPciDevice(mb, 0, argv[3], true, true, parent_bdf, vf_no, true);
       },
-      "vfpci:parent_bdf,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
+      "vfpci:parent_id,parent_no,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
       "If no guest_bdf is given, a free one is used.")
