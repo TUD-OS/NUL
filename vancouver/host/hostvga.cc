@@ -25,6 +25,8 @@
 #include "nul/baseprogram.h"
 #include "nul/service_timer.h"
 
+static unsigned long _kiosk_mode = 0;
+
 /**
  * A VGA console.
  *
@@ -173,12 +175,14 @@ private:
 
     // numeric keys start new modules
     if ((num = GenericKeyboard::is_numeric_key(msg.data, _modifier_switch))) {
+      if (_kiosk_mode) return false;
       MessageConsole msg1(MessageConsole::TYPE_START, num - 1);
       return _mb.bus_console.send(msg1);
     }
 
     // funckeys together with lctrl to debug
     if ((num = GenericKeyboard::is_function_key(msg.data, _modifier_switch ^ KBFLAG_LCTRL))) {
+      if (_kiosk_mode) return false;
       MessageConsole msg1(MessageConsole::TYPE_DEBUG, num -1);
       _mb.bus_console.send(msg1);
       return false;
@@ -189,6 +193,7 @@ private:
       {
       case 0x42: // k - kill active module
 	{
+	  if (_kiosk_mode) return false;
 	  // switch to view 0
 	  _clients[_active_client].active_view = 0;
 
@@ -232,6 +237,7 @@ private:
       {
       case KBCODE_END:
 	{
+	  if (_kiosk_mode) return false;
 	  MessageConsole msg1(MessageConsole::TYPE_RESET);
 	  return _mb.bus_console.send(msg1);
 	}
@@ -475,6 +481,7 @@ public:
   }
 };
 
+PARAM(kiosk_mode, _kiosk_mode = 1;, "kiosk_mode - disable starting of VMs via keyboard inputs and disable debugging keys")
 PARAM(hostvga,
       {
 	unsigned modifier_switch = ~argv[0] ? argv[0] : (0 + KBFLAG_LWIN);
