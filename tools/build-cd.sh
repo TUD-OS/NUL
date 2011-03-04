@@ -57,10 +57,9 @@ cp $BINARIES/linux/initrd-udo $ISO_DIR/linux/initrd || exit 4
 # ISOLINUX config
 
 #SARGS="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12 tracebuffer:10240 vdisk:rom:///linux/grml.iso hostne2k "
-SARGS="  S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12     tracebuffer:10240 vdisk:rom:///linux/grml.iso hostne2k script_start:1"
-SARGS_K="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12,1,1 tracebuffer:10240 vdisk:rom:///linux/grml.iso hostne2k script_start:1"
+SARGS_K="S0_DEFAULT hostvga:0x40000,0x40000 hostkeyb:0,0x60,1,12,1,1 tracebuffer:10240 vdisk:rom:///linux/grml.iso nubus host82576:0 host82576vf:0,0 hostne2k service_config script_start:1"
 
-BINARIES=" /nul/tutor_nul.gz --- /nul/cycleburner_nul.gz  --- /nul/rocknshine_nul.gz --- /nul/eurosys.slides  --- /nul/vancouver_nul.gz --- /nul/remote_config_nul.gz --- /tools/munich --- /linux/bzImage --- /linux/bzImage --- /linux/initrd  --- /linux/grml.iso  --- /pistachio/i686_kernel  --- /pistachio/kickstart  --- /pistachio/sigma0  --- /pistachio/pingpong  --- /fiasco/fiasco  --- /fiasco/bootstrap  --- /fiasco/pingpong  --- /fiasco/roottask  --- /fiasco/sigma0  --- /tutor.template --- /linux.template  --- /grml.template  --- /pistachio/pistachio.template  --- /fiasco/fiasco.template  --- /cycleburner.template --- /rocknshine.template --- /empty.nulconfig sigma0::mem:12 name::/s0/timer name::/s0/config name::/s0/fs/rom || rom:///nul/remote_config_nul.gz linux:rom:///linux.template  grml:rom:///grml.template fiasco:rom:///fiasco/fiasco.template pistachio:rom:///pistachio/pistachio.template cycleburner:rom:///cycleburner.template"
+BINARIES=" /nul/cycleburner_nul.gz  --- /nul/rocknshine_nul.gz --- /nul/eurosys.slides  --- /nul/vancouver_nul.gz --- /nul/remote_config_nul.gz --- /tools/munich --- /linux/bzImage --- /linux/bzImage --- /linux/initrd  --- /linux/grml.iso  --- /pistachio/i686_kernel  --- /pistachio/kickstart  --- /pistachio/sigma0  --- /pistachio/pingpong  --- /fiasco/fiasco  --- /fiasco/bootstrap  --- /fiasco/pingpong  --- /fiasco/roottask  --- /fiasco/sigma0 --- /linux.template  --- /grml.template  --- /pistachio/pistachio.template  --- /fiasco/fiasco.template  --- /cycleburner.template --- /rocknshine.template --- /empty.nulconfig sigma0::mem:12 name::/s0/timer name::/s0/config name::/s0/fs/rom || rom:///nul/remote_config_nul.gz linux:rom:///linux.template  grml:rom:///grml.template fiasco:rom:///fiasco/fiasco.template pistachio:rom:///pistachio/pistachio.template cycleburner:rom:///cycleburner.template"
 
 cat > $ISO_DIR/isolinux/isolinux.cfg <<EOF
 
