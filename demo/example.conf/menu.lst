@@ -2,13 +2,20 @@ title example nul config
 kernel /nul/hypervisor.new
 modaddr 0x6000000
 module /nul/sigma0.nul.gz S0_DEFAULT \
-  hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 script_start:1,64
+  hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 script_start:1,1 \
+  service_config
 module /nul/vancouver.nul.gz
+module /nul/remote_config.nul.gz
 module /tools/munich
 module /linux/bzImage
 module /linux/initrd1.lzma
 module /linux/initrd2.lzma
 module /linux/initrd3.lzma
+module /cfg/empty.nulconfig \
+  sigma0::mem:12 name::/s0/timer name::/s0/config name::/s0/fs/rom || \
+  rom:///nul/remote_config.nul.gz \
+    vmm1:rom:///cfg/vmm1.nulconfig \
+    vmm2:rom:///cfg/vmm2.nulconfig
 module /cfg/vmm1.nulconfig
 module /cfg/vmm2.nulconfig
 module /cfg/empty.nulconfig \
