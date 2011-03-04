@@ -61,7 +61,7 @@ struct nul_tcp_struct {
  * time
  */
 u32_t sys_now(void) {
-  Logging::printf("unimpl. - time\n"); return 0;
+  Logging::printf("        - sys_now unimpl.\n"); return 0;
 }
 
 /*
@@ -224,6 +224,8 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
   } else {
     total = 0;
     Logging::printf("[tcp] connection closed - %p err %u\n", p, err);
+
+    tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections XXX
   }
 
   return ERR_OK;
@@ -240,7 +242,7 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
                    (newpcb->remote_ip.addr >> 16) & 0xff, (newpcb->remote_ip.addr >> 24) & 0xff,
                     newpcb->remote_port, newpcb->local_port);
 
-  tcp_accepted(tcp_struct->listening_pcb);
+  //tcp_accepted(tcp_struct->listening_pcb); //we support for the moment only one incoming connection XXX
 
   return ERR_OK;
 }
@@ -291,7 +293,7 @@ bool nul_ip_config(unsigned para, void * arg) {
       return true;
     case 2: /* dump ip addr to screen */
       if (last_ip_addr.addr != nul_netif.ip_addr.addr) {
-        Logging::printf("ip addr changed = %u.%u.%u.%u\n",
+        Logging::printf("update  - got ip address %u.%u.%u.%u\n",
                         nul_netif.ip_addr.addr & 0xff,
                         (nul_netif.ip_addr.addr >> 8) & 0xff,
                         (nul_netif.ip_addr.addr >> 16) & 0xff,
