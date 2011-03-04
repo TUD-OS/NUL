@@ -115,7 +115,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       } conn = { 9999, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      Logging::printf("success - remote config is online, tcp port=%lu\n", conn.port);
+      Logging::printf("success - configuration done, tcp port=%lu\n", conn.port);
 
       while (1) {
         unsigned char *buf;
@@ -132,7 +132,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
           if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
 
           //dump ip addr if we got one
-          nul_ip_config(IP_IPADDR_DUMP, NULL);
+          if (nul_ip_config(IP_IPADDR_DUMP, NULL))
+            Logging::printf("ready   - NOVA management daemon is up. Waiting for libvirt connection ... \n");
         }
 
         while (netconsumer->has_data()) {
@@ -154,7 +155,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     console_init("remote config");
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
 
-    Logging::printf("booting - remote config ...\n");
+    Logging::printf("booting - NOVA management daemon ...\n");
 
     if (!use_network(utcb, hip, alloc_cap())) Logging::printf("failure - starting ip stack\n");
   }

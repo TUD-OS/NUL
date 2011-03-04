@@ -223,7 +223,7 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
     pbuf_free(p);
   } else {
     total = 0;
-    Logging::printf("[tcp] connection closed ? %p err %u\n", p, err);
+    Logging::printf("[tcp] connection closed - %p err %u\n", p, err);
   }
 
   return ERR_OK;
@@ -234,6 +234,11 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 
   tcp_recv(newpcb, nul_tcp_recv); 
   tcp_arg(newpcb, tcp_struct);
+
+  Logging::printf("[tcp] connection from %u.%u.%u.%u:%u -> %u \n",
+                   (newpcb->remote_ip.addr) & 0xff, (newpcb->remote_ip.addr >> 8) & 0xff,
+                   (newpcb->remote_ip.addr >> 16) & 0xff, (newpcb->remote_ip.addr >> 24) & 0xff,
+                    newpcb->remote_port, newpcb->local_port);
 
   tcp_accepted(tcp_struct->listening_pcb);
 
