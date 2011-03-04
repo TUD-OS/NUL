@@ -391,11 +391,11 @@ index 0000000..ea92965
 +  return res;
 +}
 +
-+static int domainShutdown (virDomainPtr domain)
++static int domainDestroy (virDomainPtr domain)
 +{
 +  if (!domain || domain->id == -1) return -1;
 +
-+  create_nova_request(domain->conn, NOVA_VM_SHUTDOWN, -1, {
++  create_nova_request(domain->conn, NOVA_VM_DESTROY, -1, {
 +      uint32_t * out_id = (uint32_t *)&_out->opspecific;
 +      *out_id = htonl(domain->id);
 +  });
@@ -443,9 +443,9 @@ index 0000000..ea92965
 +    domainLookupByName, /* domainLookupByName */
 +    NULL, /* domainSuspend */
 +    NULL, /* domainResume */
-+    domainShutdown, /* domainShutdown */
++    NULL, /* domainShutdown */
 +    NULL, /* domainReboot */
-+    NULL, /* domainDestroy */
++    domainDestroy, /* domainDestroy */
 +    NULL, /* domainGetOSType */
 +    NULL, /* domainGetMaxMemory */
 +    NULL, /* domainSetMaxMemory */
@@ -573,7 +573,7 @@ index 0000000..c8836bf
 +  NOVA_GET_NAME_ID,
 +  NOVA_GET_NAME,
 +  NOVA_VM_START,
-+  NOVA_VM_SHUTDOWN,
++  NOVA_VM_DESTROY,
 +  NOVA_UNSUPPORTED_VERSION
 +};
 +

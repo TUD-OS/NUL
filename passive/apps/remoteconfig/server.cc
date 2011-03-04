@@ -238,7 +238,7 @@ void Remcon::handle_packet(void) {
         }
         break;
       }
-    case NOVA_VM_SHUTDOWN:
+    case NOVA_VM_DESTROY:
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
         uint32_t localid = Math::ntohl(*_id) - 1;
