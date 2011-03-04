@@ -73,7 +73,7 @@ struct Script : public StaticReceiver<Script> {
       	} else
         if (item.type ==ScriptItem::TYPE_START) {
           Logging::printf("sc: start %ld-%ld count %ld\n", item.param0, item.param1, item.param2);
-          bool cont = false;
+          bool cont = true;
           while (item.param2--) {
             for (unsigned long nr = 0; nr < item.param1; nr++) {
               MessageConsole msg2(MessageConsole::TYPE_START, item.param0 + nr);
@@ -93,7 +93,10 @@ struct Script : public StaticReceiver<Script> {
           } else
           assert(0);
       }
-      Logging::printf("sc: << script done >>\n");
+      if (_head)
+        Logging::printf("sc: waiting ...\n");
+      else
+        Logging::printf("sc: done.\n");
     }
   }
 
