@@ -601,7 +601,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (!(len >= 10 && !strncmp(cmdline + len - 10, ".nulconfig", 10))) continue;
       if (configs++ == which) break;
     }
-    if (!mod) return __LINE__;
+    if (!mod) {
+      Logging::printf ("Cannot find configuration %u.\n", which);
+      return __LINE__;
+    }
     if (mod->size == 1) {
       if (!(len = strcspn(cmdline, " \t\r\n\f"))) return __LINE__;
       cmdline += len;
