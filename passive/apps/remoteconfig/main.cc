@@ -19,6 +19,7 @@
 #include <nul/service_timer.h> //TimerService
 #include <nul/service_log.h>
 #include <nul/service_config.h>
+#include <service/endian.h>
 
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
@@ -86,19 +87,22 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       Logging::printf("%s - request network attach\n", (res == 0 ? "done   " : "failure"));
       if (res) return false;
 
+      unsigned long long nmac;
       MessageNetwork msg_op(MessageNetwork::QUERY_MAC, 0);
       res = Sigma0Base::network(msg_op);
+      nmac = msg_op.mac;
       if (res) {
         MessageHostOp msg_op1(MessageHostOp::OP_GET_MAC, 0UL);
         res = Sigma0Base::hostop(msg_op1);
+        nmac = msg_op1.mac;
       }
       Logging::printf("%s - mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx\n",
                       (res == 0 ? "done   " : "failure"),
-                      (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
-                      (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
-                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF);
+                      (nmac >> 40) & 0xFF, (nmac >> 32) & 0xFF,
+                      (nmac >> 24) & 0xFF, (nmac >> 16) & 0xFF,
+                      (nmac >> 8) & 0xFF, (nmac) & 0xFF);
 
-      unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
+      unsigned long long mac = Endian::hton64(nmac) >> 16;
 
       if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failure - request for timeout\n");
 
