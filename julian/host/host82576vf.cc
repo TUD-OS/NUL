@@ -322,7 +322,7 @@ PARAM(host82576vf, {
     uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
 
     // Find parent BDF
-    uint16 parent_bdf = argv[0];
+    uint16 parent_bdf = 0;
     unsigned found = 0;
 
     for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
