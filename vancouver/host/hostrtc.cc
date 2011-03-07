@@ -20,26 +20,20 @@
 #include "service/math.h"
 #include "service/time.h"
 
+#include <host/rtc.h>
+
 /**
  * Readout the current time+date from the RTC.
  *
  * State: stable
  * Documentation: rtc82885.pdf, MC146818AS.pdf, Intel ICH{3-7} documentation
  */
-class HostRtc : public StaticReceiver<HostRtc>
+class HostRtc : public StaticReceiver<HostRtc>,
+                private BasicRtc
 {
-  #include "host/simplehwioin.h"
-  #include "host/simplehwioout.h"
-
-  enum {
-    MS_TIMEOUT = 2000, // milliseconds
-  };
-  unsigned _iobase;
   timevalue _wallclocktime;
   timevalue _timestamp;
 
-
-  unsigned char rtc_read (unsigned index)  {  outb(index, _iobase);  return inb(_iobase + 1);  };
 public:
 
   bool  receive(MessageTime &msg)
@@ -50,60 +44,17 @@ public:
   }
 
   HostRtc(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, Clock *clock, unsigned iobase)
-    : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _iobase(iobase)
+    : BasicRtc(bus_hwioin, bus_hwioout, iobase)
   {
 
-    if (rtc_read(0xb) & 0x80) Logging::panic("RTC does not count (SET==1)!");
-
-    /**
-     * We wait for an update to happen to get a more accurate timing.
-     *
-     * Instead of triggering on the UIP flag, which is typically
-     * enabled for less than 2ms, we wait on the Update-Ended-Flag
-     * which is set on the falling edge of the UIP flag and sticky
-     * until read out.
-     */
-    rtc_read(0xc); // clear it once
-    timevalue now = clock->clock(1000);
-    unsigned char flags = 0;
-    do
-      flags |= rtc_read(0xc);
-    while (now + MS_TIMEOUT >= clock->clock(1000) && ~flags & 0x10);
-    if (~flags & 0x10) Logging::printf("no RTC update within %d milliseconds! - patch Qemu/Bochs/Xen...\n", MS_TIMEOUT);
+    rtc_sync(clock);
 
     // we keep the time when we read-out the RTC to only read it once
+    _wallclocktime = rtc_wallclock();
     _timestamp = clock->clock(MessageTime::FREQUENCY);
 
-    // read out everything
-    unsigned char data[14];
-    for (unsigned i=0; i < sizeof(data); i++)
-	data[i] = rtc_read(i);
-    // Read the century from the IBM PC location
-    // we put it temporarly in the unused weekday field
-    data[6] = rtc_read(0x32);
-
-    // convert twelve hour format
-    if (~data[0xb] & 2)
-      {
-	unsigned char hour = data[4] & 0x7f;
-	if (~data[0xb] & 4) Math::from_bcd(hour);
-	hour %= 12;
-	if (data[4] & 0x80)  hour += 12;
-	if (~data[0xb] & 4) Math::to_bcd(hour);
-	data[4] = hour;
-      }
-
-    // convert from BCD to binary
-    if (~data[0xb] & 4)
-      for (unsigned i=0; i < sizeof(data) && i < 10; i++)
-	Math::from_bcd(data[i]);
-
-
-    // Convert to seconds since 1970.
-    int year = data[9] + 100*data[6];
-    if (year < 1970)  year += 100;
-    tm_simple time = tm_simple(year, data[8], data[7], data[4], data[2], data[0]);
-    _wallclocktime = mktime(&time) * MessageTime::FREQUENCY;
+    tm_simple time;
+    gmtime(_wallclocktime, &time);
     Logging::printf("RTC date: %d.%02d.%02d %d:%02d:%02d msec %lld\n", time.mday, time.mon, time.year, time.hour, time.min, time.sec, _wallclocktime);
   }
 };
