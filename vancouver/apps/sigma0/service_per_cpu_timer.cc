@@ -1,3 +1,23 @@
+/*
+ * Per CPU Timer service.
+ *
+ * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of Vancouver.
+ *
+ * Vancouver.nova is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * Vancouver.nova is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
+
+
 #include <nul/motherboard.h>
 #include <nul/compiler.h>
 #include <nul/capalloc.h>
@@ -10,8 +30,6 @@
 #include <service/lifo.h>
 #include <nul/timer.h>
 
-// Per-CPU Timer Service
-//
 // Each CPU has a thread that maintains a CPU-local timeout list. From
 // this list the next timeout on this CPU is calculated. If a CPU does
 // not have its own HPET timer, it adds this timeout to the timeout
@@ -19,8 +37,12 @@
 // topology.
 
 // TODO:
-// User specifies TSC at timer program time and relative delay relative to
-// nominal TSC frequency.
+// - sync initial counter value to 1.1.1970 to make REQUEST_TIME work.
+// 
+// - User specifies TSC at timer program time and relative delay
+//   relative to nominal TSC frequency.
+//
+// - PIT mode is not as exact as it could be. Do we care? 
 
 // Tick at least this often between overflows of the lower 32-bit of
 // the HPET main counter. If we don't tick between overflows, the
@@ -823,12 +845,14 @@ public:
     // Bootstrap per CPU workers
     _workers_up = KernelSemaphore(alloc_cap(), true);
 
+    Logging::printf("Waiting for per CPU workers to come up...\n");
+
     for (unsigned i = 0; i < cpus; i ++)
       start_thread(PerCpuTimerService::do_per_cpu_thread, 1, i);
 
-    Logging::printf("Waiting for per CPU workers to come up...\n");
     for (unsigned i = 0; i < 1; i++)
       _workers_up.down();
+
     Logging::printf(" ... done.\n");
 
     // Testing
