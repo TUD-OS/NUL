@@ -24,6 +24,7 @@
 #include <nul/baseprogram.h>
 #include <sys/semaphore.h>
 #include <host/hpet.h>
+#include <host/rtc.h>
 #include <nul/topology.h>
 #include <nul/generic_service.h>
 #include <nul/service_timer.h>
@@ -148,8 +149,10 @@ public:
 } ALIGNED(16);
 
 class PerCpuTimerService : private BasicHpet,
-                 public StaticReceiver<PerCpuTimerService>,
-                 public CapAllocator<PerCpuTimerService>
+                           public StaticReceiver<PerCpuTimerService>,
+                           public CapAllocator<PerCpuTimerService>,
+                           private BasicRtc
+
 {
   Motherboard      &_mb;
   #include "host/simplehwioout.h"
@@ -581,16 +584,11 @@ public:
       _timer[i]._reg->comp64 = 0;
     }
 
-    // Start the main counter to make initial clock_sync in per_cpu
-    // workers work.
-    //_reg->main    = 1;          // Don't trigger IRQs on start.
-
-    _reg->main    = 0xF8000000ULL; // Program main counter to be just
-                                   // before wraparound to trigger
-                                   // edge cases early
+    // Disable counting and IRQs. Program legacy mode as requested.
     _reg->isr     = ~0U;
-    _reg->config |= ENABLE_CNF | (legacy_only ? LEG_RT_CNF : 0);
-
+    _reg->config &= ~(ENABLE_CNF | LEG_RT_CNF);
+    _reg->main    = 0ULL;
+    _reg->config |= (legacy_only ? LEG_RT_CNF : 0);
 
     // HPET configuration
 
@@ -600,6 +598,15 @@ public:
     Logging::printf("HPET ticks with %u HZ.\n", _timer_freq);
 
     return true;
+  }
+
+  // Start HPET counter at value. HPET might be 32-bit. In this case,
+  // the upper 32-bit of value are ignored.
+  void hpet_start(uint64 value)
+  {
+    assert((_reg->config | ENABLE_CNF) == 0);
+    _reg->main    = value;
+    _reg->config |= ENABLE_CNF;
   }
 
   void start_thread(ServiceThreadFn fn,
@@ -732,39 +739,42 @@ public:
         ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-        Logging::printf("Timer: RT dummy!\n");
-        #warning Dummy
         MessageTime msg;
-        msg.wallclocktime = 0;
+        uint64 counter = _reg ?
+          our->clock_sync->estimate_hpet(our->frac_clocks_per_tick) :
+          _pit_ticks;
+
+        msg.wallclocktime = Math::muldiv128(counter, MessageTime::FREQUENCY, _timer_freq);
         msg.timestamp = _mb.clock()->time();
         utcb << msg;
         return ENONE;
-
-        // TimerProtocol::MessageTime _msg;
-        // if (!input.get_word(_msg)) return EABORT;
-  
-        // MessageTime msg;
-        // msg.wallclocktime = _msg.wallclocktime;
-        // msg.timestamp = _msg.timestamp;
-        // if (_mymb.bus_time.send(msg)) {
-        //   _msg.wallclocktime = msg.wallclocktime;
-        //   _msg.timestamp = msg.timestamp;
-        //   utcb << _msg;
-        //   return ENONE;
-        // }
-
-        return EABORT;
       }
     default:
       return EPROTO;
     }
   }
 
+  // Returns initial value of timecounter register.
+  uint64
+  wallclock_init()
+  {
+    // RTC ports
+    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (BasicRtc::_iobase << 8) |  1);
+    if (not _mb.bus_hostop.send(msg1))
+      Logging::panic("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, BasicRtc::_iobase);
+
+    rtc_sync(_mb.clock());
+    uint64 secs = rtc_wallclock();
+
+    return secs * _timer_freq;
+  }
 
 
   PerCpuTimerService(Motherboard &mb, unsigned cap, unsigned cap_order,
            bool hpet_force_legacy, bool force_pit, unsigned pit_period_us)
-    : CapAllocator<PerCpuTimerService>(cap, cap, cap_order), _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
+    : CapAllocator<PerCpuTimerService>(cap, cap, cap_order),
+      BasicRtc(mb.bus_hwioin, mb.bus_hwioout, 0x70),
+      _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
   {
     unsigned cpus = mb.hip()->cpu_count();
     _per_cpu = new(64) PerCpu[cpus];
@@ -776,12 +786,20 @@ public:
       pit_init(pit_period_us);
     }
 
+    // HPET: Counter is running, IRQs are off.
+    // PIT:  PIT is programmed to run in periodic mode, if HPET didn't work for us.
+
     uint64 clocks_per_tick = static_cast<uint64>(mb.hip()->freq_tsc) * 1000 * CPT_RESOLUTION;
     Math::div64(clocks_per_tick, _timer_freq);
     Logging::printf("%llu+%04llu/%u TSC ticks per timer tick.\n", clocks_per_tick/CPT_RESOLUTION, clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION);
     _nominal_tsc_ticks_per_timer_tick = clocks_per_tick;
 
-    // HPET: Counter is running, IRQs are off.
+    // Get wallclock time
+    uint64 initial_counter = wallclock_init();
+    if (_reg)
+      hpet_start(initial_counter);
+    else
+      _pit_ticks = initial_counter;
 
     unsigned cpu_cpu[cpus];
     unsigned part_cpu[cpus];
@@ -821,7 +839,8 @@ public:
     for (unsigned i = 0; i < cpus; i++) {
       _per_cpu[i].frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
       _per_cpu[i].worker_sm = KernelSemaphore(alloc_cap(), true);
-      _per_cpu[i].clock_sync = new(16) ClockSyncInfo;
+      // Provide initial hpet counter to get high 32-bit right.
+      _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
       _per_cpu[i].abstimeouts.init();
 
       if (not _per_cpu[i].has_timer) {
@@ -873,6 +892,7 @@ PARAM(service_per_cpu_timer,
       bool     hpet_legacy   = (argv[0] == ~0U) ? default_force_hpet_legacy : argv[0];
       bool     force_pit     = (argv[1] == ~0U) ? default_force_pit : argv[1];
       unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
+
       PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
 
       MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<PerCpuTimerService>::portal_func));
