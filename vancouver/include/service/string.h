@@ -98,12 +98,12 @@ static inline char * strcpy(char *dst, const char *src)  {
 
 static inline char * strstr(char const *haystack, char const *needle) {
   int index;
-  do {
+  while (*haystack) {
     for (index=0; needle[index] == haystack[index] && needle[index];)
        index++;
     if (!needle[index]) return const_cast<char *>(haystack);
     haystack += index ? index : 1;
-  } while (*haystack);
+  }
   return 0;
 }
 
