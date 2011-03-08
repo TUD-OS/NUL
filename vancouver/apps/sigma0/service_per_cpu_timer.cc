@@ -791,7 +791,7 @@ public:
         // Attach to PIT instead.
         MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, PIT_IRQ, 1, cpu);
         if (not mb.bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
-        _per_cpu[i].irq = PIT_IRQ;
+        _per_cpu[cpu].irq = PIT_IRQ;
       }
     }
 
