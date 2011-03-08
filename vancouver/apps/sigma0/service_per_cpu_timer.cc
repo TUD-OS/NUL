@@ -833,7 +833,7 @@ public:
     for (unsigned i = 0; i < cpus; i ++)
       start_thread(PerCpuTimerService::do_per_cpu_thread, 1, i);
 
-    for (unsigned i = 0; i < 1; i++)
+    for (unsigned i = 0; i < cpus; i++)
       _workers_up.down();
 
     Logging::printf(" ... done.\n");
