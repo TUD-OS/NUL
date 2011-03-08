@@ -604,7 +604,7 @@ public:
   // the upper 32-bit of value are ignored.
   void hpet_start(uint64 value)
   {
-    assert((_reg->config | ENABLE_CNF) == 0);
+    assert((_reg->config & ENABLE_CNF) == 0);
     _reg->main    = value;
     _reg->config |= ENABLE_CNF;
   }
