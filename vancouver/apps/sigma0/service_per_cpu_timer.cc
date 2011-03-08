@@ -29,6 +29,7 @@
 #include <nul/generic_service.h>
 #include <nul/service_timer.h>
 #include <service/lifo.h>
+#include <service/time.h>
 #include <nul/timer.h>
 
 // Each CPU has a thread that maintains a CPU-local timeout list. From
@@ -150,9 +151,7 @@ public:
 
 class PerCpuTimerService : private BasicHpet,
                            public StaticReceiver<PerCpuTimerService>,
-                           public CapAllocator<PerCpuTimerService>,
-                           private BasicRtc
-
+                           public CapAllocator<PerCpuTimerService>
 {
   Motherboard      &_mb;
   #include "host/simplehwioout.h"
@@ -708,22 +707,33 @@ public:
   uint64
   wallclock_init()
   {
+    unsigned iobase = 0x70;
+
     // RTC ports
-    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (BasicRtc::_iobase << 8) |  1);
-    if (not _mb.bus_hostop.send(msg1))
-      Logging::panic("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, BasicRtc::_iobase);
+    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (iobase << 8) |  1);
+    if (not _mb.bus_hostop.send(msg1)) {
+      Logging::printf("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
+      return 0;
+    }
 
-    rtc_sync(_mb.clock());
-    uint64 secs = rtc_wallclock();
+    BasicRtc rtc(_mb.bus_hwioin, _mb.bus_hwioout, iobase);
+    rtc.rtc_sync(_mb.clock());
+    uint64 msecs  = rtc.rtc_wallclock();
+    uint64 ticks  = Math::muldiv128(msecs, _timer_freq, MessageTime::FREQUENCY);
 
-    return secs * _timer_freq;
+    tm_simple time;
+
+    Math::div64(msecs, MessageTime::FREQUENCY);
+    gmtime(msecs, &time);
+    Logging::printf("RTC %llus date: %d.%02d.%02d %d:%02d:%02d\n", msecs, time.mday, time.mon, time.year, time.hour, time.min, time.sec);
+
+    return ticks;
   }
 
 
   PerCpuTimerService(Motherboard &mb, unsigned cap, unsigned cap_order,
            bool hpet_force_legacy, bool force_pit, unsigned pit_period_us)
     : CapAllocator<PerCpuTimerService>(cap, cap, cap_order),
-      BasicRtc(mb.bus_hwioin, mb.bus_hwioout, 0x70),
       _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
   {
     unsigned cpus = mb.hip()->cpu_count();
@@ -768,6 +778,7 @@ public:
 
       _per_cpu[cpu].has_timer = true;
       if (_reg)
+        Logging::printf("CPU%u owns Timer%u.\n", cpu, i);
         _per_cpu[cpu].timer = &_timer[i];
 
       // We allocate a couple of unused slots if there is an odd
@@ -783,7 +794,6 @@ public:
         _per_cpu[i].irq = PIT_IRQ;
       }
     }
-    mb.bus_hostirq.add(this, receive_static<MessageIrq>);
 
     // Create remote slot mapping and initialize per cpu data structure
     for (unsigned i = 0; i < cpus; i++) {
@@ -812,6 +822,8 @@ public:
         remote.slot_count ++;
       }
     }
+
+    mb.bus_hostirq.add(this, receive_static<MessageIrq>);
 
     // Bootstrap per CPU workers
     _workers_up = KernelSemaphore(alloc_cap(), true);
