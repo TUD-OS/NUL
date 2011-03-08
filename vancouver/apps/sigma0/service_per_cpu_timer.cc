@@ -792,7 +792,9 @@ public:
       // Provide initial hpet counter to get high 32-bit right.
       _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
       _per_cpu[i].abstimeouts.init();
+    }
 
+    for (unsigned i = 0; i < cpus; i++) {
       if (not _per_cpu[i].has_timer) {
         PerCpu &remote = _per_cpu[cpu_cpu[i]];
 
