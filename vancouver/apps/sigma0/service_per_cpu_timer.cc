@@ -359,12 +359,11 @@ public:
     if (_reg)
       our->clock_sync->fetch(_reg->counter[0]);
 
-    _workers_up.up();
-
     if (_reg and our->has_timer) {
       Logging::printf("CPU%u up. We own a timer. Enable interrupts.\n", cpu);
       our->timer->_reg->config |= INT_ENB_CNF;
     }
+    _workers_up.up();
 
     goto again;
     while (1) {
