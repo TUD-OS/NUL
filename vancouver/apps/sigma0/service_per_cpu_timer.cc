@@ -393,73 +393,23 @@ public:
           
           // Check whether we might have missed that interrupt.
           if ((static_cast<int32>(next_to - _reg->counter[0])) <= 8) {
-            Logging::printf("CPU%u: Next timeout too close!\n", cpu);
+            COUNTER_INC("TO lost/past");
+            //Logging::printf("CPU%u: Next timeout too close!\n", cpu);
             goto again;
           }
         } else {
-          // No HPET. No programming necessary.
+          // Periodic mode. No programming necessary.
         }
       } else {
+        // Tell timer_cpu that we have a new timeout.
+        
         if (next_to == ~0ULL) continue;
-        // XXX Tell timer_cpu that we have a new timeout.
         //Logging::printf("CPU%u: Cross core wakeup at %llu!\n", cpu, next_to);
         our->remote_slot->data.abstimeout = next_to;
         MEMORY_BARRIER;
         our->remote_sm.up();
       }
-
-      // Logging::printf("CPU%u: Ping! %lld %u+%04u/%u hpet %016llx tsc %016llx\n", cpu, diff,
-      //                 our->frac_clocks_per_tick/CPT_RESOLUTION, our->frac_clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION, our->clock_sync->hpet(), our->clock_sync->tsc());
     }
-  }
-
-  static void do_test_thread(void *t) REGPARM(0) NORETURN
-  { reinterpret_cast<PerCpuTimerService *>(t)->test_thread(); }
-
-  void test_thread() NORETURN
-  {
-    unsigned cpu = BaseProgram::mycpu();
-    PerCpu * const our = &_per_cpu[cpu];
-
-    Logging::printf("Test thread on CPU%u up.\n", cpu);
-
-    KernelSemaphore sm(alloc_cap(), true);
-
-    ClientData data;
-    data.identity = sm.sm();
-    data.nr = our->abstimeouts.alloc(&data);
-
-    unsigned frac[] = {1, 10, 100, 1000};
-
-    unsigned cur = 0;
-    while (1) {
-      // Compute 10ms timeout
-      uint64 start = Cpu::rdtsc();
-      uint64 estimated_main;
-      if (_reg)
-        estimated_main = our->clock_sync->estimate_hpet(our->frac_clocks_per_tick);
-      else
-        estimated_main = _pit_ticks + 1; // Compute from next tick.
-
-      assert(data.lifo_next == NULL);
-
-      // Queue timeout
-      data.abstimeout = estimated_main + _timer_freq/frac[(cur++) % (sizeof(frac)/sizeof(frac[0]))];
-      //Logging::printf("CPU%u program to %016llx (%016llx)\n", cpu, data.abstimeout, estimated_main);
-      MEMORY_BARRIER;
-
-      our->work_queue.enqueue(&data);
-      our->worker_sm.up();
-
-      sm.down();
-      uint64 end   = Cpu::rdtsc();
-
-      uint64 diff = (end - start) * 1000;
-      Math::div64(diff, 2800000000ULL);
-
-      Logging::printf("CPU%u waited %llums.\n", cpu, diff);
-    }
-
   }
 
   bool receive(MessageIrq &msg)
@@ -873,10 +823,6 @@ public:
       _workers_up.down();
 
     Logging::printf(" ... done.\n");
-
-    // Testing
-    // for (unsigned i = 0; i < cpus; i++) 
-    //   start_thread(PerCpuTimerService::do_test_thread, 0, i);
   }
 
 };
