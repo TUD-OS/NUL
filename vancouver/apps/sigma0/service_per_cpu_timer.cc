@@ -775,10 +775,10 @@ public:
 
     for (unsigned i = 0; i < _usable_timers; i++) {
       unsigned cpu = part_cpu[i];
+      Logging::printf("CPU%u owns Timer%u.\n", cpu, i);
 
       _per_cpu[cpu].has_timer = true;
       if (_reg)
-        Logging::printf("CPU%u owns Timer%u.\n", cpu, i);
         _per_cpu[cpu].timer = &_timer[i];
 
       // We allocate a couple of unused slots if there is an odd
