@@ -60,7 +60,7 @@ public:
   }
 
   /**
-   * Return seconds since epoch (?)
+   * Return seconds*FREQUENCY since epoch.
    */
   timevalue rtc_wallclock()
   {
