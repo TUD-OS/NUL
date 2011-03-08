@@ -45,7 +45,7 @@ class Cpu
 
   template <typename T>
   static T xchg(volatile T *x, T y) {
-    asm volatile ("xchg %1, %0": "+m"(*x), "+r"(y) :: "memory");
+    asm volatile ("xchg%z1 %1, %0": "+m"(*x), "+r"(y) :: "memory");
     return y;
   }
 
