@@ -378,15 +378,16 @@ public:
       uint64 now = _reg ? our->clock_sync->hpet() : _pit_ticks;
       uint64 next_to = handle_expired_timers(our, now);
 
+      // Generate at least some IRQs between wraparound IRQs to make
+      // overflow detection robust. Only needed with HPETs.
+      if (_reg)
+        if ((next_to == ~0ULL /* no next timeout */ ) or
+            ((next_to - our->clock_sync->hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
+          next_to = our->clock_sync->hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+
       if (our->has_timer) {
         if (_reg) {
           // HPET timer programming
-
-          // Generate at least some IRQs between wraparound IRQs to make
-          // overflow detection robust.
-          if ((next_to == ~0ULL /* no next timeout */ ) or
-              ((next_to - our->clock_sync->hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
-            next_to = our->clock_sync->hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
 
           // Program a new timeout. Top 32-bits are discarded.
           our->timer->_reg->comp[0] = next_to;
