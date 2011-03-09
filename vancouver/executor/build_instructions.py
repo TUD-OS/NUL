@@ -6,7 +6,7 @@ We use an compile+disassemble approach to extract the encoding from
 the assembler.
 """
 
-import sys, os, tempfile
+import sys, os, tempfile, re
 def compile_and_disassemble(str, file, fdict):
     if str not in fdict:
 	tmp = tempfile.NamedTemporaryFile(bufsize=0)
@@ -116,8 +116,8 @@ def get_encoding(opcode, file, fdict):
 def filter_chars(snippet, op_size, flags):
     for m,n in [("[os]", "%d"%op_size), ("[data16]", op_size == 1 and "data16" or ""),
 		("[bwl]", "bwl"[op_size]), ("[qrr]", "qrr"[op_size]), ("[lock]", "LOCK" in flags and "lock" or ""),
-		("[EAX]", ("%al","%ax", "%eax")[op_size]),
-		("[EDX]", ("%dl","%dx", "%edx")[op_size]),
+		("[EAX]", ("%%al","%%ax", "%%eax")[op_size]),
+		("[EDX]", ("%%dl","%%dx", "%%edx")[op_size]),
 		("[IMM]", filter(lambda x: x in ["IMM1", "IMM2", "IMMO", "CONST1"], flags) and "1" or "0"),
 		("[OP1]", "OP1" in flags and "1" or "0"),
 		("[IMMU]", "IMM1" in flags and "unsigned char" or "unsigned")]:
@@ -129,7 +129,9 @@ def generate_functions(name, flags, snippet, enc, functions, l2):
     if not snippet:
 	l2.append("UNIMPLEMENTED(this)")
 	return
-    if "ASM" in flags and not "asm volatile" in ";".join(snippet):     snippet = ['asm volatile("'+ ";".join(snippet)+'")']
+    if "ASM" in flags and not "asm volatile" in ";".join(snippet):
+        # Be sure to duplicate %s
+        snippet = ['asm volatile("'+ ";".join([re.sub(r'([^%])%([^%0-9])', r'\1%%\2', s) for s in snippet])+'" : "+d"(tmp_src), "+c"(tmp_dst) : : "eax")']
     if "FPU" in flags:
         if "FPUNORESTORE" not in flags:  snippet = ['fxrstor (%%eax)'] + snippet
         snippet = ['if (cache->_cpu->cr0 & 0xc) EXCEPTION(cache, 0x7, 0)',
@@ -423,7 +425,7 @@ opcodes += [(".byte 0xdb, 0xe4 ", ["NO_OS", "COMPLETE"], ["/* fnsetpm, on 287 on
 opcodes += [(x, [x not in ["bt"] and "RMW" or "READONLY", "SAVEFLAGS", "BITS", "ASM"], ["mov (%edx), %eax",
 										       "and  $(8<<[os])-1, %eax",
 											"[lock] "+x+" [EAX],(%ecx)"]) for x in ["bt", "btc", "bts", "btr"]]
-opcodes += [("cmpxchg", ["RMW"], ['char res; asm volatile("mov (%2), %2; [lock] cmpxchg %[EDX], (%3); setz %1" : "+a"(cache->_cpu->eax), "=d"(res) : "d"(tmp_src), "c"(tmp_dst))',
+opcodes += [("cmpxchg", ["RMW"], ['char res; asm volatile("mov (%2), %2; [lock] cmpxchg [EDX], (%3); setz %1" : "+a"(cache->_cpu->eax), "=d"(res) : "d"(tmp_src), "c"(tmp_dst))',
 				  "if (res) cache->_cpu->efl |= EFL_ZF; else cache->_cpu->efl &= EFL_ZF"])]
 opcodes += [("xadd", ["RMW", "ASM", "SAVEFLAGS"], ['mov (%edx), [EAX]', '[lock] xadd [EAX], (%ecx)', 'mov [EAX], (%edx)'])]
 
@@ -442,4 +444,6 @@ opcodes += [(x, [], []) for x in [
 encodings = sum(map(lambda x: get_encoding(x, file, fdict), opcodes), [])
 encodings.sort(lambda x,y: cmp(x[3], y[3]))
 code, functions = generate_code(encodings)
+print("// -*- Mode: C++ -*-")
+print("// Automagically generated. Do not touch.")
 print_code(code, functions)
