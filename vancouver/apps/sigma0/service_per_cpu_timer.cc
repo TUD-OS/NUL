@@ -34,13 +34,19 @@
 
 // Each CPU has a thread that maintains a CPU-local timeout list. From
 // this list the next timeout on this CPU is calculated. If a CPU does
-// not have its own HPET timer, it adds this timeout to the timeout
-// list of another CPU. CPU-to-CPU mapping tries to respect CPU
-// topology.
+// not have its own timer, it adds this timeout to the timeout list of
+// another CPU that has a timer. CPU-to-CPU mapping tries to respect
+// CPU topology.
+
+// CAVEATS:
+// - sessions are per-CPU only (will be fixed)
 
 // TODO:
-// - sync initial counter value to 1.1.1970 to make REQUEST_TIME work.
-// 
+// - remove SSE code for uninterruptible 16-byte stores. Very
+//   expensive because it traps to the hypervisor!
+// - non-MSI mode has issues with IRQ sharing. Better disable this for
+//   releases?
+// - restructure code to allow helping
 // - User specifies TSC at timer program time and relative delay
 //   relative to nominal TSC frequency.
 //
