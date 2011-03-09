@@ -10,7 +10,7 @@ import sys, os, tempfile
 def compile_and_disassemble(str, file, fdict):
     if str not in fdict:
 	tmp = tempfile.NamedTemporaryFile(bufsize=0)
-	f = os.popen("as -o %s -- 2> /dev/null"%(tmp.name), "w")
+	f = os.popen("as --32 -o %s -- 2> /dev/null"%(tmp.name), "w")
 	f.write(str+"\n")
 	f.close()
 	if os.path.exists(tmp.name):
