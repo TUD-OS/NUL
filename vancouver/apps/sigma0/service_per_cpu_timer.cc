@@ -39,18 +39,15 @@
 // CPU topology.
 
 // CAVEATS:
+// 
 // - sessions are per-CPU only (will be fixed)
 
 // TODO:
-// - remove SSE code for uninterruptible 16-byte stores. Very
-//   expensive because it traps to the hypervisor!
 // - non-MSI mode has issues with IRQ sharing. Better disable this for
 //   releases?
 // - restructure code to allow helping
-// - User specifies TSC at timer program time and relative delay
-//   relative to nominal TSC frequency.
-//
 // - PIT mode is not as exact as it could be. Do we care? 
+// - TSC frequency estimation might not be worth the trouble.
 
 // Tick at least this often between overflows of the lower 32-bit of
 // the HPET main counter. If we don't tick between overflows, the
@@ -60,11 +57,15 @@
 // If more than this amount of cycles pass while reading the HPET
 // counter, consider the TSC and HPET counter read to be out of sync
 // and try again.
-#define MAX_HPET_READ_TIME 20000
+#define MAX_HPET_READ_TIME          100000
+
+// Try at most this often to get an HPET counter. After that just use
+// the inexact one.
+#define MAX_HPET_READ_TRIES         8 
 
 // If our HPET counter estimation error exceeds this value, the
 // assumed TSC clock frequency is adjusted.
-#define HPET_ESTIMATION_TOLERANCE 100 /* HPET ticks */
+#define HPET_ESTIMATION_TOLERANCE   100 /* HPET ticks */
 
 // Resolution of our TSC clocks per HPET clock measurement. Lower
 // resolution mean larger error in HPET counter estimation.
@@ -78,43 +79,54 @@
 #define PIT_IRQ  2
 #define PIT_PORT 0x40
 
+static uint64 atomic_read(volatile uint64 &v)
+{
+  uint64 r;
+  do { r = v; } while (r != v);
+  return r;
+}
+
 class ClockSyncInfo {
 private:
-  ALIGNED(16) union {
-    struct {
-      volatile uint64 last_tsc;
-      volatile uint64 last_hpet;
-    };
-    volatile uint64 raw[2];
-  };
+  // These two values are only synchronized when you read them from
+  // the corresponding per_cpu thread.
+  volatile uint64 last_tsc;
+  volatile uint64 last_hpet;
 
   void operator=(const ClockSyncInfo& copy_from) { __builtin_trap(); }
 public:
-  uint64 tsc() const { return last_tsc; }
-  uint64 hpet() const { return last_hpet; }
+  uint64 unsafe_hpet() const { return last_hpet; }
 
   explicit
   ClockSyncInfo(uint64 tsc = 0, uint64 hpet = 0)
     : last_tsc(tsc), last_hpet(hpet)
   {}
 
-  uint64 estimate_hpet(uint32 frac_clocks_per_tick)
-  {
-    uint64 lhpet, ltsc;
-    do {
-      lhpet  = last_hpet;
-      ltsc  = last_tsc;
-      // XXX Ought to be a better way...
-    } while ((lhpet != last_hpet) || (ltsc != last_tsc));
-
+  // Fast and unsafe version of estimate HPET.
+  uint64 unsafe_estimate_hpet(uint32 frac_clocks_per_tick)
+  { 
     // XXX Does this handle overflow correctly?
-    uint64 diff = Cpu::rdtsc() - ltsc;
+    uint64 diff = Cpu::rdtsc() - last_tsc;
     uint64 res = diff * CPT_RESOLUTION;
     Math::div64(res, frac_clocks_per_tick);
-    return lhpet + res;
+    return last_hpet + res;
+  }
+    
+  uint64 correct_overflow(uint64 last, uint32 newv)
+  {
+    bool of = (static_cast<uint32>(newv) < static_cast<uint32>(last_hpet));
+    return (((last_hpet >> 32) + of) << 32) | newv;
   }
 
-  // Not thread-safe. Call only from one thread!
+  // Safe to call from anywhere. Returns current (non-estimated) HPET
+  // value.
+  uint64 current_hpet(uint32 r)
+  {
+    return correct_overflow(atomic_read(last_hpet), r);
+  }
+
+  // Can only be called from per_cpu thread. Fetches TSC and HPET
+  // value for HPET estimation.
   void fetch(volatile uint32 &r)
   {
     uint64 newv;
@@ -125,33 +137,20 @@ public:
       tsc1 = Cpu::rdtsc();
       newv = r;
       tsc2 = Cpu::rdtsc();
-      tries ++;
-    } while ((tsc2 - tsc1) > MAX_HPET_READ_TIME);
+    } while (((tsc2 - tsc1) > MAX_HPET_READ_TIME) and
+             (tries++ < MAX_HPET_READ_TRIES));
 
     // 2 tries is ok, 3 is fishy...
-    if (tries > 2) {
-      Logging::printf("CPU%u needed %u tries to get sample.\n",
-                      BaseProgram::mycpu(),
-                      tries);
+    if (tries >= MAX_HPET_READ_TRIES) {
+      COUNTER_INC("HPET inexact");
     }
 
-    // Handle overflows
-    unsigned of = 0;
-    if (static_cast<uint32>(newv) < static_cast<uint32>(last_hpet))
-      of = 1;
-    newv |= (((last_hpet >> 32) + of) << 32);
+    newv = correct_overflow(last_hpet, newv);
 
-    ALIGNED(16) volatile struct {
-      uint64 tsc;
-      uint64 hpet;
-    } vals;
-
-    vals.tsc = tsc1;
-    vals.hpet = newv;
-
-    asm ("movdqa %2, %%xmm0 ;"
-         "movdqa %%xmm0, %0 " : "=m" (raw[0]), "=m" (raw[1]) :
-         "m" (vals.tsc), "m" (vals.hpet) : "xmm0");
+    // Interruptible write. Don't read these outside of per_cpu
+    // thread.
+    last_hpet = newv;
+    last_tsc  = tsc1;
   }
 } ALIGNED(16);
 
@@ -176,12 +175,13 @@ class PerCpuTimerService : private BasicHpet,
   } _timer[MAX_TIMERS];
 
   struct ClientData : public GenericClientData {
-    // XXX Difficult to implement atomic access to these two
-    // fields. Restructure worker so that you can CALL it. This has
-    // the nice benefit of helping.
-    // volatile uint64 now;
-    // volatile uint64 delta;
+
+    // This field has different semantics: When this ClientData
+    // belongs to a client it contains an absolute TSC value. If it
+    // belongs to a remote CPU it contains an absolute timer count.
     volatile uint64   abstimeout;
+
+    // How often has the timeout triggered?
     volatile unsigned count;
 
     unsigned nr;
@@ -231,7 +231,7 @@ class PerCpuTimerService : private BasicHpet,
       MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0UL, 1, cpu);
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
-      Logging::printf("\tHostHpet: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
+      Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
                       timer->_no, msg1.msi_gsi, cpu, msg1.msi_address, msg1.msi_value);
 
       _per_cpu[cpu].irq = msg1.msi_gsi;
@@ -248,7 +248,7 @@ class PerCpuTimerService : private BasicHpet,
       uint32 possible_irqs = ~assigned_irqs & allowed_irqs;
 
       if (possible_irqs == 0) {
-        Logging::printf("No IRQs left.\n");
+        Logging::printf("TIMER: No IRQs left.\n");
         return false;
       }
 
@@ -261,7 +261,7 @@ class PerCpuTimerService : private BasicHpet,
       _per_cpu[cpu].irq = irq;
       _per_cpu[cpu].ack = (irq < 16) ? 0 : (1U << timer->_no);
 
-      Logging::printf("\tHostHpet: Timer %u -> IRQ %u (assigned %x ack %x).\n",
+      Logging::printf("TIMER: Timer %u -> IRQ %u (assigned %x ack %x).\n",
                       timer->_no, irq, assigned_irqs, _per_cpu[cpu].ack);
 
 
@@ -273,11 +273,20 @@ class PerCpuTimerService : private BasicHpet,
     return true;
   }
 
-public:
-
-  static void do_per_cpu_thread(void *t) REGPARM(0) NORETURN
-  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_thread(); }
-
+  // Convert an absolute TSC value into an absolute time counter
+  // value. Call only from per_cpu thread.
+  uint64 absolute_tsc_to_timer(PerCpu *per_cpu, uint64 tsc)
+  {
+    int64 diff = tsc - _mb.clock()->time();
+    Math::idiv64(diff, static_cast<int32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
+    uint64 estimated_main;
+    if (_reg)
+      estimated_main = per_cpu->clock_sync->unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
+    else
+      estimated_main = _pit_ticks + 1; // Compute from next tick.
+          
+    return estimated_main + diff;
+  }
 
   void process_new_timeout_requests(PerCpu *per_cpu)
   {
@@ -286,7 +295,7 @@ public:
     for (ClientData *head = per_cpu->work_queue.dequeue_all(); head; head = next) {
       unsigned nr = head->nr;
       next = Cpu::xchg(&(head->lifo_next), static_cast<ClientData *>(NULL));
-      uint64 t = head->abstimeout;
+      uint64 t = absolute_tsc_to_timer(per_cpu, head->abstimeout);
       // XXX Set abstimeout to zero here?
       per_cpu->abstimeouts.cancel(nr);
       per_cpu->abstimeouts.request(nr, t);
@@ -334,10 +343,10 @@ public:
   {
     // Update our clock estimation stuff, as a side effect we get a
     // new HPET main counter value.
-    uint64 estimated_main = per_cpu->clock_sync->estimate_hpet(per_cpu->frac_clocks_per_tick);
+    uint64 estimated_main = per_cpu->clock_sync->unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
     per_cpu->clock_sync->fetch(_reg->counter[0]);
         
-    int64 diff = estimated_main - per_cpu->clock_sync->hpet();
+    int64 diff = estimated_main - per_cpu->clock_sync->unsafe_hpet();
         
     // Slightly adapt clocks per tick when our estimation is off.
     if (diff > HPET_ESTIMATION_TOLERANCE)
@@ -349,9 +358,9 @@ public:
     // Sanity
     if (((diff < 0LL) ? -diff : diff) > 1000000LL) {
           
-      Logging::printf("CPU%u est %016llx real %016llx diff %016llx\n",
-                      BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync->hpet(), diff);
-      Logging::printf("CPU%u worker died...\n", BaseProgram::mycpu());
+      Logging::printf("TIMER: CPU%u est %016llx real %016llx diff %016llx\n",
+                      BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync->unsafe_hpet(), diff);
+      Logging::printf("TIMER: CPU%u worker died...\n", BaseProgram::mycpu());
       while (1) per_cpu->worker_sm.down();
     }
   }
@@ -365,7 +374,7 @@ public:
       our->clock_sync->fetch(_reg->counter[0]);
 
     if (_reg and our->has_timer) {
-      Logging::printf("CPU%u up. We own a timer. Enable interrupts.\n", cpu);
+      Logging::printf("TIMER: CPU%u up. We own a timer. Enable interrupts.\n", cpu);
       our->timer->_reg->config |= INT_ENB_CNF;
     }
     _workers_up.up();
@@ -379,15 +388,15 @@ public:
       if (_reg)
         update_hpet_estimation(our);
 
-      uint64 now = _reg ? our->clock_sync->hpet() : _pit_ticks;
+      uint64 now = _reg ? our->clock_sync->unsafe_hpet() : _pit_ticks;
       uint64 next_to = handle_expired_timers(our, now);
 
       // Generate at least some IRQs between wraparound IRQs to make
       // overflow detection robust. Only needed with HPETs.
       if (_reg)
         if ((next_to == ~0ULL /* no next timeout */ ) or
-            ((next_to - our->clock_sync->hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
-          next_to = our->clock_sync->hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+            ((next_to - our->clock_sync->unsafe_hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
+          next_to = our->clock_sync->unsafe_hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
 
       if (our->has_timer) {
         if (_reg) {
@@ -417,53 +426,29 @@ public:
     }
   }
 
-  bool receive(MessageIrq &msg)
-  {
-    unsigned cpu = BaseProgram::mycpu();
-    if ((msg.type == MessageIrq::ASSERT_IRQ) && (_per_cpu[cpu].irq == msg.line)) {
-
-      if (_reg) {
-        // ACK the IRQ in non-MSI HPET mode.
-        if (_per_cpu[cpu].ack != 0)
-          _reg->isr = _per_cpu[cpu].ack;
-      } else {
-        // PIT mode. Increment our clock.
-        while (not __sync_bool_compare_and_swap(&_pit_ticks, _pit_ticks, _pit_ticks+1))
-          {}
-      }
-
-      MEMORY_BARRIER;
-      _per_cpu[cpu].worker_sm.up();
-
-      return true;
-    }
-
-    return false;
-  }
-
   bool hpet_init(bool hpet_force_legacy)
   {
     // Find and map HPET
     bool          legacy_only   = hpet_force_legacy;
     unsigned long hpet_addr     = get_hpet_address(_mb.bus_acpi);
     if (hpet_addr == 0) {
-      Logging::printf("No HPET found.\n");
+      Logging::printf("TIMER: No HPET found.\n");
       return false;
     }
 
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, hpet_addr, 1024);
     if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) {
-      Logging::printf("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, hpet_addr);
+      Logging::printf("TIMER: %s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, hpet_addr);
       return false;
     }
 
     _reg = reinterpret_cast<HostHpetRegister *>(msg1.ptr);
-    Logging::printf("HPET at %08lx -> %p.\n", hpet_addr, _reg);
+    Logging::printf("TIMER: HPET at %08lx -> %p.\n", hpet_addr, _reg);
 
-    // XXX Check for old AMD HPETs and go home. :)
+    // Check for old AMD HPETs and go home. :)
     uint8  hpet_rev    = _reg->cap & 0xFF;
     uint16 hpet_vendor = _reg->cap >> 16;
-    Logging::printf("HPET vendor %04x revision %02x:%s%s\n", hpet_vendor, hpet_rev,
+    Logging::printf("TIMER: HPET vendor %04x revision %02x:%s%s\n", hpet_vendor, hpet_rev,
                     (_reg->cap & LEG_RT_CAP) ? " LEGACY" : "",
                     (_reg->cap & BIT64_CAP) ? " 64BIT" : " 32BIT"
                     );
@@ -473,32 +458,32 @@ public:
       break;
     case 0x4353:                // AMD
       if (hpet_rev < 0x10) {
-        Logging::printf("It's one of those old broken AMD HPETs. Use legacy mode.\n");
+        Logging::printf("TIMER: It's one of those old broken AMD HPETs. Use legacy mode.\n");
         legacy_only = true;
       }
       break;
     default:
       // Before you blindly enable features for other HPETs, check
       // Linux and FreeBSD source for quirks!
-      Logging::printf("Unknown HPET vendor ID. We only trust legacy mode.\n");
+      Logging::printf("TIMER: Unknown HPET vendor ID. We only trust legacy mode.\n");
       legacy_only = true;
     }
 
     if (legacy_only and not (_reg->cap & LEG_RT_CAP)) {
       // XXX Implement PIT mode
-      Logging::printf("We want legacy mode, but the timer doesn't support it.\n");
+      Logging::printf("TIMER: We want legacy mode, but the timer doesn't support it.\n");
       return false;
     }
 
     // Figure out how many HPET timers are usable
-    Logging::printf("HostHpet: cap %x config %x period %d\n", _reg->cap, _reg->config, _reg->period);
+    Logging::printf("TIMER: HPET: cap %x config %x period %d\n", _reg->cap, _reg->config, _reg->period);
     unsigned timers = ((_reg->cap >> 8) & 0x1F) + 1;
 
     _usable_timers = 0;
     for (unsigned i=0; i < timers; i++) {
-      Logging::printf("\tHpetTimer[%d]: config %x int %x\n", i, _reg->timer[i].config, _reg->timer[i].int_route);
+      Logging::printf("TIMER: HPET Timer[%d]: config %x int %x\n", i, _reg->timer[i].config, _reg->timer[i].int_route);
       if ((_reg->timer[i].config | _reg->timer[i].int_route) == 0) {
-        Logging::printf("\t\tTimer seems bogus. Ignore.\n");
+        Logging::printf("TIMER:\tTimer seems bogus. Ignore.\n");
         continue;
       }
 
@@ -514,20 +499,20 @@ public:
 
     if (_usable_timers == 0) {
       // XXX Can this happen?
-      Logging::printf("No suitable timer.\n");
+      Logging::printf("TIMER: No suitable HPET timer.\n");
       return false;
 
     }
 
     if (legacy_only) {
-      Logging::printf("HostHpet: Use one timer in legacy mode.\n");
+      Logging::printf("TIMER: Use one timer in legacy mode.\n");
       _usable_timers = 1;
     } else
-      Logging::printf("HostHpet: Found %u usable timers.\n", _usable_timers);
+      Logging::printf("TIMER: Found %u usable timers.\n", _usable_timers);
 
     if (_usable_timers > _mb.hip()->cpu_count()) {
       _usable_timers = _mb.hip()->cpu_count();
-      Logging::printf("HostHpet: More timers than CPUs. (Good!) Use only %u timers.\n",
+      Logging::printf("TIMER: More timers than CPUs. (Good!) Use only %u timers.\n",
                       _usable_timers);
     }
 
@@ -550,7 +535,7 @@ public:
     uint64 freq = 1000000000000000ULL;
     Math::div64(freq, _reg->period);
     _timer_freq = freq;
-    Logging::printf("HPET ticks with %u HZ.\n", _timer_freq);
+    Logging::printf("TIMER: HPET ticks with %u HZ.\n", _timer_freq);
 
     return true;
   }
@@ -577,13 +562,13 @@ public:
   {
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (PIT_PORT << 8) |  2);
     if (not _mb.bus_hostop.send(msg1))
-      Logging::panic("Couldn't grab PIT ports.\n");
+      Logging::panic("TIMER: Couldn't grab PIT ports.\n");
 
     unsigned long long value = PIT_FREQ*period_us;
     Math::div64(value, 1000000);
 
     if ((value == 0) || (value > 65535)) {
-      Logging::printf("Bogus PIT period %uus. Set to default (%llu us)\n",
+      Logging::printf("TIMER: Bogus PIT period %uus. Set to default (%llu us)\n",
                       period_us, PIT_DEFAULT_PERIOD);
       period_us = PIT_DEFAULT_PERIOD;
       value = (PIT_FREQ*PIT_DEFAULT_PERIOD) / 1000000ULL;
@@ -595,8 +580,38 @@ public:
 
     _timer_freq = 1000000U / period_us;
 
-    Logging::printf("PIT initalized. Ticks every %uus (period %llu, %uHZ).\n",
+    Logging::printf("TIMER: PIT initalized. Ticks every %uus (period %llu, %uHZ).\n",
                     period_us, value, _timer_freq);
+  }
+
+public:
+
+  static void do_per_cpu_thread(void *t) REGPARM(0) NORETURN
+  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_thread(); }
+
+
+  bool receive(MessageIrq &msg)
+  {
+    unsigned cpu = BaseProgram::mycpu();
+    if ((msg.type == MessageIrq::ASSERT_IRQ) && (_per_cpu[cpu].irq == msg.line)) {
+
+      if (_reg) {
+        // ACK the IRQ in non-MSI HPET mode.
+        if (_per_cpu[cpu].ack != 0)
+          _reg->isr = _per_cpu[cpu].ack;
+      } else {
+        // PIT mode. Increment our clock.
+        while (not __sync_bool_compare_and_swap(&_pit_ticks, _pit_ticks, _pit_ticks+1))
+          {}
+      }
+
+      MEMORY_BARRIER;
+      _per_cpu[cpu].worker_sm.up();
+
+      return true;
+    }
+
+    return false;
   }
 
   unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
@@ -647,31 +662,8 @@ public:
         COUNTER_INC("request to");
         assert(data->nr < CLIENTS);
 
-        int64 diff = msg.abstime - _mb.clock()->time();
-        if (diff < 0) {
-          unsigned res = nova_semup(data->identity);
-          assert(res == NOVA_ESUCCESS);
-          return ENONE;
-        }
+        data->abstimeout = msg.abstime;
 
-        uint64 udiff = diff;
-        // if (diff > max_to) {
-        //   // Clamp diff to avoid division overflow.
-        //   Logging::printf("Timeout %llx too large, capping to %llx.\n", diff, max_to);
-        //   diff = max_to;
-        // }
-
-        // XXX muldiv128
-       
-        Math::div64(udiff, static_cast<uint32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
-        
-        uint64 estimated_main;
-        if (_reg)
-          estimated_main = our->clock_sync->estimate_hpet(our->frac_clocks_per_tick);
-        else
-          estimated_main = _pit_ticks + 1; // Compute from next tick.
-
-        data->abstimeout = estimated_main + udiff;
         MEMORY_BARRIER;
         if (!data->lifo_next)
           our->work_queue.enqueue(data);
@@ -696,11 +688,11 @@ public:
 
         MessageTime msg;
         uint64 counter = _reg ?
-          our->clock_sync->estimate_hpet(our->frac_clocks_per_tick) :
-          _pit_ticks;
+          our->clock_sync->current_hpet(_reg->counter[0]) :
+          atomic_read(_pit_ticks);
 
-        msg.wallclocktime = Math::muldiv128(counter, MessageTime::FREQUENCY, _timer_freq);
         msg.timestamp = _mb.clock()->time();
+        msg.wallclocktime = Math::muldiv128(counter, MessageTime::FREQUENCY, _timer_freq);
         utcb << msg;
         return ENONE;
       }
@@ -718,7 +710,7 @@ public:
     // RTC ports
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (iobase << 8) |  1);
     if (not _mb.bus_hostop.send(msg1)) {
-      Logging::printf("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
+      Logging::printf("TIMER: %s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
       return 0;
     }
 
@@ -731,7 +723,7 @@ public:
 
     Math::div64(msecs, MessageTime::FREQUENCY);
     gmtime(msecs, &time);
-    Logging::printf("RTC %llus date: %d.%02d.%02d %d:%02d:%02d\n", msecs, time.mday, time.mon, time.year, time.hour, time.min, time.sec);
+    Logging::printf("TIMER: %d.%02d.%02d %d:%02d:%02d\n", time.mday, time.mon, time.year, time.hour, time.min, time.sec);
 
     return ticks;
   }
@@ -748,7 +740,7 @@ public:
     if (force_pit or not hpet_init(hpet_force_legacy)) {
       _reg = NULL;
       _usable_timers = 1;
-      Logging::printf("HPET initialization failed. Try PIT instead.\n");
+      Logging::printf("TIMER: HPET initialization failed. Try PIT instead.\n");
       pit_init(pit_period_us);
     }
 
@@ -757,7 +749,7 @@ public:
 
     uint64 clocks_per_tick = static_cast<uint64>(mb.hip()->freq_tsc) * 1000 * CPT_RESOLUTION;
     Math::div64(clocks_per_tick, _timer_freq);
-    Logging::printf("%llu+%04llu/%u TSC ticks per timer tick.\n", clocks_per_tick/CPT_RESOLUTION, clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION);
+    Logging::printf("TIMER: %llu+%04llu/%u TSC ticks per timer tick.\n", clocks_per_tick/CPT_RESOLUTION, clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION);
     _nominal_tsc_ticks_per_timer_tick = clocks_per_tick;
 
     // Get wallclock time
@@ -781,7 +773,7 @@ public:
 
     for (unsigned i = 0; i < _usable_timers; i++) {
       unsigned cpu = part_cpu[i];
-      Logging::printf("CPU%u owns Timer%u.\n", cpu, i);
+      Logging::printf("TIMER: CPU%u owns Timer%u.\n", cpu, i);
 
       _per_cpu[cpu].has_timer = true;
       if (_reg)
@@ -822,7 +814,7 @@ public:
         _per_cpu[i].remote_slot->data.abstimeout = 0;
         _per_cpu[i].remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[i].remote_slot->data);
 
-        Logging::printf("CPU%u maps to CPU%u slot %u.\n",
+        Logging::printf("TIMER: CPU%u maps to CPU%u slot %u.\n",
                         i, cpu_cpu[i], remote.slot_count);
 
         remote.slot_count ++;
@@ -834,7 +826,7 @@ public:
     // Bootstrap per CPU workers
     _workers_up = KernelSemaphore(alloc_cap(), true);
 
-    Logging::printf("Waiting for per CPU workers to come up...\n");
+    Logging::printf("TIMER: Waiting for per CPU workers to come up...\n");
 
     for (unsigned i = 0; i < cpus; i ++)
       start_thread(PerCpuTimerService::do_per_cpu_thread, 1, i);
@@ -842,7 +834,7 @@ public:
     for (unsigned i = 0; i < cpus; i++)
       _workers_up.down();
 
-    Logging::printf(" ... done.\n");
+    Logging::printf("TIMER: ... done.\n");
   }
 
 };
