@@ -130,7 +130,7 @@ public:
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
+        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
         free_cap = false;
 
         {
@@ -147,17 +147,17 @@ public:
       }
     case ParentProtocol::TYPE_CLOSE:
       {
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
 
         Logging::printf("ts:: close session for %x\n", data->identity);
-        return _storage.free_client_data(utcb, data);
+        return _storage.free_client_data(utcb, data, this);
       }
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
@@ -184,8 +184,8 @@ public:
       return ENONE;
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         utcb << Cpu::xchg(&data->count, 0U);
@@ -194,8 +194,8 @@ public:
       }
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTime _msg;

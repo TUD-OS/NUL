@@ -83,24 +83,25 @@ class ClientDataStorage {
 
   T volatile * volatile _head;
   union {
-    __attribute__((aligned(8))) struct recycl recycling;
-    __attribute__((aligned(8))) unsigned long long volatile recyc64;
+    ALIGNED(8) struct recycl recycling;
+    ALIGNED(8) unsigned long long volatile recyc64;
   };
 
 
 public:
   class Guard {
     ClientDataStorage * storage;
+    A * obj;
     Utcb &utcb;
 
     public:
-      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb) : storage(_storage), utcb(_utcb) {
-        storage->cleanup(utcb);
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) : storage(_storage), obj(_obj), utcb(_utcb) {
+        storage->cleanup(utcb, obj);
         Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
       }
       ~Guard() {
         Cpu::atomic_xadd(&storage->recycling.t_in, -1U);
-        storage->cleanup(utcb);
+        storage->cleanup(utcb, obj);
       }
   };
 
@@ -109,19 +110,27 @@ public:
     assert(!(reinterpret_cast<unsigned long>(&recyc64) & 0x7));
   }
 
-  unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym) {
+  unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym, A * obj) {
     unsigned res;
     QuotaGuard<T> guard1(utcb, pseudonym, "mem", sizeof(T));
     QuotaGuard<T> guard2(utcb, pseudonym, "cap", 2, &guard1);
     check1(res, res = guard2.status());
     guard2.commit();
 
+    unsigned identity = obj->alloc_cap();
+    if (!identity) return ERESOURCE;
+
     data = new T;
     memset(data, 0, sizeof(T));
     data->pseudonym = pseudonym;
-    data->identity  = A::alloc_cap();
+    data->identity  = identity;
     res = nova_create_sm(data->identity);
-    if (res != ENONE) return res; 
+    if (res != ENONE) {
+      obj->dealloc_cap(identity);
+      delete data;
+      data = 0;
+      return res;
+    }
 
     // enqueue it
     T volatile * __head;
@@ -133,8 +142,8 @@ public:
     return ENONE;
   }
 
-  unsigned free_client_data(Utcb &utcb, T volatile *data) {
-    Guard count(this, utcb);
+  unsigned free_client_data(Utcb &utcb, T volatile *data, A * obj) {
+    Guard count(this, utcb, obj);
 
     for (T volatile * volatile * prev = &_head; T volatile * volatile current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
       if (current == data) {
@@ -241,7 +250,7 @@ public:
   /**
    * Remove items which are unused 
    */
-  void cleanup(Utcb &utcb) {
+  void cleanup(Utcb &utcb, A * obj) {
     unsigned long long tmp = recyc64;
     struct recycl tmp_expect = *reinterpret_cast<struct recycl *>(&tmp);
     if (tmp_expect.head && tmp_expect.t_in == 0) {
@@ -258,8 +267,8 @@ public:
           T::get_quota(utcb, data->pseudonym,"cap", -2);
           T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
           data->session_close(utcb);
-          A::dealloc_cap(data->identity); 
-          if (free_pseudonym) A::dealloc_cap(data->pseudonym);
+          obj->dealloc_cap(data->identity);
+          if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
           //tmp = data->del;
           unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
           tmp = *reinterpret_cast<T **>(nv_del);
@@ -274,11 +283,11 @@ public:
     }
   }
 
-  unsigned get_client_data(Utcb &utcb, T volatile *&data, unsigned identity) {
+  unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
     T volatile * client1 = 0; 
     for (T volatile * client = next(client1); client && identity; client = next(client))
       if (client->identity == identity) {
-        data = client;
+        data = reinterpret_cast<T *>(reinterpret_cast<unsigned long>(client));
         return ENONE;
       }
 

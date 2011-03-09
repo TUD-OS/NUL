@@ -1,6 +1,7 @@
 /*
  * Parent protocol implementation in sigma0.
  *
+ * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -44,8 +45,8 @@ struct ServerData : public ClientData {
   unsigned        pt;
 };
 
-__attribute__((aligned(8))) ClientDataStorage<ClientData, Sigma0, false> _client;
-__attribute__((aligned(8))) ClientDataStorage<ServerData, Sigma0, false> _server;
+ALIGNED(8) ClientDataStorage<ClientData, Sigma0, false> _client;
+ALIGNED(8) ClientDataStorage<ServerData, Sigma0, false> _server;
 
 static unsigned get_client_number(unsigned cap) {
   cap -= CLIENT_PT_OFFSET;
@@ -66,7 +67,7 @@ unsigned free_service(Utcb &utcb, ServerData volatile *sdata) {
   delete sdata->name;
   ServerData::get_quota(utcb, sdata->pseudonym, "cap", -1);
   ServerData::get_quota(utcb, sdata->pseudonym, "mem", -sdata->len);
-  return _server.free_client_data(utcb, sdata);
+  return _server.free_client_data(utcb, sdata, this);
 }
 
 unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
@@ -103,7 +104,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
         // check whether such a session is already known from our client
         {
-          ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb);
+          ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
           for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
             if (c->name == cmdline && c->pseudonym == input.identity()) {
               utcb << Utcb::TypedMapCap(c->identity);
@@ -111,7 +112,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
             }
         }
 
-        check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity()));
+        check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity(), this));
         cdata->name = cmdline;
         cdata->len  = namelen;
         utcb << Utcb::TypedMapCap(cdata->identity);
@@ -123,18 +124,18 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_CLOSE:
     {
-      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb);
-      ClientData volatile *cdata;
+      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+      ClientData *cdata;
 
       if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
       //Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
-      return _client.free_client_data(utcb, cdata);
+      return _client.free_client_data(utcb, cdata, this);
     }
   case ParentProtocol::TYPE_GET_PORTAL:
     {
-      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb);
-      ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb);
-      ClientData volatile *cdata;
+      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+      ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
+      ClientData *cdata;
       ServerData volatile *sdata;
 
       if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
@@ -174,7 +175,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       QuotaGuard<ServerData> guard1(utcb, input.identity(), "mem", request_len + namespace_len + 1);
       QuotaGuard<ServerData> guard2(utcb, input.identity(), "cap", 1, &guard1);
       check1(res, res = guard2.status());
-      check1(res, (res = _server.alloc_client_data(utcb, sdata, input.identity())));
+      check1(res, (res = _server.alloc_client_data(utcb, sdata, input.identity(), this)));
       guard2.commit();
 
       sdata->len = namespace_len + request_len + 1;
@@ -187,7 +188,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       sdata->pt   = input.received_cap();
 
       {
-        ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb);
+        ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
         for (ServerData volatile * s2 = _server.next(); s2; s2 = _server.next(s2))
           if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
             free_service(utcb, sdata);
@@ -197,7 +198,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // wakeup clients that wait for us
       {
-        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb);
+        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
         for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
         if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
           //Logging::printf("\tnotify client %x\n", c->pseudonym);
@@ -213,8 +214,8 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
   case ParentProtocol::TYPE_UNREGISTER:
     {
-      ClientDataStorage<ServerData, Sigma0, false>::Guard guard(&_server, utcb);
-      ServerData volatile *sdata;
+      ClientDataStorage<ServerData, Sigma0, false>::Guard guard(&_server, utcb, this);
+      ServerData *sdata;
 
       if ((res = _server.get_client_data(utcb, sdata, input.identity()))) return res;
       //Logging::printf("pp: unregister %s cpu %x\n", sdata->name, sdata->cpu);
@@ -222,8 +223,8 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     }
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb);
-      ClientData volatile *cdata;
+      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+      ClientData *cdata;
 
       if ((res = _client.get_client_data(utcb, cdata, input.identity(1))))  return res;
 

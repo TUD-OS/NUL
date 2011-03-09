@@ -36,7 +36,7 @@ class Tracebuffer: public CapAllocator<Tracebuffer> {
     long guid;
   };
 
-  __attribute__((aligned(8))) ClientDataStorage<ClientData, Tracebuffer> _storage;
+  ALIGNED(8) ClientDataStorage<ClientData, Tracebuffer> _storage;
 
   static void trace_putc(void *data, int value) {
     if (value < 0) return;
@@ -66,7 +66,7 @@ public:
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap()));
+        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
         free_cap = false;
         if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
           data->guid = --_anon_sessions;
@@ -76,18 +76,18 @@ public:
       }
     case ParentProtocol::TYPE_CLOSE:
       {
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
 
         if (_verbose) Logging::printf("tb: close session for %lx\n", data->guid);
-        return _storage.free_client_data(utcb, data);
+        return _storage.free_client_data(utcb, data, this);
       }
     case LogProtocol::TYPE_LOG:
       {
         unsigned len;
-        ClientData volatile *data = 0;
-        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb);
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb, this);
         if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
 
         char *text = input.get_string(len);
