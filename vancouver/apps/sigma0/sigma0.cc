@@ -1139,6 +1139,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         msg.value = alloc_cap();
         check1(false, nova_create_sm(msg.value));
         break;
+      case MessageHostOp::OP_ALLOC_SERVICE_PORTAL:
+        {
+          unsigned cpu    = msg._alloc_service_portal.cpu;
+          if (cpu == ~0U) cpu = _cpunr[CPUGSI % _numcpus];
+          Utcb *utcb      = NULL;
+          unsigned ec_cap = create_ec_helper(msg._alloc_service_portal.pt_arg,
+                                             cpu, _percpu[cpu].exc_base, &utcb);
+          unsigned pt = alloc_cap();
+          if (!ec_cap || !utcb || !pt) return false;
+          utcb->head.crd = msg._alloc_service_portal.crd;
+          *msg._alloc_service_portal.pt_out = pt;
+          return (nova_create_pt(pt, ec_cap, (unsigned long)msg._alloc_service_portal.pt, 0) == NOVA_ESUCCESS);
+        }
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
           unsigned cpu = msg._alloc_service_thread.cpu;

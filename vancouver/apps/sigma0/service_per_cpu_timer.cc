@@ -206,6 +206,10 @@ class PerCpuTimerService : private BasicHpet,
     AtomicLifo<ClientData> work_queue;
     TimeoutList<CLIENTS, ClientData> abstimeouts;
 
+    unsigned        worker_pt;
+    KernelSemaphore xcpu_sm;
+
+
     // Used by CPUs without timer
     KernelSemaphore remote_sm;   // for cross cpu wakeup
     RemoteSlot     *remote_slot; // where to store crosscpu timeouts
@@ -584,11 +588,55 @@ class PerCpuTimerService : private BasicHpet,
                     period_us, value, _timer_freq);
   }
 
+  struct WorkerMessage {
+    enum {
+      XCPU_REQUEST,
+      CLIENT_REQUEST,
+      TIMER_IRQ,
+    } type;
+    ClientData *data;
+  };
+
+  void xcpu_wakeup_thread() NORETURN
+  {
+    Utcb   *utcb = BaseProgram::myutcb();
+    unsigned cpu = BaseProgram::mycpu();
+    PerCpu * const our = &_per_cpu[cpu];
+
+    WorkerMessage m;
+    m.type = WorkerMessage::XCPU_REQUEST;
+    m.data = NULL;
+
+    while (1) {
+      our->xcpu_sm.downmulti();
+      Logging::printf("TIMER: CPU%u xcpu wakeup\n", cpu);
+
+      utcb->set_header(0, 0);
+      *utcb << m;
+      unsigned res = nova_call(our->worker_pt);
+      if (res != NOVA_ESUCCESS) {
+        Logging::printf("TIMER: CPU%u xcpu call error %u\n", cpu, res);
+        // XXX Die?
+      }
+    }
+  }
+
 public:
 
   static void do_per_cpu_thread(void *t) REGPARM(0) NORETURN
   { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_thread(); }
 
+  static void do_xcpu_wakeup_thread(void *t) REGPARM(0) NORETURN
+  { reinterpret_cast<PerCpuTimerService *>(t)->xcpu_wakeup_thread(); }
+
+  static void do_per_cpu_worker(void *t, Utcb *u) REGPARM(0)
+  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_worker(u); }
+
+  void per_cpu_worker(Utcb *u)
+  {
+    // XXX Do something
+    u->set_header(0, 0);
+  }
 
   bool receive(MessageIrq &msg)
   {
@@ -768,6 +816,23 @@ public:
                      part_cpu,
                      cpu_cpu);
 
+    // Create remote slot mapping and initialize per cpu data structure
+    for (unsigned i = 0; i < cpus; i++) {
+      _per_cpu[i].frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
+      _per_cpu[i].worker_sm = KernelSemaphore(alloc_cap(), true);
+
+      // Provide initial hpet counter to get high 32-bit right.
+      _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
+      _per_cpu[i].abstimeouts.init();
+
+      // Create per CPU worker
+      MessageHostOp msg = MessageHostOp::alloc_service_portal(&_per_cpu[i].worker_pt,
+                                                              do_per_cpu_worker, this, Crd(0), i);
+      if (!_mb.bus_hostop.send(msg))
+        Logging::panic("%s worker creation failed", __func__);
+    }
+
+
     // Bootstrap IRQ handlers. IRQs are disabled. Each worker enables
     // its IRQ when it comes up.
 
@@ -783,6 +848,7 @@ public:
       // combination of CPU count and usable timers. Who cares.
       _per_cpu[cpu].slots = new RemoteSlot[mb.hip()->cpu_count() / _usable_timers];
 
+      // Attach to IRQ
       if (_reg)
         attach_timer_irq(mb.bus_hostop, &_timer[i], cpu);
       else {
@@ -791,15 +857,10 @@ public:
         if (not mb.bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
         _per_cpu[cpu].irq = PIT_IRQ;
       }
-    }
 
-    // Create remote slot mapping and initialize per cpu data structure
-    for (unsigned i = 0; i < cpus; i++) {
-      _per_cpu[i].frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
-      _per_cpu[i].worker_sm = KernelSemaphore(alloc_cap(), true);
-      // Provide initial hpet counter to get high 32-bit right.
-      _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
-      _per_cpu[i].abstimeouts.init();
+      // Create wakeup thread.
+      _per_cpu[i].xcpu_sm   = KernelSemaphore(alloc_cap(), true);
+      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, cpu);
     }
 
     for (unsigned i = 0; i < cpus; i++) {

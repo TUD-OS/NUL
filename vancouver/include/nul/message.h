@@ -18,7 +18,10 @@
 
 #pragma once
 
+#include <nul/types.h>
 #include <nul/compiler.h>
+#include <sys/desc.h>
+#include <sys/utcb.h>
 
 /****************************************************/
 /* IOIO messages                                    */
@@ -390,6 +393,7 @@ struct MessageVesa
 
 class VCpu;
 typedef void (*ServiceThreadFn)(void *) REGPARM(0) NORETURN;
+typedef void (*ServicePortalFn)(void *, Utcb *) REGPARM(0);
 
 /**
  * Request to the host, such as notify irq or request IO region.
@@ -405,6 +409,7 @@ struct MessageHostOp
       OP_ALLOC_IOMEM,
       OP_ALLOC_SEMAPHORE,
       OP_ALLOC_SERVICE_THREAD,
+      OP_ALLOC_SERVICE_PORTAL,
       OP_ASSIGN_PCI,
       OP_VIRT_TO_PHYS,
       OP_GET_MODULE,
@@ -463,13 +468,31 @@ struct MessageHostOp
       unsigned prio;
       unsigned cpu;
     } _alloc_service_thread;
+    struct {
+      ServicePortalFn pt;
+      void           *pt_arg;
+      unsigned        crd;
+      unsigned        cpu;
+      unsigned       *pt_out;
+    } _alloc_service_portal;
+
   };
 
-  static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg, unsigned prio = ~0U, unsigned cpu = ~0U)
+  static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg,
+                                            unsigned prio = ~0U, unsigned cpu = ~0U)
   {
     MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
     n._alloc_service_thread.work = work; n._alloc_service_thread.work_arg = arg;
     n._alloc_service_thread.prio = prio; n._alloc_service_thread.cpu      = cpu;
+    return n;
+  }
+
+  static MessageHostOp alloc_service_portal(unsigned *pt_out, ServicePortalFn pt, void *pt_arg, Crd crd, unsigned cpu = ~0U)
+  {
+    MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
+    n._alloc_service_portal.pt  = pt;  n._alloc_service_portal.pt_arg = pt_arg;
+    n._alloc_service_portal.crd = crd.value();
+    n._alloc_service_portal.cpu = cpu; n._alloc_service_portal.pt_out = pt_out;
     return n;
   }
 
@@ -603,7 +626,6 @@ struct MessageDiskCommit
 
 class CpuState;
 
-#include "sys/utcb.h"
 struct MessageBios
 {
   VCpu *vcpu;
@@ -695,7 +717,6 @@ struct MessageNetwork
   MessageNetwork(const unsigned char *buffer, unsigned len, unsigned client) : type(PACKET), buffer(buffer), len(len), client(client) {}
   MessageNetwork(unsigned type, unsigned client) : type(type), mac(0), client(client) { }
 };
-#include <nul/types.h>
 
 struct MessageVirtualNet
 {
