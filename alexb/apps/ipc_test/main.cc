@@ -29,7 +29,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
       init(hip);
       init_mem(hip);
 
-      console_init("ipc test");
+      console_init("syscall tests");
 
       Logging::printf("Hello\n");
 
@@ -41,8 +41,13 @@ class IPCTest : public NovaProgram, public ProgramConsole
       Logging::printf("\nTest output should look like that:\n");
       Logging::printf("\t 'tX: ... success/failure - reason: XYZ'\n\n");
 
-      if (!test())
-        Logging::panic("failure - test run\n");
+      Logging::printf("          Test I  - IPC aborts\n");
+      if (!test_ipc_aborts())
+        Logging::printf("failure - test I  run\n");
+
+      Logging::printf("\n          Test II - Lookup\n");
+      if (!lookup_test())
+        Logging::printf("failure - test II run\n");
     }
 
   static void portal_pf(IPCTest *tls, Utcb *utcb) __attribute__((regparm(0)))
@@ -104,7 +109,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
     return true;
   }
 
-  bool test() {
+  bool test_ipc_aborts() {
     unsigned res;
 
     Logging::printf("  <------ exc pf ---------   <------- ipc ------------ \n");
@@ -127,6 +132,33 @@ class IPCTest : public NovaProgram, public ProgramConsole
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ETIMEOUT ? "success" : "failure", NOVA_ETIMEOUT, res);
 
     return true;
+  }
+
+  bool lookup_test() {
+    unsigned res, crdout;
+    unsigned sm = alloc_cap();
+    if (!sm) return false;
+
+    res = nova_create_sm(sm);
+    Logging::printf("%s - create_sm     - reason: return code 0x%x ?= 0x%x -> sm=0x%x\n", res == NOVA_ESUCCESS ? "success" : "failure", NOVA_ESUCCESS, res, sm);
+    if (res != NOVA_ESUCCESS) return false;
+
+    res = nova_syscall(NOVA_LOOKUP,  Crd(sm, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+    Logging::printf("%s - lookup(0x%x) - reason: crd.raw=0x%x should be != 0x0\n",
+                    ((res == NOVA_ESUCCESS) && (crdout & DESC_RIGHTS_ALL)) ? "success" : "failure", sm, crdout);
+
+    res = nova_revoke(Crd(sm, 0, DESC_CAP_ALL), true);
+    Logging::printf("%s - revoke(0x%x) - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ESUCCESS ? "success" : "failure", sm, NOVA_ESUCCESS, res);
+    if (res != NOVA_ESUCCESS) return false;
+
+    res  = nova_syscall(NOVA_LOOKUP,  Crd(sm, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+    Logging::printf("%s - lookup(0x%x) - reason: crd.raw=0x%x should be == 0x0\n",
+                    ((res == NOVA_ESUCCESS) && (crdout == 0U)) ? "success" : "failure", sm, crdout);
+    if (res || crdout != 0U)
+      Logging::printf("          lookup(0x%x) -> cap=0x%x order=%u rights=0x%x\n",
+                      sm, Crd(crdout).cap(), Crd(crdout).order(), crdout & DESC_RIGHTS_ALL);
+
+    return res;
   }
 };
 
