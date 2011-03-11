@@ -489,7 +489,7 @@ struct MessageHostOp
 
   static MessageHostOp alloc_service_portal(unsigned *pt_out, ServicePortalFn pt, void *pt_arg, Crd crd, unsigned cpu = ~0U)
   {
-    MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
+    MessageHostOp n(OP_ALLOC_SERVICE_PORTAL, 0UL);
     n._alloc_service_portal.pt  = pt;  n._alloc_service_portal.pt_arg = pt_arg;
     n._alloc_service_portal.crd = crd.value();
     n._alloc_service_portal.cpu = cpu; n._alloc_service_portal.pt_out = pt_out;

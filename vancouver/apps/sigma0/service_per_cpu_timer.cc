@@ -208,6 +208,7 @@ class PerCpuTimerService : private BasicHpet,
 
     unsigned        worker_pt;
     KernelSemaphore xcpu_sm;
+    uint64          last_to;
 
 
     // Used by CPUs without timer
@@ -222,8 +223,6 @@ class PerCpuTimerService : private BasicHpet,
   };
 
   PerCpu *_per_cpu;
-  KernelSemaphore _workers_up;
-
 
   uint32 assigned_irqs;
 
@@ -292,19 +291,9 @@ class PerCpuTimerService : private BasicHpet,
     return estimated_main + diff;
   }
 
-  void process_new_timeout_requests(PerCpu *per_cpu)
+  bool per_cpu_handle_xcpu(PerCpu *per_cpu)
   {
-    // Check for new timeouts to be programmed.
-    ClientData *next = NULL;
-    for (ClientData *head = per_cpu->work_queue.dequeue_all(); head; head = next) {
-      unsigned nr = head->nr;
-      next = Cpu::xchg(&(head->lifo_next), static_cast<ClientData *>(NULL));
-      uint64 t = absolute_tsc_to_timer(per_cpu, head->abstimeout);
-      // XXX Set abstimeout to zero here?
-      per_cpu->abstimeouts.cancel(nr);
-      per_cpu->abstimeouts.request(nr, t);
-      //Logging::printf("CPU%u: New timeout at %016llx (now %llx)\n", BaseProgram::mycpu(), t, _pit_ticks);
-    }
+    bool reprogram = false;
 
     // Process cross-CPU timeouts. slot_count is zero for CPUs without
     // a timer.
@@ -319,12 +308,31 @@ class PerCpuTimerService : private BasicHpet,
           goto next;
       } while (not __sync_bool_compare_and_swap(&cur.data.abstimeout, to, 0));
 
+      if (to < per_cpu->last_to)
+        reprogram = true;
+
       per_cpu->abstimeouts.cancel(cur.data.nr);
       per_cpu->abstimeouts.request(cur.data.nr, to);
       //Logging::printf("CPU%u: Remote timeout %u at %016llx\n", BaseProgram::mycpu(), i, to);
     next:
       ;
     }
+
+    return reprogram;
+  }
+
+  bool per_cpu_client_request(PerCpu *per_cpu, ClientData *data)
+  {
+    unsigned nr = data->nr;
+    uint64 t = absolute_tsc_to_timer(per_cpu, data->abstimeout);
+    // XXX Set abstimeout to zero here?
+    per_cpu->abstimeouts.cancel(nr);
+    per_cpu->abstimeouts.request(nr, t);
+
+    Logging::printf("CLIENT next %016llx last %016llx (%u)\n",
+                    t, per_cpu->last_to, (t < per_cpu->last_to));
+
+    return (t < per_cpu->last_to);
   }
 
   // Returns the next timeout.
@@ -369,66 +377,111 @@ class PerCpuTimerService : private BasicHpet,
     }
   }
 
-  void per_cpu_thread() NORETURN
+  struct WorkerMessage {
+    enum WMType{
+      XCPU_REQUEST = 1,
+      CLIENT_REQUEST,
+      TIMER_IRQ,
+    } type;
+    ClientData *data;
+  };
+
+  void per_cpu_worker(Utcb *u)
   {
-    unsigned cpu = BaseProgram::mycpu();
-    PerCpu * const our = &_per_cpu[cpu];
+    //Logging::printf("PT TLS %p UTCB %p %x: %08x %08x\n", this, u, u->head.mtr, u->msg[0], u->msg[1]);
 
-    if (_reg)
-      our->clock_sync->fetch(_reg->counter[0]);
+    unsigned cpu     = u->head.nul_cpunr;
+    PerCpu  *per_cpu = &_per_cpu[cpu];
 
-    if (_reg and our->has_timer) {
-      Logging::printf("TIMER: CPU%u up. We own a timer. Enable interrupts.\n", cpu);
-      our->timer->_reg->config |= INT_ENB_CNF;
-    }
-    _workers_up.up();
+    WorkerMessage m;
+    // XXX *u >> m; ???
+    m.type = WorkerMessage::WMType(u->msg[0]);
+    m.data = (ClientData *)u->msg[1];
 
-    goto again;
-    while (1) {
-      our->worker_sm.downmulti();
-    again:
-      process_new_timeout_requests(our);
+    //Logging::printf("%08x %08x | %08x %08x\n", u->msg[0], u->msg[1], m.type, m.data);
+    Logging::printf("WORKER CPU%u %u %p\n", cpu, m.type, m.data);
 
-      if (_reg)
-        update_hpet_estimation(our);
+    u->set_header(0, 0);
 
-      uint64 now = _reg ? our->clock_sync->unsafe_hpet() : _pit_ticks;
-      uint64 next_to = handle_expired_timers(our, now);
+    bool reprogram = false;
 
-      // Generate at least some IRQs between wraparound IRQs to make
-      // overflow detection robust. Only needed with HPETs.
-      if (_reg)
-        if ((next_to == ~0ULL /* no next timeout */ ) or
-            ((next_to - our->clock_sync->unsafe_hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
-          next_to = our->clock_sync->unsafe_hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+    // We jump here if we were to late with timer
+    // programming. reprogram stays true.
+  again:
 
-      if (our->has_timer) {
-        if (_reg) {
-          // HPET timer programming
-
-          // Program a new timeout. Top 32-bits are discarded.
-          our->timer->_reg->comp[0] = next_to;
-          
-          // Check whether we might have missed that interrupt.
-          if ((static_cast<int32>(next_to - _reg->counter[0])) <= 8) {
-            COUNTER_INC("TO lost/past");
-            //Logging::printf("CPU%u: Next timeout too close!\n", cpu);
-            goto again;
-          }
-        } else {
-          // Periodic mode. No programming necessary.
-        }
-      } else {
-        // Tell timer_cpu that we have a new timeout.
+    switch (m.type) {
+    case WorkerMessage::XCPU_REQUEST:
+      reprogram = per_cpu_handle_xcpu(per_cpu);
+      break;
+    case WorkerMessage::CLIENT_REQUEST:
+      reprogram = per_cpu_client_request(per_cpu, m.data);
+      break;
+    case WorkerMessage::TIMER_IRQ: 
+      {
+        if (_reg)
+          update_hpet_estimation(per_cpu);
         
-        if (next_to == ~0ULL) continue;
-        //Logging::printf("CPU%u: Cross core wakeup at %llu!\n", cpu, next_to);
-        our->remote_slot->data.abstimeout = next_to;
-        MEMORY_BARRIER;
-        our->remote_sm.up();
+        uint64 now = _reg ? per_cpu->clock_sync->unsafe_hpet() : _pit_ticks;
+        handle_expired_timers(per_cpu, now);
+      
+        reprogram = true;
+ 
+        break;
       }
+    default:
+      Logging::printf("CPU%u Unknown type %u. %08x %08x\n", cpu, m.type, u->msg[0], u->msg[1]);
+      return;
+      assert(false);
     }
+
+    // Check if we don't need to reprogram or if we are in periodic
+    // mode. Either way we are done.
+    if (not reprogram or (not _reg and per_cpu->has_timer))
+      return;
+    
+    // Okay, we need to program a new timeout.
+    uint64 next_to = per_cpu->abstimeouts.timeout();
+
+    // Generate at least some IRQs between wraparound IRQs to make
+    // overflow detection robust. Only needed with HPETs.
+    if (_reg)
+      if ((next_to == ~0ULL /* no next timeout */ ) or
+          ((next_to - per_cpu->clock_sync->unsafe_hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
+            next_to = per_cpu->clock_sync->unsafe_hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+
+    Logging::printf("now %016llx comp %08x next_to %016llx last_to %016llx %u\n",
+                    per_cpu->clock_sync->unsafe_hpet(), per_cpu->timer->_reg->comp[0],
+                    next_to, per_cpu->last_to, per_cpu->has_timer);
+
+    per_cpu->last_to = next_to;
+        
+    if (per_cpu->has_timer) {
+      assert(_reg);
+      // HPET timer programming. We don't get here for PIT mode.
+
+      // Program a new timeout. Top 32-bits are discarded.
+      per_cpu->timer->_reg->comp[0] = next_to;
+      
+      // Check whether we might have missed that interrupt.
+      if ((static_cast<int32>(next_to - _reg->counter[0])) <= 8) {
+        COUNTER_INC("TO lost/past");
+        Logging::printf("CPU%u: Next timeout too close!\n", cpu);
+        m.type = WorkerMessage::TIMER_IRQ;
+        goto again;
+      }
+    } else {
+      // Tell timer_cpu that we have a new timeout.
+      
+      if (next_to == ~0ULL) return;
+      Logging::printf("CPU%u: Cross core wakeup at %llu!\n", cpu, next_to);
+      per_cpu->remote_slot->data.abstimeout = next_to;
+      MEMORY_BARRIER;
+      per_cpu->xcpu_sm.up();
+    }
+
+
   }
+
 
   bool hpet_init(bool hpet_force_legacy)
   {
@@ -588,15 +641,6 @@ class PerCpuTimerService : private BasicHpet,
                     period_us, value, _timer_freq);
   }
 
-  struct WorkerMessage {
-    enum {
-      XCPU_REQUEST,
-      CLIENT_REQUEST,
-      TIMER_IRQ,
-    } type;
-    ClientData *data;
-  };
-
   void xcpu_wakeup_thread() NORETURN
   {
     Utcb   *utcb = BaseProgram::myutcb();
@@ -623,19 +667,13 @@ class PerCpuTimerService : private BasicHpet,
 
 public:
 
-  static void do_per_cpu_thread(void *t) REGPARM(0) NORETURN
-  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_thread(); }
-
   static void do_xcpu_wakeup_thread(void *t) REGPARM(0) NORETURN
   { reinterpret_cast<PerCpuTimerService *>(t)->xcpu_wakeup_thread(); }
 
   static void do_per_cpu_worker(void *t, Utcb *u) REGPARM(0)
-  { reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_worker(u); }
-
-  void per_cpu_worker(Utcb *u)
-  {
-    // XXX Do something
-    u->set_header(0, 0);
+  { 
+    //Logging::printf("PT TLS %p UTCB %p %x: %08x %08x\n", t, u, u->head.mtr, u->msg[0], u->msg[1]);
+    reinterpret_cast<PerCpuTimerService *>(t)->per_cpu_worker(u);
   }
 
   bool receive(MessageIrq &msg)
@@ -654,7 +692,16 @@ public:
       }
 
       MEMORY_BARRIER;
-      _per_cpu[cpu].worker_sm.up();
+
+      WorkerMessage m;
+      m.type = WorkerMessage::TIMER_IRQ;
+      m.data = NULL;
+
+      *BaseProgram::myutcb() << m;
+
+      unsigned res = nova_call(_per_cpu[cpu].worker_pt);
+      if (res != NOVA_ESUCCESS)
+        Logging::printf("TIMER: CPU%u irq call fail %u\n", cpu, res);
 
       return true;
     }
@@ -679,6 +726,7 @@ public:
         ClientData *data = 0;
         check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
         free_cap = false;
+        // XXX Allocate nr on all CPUs
         data->nr = our->abstimeouts.alloc(data);
         data->cpu = cpu;
         if (!data->nr) return EABORT;
@@ -709,16 +757,18 @@ public:
 
         COUNTER_INC("request to");
         assert(data->nr < CLIENTS);
-
         data->abstimeout = msg.abstime;
+        // XXX Don't send request. Just send nr
+        WorkerMessage m;
+        m.type = WorkerMessage::CLIENT_REQUEST;
+        m.data = data;
 
-        MEMORY_BARRIER;
-        if (!data->lifo_next)
-          our->work_queue.enqueue(data);
+        utcb.add_frame() << m;
+        unsigned res = nova_call(our->worker_pt);
+        utcb.drop_frame();
 
-        our->worker_sm.up();
+        return (res == NOVA_ESUCCESS) ? ENONE : EABORT;
       }
-      return ENONE;
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
         ClientData *data = 0;
@@ -824,6 +874,7 @@ public:
       // Provide initial hpet counter to get high 32-bit right.
       _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
       _per_cpu[i].abstimeouts.init();
+      _per_cpu[i].last_to = ~0ULL;
 
       // Create per CPU worker
       MessageHostOp msg = MessageHostOp::alloc_service_portal(&_per_cpu[i].worker_pt,
@@ -880,22 +931,21 @@ public:
 
         remote.slot_count ++;
       }
+
+      // Update HPET estimation.
+      // XXX This is BROKEN because we do it on the wrong CPU.
+      if (_reg) {
+        _per_cpu[i].clock_sync->fetch(_reg->counter[0]);
+        if (_per_cpu[i].has_timer) {
+          Logging::printf("TIMER: Enable interrupts for CPU%u.\n", i);
+          _per_cpu[i].timer->_reg->config |= INT_ENB_CNF;
+        }
+      }
+
     }
 
     mb.bus_hostirq.add(this, receive_static<MessageIrq>);
-
-    // Bootstrap per CPU workers
-    _workers_up = KernelSemaphore(alloc_cap(), true);
-
-    Logging::printf("TIMER: Waiting for per CPU workers to come up...\n");
-
-    for (unsigned i = 0; i < cpus; i ++)
-      start_thread(PerCpuTimerService::do_per_cpu_thread, 1, i);
-
-    for (unsigned i = 0; i < cpus; i++)
-      _workers_up.down();
-
-    Logging::printf("TIMER: ... done.\n");
+    Logging::printf("TIMER: TLS %p\n", this);
   }
 
 };

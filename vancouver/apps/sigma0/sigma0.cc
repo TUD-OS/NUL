@@ -1063,6 +1063,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
 			case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
+			case MessageHostOp::OP_ALLOC_SERVICE_PORTAL:
 			case MessageHostOp::OP_GUEST_MEM:
 			case MessageHostOp::OP_ALLOC_FROM_GUEST:
 			case MessageHostOp::OP_VIRT_TO_PHYS:
