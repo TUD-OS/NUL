@@ -342,8 +342,9 @@ class PerCpuTimerService : private BasicHpet,
 
     per_cpu->abstimeouts.request(nr, t);
 
-    Logging::printf("CLIENT next %016llx last %016llx (%u)\n",
-                    t, per_cpu->last_to, (t < per_cpu->last_to));
+    uint64 tsc = Cpu::rdtsc();
+    // Logging::printf("CPU%u CLIENT now %016llx to %016llx diff %016llx\n", BaseProgram::mycpu(),
+    //                 tsc, data->abstimeout, data->abstimeout - tsc);
 
     return (t < per_cpu->last_to);
   }
@@ -357,6 +358,7 @@ class PerCpuTimerService : private BasicHpet,
       per_cpu->abstimeouts.cancel(nr);
       assert(data);
       Cpu::atomic_xadd(&data->count, 1U);
+      //Logging::printf("CPU%u semup\n", BaseProgram::mycpu());
       unsigned res = nova_semup(data->identity);
       if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared\n");
     }
@@ -409,10 +411,10 @@ class PerCpuTimerService : private BasicHpet,
     WorkerMessage m;
     // XXX *u >> m; ???
     m.type = WorkerMessage::WMType(u->msg[0]);
-    m.data = (ClientData *)u->msg[1];
+    m.data = reinterpret_cast<ClientData *>(u->msg[1]);
 
     //Logging::printf("%08x %08x | %08x %08x\n", u->msg[0], u->msg[1], m.type, m.data);
-    Logging::printf("WORKER CPU%u %u %p\n", cpu, m.type, m.data);
+    //Logging::printf("WORKER CPU%u %u %p\n", cpu, m.type, m.data);
 
     u->set_header(0, 0);
 
@@ -462,9 +464,9 @@ class PerCpuTimerService : private BasicHpet,
           ((next_to - per_cpu->clock_sync->unsafe_hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
             next_to = per_cpu->clock_sync->unsafe_hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
 
-    Logging::printf("now %016llx comp %08x next_to %016llx last_to %016llx %u\n",
-                    per_cpu->clock_sync->unsafe_hpet(), per_cpu->timer->_reg->comp[0],
-                    next_to, per_cpu->last_to, per_cpu->has_timer);
+    // Logging::printf("CPU%u now %08x comp %08x next_to %08x last_to %08x %u\n",
+    //                 cpu, static_cast<uint32>(per_cpu->clock_sync->unsafe_hpet()), per_cpu->timer->_reg->comp[0],
+    //                 static_cast<uint32>(next_to), static_cast<uint32>(per_cpu->last_to), per_cpu->has_timer);
 
     per_cpu->last_to = next_to;
         
@@ -478,7 +480,7 @@ class PerCpuTimerService : private BasicHpet,
       // Check whether we might have missed that interrupt.
       if ((static_cast<int32>(next_to - _reg->counter[0])) <= 8) {
         COUNTER_INC("TO lost/past");
-        Logging::printf("CPU%u: Next timeout too close!\n", cpu);
+        //Logging::printf("CPU%u: Next timeout too close!\n", cpu);
         m.type = WorkerMessage::TIMER_IRQ;
         goto again;
       }
