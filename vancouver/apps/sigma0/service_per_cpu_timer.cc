@@ -277,10 +277,16 @@ class PerCpuTimerService : private BasicHpet,
   }
 
   // Convert an absolute TSC value into an absolute time counter
-  // value. Call only from per_cpu thread.
+  // value. Call only from per_cpu thread. Returns ZERO if result is
+  // in the past.
   uint64 absolute_tsc_to_timer(PerCpu *per_cpu, uint64 tsc)
   {
     int64 diff = tsc - _mb.clock()->time();
+    if (diff <= 0) {
+      //Logging::printf("CPU%u %016llx too late\n", BaseProgram::mycpu(), -diff);
+      return 0;
+    }
+
     Math::idiv64(diff, static_cast<int32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
     uint64 estimated_main;
     if (_reg)
@@ -324,9 +330,16 @@ class PerCpuTimerService : private BasicHpet,
   bool per_cpu_client_request(PerCpu *per_cpu, ClientData *data)
   {
     unsigned nr = data->nr;
+    per_cpu->abstimeouts.cancel(nr);
+
     uint64 t = absolute_tsc_to_timer(per_cpu, data->abstimeout);
     // XXX Set abstimeout to zero here?
-    per_cpu->abstimeouts.cancel(nr);
+    if (t == 0 /* timer in the past */) {
+      COUNTER_INC("TO early");
+      nova_semup(data->identity);
+      return false;
+    }
+
     per_cpu->abstimeouts.request(nr, t);
 
     Logging::printf("CLIENT next %016llx last %016llx (%u)\n",
