@@ -154,11 +154,13 @@ class IPCTest : public NovaProgram, public ProgramConsole
     res  = nova_syscall(NOVA_LOOKUP,  Crd(sm, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
     Logging::printf("%s - lookup(0x%x) - reason: crd.raw=0x%x should be == 0x0\n",
                     ((res == NOVA_ESUCCESS) && (crdout == 0U)) ? "success" : "failure", sm, crdout);
-    if (res || crdout != 0U)
+    if (res || crdout != 0U) {
       Logging::printf("          lookup(0x%x) -> cap=0x%x order=%u rights=0x%x\n",
                       sm, Crd(crdout).cap(), Crd(crdout).order(), crdout & DESC_RIGHTS_ALL);
+      return false;
+    }
 
-    return res;
+    return true;
   }
 };
 
