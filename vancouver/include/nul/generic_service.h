@@ -92,16 +92,25 @@ public:
   class Guard {
     ClientDataStorage * storage;
     A * obj;
-    Utcb &utcb;
+    Utcb * utcb;
 
     public:
-      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) : storage(_storage), obj(_obj), utcb(_utcb) {
-        storage->cleanup(utcb, obj);
+
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage) :
+        storage(_storage), obj(0), utcb(0)
+      {
+        Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
+      }
+
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) :
+        storage(_storage), obj(_obj), utcb(&_utcb)
+      {
+        if (obj) storage->cleanup(*utcb, obj);
         Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
       }
       ~Guard() {
         Cpu::atomic_xadd(&storage->recycling.t_in, -1U);
-        storage->cleanup(utcb, obj);
+        if (obj) storage->cleanup(*utcb, obj);
       }
   };
 
@@ -257,6 +266,7 @@ public:
       unsigned long long tmp_read;
       tmp_read = Cpu::cmpxchg8b(&recyc64, *reinterpret_cast<unsigned long long *>(&tmp_expect), 0);
       if (!memcmp(&tmp_read, &tmp_expect, sizeof(tmp_read))) {
+        unsigned err, crdout;
         unsigned long counter = 0;
         T * data, * tmp;
         struct recycl_nv nv_tmp;
@@ -264,9 +274,12 @@ public:
         memcpy(&nv_tmp, &tmp_expect, sizeof(nv_tmp));
         data = nv_tmp.head;
         while(data) {
-          T::get_quota(utcb, data->pseudonym,"cap", -2);
-          T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
-          data->session_close(utcb);
+          err = nova_syscall(NOVA_LOOKUP,  Crd(data->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+          if (crdout) {
+            T::get_quota(utcb, data->pseudonym,"cap", -2);
+            T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
+            data->session_close(utcb);
+          }
           obj->dealloc_cap(data->identity);
           if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
           //tmp = data->del;
@@ -284,8 +297,8 @@ public:
   }
 
   unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
-    T volatile * client1 = 0; 
-    for (T volatile * client = next(client1); client && identity; client = next(client))
+    T volatile * client = 0;
+    for (client = next(client); client && identity; client = next(client))
       if (client->identity == identity) {
         data = reinterpret_cast<T *>(reinterpret_cast<unsigned long>(client));
         return ENONE;
@@ -295,6 +308,17 @@ public:
     return EEXISTS;
   }
 
+  /**
+   * Returns a client which pseudonym does not exist anymore
+   */
+  T volatile * get_invalid_client(Utcb &utcb, A * obj, T volatile * client = 0) {
+    unsigned err, crdout;
+    for (client = next(client); client; client = next(client)) {
+      err  = nova_syscall(NOVA_LOOKUP,  Crd(client->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+      if (err || !crdout) return client;
+    }
+    return 0;
+  }
 };
 
 

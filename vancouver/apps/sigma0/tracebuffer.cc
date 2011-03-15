@@ -83,6 +83,16 @@ public:
         if (_verbose) Logging::printf("tb: close session for %lx\n", data->guid);
         return _storage.free_client_data(utcb, data, this);
       }
+    case ParentProtocol::TYPE_REQ_KILL:
+      {
+        ClientDataStorage<ClientData, Tracebuffer>::Guard guard_c(&_storage, utcb, this);
+        ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+        while (data) {
+          _storage.free_client_data(utcb, data, this);
+          data = _storage.get_invalid_client(utcb, this, data);
+        }
+        return ENONE;
+      }
     case LogProtocol::TYPE_LOG:
       {
         unsigned len;

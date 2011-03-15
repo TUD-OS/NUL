@@ -55,10 +55,11 @@ public:
   }
 
 
-  void up()
+  unsigned up(bool panic = true)
   {
     unsigned res = nova_semup(_sm);
-    if (res) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
+    if (res && panic) Logging::panic("notify failed in %s with %x", __PRETTY_FUNCTION__, res);
+    return res;
   }
 
 

@@ -131,8 +131,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     assert(size);
 
-    SemaphoreGuard l(_lock_mem);
-
     // we align to order but not more than 4M
     unsigned order = Cpu::bsr(size | 1);
     if (order < 12 || order > 22) order = 22;
@@ -146,6 +144,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long virt = 0;
     if ((rights & 3) == DESC_TYPE_MEM)
     {
+      SemaphoreGuard l(_lock_mem);
+
       unsigned long s = _virt_phys.find_phys(physmem, size);
       if (s)  return reinterpret_cast<char *>(s) + ofs;
       virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
@@ -171,8 +171,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         break;
       }
     }
+    //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
     utcb->head.crd = old;
-    if ((rights & 3) == 1)  _virt_phys.add(Region(virt, size, physmem));
+    if ((rights & 3) == DESC_TYPE_MEM) {
+      SemaphoreGuard l(_lock_mem);
+      _virt_phys.add(Region(virt, size, physmem));
+    }
     return res ? res + ofs : 0;
   }
 
@@ -265,8 +269,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       Logging::printf("s0: (%x) consumer %p out of memory %lx\n", modinfo - _modinfo, con, modinfo->physsize);
     else
       {
-	res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
-	utcb->msg[0] = 0;
+        res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
+        utcb->msg[0] = 0;
       }
 
     prepare_cap_recv(utcb);
@@ -810,17 +814,42 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (module < 1 || module > MAXMODULES || !_modinfo[module].mem || !_modinfo[module].physsize) return __LINE__;
     ModuleInfo *modinfo = _modinfo + module;
 
+    Logging::printf("s0: (%u) - initiate destruction of client ... \n", modinfo->id);
+    // send kill message to parent service so that client specific data structures within a service can be released
+    unsigned err = 0;
+    unsigned recv_cap = alloc_cap();
+    unsigned map_cap = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT) + ParentProtocol::CAP_PARENT_ID;
+
+    if (recv_cap) {
+      Utcb &utcb = myutcb()->add_frame();
+      Utcb::TypedMapCap(map_cap).fill_words(utcb.msg);
+      utcb << Crd(recv_cap, 0, DESC_CAP_ALL);
+      utcb.set_header(2, 0);
+      if ((err = nova_call(_percpu[myutcb()->head.nul_cpunr].cap_pt_echo))) Logging::printf("s0: (%u)   couldn't establish mapping %u\n", modinfo->id, err);
+      utcb.drop_frame();
+
+      if (!err) {
+        utcb = myutcb()->add_frame();
+        ParentProtocol::kill(utcb, recv_cap);
+        dealloc_cap(recv_cap);
+        utcb.drop_frame();
+      }
+    } else err = !recv_cap;
+    if (err) Logging::printf("s0: (%u)   can not inform service about dying client\n", modinfo->id);
+
     // unmap all service portals
-    unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
+    Logging::printf("s0: (%u)   revoke all caps\n", modinfo->id);
+    unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory
+    Logging::printf("s0: (%u)   revoke all memory\n", modinfo->id);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
 
     // change the tag
-    Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+    Vprintf::snprintf(_console_data[modinfo->id].tag, sizeof(_console_data[modinfo->id].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
     // switch to view 0 so that you can see the changed tag
-    switch_view(global_mb, 0, _console_data[module].console);
+    switch_view(global_mb, 0, _console_data[modinfo->id].console);
 
     // free resources
     SemaphoreGuard l(_lock_mem);
@@ -830,9 +859,30 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _free_phys.add(Region(r->phys, modinfo->physsize));
     modinfo->physsize = 0;
 
-    // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
+    // XXX legacy - should be a service - freeing producer/consumer stuff
+    unsigned cap;
+    if (cap = _prod_network[modinfo->id].sm()) {
+      Logging::printf("s0: (%u)   detach network\n", modinfo->id);
+      dealloc_cap(cap);
+      memset(&_prod_network[modinfo->id], 0, sizeof(_prod_network[modinfo->id]));
+    }
+    if (cap = _disk_data[modinfo->id].prod_disk.sm()) {
+      Logging::printf("s0: (%u)   detach disks\n", modinfo->id);
+      dealloc_cap(cap);
+      memset(&_disk_data[modinfo->id], 0, sizeof(_disk_data[modinfo->id]));
+    }
+    if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
+      Logging::printf("s0: (%u)   detach stdin\n", modinfo->id);
+/*
+      dealloc_cap(cap);
+      memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
+*/
+    }
+
+    // XXX free more, such as GSIs, IRQs, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
+    Logging::printf("s0: (%u) - destruction done\n", modinfo->id);
     //free_module(modinfo);
     return 0;
   }
@@ -1305,7 +1355,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case REQUEST_VNET_ATTACH: {
       assert(client != 0);
       vnet_sm[client] = utcb->head.crd >> Utcb::MINSHIFT;
-      Logging::printf("s0: client %u provided VNET wakeup semaphore: %u.\n", client, vnet_sm[client]);
+      Logging::printf("s0: (%u) - provided VNET wakeup semaphore: %u.\n", client, vnet_sm[client]);
       utcb->msg[0] = 0;
       prepare_cap_recv(utcb);
       return true;
@@ -1315,12 +1365,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       MessageVirtualNet *msg = reinterpret_cast<MessageVirtualNet *>(utcb->msg+1);
 
       if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) {
-	return false;
+        return false;
       } else {
-	if (convert_client_ptr(&modinfo, msg->registers, 0x4000))  return false;
-	if (adapt_ptr_map(&modinfo, msg->physoffset, msg->physsize)) return false;
-	msg->client = client;
-	utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
+        if (convert_client_ptr(&modinfo, msg->registers, 0x4000))  return false;
+        if (adapt_ptr_map(&modinfo, msg->physoffset, msg->physsize)) return false;
+        msg->client = client;
+        utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
       }
       return true;
     }
