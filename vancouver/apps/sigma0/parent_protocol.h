@@ -1,8 +1,8 @@
 /*
  * Parent protocol implementation in sigma0.
  *
- * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
