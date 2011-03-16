@@ -133,7 +133,7 @@ char * Service_fs::backup_page;
 
 PARAM(service_romfs,
       Service_fs *t = new Service_fs(mb);
-      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), false);
+      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), 0, false);
       msg.portal_pf = reinterpret_cast<unsigned long>(Service_fs::portal_pagefault);
       msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
       msg.excinc  = 4;

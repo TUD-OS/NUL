@@ -433,6 +433,7 @@ struct MessageHostOp
       unsigned excbase;
       unsigned excinc;
       unsigned crd_t;
+      char * revoke_mem;
     };
     struct {
       char *ptr;
@@ -478,8 +479,8 @@ struct MessageHostOp
   explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0, unsigned _cpu=~0U) : type(_type), value(_value),
                                                                                                       ptr(0), len(_len), cpu(_cpu) {}
   explicit MessageHostOp(Type _type, void * _value, unsigned long _len=0) : type(_type), obj(_value), ptr(0), len(_len) {}
-  explicit MessageHostOp(void * _obj, char const * _name, unsigned long _pfu, bool _cap = true)
-    : type(OP_REGISTER_SERVICE), obj(_obj), service_name(_name), portal_func(_pfu), cap(_cap), portal_pf(0), excbase(0), excinc(0), crd_t(0) {}
+  explicit MessageHostOp(void * _obj, char const * _name, unsigned long _pfu, char * _revoke_mem = 0, bool _cap = true)
+    : type(OP_REGISTER_SERVICE), obj(_obj), service_name(_name), portal_func(_pfu), cap(_cap), portal_pf(0), excbase(0), excinc(0), crd_t(0), revoke_mem(_revoke_mem) {}
 };
 
 

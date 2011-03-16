@@ -91,9 +91,13 @@ struct ParentProtocol {
     return res;
   }
 
-  static unsigned register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt, unsigned cap_service) {
+  static unsigned
+  register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt,
+                   unsigned cap_service, char * revoke_mem = 0)
+  {
     assert(cap_service);
-    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service) << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service)
+      << reinterpret_cast<unsigned>(revoke_mem) << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 

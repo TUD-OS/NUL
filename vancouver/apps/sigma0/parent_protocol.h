@@ -30,7 +30,7 @@ struct ClientData : public GenericClientData {
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
       unsigned long s0_cmdlen;
-      char const *pos, *cmdline = get_module_cmdline(input.identity(0), s0_cmdlen);
+      char const *pos, *cmdline = get_client_cmdline(input.identity(0), s0_cmdlen);
       if (cmdline && (pos = strstr(cmdline, "quota::guid")) && pos < cmdline + s0_cmdlen) {
         *value_out = get_client_number(parent_cap);
 //        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
@@ -44,6 +44,7 @@ struct ClientData : public GenericClientData {
 struct ServerData : public ClientData {
   unsigned        cpu;
   unsigned        pt;
+  char *          mem_revoke;
 };
 
 ALIGNED(8) ClientDataStorage<ClientData, Sigma0, false> _client;
@@ -55,11 +56,23 @@ static unsigned get_client_number(unsigned cap) {
   return cap >> CLIENT_PT_SHIFT;
 }
 
-static char const * get_module_cmdline(unsigned identity, unsigned long &s0_cmdlen) {
+static char const * get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen) {
   unsigned clientnr = get_client_number(identity);
   if (clientnr >= MAXMODULES) return 0;
   s0_cmdlen = sigma0->_modinfo[clientnr].sigma0_cmdlen;
   return sigma0->_modinfo[clientnr].cmdline;
+}
+
+static char * get_client_memory(unsigned identity, unsigned client_mem_revoke) {
+  unsigned clientnr = get_client_number(identity);
+  //that are we - so service is in this pd
+  if (clientnr == 0) return reinterpret_cast<char *>(client_mem_revoke);
+
+  ModuleInfo * modinfo = sigma0->get_module(clientnr);
+  if (!modinfo) return 0;
+  char * mem_revoke = reinterpret_cast<char *>(client_mem_revoke);
+  if (sigma0->convert_client_ptr(modinfo, mem_revoke, 0x1000U)) return 0;
+  else return mem_revoke;
 }
 
 unsigned get_portal(Utcb &utcb, unsigned cap_client, unsigned &portal) {
@@ -94,7 +107,7 @@ unsigned check_permission(unsigned identity, const char *request, unsigned reque
    * postfix matches the requested name.
    */
   unsigned long s0_cmdlen;
-  cmdline = get_module_cmdline(identity, s0_cmdlen);
+  cmdline = get_client_cmdline(identity, s0_cmdlen);
   char const * cmdline_end = cmdline + s0_cmdlen;
   if (!cmdline) return EPROTO;
   cmdline = strstr(cmdline, "name::");
@@ -178,7 +191,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // search for an allowed namespace
       unsigned long s0_cmdlen;
-      char const * cmdline, * _cmdline = get_module_cmdline(input.identity(0), s0_cmdlen);
+      char const * cmdline, * _cmdline = get_client_cmdline(input.identity(0), s0_cmdlen);
       if (!_cmdline) return EPROTO;
       //Logging::printf("\tregister client %x @ cpu %x _cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, _cmdline, request);
       cmdline = strstr(_cmdline, "namespace::");
@@ -200,6 +213,10 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       tmp[sdata->len - 1] = 0;
       sdata->cpu  = cpu;
       sdata->pt   = input.received_cap();
+
+      unsigned client_mem_revoke;
+      if (!input.get_word(client_mem_revoke))
+        sdata->mem_revoke = get_client_memory(input.identity(), client_mem_revoke);
 
       {
         ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
@@ -265,21 +282,27 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
         unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
         assert(res == ENONE);
 
+        {
+          ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
+          for (ServerData volatile * sdata = _server.next(); sdata; sdata = _server.next(sdata))
+             if (sdata->cpu == utcb.head.nul_cpunr && c->len == sdata->len-1 &&
+                 !memcmp(c->name, sdata->name, c->len) && sdata->mem_revoke)
+               *sdata->mem_revoke = 1; //flag revoke
+        }
+/*
+        //we avoid ipc because we don't trust our clients..
         unsigned portal;
         res = get_portal(utcb, c->identity, portal);
         if (res == ENONE) {
           //we don't care about the result - either the service implements book keeping or not
           res = ParentProtocol::kill(utcb,0, portal); //XXX better solution instead of no cap for client identification ...
-        } else { /*service is gone - so we are not able to connect anymore */ }
+        } else
+*/
+        { /*service is gone - so we are not able to connect anymore */ }
 
         res = _client.free_client_data(utcb, c, this);
         assert(res == ENONE);
       }
-/*
-      for (ClientData volatile * c = _client.next(); c; c = _client.next(c)) {
-        Logging::printf(" identity %x pseudo %x ?= %x ...\n", c->identity, c->pseudonym, input.identity(1));
-      }
-*/
     }
   default:
     return EPROTO;
