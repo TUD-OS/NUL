@@ -93,9 +93,9 @@ private:
   volatile uint64 last_tsc;
   volatile uint64 last_hpet;
 
-  void operator=(const ClockSyncInfo& copy_from) { __builtin_trap(); }
 public:
   uint64 unsafe_hpet() const { return last_hpet; }
+  uint64 unsafe_tsc()  const { return last_tsc;  }
 
   explicit
   ClockSyncInfo(uint64 tsc = 0, uint64 hpet = 0)
@@ -103,10 +103,10 @@ public:
   {}
 
   // Fast and unsafe version of estimate HPET.
-  uint64 unsafe_estimate_hpet(uint32 frac_clocks_per_tick)
+  uint64 unsafe_estimate_hpet(uint32 frac_clocks_per_tick, uint64 tsc = Cpu::rdtsc())
   { 
     // XXX Does this handle overflow correctly?
-    uint64 diff = Cpu::rdtsc() - last_tsc;
+    uint64 diff = tsc - last_tsc;
     uint64 res = diff * CPT_RESOLUTION;
     Math::div64(res, frac_clocks_per_tick);
     return last_hpet + res;
@@ -152,7 +152,7 @@ public:
     last_hpet = newv;
     last_tsc  = tsc1;
   }
-} ALIGNED(16);
+};
 
 class PerCpuTimerService : private BasicHpet,
                            public StaticReceiver<PerCpuTimerService>,
@@ -198,11 +198,11 @@ class PerCpuTimerService : private BasicHpet,
   };
 
   struct PerCpu {
-    ClockSyncInfo         *clock_sync;
-    KernelSemaphore        worker_sm;
+    ClockSyncInfo          clock_sync;
     bool                   has_timer;
     Timer                 *timer;
     uint32                 frac_clocks_per_tick;
+    bool                   tsc_unstable;
     AtomicLifo<ClientData> work_queue;
     TimeoutList<CLIENTS, ClientData> abstimeouts;
 
@@ -222,7 +222,8 @@ class PerCpuTimerService : private BasicHpet,
     unsigned    ack;            // what do we have to write to ack? (0 if nothing)
   };
 
-  PerCpu *_per_cpu;
+  PerCpu          *_per_cpu;
+  KernelSemaphore  _xcpu_up;
 
   uint32 assigned_irqs;
 
@@ -290,7 +291,7 @@ class PerCpuTimerService : private BasicHpet,
     Math::idiv64(diff, static_cast<int32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
     uint64 estimated_main;
     if (_reg)
-      estimated_main = per_cpu->clock_sync->unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
+      estimated_main = per_cpu->clock_sync.unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
     else
       estimated_main = _pit_ticks + 1; // Compute from next tick.
           
@@ -313,13 +314,17 @@ class PerCpuTimerService : private BasicHpet,
           // No need to program a timeout
           goto next;
       } while (not __sync_bool_compare_and_swap(&cur.data.abstimeout, to, 0));
-
-      if (to < per_cpu->last_to)
+      
+      //Logging::printf(  "CPU%u: Remote timeout %u at     %016llx\n", BaseProgram::mycpu(), i, to);
+      if (to < per_cpu->last_to) {
+        //Logging::printf("CPU%u: Need to reprogram (last %016llx)\n", BaseProgram::mycpu(), per_cpu->last_to);
         reprogram = true;
+      } else
+        //Logging::printf("CPU%u: Don't reprogram   (last %016llx)\n", BaseProgram::mycpu(), per_cpu->last_to);
 
       per_cpu->abstimeouts.cancel(cur.data.nr);
       per_cpu->abstimeouts.request(cur.data.nr, to);
-      //Logging::printf("CPU%u: Remote timeout %u at %016llx\n", BaseProgram::mycpu(), i, to);
+
     next:
       ;
     }
@@ -366,14 +371,19 @@ class PerCpuTimerService : private BasicHpet,
     return per_cpu->abstimeouts.timeout();
   }
 
+  // Update our clock estimation stuff, as a side effect we get a
+  // new HPET main counter value.
   void update_hpet_estimation(PerCpu *per_cpu)
   {
-    // Update our clock estimation stuff, as a side effect we get a
-    // new HPET main counter value.
-    uint64 estimated_main = per_cpu->clock_sync->unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
-    per_cpu->clock_sync->fetch(_reg->counter[0]);
+    // Estimate the current HPET value using the old HPET,TSC
+    // tuple. Adjust frac_clocks_per_tick accordingly.
+    ClockSyncInfo old = per_cpu->clock_sync;
+    per_cpu->clock_sync.fetch(_reg->counter[0]);
+    uint64 estimated_main = old.unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick,
+                                                     per_cpu->clock_sync.unsafe_tsc());
+
         
-    int64 diff = estimated_main - per_cpu->clock_sync->unsafe_hpet();
+    int64 diff = estimated_main - per_cpu->clock_sync.unsafe_hpet();
         
     // Slightly adapt clocks per tick when our estimation is off.
     if (diff > HPET_ESTIMATION_TOLERANCE)
@@ -386,9 +396,11 @@ class PerCpuTimerService : private BasicHpet,
     if (((diff < 0LL) ? -diff : diff) > 1000000LL) {
           
       Logging::printf("TIMER: CPU%u est %016llx real %016llx diff %016llx\n",
-                      BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync->unsafe_hpet(), diff);
-      Logging::printf("TIMER: CPU%u worker died...\n", BaseProgram::mycpu());
-      while (1) per_cpu->worker_sm.down();
+                      BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync.unsafe_hpet(), diff);
+      Logging::printf("TIMER: CPU%u detected unstable TSC.\n", BaseProgram::mycpu());
+
+      per_cpu->tsc_unstable = true;
+      // XXX Do something with this.
     }
   }
 
@@ -436,7 +448,7 @@ class PerCpuTimerService : private BasicHpet,
         if (_reg)
           update_hpet_estimation(per_cpu);
         
-        uint64 now = _reg ? per_cpu->clock_sync->unsafe_hpet() : _pit_ticks;
+        uint64 now = _reg ? per_cpu->clock_sync.unsafe_hpet() : _pit_ticks;
         handle_expired_timers(per_cpu, now);
       
         reprogram = true;
@@ -457,16 +469,20 @@ class PerCpuTimerService : private BasicHpet,
     // Okay, we need to program a new timeout.
     uint64 next_to = per_cpu->abstimeouts.timeout();
 
+    uint64 estimated_now = per_cpu->clock_sync.unsafe_hpet();
+
     // Generate at least some IRQs between wraparound IRQs to make
     // overflow detection robust. Only needed with HPETs.
     if (_reg)
       if ((next_to == ~0ULL /* no next timeout */ ) or
-          ((next_to - per_cpu->clock_sync->unsafe_hpet()) > (0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP)))
-            next_to = per_cpu->clock_sync->unsafe_hpet() + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+          (static_cast<int64>(next_to - estimated_now) > 0x100000000LL/MIN_TICKS_BETWEEN_HPET_WRAP)) {
+        next_to = estimated_now + 0x100000000ULL/MIN_TICKS_BETWEEN_HPET_WRAP;
+      }
 
     // Logging::printf("CPU%u now %08x comp %08x next_to %08x last_to %08x %u\n",
-    //                 cpu, static_cast<uint32>(per_cpu->clock_sync->unsafe_hpet()), per_cpu->timer->_reg->comp[0],
-    //                 static_cast<uint32>(next_to), static_cast<uint32>(per_cpu->last_to), per_cpu->has_timer);
+    //                  cpu, static_cast<uint32>(per_cpu->clock_sync.unsafe_hpet()),
+    //                  per_cpu->has_timer ? per_cpu->timer->_reg->comp[0] : 0,
+    //                  static_cast<uint32>(next_to), static_cast<uint32>(per_cpu->last_to), per_cpu->has_timer);
 
     per_cpu->last_to = next_to;
         
@@ -488,10 +504,10 @@ class PerCpuTimerService : private BasicHpet,
       // Tell timer_cpu that we have a new timeout.
       
       if (next_to == ~0ULL) return;
-      Logging::printf("CPU%u: Cross core wakeup at %llu!\n", cpu, next_to);
+      //Logging::printf("CPU%u: Cross core wakeup at %llx!\n", cpu, next_to);
       per_cpu->remote_slot->data.abstimeout = next_to;
       MEMORY_BARRIER;
-      per_cpu->xcpu_sm.up();
+      per_cpu->remote_sm.up();
     }
 
 
@@ -662,13 +678,24 @@ class PerCpuTimerService : private BasicHpet,
     unsigned cpu = BaseProgram::mycpu();
     PerCpu * const our = &_per_cpu[cpu];
 
+    if (_reg) {
+      our->clock_sync.fetch(_reg->counter[0]);
+      if (our->has_timer) {
+        Logging::printf("TIMER: Enable interrupts for CPU%u.\n", cpu);
+        our->timer->_reg->config |= INT_ENB_CNF;
+      }
+    }
+
+    _xcpu_up.up();
+
     WorkerMessage m;
-    m.type = WorkerMessage::XCPU_REQUEST;
+    m.type = our->has_timer ? WorkerMessage::XCPU_REQUEST : WorkerMessage::TIMER_IRQ;
     m.data = NULL;
 
     while (1) {
       our->xcpu_sm.downmulti();
-      Logging::printf("TIMER: CPU%u xcpu wakeup\n", cpu);
+
+      //Logging::printf("TIMER: CPU%u %s wakeup\n", cpu, our->has_timer ? "XCPU" : "XIRQ");
 
       utcb->set_header(0, 0);
       *utcb << m;
@@ -801,7 +828,7 @@ public:
 
         MessageTime msg;
         uint64 counter = _reg ?
-          our->clock_sync->current_hpet(_reg->counter[0]) :
+          our->clock_sync.current_hpet(_reg->counter[0]) :
           atomic_read(_pit_ticks);
 
         msg.timestamp = _mb.clock()->time();
@@ -853,7 +880,7 @@ public:
     if (force_pit or not hpet_init(hpet_force_legacy)) {
       _reg = NULL;
       _usable_timers = 1;
-      Logging::printf("TIMER: HPET initialization failed. Try PIT instead.\n");
+      Logging::printf("TIMER: HPET initialization %s. Try PIT instead.\n", force_pit ? "skipped" : "failed");
       pit_init(pit_period_us);
     }
 
@@ -884,10 +911,9 @@ public:
     // Create remote slot mapping and initialize per cpu data structure
     for (unsigned i = 0; i < cpus; i++) {
       _per_cpu[i].frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
-      _per_cpu[i].worker_sm = KernelSemaphore(alloc_cap(), true);
 
       // Provide initial hpet counter to get high 32-bit right.
-      _per_cpu[i].clock_sync = new(16) ClockSyncInfo(0, initial_counter);
+      _per_cpu[i].clock_sync = ClockSyncInfo(0, initial_counter);
       _per_cpu[i].abstimeouts.init();
       _per_cpu[i].last_to = ~0ULL;
 
@@ -923,21 +949,22 @@ public:
         if (not mb.bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
         _per_cpu[cpu].irq = PIT_IRQ;
       }
-
-      // Create wakeup thread.
-      _per_cpu[i].xcpu_sm   = KernelSemaphore(alloc_cap(), true);
-      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, cpu);
     }
+
+    _xcpu_up = KernelSemaphore(alloc_cap(), true);
+    for (unsigned i = 0; i < cpus; i++)
+      // Create wakeup semaphores
+      _per_cpu[i].xcpu_sm   = KernelSemaphore(alloc_cap(), true);
 
     for (unsigned i = 0; i < cpus; i++) {
       if (not _per_cpu[i].has_timer) {
         PerCpu &remote = _per_cpu[cpu_cpu[i]];
 
-        _per_cpu[i].remote_sm   = remote.worker_sm;
+        _per_cpu[i].remote_sm   = remote.xcpu_sm;
         _per_cpu[i].remote_slot = &remote.slots[remote.slot_count];
 
         // Fake a ClientData for this CPU.
-        _per_cpu[i].remote_slot->data.identity   = _per_cpu[i].worker_sm.sm();
+        _per_cpu[i].remote_slot->data.identity   = _per_cpu[i].xcpu_sm.sm();
         _per_cpu[i].remote_slot->data.abstimeout = 0;
         _per_cpu[i].remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[i].remote_slot->data);
 
@@ -946,21 +973,18 @@ public:
 
         remote.slot_count ++;
       }
-
-      // Update HPET estimation.
-      // XXX This is BROKEN because we do it on the wrong CPU.
-      if (_reg) {
-        _per_cpu[i].clock_sync->fetch(_reg->counter[0]);
-        if (_per_cpu[i].has_timer) {
-          Logging::printf("TIMER: Enable interrupts for CPU%u.\n", i);
-          _per_cpu[i].timer->_reg->config |= INT_ENB_CNF;
-        }
-      }
-
     }
 
+    for (unsigned i = 0; i < cpus; i++)
+      // Create wakeup thread
+      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, i);
+
+    Logging::printf("TIMER: Waiting for XCPU threads to come up.\n");
+    for (unsigned i = 0; i < cpus; i++)
+      _xcpu_up.down();
+
     mb.bus_hostirq.add(this, receive_static<MessageIrq>);
-    Logging::printf("TIMER: TLS %p\n", this);
+    Logging::printf("TIMER: Initialized!\n");
   }
 
 };
