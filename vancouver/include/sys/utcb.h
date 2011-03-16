@@ -210,6 +210,7 @@ struct Utcb
     // init the header
     head.mtr = 0;
     head.crd = ~0;
+    head.crd_translate = 0;
     return *this;
   }
 

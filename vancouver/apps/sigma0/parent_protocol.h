@@ -1,8 +1,8 @@
 /*
  * Parent protocol implementation in sigma0.
  *
- * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -23,13 +23,14 @@
 struct ClientData : public GenericClientData {
   char const    * name;
   unsigned        len;
+
   static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *name, long value_in, long *value_out=0) {
     Utcb::Frame input = utcb.get_nested_frame();
 //    Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", name, value_in, parent_cap, input.identity(1), input.identity(0));
     if (!strcmp(name, "mem") || !strcmp(name, "cap")) return ENONE;
     if (!strcmp(name, "guid")) {
       unsigned long s0_cmdlen;
-      char const *pos, *cmdline = get_module_cmdline(input, s0_cmdlen);
+      char const *pos, *cmdline = get_module_cmdline(input.identity(0), s0_cmdlen);
       if (cmdline && (pos = strstr(cmdline, "quota::guid")) && pos < cmdline + s0_cmdlen) {
         *value_out = get_client_number(parent_cap);
 //        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
@@ -54,13 +55,62 @@ static unsigned get_client_number(unsigned cap) {
   return cap >> CLIENT_PT_SHIFT;
 }
 
-static char const * get_module_cmdline(Utcb::Frame &input, unsigned long &s0_cmdlen) {
-  unsigned clientnr = get_client_number(input.identity(0));
+static char const * get_module_cmdline(unsigned identity, unsigned long &s0_cmdlen) {
+  unsigned clientnr = get_client_number(identity);
   if (clientnr >= MAXMODULES) return 0;
   s0_cmdlen = sigma0->_modinfo[clientnr].sigma0_cmdlen;
   return sigma0->_modinfo[clientnr].cmdline;
 }
 
+unsigned get_portal(Utcb &utcb, unsigned cap_client, unsigned &portal) {
+  ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+  ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
+  ClientData *cdata;
+  ServerData volatile *sdata;
+  unsigned res;
+
+  if ((res = _client.get_client_data(utcb, cdata, cap_client))) return res;
+  //Logging::printf("\tfound session cap %x for client %x %.*s\n", cap_client, cdata->pseudonym, cdata->len, cdata->name);
+  for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
+     if (sdata->cpu == utcb.head.nul_cpunr && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
+       // check that the server portal still exists, if not free the server-data and tell the client to retry
+       unsigned crdout;
+       if (nova_syscall(NOVA_LOOKUP, Crd(sdata->pt, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout) || !crdout) {
+         free_service(utcb, sdata);
+         return ERETRY;
+       }
+       portal = sdata->pt;
+       return ENONE;
+     }
+  // we do not have a server portal yet, thus tell the client to retry later
+  return ERETRY;
+}
+
+unsigned check_permission(unsigned identity, const char *request, unsigned request_len,
+                          unsigned instance, char const * &cmdline, unsigned &namelen)
+{
+  /**
+   * Parse the cmdline for "name::" prefixes and check whether the
+   * postfix matches the requested name.
+   */
+  unsigned long s0_cmdlen;
+  cmdline = get_module_cmdline(identity, s0_cmdlen);
+  char const * cmdline_end = cmdline + s0_cmdlen;
+  if (!cmdline) return EPROTO;
+  cmdline = strstr(cmdline, "name::");
+  while (cmdline && cmdline < cmdline_end) {
+    cmdline += 6;
+    namelen = strcspn(cmdline, " \t\r\n\f");
+    if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
+      cmdline = strstr(cmdline + namelen, "name::");
+      continue;
+    }
+    if (instance--) continue;
+    return ENONE;
+  }
+  // we do not have the permissions
+  return EPERM;
+}
 
 unsigned free_service(Utcb &utcb, ServerData volatile *sdata) {
   dealloc_cap(sdata->pt);
@@ -78,48 +128,29 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   switch (op) {
   case ParentProtocol::TYPE_OPEN:
     {
-      unsigned instance;
-      const char *request;
-      unsigned request_len;
+      unsigned instance, request_len, service_name_len;
+      const char *request, *service_name;
       ClientData *cdata;
+
       if (input.get_word(instance) || !(request = input.get_zero_string(request_len))) return EPROTO;
+      if (res = check_permission(input.identity(0), request, request_len, instance,
+                                 service_name, service_name_len)) return res;
 
-      /**
-       * Parse the cmdline for "name::" prefixes and check whether the
-       * postfix matches the requested name.
-       */
-      unsigned long s0_cmdlen;
-      char const * cmdline = get_module_cmdline(input, s0_cmdlen);
-      char const * cmdline_end = cmdline + s0_cmdlen;
-      if (!cmdline) return EPROTO;
-      cmdline = strstr(cmdline, "name::");
-      while (cmdline && cmdline < cmdline_end) {
-        cmdline += 6;
-        unsigned namelen = strcspn(cmdline, " \t\r\n\f");
-        if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
-          cmdline = strstr(cmdline + namelen, "name::");
-          continue;
-        }
-        if (instance--) continue;
-
-        // check whether such a session is already known from our client
-        {
-          ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
-          for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
-            if (c->name == cmdline && c->pseudonym == input.identity()) {
-              utcb << Utcb::TypedMapCap(c->identity);
-              return ENONE;
-            }
-        }
-
-        check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity(), this));
-        cdata->name = cmdline;
-        cdata->len  = namelen;
-        utcb << Utcb::TypedMapCap(cdata->identity);
-        return ENONE;
+      // check whether such a session is already known from our client
+      {
+        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+        for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
+          if (c->name == service_name && c->pseudonym == input.identity()) {
+            utcb << Utcb::TypedMapCap(c->identity);
+            return ENONE;
+          }
       }
-      // we do not have the permissions
-      return EPERM;
+
+      check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity(), this));
+      cdata->name = service_name;
+      cdata->len  = service_name_len;
+      utcb << Utcb::TypedMapCap(cdata->identity);
+      return ENONE;
     }
 
   case ParentProtocol::TYPE_CLOSE:
@@ -133,28 +164,11 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     }
   case ParentProtocol::TYPE_GET_PORTAL:
     {
-      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
-      ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
-      ClientData *cdata;
-      ServerData volatile *sdata;
-
-      if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
-      //Logging::printf("\tfound session cap %x for client %x %.*s\n", cdata->identity, cdata->pseudonym, cdata->len, cdata->name);
-      for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
-        if (sdata->cpu == utcb.head.nul_cpunr && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
-          // check that the server portal still exists, if not free the server-data and tell the client to retry
-          unsigned crdout;
-          if (nova_syscall(NOVA_LOOKUP, Crd(sdata->pt, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout) || !(crdout & DESC_RIGHTS_ALL)) {
-            free_service(utcb, sdata);
-            return ERETRY;
-          }
-          utcb << Utcb::TypedMapCap(sdata->pt);
-          return ENONE;
-        }
-      // we do not have a server portal yet, thus tell the client to retry later
-      return ERETRY;
+      unsigned portal, res;
+      if (res = get_portal(utcb, input.identity(), portal)) return res;
+      utcb << Utcb::TypedMapCap(portal);
+      return res;
     }
-
   case ParentProtocol::TYPE_REGISTER:
     {
       ServerData *sdata;
@@ -164,7 +178,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // search for an allowed namespace
       unsigned long s0_cmdlen;
-      char const * cmdline, * _cmdline = get_module_cmdline(input, s0_cmdlen);
+      char const * cmdline, * _cmdline = get_module_cmdline(input.identity(0), s0_cmdlen);
       if (!_cmdline) return EPROTO;
       //Logging::printf("\tregister client %x @ cpu %x _cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, _cmdline, request);
       cmdline = strstr(_cmdline, "namespace::");
@@ -237,6 +251,35 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       res = ClientData::get_quota(utcb, cdata->pseudonym, request,  invalue, &outvalue);
       utcb << outvalue;
       return res;
+    }
+  case ParentProtocol::TYPE_REQ_KILL:
+    {
+      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+
+      // find all sessions for a given client
+      for (ClientData volatile * c = _client.next(); c; c = _client.next(c)) {
+        //Logging::printf("  kill check - 0x%x 0x%x\n", c->pseudonym, c->identity);
+        if (c->pseudonym != input.identity(1)) continue;
+
+        //revoke identity cap so that services can detect that client is gone
+        unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
+        assert(res == ENONE);
+
+        unsigned portal;
+        res = get_portal(utcb, c->identity, portal);
+        if (res == ENONE) {
+          //we don't care about the result - either the service implements book keeping or not
+          res = ParentProtocol::kill(utcb,0, portal); //XXX better solution instead of no cap for client identification ...
+        } else { /*service is gone - so we are not able to connect anymore */ }
+
+        res = _client.free_client_data(utcb, c, this);
+        assert(res == ENONE);
+      }
+/*
+      for (ClientData volatile * c = _client.next(); c; c = _client.next(c)) {
+        Logging::printf(" identity %x pseudo %x ?= %x ...\n", c->identity, c->pseudonym, input.identity(1));
+      }
+*/
     }
   default:
     return EPROTO;

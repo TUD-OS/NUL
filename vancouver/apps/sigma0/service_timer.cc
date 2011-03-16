@@ -51,8 +51,8 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
   Motherboard &   _hostmb;
   Motherboard &   _mymb;
   TimeoutList<CLIENTS, struct ClientData> _abs_timeouts;
-  KernelSemaphore   _worker;
-  Semaphore   _clients;
+  KernelSemaphore _worker;
+  Semaphore       _clients;
 
   __attribute__((aligned(8))) ClientDataStorage<ClientData, TimerService> _storage;
   AtomicLifo<ClientData> _queue;
@@ -96,14 +96,18 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
        * Check whether timeouts have fired.
        */
       now = _mymb.clock()->time();
-      ClientData volatile * data;
-      while ((nr = _abs_timeouts.trigger(now, &data))) {
-        _abs_timeouts.cancel(nr);
-
-        assert(data);
-        data->count ++;
-        unsigned res = nova_semup(data->identity);
-        if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared\n"); //should not happen, cap ->identity is allocated by service timer
+      {
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
+        ClientData volatile * data;
+        while ((nr = _abs_timeouts.trigger(now, &data))) {
+          _abs_timeouts.cancel(nr);
+ 
+          if (data) { 
+            data->count ++;
+            unsigned res = nova_semup(data->identity);
+            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity); //should not happen, cap ->identity is allocated by service timer
+          }
+        }
       }
 
       // update timeout upstream
@@ -150,9 +154,28 @@ public:
         ClientData *data = 0;
         ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-
+        {
+          //XXX more fine granular synchronization
+          SemaphoreGuard l(_clients);
+          _abs_timeouts.dealloc(data->nr);
+        }
         Logging::printf("ts:: close session for %x\n", data->identity);
         return _storage.free_client_data(utcb, data, this);
+      }
+    case ParentProtocol::TYPE_REQ_KILL:
+      {
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+        while (data) {
+          {
+            //XXX more fine granular synchronization
+            SemaphoreGuard l(_clients);
+            _abs_timeouts.dealloc(data->nr);
+          }
+          _storage.free_client_data(utcb, data, this);
+          data = _storage.get_invalid_client(utcb, this, data);
+        }
+        return ENONE;
       }
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {

@@ -2,6 +2,7 @@
  * Parent protocol.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -42,6 +43,7 @@ struct ParentProtocol {
     TYPE_REGISTER,
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
+    TYPE_REQ_KILL,
     CAP_PARENT_ID = 255,
     CAP_PT_PERCPU = 256,
   };
@@ -51,9 +53,9 @@ struct ParentProtocol {
   /**
    * Low-level systemcall.
    */
-  static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame) {
+  static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame, bool base = true) {
     unsigned res;
-    res = nova_call(cap_base + utcb.head.nul_cpunr);
+    res = nova_call(cap_base + (base ? utcb.head.nul_cpunr : 0));
     if (!res) res = utcb.msg[0];
     if (drop_frame) utcb.drop_frame();
     return res;
@@ -106,6 +108,11 @@ struct ParentProtocol {
     if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();
     return res;
+  }
+
+  static unsigned kill(Utcb &utcb, unsigned cap_client_pseudonym, unsigned service_cap = 0) {
+    init_frame(utcb, TYPE_REQ_KILL, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    return call(utcb, service_cap ? service_cap : 0U + CAP_PT_PERCPU, true, !service_cap);
   }
 
 };

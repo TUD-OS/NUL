@@ -64,15 +64,17 @@ public:
   {
     if (!_consumer || ((_consumer->_wpos + 1) % SIZE == _consumer->_rpos))
       {
-	_dropping = true;
-	return false;
+        _dropping = true;
+        return false;
       }
     _dropping = false;
     _consumer->_buffer[_consumer->_wpos] = value;
     _consumer->_wpos = (_consumer->_wpos + 1) % SIZE;
-    _sem.up();
+    if (_sem.up(false)) Logging::printf("  : producer consumer issue - wake up failed\n");
     return true;
   }
+
+  unsigned sm() { return _sem.sm(); }
 
   Producer(Consumer<T, SIZE> *consumer = 0, unsigned nq = 0) : _consumer(consumer), _sem(nq) {};
 };
@@ -160,7 +162,7 @@ public:
       Parent::_consumer->_wpos = 0;
     else
       Parent::_consumer->_wpos = ofs + needed;
-    Parent::_sem.up();
+    if (Parent::_sem.up(false)) Logging::printf("  : producer consumer issue - wake up failed\n");
     return true;
   }
 };

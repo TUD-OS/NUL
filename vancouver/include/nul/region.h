@@ -52,7 +52,7 @@ public:
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->virt <= pos && pos - r->virt <  r->size)
-	return r;
+        return r;
     return 0;
   };
 
@@ -63,7 +63,7 @@ public:
   {
     for (Region *r = _list + _count; --r >= _list;)
       if (r->phys <= phys && r->size >= size && phys - r->phys <=  r->size - size )
-	return r->virt + phys - r->phys;
+        return r->virt + phys - r->phys;
     return 0;
   };
 

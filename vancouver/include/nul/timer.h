@@ -88,22 +88,34 @@ class TimeoutList
   };
 
   TimeoutEntry  _entries[ENTRIES];
-  unsigned      _count;
 public:
   /**
    * Alloc a new timeout object.
    */
   unsigned alloc(DATA volatile * _data = 0)
   {
-    if (_count < ENTRIES-1) {
-      unsigned i = ++_count;
+    unsigned i;
+    for (i=1; i < ENTRIES; i++) {
+      if (_entries[i].data) continue;
       _entries[i].data = _data;
       return i;
     }
-    Logging::printf("can not alloc a timer %d vs %d!\n", _count, ENTRIES);
+    Logging::printf("can not alloc a timer!\n");
     return 0;
   }
 
+  /**
+   * Dealloc a timeout object.
+   */
+  unsigned dealloc(unsigned nr, bool withcancel = false) {
+    if (!nr || nr > ENTRIES - 1) return 0;
+    if (!_entries[nr].data) return 0;
+
+    // should only be done when no no concurrent access happens ...
+    if (withcancel) cancel(nr);
+    _entries[nr].data = 0;
+    return 1;
+  }
 
   /**
    * Cancel a programmed timeout.
@@ -160,11 +172,11 @@ public:
   timevalue timeout() { assert(_entries[0]._next); return _entries[0]._next->_timeout; }
   void init()
   {
-    _count = 0;
     for (unsigned i = 0; i < ENTRIES; i++)
       {
-	_entries[i]._prev = _entries + i;
-	_entries[i]._next = _entries + i;
+        _entries[i]._prev = _entries + i;
+        _entries[i]._next = _entries + i;
+        _entries[i].data  = 0;
       }
     _entries[0]._timeout = ~0ULL;
   }

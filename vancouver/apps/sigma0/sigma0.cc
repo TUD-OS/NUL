@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -84,6 +85,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned  exc_base;
   } _percpu[MAXCPUS];
 
+  RegionList<32> virt_mem_ext; //memory regions backed by clients
 
   // synchronisation of GSIs+worker
   Semaphore _lock_gsi;
@@ -131,8 +133,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     assert(size);
 
-    SemaphoreGuard l(_lock_mem);
-
     // we align to order but not more than 4M
     unsigned order = Cpu::bsr(size | 1);
     if (order < 12 || order > 22) order = 22;
@@ -146,6 +146,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long virt = 0;
     if ((rights & 3) == DESC_TYPE_MEM)
     {
+      SemaphoreGuard l(_lock_mem);
+
       unsigned long s = _virt_phys.find_phys(physmem, size);
       if (s)  return reinterpret_cast<char *>(s) + ofs;
       virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
@@ -171,8 +173,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         break;
       }
     }
+    //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
     utcb->head.crd = old;
-    if ((rights & 3) == 1)  _virt_phys.add(Region(virt, size, physmem));
+    if ((rights & 3) == DESC_TYPE_MEM) {
+      SemaphoreGuard l(_lock_mem);
+      _virt_phys.add(Region(virt, size, physmem));
+    }
     return res ? res + ofs : 0;
   }
 
@@ -242,19 +248,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   /**
-   * Prepare UTCB for receiving a new cap.
-   */
-  void
-  prepare_cap_recv(Utcb *utcb)
-  {
-    //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
-    // alloc new cap for next request
-    utcb->head.crd = (alloc_cap() << Utcb::MINSHIFT) | DESC_TYPE_CAP;
-    utcb->set_header(1, 0);
-  }
-
-
-  /**
    * Handle an attach request.
    */
   template <class CONSUMER, class PRODUCER>
@@ -262,14 +255,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     CONSUMER *con = reinterpret_cast<CONSUMER *>(utcb->msg[1]);
     if (convert_client_ptr(modinfo, con, sizeof(CONSUMER)))
-      Logging::printf("s0: (%x) consumer %p out of memory %lx\n", modinfo - _modinfo, con, modinfo->physsize);
+      Logging::printf("s0: [%02x] consumer %p out of memory %lx\n", modinfo - _modinfo, con, modinfo->physsize);
     else
       {
-	res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
-	utcb->msg[0] = 0;
+        res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
+        utcb->msg[0] = 0;
       }
 
-    prepare_cap_recv(utcb);
+    alloc_crd();
+    utcb->set_header(1, 0);
   }
 
 
@@ -347,6 +341,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Logging::printf("'\n");
   }
 
+  /**
+   * Prepare UTCB for receiving a new cap.
+   */
+  //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
   inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
@@ -378,7 +376,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // XXX All threads that use ec_echo have broken error handling
       for (unsigned pt = 0; pt <= 0x1D; pt++)
         check1(4, nova_create_pt(_percpu[i].exc_base + pt, _percpu[i].cap_ec_echo,
-                                 reinterpret_cast<unsigned long>(do_error_wrapper),
+                                 pt == 0xe ? reinterpret_cast<unsigned long>(do_rm_wrapper) : reinterpret_cast<unsigned long>(do_error_wrapper),
                                  MTD_ALL));
 
       // Create GSI boot wrapper.
@@ -556,7 +554,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->mem = 0;
   }
 
-  ModuleInfo * get_module(char const * cmdline, unsigned sigma0_cmdlen) {
+  ModuleInfo * get_module(unsigned id) {
+    if (id < 1 || id >= MAXMODULES) return 0;
+    ModuleInfo *modinfo = _modinfo + id;
+    return modinfo;
+  }
+
+  ModuleInfo * alloc_module(char const * cmdline, unsigned sigma0_cmdlen) {
     // search for a free module
     again:
     unsigned module = 1;
@@ -687,7 +691,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     Hip * modhip = 0;
     char * tmem;
 
-    ModuleInfo *modinfo = get_module(mconfig, sigma0_cmdlen);
+    ModuleInfo *modinfo = alloc_module(mconfig, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
 
     // Figure out how much memory we give the client. If the user
@@ -701,11 +705,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
     check2(_free_module, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
-           "s0: (%x) Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
+           "s0: [%02x] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
            CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
 
     check2(_free_module, ((psize_needed > modinfo->physsize) || !elf),
-           "s0: (%x) Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+           "s0: [%02x] Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
 
     {
       SemaphoreGuard l(_lock_mem);
@@ -720,7 +724,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check2(_free_pmem, (!((tmem = map_self(utcb, pmem, modinfo->physsize))))); //don't assign modinfo->mem = map_self directly (double free may happen)
     modinfo->mem = tmem;
 
-    Logging::printf("s0: module(%x) using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
+    Logging::printf("s0: [%02x] using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
      * We memset the client memory to make sure we get an
@@ -806,21 +810,45 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Kill the given module.
    */
-  unsigned kill_module(unsigned module) {
-    if (module < 1 || module > MAXMODULES || !_modinfo[module].mem || !_modinfo[module].physsize) return __LINE__;
-    ModuleInfo *modinfo = _modinfo + module;
+  unsigned kill_module(ModuleInfo * modinfo) {
+    if (!modinfo || !_modinfo[modinfo->id].mem || !_modinfo[modinfo->id].physsize) return __LINE__;
+
+    Logging::printf("s0: [%02x] - initiate destruction of client ... \n", modinfo->id);
+    // send kill message to parent service so that client specific data structures within a service can be released
+    unsigned err = 0;
+    unsigned recv_cap = alloc_cap();
+    unsigned map_cap = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT) + ParentProtocol::CAP_PARENT_ID;
+
+    if (recv_cap) {
+      Utcb &utcb = myutcb()->add_frame();
+      Utcb::TypedMapCap(map_cap).fill_words(utcb.msg);
+      utcb << Crd(recv_cap, 0, DESC_CAP_ALL);
+      utcb.set_header(2, 0);
+      if ((err = nova_call(_percpu[myutcb()->head.nul_cpunr].cap_pt_echo))) Logging::printf("s0: [%02x]   couldn't establish mapping %u\n", modinfo->id, err);
+      utcb.drop_frame();
+
+      if (!err) {
+        utcb = myutcb()->add_frame();
+        ParentProtocol::kill(utcb, recv_cap);
+        dealloc_cap(recv_cap);
+        utcb.drop_frame();
+      }
+    } else err = !recv_cap;
+    if (err) Logging::printf("s0: [%02x]   can not inform service about dying client\n", modinfo->id);
 
     // unmap all service portals
-    unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (module << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
+    Logging::printf("s0: [%02x]   revoke all caps\n", modinfo->id);
+    unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory
+    Logging::printf("s0: [%02x]   revoke all memory\n", modinfo->id);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
 
     // change the tag
-    Vprintf::snprintf(_console_data[module].tag, sizeof(_console_data[module].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
+    Vprintf::snprintf(_console_data[modinfo->id].tag, sizeof(_console_data[modinfo->id].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
     // switch to view 0 so that you can see the changed tag
-    switch_view(global_mb, 0, _console_data[module].console);
+    switch_view(global_mb, 0, _console_data[modinfo->id].console);
 
     // free resources
     SemaphoreGuard l(_lock_mem);
@@ -830,9 +858,30 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _free_phys.add(Region(r->phys, modinfo->physsize));
     modinfo->physsize = 0;
 
-    // XXX free more, such as GSIs, IRQs, Producer, Consumer, Console...
+    // XXX legacy - should be a service - freeing producer/consumer stuff
+    unsigned cap;
+    if (cap = _prod_network[modinfo->id].sm()) {
+      Logging::printf("s0: [%02x]   detach network\n", modinfo->id);
+      dealloc_cap(cap);
+      memset(&_prod_network[modinfo->id], 0, sizeof(_prod_network[modinfo->id]));
+    }
+    if (cap = _disk_data[modinfo->id].prod_disk.sm()) {
+      Logging::printf("s0: [%02x]   detach disks\n", modinfo->id);
+      dealloc_cap(cap);
+      memset(&_disk_data[modinfo->id], 0, sizeof(_disk_data[modinfo->id]));
+    }
+    if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
+      Logging::printf("s0: [%02x]   detach stdin\n", modinfo->id);
+/*
+      dealloc_cap(cap);
+      memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
+*/
+    }
+
+    // XXX free more, such as GSIs, IRQs, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
+    Logging::printf("s0: [%02x] - destruction done\n", modinfo->id);
     //free_module(modinfo);
     return 0;
   }
@@ -882,41 +931,53 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
   { CODE; }
 
-
-  PT_FUNC_NORETURN(do_error,
+NORETURN
+void internal_error(unsigned pid, Utcb * utcb) {
 #if 0
-		   {
-		     SemaphoreGuard l(_lock_mem);
-		     _free_phys.debug_dump("free phys");
-		     _free_virt.debug_dump("free virt");
-		     _virt_phys.debug_dump("virt->phys");
-		   }
+	{
+    SemaphoreGuard l(_lock_mem);
+    _free_phys.debug_dump("free phys");
+    _free_virt.debug_dump("free virt");
+    _virt_phys.debug_dump("virt->phys");
+	}
 #endif
-		   if (consolesem) consolesem->up();
 
-                   Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n",
-                                   pid - _percpu[myutcb()->head.nul_cpunr].exc_base, utcb->eip);
-                   Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
-                                   utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
-                   Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
-                                   utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
-                   Logging::printf(">> ESI %08x EDI %08x EBP %08x ESP %08x\n>>\n",
-                                   utcb->esi, utcb->edi, utcb->ebp, utcb->esp);
+  if (consolesem) consolesem->up();
 
-                   Logging::printf(">> Optimistic stack dump (may fault again):\n");
-                   for (unsigned i = 0; (i < 8); i++) {
-                     unsigned *esp = reinterpret_cast<unsigned  *>(utcb->esp);
-                     Logging::printf(">> %p: %08x (decimal %u)\n", &esp[-i], esp[-i], esp[-i]);
-                   }
-                   Logging::printf(">> Stack dump done!\n");
+  Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n",
+                  pid - _percpu[utcb->head.nul_cpunr].exc_base, utcb->eip);
+  Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
+                  utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
+  Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
+                  utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
+  Logging::printf(">> ESI %08x EDI %08x EBP %08x ESP %08x\n>>\n",
+                  utcb->esi, utcb->edi, utcb->ebp, utcb->esp);
 
-                   // All those moments will be lost in time like tears in the rain.
-                   // Time to die.
-                   unsigned res;
-                   res = nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
-                   res = nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
-                   Logging::panic("Zombie? %x\n", res);
-		   )
+  Logging::printf(">> Optimistic stack dump (may fault again):\n");
+  for (unsigned i = 0; (i < 8); i++) {
+     unsigned *esp = reinterpret_cast<unsigned  *>(utcb->esp);
+     Logging::printf(">> %p: %08x (decimal %u)\n", &esp[-i], esp[-i], esp[-i]);
+  }
+  Logging::printf(">> Stack dump done!\n");
+
+  // All those moments will be lost in time like tears in the rain.
+  // Time to die.
+  unsigned res;
+  res = nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
+  res = nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
+  Logging::panic("Zombie? %x\n", res);
+}
+
+PT_FUNC_NORETURN(do_rm,
+
+  Region * r = virt_mem_ext.find(utcb->qual[1]);
+
+  if (!r) internal_error(pid, utcb);
+
+  Logging::panic("todo XXX\n");
+)
+
+PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
 
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
@@ -947,34 +1008,33 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   #include "parent_protocol.h"
 
   PT_FUNC(do_startup,
-	  unsigned short client = (pid - CLIENT_PT_OFFSET)>> CLIENT_PT_SHIFT;
-	  ModuleInfo *modinfo = _modinfo + client;
+	  ModuleInfo *modinfo = get_module((pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT);
+	  assert(modinfo);
 	  // Logging::printf("s0: [%02x] eip %lx mem %p size %lx\n",
-	  // 		  client, modinfo->rip, modinfo->mem, modinfo->physsize);
+	  // 		  modinfo->id, modinfo->rip, modinfo->mem, modinfo->physsize);
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = CLIENT_HIP;
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
 	  )
 
   PT_FUNC(do_request,
-	  unsigned short client = (pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT;
-	  ModuleInfo *modinfo = _modinfo + client;
+	  ModuleInfo *modinfo = get_module((pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT);
+	  assert(modinfo);
 
 	  COUNTER_INC("request");
 
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
 	    Logging::printf("s0: [%02x, %x] pagefault %x/%x for %llx err %llx at %x\n",
-		      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+		      pid, modinfo->id, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
             assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
-
 	    if ((utcb->qual[1] < MEM_OFFSET) ||
 	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
 	        (utcb->qual[1] >= CLIENT_BOOT_UTCB + 0x2000))
 	    {
 	      Logging::printf("s0: unresolvable pagefault - killing client ...\n");
-	      kill_module(client);
+	      kill_module(modinfo);
 	      return;
 	    }
 	    // we can not overmap -> thus remove all rights first if the PTE was present
@@ -987,16 +1047,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
 	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
 	    Logging::printf("s0: [%02x, %x] map %x/%x for %llx err %llx at %x\n",
-	      pid, client, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+	      pid, modinfo->id, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    return;
 	  }
 
-	  if (request_pcicfg(client, utcb)) return;
+	  if (request_pcicfg(modinfo->id, utcb)) return;
 
 	  SemaphoreGuard l(_lock_gsi);
 
-	  if (!request_vnet(client, utcb) && !request_disks(client, utcb) &&
-	      !request_console(client, utcb) && !request_network(client, utcb))
+	  if (!request_vnet(modinfo, utcb) && !request_disks(modinfo, utcb) &&
+	      !request_console(modinfo, utcb) && !request_network(modinfo, utcb))
 		switch (utcb->msg[0])
 		  {
 		  case REQUEST_HOSTOP:
@@ -1007,15 +1067,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		      switch (msg->type)
 			{
 			case MessageHostOp::OP_GET_MAC:
-			  msg->mac = get_mac(modinfo->mac++ * MAXMODULES + client);
+			  msg->mac = get_mac(modinfo->mac++ * MAXMODULES + modinfo->id);
 			  utcb->msg[0] = 0;
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
-			    utcb->msg[0] = assign_pci_device(NOVA_DEFAULT_PD_CAP + (client << CLIENT_PT_SHIFT) + CLIENT_PT_OFFSET, msg->value, msg->len);
-			      //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", client, msg->value, msg->len, utcb->msg[0]);
+			    utcb->msg[0] = assign_pci_device(NOVA_DEFAULT_PD_CAP + (modinfo->id << CLIENT_PT_SHIFT) + CLIENT_PT_OFFSET, msg->value, msg->len);
+			      //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", modinfo->id, msg->value, msg->len, utcb->msg[0]);
 			  } else {
-			    Logging::printf("s0: [%02x] DMA access denied.\n", client);
+			    Logging::printf("s0: [%02x] DMA access denied.\n", modinfo->id);
 			  }
 			  break;
 			case MessageHostOp::OP_ATTACH_IRQ:
@@ -1024,13 +1084,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
 			    unsigned res = nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    if (res != NOVA_ESUCCESS) goto fail;
-			    Logging::printf("s0: [%02x] gsi %lx granted\n", client, msg->value);
+			    Logging::printf("s0: [%02x] gsi %lx granted\n", modinfo->id, msg->value);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = 0;
 			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  else {
-			    Logging::printf("s0: [%02x] irq request dropped %x pre %x nr %x\n", client, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
+			    Logging::printf("s0: [%02x] irq request dropped %x pre %x nr %x\n", modinfo->id, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
 			    goto fail;
 			  }
 			  break;
@@ -1058,7 +1118,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    utcb->set_header(1, 0);
 			    utcb->msg[1] = 0;
 			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
-			    Logging::printf("s0: [%02x] iomem %lx+%lx granted from %p\n", client, addr, msg->len, ptr);
+			    Logging::printf("s0: [%02x] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
@@ -1075,7 +1135,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_GET_MODULE:
 			default:
 			  // unhandled
-			  Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+			  Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 			  goto fail;
 			}
 		    }
@@ -1089,7 +1149,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		    }
 		    break;
 		  default:
-		    Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", client, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		    Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    goto fail;
 		  }
 	      return;
@@ -1253,33 +1313,31 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Handle network requests from other PDs.
    */
-  bool request_network(unsigned client, Utcb *utcb) {
-
-    ModuleInfo *modinfo = _modinfo + client;
+  bool request_network(ModuleInfo * modinfo, Utcb *utcb) {
 
     switch(utcb->msg[0]) {
-    case REQUEST_NETWORK_ATTACH:
-      handle_attach<NetworkConsumer>(modinfo, _prod_network[client], utcb);
-      break;
-    case REQUEST_NETWORK:
-      {
-	MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
-	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
-	  utcb->msg[0] = ~0x10u;
-	else
-	  {
-	    MessageNetwork msg2 = *msg;
-	    if ((msg2.type == MessageNetwork::PACKET) &&
-                convert_client_ptr(modinfo, msg2.buffer, msg2.len))
+      case REQUEST_NETWORK_ATTACH:
+        handle_attach<NetworkConsumer>(modinfo, _prod_network[modinfo->id], utcb);
+        break;
+      case REQUEST_NETWORK:
+        {
+          MessageNetwork *msg = reinterpret_cast<MessageNetwork *>(utcb->msg+1);
+          if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
+            utcb->msg[0] = ~0x10u;
+          else
+          {
+            MessageNetwork msg2 = *msg;
+            if ((msg2.type == MessageNetwork::PACKET) &&
+                 convert_client_ptr(modinfo, msg2.buffer, msg2.len))
               return false;
-	    msg2.client = client;
-	    utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
+            msg2.client = modinfo->id;
+            utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
             if (msg2.type == MessageNetwork::QUERY_MAC)
               msg->mac = msg2.mac;
-	  }
-      }
-      break;
-    default:  return false;
+          }
+        }
+        break;
+      default:  return false;
     }
     return true;
   }
@@ -1313,28 +1371,28 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-  bool request_vnet(unsigned client, Utcb *utcb)
+  bool request_vnet(ModuleInfo * modinfo, Utcb *utcb)
   {
     switch (utcb->msg[0]) {
     case REQUEST_VNET_ATTACH: {
-      assert(client != 0);
-      vnet_sm[client] = utcb->head.crd >> Utcb::MINSHIFT;
-      Logging::printf("s0: client %u provided VNET wakeup semaphore: %u.\n", client, vnet_sm[client]);
+      assert(modinfo->id != 0);
+      vnet_sm[modinfo->id] = utcb->head.crd >> Utcb::MINSHIFT;
+      Logging::printf("s0: [%02x] - provided VNET wakeup semaphore: %u.\n", modinfo->id, vnet_sm[modinfo->id]);
       utcb->msg[0] = 0;
-      prepare_cap_recv(utcb);
+      alloc_crd();
+      utcb->set_header(1, 0);
       return true;
     }
     case REQUEST_VNET: {
-      ModuleInfo &modinfo = _modinfo[client];
       MessageVirtualNet *msg = reinterpret_cast<MessageVirtualNet *>(utcb->msg+1);
 
       if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) {
-	return false;
+        return false;
       } else {
-	if (convert_client_ptr(&modinfo, msg->registers, 0x4000))  return false;
-	if (adapt_ptr_map(&modinfo, msg->physoffset, msg->physsize)) return false;
-	msg->client = client;
-	utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
+        if (convert_client_ptr(modinfo, msg->registers, 0x4000))  return false;
+        if (adapt_ptr_map(modinfo, msg->physoffset, msg->physsize)) return false;
+        msg->client = modinfo->id;
+        utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
       }
       return true;
     }
@@ -1411,10 +1469,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Handle disk requests from other PDs.
    */
-  bool request_disks(unsigned client, Utcb *utcb) {
+  bool request_disks(ModuleInfo * modinfo, Utcb *utcb) {
 
-    ModuleInfo *modinfo = _modinfo + client;
-    DiskData  *disk_data = _disk_data + client;
+    DiskData  *disk_data = _disk_data + modinfo->id;
 
     switch(utcb->msg[0]) {
     case REQUEST_DISKS_ATTACH:
@@ -1440,7 +1497,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		if (convert_client_ptr(modinfo, msg2.dma, sizeof(*msg2.dma)*msg2.dmacount)) return false;
                 if (adapt_ptr_map(modinfo, msg2.physoffset, msg2.physsize))                 return false;
 
-		utcb->msg[0] = find_free_tag(client, msg2.disknr, msg2.usertag, msg2.usertag);
+		utcb->msg[0] = find_free_tag(modinfo->id, msg2.disknr, msg2.usertag, msg2.usertag);
 		if (utcb->msg[0]) return true;
 		assert(msg2.usertag);
 		break;
@@ -1472,7 +1529,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       assert(index <= MAXDISKREQUESTS);
       MessageDiskCommit item(_disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
       if (!_disk_data[client].prod_disk.produce(item))
-        Logging::panic("s0: produce disk (%x, %x) failed\n", client, index);
+        Logging::panic("s0: [%02x] produce disk (%x) failed\n", client, index);
       _disk_data[client].tags[index-1].disk = 0;
     }
     return true;
@@ -1544,12 +1601,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Handle console requests from other PDs.
    */
-  bool request_console(unsigned client, Utcb *utcb) {
-    ModuleInfo *modinfo = _modinfo + client;
+  bool request_console(ModuleInfo * modinfo, Utcb *utcb) {
 
     switch(utcb->msg[0]) {
     case REQUEST_STDIN_ATTACH:
-      handle_attach<StdinConsumer>(modinfo, _console_data[client].prod_stdin, utcb);
+      handle_attach<StdinConsumer>(modinfo, _console_data[modinfo->id].prod_stdin, utcb);
       break;
     case REQUEST_CONSOLE:
       {
@@ -1569,9 +1625,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		  &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
 	      || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
 		  && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
-	      || !_console_data[client].console)
+	      || !_console_data[modinfo->id].console)
 	    break;
-	  msg2.id = _console_data[client].console;
+	  msg2.id = _console_data[modinfo->id].console;
 	  // alloc a new console and set the name from the commandline
 	  utcb->msg[0] = !_mb->bus_console.send(msg2);
 	  if (!utcb->msg[0])      msg->view = msg2.view;
@@ -1630,8 +1686,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
     case MessageConsole::TYPE_KILL:
       {
-        unsigned res = kill_module(msg.id);
-        if (res)   Logging::printf("s0: kill module(%d) = %u\n", msg.id, res);
+        unsigned res = kill_module(get_module(msg.id));
+        if (res) Logging::printf("s0: [%02x] kill module = %u\n", msg.id, res);
       }
       return true;
     case MessageConsole::TYPE_DEBUG:
