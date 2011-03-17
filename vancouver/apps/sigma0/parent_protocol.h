@@ -76,14 +76,15 @@ static char * get_client_memory(unsigned identity, unsigned client_mem_revoke) {
 }
 
 unsigned get_portal(Utcb &utcb, unsigned cap_client, unsigned &portal) {
-  ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
-  ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
   ClientData *cdata;
   ServerData volatile *sdata;
   unsigned res;
 
+  ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client);
   if ((res = _client.get_client_data(utcb, cdata, cap_client))) return res;
   //Logging::printf("\tfound session cap %x for client %x %.*s\n", cap_client, cdata->pseudonym, cdata->len, cdata->name);
+
+  ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server);
   for (sdata = _server.next(); sdata; sdata = _server.next(sdata))
      if (sdata->cpu == utcb.head.nul_cpunr && cdata->len == sdata->len-1 && !memcmp(cdata->name, sdata->name, cdata->len)) {
        // check that the server portal still exists, if not free the server-data and tell the client to retry
@@ -133,6 +134,22 @@ unsigned free_service(Utcb &utcb, ServerData volatile *sdata) {
   return _server.free_client_data(utcb, sdata, this);
 }
 
+void notify_service(Utcb &utcb, ClientData volatile *c) {
+
+  //revoke identity cap so that services can detect that client is gone
+  unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
+  assert(res == ENONE);
+
+  {
+    ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server);
+    for (ServerData volatile * sdata = _server.next(); sdata; sdata = _server.next(sdata))
+      if (sdata->cpu == utcb.head.nul_cpunr && c->len == sdata->len-1 &&
+          !memcmp(c->name, sdata->name, c->len) && sdata->mem_revoke)
+            *sdata->mem_revoke = 1; //flag revoke
+  }
+
+}
+
 unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
   unsigned res;
   unsigned op;
@@ -151,7 +168,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // check whether such a session is already known from our client
       {
-        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client);
         for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
           if (c->name == service_name && c->pseudonym == input.identity()) {
             utcb << Utcb::TypedMapCap(c->identity);
@@ -159,7 +176,26 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
           }
       }
 
-      check1(res, res = _client.alloc_client_data(utcb, cdata, input.identity(), this));
+      res = _client.alloc_client_data(utcb, cdata, input.identity(), this);
+      if (res) {
+        if (res != ERESOURCE) return res;
+
+        unsigned count = 0;
+        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+        ClientData volatile * data = _client.get_invalid_client(utcb, this);
+        while (data) {
+          Logging::printf("s0: found dead client - freeing datastructure\n");
+          count++;
+
+          notify_service(utcb, data);
+
+          _client.free_client_data(utcb, data, this);
+          data = _client.get_invalid_client(utcb, this, data);
+        }
+        if (count > 0) return ERETRY;
+        else return ERESOURCE;
+      }
+
       cdata->name = service_name;
       cdata->len  = service_name_len;
       utcb << Utcb::TypedMapCap(cdata->identity);
@@ -202,8 +238,23 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
       QuotaGuard<ServerData> guard1(utcb, input.identity(), "mem", request_len + namespace_len + 1);
       QuotaGuard<ServerData> guard2(utcb, input.identity(), "cap", 1, &guard1);
       check1(res, res = guard2.status());
-      check1(res, (res = _server.alloc_client_data(utcb, sdata, input.identity(), this)));
-      guard2.commit();
+      res = _server.alloc_client_data(utcb, sdata, input.identity(), this);
+      if (res == ENONE) guard2.commit();
+      else {
+        if (res != ERESOURCE) return res;
+
+        unsigned count = 0;
+        ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
+        ServerData volatile * sdata = _server.get_invalid_client(utcb, this);
+        while (sdata) {
+          Logging::printf("s0: found dead server - freeing datastructure\n");
+          count++;
+          free_service(utcb, sdata);
+          sdata = _server.get_invalid_client(utcb, this, sdata);
+        }
+        if (count > 0) return ERETRY;
+        else return ERESOURCE;
+      }
 
       sdata->len = namespace_len + request_len + 1;
       char * tmp = new char[sdata->len];
@@ -219,7 +270,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
         sdata->mem_revoke = get_client_memory(input.identity(), client_mem_revoke);
 
       {
-        ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
+        ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server);
         for (ServerData volatile * s2 = _server.next(); s2; s2 = _server.next(s2))
           if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
             free_service(utcb, sdata);
@@ -229,7 +280,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // wakeup clients that wait for us
       {
-        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
+        ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client);
         for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
         if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
           //Logging::printf("\tnotify client %x\n", c->pseudonym);
@@ -254,9 +305,8 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     }
   case ParentProtocol::TYPE_GET_QUOTA:
     {
-      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client, utcb, this);
       ClientData *cdata;
-
+      ClientDataStorage<ClientData, Sigma0, false>::Guard guard_c(&_client);
       if ((res = _client.get_client_data(utcb, cdata, input.identity(1))))  return res;
 
       long invalue;
@@ -275,34 +325,15 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
       // find all sessions for a given client
       for (ClientData volatile * c = _client.next(); c; c = _client.next(c)) {
-        //Logging::printf("  kill check - 0x%x 0x%x\n", c->pseudonym, c->identity);
         if (c->pseudonym != input.identity(1)) continue;
 
-        //revoke identity cap so that services can detect that client is gone
-        unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
-        assert(res == ENONE);
+        notify_service(utcb, c);
 
-        {
-          ClientDataStorage<ServerData, Sigma0, false>::Guard guard_s(&_server, utcb, this);
-          for (ServerData volatile * sdata = _server.next(); sdata; sdata = _server.next(sdata))
-             if (sdata->cpu == utcb.head.nul_cpunr && c->len == sdata->len-1 &&
-                 !memcmp(c->name, sdata->name, c->len) && sdata->mem_revoke)
-               *sdata->mem_revoke = 1; //flag revoke
-        }
-/*
-        //we avoid ipc because we don't trust our clients..
-        unsigned portal;
-        res = get_portal(utcb, c->identity, portal);
-        if (res == ENONE) {
-          //we don't care about the result - either the service implements book keeping or not
-          res = ParentProtocol::kill(utcb,0, portal); //XXX better solution instead of no cap for client identification ...
-        } else
-*/
-        { /*service is gone - so we are not able to connect anymore */ }
-
+        Logging::printf("s0: freeing session datastructure for a service allocated on behalf of a dying client\n");
         res = _client.free_client_data(utcb, c, this);
         assert(res == ENONE);
       }
+      return ENONE;
     }
   default:
     return EPROTO;

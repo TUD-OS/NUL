@@ -71,15 +71,21 @@ public:
     unsigned res = ENONE;
     unsigned op;
 
-    if (*_flag_revoke) { check_clients(utcb); *_flag_revoke = 0; }
-
     check1(EPROTO, input.get_word(op));
     //Logging::printf("%s words %x/%x id %x %x\n", __PRETTY_FUNCTION__, input.untyped(), input.typed(),  input.identity(), op);
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
+        res = _storage.alloc_client_data(utcb, data, input.received_cap(), this);
+
+        if (res) {
+           if (res != ERESOURCE) return res;
+           check_clients(utcb); //force garbage collection run
+           return ERETRY;
+        }
+        if (*_flag_revoke) { check_clients(utcb); *_flag_revoke = 0; }
+
         free_cap = false;
         if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
           data->guid = --_anon_sessions;
@@ -96,17 +102,11 @@ public:
         if (_verbose) Logging::printf("tb: close session for %lx\n", data->guid);
         return _storage.free_client_data(utcb, data, this);
       }
-    case ParentProtocol::TYPE_REQ_KILL:
-      {
-        check1(EPROTO, !input.identity());
-        check_clients(utcb);
-        return ENONE;
-      }
     case LogProtocol::TYPE_LOG:
       {
         unsigned len;
         ClientData *data = 0;
-        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb, this);
+        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage);
         if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
 
         char *text = input.get_string(len);

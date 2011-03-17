@@ -198,9 +198,7 @@ public:
    */
   void close(Utcb &utcb) { release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM); }
 
-  unsigned get_notify_sm() {
-    return _cap_base + CAP_SERVER_SESSION;
-  }
+  unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
 

@@ -96,18 +96,25 @@ public:
 
     public:
 
-      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage) :
-        storage(_storage), obj(0), utcb(0)
-      {
-        Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
-      }
-
+      /*
+       * This guard triggers cleanup run on creation and deletion of this object
+       */
       Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) :
         storage(_storage), obj(_obj), utcb(&_utcb)
       {
         if (obj) storage->cleanup(*utcb, obj);
         Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
       }
+
+      /*
+       * This guard don't trigger cleanup runs - use this for short running operation 
+       */
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage) :
+        storage(_storage), obj(0), utcb(0)
+      {
+        Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
+      }
+
       ~Guard() {
         Cpu::atomic_xadd(&storage->recycling.t_in, -1U);
         if (obj) storage->cleanup(*utcb, obj);
@@ -128,8 +135,9 @@ public:
 
     unsigned identity = obj->alloc_cap();
     if (!identity) return ERESOURCE;
-
     data = new T;
+    if (!data) return ERESOURCE;
+
     memset(data, 0, sizeof(T));
     data->pseudonym = pseudonym;
     data->identity  = identity;

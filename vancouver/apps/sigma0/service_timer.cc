@@ -2,6 +2,7 @@
  * Timer Service.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2011, Alexander Boettcherr <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -106,7 +107,8 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
           if (data) { 
             data->count ++;
             unsigned res = nova_semup(data->identity);
-            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity); //should not happen, cap ->identity is allocated by service timer
+            //should not happen, cap ->identity is allocated by service timer
+            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity);
           }
         }
       }
@@ -143,15 +145,20 @@ public:
     unsigned res = ENONE;
     unsigned op;
 
-    if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
-
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
+        res = _storage.alloc_client_data(utcb, data, input.received_cap(), this);
+        if (res) {
+          if (res != ERESOURCE) return res;
+          check_clients(utcb); //force garbage collection run
+          return ERETRY;
+        }
+        if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
+
         free_cap = false;
 
         {
@@ -179,16 +186,10 @@ public:
         Logging::printf("ts:: close session for %x\n", data->identity);
         return _storage.free_client_data(utcb, data, this);
       }
-    case ParentProtocol::TYPE_REQ_KILL:
-      {
-        check1(EPROTO, !input.identity());
-        check_clients(utcb);
-        return ENONE;
-      }
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
@@ -216,7 +217,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         utcb << Cpu::xchg(&data->count, 0U);
@@ -226,7 +227,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTime _msg;
