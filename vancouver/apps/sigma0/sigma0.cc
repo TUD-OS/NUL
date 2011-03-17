@@ -85,8 +85,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned  exc_base;
   } _percpu[MAXCPUS];
 
-  RegionList<32> virt_mem_ext; //memory regions backed by clients
-
   // synchronisation of GSIs+worker
   Semaphore _lock_gsi;
   // lock for memory allocator
@@ -308,8 +306,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   static void serial_send(long value) {
     if (global_mb)
       {
-	MessageSerial msg(1, value);
-	global_mb->bus_serial.send(msg);
+        MessageSerial msg(1, value);
+        global_mb->bus_serial.send(msg);
       }
   }
 
@@ -376,7 +374,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // XXX All threads that use ec_echo have broken error handling
       for (unsigned pt = 0; pt <= 0x1D; pt++)
         check1(4, nova_create_pt(_percpu[i].exc_base + pt, _percpu[i].cap_ec_echo,
-                                 pt == 0xe ? reinterpret_cast<unsigned long>(do_rm_wrapper) : reinterpret_cast<unsigned long>(do_error_wrapper),
+                                 reinterpret_cast<unsigned long>(do_error_wrapper),
                                  MTD_ALL));
 
       // Create GSI boot wrapper.
@@ -911,73 +909,61 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return 3;
   }
 
-
-/*
- * Sigma0 portal functions.
- */
-#define PT_FUNC_NORETURN(NAME, CODE)					\
-  static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
-  { tls->NAME(pid, utcb); }						\
+  /*
+   * Sigma0 portal functions.
+   */
+  #define PT_FUNC_NORETURN(NAME, CODE)					\
+    static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1), noreturn)) \
+    { tls->NAME(pid, utcb); }						\
   									\
-  void __attribute__((always_inline, noreturn))  NAME(unsigned pid, Utcb *utcb) \
-  {									\
-    CODE;								\
+    void __attribute__((always_inline, noreturn))  NAME(unsigned pid, Utcb *utcb) \
+    { CODE;	}
+
+  #define PT_FUNC(NAME, CODE, ...)					\
+    static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
+    { tls->NAME(pid, utcb); asmlinkage_protect("g"(tls), "g"(utcb)); }	\
+  									\
+    void __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
+    { CODE; }
+
+  NORETURN
+  void internal_error(unsigned pid, Utcb * utcb) {
+  #if 0
+    {
+      SemaphoreGuard l(_lock_mem);
+      _free_phys.debug_dump("free phys");
+      _free_virt.debug_dump("free virt");
+      _virt_phys.debug_dump("virt->phys");
+    }
+  #endif
+
+    if (consolesem) consolesem->up();
+
+    Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n",
+                    pid - _percpu[utcb->head.nul_cpunr].exc_base, utcb->eip);
+    Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
+                    utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
+    Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
+                    utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
+    Logging::printf(">> ESI %08x EDI %08x EBP %08x ESP %08x\n>>\n",
+                    utcb->esi, utcb->edi, utcb->ebp, utcb->esp);
+
+    Logging::printf(">> Optimistic stack dump (may fault again):\n");
+    for (unsigned i = 0; (i < 8); i++) {
+       unsigned *esp = reinterpret_cast<unsigned  *>(utcb->esp);
+       Logging::printf(">> %p: %08x (decimal %u)\n", &esp[-i], esp[-i], esp[-i]);
+    }
+    Logging::printf(">> Stack dump done!\n");
+
+    // All those moments will be lost in time like tears in the rain.
+    // Time to die.
+    unsigned res;
+    res = nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
+    res = nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
+    Logging::panic("Zombie? %x\n", res);
   }
 
-#define PT_FUNC(NAME, CODE, ...)					\
-  static void NAME##_wrapper(unsigned pid, Sigma0 *tls, Utcb *utcb) __attribute__((regparm(1))) \
-  { tls->NAME(pid, utcb); asmlinkage_protect("g"(tls), "g"(utcb)); }	\
-  									\
-  void __attribute__((always_inline))  NAME(unsigned pid, Utcb *utcb) __VA_ARGS__ \
-  { CODE; }
-
-NORETURN
-void internal_error(unsigned pid, Utcb * utcb) {
-#if 0
-	{
-    SemaphoreGuard l(_lock_mem);
-    _free_phys.debug_dump("free phys");
-    _free_virt.debug_dump("free virt");
-    _virt_phys.debug_dump("virt->phys");
-	}
-#endif
-
-  if (consolesem) consolesem->up();
-
-  Logging::printf(">> Unhandled exception %u at EIP %08x!\n>>\n",
-                  pid - _percpu[utcb->head.nul_cpunr].exc_base, utcb->eip);
-  Logging::printf(">> MTD %08x PF  %016llx ERR %016llx\n",
-                  utcb->head.mtr, utcb->qual[1], utcb->qual[0]);
-  Logging::printf(">> EAX %08x EBX %08x ECX %08x EDX %08x\n",
-                  utcb->eax, utcb->ebx, utcb->ecx, utcb->edx);
-  Logging::printf(">> ESI %08x EDI %08x EBP %08x ESP %08x\n>>\n",
-                  utcb->esi, utcb->edi, utcb->ebp, utcb->esp);
-
-  Logging::printf(">> Optimistic stack dump (may fault again):\n");
-  for (unsigned i = 0; (i < 8); i++) {
-     unsigned *esp = reinterpret_cast<unsigned  *>(utcb->esp);
-     Logging::printf(">> %p: %08x (decimal %u)\n", &esp[-i], esp[-i], esp[-i]);
-  }
-  Logging::printf(">> Stack dump done!\n");
-
-  // All those moments will be lost in time like tears in the rain.
-  // Time to die.
-  unsigned res;
-  res = nova_revoke(Crd(14, 0, DESC_CAP_ALL), true); // Unmap PF portal
-  res = nova_revoke(Crd(0, 20, DESC_MEM_ALL), true); // Unmap all memory
-  Logging::panic("Zombie? %x\n", res);
-}
-
-PT_FUNC_NORETURN(do_rm,
-
-  Region * r = virt_mem_ext.find(utcb->qual[1]);
-
-  if (!r) internal_error(pid, utcb);
-
-  Logging::panic("todo XXX\n");
-)
-
-PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
+  PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
 
   PT_FUNC(do_map,
 	  // make sure we have enough words to reply
@@ -1272,7 +1258,7 @@ PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
             if (msg.crd_t) utcb->head.crd_translate = msg.crd_t;
 
             check1(false, nova_create_pt(pt, ec_cap, msg.portal_func, 0));
-            check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap));
+            check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap, msg.revoke_mem));
             //Logging::printf("s0: service registered on cpu %x\n", cpu);
             if (msg.portal_pf) {
               unsigned ec_pf = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, &utcb);

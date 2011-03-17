@@ -31,6 +31,7 @@ class Tracebuffer: public CapAllocator<Tracebuffer> {
   char        * _buf;
   bool          _verbose;
   long          _anon_sessions;
+  char        * _flag_revoke;
 
   struct ClientData : public GenericClientData {
     long guid;
@@ -53,6 +54,16 @@ class Tracebuffer: public CapAllocator<Tracebuffer> {
     va_end(ap);
   }
 
+  void check_clients(Utcb &utcb) {
+    ClientDataStorage<ClientData, Tracebuffer>::Guard guard_c(&_storage, utcb, this);
+    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    while (data) {
+      if (_verbose) Logging::printf("tb: found dead client - freeing datastructure\n");
+      _storage.free_client_data(utcb, data, this);
+      data = _storage.get_invalid_client(utcb, this, data);
+    }
+  }
+
 public:
   inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
 
@@ -66,7 +77,15 @@ public:
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
+        res = _storage.alloc_client_data(utcb, data, input.received_cap(), this);
+
+        if (res) {
+           if (res != ERESOURCE) return res;
+           check_clients(utcb); //force garbage collection run
+           return ERETRY;
+        }
+        if (*_flag_revoke) { check_clients(utcb); *_flag_revoke = 0; }
+
         free_cap = false;
         if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
           data->guid = --_anon_sessions;
@@ -83,21 +102,11 @@ public:
         if (_verbose) Logging::printf("tb: close session for %lx\n", data->guid);
         return _storage.free_client_data(utcb, data, this);
       }
-    case ParentProtocol::TYPE_REQ_KILL:
-      {
-        ClientDataStorage<ClientData, Tracebuffer>::Guard guard_c(&_storage, utcb, this);
-        ClientData volatile * data = _storage.get_invalid_client(utcb, this);
-        while (data) {
-          _storage.free_client_data(utcb, data, this);
-          data = _storage.get_invalid_client(utcb, this, data);
-        }
-        return ENONE;
-      }
     case LogProtocol::TYPE_LOG:
       {
         unsigned len;
         ClientData *data = 0;
-        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage, utcb, this);
+        ClientDataStorage<ClientData, Tracebuffer>::Guard guard(&_storage);
         if ((res = _storage.get_client_data(utcb, data, input.identity())))  return res;
 
         char *text = input.get_string(len);
@@ -114,8 +123,8 @@ public:
   void * operator new (unsigned size, unsigned alignment) { return  new (alignment) char [sizeof(Tracebuffer)]; }
 
 public:
-  Tracebuffer(unsigned long size, char *buf, bool verbose, unsigned _cap, unsigned _cap_order)
-    : CapAllocator<Tracebuffer> (_cap, _cap, _cap_order), _size(size), _pos(0), _buf(buf), _verbose(verbose) {
+  Tracebuffer(unsigned long size, char *buf, bool verbose, unsigned _cap, unsigned _cap_order, char * flag_revoke)
+    : CapAllocator<Tracebuffer> (_cap, _cap, _cap_order), _size(size), _pos(0), _buf(buf), _verbose(verbose), _flag_revoke(flag_revoke)  {
   }
 
 
@@ -133,9 +142,10 @@ public:
 PARAM(tracebuffer,
       unsigned long size = ~argv[0] ? argv[0] : 32768;
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
+      char * revoke_mem = new (0x1000) char[0x1000];
 
-      Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12);
-      MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func));
+      Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12, revoke_mem);
+      MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), revoke_mem);
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");

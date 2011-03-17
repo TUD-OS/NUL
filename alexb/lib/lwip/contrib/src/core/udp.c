@@ -342,7 +342,14 @@ udp_input(struct pbuf *p, struct netif *inp)
       if (!broadcast &&
           !ip_addr_ismulticast(&current_iphdr_dest)) {
         /* move payload pointer back to ip header */
-        pbuf_header(p, (IPH_HL(iphdr) * 4) + UDP_HLEN);
+        if ((p->type == PBUF_REF || p->type == PBUF_ROM) &&
+            ((u8_t *)iphdr + (IPH_HL(iphdr) * 4) + UDP_HLEN == p->payload))
+        {
+          p->len += (IPH_HL(iphdr) * 4) + UDP_HLEN;
+          p->tot_len += (IPH_HL(iphdr) * 4) + UDP_HLEN;
+          p->payload = iphdr;
+        } else
+          pbuf_header(p, (IPH_HL(iphdr) * 4) + UDP_HLEN);
         LWIP_ASSERT("p->payload == iphdr", (p->payload == iphdr));
         icmp_dest_unreach(p, ICMP_DUR_PORT);
       }

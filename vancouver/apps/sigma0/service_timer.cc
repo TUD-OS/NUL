@@ -2,6 +2,7 @@
  * Timer Service.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2011, Alexander Boettcherr <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -56,6 +57,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
 
   __attribute__((aligned(8))) ClientDataStorage<ClientData, TimerService> _storage;
   AtomicLifo<ClientData> _queue;
+  char * flag_revoke;
 
   /**
    * Do the actual work.
@@ -105,7 +107,8 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
           if (data) { 
             data->count ++;
             unsigned res = nova_semup(data->identity);
-            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity); //should not happen, cap ->identity is allocated by service timer
+            //should not happen, cap ->identity is allocated by service timer
+            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity);
           }
         }
       }
@@ -119,6 +122,20 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
     }
   }
 
+  void check_clients(Utcb &utcb) {
+    ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    while (data) {
+      {
+        //XXX more fine granular synchronization
+        SemaphoreGuard l(_clients);
+        _abs_timeouts.dealloc(data->nr);
+      }
+      Logging::printf("ts: found dead client - freeing datastructure\n");
+      _storage.free_client_data(utcb, data, this);
+      data = _storage.get_invalid_client(utcb, this, data);
+    }
+  }
 
 public:
 
@@ -134,7 +151,14 @@ public:
     case ParentProtocol::TYPE_OPEN:
       {
         ClientData *data = 0;
-        check1(res, res = _storage.alloc_client_data(utcb, data, input.received_cap(), this));
+        res = _storage.alloc_client_data(utcb, data, input.received_cap(), this);
+        if (res) {
+          if (res != ERESOURCE) return res;
+          check_clients(utcb); //force garbage collection run
+          return ERETRY;
+        }
+        if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
+
         free_cap = false;
 
         {
@@ -162,25 +186,10 @@ public:
         Logging::printf("ts:: close session for %x\n", data->identity);
         return _storage.free_client_data(utcb, data, this);
       }
-    case ParentProtocol::TYPE_REQ_KILL:
-      {
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
-        ClientData volatile * data = _storage.get_invalid_client(utcb, this);
-        while (data) {
-          {
-            //XXX more fine granular synchronization
-            SemaphoreGuard l(_clients);
-            _abs_timeouts.dealloc(data->nr);
-          }
-          _storage.free_client_data(utcb, data, this);
-          data = _storage.get_invalid_client(utcb, this, data);
-        }
-        return ENONE;
-      }
     case TimerProtocol::TYPE_REQUEST_TIMER:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTimer msg = TimerProtocol::MessageTimer(0);
@@ -208,7 +217,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_LAST_TIMEOUT:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         utcb << Cpu::xchg(&data->count, 0U);
@@ -218,7 +227,7 @@ public:
     case TimerProtocol::TYPE_REQUEST_TIME:
       {
         ClientData *data = 0;
-        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
+        ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
         if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
         TimerProtocol::MessageTime _msg;
@@ -254,8 +263,8 @@ public:
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
-  TimerService(Motherboard &hostmb, unsigned _cap, unsigned _cap_order)
-    : CapAllocator<TimerService> (_cap, _cap, _cap_order), _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())) {
+  TimerService(Motherboard &hostmb, unsigned _cap, unsigned _cap_order, char * revoke_mem)
+    : CapAllocator<TimerService> (_cap, _cap, _cap_order), _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())), flag_revoke(revoke_mem) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
     if (!hostmb.bus_hostop.send(msg0))
@@ -295,10 +304,11 @@ public:
 
 PARAM(service_timer,
       unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      TimerService * t = new (8) TimerService(mb, cap_region, 12);
+      char * revoke_mem = new (0x1000) char[0x1000];
+      TimerService * t = new (8) TimerService(mb, cap_region, 12, revoke_mem);
 
       //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
-      MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func));
+      MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), revoke_mem);
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
         Logging::panic("starting of timer service failed");
