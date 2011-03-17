@@ -158,7 +158,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     init(hip);
     init_mem(hip);
 
-    console_init("remote config");
+    console_init("remote nova daemon");
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
 
     Logging::printf("booting - NOVA management daemon ...\n");
