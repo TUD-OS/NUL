@@ -111,11 +111,11 @@ public:
    */
   unsigned dealloc(unsigned nr, bool withcancel = false) {
     if (!nr || nr > ENTRIES - 1) return 0;
-    if (_entries[nr].free) return 0;
+    if (_entries[nr]._free) return 0;
 
     // should only be done when no no concurrent access happens ...
     if (withcancel) cancel(nr);
-    _entries[nr].free = true;
+    _entries[nr]._free = true;
     _entries[nr].data = 0;
     return 1;
   }
