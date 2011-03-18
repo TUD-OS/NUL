@@ -258,7 +258,7 @@ index 0000000..ea92965
 +\
 +  if (_in->version != htons(0xaffe)) return ERRORCODE; \
 +  if (_in->opcode != htons(NOVAOPCODE)) return ERRORCODE; \
-+  if (_in->result != NOVA_OP_SUCCEDED) return ERRORCODE 
++  if (_in->result != NOVA_OP_SUCCEEDED) return ERRORCODE
 +
 +static int numOfDomains(virConnectPtr conn) {
 +
@@ -564,7 +564,7 @@ index 0000000..c8836bf
 @@ -0,0 +1,27 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
-+  NOVA_OP_SUCCEDED = 0x9,
++  NOVA_OP_SUCCEEDED = 0x9,
 +  NOVA_PACKET_LEN  = 0x40,
 +  NOVA_NUM_OF_ACTIVE_DOMAINS = 0x20,
 +  NOVA_NUM_OF_DEFINED_DOMAINS,
