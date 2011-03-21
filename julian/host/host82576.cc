@@ -39,7 +39,6 @@ class Host82576 : public PciDriver,
                   public StaticReceiver<Host82576>
 {
 private:
-  DBus<MessageHostOp> &_bus_hostop;
   volatile uint32 *_hwreg;     // Device MMIO registers (128K)
   unsigned _hostirq;
 
@@ -244,7 +243,7 @@ public:
   };
 
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
-    : PciDriver(clock, ALL & ~IRQ, bdf), _bus_hostop(bus_hostop)
+    : PciDriver("82576PF", bus_hostop, clock, ALL & ~IRQ, bdf)
   {
     msg(INFO, "Found Intel 82576-style controller at %x. Attaching IRQ %u.\n", bdf, _hostirq);
 

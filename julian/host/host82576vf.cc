@@ -213,9 +213,10 @@ public:
     }
   }
 
-  Host82576VF(HostVfPci pci, DBus<MessageNetwork> &bus_network, Clock *clock,
+  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
+              DBus<MessageNetwork> &bus_network, Clock *clock,
 	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us, bool promisc)
-    : PciDriver(clock, ALL, bdf), _bus_network(bus_network),
+    : PciDriver("82576VF", bus_hostop, clock, ALL, bdf), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false), _promisc(promisc)
   {
@@ -375,7 +376,7 @@ PARAM(host82576vf, {
     for (unsigned i = 0; i < 2; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_network,
+    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
                                        mb.clock(), vf_bdf,
                                        irqs, reg_msg.ptr, itr_us,
 				       promisc);
