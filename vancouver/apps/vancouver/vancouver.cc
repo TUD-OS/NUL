@@ -49,6 +49,9 @@ unsigned       _shared_sem[256];
 unsigned       _keyboard_modifier = KBFLAG_RWIN;
 bool           _dpci;
 unsigned       _ncpu=1;
+bool           _tsc_offset = false;
+bool           _rdtsc_exit;
+
 PARAM(kbmodifier,
       _keyboard_modifier = argv[0];
       ,
@@ -69,6 +72,9 @@ PARAM(vcpus,
         mb.parse_args("vcpu halifax vbios lapic");
       ,
       " vcpus - instantiate the vcpus defined with 'ncpu'");
+
+PARAM(tsc_offset, _tsc_offset = true, "Enable TSC offsetting.");
+PARAM(rdtsc_exit, _rdtsc_exit = true, "Enable RDTSC exits.");
 
 /****************************************************/
 /* Vancouver class                                  */
@@ -915,7 +921,9 @@ VM_FUNC(PT_VMX + 0xfe,  vmx_startup, MTD_IRQ,
 	Logging::printf("startup\n");
 	handle_vcpu(pid, false, CpuMessage::TYPE_HLT, tls, utcb);
 	utcb->mtd |= MTD_CTRL;
-	utcb->ctrl[0] = (1 << 3); // tscoffs
+        utcb->ctrl[0] = 0;
+	if (_tsc_offset) utcb->ctrl[0] |= (1 << 3 /* tscoff */);
+        if (_rdtsc_exit) utcb->ctrl[0] |= (1 << 12 /* rdtsc */);
 	utcb->ctrl[1] = 0;
 	)
 #define EXPERIMENTAL
