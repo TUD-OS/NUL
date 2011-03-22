@@ -65,7 +65,7 @@ public:
   {
     console_init("Disk Benchmark");
     init(hip);
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
     Logging::printf("Benchmark up and running\n");
 
     Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);

@@ -324,7 +324,7 @@ public:
 
 
     // attach to timer service 
-    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
     KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
 
     gen_sinlut();

@@ -125,7 +125,7 @@ struct Script : public StaticReceiver<Script> {
   {
 
     // alloc a timer
-    _service_timer = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_NUM, 0));
+    _service_timer = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + mb->hip()->cpu_count(), 0));
 
     unsigned res;
     TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));

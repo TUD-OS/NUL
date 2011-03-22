@@ -113,7 +113,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       //service part - end
 
       //client part
-      FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_NUM), "fs/dummy");
+      FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_count()), "fs/dummy");
 
       FsProtocol::dirent fileinfo;
       res = fs->get_file_info(*utcb, fileinfo, "myfile");

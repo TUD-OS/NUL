@@ -143,8 +143,7 @@ public:
     CAP_PSEUDONYM,
     CAP_LOCK,
     CAP_SERVER_SESSION,
-    CAP_SERVER_PT,              // Portal for CPU0
-    CAP_NUM = CAP_SERVER_PT + Config::MAX_CPUS,
+    CAP_SERVER_PT              // Portal for CPU0
   };
 
   /**

@@ -647,7 +647,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long long msize, physaddr;
     char *addr;
 
-    FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_NUM), fs_name);
+    FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_count()), fs_name);
     FsProtocol::dirent fileinfo;
     if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("s0: File not found '%s'\n", file_name); res = __LINE__; goto fs_out; }
 
@@ -676,7 +676,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
   fs_out:
     fs_obj.close(*utcb);
-    dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+    dealloc_cap(cap_base, FsProtocol::CAP_SERVER_PT + _hip->cpu_count());
 
     return res;
   }

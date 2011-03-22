@@ -302,7 +302,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
 
-    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
 
     unsigned res;
@@ -599,7 +599,7 @@ public:
 
           unsigned cap_base;
           FsProtocol::dirent fileinfo;
-          FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_NUM), msg.start);
+          FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + _mb->hip()->cpu_count()), msg.start);
           if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) {
             Logging::printf("FAILED: loading file ...%10s\n", namelen >= 10 ? name + namelen - 10 : "");
             return false;
@@ -607,7 +607,7 @@ public:
           res = fs_obj.get_file_copy(*myutcb(), msg.start, fileinfo.size, name, namelen);
           //Note: msg.start used as service name in fs_obj is now overwritten
           fs_obj.close(*myutcb());
-          dealloc_cap(cap_base, FsProtocol::CAP_NUM);
+          dealloc_cap(cap_base, FsProtocol::CAP_SERVER_PT + _mb->hip()->cpu_count());
           if (res) return false;
           
           //align the end of the module to get the cmdline on a new page.
@@ -766,7 +766,7 @@ public:
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);

@@ -61,7 +61,7 @@ class TestIP : public NovaProgram, public ProgramConsole
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
 
-      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
 
@@ -134,7 +134,7 @@ class TestIP : public NovaProgram, public ProgramConsole
     init_mem(hip);
 
     console_init("IP test");
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_NUM));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     Logging::printf("Hello\n");
 
