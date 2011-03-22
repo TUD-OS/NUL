@@ -19,16 +19,12 @@
 /* NOTES
  *
  * This driver works for 82573L found in the ThinkPad T60/X60(s)
- * generation. It is believed to work on Qemu's default e1000
- * (82540EM) as well.
+ * generation and 82577LM found in ThinkPad X201(s). It is believed to
+ * work on Qemu's default e1000 (82540EM) as well.
  *
  * Adding support for other Intel NICs should be straightforward as
  * long as their PHYs don't require initialization. We rely on
  * autoconfiguration to keep this simple.
- */
-
-/* TODO
- * - check client pointer validity (RX buffers, TX buffers)
  */
 
 #include <nul/types.h>
@@ -238,17 +234,11 @@ class Host82573 : public PciDriver,
     
     uint32 start, mask;
 
-    switch (_info.type) {
-    case INTEL_82540EM:
+    if (_info.type == INTEL_82540EM) {
       // XXX This is reverse engineered from qemu. Is there a spec somewhere?
       start = addr<<8 | 1; mask = 0x10;
-      break;
-    case INTEL_82573L:
-    case INTEL_82577:
-    case INTEL_82578:
-    default:
+    } else
       Logging::panic("No idea how to drive EEPROM on this NIC.\n");
-    }
     
     _hwreg[EERD] = start;
     if (!wait(_hwreg[EERD], mask, mask))
@@ -271,8 +261,7 @@ class Host82573 : public PciDriver,
       msg(INFO, "Querying EEPROM for MAC.\n");
       uint16 word[] = { mac_eeprom_read(0),
 			mac_eeprom_read(1),
-			mac_eeprom_read(2)
-      };
+			mac_eeprom_read(2) };
 
       return EthernetAddr(word[0] & 0xFF, word[0] >> 8,
 			  word[1] & 0xFF, word[1] >> 8,
