@@ -870,10 +870,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
     if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
       Logging::printf("s0: [%02x]   detach stdin\n", modinfo->id);
-/*
+
       dealloc_cap(cap);
       memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
-*/
+
     }
 
     // XXX free more, such as GSIs, IRQs, Console...
