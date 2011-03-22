@@ -356,7 +356,7 @@ class PerCpuTimerService : private BasicHpet,
       per_cpu->frac_clocks_per_tick -= 1;
         
     // Sanity
-    if (((diff < 0LL) ? -diff : diff) > 1000000LL) {
+    if (((diff < 0LL) ? -diff : diff) > 10000000LL) {
           
       Logging::printf("TIMER: CPU%u est %016llx real %016llx diff %016llx\n",
                       BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync->unsafe_hpet(), diff);
