@@ -70,7 +70,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
 
   void handle_rdtsc(CpuMessage &msg) {
-    assert(msg.mtr_in & MTD_TSC);
+    assert((msg.mtr_in & MTD_TSC) and (msg.mtr_in & MTD_GPR_ACDB));
     msg.cpu->edx_eax(msg.cpu->tsc_off + Cpu::rdtsc());
     msg.mtr_out |= MTD_GPR_ACDB;
   }
