@@ -138,8 +138,7 @@ public:
       if (ENONE != fs.get_file_copy(*myutcb(), pmem, size, name))
         Logging::panic("Failed to read file.");
 
-      fs.close(*myutcb());
-      dealloc_cap(cap_base, FsProtocol::CAP_SERVER_PT + hip->cpu_count());
+      fs.destroy(*myutcb(), hip->cpu_count(), this);
       break;
     }
     

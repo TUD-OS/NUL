@@ -83,6 +83,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physsize;
   unsigned long  _iomem_start;
   static TimerProtocol   *timer_service;
+  FsProtocol *fs_obj;
+  char fs_name[32], fs_tmp[32];
   #define VANCOUVER_CONFIG_SEPARATOR "||"
 
 #define PT_FUNC(NAME)  static void  NAME(unsigned pid, Vancouver *tls, Utcb *utcb) __attribute__((regparm(1)))
@@ -538,27 +540,26 @@ public:
 	}
 	break;
       case MessageHostOp::OP_GUEST_MEM:
-	if (msg.value >= _physsize)
-	  msg.value = 0;
-	else
-	  {
-	    extern char __freemem;
-	    msg.len    = _physsize - msg.value;
-	    msg.ptr    = &__freemem + msg.value;
-	  }
-	break;
+        if (msg.value >= _physsize)
+          msg.value = 0;
+        else
+          {
+            extern char __freemem;
+            msg.len    = _physsize - msg.value;
+            msg.ptr    = &__freemem + msg.value;
+          }
+        break;
       case MessageHostOp::OP_ALLOC_FROM_GUEST:
-	assert((msg.value & 0xFFF) == 0);
-	if (msg.value <= _physsize)
-	  {
-	    _physsize -= msg.value;
-	    msg.phys =  _physsize;
-            Logging::printf("Allocating from guest %08lx+%lx\n",
-                            _physsize, msg.value);
-	  }
-	else
-	  res = false;
-	break;
+        assert((msg.value & 0xFFF) == 0);
+        if (msg.value <= _physsize)
+        {
+          _physsize -= msg.value;
+          msg.phys =  _physsize;
+          Logging::printf("Allocating from guest %08lx+%lx\n", _physsize, msg.value);
+        }
+        else
+          res = false;
+        break;
       case MessageHostOp::OP_NOTIFY_IRQ:
         res = NOVA_ESUCCESS == nova_semup(_shared_sem[msg.value & 0xff]);
         break;
@@ -570,48 +571,53 @@ public:
       case MessageHostOp::OP_GET_MODULE:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
-          char *cmdline = args, *name, *end;
-          unsigned cmdlen, namelen, num = msg.module;
+          char *end, *s, *cmdline = args;
+          unsigned cmdlen, file_namelen, cap_base, num = msg.module, cpu_count = _mb->hip()->cpu_count();
+          char const * file_name;
+          FsProtocol::dirent fileinfo;
+          size_t proto_len;
 
-          if (!cmdline) return false;
+          if (!cmdline) goto failure;
           while (num-- && cmdline) cmdline = strstr(++cmdline, VANCOUVER_CONFIG_SEPARATOR);
-          if (num != ~0U || !cmdline) return false;
+          if (num != ~0U || !cmdline) goto failure;
           cmdline +=2;
-
           cmdline += strspn(cmdline, " \t\r\n\f"); //skip characters
-          name = strstr(cmdline, "://");
-          if (!name) return false;
-          name += 3;
-          if (cmdline + strcspn(cmdline, " \t\r\n\f") < name) return false; //don't allow some characters in fs name
-          if (msg.size < (0UL + (name - cmdline))) return false;
 
-          namelen = strcspn(name, " \t\r\n\f");
-          if (!namelen) return false;
-          end  = strstr(cmdline, VANCOUVER_CONFIG_SEPARATOR);
-          if (end && name > end) return false; //don't use 'xxx://' of next entry accidentally
+          proto_len = sizeof(fs_tmp) - 3 - 1;
+          file_name = FsProtocol::parse_file_name(cmdline, fs_tmp + 3, proto_len);
+          if (!file_name) goto failure;
+          if (strspn(fs_tmp, " \t\r\n\f")) goto failure; //don't allow some characters in fs name
+          memcpy(fs_tmp, "fs/", 3);
+
+          file_namelen = strcspn(file_name, " \t\r\n\f");
+          if (!file_namelen) goto failure;
+          end = strstr(cmdline, VANCOUVER_CONFIG_SEPARATOR);
+          if (end && file_name > end) goto failure; //don't use 'xxx://' of next entry accidentally
           if (end) cmdlen = end - cmdline + 1;
           else cmdlen = strlen(cmdline) + 1;
 
-          //lookup file
-          memcpy(msg.start, "fs/", 3);
-          memcpy(msg.start + 3, cmdline, name - cmdline);
-          msg.start[name - cmdline] = 0;
-
-          unsigned cap_base;
-          FsProtocol::dirent fileinfo;
-          FsProtocol fs_obj(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + _mb->hip()->cpu_count()), msg.start);
-          if (fs_obj.get_file_info(*myutcb(), fileinfo, name, namelen) || msg.size < fileinfo.size) {
-            Logging::printf("FAILED: loading file ...%10s\n", namelen >= 10 ? name + namelen - 10 : "");
-            return false;
+          //(re)use fs session
+          if (fs_obj) {
+            if (strcmp(fs_name, fs_tmp)) {
+              fs_obj->close(*myutcb(), cpu_count, false);
+              memcpy(fs_name, fs_tmp, sizeof(fs_name));
+            }
+          } else {
+            memcpy(fs_name, fs_tmp, sizeof(fs_name));
+            fs_obj = new FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + cpu_count), fs_name);
+            if (!fs_obj) goto failure;
           }
-          res = fs_obj.get_file_copy(*myutcb(), msg.start, fileinfo.size, name, namelen);
-          //Note: msg.start used as service name in fs_obj is now overwritten
-          fs_obj.close(*myutcb());
-          dealloc_cap(cap_base, FsProtocol::CAP_SERVER_PT + _mb->hip()->cpu_count());
-          if (res) return false;
-          
+
+          if (fs_obj->get_file_info(*myutcb(), fileinfo, file_name, file_namelen) || msg.size < fileinfo.size) {
+            Logging::printf("FAILED: loading file ...%10s\n", file_namelen >= 10 ? file_name + file_namelen - 10 : "");
+            goto failure;
+          }
+          res = fs_obj->get_file_copy(*myutcb(), msg.start, fileinfo.size, file_name, file_namelen);
+          fs_obj->close(*myutcb(), cpu_count, false);
+          if (res) goto failure;
+
           //align the end of the module to get the cmdline on a new page.
-          char *s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(msg.start) + fileinfo.size + 0xffful) & ~0xffful);
+          s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(msg.start) + fileinfo.size + 0xffful) & ~0xffful);
           memcpy(s, cmdline, cmdlen - 1);
           s[cmdlen - 1] = 0;
 
@@ -620,7 +626,16 @@ public:
           msg.cmdline = s;
           msg.cmdlen  = cmdlen;
 
-          res = true;
+          return true;
+
+          failure:
+
+          if (fs_obj)  {
+            fs_obj->destroy(*myutcb(), cpu_count, this);
+            delete fs_obj;
+            fs_obj = 0;
+          }
+          return false;
         }
         break;
       case MessageHostOp::OP_GET_MAC:

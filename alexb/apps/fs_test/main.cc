@@ -125,6 +125,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       revoke_all_mem(text, 0x1000, DESC_MEM_ALL, false);
       if (res) return false;
       Logging::printf("received '%s'\n", text);
+      fs->destroy(*utcb, hip->cpu_count(), this);
       return true;
     }
 

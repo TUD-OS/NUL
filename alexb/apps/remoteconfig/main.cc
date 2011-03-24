@@ -113,7 +113,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       //create server object
       ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_count()));
-      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_count());
+      unsigned cap_region = alloc_cap_region(1 << 14, 14);
+      if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
+      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_count(),
+                          cap_region, 14);
 
       struct {
         unsigned long port;

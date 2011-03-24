@@ -675,8 +675,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _free_phys.add(Region(physaddr, msize));
     }
   fs_out:
-    fs_obj.close(*utcb);
-    dealloc_cap(cap_base, FsProtocol::CAP_SERVER_PT + _hip->cpu_count());
+    fs_obj.destroy(*utcb, _hip->cpu_count(), this);
 
     return res;
   }

@@ -111,7 +111,7 @@ PARAM(vdisk,
 
       unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                  filename);
-      fs_obj.close(*BaseProgram::myutcb());
+      fs_obj.close(*BaseProgram::myutcb(), mb.hip()->cpu_count());
       dealloc_cap_region(cap_base, FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_count());
 
       if (res) { Logging::printf("vdisk: Couldn't read file.\n"); delete module; return; }

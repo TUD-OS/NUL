@@ -193,14 +193,35 @@ public:
   }
 
   /**
-   * Close the session.
+   * Destroy the object.
+   *
+   * - Revoke all caps and add caps back to cap allocator.
    */
-  void close(Utcb &utcb) { release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM); }
+  template <class T>
+  void destroy(Utcb &utcb, unsigned portal_num, T * obj) {
+    release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
+    obj->dealloc_cap(_cap_base, CAP_SERVER_PT + portal_num);
+  }
+
+  /**
+   * Close the session to the parent.
+   * - Revoke all caps we got from external and we created (default: revoke_lock = true)
+   * - If revoke_lock == false than this object can be reused afterwards to create another session.
+   */
+  void close(Utcb &utcb, unsigned portal_num, bool revoke_lock = true) {
+    release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
+
+    unsigned char res;
+    if (revoke_lock) res = nova_revoke(_cap_base + CAP_LOCK, true);
+    res = nova_revoke(_cap_base + CAP_PSEUDONYM, true);
+    res = nova_revoke(_cap_base + CAP_SERVER_SESSION, true);
+    for (unsigned i=0; i < portal_num; i++)
+      res = nova_revoke(_cap_base + CAP_SERVER_PT, true);
+  }
 
   unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
-
 
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
     : _service(service), _instance(instance), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
