@@ -46,10 +46,35 @@ PciDriver::msg(unsigned level, const char *msg, ...)
   if ((level & _msg_level) != 0) {
     va_list ap;
     va_start(ap, msg);
-    Logging::printf("82576 %02x: ", _bdf & 0xFF);
+    Logging::printf("%s %02x: ", _name, _bdf & 0xFF);
     Logging::vprintf(msg, ap);
     va_end(ap);
   }
 }
+
+/**
+ * Translate a virtual to a physical address.
+ */
+mword PciDriver::addr2phys(void *ptr)
+{
+  mword value = reinterpret_cast<mword>(ptr);
+  if (_dmar) {
+    return value;
+  } else {
+    MessageHostOp msg(MessageHostOp::OP_VIRT_TO_PHYS, value);
+    
+    if (!_bus_hostop.send(msg) || !msg.phys)
+      Logging::panic("could not resolve phys address %lx\n", value);
+    return msg.phys;
+  }
+}
+
+bool PciDriver::assign_pci()
+{
+  MessageHostOp msg(MessageHostOp::OP_ASSIGN_PCI, _bdf);
+  _dmar = _bus_hostop.send(msg);
+  return _dmar;
+}
+
 
 // EOF

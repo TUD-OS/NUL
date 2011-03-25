@@ -86,7 +86,7 @@ void Remcon::handle_packet(void) {
           if (reinterpret_cast<unsigned char *>(&ids[k + 1]) >= buf_out + NOVA_PACKET_LEN) break; //no space left
         }
         ids[0] = Math::htonl(k); //num of ids
-        _out->result  = NOVA_OP_SUCCEDED;
+        _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
     case NOVA_NUM_OF_ACTIVE_DOMAINS:
@@ -99,7 +99,7 @@ void Remcon::handle_packet(void) {
 
         uint32_t _num = Math::htonl(k);
         memcpy(&_out->opspecific, &_num, 4);
-        _out->result  = NOVA_OP_SUCCEDED;
+        _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
     case NOVA_NUM_OF_DEFINED_DOMAINS:
@@ -112,7 +112,7 @@ void Remcon::handle_packet(void) {
 
         uint32_t num = Math::htonl(k);
         memcpy(&_out->opspecific, &num, 4);
-        _out->result  = NOVA_OP_SUCCEDED;
+        _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
     case NOVA_LIST_DEFINED_DOMAINS:
@@ -134,7 +134,7 @@ void Remcon::handle_packet(void) {
           k++; 
         }
         *num = Math::htonl(k);
-        _out->result  = NOVA_OP_SUCCEDED;
+        _out->result  = NOVA_OP_SUCCEEDED;
 
         break;
       }
@@ -153,7 +153,7 @@ void Remcon::handle_packet(void) {
           memcpy(&_out->opspecific, server_data[i].uuid, UUID_LEN);
           memcpy(&_out->opspecific + UUID_LEN, server_data[i].showname, len);
           *(&_out->opspecific + UUID_LEN + len) = 0;
-          _out->result  = NOVA_OP_SUCCEDED;
+          _out->result  = NOVA_OP_SUCCEEDED;
           break;
         }
         break;
@@ -171,7 +171,7 @@ void Remcon::handle_packet(void) {
         memcpy(&_out->opspecific, server_data[localid].uuid, UUID_LEN);
         memcpy(&_out->opspecific + UUID_LEN, server_data[localid].showname, len);
         *(&_out->opspecific + UUID_LEN + len - 1) = 0;
-        _out->result  = NOVA_OP_SUCCEDED;
+        _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
     case NOVA_VM_START:
@@ -198,7 +198,7 @@ void Remcon::handle_packet(void) {
 
               unsigned res;
               char * module = 0;
-              unsigned cap_base = alloc_cap_region(FsProtocol::CAP_NUM, 0); //XXX don't  do that
+              unsigned cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + cpu_count);
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
               if (res = fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo,
@@ -215,13 +215,12 @@ void Remcon::handle_packet(void) {
 
               unsigned id;
               res = service_config->start_config(*BaseProgram::myutcb(), module, id);
-              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEDED; }
+              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; }
 
               cleanup:
 
               if (module) delete [] module;
-              fs_obj.close(*BaseProgram::myutcb());
-              dealloc_cap_region(cap_base, FsProtocol::CAP_NUM);
+              fs_obj.destroy(*BaseProgram::myutcb(), cpu_count, this);
 
               if (res != NOVA_ESUCCESS) {
                 server_data[j].active = 0;
@@ -232,7 +231,7 @@ void Remcon::handle_packet(void) {
             }
           } else {
             server_data[i].active = 1;
-            _out->result  = NOVA_OP_SUCCEDED;
+            _out->result  = NOVA_OP_SUCCEEDED;
           }
           break;
         }
@@ -250,7 +249,7 @@ void Remcon::handle_packet(void) {
         if (res == NOVA_ESUCCESS) {
           server_data[localid].id     = 0;
           server_data[localid].active = 0;
-          _out->result  = NOVA_OP_SUCCEDED;
+          _out->result  = NOVA_OP_SUCCEEDED;
         }
         break;
       }

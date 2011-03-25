@@ -4,16 +4,16 @@
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
- * This file is part of Vancouver.
+ * This file is part of NUL.
  *
- * Vancouver is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
+ * NUL is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  *
- * Vancouver is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * General Public License version 2 for more details.
+ * NUL is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ * or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+ * License version 2 for more details.
  */
 
 #include <nul/motherboard.h>
@@ -89,7 +89,7 @@ public:
     dma_desc *cur;
     while ((cur = &_rx_ring[last_rx])->hi & 1 /* done? */) {
       uint16 plen = cur->hi >> 32;
-      msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
+      //msg(INFO, "RX %02x! %016llx %016llx (len %04x)\n", last_rx, cur->lo, cur->hi, plen);
       if (handle-- == 0) {
         //msg(INFO, "Too many packets. Exit handle_rx for now.\n");
         _hwreg[VTEICS] = 1;	// XXX Needed?
@@ -213,9 +213,10 @@ public:
     }
   }
 
-  Host82576VF(HostVfPci pci, DBus<MessageNetwork> &bus_network, Clock *clock,
+  Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
+              DBus<MessageNetwork> &bus_network, Clock *clock,
 	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us, bool promisc)
-    : PciDriver(clock, ALL, bdf), _bus_network(bus_network),
+    : PciDriver("82576VF", bus_hostop, clock, ALL, bdf), _bus_network(bus_network),
       _hwreg(reinterpret_cast<volatile uint32 *>(reg)),
       _up(false), _promisc(promisc)
   {
@@ -375,7 +376,7 @@ PARAM(host82576vf, {
     for (unsigned i = 0; i < 2; i++)
       irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_network,
+    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
                                        mb.clock(), vf_bdf,
                                        irqs, reg_msg.ptr, itr_us,
 				       promisc);

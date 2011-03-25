@@ -95,7 +95,7 @@ namespace js {
 
       if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
 
-      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_NUM));
+      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
       Logging::printf("request timer attach - %s\n", (res == 0 ? "success" : "failure"));

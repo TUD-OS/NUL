@@ -20,6 +20,7 @@
 #include <service/helper.h> //assert
 
 #include <nul/service_fs.h>
+#include <nul/capalloc.h>
 
 #include <nul/types.h>
 typedef uint8  uint8_t;
@@ -31,7 +32,7 @@ typedef uint32 uint32_t;
 
 class ConfigProtocol;
 
-class Remcon {
+class Remcon : public CapAllocator<Remcon> {
   private:
 
     struct {
@@ -52,9 +53,11 @@ class Remcon {
     unsigned data_received;
     struct incoming_packet * _in;
     struct outgoing_packet * _out;
+
     bool dowrite;
     char const * cmdline;
     ConfigProtocol *service_config;
+    unsigned cpu_count;
 
     void handle_packet(void);
 
@@ -70,7 +73,11 @@ class Remcon {
 
   public:
 
-    Remcon(char const * _cmdline, ConfigProtocol * _sconfig) : data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig) {
+    Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
+           unsigned long cap_start, unsigned long cap_order) :
+      CapAllocator<Remcon>(cap_start, cap_start, cap_order),
+      data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig), cpu_count(_cpu_count)
+    {
       _in  = reinterpret_cast<struct incoming_packet *>(buf_in);
       _out = reinterpret_cast<struct outgoing_packet *>(buf_out);
 
