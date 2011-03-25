@@ -1016,16 +1016,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
-      assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
+	    assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
 
 	    unsigned error =
-          (utcb->qual[1] < MEM_OFFSET) ||
+	        (utcb->qual[1] < MEM_OFFSET) ||
 	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
 	        (utcb->qual[1] >= CLIENT_BOOT_UTCB + 0x2000);
 
-      if ((verbose & VERBOSE_INFO) || error)
-  	    Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
-          modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+	    if ((verbose & VERBOSE_INFO) || error)
+	      Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
+	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
 	    if (error)
 	    {
@@ -1042,9 +1042,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    utcb->mtd = 0;
 	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
 	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
-      if (verbose & VERBOSE_INFO)
-        Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
-          modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+	    if (verbose & VERBOSE_INFO)
+	      Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
+	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    return;
 	  }
 
