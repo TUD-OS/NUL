@@ -253,14 +253,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     CONSUMER *con = reinterpret_cast<CONSUMER *>(utcb->msg[1]);
     if (convert_client_ptr(modinfo, con, sizeof(CONSUMER)))
-      Logging::printf("s0: [%02x] consumer %p out of memory %lx\n", modinfo - _modinfo, con, modinfo->physsize);
+      Logging::printf("s0: [%02x] consumer %p out of memory %lx\n", modinfo->id, con, modinfo->physsize);
     else
       {
         res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
         utcb->msg[0] = 0;
       }
 
-    alloc_crd();
+    utcb->head.crd = alloc_crd();
     utcb->set_header(1, 0);
   }
 
@@ -1350,7 +1350,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       vnet_sm[modinfo->id] = utcb->head.crd >> Utcb::MINSHIFT;
       Logging::printf("s0: [%02x] - provided VNET wakeup semaphore: %u.\n", modinfo->id, vnet_sm[modinfo->id]);
       utcb->msg[0] = 0;
-      alloc_crd();
+      utcb->head.crd = alloc_crd();
       utcb->set_header(1, 0);
       return true;
     }
