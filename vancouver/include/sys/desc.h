@@ -91,8 +91,8 @@ public:
   unsigned base()  { return _value & ~0xfff; }
   unsigned attr()  { return _value & 0x1f; }
   unsigned cap()   { return _value >> 12; }
-  Crd(unsigned offset, unsigned order, unsigned attr) : Desc((offset << 12) | (order << 7) | attr) { }
-  Crd(unsigned v) : Desc(v) {}
+  explicit Crd(unsigned offset, unsigned order, unsigned attr) : Desc((offset << 12) | (order << 7) | attr) { }
+  explicit Crd(unsigned v) : Desc(v) {}
 };
 
 /**

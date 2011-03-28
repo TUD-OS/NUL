@@ -81,7 +81,7 @@ struct ParentProtocol {
         res = nova_semdownmulti(cap_pseudonym);
         if (res == ENONE) res = ERETRY;
         else {
-          res = nova_revoke(cap_pseudonym, true);
+          res = nova_revoke(Crd(cap_pseudonym, 0, DESC_CAP_ALL), true);
           assert(res == ENONE);
           res = EEXISTS;
         }
@@ -212,11 +212,11 @@ public:
     release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
 
     unsigned char res;
-    if (revoke_lock) res = nova_revoke(_cap_base + CAP_LOCK, true);
-    res = nova_revoke(_cap_base + CAP_PSEUDONYM, true);
-    res = nova_revoke(_cap_base + CAP_SERVER_SESSION, true);
+    if (revoke_lock) res = nova_revoke(Crd(_cap_base + CAP_LOCK, 0, DESC_CAP_ALL), true);
+    res = nova_revoke(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL), true);
+    res = nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
     for (unsigned i=0; i < portal_num; i++)
-      res = nova_revoke(_cap_base + CAP_SERVER_PT, true);
+      res = nova_revoke(Crd(_cap_base + CAP_SERVER_PT, 0, DESC_CAP_ALL), true);
   }
 
   unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }
