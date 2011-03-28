@@ -1596,29 +1596,29 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case REQUEST_CONSOLE:
       {
-	MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
-	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
-	{
-	  MessageConsole msg2 = *msg;
-	  if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
-	       && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
-	       && msg2.type != MessageConsole::TYPE_GET_MODEINFO
-	       && msg2.type != MessageConsole::TYPE_GET_FONT)
-	      || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
-		  && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
-		      || convert_client_ptr(modinfo, msg2.name, 4096)
-		      || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
-	      || (msg2.type == MessageConsole::TYPE_GET_FONT
-		  &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
-	      || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
-		  && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
-	      || !_console_data[modinfo->id].console)
-	    break;
-	  msg2.id = _console_data[modinfo->id].console;
-	  // alloc a new console and set the name from the commandline
-	  utcb->msg[0] = !_mb->bus_console.send(msg2);
-	  if (!utcb->msg[0])      msg->view = msg2.view;
-	}
+        MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
+        if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
+        {
+          MessageConsole msg2 = *msg;
+          if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
+              && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
+              && msg2.type != MessageConsole::TYPE_GET_MODEINFO
+              && msg2.type != MessageConsole::TYPE_GET_FONT)
+            || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
+              && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
+                || convert_client_ptr(modinfo, msg2.name, 4096)
+                || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
+            || (msg2.type == MessageConsole::TYPE_GET_FONT
+	            &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
+            || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
+              && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
+            || !_console_data[modinfo->id].console)
+            break;
+          msg2.id = _console_data[modinfo->id].console;
+          // alloc a new console and set the name from the commandline
+          utcb->msg[0] = !_mb->bus_console.send(msg2);
+          if (!utcb->msg[0])      msg->view = msg2.view;
+        }
       }
       break;
     default: return false;
