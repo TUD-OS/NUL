@@ -613,7 +613,6 @@ public:
             goto failure;
           }
           res = fs_obj->get_file_copy(*myutcb(), msg.start, fileinfo.size, file_name, file_namelen);
-          fs_obj->close(*myutcb(), cpu_count, false);
           if (res) goto failure;
 
           //align the end of the module to get the cmdline on a new page.
