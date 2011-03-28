@@ -110,7 +110,8 @@ public:
       Logging::printf("_wait_sm[%u] = %x\n", i, _wait_sm[i]);
 
       unsigned cap_off = 0x10000 + c*0x20;
-      unsigned exc_ec = create_ec_helper(this, c);
+      unsigned exc_base = alloc_cap(hip->cfg_exc);
+      unsigned exc_ec = create_ec_helper(this, c, exc_base);
       res = nova_create_pt(cap_off + 0x1e, exc_ec, reinterpret_cast<mword>(do_thread_startup), MTD_RSP | MTD_RIP_LEN);
       assert(res == NOVA_ESUCCESS);
 

@@ -346,7 +346,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _console_data.lock.sem = sem;
 
     // create exception EC
-    unsigned cap_ex = create_ec_helper(this,  myutcb()->head.nul_cpunr);
+    unsigned cap_ex = create_ec_helper(this,  myutcb()->head.nul_cpunr, 0);
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
       if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
@@ -359,7 +359,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned create_vcpu(VCpu *vcpu, bool use_svm, unsigned cpunr)
   {
     // create worker
-    unsigned cap_worker = create_ec_helper(vcpu, cpunr);
+    unsigned cap_worker = create_ec_helper(vcpu, cpunr, 0);
 
     // create portals for VCPU faults
 #undef VM_FUNC

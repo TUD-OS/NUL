@@ -360,7 +360,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _cpunr[_numcpus++] = i;
 
       // Create the ec_echo with an invalid exception base.
-      _percpu[i].cap_ec_echo = create_ec_helper(this, i);
+      _percpu[i].cap_ec_echo = create_ec_helper(this, i, 0);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
@@ -410,6 +410,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _cap_region.del(Region(CLIENT_PT_OFFSET, 1 << CLIENT_PT_ORDER));
     assert(!_cap_region.find(CLIENT_PT_OFFSET));
     assert(!_cap_region.find(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER) - 1));
+    assert(!_cap_region.find(0));   // sanity checks - should be reserved by program.h
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU - 1));
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS - 1));
 
     Logging::printf("s0: create locks\n");
     _lock_gsi    = Semaphore(alloc_cap());
