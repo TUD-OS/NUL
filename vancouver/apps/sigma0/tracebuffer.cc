@@ -65,7 +65,7 @@ class Tracebuffer: public CapAllocator<Tracebuffer> {
   }
 
 public:
-  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     unsigned res = ENONE;
@@ -146,7 +146,7 @@ PARAM(tracebuffer,
 
       Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12, revoke_mem);
       MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), revoke_mem);
-      msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
+      msg.crd_t = Crd(cap_region, 12, DESC_CAP_ALL).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");
       ,

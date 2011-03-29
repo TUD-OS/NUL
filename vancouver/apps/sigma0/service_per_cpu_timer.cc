@@ -614,7 +614,7 @@ public:
     return false;
   }
 
-  unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     unsigned res = ENONE;

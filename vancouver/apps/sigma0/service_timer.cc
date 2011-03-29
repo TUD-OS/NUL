@@ -139,7 +139,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator<Ti
 
 public:
 
-  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     unsigned res = ENONE;

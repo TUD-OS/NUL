@@ -347,7 +347,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Prepare UTCB for receiving a new cap.
    */
   //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
-  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
     for (int i = 0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
