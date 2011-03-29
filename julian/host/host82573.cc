@@ -303,7 +303,7 @@ public:
 
     if (icr & ICR_RXT) {
       // RX timer expired
-      handle_rx();
+      rx_handle();
     }
 
     return true;
