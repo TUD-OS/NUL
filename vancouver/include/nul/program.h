@@ -66,7 +66,7 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
    * Create an ec and setup the stack.
    */
   template <class C>
-  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase = 0, Utcb **utcb_out=0, void *func=0, unsigned cap = alloc_cap())
+  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned cap = alloc_cap())
   {
     unsigned stack_top = stack_size/sizeof(void *);
     Utcb *utcb = alloc_utcb();
@@ -106,9 +106,10 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
     assert(!CapAllocator<NovaProgram>::_cap_ && !CapAllocator<NovaProgram>::_cap_start);
     CapAllocator<NovaProgram>::_cap_order = 16;
     assert((1 << 16) < hip->cfg_cap);
+    //more than 1 << 20 caps can't be expressed in a CRD currently - even if the hypervisor specifies more to support in cfg_cap
     _cap_region.add(Region(1 << 16, (hip->cfg_cap < (1 << 20) ? hip->cfg_cap : (1 << 20)) - (1 << 16)));
 
-    unsigned cap_reserved = alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS);
+    unsigned cap_reserved = alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS); // reserve cap range from 0 to CAP_PT + Confix::MAX_CPUS
     unsigned res;
     assert(!cap_reserved);
     res = nova_create_sm(_cap_block = alloc_cap());

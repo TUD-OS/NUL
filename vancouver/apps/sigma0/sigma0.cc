@@ -347,7 +347,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Prepare UTCB for receiving a new cap.
    */
   //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
-  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned create_worker_threads(Hip *hip, int cpunr) {
     for (int i = 0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
@@ -360,7 +360,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _cpunr[_numcpus++] = i;
 
       // Create the ec_echo with an invalid exception base.
-      _percpu[i].cap_ec_echo = create_ec_helper(this, i);
+      _percpu[i].cap_ec_echo = create_ec_helper(this, i, 0);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
@@ -410,6 +410,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _cap_region.del(Region(CLIENT_PT_OFFSET, 1 << CLIENT_PT_ORDER));
     assert(!_cap_region.find(CLIENT_PT_OFFSET));
     assert(!_cap_region.find(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER) - 1));
+    assert(!_cap_region.find(0));   // sanity checks - should be reserved by program.h
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU - 1));
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS - 1));
 
     Logging::printf("s0: create locks\n");
     _lock_gsi    = Semaphore(alloc_cap());
@@ -451,7 +454,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // map all IRQs
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      Utcb::TypedMapCap(gsi).fill_words(utcb->msg + utcb->head.untyped, Crd(hip->cfg_exc + 3 + gsi, 0, MAP_HBIT).value());
+      Utcb::TypedMapCap(gsi + hip->cpu_desc_count()).fill_words(utcb->msg + utcb->head.untyped, Crd(hip->cfg_exc + 3 + gsi, 0, MAP_HBIT).value());
       utcb->head.untyped += 2;
     }
 
@@ -1607,29 +1610,29 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case REQUEST_CONSOLE:
       {
-	MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
-	if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
-	{
-	  MessageConsole msg2 = *msg;
-	  if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
-	       && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
-	       && msg2.type != MessageConsole::TYPE_GET_MODEINFO
-	       && msg2.type != MessageConsole::TYPE_GET_FONT)
-	      || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
-		  && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
-		      || convert_client_ptr(modinfo, msg2.name, 4096)
-		      || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
-	      || (msg2.type == MessageConsole::TYPE_GET_FONT
-		  &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
-	      || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
-		  && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
-	      || !_console_data[modinfo->id].console)
-	    break;
-	  msg2.id = _console_data[modinfo->id].console;
-	  // alloc a new console and set the name from the commandline
-	  utcb->msg[0] = !_mb->bus_console.send(msg2);
-	  if (!utcb->msg[0])      msg->view = msg2.view;
-	}
+        MessageConsole *msg = reinterpret_cast<MessageConsole *>(utcb->msg+1);
+        if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) return false;
+        {
+          MessageConsole msg2 = *msg;
+          if ((msg2.type != MessageConsole::TYPE_ALLOC_VIEW
+              && msg2.type != MessageConsole::TYPE_SWITCH_VIEW
+              && msg2.type != MessageConsole::TYPE_GET_MODEINFO
+              && msg2.type != MessageConsole::TYPE_GET_FONT)
+            || (msg2.type == MessageConsole::TYPE_ALLOC_VIEW
+              && (convert_client_ptr(modinfo, msg2.ptr, msg2.size)
+                || convert_client_ptr(modinfo, msg2.name, 4096)
+                || convert_client_ptr(modinfo, msg2.regs, sizeof(*msg2.regs))))
+            || (msg2.type == MessageConsole::TYPE_GET_FONT
+	            &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
+            || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
+              && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
+            || !_console_data[modinfo->id].console)
+            break;
+          msg2.id = _console_data[modinfo->id].console;
+          // alloc a new console and set the name from the commandline
+          utcb->msg[0] = !_mb->bus_console.send(msg2);
+          if (!utcb->msg[0])      msg->view = msg2.view;
+        }
       }
       break;
     default: return false;

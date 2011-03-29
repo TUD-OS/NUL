@@ -110,7 +110,7 @@ struct Utcb
       for (unsigned i=0; i < _utcb->head.typed; i++)
         if (~_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
           return Crd(_utcb->msg[_end - i * 2 - 2]);
-      return 0;
+      return Crd(0);
     }
 
     unsigned identity(unsigned skip=0) {

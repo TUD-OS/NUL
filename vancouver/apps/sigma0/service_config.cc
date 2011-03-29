@@ -30,7 +30,7 @@ public:
   Service_config(Motherboard &_mb, unsigned long capstart, unsigned long cap_order)
     : CapAllocator<Service_config> (capstart, capstart, cap_order), mb(_mb) {}
 
-  inline unsigned alloc_crd() { return alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP; }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
     unsigned op;

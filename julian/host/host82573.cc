@@ -287,13 +287,8 @@ public:
     // we need to clear it manually.
     if ((icr & ICR_INTA) == 0) _hwreg[ICR] = icr;
 
-    if (icr & ICR_LSC) {
+    if (icr & ICR_LSC)
       msg(INFO, "Link is %s.\n", ((_hwreg[STATUS] & STATUS_LU) != 0) ? "UP" : "DOWN");
-      if ((_hwreg[IMS] & ICR_LSC) == 0) {
-        msg(INFO, "LSC IRQ disabled? Reenable.\n");
-        _hwreg[IMS] = ICR_LSC; 
-      }
-    }
    
     if (icr & ICR_RXO) {
       msg(WARN, "Receiver overrun. Report this.\n");
@@ -301,7 +296,15 @@ public:
       _hwreg[IMC] = ICR_RXO;
     }
 
-    // XXX Do something...
+    if (icr & ICR_TXDW) {
+      // TX descriptor writeback 
+
+    }
+
+    if (icr & ICR_RXT) {
+      // RX timer expired
+      handle_rx();
+    }
 
     return true;
   }
