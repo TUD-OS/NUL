@@ -193,6 +193,8 @@ struct Utcb
    */
   Utcb &  add_frame() {
     unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    // XXX Security problem!
+    assert(ofs < sizeof(msg)/sizeof(msg[0]));
 
     //Logging::printf("add  %p frame at %x %x/%x\n", this, ofs, head.untyped, head.typed);
     // save header, untyped and typed items
@@ -214,6 +216,7 @@ struct Utcb
     return *this;
   }
 
+  // Restore UTCB header except MTR from saved frame.
   void skip_frame() {
     //Logging::printf("skip %p frame at %x-%x\n", this, ofs, msg[ofs - 1] + STACK_START + 1);
     unsigned mtr = head.mtr;
@@ -251,6 +254,16 @@ struct Utcb
     return *this;
   }
 
+  // Check whether the UTCB is empty (e.g. after receiving a message
+  // through a portal) and does not violate our message size
+  // constraints.
+  bool validate_bounds()
+  {
+    // XXX What about untyped items?
+    return
+      (msg[STACK_START] == 0) and
+      (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START);
+  }
 
   template <typename T>
   Utcb &  operator <<(T &value) {
