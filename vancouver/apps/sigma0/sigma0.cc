@@ -652,11 +652,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     file_name += 3;
     unsigned namelen = strcspn(file_name, " \t\r\n\f");
-    unsigned cap_base, res;
+    unsigned res;
     unsigned long long msize, physaddr;
     char *addr;
 
-    FsProtocol fs_obj = FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_count()), fs_name);
+    FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_count()), fs_name);
     FsProtocol::dirent fileinfo;
     if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("s0: File not found '%s'\n", file_name); res = __LINE__; goto fs_out; }
 
@@ -1211,7 +1211,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (!ec_cap || !utcb || !pt) return false;
           utcb->head.crd = msg._alloc_service_portal.crd;
           *msg._alloc_service_portal.pt_out = pt;
-          return (nova_create_pt(pt, ec_cap, (unsigned long)msg._alloc_service_portal.pt, 0) == NOVA_ESUCCESS);
+          return (nova_create_pt(pt, ec_cap,
+                                 reinterpret_cast<mword>(msg._alloc_service_portal.pt),
+                                 0) == NOVA_ESUCCESS);
         }
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
