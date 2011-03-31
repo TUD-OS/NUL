@@ -76,7 +76,8 @@ class Semaphore
   KernelSemaphore _sem;
   long _value;
 public:
-  Semaphore(unsigned cap_sm = 0) : _sem(cap_sm), _value(0) { };
+  Semaphore(unsigned cap_sm = 0, bool create = false)
+    : _sem(cap_sm, create), _value(0) { };
 
   void down() {  if (Cpu::atomic_xadd(&_value, -1) <= 0)  _sem.down(); }
   void up()   {  if (Cpu::atomic_xadd(&_value, +1) <  0)  _sem.up();   }
