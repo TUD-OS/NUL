@@ -259,10 +259,11 @@ struct Utcb
   // constraints.
   bool validate_bounds()
   {
-    // XXX What about untyped items?
     return
       (msg[STACK_START] == 0) and
-      (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START);
+      (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START) and
+      (head.typed*sizeof(unsigned)*2 < sizeof(struct Utcb)) and
+      ((sizeof(struct Utcb) - head.typed*sizeof(unsigned)*2) > (HEADER_SIZE + STACK_START + (head.untyped + 1 + head.typed*2)*sizeof(unsigned)));
   }
 
   template <typename T>

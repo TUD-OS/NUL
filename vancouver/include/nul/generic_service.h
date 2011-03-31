@@ -337,22 +337,24 @@ public:
 template <class C> struct StaticPortalFunc {
   static void portal_func(C *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
+    bool free_cap;
+
     if (not utcb->validate_bounds()) {
       utcb->msg[0]   = EPROTO;
-      if (utcb->head.typed != 0) nova_revoke(Crd(utcb->head.crd), true);
+      free_cap = (utcb->head.typed != 0);
       utcb->head.mtr = 1 /* untyped word */;
     } else {
       utcb->add_frame().head.untyped++;
       Utcb::Frame input = utcb->get_nested_frame();
-      bool free_cap = input.received_cap();
+      free_cap = input.received_cap();
       utcb->msg[0] = tls->portal_func(*utcb, input, free_cap);
       utcb->skip_frame();
-      if (free_cap) {
-        unsigned res = nova_revoke(Crd(utcb->head.crd), true);
-        assert(res == NOVA_ESUCCESS);
-      }
-      else if (input.received_cap())
-        utcb->head.crd = tls->alloc_crd();
+      if (!free_cap && input.received_cap()) utcb->head.crd = tls->alloc_crd();
+    }
+
+    if (free_cap) {
+      unsigned res = nova_revoke(Crd(utcb->head.crd), true);
+      assert(res == NOVA_ESUCCESS);
     }
 
     asmlinkage_protect("m"(tls), "m"(utcb));
