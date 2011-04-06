@@ -329,7 +329,7 @@ unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
 
         notify_service(utcb, c);
 
-        Logging::printf("s0: freeing session datastructure for a service allocated on behalf of a dying client\n");
+        Logging::printf("s0: freeing session to service on behalf of a dying client\n");
         res = _client.free_client_data(utcb, c, this);
         assert(res == ENONE);
       }

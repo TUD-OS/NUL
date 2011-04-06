@@ -44,6 +44,8 @@ struct ParentProtocol {
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
     TYPE_REQ_KILL,
+    CAP_CHILD_EC  = 253,
+    CAP_CHILD_SC  = 254,
     CAP_PARENT_ID = 255,
     CAP_PT_PERCPU = 256,
   };

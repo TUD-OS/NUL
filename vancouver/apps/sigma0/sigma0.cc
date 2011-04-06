@@ -588,7 +588,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modinfo->sigma0_cmdlen = sigma0_cmdlen;
 
     if (verbose & VERBOSE_INFO) {
-      Logging::printf("s0: module(%x) '", module);
+      Logging::printf("s0: [%2u] module '", modinfo->id);
       fancy_output(cmdline, 4096);
     }
 
@@ -787,10 +787,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (verbose & VERBOSE_INFO)
       Logging::printf("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
     check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
-    check2(_free_caps, nova_create_ec(NOVA_DEFAULT_PD_CAP + 1,
+    check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
-    check2(_free_caps, nova_create_sc(NOVA_DEFAULT_PD_CAP + 2, NOVA_DEFAULT_PD_CAP + 1, Qpd(1, 100000), pt + NOVA_DEFAULT_PD_CAP));
+    check2(_free_caps, nova_create_sc(pt + ParentProtocol::CAP_CHILD_SC, pt + ParentProtocol::CAP_CHILD_EC, Qpd(1, 100000)));
 
     _free_caps:
     if (res) {
