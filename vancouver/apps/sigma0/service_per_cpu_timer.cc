@@ -831,7 +831,7 @@ public:
           our->clock_sync.current_hpet(_reg->counter[0]) :
           atomic_read(_pit_ticks);
 
-        msg.timestamp = _mb.clock()->time();
+        msg.timestamp = _mb.clock()->clock(MessageTime::FREQUENCY);
         msg.wallclocktime = Math::muldiv128(counter, MessageTime::FREQUENCY, _timer_freq);
         utcb << msg;
         return ENONE;
