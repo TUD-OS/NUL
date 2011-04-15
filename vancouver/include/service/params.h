@@ -31,8 +31,7 @@
   extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len) { CODE; } \
   asm volatile (".section .param; .long __parameter_" #NAME "_function, __parameter_" #NAME "_strings; .previous;");
 
-#define PARAMSTART asm volatile (".section .param,\"wa\"; .globl __param_table_start; __param_table_start:")
-#define PARAMEND   asm volatile (".section .param; .globl __param_table_end; __param_table_end:")
+/* Defined in linker script: */
 extern long __param_table_start, __param_table_end;
 
 
