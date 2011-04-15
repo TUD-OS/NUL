@@ -18,17 +18,15 @@ class VnetMonitor {
 public:
 
 private:
-  uint32 data[MONITOR_MAX];
+  uint64 data[MONITOR_MAX];
 
 public:
 
   template<unsigned V>
-  void add(uint32 value)
+  void add(uint64 value)
   {
 #ifndef BENCHMARK
-    // uint64 newv = data[V] + value;
-    // while (cmpxchg8b(&data[V], data[V], newv) != newv) {}
-    asm ("lock; add %1, %0" : "+m" (data[V]) : "r" (value));
+    data[V] += value;
 #endif
   }
 
@@ -36,9 +34,9 @@ public:
   {
     MessageHostOp m(MessageHostOp::OP_VIRT_TO_PHYS, reinterpret_cast<unsigned long>(data));
     if (!bus_hostop.send(m))
-      Logging::panic("v2p failed");
-
-    Logging::printf("VNET MONITOR %lx\n", m.phys);
+      Logging::printf("VNET MONITOR could not get physical address.");
+    else
+      Logging::printf("VNET MONITOR %lx\n", m.phys);
   }
 };
 
