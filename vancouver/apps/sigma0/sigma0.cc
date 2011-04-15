@@ -974,7 +974,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
 
   PT_FUNC(do_map,
-	  // make sure we have enough words to reply
+	  // make sure we have got an even number of words
 	  assert(~utcb->head.untyped & 1);
 	  utcb->set_header(0, utcb->head.untyped / 2);
 	  memmove(utcb->item_start(), utcb->msg, sizeof(unsigned) * utcb->head.typed*2);
