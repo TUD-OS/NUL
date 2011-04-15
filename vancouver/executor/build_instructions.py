@@ -327,7 +327,7 @@ for i in range(len(ccflags)):
     opcodes += [("set" +ccflag, ["BYTE",   "ASM", "LOADFLAGS"], ["set%s (%%ecx)"%ccflag])]
     opcodes += [("cmov"+ccflag, ["NO_OS",  "ASM", "LOADFLAGS",  "OS2"], ["j%s 1f"%(ccflags[i ^ 1]), "mov (%edx), %eax", "mov %eax, (%ecx)", "1:"])]
     opcodes += [("j"+ccflag,    ["JMP",   "ASM", "LOADFLAGS", "DIRECTION"],
-		 ['int (*foo)(InstructionCache *, void *) = helper_JMP_static<[os]>',
+		 ['REGPARM(3) int (*foo)(InstructionCache *, void *) = helper_JMP_static<[os]>',
 		  'asm volatile ("j%s 1f;call %%c0; 1:" : : "i"(foo))'%(ccflags[i ^ 1])])]
 opcodes += [(x, [x[-1] == "b" and "BYTE", "HAS_OS"], [
             "unsigned dummy",
