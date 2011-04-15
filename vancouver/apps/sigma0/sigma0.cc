@@ -1802,6 +1802,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   {
     unsigned res;
     if ((res = preinit(utcb, hip)))              Logging::panic("s0: init() failed with %x\n", res);
+    // This printf() does not produce anything. The output appears
+    // only after create_host_devices() is called below.
     Logging::printf("s0:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
 
     if ((res = init_memmap(utcb)))               Logging::panic("s0: init memmap failed %x\n", res);
