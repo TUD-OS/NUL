@@ -127,10 +127,9 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 
       unsigned char  dma_prog_len; // Length of the DMA program in descriptors
       unsigned char  dma_prog_cur; // Current descriptor
-      tx_desc       *dma_prog[MAXDESC];
-      tx_desc        dma_prog0; // First descriptor. Copied because we
-                                // use it for offloading and it's
-                                // overwritten in data_in.
+      tx_desc        dma_prog[MAXDESC];
+      tx_desc       *dma_prog_out[MAXDESC];
+
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
       bool           tse_in_progress;
@@ -151,12 +150,14 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       // Descriptor write-back
-      void writeback(tx_desc *d, bool force = false)
+      void writeback(unsigned dno)
       {
 	//Logging::printf("WB %p %u TDH %x\n", d, force, (*this)[TDH]);
-        bool irq = d->rs();
+        bool irq = dma_prog[dno].rs();
         // XXX Always write back?
-        d->set_done();
+        // XXX This must not read information back in from the
+        // client's descriptor.
+        dma_prog_out[dno]->set_done();
         if (irq) port.irq_reason(2*no + 1);
       }
 
@@ -171,11 +172,11 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       size_t data_in(uint8 *dest, size_t size, size_t acc = 0)
       {
 	assert(dma_prog_cur < dma_prog_len);
-	assert(dma_prog_cur_offset < dma_prog[dma_prog_cur]->dtalen());
+	assert(dma_prog_cur_offset < dma_prog[dma_prog_cur].dtalen());
 	//Logging::printf("%s: %p+%x (%x) TDH %x\n", __func__, dest, size, acc, (*this)[TDH]);
-	size_t dtalen = dma_prog[dma_prog_cur]->dtalen();
+	size_t dtalen = dma_prog[dma_prog_cur].dtalen();
 	size_t chunk = min<size_t>(size, dtalen - dma_prog_cur_offset);
-	uint8 const *src = port.convert_ptr<uint8>(dma_prog[dma_prog_cur]->raw[0] + dma_prog_cur_offset, chunk);
+	uint8 const *src = port.convert_ptr<uint8>(dma_prog[dma_prog_cur].raw[0] + dma_prog_cur_offset, chunk);
 	if (src == NULL) { port.b0rken("data_in"); return 0; }
 	memcpy(dest, src, chunk);
         port.vnet->_monitor.add<MONITOR_DATA_IN>(chunk);
@@ -193,7 +194,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  // Consumed a full descriptor.
 	  dma_prog_cur += 1;
 	  dma_prog_cur_offset = 0;
-	  writeback(dma_prog[dma_prog_cur-1]);
+	  writeback(dma_prog_cur-1);
 
 	  if ((size == 0) or (dma_prog_cur == dma_prog_len))
 	    return acc;
@@ -206,7 +207,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       {
         tse_in_progress = true;
         tse_dest        = dest_port;
-        tse_ctx         = ctx[dma_prog0.idx()];
+        tse_ctx         = ctx[dma_prog[0].idx()];
         tse_sent        = 0;
         // XXX TSE
       }
@@ -216,7 +217,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       {
         if (not tse_in_progress) {
           packet_extracted = data_in(packet_data, sizeof(packet_data));
-          apply_offloads(ctx[dma_prog0.idx()], dma_prog0, packet_data, packet_extracted);
+          apply_offloads(ctx[dma_prog[0].idx()], dma_prog[0], packet_data, packet_extracted);
 
           if (packet_extracted < 60) {
             // Always pad small packets, disregarding PSP flag.
@@ -240,9 +241,9 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       {
 	// For simplicity's sake, we need at least the ethernet header
 	// in the first data block.
-	if (dma_prog0.dtalen() < 12) { port.b0rken("complex"); return; }
+	if (dma_prog[0].dtalen() < 12) { port.b0rken("complex"); return; }
 
-	uint8 const * const ethernet_header = port.convert_ptr<uint8>(dma_prog0.raw[0], 12);
+	uint8 const * const ethernet_header = port.convert_ptr<uint8>(dma_prog[0].raw[0], 12);
 	if (ethernet_header == NULL) { port.b0rken("ehdr"); return; }
 
 	EthernetAddr target(*reinterpret_cast<uint64 const * const>(ethernet_header));
@@ -255,7 +256,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	Port       * const dest = vnet->_cache.lookup(target);
 	if (!source.is_multicast()) vnet->_cache.remember(source, &port);
 
-        bool tse = dma_prog0.dcmd() & tx_desc::DCMD_TSE;
+        bool tse = dma_prog[0].dcmd() & tx_desc::DCMD_TSE;
         bool unicast = (dest != NULL) and (dest->is_used());
 
         vnet->_monitor.add<MONITOR_PACKET_IN>(1);
@@ -355,9 +356,10 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  } else {
 	    // DATA descriptor
 
-	    dma_prog[dma_prog_len++] = &cur;
+            dma_prog_out[dma_prog_len] = &cur;
+	    dma_prog[dma_prog_len++]   = cur;
 
-	    if (dma_prog[dma_prog_len-1]->eop())
+	    if (dma_prog[dma_prog_len-1].eop())
 	      // Successfully read a DMA program
 	      goto handle_data;
 	  }
@@ -370,22 +372,20 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  return false;
 
 	// EOP is always true for context descriptors.
-	if (not dma_prog[dma_prog_len-1]->eop()) {
+	if (not dma_prog[dma_prog_len-1].eop()) {
 	  port.b0rken("EOP?"); return false;
 	}
 
       handle_data:
-        dma_prog0 = *dma_prog[0];
-
 	// Legacy descriptors are not implemented.
-	if (dma_prog0.legacy()) {
+	if (dma_prog[0].legacy()) {
 	  Logging::printf("LEGACY(%u): (TDH %u TDH %u)\n", dma_prog_len, txq[TDH], txq[TDT]);
 	  for (unsigned i = 0; i < dma_prog_len; i++)
-	    Logging::printf(" %016llx %016llx\n", dma_prog[i]->raw[0], dma_prog[i]->raw[1]);
+	    Logging::printf(" %016llx %016llx\n", dma_prog[i].raw[0], dma_prog[i].raw[1]);
 	  return false;
 	}
 
-	uint8 dtyp = dma_prog0.dtyp();
+	uint8 dtyp = dma_prog[0].dtyp();
 	//const tx_desc cctx = txq.ctx[txq.dma_prog[0]->idx()];
 
 	//Logging::printf("REF%u = %016llx %016llx\n", dma_prog[0]->idx(), cctx.raw[0], cctx.raw[1]);
@@ -541,7 +541,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
           vnet->_monitor.add<MONITOR_DATA_OUT>(psize);
           
 #warning XXX offloads broken when packet spread over multiple descriptors
-          apply_offloads(txq.ctx[txq.dma_prog0.idx()], txq.dma_prog0, data, psize);
+          apply_offloads(txq.ctx[txq.dma_prog[0].idx()], txq.dma_prog[0], data, psize);
           //Logging::printf("Received %u bytes.\n", psize);
 
           if (desc_type >> 1) {
@@ -611,7 +611,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       bool res;
-      if (txq.dma_prog0.dcmd() & tx_desc::DCMD_TSE)
+      if (txq.dma_prog[0].dcmd() & tx_desc::DCMD_TSE)
 	res = deliver_tse_from(txq);
       else
 	res = deliver_simple_from(txq);
