@@ -53,7 +53,8 @@ struct ALIGNED(16)  tx_desc {
     rawq = d.rawq;
 #else
 #pragma message "SSE-moves are NOT used."
-    memcpy(&raw, &d.raw, sizeof(raw));
+    raw[0] = d.raw[0];
+    raw[1] = d.raw[1];
 #endif
   }
 
