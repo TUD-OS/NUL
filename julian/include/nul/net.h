@@ -22,7 +22,7 @@
 #include <nul/types.h>
 #include <nul/compiler.h>
 
-typedef struct {
+struct ALIGNED(16)  tx_desc {
   enum {
     DTYP_CONTEXT = 2U,
     DTYP_DATA    = 3U,
@@ -41,7 +41,21 @@ typedef struct {
   union {
     uint64 raw[2];
     uint32 rawd[4];
+#ifdef __SSE2__
+    __m128i rawq;
+#endif
   };
+
+  tx_desc() { }
+
+  tx_desc(const tx_desc &d) {
+#ifdef __SSE2__
+    rawq = d.rawq;
+#else
+#pragma message "SSE-moves are NOT used."
+    memcpy(&raw, &d.raw, sizeof(raw));
+#endif
+  }
 
   bool  is_done()       { return (rawd[3] & 1); }
   void  set_done()      { rawd[3] = (1UL /* DD */); }
@@ -69,9 +83,11 @@ typedef struct {
   uint16 iplen()  const { return rawd[0] & 0x1FF; }
   uint8  maclen() const { return (rawd[0] >> 9) & 0x7F; }
 
-} tx_desc;
+};
 
-typedef struct {
+static_assert(sizeof(tx_desc) == 16, "tx_desc must be 16-byte long");
+
+struct rx_desc {
 
   union {
     uint64 raw[2];
@@ -96,6 +112,6 @@ typedef struct {
       break;
     }
   }
-} rx_desc;
+};
 
 /* EOF */

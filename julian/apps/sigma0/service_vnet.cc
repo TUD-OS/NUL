@@ -79,7 +79,7 @@ template <typename T> T min(T a, T b) { return (a < b) ? a : b; }
 template <typename T> T max(T a, T b) { return (b < a) ? a : b; }
 
 
-class VirtualNet : public StaticReceiver<VirtualNet>
+class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 {
   VnetMonitor                  _monitor;
   DBus<MessageVirtualNetPing> &_bus_vnetping;
@@ -123,11 +123,11 @@ class VirtualNet : public StaticReceiver<VirtualNet>
       const unsigned no;
 
       /// Context descriptors are stored as-is until they are needed.
-      tx_desc        ctx[8];
+      tx_desc        ctx[8] ALIGNED(16);
 
       unsigned char  dma_prog_len; // Length of the DMA program in descriptors
       unsigned char  dma_prog_cur; // Current descriptor
-      tx_desc        dma_prog[MAXDESC];
+      tx_desc        dma_prog[MAXDESC] ALIGNED(16);
       tx_desc       *dma_prog_out[MAXDESC];
 
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
@@ -155,8 +155,6 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	//Logging::printf("WB %p %u TDH %x\n", d, force, (*this)[TDH]);
         bool irq = dma_prog[dno].rs();
         // XXX Always write back?
-        // XXX This must not read information back in from the
-        // client's descriptor.
         dma_prog_out[dno]->set_done();
         if (irq) port.irq_reason(2*no + 1);
       }
@@ -357,7 +355,8 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	    // DATA descriptor
 
             dma_prog_out[dma_prog_len] = &cur;
-	    dma_prog[dma_prog_len++]   = cur;
+	    dma_prog[dma_prog_len]     = cur;
+            dma_prog_len += 1;
 
 	    if (dma_prog[dma_prog_len-1].eop())
 	      // Successfully read a DMA program
@@ -365,6 +364,7 @@ class VirtualNet : public StaticReceiver<VirtualNet>
 	  }
 
 	} while ((dma_prog_len < MAXDESC) and (tdt != tdh));
+        Logging::printf("%u desc DMA program\n", dma_prog_len);
 
 	if (dma_prog_len == 0)
 	  // Only context descriptors were processed. Nothing left to
@@ -817,7 +817,8 @@ public:
 };
 
 PARAM(vnet,
-      new VirtualNet(mb);
+      VirtualNet *n = new(16) VirtualNet(mb);
+      assert((reinterpret_cast<mword>(n) & 0xF) == 0);
       ,
       "vnet - virtual network switch");
 
