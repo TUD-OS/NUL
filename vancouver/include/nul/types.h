@@ -37,4 +37,8 @@ typedef signed int       int32;
 typedef signed short     int16;
 typedef signed char      int8;
 
+#ifdef __SSE2__
+typedef long long __m128i __attribute__ ((__vector_size__ (16), __may_alias__));
+#endif
+
 /* EOF */
