@@ -132,7 +132,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
-      bool           tse_in_progress;
       Port          *tse_dest;  // NULL -> Broadcast
       tx_desc        tse_ctx;
       unsigned       tse_sent;
@@ -203,7 +202,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       void init_tse(Port *dest_port)
       {
-        tse_in_progress = true;
         tse_dest        = dest_port;
         tse_ctx         = ctx[dma_prog[0].idx()];
         tse_sent        = 0;
@@ -213,21 +211,17 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       // Extract one packet to internal storage.
       void extract_to_buffer()
       {
-        if (not tse_in_progress) {
-          packet_extracted = data_in(packet_data, sizeof(packet_data));
-          apply_offloads(ctx[dma_prog[0].idx()], dma_prog[0], packet_data, packet_extracted);
-
-          if (packet_extracted < 60) {
-            // Always pad small packets, disregarding PSP flag.
-            memset(packet_data + packet_extracted, 0, 60 - packet_extracted);
-            packet_extracted = 60;
-          }
-
-          assert(dma_prog_cur == dma_prog_len); // Consumed the whole program
-        } else {
-          // XXX Produce the next segment
-          assert(false);
+#warning Needs to be adapted for TSE
+        packet_extracted = data_in(packet_data, sizeof(packet_data));
+        apply_offloads(ctx[dma_prog[0].idx()], dma_prog[0], packet_data, packet_extracted);
+        
+        if (packet_extracted < 60) {
+          // Always pad small packets, disregarding PSP flag.
+          memset(packet_data + packet_extracted, 0, 60 - packet_extracted);
+          packet_extracted = 60;
         }
+
+        assert(dma_prog_cur == dma_prog_len); // Consumed the whole program
       }
 
       void invalidate_buffer()
@@ -282,25 +276,15 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	if (not ((*this)[TXDCTL] & (1 << 25 /* ENABLE */))) {
 	  // Logging::printf("TXDCTL %x (disabled)\n", (*this)[TXDCTL]);
 	  // If you disable the queue, cancel pending TSE work.
-	  tse_in_progress = false;
 	  dma_prog_cur = 0;
 	  dma_prog_len = 0;
 	  return;
 	}
 
-	if (tse_in_progress)
-	  continue_tse();
-        else
-	  if (next_dma_prog())
-            exec_dma_prog();
+        if (next_dma_prog())
+          exec_dma_prog();
       }
 
-      void continue_tse()
-      {
-	// XXX
-	tse_in_progress = false;
-      }
-      
       /// Fetch a new DMA program. Returns true, iff successful.
       bool next_dma_prog()
       {
@@ -395,7 +379,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       TxQueue(Port &port, uint32 *&reg, unsigned no)
-        : reg(reg), port(port), no(no), ctx(), tse_in_progress(false)
+        : reg(reg), port(port), no(no), ctx()
       { }
     };
 
@@ -438,6 +422,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
     bool deliver_tse_from(TxQueue &txq)
     {
       COUNTER_INC("deliver_tse");
+      Logging::panic("TSE...");
       // XXX Complete...
       return false;
     }
