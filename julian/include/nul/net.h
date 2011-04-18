@@ -44,7 +44,7 @@ typedef struct {
   };
 
   bool  is_done()       { return (rawd[3] & 1); }
-  void  set_done()      { raw[1] = (1ULL << 32 /* DD */); }
+  void  set_done()      { rawd[3] = (1UL /* DD */); }
   bool  rs()      const { return (rawd[2] & (1 << 27 /* RS */)); }
   uint8 idx()     const { return (rawd[3] >> 4) & 0x7; } 
   uint8 dtyp()    const { return (rawd[2] >> 20) & 0xF; }
