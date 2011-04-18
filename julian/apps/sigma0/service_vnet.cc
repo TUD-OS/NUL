@@ -132,7 +132,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
-      Port          *tse_dest;  // NULL -> Broadcast
       tx_desc        tse_ctx;
       unsigned       tse_sent;
 
@@ -200,9 +199,8 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	}
       }
 
-      void init_tse(Port *dest_port)
+      void init_tse()
       {
-        tse_dest        = dest_port;
         tse_ctx         = ctx[dma_prog[0].idx()];
         tse_sent        = 0;
         // XXX TSE
@@ -253,7 +251,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
         vnet->_monitor.add<MONITOR_PACKET_IN>(1);
 
-        if (tse) init_tse(unicast ? dest : NULL);
+        if (tse) init_tse();
 
 	if (unicast) {
 	  // Unicast
