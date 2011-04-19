@@ -29,6 +29,7 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 #include "nul/service_fs.h"
+#include "nul/service_admission.h"
 
 // global VARs
 unsigned     console_id;
@@ -49,12 +50,13 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"
             " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_per_cpu_timer service_romfs script")
 
-#define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom quota::guid"
+#define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission quota::guid"
 
   // module data
   struct ModuleInfo
   {
     unsigned        id;
+    enum { TYPE_S0, TYPE_ADMISSION } type;
     unsigned        cpunr;
     unsigned long   rip;
     bool            dma;
@@ -133,6 +135,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   friend class s0_ParentProtocol;
 
   // services
+  bool admission; 
+  AdmissionProtocol * service_admission;
   s0_ParentProtocol * service_parent;
 
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
@@ -207,14 +211,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  bool attach_irq(unsigned gsi, unsigned sm_cap, bool unlocked, unsigned cpunr)
+  bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, unsigned cpunr)
   {
     Utcb *u = 0;
-    unsigned cap = create_ec_helper(this, cpunr, _percpu[cpunr].exc_base,  &u,
-                                    reinterpret_cast<void *>(&do_gsi_wrapper));
-    u->msg[0] =  sm_cap;
+    unsigned cap_ec = create_ec_helper(this, cpunr, _percpu[cpunr].exc_base,  &u,
+                                       reinterpret_cast<void *>(&do_gsi_wrapper));
+    u->msg[0] =  cap_sm;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
-    return !nova_create_sc(alloc_cap(), cap, Qpd(4, 10000));
+    AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SYSTEM); //XXX special handling here to get it to prio 4, get rid of that
+    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this) == NOVA_ESUCCESS);
   }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
@@ -278,6 +283,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // parse cmdline of sigma0
     char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     _modinfo[0].sigma0_cmdlen = strlen(cmdline);
+    _modinfo[0].type = ModuleInfo::TYPE_S0;
 
     char * s0_pos;
     if (s0_pos = strstr(cmdline, "S0_DEFAULT")) {
@@ -295,8 +301,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     } else
       _modinfo[0].cmdline = cmdline;
 
+    // check services to support
+    admission = strstr(_modinfo[0].cmdline, "sigma0::admission");
+
     // init services required or provided by sigma0
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
+    service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), true);
   }
 
   /**
@@ -698,6 +708,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * mconfig,
                          char const * client_cmdline, unsigned sigma0_cmdlen, unsigned &internal_id)
   {
+    AdmissionProtocol::sched sched; //Qpd(1, 100000)
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
     Hip * modhip = 0;
@@ -705,6 +716,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     ModuleInfo *modinfo = alloc_module(mconfig, sigma0_cmdlen);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
+    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION;
 
     // Figure out how much memory we give the client. If the user
     // didn't give a limit, we give it enough to unpack the ELF.
@@ -785,13 +797,60 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check2(_free_caps, service_parent->create_pt_per_client(pt, this));
     check2(_free_caps, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
+    // map idle SCs, so that they can be mapped to the admission service during create_pd
+    if (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION) {
+      utcb->add_frame();
+      *utcb << Crd(0, 31, DESC_CAP_ALL);
+      for (unsigned sci=0; sci < _hip->cpu_count(); sci++) {
+        Utcb::TypedMapCap(0 + sci).fill_words(utcb->msg + utcb->head.untyped, Crd(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, 0, MAP_HBIT).value());
+        utcb->head.untyped += 2;
+      }
+
+      check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
+
+      for (unsigned sci=0; sci < _hip->cpu_count(); sci++) {
+        timevalue computetime;
+        unsigned char res = nova_ctl_sc(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, computetime);
+        assert(res == NOVA_ESUCCESS);
+      }
+
+      utcb->drop_frame();
+    }
+
     if (verbose & VERBOSE_INFO)
       Logging::printf("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
-    check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL)));
+
+    check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT,
+           DESC_CAP_ALL & ((!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
     check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
-    check2(_free_caps, nova_create_sc(pt + ParentProtocol::CAP_CHILD_SC, pt + ParentProtocol::CAP_CHILD_EC, Qpd(1, 100000)));
+
+    if (!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) {
+      //XXX assign admission cap not to sigma0 !!
+      check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this));
+    } else {
+      //map temporary child id
+      utcb->add_frame();
+      *utcb << Crd(0, 31, DESC_CAP_ALL);
+      Utcb::TypedMapCap(pt + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, MAP_MAP).value());
+      utcb->head.untyped += 2;
+      check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
+      utcb->drop_frame();
+
+      //allocate sc
+      unsigned cap_base = alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_count());
+      AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
+      res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
+      if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr);
+
+      s_ad->close(*utcb, _hip->cpu_count(), true, false);
+      delete s_ad;
+
+      unsigned char res = nova_revoke(Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, DESC_CAP_ALL), true); //revoke tmp child id
+      assert(!res);
+      dealloc_cap(cap_base, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_count());
+    }
 
     _free_caps:
     if (res) {
@@ -1219,15 +1278,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         {
           unsigned cpu = msg._alloc_service_thread.cpu;
           if (cpu == ~0U) cpu = _cpunr[CPUGSI % _numcpus];
-          unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg, cpu,
+          unsigned cap_ec = create_ec_helper(msg._alloc_service_thread.work_arg, cpu,
                                              _percpu[cpu].exc_base, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
           unsigned prio = msg._alloc_service_thread.prio;
-          if (prio == ~0u)
-            prio = 1;		// IDLE
-          else
-            prio = prio ? 3 : 2;
-          return !nova_create_sc(alloc_cap(), ec_cap, Qpd(prio, 10000));
+
+          AdmissionProtocol::sched sched; //Qpd(prio, 10000)
+          if (prio != ~0u) //IDLE TYPE_NONPERIODIC -> prio=1 
+            sched.type = prio ? AdmissionProtocol::sched::TYPE_APERIODIC : AdmissionProtocol::sched::TYPE_PERIODIC; //XXX don't guess here
+
+          return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this) == NOVA_ESUCCESS);
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
@@ -1689,6 +1749,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
     case MessageConsole::TYPE_KILL:
       {
+        if (admission && msg.id < 2) return false;
         unsigned res = kill_module(get_module(msg.id));
         if (res) Logging::printf("s0: [%02x] kill module = %u\n", msg.id, res);
       }
@@ -1820,6 +1881,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
+
+    if (res = service_admission->push_scs(*utcb)) Logging::printf("s0: WARNING admission service missing - error %x\n", res);
+    else service_admission->set_name(*utcb, "sigma0");
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 

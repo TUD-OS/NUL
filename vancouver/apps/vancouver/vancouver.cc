@@ -22,6 +22,7 @@
 #include "nul/vcpu.h"
 #include "sigma0/console.h"
 #include "nul/service_timer.h"
+#include "nul/service_admission.h"
 #include "nul/service_fs.h"
 #include "nul/service_log.h"
 
@@ -88,7 +89,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
-  static TimerProtocol   *timer_service;
+  static TimerProtocol     * service_timer;
+  static AdmissionProtocol * service_admission;
   FsProtocol *fs_obj;
   char fs_name[32], fs_tmp[32];
   #define VANCOUVER_CONFIG_SEPARATOR "||"
@@ -226,7 +228,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_timer) __attribute__((noreturn))
   {
-    KernelSemaphore timer_sem = KernelSemaphore(timer_service->get_notify_sm());
+    KernelSemaphore timer_sem = KernelSemaphore(service_timer->get_notify_sm());
 
     while (1) {
       timer_sem.down();
@@ -310,12 +312,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
 
-    timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
-
     unsigned res;
-    if ((res = timer_service->timer(*utcb, msg)))
+    if ((res = service_timer->timer(*utcb, msg)))
       Logging::panic("Timer service unreachable (error: %x).\n", res);
+
+    service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    service_admission->set_name(*utcb, "vancouver");
 
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
@@ -335,8 +339,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
-    // XXX How many time should an IRQ thread get?
-    check1(~3u, nova_create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
+    //check1(~3u, nova_create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
+    AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
+    check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this));
     return cap_ec;
   }
 
@@ -384,12 +389,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     }
 
     Logging::printf("\tcreate VCPU\n");
-    unsigned cap_block = alloc_cap(3);
+    unsigned cap_block = alloc_cap(2);
     if (nova_create_sm(cap_block))
       Logging::panic("could not create blocking semaphore\n");
-    if (nova_create_ec(cap_block + 1, 0, 0, cpunr, cap_start, false)
-	|| nova_create_sc(cap_block + 2, cap_block + 1, Qpd(1, 10000)))
+    if (nova_create_ec(cap_block + 1, 0, 0, cpunr, cap_start, false))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
+    AdmissionProtocol::sched sched; //Qpd(1, 10000)
+    if (service_admission->alloc_sc(*myutcb(), cap_block + 1, sched, cpunr, this))
+      Logging::panic("creating a VCPU failed - admission test issue");
     return cap_block;
   }
 
@@ -679,8 +686,9 @@ public:
           unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg,
                                              myutcb()->head.nul_cpunr, PT_IRQ, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
-          // XXX Priority?
-          return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+          //return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
+          AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
+          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, this);
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
@@ -727,7 +735,7 @@ public:
   static void timeout_request() {
     if (_timeouts.timeout() != ~0ull) {
       TimerProtocol::MessageTimer msg2(_timeouts.timeout());
-      unsigned res = timer_service->timer(*myutcb(), msg2);
+      unsigned res = service_timer->timer(*myutcb(), msg2);
       assert(!res);
     }
   }
@@ -745,6 +753,18 @@ public:
     }
     // request a new timeout upstream
     timeout_request();
+
+/*
+    unsigned res = service_admission->get_statistics(*myutcb());
+    if (!res) {
+      unsigned i = 1;
+      while (i < sizeof(myutcb()->msg) / sizeof(myutcb()->msg[0]) && myutcb()->msg[i] != ~0UL) {
+        Logging::printf("cpu %u: %u%%\n", myutcb()->msg[i], myutcb()->msg[i+1]);
+        i += 2;
+      }
+    }
+    myutcb()->drop_frame();
+*/
   }
 
 
@@ -770,7 +790,7 @@ public:
     TimerProtocol::MessageTime _msg;
     _msg.wallclocktime = msg.wallclocktime;
     _msg.timestamp = msg.timestamp;
-    bool res = !timer_service->time(*myutcb(), _msg);
+    bool res = !service_timer->time(*myutcb(), _msg);
     msg.wallclocktime = _msg.wallclocktime;
     msg.timestamp = _msg.timestamp;
     return res;
@@ -824,7 +844,7 @@ public:
       vcpu->set_cpuid(0, 2, reinterpret_cast<const unsigned *>(short_name)[2]);
       const char *long_name = "Vancouver VMM proudly presents this VirtualCPU. ";
       for (unsigned i=0; i<12; i++)
-	vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
+        vcpu->set_cpuid(0x80000002 + (i / 4), i % 4, reinterpret_cast<const unsigned *>(long_name)[i]);
 
       // propagate feature flags from the host
       unsigned ebx_1=0, ecx_1=0, edx_1=0;
@@ -859,7 +879,8 @@ public:
 
 };
 
-TimerProtocol * Vancouver::timer_service;
+TimerProtocol     * Vancouver::service_timer;
+AdmissionProtocol * Vancouver::service_admission;
 
 ASMFUNCS(Vancouver, Vancouver)
 
