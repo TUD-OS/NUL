@@ -133,7 +133,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
       tx_desc        tse_ctx;
-      unsigned       tse_sent;
 
       /// Buffer used for broadcast packets instead of dma_prog
       uint8          packet_data[MAXPACKETSIZE];
@@ -147,16 +146,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	return reg[offset + 0x3000/4 + 0x100*no];
       }
 
-      // Descriptor write-back
-      void writeback(unsigned dno)
-      {
-	//Logging::printf("WB %p %u TDH %x\n", d, force, (*this)[TDH]);
-        bool irq = dma_prog[dno].rs();
-        // XXX Always write back?
-        dma_prog_out[dno]->set_done();
-        if (irq) port.irq_reason(2*no + 1);
-      }
-
       // The current DMA program has data pending.
       bool tx_data_pending()
       {
@@ -164,7 +153,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       // Copy raw packet data into local buffer. Don't copy more than
-      // `size' bytes. Do writeback of TX descriptors.
+      // `size' bytes.
       size_t data_in(uint8 *dest, size_t size, size_t acc = 0)
       {
 	assert(dma_prog_cur < dma_prog_len);
@@ -190,7 +179,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  // Consumed a full descriptor.
 	  dma_prog_cur += 1;
 	  dma_prog_cur_offset = 0;
-	  writeback(dma_prog_cur-1);
 
 	  if ((size == 0) or (dma_prog_cur == dma_prog_len))
 	    return acc;
@@ -202,7 +190,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       void init_tse()
       {
         tse_ctx         = ctx[dma_prog[0].idx()];
-        tse_sent        = 0;
         // XXX TSE
       }
 
@@ -226,7 +213,20 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       {
         packet_extracted = 0;
       }
-      
+
+      // Do writeback of TX dma program.
+      void wb_dma_prog()
+      {
+        bool irq = false;
+        for (unsigned i = 0; i < dma_prog_len; i++) {
+          irq = irq or dma_prog[i].rs();
+          // XXX Always write back?
+          dma_prog_out[i]->set_done();
+        }
+
+        if (irq) port.irq_reason(2*no + 1);
+      }
+
       void exec_dma_prog()
       {
 	// For simplicity's sake, we need at least the ethernet header
@@ -279,8 +279,10 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  return;
 	}
 
-        if (next_dma_prog())
+        if (next_dma_prog()) {
           exec_dma_prog();
+          wb_dma_prog();
+        }
       }
 
       /// Fetch a new DMA program. Returns true, iff successful.
