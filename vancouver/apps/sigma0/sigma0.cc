@@ -42,9 +42,6 @@ unsigned     mac_host;
 // extra params
 PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
 PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
-PARAM(namespace,, "namespace - used by parent protocol")
-PARAM(name,, "name - used by parent protocol")
-PARAM(quota,, "quota - used by parent protocol")
 enum { VERBOSE_ERRORS = 0, VERBOSE_INFO = 1 } verbose = VERBOSE_ERRORS;
 PARAM(verbose, verbose = VERBOSE_INFO, "verbose - print additional information during runtime")
 
@@ -54,11 +51,21 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 
 #define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom quota::guid"
 
-/**
- * Sigma0 application class.
- */
-struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
-{
+  // module data
+  struct ModuleInfo
+  {
+    unsigned        id;
+    unsigned        cpunr;
+    unsigned long   rip;
+    bool            dma;
+    unsigned long   physsize;
+    unsigned        mac;
+    void *          hip;
+    char const *    cmdline;
+    unsigned long   sigma0_cmdlen;
+    char *          mem; //have to be last element - see free_module
+  };
+
   enum {
     MAXCPUS            = Config::MAX_CPUS,
     MAXPCIDIRECT       = 64,
@@ -67,12 +74,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     MEM_OFFSET         = 1ul << 31,
     CLIENT_HIP         = 0xBFFFF000U,
     CLIENT_BOOT_UTCB   = CLIENT_HIP - 0x1000,
-    CLIENT_PT_OFFSET   = 0x10000,
-    CLIENT_PT_SHIFT    = 10,
+    CLIENT_PT_OFFSET   = 0x20000U,
+    CLIENT_PT_SHIFT    = Config::CAP_RESERVED_ORDER,
     CLIENT_PT_ORDER    = CLIENT_PT_SHIFT + Config::MAX_CLIENTS_ORDER,
-    CLIENT_ALL_ORDER   = CLIENT_PT_ORDER > 16 ? CLIENT_PT_ORDER + 1 : 16 + 1
   };
 
+#include "parent_protocol.h"
+
+/**
+ * Sigma0 application class.
+ */
+struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
+{
   // a mapping from virtual cpus to the physical numbers
   unsigned  _cpunr[MAXCPUS];
   unsigned  _numcpus;
@@ -81,7 +94,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   // data per physical CPU number
   struct {
     unsigned  cap_ec_worker;
-    unsigned  cap_ec_parent;
     unsigned  cap_ec_echo;
     unsigned  cap_pt_echo;
     unsigned  exc_base;
@@ -106,19 +118,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   Motherboard *_mb;
 
   // module data
-  struct ModuleInfo
-  {
-    unsigned        id;
-    unsigned        cpunr;
-    unsigned long   rip;
-    bool            dma;
-    unsigned long   physsize;
-    unsigned        mac;
-    void *          hip;
-    char const *    cmdline;
-    unsigned long   sigma0_cmdlen;
-    char *          mem; //have to be last element - see free_module
-  } _modinfo[MAXMODULES];
+  ModuleInfo _modinfo[MAXMODULES];
   unsigned _mac;
 
   // Hip containing virtual address for aux, use _hip if physical addresses are needed
@@ -128,6 +128,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned  _msivector;        // next gsi vector
   unsigned long long _gsi;     // bitfield per used GSI
   unsigned _pcidirect[MAXPCIDIRECT];
+
+  // parent protocol
+  friend class s0_ParentProtocol;
+
+  // services
+  s0_ParentProtocol * service_parent;
 
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
   {
@@ -268,12 +274,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     utcb->set_header(1, 0);
   }
 
-
-  /**
-   * Create the needed host devices aka instantiate the drivers.
-   */
-  unsigned create_host_devices(Utcb *utcb, Hip *hip)
-  {
+  void postinit(Hip * hip) {
+    // parse cmdline of sigma0
     char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     _modinfo[0].sigma0_cmdlen = strlen(cmdline);
 
@@ -293,6 +295,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     } else
       _modinfo[0].cmdline = cmdline;
 
+    // init services required or provided by sigma0
+    service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
+  }
+
+  /**
+   * Create the needed host devices aka instantiate the drivers.
+   */
+  unsigned create_host_devices(Utcb *utcb, Hip *hip)
+  {
     _mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
@@ -300,6 +311,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     init_disks();
     init_network();
     init_vnet();
+    char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     _mb->parse_args(cmdline);
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
@@ -368,11 +380,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec_helper(this, i, _percpu[i].exc_base, &utcb);
-      utcb->head.crd = Crd(alloc_cap(), 0, DESC_TYPE_CAP).value();
-
-      _percpu[i].cap_ec_parent = create_ec_helper(this, i, _percpu[i].exc_base, &utcb);
-      utcb->head.crd = Crd(alloc_cap(), 0, DESC_TYPE_CAP).value();
-      utcb->head.crd_translate = Crd(0, CLIENT_ALL_ORDER, DESC_TYPE_CAP).value();
+      utcb->head.crd = alloc_crd();
 
       // Create error handling portals.
       // XXX All threads that use ec_echo have broken error handling
@@ -385,10 +393,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       check1(5, nova_create_pt(_percpu[i].exc_base + 0x1E, _percpu[i].cap_ec_echo,
                                reinterpret_cast<unsigned long>(do_thread_startup_wrapper),
                                MTD_RSP | MTD_RIP_LEN));
-
-      // create parent portals
-      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + i, _percpu[i].cap_ec_parent,
-                               reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func), 0));
     }
     return 0;
   }
@@ -403,16 +407,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(1, init(hip));
 
     //cap range from 0 - 0x10000 assumed to be reserved by program.h -> assertion
-    //reserve cap range from 0x10000 (CLIENT_PT_OFFSET) to MAX_CLIENTS (CLIENT_ALL_SHIFT) - is used by sigma0 implicitly without a cap allocator !
-    assert(_cap_start == 0 && _cap_order == 16 && CLIENT_PT_OFFSET == 0x10000);
+    //reserve cap range from 0x20000 (CLIENT_PT_OFFSET) to MAX_CLIENTS (CLIENT_ALL_SHIFT) - is used by sigma0 implicitly without a cap allocator !
+    assert(_cap_start == 0 && _cap_order == 16 && CLIENT_PT_OFFSET == 0x20000U);
     Region * reserve = _cap_region.find(CLIENT_PT_OFFSET);
-    assert(reserve && reserve->virt == CLIENT_PT_OFFSET && reserve->size > (1 << CLIENT_PT_ORDER));
-    _cap_region.del(Region(CLIENT_PT_OFFSET, 1 << CLIENT_PT_ORDER));
-    assert(!_cap_region.find(CLIENT_PT_OFFSET));
-    assert(!_cap_region.find(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER) - 1));
-    assert(!_cap_region.find(0));   // sanity checks - should be reserved by program.h
-    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU - 1));
-    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS - 1));
+    assert(reserve && reserve->virt <= CLIENT_PT_OFFSET && reserve->size - (reserve->virt - CLIENT_PT_OFFSET) >= (2 << CLIENT_PT_ORDER));
+    //clients range + parent_protocol range
+    _cap_region.del(Region(CLIENT_PT_OFFSET, 2U << CLIENT_PT_ORDER));
+
+    //sanity checks
+    assert(!_cap_region.find(CLIENT_PT_OFFSET) && !_cap_region.find(CLIENT_PT_OFFSET + (1U << CLIENT_PT_ORDER) - 1U));
+    assert(!_cap_region.find(CLIENT_PT_OFFSET + (2U << CLIENT_PT_ORDER) - 1U));
+    assert(!_cap_region.find(0));   //should be reserved by program.h
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU - 1U));
+    assert(!_cap_region.find(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS - 1U));
 
     Logging::printf("s0: create locks\n");
     _lock_gsi    = Semaphore(alloc_cap());
@@ -440,7 +447,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;
     Logging::init(putc, &putcd);
-
 
 
     // create the parent semaphore
@@ -772,16 +778,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // create special portal for every module
     pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
-    assert(_percpu[modinfo->cpunr].cap_ec_parent);
     check2(_free_caps, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
     check2(_free_caps, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
     // create parent portals
-    for (unsigned i = 0; i < _numcpus; i++)
-      check2(_free_caps, nova_create_pt(pt + ParentProtocol::CAP_PT_PERCPU + _cpunr[i],
-			       _percpu[_cpunr[i]].cap_ec_parent,
-			       reinterpret_cast<unsigned long>(StaticPortalFunc<Sigma0>::portal_func),
-			       0));
+    check2(_free_caps, service_parent->create_pt_per_client(pt, this));
     check2(_free_caps, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     if (verbose & VERBOSE_INFO)
@@ -999,8 +1000,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   Logging::panic("s0: %s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
 
-  #include "parent_protocol.h"
-
   PT_FUNC(do_startup,
 	  ModuleInfo *modinfo = get_module((pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT);
 	  assert(modinfo);
@@ -1157,6 +1156,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      utcb->msg[0] = ~0x10u;
 	      utcb->set_header(1, 0);
 	  )
+
 
 
 
@@ -1801,18 +1801,26 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     unsigned res;
+
     if ((res = preinit(utcb, hip)))              Logging::panic("s0: init() failed with %x\n", res);
     // This printf() does not produce anything. The output appears
     // only after create_host_devices() is called below.
     Logging::printf("s0:  hip %p caps %x memsize %x\n", hip, hip->cfg_cap, hip->mem_size);
+    if ((res = init_memmap(utcb)))                    Logging::panic("s0: init memmap failed %x\n", res);
+    if ((res = create_worker_threads(hip, -1)))       Logging::panic("s0: create worker threads failed %x\n", res);
 
-    if ((res = init_memmap(utcb)))               Logging::panic("s0: init memmap failed %x\n", res);
-    if ((res = create_worker_threads(hip, -1)))  Logging::panic("s0: create worker threads failed %x\n", res);
+    // init rest which could be postponed until now
+    postinit(__hip);
+    // now service_parent exists create parent threads
+    if ((res = service_parent->create_threads(this))) Logging::panic("s0: create parent threads failed %x\n", res);
+
     // unblock the worker and IRQ threads
     _lock_gsi.up();
+
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
 
     if (!mac_host) mac_host = generate_hostmac();
+
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
     // block ourself since we have finished initialization
@@ -1823,6 +1831,24 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
+char const * s0_ParentProtocol::get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen) {
+  unsigned clientnr = get_client_number(identity);
+  if (clientnr >= MAXMODULES) return 0;
+  s0_cmdlen = sigma0->_modinfo[clientnr].sigma0_cmdlen;
+  return sigma0->_modinfo[clientnr].cmdline;
+}
+
+char * s0_ParentProtocol::get_client_memory(unsigned identity, unsigned client_mem_revoke) {
+  unsigned clientnr = get_client_number(identity);
+  //that are we - so service is in this pd
+  if (clientnr == 0) return reinterpret_cast<char *>(client_mem_revoke);
+
+  ModuleInfo * modinfo = sigma0->get_module(clientnr);
+  if (!modinfo) return 0;
+  char * mem_revoke = reinterpret_cast<char *>(client_mem_revoke);
+  if (sigma0->convert_client_ptr(modinfo, mem_revoke, 0x1000U)) return 0;
+  else return mem_revoke;
+}
 
 void Sigma0::start(Hip *hip, Utcb *utcb) {
   extern unsigned __nova_api_version;
@@ -1843,7 +1869,6 @@ void  do_exit(const char *msg)
   while (1)
     asm volatile ("ud2a" : : "a"(msg));
 }
-
 
 Semaphore Sigma0::_lock_mem;
 

@@ -24,7 +24,6 @@
 #include "region.h"
 #include "baseprogram.h"
 #include "config.h"
-#include "parent.h"
 
 #include "capalloc.h"
 
@@ -109,7 +108,8 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
     //more than 1 << 20 caps can't be expressed in a CRD currently - even if the hypervisor specifies more to support in cfg_cap
     _cap_region.add(Region(1 << 16, (hip->cfg_cap < (1 << 20) ? hip->cfg_cap : (1 << 20)) - (1 << 16)));
 
-    unsigned cap_reserved = alloc_cap(ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS); // reserve cap range from 0 to CAP_PT + Confix::MAX_CPUS
+    // reserve cap range where parent pd potentially placed some inital caps for this pd
+    unsigned cap_reserved = alloc_cap(1 << Config::CAP_RESERVED_ORDER);
     unsigned res;
     assert(!cap_reserved);
     res = nova_create_sm(_cap_block = alloc_cap());

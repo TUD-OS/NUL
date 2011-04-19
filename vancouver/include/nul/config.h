@@ -19,9 +19,10 @@
 
 struct Config {
   enum {
-    NUL_VERSION       = 0x00000003204c554eULL,
-    MAX_CLIENTS_ORDER = 6,
-    PHYS_ADDR_SIZE    = 40,
-    MAX_CPUS          = 256,
+    NUL_VERSION        = 0x00000003204c554eULL,
+    CAP_RESERVED_ORDER = 10, //reserved cap region where the parent can put caps for the client
+    MAX_CLIENTS_ORDER  = 6,
+    PHYS_ADDR_SIZE     = 40,
+    MAX_CPUS           = 256,
   };
 };
