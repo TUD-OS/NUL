@@ -31,16 +31,17 @@ struct BaseProgram {
 
   /**
    * Get the UTCB pointer from the top of the stack, which is laid out as follows:
-   * - 4: dummy
-   * - 8: UTCB
-   * -12: TLS
-   * -16: function pointer
+   * - 4: UTCB
+   * - 8: dummy
+   * -12: UTCB
+   * -16: TLS
+   * -20: function pointer
    *
    * This layout is chosen to make the stack 16-byte aligned.
    */
   static Utcb *myutcb(unsigned long esp = 0) {
     if (!esp) asm volatile ("mov %%esp, %0" : "=g"(esp));
-    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - 2*sizeof(void *)));
+    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - 1*sizeof(void *)));
   };
 
   /**
