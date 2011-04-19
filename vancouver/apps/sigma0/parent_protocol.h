@@ -40,6 +40,7 @@ private:
   struct ClientData : public GenericClientData {
     char const    * name;
     unsigned        len;
+    unsigned        singleton;
 
     static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *quota_name, long value_in, long *value_out=0) {
       Utcb::Frame input = utcb.get_nested_frame();
@@ -56,7 +57,14 @@ private:
       }
       return ERESOURCE;
     }
-    void session_close(Utcb &utcb) {}
+    void session_close(Utcb &utcb) {
+      if (singleton) {
+        unsigned char res = nova_revoke(Crd(singleton, 0, DESC_CAP_ALL), true);
+        assert(!res);
+      }
+      name = 0;
+      len = 0;
+    }
   };
 
   struct ServerData : public ClientData {
@@ -65,17 +73,14 @@ private:
     char *          mem_revoke;
   };
 
-
   static char const * get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen); 
   static char * get_client_memory(unsigned identity, unsigned client_mem_revoke);
-
 
   typedef typename ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;
   typedef typename ClientDataStorage<ServerData, s0_ParentProtocol, false>::Guard GuardS;
 
   ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> _client;
   ALIGNED(8) ClientDataStorage<ServerData, s0_ParentProtocol, false> _server;
-
 
   static unsigned get_client_number(unsigned cap) {
     cap -= CLIENT_PT_OFFSET;
@@ -311,10 +316,32 @@ public:
       {
         GuardS guard_s(&_server, utcb, this);
         ServerData *sdata;
- 
+
         if ((res = _server.get_client_data(utcb, sdata, input.identity()))) return res;
         //Logging::printf("pp: unregister %s cpu %x\n", sdata->name, sdata->cpu);
         return free_service(utcb, sdata);
+      }
+    case ParentProtocol::TYPE_SINGLETON:
+      {
+        unsigned op;
+        if (input.get_word(op)) return EPROTO;
+
+        ClientData *cdata;
+        GuardC guard_c(&_client);
+        if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
+
+        if (op == 1U) //set
+        {
+          unsigned cap = input.received_cap();
+          if (!cap) return EPROTO;
+
+          cdata->singleton = cap;
+          free_cap = false;
+        } else if (op == 2U) //get
+          utcb << Utcb::TypedIdentifyCap(cdata->singleton);
+        else return EPROTO;
+
+        return ENONE;
       }
     case ParentProtocol::TYPE_GET_QUOTA:
       {
@@ -356,8 +383,7 @@ public:
   unsigned _cap_all_start, _cap_all_order;
 
   s0_ParentProtocol(unsigned cap_start, unsigned cap_order, unsigned cap_all_start, unsigned cap_all_order)
-    : CapAllocator<s0_ParentProtocol>(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order) {
-}
+    : CapAllocator<s0_ParentProtocol>(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order) {}
 
   unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 

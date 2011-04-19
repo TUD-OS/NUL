@@ -43,6 +43,7 @@ struct ParentProtocol {
     TYPE_REGISTER,
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
+    TYPE_SINGLETON,
     TYPE_REQ_KILL,
     CAP_CHILD_EC  = 253,
     CAP_CHILD_SC  = 254,
@@ -63,8 +64,8 @@ struct ParentProtocol {
     return res;
   }
 
-  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_pseudonym) {
-    return call(init_frame(utcb, TYPE_OPEN, CAP_PARENT_ID) << instance << Utcb::String(service) << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
+  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_pseudonym, unsigned parent_id = CAP_PARENT_ID) {
+    return call(init_frame(utcb, TYPE_OPEN, parent_id) << instance << Utcb::String(service) << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
   }
 
   static unsigned release_pseudonym(Utcb &utcb, unsigned cap_pseudonym) {
@@ -116,6 +117,19 @@ struct ParentProtocol {
     return res;
   }
 
+  static unsigned set_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned cap_local_session) {
+    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym) << Utcb::TypedMapCap(cap_local_session);
+    return call(utcb, CAP_PT_PERCPU, true);
+  }
+  static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session, Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
+    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    utcb.head.crd_translate = crd.value();
+    Utcb::Frame input(&utcb, sizeof(utcb.msg) / sizeof(unsigned));
+    unsigned res = call(utcb, CAP_PT_PERCPU, false);
+    cap_local_session = input.translated_cap().cap();
+    utcb.drop_frame();
+    return res;
+  }
   static unsigned kill(Utcb &utcb, unsigned cap_client_pseudonym, unsigned service_cap = 0) {
     init_frame(utcb, TYPE_REQ_KILL, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     return call(utcb, service_cap ? service_cap : 0U + CAP_PT_PERCPU, true, !service_cap);
@@ -210,10 +224,10 @@ public:
    * - Revoke all caps we got from external and we created (default: revoke_lock = true)
    * - If revoke_lock == false than this object can be reused afterwards to create another session.
    */
-  void close(Utcb &utcb, unsigned portal_num, bool revoke_lock = true) {
-    release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
-
+  void close(Utcb &utcb, unsigned portal_num, bool revoke_lock = true, bool _release_pseudonym = true) {
     unsigned char res;
+    if (_release_pseudonym) release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
+
     if (revoke_lock) res = nova_revoke(Crd(_cap_base + CAP_LOCK, 0, DESC_CAP_ALL), true);
     res = nova_revoke(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL), true);
     res = nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
