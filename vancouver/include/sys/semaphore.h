@@ -70,6 +70,9 @@ public:
 
 /**
  * A user semaphore optimized for the case where we do not block.
+ * This semaphore implementation breaks when threads blocking on the
+ * associated kernel semaphore can be canceled, because the kernel
+ * semaphore and the shared counter might then be out-of-sync.
  */
 class Semaphore
 {
