@@ -480,11 +480,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
   /**
-   * Request memory from the memmap.
+   * Request memory from the memmap. Minimum alignment is 16-bytes
+   * (for SSE stuff).
    */
   static void *sigma0_memalloc(unsigned long size, unsigned long align) {
     if (!size) return 0;
-    if (align < sizeof(unsigned long)) align = sizeof(unsigned long);
+    if (align < 0xF) align = 0xF;
+
+    size = (size + 0xF) & ~0xF;
 
     unsigned long pmem;
     {

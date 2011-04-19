@@ -30,11 +30,17 @@ struct BaseProgram {
   static const unsigned stack_size = (1U << stack_size_shift);
 
   /**
-   * Get the UTCB pointer from the top of the stack.
+   * Get the UTCB pointer from the top of the stack, which is laid out as follows:
+   * - 4: dummy
+   * - 8: UTCB
+   * -12: TLS
+   * -16: function pointer
+   *
+   * This layout is chosen to make the stack 16-byte aligned.
    */
   static Utcb *myutcb(unsigned long esp = 0) {
     if (!esp) asm volatile ("mov %%esp, %0" : "=g"(esp));
-    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - sizeof(void *)));
+    return *reinterpret_cast<Utcb **>( ((esp & ~(stack_size-1)) + stack_size - 2*sizeof(void *)));
   };
 
   /**

@@ -70,6 +70,7 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
     unsigned stack_top = stack_size/sizeof(void *);
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_top];
+    stack[--stack_top] = 0;
     stack[--stack_top] = utcb; // push UTCB -- needed for myutcb()
     stack[--stack_top] = tls;
     stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
@@ -191,6 +192,7 @@ asm volatile (".global __start;"
 	      "xchg	%eax, %esp;"
 	      "mov	%eax, %edx;"
 	      "sub	$0x1000, %edx;"
+              "push     $0;"
 	      "push	%edx;"           // push UTCB -- needed for myutcb()
 	      "push	$0;"             // tls
 	      "call	start;"
