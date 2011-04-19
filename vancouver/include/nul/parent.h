@@ -233,6 +233,7 @@ public:
     res = nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
     for (unsigned i=0; i < portal_num; i++)
       res = nova_revoke(Crd(_cap_base + CAP_SERVER_PT, 0, DESC_CAP_ALL), true);
+    (void)res;
   }
 
   unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }

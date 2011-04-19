@@ -284,6 +284,8 @@ public:
         data = nv_tmp.head;
         while(data) {
           err = nova_syscall(NOVA_LOOKUP,  Crd(data->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+          // XXX Can this fail?
+          (void)err;
           if (crdout) {
             T::get_quota(utcb, data->pseudonym,"cap", -2);
             T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
