@@ -132,12 +132,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
-      /// Buffer used for broadcast packets instead of dma_prog
-      uint8          packet_data[MAXPACKETSIZE];
-
-      /// Bytes valid in packet_data. If zero, evaluate dma_prog instead.
-      unsigned       packet_extracted;           
-      
       uint32 &operator[] (TxReg offset)
       {
 	assert((offset + 0x100*no) < 0x1000/4);
@@ -148,6 +142,14 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       bool tx_data_pending()
       {
 	return (dma_prog_cur != dma_prog_len);
+      }
+
+      // Reset current DMA program. Further calls to data_in will
+      // start from the beginning.
+      void tx_data_reset()
+      {
+        dma_prog_cur = 0;
+        dma_prog_cur_offset = 0;
       }
 
       // Copy raw packet data into local buffer. Don't copy more than
@@ -183,27 +185,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  else
 	    return data_in(dest, size, acc);
 	}
-      }
-
-      // Extract one packet to internal storage.
-      void extract_to_buffer()
-      {
-#warning Needs to be adapted for TSO
-        packet_extracted = data_in(packet_data, sizeof(packet_data));
-        apply_offloads(ctx[dma_prog[0].idx()], dma_prog[0], packet_data, packet_extracted);
-        
-        if (packet_extracted < 60) {
-          // Always pad small packets, disregarding PSP flag.
-          memset(packet_data + packet_extracted, 0, 60 - packet_extracted);
-          packet_extracted = 60;
-        }
-
-        assert(dma_prog_cur == dma_prog_len); // Consumed the whole program
-      }
-
-      void invalidate_buffer()
-      {
-        packet_extracted = 0;
       }
 
       // Do writeback of TX dma program.
@@ -249,11 +230,9 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  dest->deliver_from(*this);
 	} else {
 	  // Broadcast
-          extract_to_buffer();
 	  for (unsigned i = 0; i < MAXPORT; i++)
-	     if (vnet->_port[i].is_used() and (&(vnet->_port[i]) != &port))
-               vnet->_port[i].deliver_from(*this);
-          invalidate_buffer();
+            if (vnet->_port[i].is_used() and (&(vnet->_port[i]) != &port))
+              vnet->_port[i].deliver_from(*this);
 	}
       }
 
@@ -503,63 +482,36 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       uint8 desc_type    = (rx0[SRRCTL] >> 25) & 0x7;
       size_t buffer_size = (rx0[SRRCTL] & 0x7F) * 1024;
       if (buffer_size == 0) buffer_size = 2048;
-
-      unsigned packet_extracted = txq.packet_extracted;
-
-      if (not packet_extracted) {
-        // Direct path, packet not extracted. Zero Copy!
-        while (txq.tx_data_pending()) {
-          rx = rx_queue[rdh];
-          uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
-          if (data == NULL) { b0rken("data == NULL"); return false; }
+      
+      // Direct path, packet not extracted. Single-Copy!
+      while (txq.tx_data_pending()) {
+        rx = rx_queue[rdh];
+        uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
+        if (data == NULL) { b0rken("data == NULL"); return false; }
           
-          uint16 psize = txq.data_in(data, buffer_size);
-          vnet->_monitor.add<MONITOR_DATA_OUT>(psize);
+        uint16 psize = txq.data_in(data, buffer_size);
+        vnet->_monitor.add<MONITOR_DATA_OUT>(psize);
           
 #warning XXX offloads broken when packet spread over multiple descriptors
-          apply_offloads(txq.ctx[txq.dma_prog[0].idx()], txq.dma_prog[0], data, psize);
-          //Logging::printf("Received %u bytes.\n", psize);
+        apply_offloads(txq.ctx[txq.dma_prog[0].idx()], txq.dma_prog[0], data, psize);
+        //Logging::printf("Received %u bytes.\n", psize);
 
-          if (desc_type >> 1) {
-            Logging::printf("srrctl %08x\n", rx0[SRRCTL]);
-            vnet->debug();
-          }
-
-          // XXX Very very evil and slightly b0rken small packet padding.
-#warning Implement PSP
-          if (not txq.tx_data_pending() && (psize < 60))
-            psize = 60;
-          
-          rx.set_done(desc_type, psize, not txq.tx_data_pending());
-          vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
-          
-          rdh += 1;
-          if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
-          rx0[RDH] = rdh;
+        if (desc_type >> 1) {
+          Logging::printf("srrctl %08x\n", rx0[SRRCTL]);
+          vnet->debug();
         }
-      } else {
-        // Packet extracted. PSP&offloads are already done. Slow
-        // broadcast.
-        uint8 *packet = txq.packet_data;
 
-        vnet->_monitor.add<MONITOR_DATA_OUT>(packet_extracted);
-        vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
-
-        do {
-          rx = rx_queue[rdh];
-          uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
-          if (data == NULL) { b0rken("data == NULL"); return false; }
-          unsigned chunk = min(buffer_size, packet_extracted);
-          memcpy(data, packet, chunk);
-          packet += chunk;
-          packet_extracted -= chunk;
-
-          rx.set_done(desc_type, chunk, packet_extracted == 0);
+        // XXX Very very evil and slightly b0rken small packet padding.
+#warning Implement PSP
+        if (not txq.tx_data_pending() && (psize < 60))
+          psize = 60;
           
-          rdh += 1;
-          if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
-          rx0[RDH] = rdh;
-        } while (packet_extracted);
+        rx.set_done(desc_type, psize, not txq.tx_data_pending());
+        vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
+          
+        rdh += 1;
+        if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
+        rx0[RDH] = rdh;
       }
 
       return true;
@@ -585,6 +537,9 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	// vnet->debug();
 	return;
       }
+
+      // Start from beginning of DMA program.
+      txq.tx_data_reset();
 
       bool res;
       if (txq.dma_prog[0].dcmd() & tx_desc::DCMD_TSE)
