@@ -25,6 +25,18 @@
 #error Your platform is not supported.
 #endif
 
+#ifdef __SSE2__
+extern "C" {
+#include <emmintrin.h>
+}
+#endif
+
+#ifdef __SSSE3__
+extern "C" {
+#include <tmmintrin.h>
+}
+#endif
+
 /* Constant-width integer types. */
 typedef unsigned long long uint64;
 typedef unsigned int       uint32;
@@ -36,9 +48,5 @@ typedef signed long long int64;
 typedef signed int       int32;
 typedef signed short     int16;
 typedef signed char      int8;
-
-#ifdef __SSE2__
-typedef long long __m128i __attribute__ ((__vector_size__ (16), __may_alias__));
-#endif
 
 /* EOF */
