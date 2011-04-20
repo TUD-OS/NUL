@@ -451,16 +451,17 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
         return;
       }
 
-      if (((popts & 1 /* IXSM     */) != 0) &&
+      if (((popts & tx_desc::POPTS_IXSM) != 0) &&
           ((tucmd & 2 /* IPv4 CSO */) != 0)) {
 	COUNTER_INC("IP offload");
+
 	uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(packet + maclen + 10);
 	ipv4_sum = 0;
 	ipv4_sum = IPChecksum::ipsum(packet, maclen, iplen);
 	//Logging::printf("IPv4 CSO: %x\n", ipv4_sum);
       }
 
-      if ((popts & 2 /* TXSM */) != 0) {
+      if ((popts & tx_desc::POPTS_TXSM) != 0) {
         // L4 offload requested. Figure out packet type.
         uint8 l4t = (tucmd >> 2) & 3;
 
