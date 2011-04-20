@@ -187,7 +187,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	}
       }
 
-      // Do writeback of TX dma program.
+      // Do writeback of TX DMA program.
       void wb_dma_prog()
       {
         bool irq = false;
@@ -240,13 +240,9 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       void tx()
       {
 	// Queue disabled?
-	if (not ((*this)[TXDCTL] & (1 << 25 /* ENABLE */))) {
+	if (not ((*this)[TXDCTL] & (1 << 25 /* ENABLE */)))
 	  // Logging::printf("TXDCTL %x (disabled)\n", (*this)[TXDCTL]);
-	  // If you disable the queue, cancel pending TSO work.
-	  dma_prog_cur = 0;
-	  dma_prog_len = 0;
 	  return;
-	}
 
         if (next_dma_prog()) {
           exec_dma_prog();
@@ -390,10 +386,44 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
     // delivered.
     bool deliver_tso_from(TxQueue &txq)
     {
-      tx_desc tso_ctx         = txq.ctx[txq.dma_prog[0].idx()];
       COUNTER_INC("deliver_tso");
-      Logging::panic("TSO...");
-      // XXX Complete...
+
+      const tx_desc ctx     = txq.ctx[txq.dma_prog[0].idx()];
+      unsigned payload_left = txq.dma_prog[0].paylen();
+      unsigned packet_len   = ctx.maclen() + ctx.iplen() + ctx.l4len() + payload_left;
+      unsigned mss          = ctx.mss();
+      uint16   header_len   = packet_len - payload_left;
+      bool     ipv6         = (ctx.tucmd() & tx_desc::TUCMD_IPV4) == 0;
+      uint8    l4type       = ctx.l4t();      
+
+      Logging::printf("TSO: payload %u packet %u mss %u header %u ipv6 %u type %u\n",
+                      payload_left, packet_len, mss, header_len, ipv6, l4type);
+ 
+      if (header_len > MAXHEADERSIZE) {
+        Logging::printf("Header to large %u (%u)\n", header_len, MAXHEADERSIZE);
+        return false;
+      }
+
+      switch (l4type) {
+      case tx_desc::L4T_TCP: {
+        ALIGNED(16) uint8 header[header_len];
+        txq.data_in(header, header_len);
+
+        uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(header + ctx.maclen() + 4);
+        uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(header + ctx.maclen() + (ipv6 ? 4 : 2));
+        uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(header + ctx.maclen() + ctx.iplen() + 4);
+        uint8  &packet_tcp_flg = header[ctx.maclen() + ctx.iplen() + 13];
+        uint8  tcp_orig_flg    = packet_tcp_flg;
+
+      }
+        break;
+      default:
+        return false;
+      }
+
+
+
+
       return false;
     }
 
@@ -444,7 +474,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
             uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, psize);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
-	    //Logging::printf("%s CSO %x\n", (l4t == tx_desc::L4T_UDP) ? "UDP" : "TCP", sum);
+	    Logging::printf("%s CSO %x\n", (l4t == tx_desc::L4T_UDP) ? "UDP" : "TCP", sum);
           }
           break;
 #ifndef BENCHMARK

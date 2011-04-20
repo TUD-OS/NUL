@@ -27,6 +27,8 @@ struct ALIGNED(16)  tx_desc {
     DTYP_CONTEXT = 2U,
     DTYP_DATA    = 3U,
 
+    TUCMD_IPV4   = 2U,
+
     DCMD_TSE     = (1U<<7),
 
     POPTS_IXSM   = 1U,          // Insert IP checksum
