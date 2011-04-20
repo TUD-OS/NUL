@@ -132,8 +132,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       unsigned       dma_prog_cur_offset; // Bytes already consumed in the current descriptor
 
-      tx_desc        tse_ctx;
-
       /// Buffer used for broadcast packets instead of dma_prog
       uint8          packet_data[MAXPACKETSIZE];
 
@@ -187,16 +185,10 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	}
       }
 
-      void init_tse()
-      {
-        tse_ctx         = ctx[dma_prog[0].idx()];
-        // XXX TSE
-      }
-
       // Extract one packet to internal storage.
       void extract_to_buffer()
       {
-#warning Needs to be adapted for TSE
+#warning Needs to be adapted for TSO
         packet_extracted = data_in(packet_data, sizeof(packet_data));
         apply_offloads(ctx[dma_prog[0].idx()], dma_prog[0], packet_data, packet_extracted);
         
@@ -246,12 +238,10 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	Port       * const dest = vnet->_cache.lookup(target);
 	if (!source.is_multicast()) vnet->_cache.remember(source, &port);
 
-        bool tse = dma_prog[0].dcmd() & tx_desc::DCMD_TSE;
+        bool tso = dma_prog[0].dcmd() & tx_desc::DCMD_TSE;
         bool unicast = (dest != NULL) and (dest->is_used());
 
         vnet->_monitor.add<MONITOR_PACKET_IN>(1);
-
-        if (tse) init_tse();
 
 	if (unicast) {
 	  // Unicast
@@ -273,7 +263,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	// Queue disabled?
 	if (not ((*this)[TXDCTL] & (1 << 25 /* ENABLE */))) {
 	  // Logging::printf("TXDCTL %x (disabled)\n", (*this)[TXDCTL]);
-	  // If you disable the queue, cancel pending TSE work.
+	  // If you disable the queue, cancel pending TSO work.
 	  dma_prog_cur = 0;
 	  dma_prog_len = 0;
 	  return;
@@ -419,10 +409,11 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
     // Execute a segmentation program. Return true, iff something was
     // delivered.
-    bool deliver_tse_from(TxQueue &txq)
+    bool deliver_tso_from(TxQueue &txq)
     {
-      COUNTER_INC("deliver_tse");
-      Logging::panic("TSE...");
+      tx_desc tso_ctx         = txq.ctx[txq.dma_prog[0].idx()];
+      COUNTER_INC("deliver_tso");
+      Logging::panic("TSO...");
       // XXX Complete...
       return false;
     }
@@ -597,7 +588,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       bool res;
       if (txq.dma_prog[0].dcmd() & tx_desc::DCMD_TSE)
-	res = deliver_tse_from(txq);
+	res = deliver_tso_from(txq);
       else
 	res = deliver_simple_from(txq);
 
