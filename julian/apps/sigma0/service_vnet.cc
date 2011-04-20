@@ -474,7 +474,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
             uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, psize);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
-	    Logging::printf("%s CSO %x\n", (l4t == tx_desc::L4T_UDP) ? "UDP" : "TCP", sum);
+	    //Logging::printf("%s CSO %x maclen %u iplen %u\n", (l4t == tx_desc::L4T_UDP) ? "UDP" : "TCP", sum, maclen, iplen);
           }
           break;
 #ifndef BENCHMARK

@@ -57,58 +57,165 @@ operator==(EthernetAddr const& a, EthernetAddr const& b)
 class IPChecksum {
 protected:
 
-  static inline void
-  comp16sum_simple(uint8 &lo, uint32 &state, const uint8 *buf, uint16 buf_len)
+  // Compute the final 16-bit checksum from our internal checksum
+  // state.
+  static uint16 fixup(uint32 state)
   {
-    for (uint16 i = 0; i < buf_len; i++)
-      state += (lo ^= 1) ? (buf[i]<<8) : buf[i];
+    // Add all carry values.
+    uint32 v = (state & 0xFFFF) + (state >> 16);
+    return (v + (v >> 16));
   }
 
 
-  static inline void
-  comp16sum_fast(uint8 &lo, uint32 &state, const uint8 *buf, uint16 buf_len)
+  static uint32
+  sum_simple(uint8 const *buf, size_t size)
   {
-    // // Align buf pointer
-    // uint16 alen = 4 - reinterpret_cast<uintptr_t>(buf)&3;
-    // process(buf, alen);
-    // buf     += alen;
-    // buf_len -= alen;
+    // Cannot sum more because of overflow
+    assert(size < 65535);
 
-    // Main loop
-    const uint32 *buf4 = reinterpret_cast<const uint32 *>(buf);
-    const uint16  words = buf_len>>2;
-    if (lo)
-      for (uint16 i = 0; i < words; i++) {
-        uint32    c = buf4[i];
-        state += (c & 0xFFFF) + ((c >> 16) & 0xFFFF);
-      }
-    else
-      for (uint16 i = 0; i < words; i++) {
-        uint32    c = buf4[i];
-        c = (c << 24) | (c >> 8);
-        state += (c & 0xFFFF) + ((c >> 16) & 0xFFFF);
-      }
+    uint32 astate = 0;
+    while (size > 1) {
+      uint16 const *buf16 = reinterpret_cast<uint16 const *>(buf);
+      astate += *buf16;
+      buf  += 2;
+      size -= 2;
+    }
 
-    // Handle unaligned rest
-    comp16sum_simple(lo, state, buf + (buf_len&~3), buf_len & 3);
+    if (size != 0) {
+      // XXX Correct?
+      astate += *buf ;
+      //Logging::printf("Odd bytes. beware...\n");
+    }
+
+    return astate;
   }
+  
+  // Sums data until buf is 16-byte aligned.
+  static uint32
+  sum_align(uint8 const *&buf, size_t &size, unsigned align_steps)
+  {
+    if (align_steps == 0) return 0;
+    assert((align_steps % 2) == 0);
+    if (align_steps > size)
+      align_steps = size;
+
+    uint32 res = sum_simple(buf, align_steps);
+
+    buf  += align_steps;
+    size -= align_steps;
+    return res;
+  }
+
+  static uint32
+  addoc(uint32 a, uint32 b)
+  {
+    asm ("add %1, %0;"
+         "adc $0, %0;" : "+r" (a) : "rm" (b));
+    return a;
+  }
+
+#ifdef __SSE2__
+  static inline __m128i
+  sse_step(__m128i sum, __m128i v1, __m128i v2, __m128i z)
+  {
+    sum = _mm_add_epi64(sum, _mm_add_epi64(_mm_unpackhi_epi32(v1, z),
+                                           _mm_unpacklo_epi32(v1, z)));;
+    
+    sum = _mm_add_epi64(sum, _mm_add_epi64(_mm_unpackhi_epi32(v2, z),
+                                           _mm_unpacklo_epi32(v2, z)));
+
+    return sum;
+  }
+#endif
+
+  static void
+  sum(uint8 const *buf, size_t size, uint32 &state)
+  {
+    unsigned cstate = state;
+
+    // Step 1: Align buffer to 16 byte (for SSE)
+    unsigned align_steps = 0xF & (0x10 - (reinterpret_cast<mword>(buf) & 0xF));
+    if (align_steps & 1) {
+      Logging::printf("XXX Odd bytes to align: %u. do slow sum.\n", align_steps);
+      // What would be the right way to support this? Is it enough to
+      // bswap the result of our SSE computation if we are in "odd"
+      // mode?
+      goto panic_mode;
+    }
+
+    cstate = addoc(cstate, sum_align(buf, size, align_steps));
+
+    // Step 2: Checksum in large, aligned chunks
+#ifdef __SSE2__
+    {
+      const __m128i z = _mm_setzero_si128();
+      __m128i     sum = _mm_setzero_si128();
+
+      while (size > 32) {
+        __m128i v1 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf));
+        __m128i v2 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf) + 1);
+
+        sum = sse_step(sum, v1, v2, z);
+
+        size -= 32;
+        buf  += 32;
+      }
+
+      /* Add top to bottom 64-bit word */
+      sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
+
+      /* Add low two 32-bit words */
+#ifdef __SSSE3__
+      sum = _mm_hadd_epi32(sum, z);
+#else  // No SSSE3
+#warning SSSE3 not available
+      sum = _mm_add_epi32(sum, _mm_srli_si128(sum, 4));
+#endif
+      cstate = addoc(cstate, _mm_cvtsi128_si32(sum));    
+    }
+#else  // No SSE
+    {
+      uint32 lstate = 0;
+      while (size > 32) {
+        uint32 const * buf32 = reinterpret_cast<uint32 const *>(buf);
+        asm volatile ( "add %1, %0;"
+                       "adc %2, %0;"
+                       "adc %3, %0;"
+                       "adc %4, %0;"
+                       "adc %5, %0;"
+                       "adc %6, %0;"
+                       "adc %7, %0;"
+                       "adc %8, %0;"
+                       "adc $0, %0;"
+                       : "+r" (lstate)
+                       : "rm" (buf32[0]), "rm" (buf32[1]), "rm" (buf32[2]), "rm" (buf32[3]),
+                         "rm" (buf32[4]), "rm" (buf32[5]), "rm" (buf32[6]), "rm" (buf32[7])
+                       );
+
+        size -= 32;
+        buf  += 32;
+      }
+      cstate = addoc(cstate, lstate);
+    }
+#endif
+
+    // Step 3: Checksum unaligned rest
+  panic_mode:
+    uint32 rstate = sum_simple(buf, size);
+    cstate = addoc(cstate, rstate);
+
+    state = cstate;
+  }
+
 
 public:
   
-  /// Correct the result of comp16sum. The result is suitable to be
-  /// used as IP/TCP/UDP checksum.
-  static uint16 comp16correct(uint32 v)
-  {
-    return Endian::hton16(~(v + (v>>16)));
-  }
-
   /// Compute an IP checksum.
   static uint16 ipsum(const uint8 *buf, unsigned maclen, unsigned iplen)
   {
-    uint8  lo    = 0;
     uint32 state = 0;
-    comp16sum_fast(lo, state, buf + maclen, iplen);
-    return comp16correct(state);
+    sum(buf + maclen, iplen, state);
+    return ~fixup(state);
   }
 
   /// Compute TCP/UDP checksum. proto is 17 for UDP and 6 for TCP.
@@ -117,20 +224,19 @@ public:
 	    unsigned maclen, unsigned iplen,
 	    unsigned len)
   {
-    uint8  lo  = 0;
-    uint32 sum = 0;
+    uint32 state = 0;
 
     // Source and destination IP addresses (part of pseudo header)
-    comp16sum_fast(lo, sum, buf + maclen + 12, 8);
+    sum(buf + maclen + 12, 8, state);
 
     // Second part of pseudo header: 0, protocol ID, UDP length
     uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
-    comp16sum_fast(lo, sum, reinterpret_cast<uint8 *>(p), sizeof(p));
+    sum(reinterpret_cast<uint8 *>(p), sizeof(p), state);
 
     // Sum L4 header plus payload
-    comp16sum_fast(lo, sum, buf + maclen + iplen, len - maclen - iplen);
+    sum(buf + maclen + iplen, len - maclen - iplen, state);
 
-    return comp16correct(sum);
+    return ~fixup(state);
   }
 };
 
