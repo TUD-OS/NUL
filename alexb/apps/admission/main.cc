@@ -25,6 +25,13 @@
 namespace ab {
 class AdmissionService : public NovaProgram, public ProgramConsole
 {
+  
+  enum {
+    VALUEWIDTH = 2,
+    WIDTH  = 80,
+    HEIGHT = 25,
+  };
+
   static char * flag_revoke;
 
   private:
@@ -47,6 +54,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
       } scs[32];
     };
     struct ClientData idle_scs; 
+    struct ClientData own_scs;
 
     timevalue global_sum[Config::MAX_CPUS];
 
@@ -60,16 +68,16 @@ class AdmissionService : public NovaProgram, public ProgramConsole
     cap_range->add(Region(CAP_REGION_START, 1 << CAP_REGION_ORDER));
   }
 
-  inline unsigned alloc_cap(unsigned num = 1) { return cap_range->alloc(num, 0); }
+  inline unsigned alloc_cap(unsigned num = 1) { return cap_range->alloc(num, 0); } ///XXX locking !
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
-  inline void dealloc_cap(unsigned cap, unsigned count = 1) { cap_range->add(Region(cap, count));}
+  inline void dealloc_cap(unsigned cap, unsigned count = 1) { cap_range->add(Region(cap, count));} ///XXX locking !
 
   void get_idle(Hip * hip) {
     cursor_pos = 0;
 
     for (unsigned cpu=0; cpu < hip->cpu_count(); cpu++) {
       timevalue time_con;
-      unsigned char res = get_usage(&idle_scs, cpu, time_con);
+      unsigned res = get_usage(&idle_scs, cpu, time_con);
       assert(!res);
 
       unsigned util = 0;
@@ -78,10 +86,10 @@ class AdmissionService : public NovaProgram, public ProgramConsole
         Math::div64(time_con, global_sum[cpu]);
         util = time_con;
       }
-      Vprintf::printf(&_putc, _vga_console + 2 * 80, "%3u%%", util);
+      Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "%3u%%", util);
       cursor_pos -= 1;
     }
-    memset(_vga_console + 2 * 80 + cursor_pos * 2, 0, 1);
+    memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH, 0, 1);
     cursor_pos = 0;
   }
 
@@ -118,7 +126,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
       res = ENONE;
 
       timevalue computetime;
-      unsigned char res = nova_ctl_sc(data->scs[i].idx, computetime);
+      unsigned res = nova_ctl_sc(data->scs[i].idx, computetime);
       if (res != NOVA_ESUCCESS) return EPERM;
 
       timevalue diff        = computetime - data->scs[i].m_last1;
@@ -133,37 +141,41 @@ class AdmissionService : public NovaProgram, public ProgramConsole
 
   void dump_scs(Utcb &utcb, Hip * hip) {
 
-    ClientData volatile * data = 0;
+    ClientData volatile * data = &own_scs;
     ClientData * client;
-    unsigned client_count = 2;
+    unsigned client_count = HEIGHT - 1, res, more = 0;
+    data->next = _storage.next();
 
-    while (data = _storage.next(data)) {
-      utcb.head.mtr = 1;
+    do {
+      utcb.head.mtr = 1; //manage utcb by hand (alternative using add_frame, drop_frame which copies unnessary here)
+      cursor_pos = 0;
       client = reinterpret_cast<ClientData *>(reinterpret_cast<unsigned long>(data));
 
-      memset(_vga_console + client_count * 2 * 80, 0, 2 * 80);
-      cursor_pos = 5 * (1 + hip->cpu_count());
-      Vprintf::printf(&_putc, _vga_console + client_count * 2 * 80, "%p %s", client, client->name);
-      memset(_vga_console + client_count * 2 * 80 + cursor_pos * 2 - 1, 0, 1);
+      res = get_usage(utcb, client);
+      if (client_count > 1) {
+        memset(_vga_console + client_count * VALUEWIDTH * WIDTH, 0, VALUEWIDTH * WIDTH);
+        cursor_pos = 5 * (1 + hip->cpu_count());
+        Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
+        memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
+        if (res != ENONE) {
+          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", "error");
+          continue;
+        }
 
-      cursor_pos = 0;
-      //utcb.add_frame();
-      if (ENONE != get_usage(utcb, client)) {
-        Vprintf::printf(&_putc, _vga_console + client_count * 2 * 80, "%s ", "error");
-        //utcb.drop_frame();
-        continue;
+        unsigned i = 1;
+        while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
+          cursor_pos = utcb.msg[i] * 5;
+          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%3u%%", utcb.msg[i+1]);
+          memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
+          i += 2;
+        }
+        client_count --;
+      } else {
+        more += 1;
+        cursor_pos = 0;
+        Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", more);
       }
-
-      unsigned i = 1;
-      while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
-        cursor_pos = utcb.msg[i] * 5;
-        Vprintf::printf(&_putc, _vga_console + client_count * 2 * 80, "%3u%%", utcb.msg[i+1]);
-        memset(_vga_console + client_count * 2 * 80 + cursor_pos * 2 - 1, 0, 1);
-        i += 2;
-      }
-      //utcb.drop_frame();
-      client_count ++;
-    }
+    } while (data = _storage.next(data));
 
     get_idle(hip);
   }
@@ -249,13 +261,20 @@ class AdmissionService : public NovaProgram, public ProgramConsole
         {
           AdmissionProtocol::sched sched;
           unsigned i, cpu, idx_ec = input.received_cap();
+          bool self = false;
+
           check1(EPROTO, !idx_ec);
           check1(EPROTO, input.get_word(sched));
           check1(EPROTO, input.get_word(cpu));
+          if (op == AdmissionProtocol::TYPE_SC_PUSH)
+            check1(EPROTO, input.get_word(self));
 
           ClientData *data = 0;
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
+
+          //XXX check that only sigma0 can call us (last data)
+          if (op == AdmissionProtocol::TYPE_SC_PUSH && self) data = &own_scs;
 
           //XXX make it atomic
           for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
@@ -330,6 +349,9 @@ class AdmissionService : public NovaProgram, public ProgramConsole
       Utcb *utcb_wo, *utcb_pf;
       
       memset(&idle_scs, 0, sizeof(idle_scs));
+      memset(&own_scs , 0, sizeof(idle_scs));
+      memcpy(&own_scs.name, "admission", 9);
+
       for (unsigned cpunr = 0; cpunr < hip->cpu_count(); cpunr++) {
         Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + cpunr*hip->cpu_size);
         if (~cpu->flags & 1) continue;
@@ -382,8 +404,8 @@ class AdmissionService : public NovaProgram, public ProgramConsole
     }
     memset(_vga_console + cursor_pos * 2, 0, 1);
     cursor_pos = 5 * (1 + hip->cpu_count());
-    Vprintf::printf(&_putc, _vga_console + 2 * 80, "idle");
-    memset(_vga_console + 2 * 80 + cursor_pos * 2 - 1, 0, 1);
+    Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "idle");
+    memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
     cursor_pos = 0;
 
     while (true) {

@@ -22,8 +22,14 @@
 /**
  * allocator and deallocator required which handle concurrency threads well XXX
  */
+class _CapAllocator {
+  public:
+    unsigned alloc_cap(unsigned count = 1); 
+    void dealloc_cap(unsigned cap, unsigned count = 1);
+};
+
 template <class C>
-class CapAllocator {
+class CapAllocator : public _CapAllocator {
   public:
 
   CapAllocator(unsigned long __cap_, unsigned long __cap_start, unsigned long __cap_order) {

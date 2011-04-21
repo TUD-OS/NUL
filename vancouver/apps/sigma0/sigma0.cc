@@ -29,7 +29,7 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 #include "nul/service_fs.h"
-#include "nul/service_admission.h"
+#include "s0_admission.h"
 
 // global VARs
 unsigned     console_id;
@@ -136,8 +136,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   // services
   bool admission; 
-  AdmissionProtocol * service_admission;
-  s0_ParentProtocol * service_parent;
+  s0_AdmissionProtocol * service_admission;
+  s0_ParentProtocol    * service_parent;
 
   char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
   {
@@ -306,7 +306,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // init services required or provided by sigma0
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
-    service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), true);
+    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), true);
   }
 
   /**
@@ -831,7 +831,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) {
       //XXX assign admission cap not to sigma0 !!
-      check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this));
+      check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, true));
     } else {
       //map temporary child id
       utcb->add_frame();
@@ -846,6 +846,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
       res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
       if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr);
+      if (!res) s_ad->set_name(*utcb, "x"); 
 
       s_ad->close(*utcb, _hip->cpu_count(), true, false);
       delete s_ad;
@@ -944,7 +945,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
       if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach stdin\n", modinfo->id);
       dealloc_cap(cap);
-      memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
+      //DEAD message dissappear here if you free _console_data ...
+      //memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
     }
 
     // XXX free more, such as GSIs, IRQs, Console...
@@ -1885,7 +1887,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!mac_host) mac_host = generate_hostmac();
 
-    if (res = service_admission->push_scs(*utcb)) Logging::printf("s0: WARNING admission service missing - error %x\n", res);
+    if (res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr))
+      Logging::printf("s0: WARNING admission service missing - error %x\n", res);
     else service_admission->set_name(*utcb, "sigma0");
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
