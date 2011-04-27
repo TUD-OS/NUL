@@ -1,4 +1,4 @@
-/**
+/** -*- Mode: C++ -*-
  * IPv4/TCP/UDP checksum calculation
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
@@ -126,6 +126,22 @@ protected:
 
     return sum;
   }
+
+  static inline uint32
+  sse_final(__m128i sum, __m128i z)
+  {
+    /* Add top to bottom 64-bit word */
+    sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
+    
+    /* Add low two 32-bit words */
+#ifdef __SSSE3__
+    sum = _mm_hadd_epi32(sum, z);
+#else  // No SSSE3
+#warning SSSE3 not available
+    sum = _mm_add_epi32(sum, _mm_srli_si128(sum, 4));
+#endif
+    return _mm_cvtsi128_si32(sum);
+  }
 #endif
 
   static void
@@ -161,17 +177,7 @@ protected:
         buf  += 32;
       }
 
-      /* Add top to bottom 64-bit word */
-      sum = _mm_add_epi64(sum, _mm_srli_si128(sum, 8));
-
-      /* Add low two 32-bit words */
-#ifdef __SSSE3__
-      sum = _mm_hadd_epi32(sum, z);
-#else  // No SSSE3
-#warning SSSE3 not available
-      sum = _mm_add_epi32(sum, _mm_srli_si128(sum, 4));
-#endif
-      cstate = addoc(cstate, _mm_cvtsi128_si32(sum));    
+      cstate = addoc(cstate, sse_final(sum, z));
     }
 #else  // No SSE
     {
