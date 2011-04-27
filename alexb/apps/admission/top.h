@@ -222,13 +222,13 @@
     _vga_regs.offset = 0;
 
     Logging::printf("application: %s\n", data->name);
-    Logging::printf("\ncpu prio    quantum name\n");
+    Logging::printf("\ncpu prio    quantum  util name\n");
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
       if (!data->scs[i].idx) continue;
 
       timevalue rest, val = data->scs[i].m_last1 - data->scs[i].m_last2;
       splitfloat(val, rest, data->scs[i].cpu);
-      Logging::printf("%3u %4u %10u %2llu.%1llu %s\n", data->scs[i].cpu, data->scs[i].prio, data->scs[i].quantum, val, rest, data->scs[i].name);
+      Logging::printf("%3u %4u %10u %3llu.%1llu %s\n", data->scs[i].cpu, data->scs[i].prio, data->scs[i].quantum, val, rest, data->scs[i].name);
     }
   }
 
