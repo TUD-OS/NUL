@@ -39,6 +39,8 @@ public:
   }
 
   void free_buffer()  { _rpos = (_rpos + 1) % SIZE; }
+
+  Consumer() : _rpos(0), _wpos(0) {}
 };
 
 
