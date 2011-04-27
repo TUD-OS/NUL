@@ -175,7 +175,8 @@ class AdmissionService : public NovaProgram, public ProgramConsole
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-          //XXX check that only sigma0 can call us (last data)
+          //check for sigma0 (first data item) - only sigma0 is allowed to push
+          if (op == AdmissionProtocol::TYPE_SC_PUSH && data->next) return EPROTO;
           if (op == AdmissionProtocol::TYPE_SC_PUSH && self) data = &own_scs;
 
           //XXX make it atomic
@@ -199,7 +200,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
             }
           }
 */
-          data->scs[i].prio    = sched.type;
+          data->scs[i].prio    = !data->next ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
           data->scs[i].quantum = 10000U;
           data->scs[i].cpu = cpu;
           data->scs[i].m_last1 = data->scs[i].m_last2 = 0;
