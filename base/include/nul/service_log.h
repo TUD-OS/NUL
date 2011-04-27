@@ -4,20 +4,20 @@
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
- * This file is part of Vancouver.
+ * This file is part of NUL (NOVA user land).
  *
- * Vancouver.nova is free software: you can redistribute it and/or
+ * NUL is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
  * 2 as published by the Free Software Foundation.
  *
- * Vancouver.nova is distributed in the hope that it will be useful,
+ * NUL is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
 #pragma once
 
-#include "nul/generic_service.h"
+#include "parent.h"
 
 /**
  * Missing: handle very-long strings

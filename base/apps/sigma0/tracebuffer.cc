@@ -18,6 +18,7 @@
 
 #include "nul/motherboard.h"
 #include "nul/service_log.h"
+#include "nul/generic_service.h"
 #include "nul/capalloc.h"
 
 /**

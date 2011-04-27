@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include "nul/generic_service.h"
 #include "nul/capalloc.h"
+#include "parent.h"
 
 struct AdmissionProtocol : public GenericProtocol {
 

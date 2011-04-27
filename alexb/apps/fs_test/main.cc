@@ -14,6 +14,7 @@
 
 #include <nul/program.h>
 #include <nul/service_fs.h>
+#include <nul/generic_service.h>
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
 

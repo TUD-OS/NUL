@@ -20,6 +20,7 @@
 #include "nul/motherboard.h"
 #include "sigma0/console.h"
 #include "sigma0/sigma0.h"
+#include "host/dma.h"
 
 char disk_buffer[4<<20];
 unsigned long blocksize = 512;
