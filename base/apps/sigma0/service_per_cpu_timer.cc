@@ -640,7 +640,7 @@ class PerCpuTimerService : private BasicHpet,
   void start_thread(ServiceThreadFn fn,
                     unsigned prio, unsigned cpu)
   {
-    MessageHostOp msg = MessageHostOp::alloc_service_thread(fn, this, prio, cpu);
+    MessageHostOp msg = MessageHostOp::alloc_service_thread(fn, this, "timer", prio, cpu);
     if (!_mb.bus_hostop.send(msg))
       Logging::panic("%s thread creation failed", __func__);
   }

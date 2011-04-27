@@ -468,6 +468,7 @@ struct MessageHostOp
       void *work_arg;
       unsigned prio;
       unsigned cpu;
+      char const * name;
     } _alloc_service_thread;
     struct {
       ServicePortalFn pt;
@@ -480,11 +481,13 @@ struct MessageHostOp
   };
 
   static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg,
+                                            char const * name = 0,
                                             unsigned prio = ~0U, unsigned cpu = ~0U)
   {
     MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
     n._alloc_service_thread.work = work; n._alloc_service_thread.work_arg = arg;
     n._alloc_service_thread.prio = prio; n._alloc_service_thread.cpu      = cpu;
+    n._alloc_service_thread.name = name;
     return n;
   }
 

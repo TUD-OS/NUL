@@ -136,7 +136,7 @@ struct Script : public StaticReceiver<Script> {
 
     // create the worker thread
     MessageHostOp msg = MessageHostOp::alloc_service_thread(Script::do_work,
-                                                             this, 1UL);
+                                                            this, "scripting", 1UL);
     if (!mb->bus_hostop.send(msg))
       Logging::panic("sc: %s alloc service thread failed", __func__);
   }

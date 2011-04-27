@@ -474,7 +474,7 @@ public:
     _worker = KernelSemaphore(_timer_service->get_notify_sm());
 
     // create the worker thread
-    MessageHostOp msg5 = MessageHostOp::alloc_service_thread(do_work, this, 0);
+    MessageHostOp msg5 = MessageHostOp::alloc_service_thread(do_work, this, "vga", 0);
     if (!_mb.bus_hostop.send(msg5))
       Logging::panic("%s alloc service thread failed", __func__);
 

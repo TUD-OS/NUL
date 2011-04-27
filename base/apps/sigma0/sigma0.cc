@@ -213,13 +213,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, unsigned cpunr)
   {
+    char name[16];
+    Vprintf::snprintf(name, sizeof(name), "irq %u", gsi);
+
     Utcb *u = 0;
     unsigned cap_ec = create_ec_helper(this, cpunr, _percpu[cpunr].exc_base,  &u,
                                        reinterpret_cast<void *>(&do_gsi_wrapper));
     u->msg[0] =  cap_sm;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SYSTEM); //XXX special handling here to get it to prio 4, get rid of that
-    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, "irq") == NOVA_ESUCCESS);
+
+    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name) == NOVA_ESUCCESS);
   }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
@@ -830,7 +834,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
 
     if (!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) {
-      //XXX assign admission cap not to sigma0 !!
       check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, "main", true));
     } else {
       //map temporary child id
@@ -1287,12 +1290,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
                                              _percpu[cpu].exc_base, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
           unsigned prio = msg._alloc_service_thread.prio;
+          const char * name = msg._alloc_service_thread.name ? msg._alloc_service_thread.name : "service";
 
           AdmissionProtocol::sched sched; //Qpd(prio, 10000)
           if (prio != ~0u) //IDLE TYPE_NONPERIODIC -> prio=1 
             sched.type = prio ? AdmissionProtocol::sched::TYPE_APERIODIC : AdmissionProtocol::sched::TYPE_PERIODIC; //XXX don't guess here
 
-          return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this, "service") == NOVA_ESUCCESS);
+          return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this, name) == NOVA_ESUCCESS);
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:

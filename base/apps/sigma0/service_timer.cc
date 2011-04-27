@@ -294,7 +294,7 @@ public:
 
     // create the worker thread
     MessageHostOp msg2 = MessageHostOp::alloc_service_thread(TimerService::do_work,
-                                                             this, 1UL);
+                                                             this, "timer", 1UL);
     if (!hostmb.bus_hostop.send(msg2))
       Logging::panic("%s alloc service thread failed", __func__);
   }

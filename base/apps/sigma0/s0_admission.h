@@ -29,7 +29,7 @@ private:
     unsigned cpu;
     unsigned idx; 
     bool admission_sc;
-    char const * name;
+    char name [32];
   };
   struct tmp * tmp;
   unsigned tmp_size;
@@ -61,7 +61,8 @@ public:
       Tmp_a<T> obj(_obj);
       res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, &obj, name);
       assert(!res && counter < tmp_size);
-      tmp[counter++] = { p, cpu, obj.cap, a_sc, name};
+      tmp[counter].para = p; tmp[counter].cpu = cpu; tmp[counter].idx = obj.cap; tmp[counter].admission_sc = a_sc;
+      memcpy(tmp[counter++].name, name, strlen(name) + 1);
       //Logging::printf("   cpu=%u cap=0x%x prio=%u quantum=%u tmp_size=%u\n", cpu, idx_sc, p.type, 10000, tmp_size);
     }
 /*
@@ -81,7 +82,8 @@ public:
       assert(tmp && counter < tmp_size);
       assert(root_cpu != ~0U);
       //XXX guessing quantum of root SC required ;-(
-      tmp[counter++] = { sched(), root_cpu, root_sc, false, "main" };
+      tmp[counter].para = sched(); tmp[counter].cpu = root_cpu; tmp[counter].idx = root_sc; tmp[counter].admission_sc = false;
+      memcpy(tmp[counter++].name, "main", 5);
     }
 
     for (i=0; i<counter; i++) {    
