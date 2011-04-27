@@ -20,7 +20,10 @@
 #include <sys/syscalls.h>
 
 /**
- * allocator and deallocator required which handle concurrency threads well XXX
+ * Allocates capabilities from a certain range. The range is given by
+ * _cap_start and _cap_order parameters.
+ *
+ * Note: allocator and deallocator required which handle concurrency threads well XXX
  */
 class _CapAllocator {
   public:

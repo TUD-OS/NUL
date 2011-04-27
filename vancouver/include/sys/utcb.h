@@ -189,6 +189,11 @@ struct Utcb
   };
 
   /**
+   * Push UTCB header and data to a stack area in the UTCB.
+   *
+   * Later, UTCB can be fully restored by drop_frame() or partially
+   * restored by skip_frame().
+   *
    * TODO: put error code at some fixed point
    */
   Utcb &  add_frame() {
@@ -226,6 +231,10 @@ struct Utcb
     head.mtr = mtr;
   }
 
+  /**
+   * Restore UTCB to the state saved by the last add_frame() and
+   * remove the restored state from the stack area.
+   */
   void drop_frame() {
     unsigned ofs = msg[STACK_START] + STACK_START + 1;
     assert (ofs > STACK_START + 1);

@@ -57,7 +57,8 @@ class Elf
 
 
   /**
-   * Decode an elf32 binary.
+   * Decode an elf32 binary. I.e. copy the ELF segments from ELF image
+   * pointed by module to the memory at phys_mem.
    */
   static unsigned  decode_elf(char *module, unsigned long modsize, char *phys_mem, unsigned long &rip, unsigned long &maxptr, unsigned long mem_size,
 			      unsigned long mem_offset, unsigned long long magic)

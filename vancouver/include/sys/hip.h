@@ -50,9 +50,9 @@ class Hip
         unsigned short  mem_size;
         unsigned  api_flg;        // API feature flags
         unsigned  api_ver;        // API version
-        unsigned  cfg_cap;        // Number of CAPs
-        unsigned  cfg_exc;        // Number of Exception portals
-        unsigned  cfg_vm;         // Number of VM portals
+        unsigned  cfg_cap;        // Number of CAPs (SEL)
+        unsigned  cfg_exc;        // Number of Exception portals (EXC)
+        unsigned  cfg_vm;         // Number of VM portals (VMI)
         unsigned  cfg_gsi;        // Number of GSIs
         unsigned  cfg_page;       // PAGE sizes
         unsigned  cfg_utcb;       // UTCB sizes
