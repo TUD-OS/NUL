@@ -327,7 +327,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   }
 
 
-  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap, void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *))
+  unsigned create_irq_thread(unsigned hostirq, unsigned irq_cap,
+                             void __attribute__((regparm(1))) (*func)(unsigned, Vancouver *, Utcb *),
+                             char const * name)
   {
     //Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
@@ -341,7 +343,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     //check1(~3u, nova_create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
-    check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this));
+    check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name));
     return cap_ec;
   }
 
@@ -395,7 +397,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (nova_create_ec(cap_block + 1, 0, 0, cpunr, cap_start, false))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     AdmissionProtocol::sched sched; //Qpd(1, 10000)
-    if (service_admission->alloc_sc(*myutcb(), cap_block + 1, sched, cpunr, this))
+    if (service_admission->alloc_sc(*myutcb(), cap_block + 1, sched, cpunr, this, "vcpu"))
       Logging::panic("creating a VCPU failed - admission test issue");
     return cap_block;
   }
@@ -659,7 +661,7 @@ public:
           unsigned irq_cap = alloc_cap();
           myutcb()->head.crd = Crd(irq_cap, 0, DESC_CAP_ALL).value();
           res  = !Sigma0Base::hostop(msg);
-          create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi);
+          create_irq_thread(msg.type == MessageHostOp::OP_ATTACH_IRQ ? msg.value : msg.msi_gsi, irq_cap, do_gsi, "irq");
         }
         break;
       case MessageHostOp::OP_VCPU_CREATE_BACKEND:
@@ -688,7 +690,7 @@ public:
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
           //return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
           AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
-          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, this);
+          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, this, "service");
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
@@ -828,11 +830,11 @@ public:
     create_devices(utcb, hip, args);
 
     // create backend connections
-    create_irq_thread(~0u, 0, do_stdin);
-    create_irq_thread(~0u, 0, do_disk);
-    create_irq_thread(~0u, 0, do_timer);
-    create_irq_thread(~0u, 0, do_network);
-    create_irq_thread(~0u, 0, do_vnet);
+    create_irq_thread(~0u, 0, do_stdin,   "stdin");
+    create_irq_thread(~0u, 0, do_disk,    "disk");
+    create_irq_thread(~0u, 0, do_timer,   "timer");
+    create_irq_thread(~0u, 0, do_network, "net");
+    create_irq_thread(~0u, 0, do_vnet,    "vnet");
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
