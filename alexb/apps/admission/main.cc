@@ -22,14 +22,16 @@
 #include <nul/service_timer.h>
 #include <service/math.h>
 
+#include <host/keyboard.h>
+
 namespace ab {
 class AdmissionService : public NovaProgram, public ProgramConsole
 {
   
   enum {
-    VALUEWIDTH = 2,
-    WIDTH  = 80,
-    HEIGHT = 25,
+    VALUEWIDTH = 2U,
+    WIDTH  = 80U,
+    HEIGHT = 25U,
   };
 
   static char * flag_revoke;
@@ -51,12 +53,15 @@ class AdmissionService : public NovaProgram, public ProgramConsole
         unsigned quantum;
         timevalue m_last1;
         timevalue m_last2;
+        char name[32];
       } scs[32];
     };
+
     struct ClientData idle_scs; 
     struct ClientData own_scs;
 
     timevalue global_sum[Config::MAX_CPUS];
+    timevalue global_prio[Config::MAX_CPUS][256]; //XXX MAX_PRIO
 
     ALIGNED(8) ClientDataStorage<ClientData, AdmissionService> _storage;
 
@@ -72,113 +77,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
   inline void dealloc_cap(unsigned cap, unsigned count = 1) { cap_range->add(Region(cap, count));} ///XXX locking !
 
-  void get_idle(Hip * hip) {
-    cursor_pos = 0;
-
-    for (unsigned cpu=0; cpu < hip->cpu_count(); cpu++) {
-      timevalue time_con;
-      unsigned res = get_usage(&idle_scs, cpu, time_con);
-      assert(!res);
-
-      unsigned util = 0;
-      if (time_con && global_sum[cpu]) {
-        time_con *= 100;
-        Math::div64(time_con, global_sum[cpu]);
-        util = time_con;
-      }
-      Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "%3u%%", util);
-      cursor_pos -= 1;
-    }
-    memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH, 0, 1);
-    cursor_pos = 0;
-  }
-
-  unsigned get_usage(Utcb & utcb, ClientData * data) {
-    unsigned res, cpu;
-
-    for (cpu=0; cpu < 32 ; cpu++) { //XXX CPU count
-      timevalue time_con;
-      res = get_usage(data, cpu, time_con);
-      if (res == ERESOURCE) continue;
-      if (res) return res;
-
-      unsigned util = 0;
-      if (time_con && global_sum[cpu]) {
-        time_con *= 100;
-        Math::div64(time_con, global_sum[cpu]);
-        util = time_con;
-      }
-
-      utcb << cpu << util;
-    }
-
-    utcb << ~0UL;
-    return ENONE;
-  }
-
-  unsigned get_usage(ClientData volatile * data, unsigned cpu, timevalue &time_consumed)
-  {
-    unsigned i, res = ERESOURCE;
-
-    time_consumed = 0;
-    for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-      if (!data->scs[i].idx || data->scs[i].cpu != cpu) continue;
-      res = ENONE;
-
-      timevalue computetime;
-      unsigned res = nova_ctl_sc(data->scs[i].idx, computetime);
-      if (res != NOVA_ESUCCESS) return EPERM;
-
-      timevalue diff        = computetime - data->scs[i].m_last1;
-      time_consumed        += diff;
-      global_sum[cpu]      += diff;
-      global_sum[cpu]      -= data->scs[i].m_last1 - data->scs[i].m_last2;
-      data->scs[i].m_last2  = data->scs[i].m_last1;
-      data->scs[i].m_last1  = computetime;
-    }
-    return res;
-  }
-
-  void dump_scs(Utcb &utcb, Hip * hip) {
-
-    ClientData volatile * data = &own_scs;
-    ClientData * client;
-    unsigned client_count = HEIGHT - 1, res, more = 0;
-    data->next = _storage.next();
-
-    do {
-      utcb.head.mtr = 1; //manage utcb by hand (alternative using add_frame, drop_frame which copies unnessary here)
-      cursor_pos = 0;
-      client = reinterpret_cast<ClientData *>(reinterpret_cast<unsigned long>(data));
-
-      res = get_usage(utcb, client);
-      if (client_count > 1) {
-        memset(_vga_console + client_count * VALUEWIDTH * WIDTH, 0, VALUEWIDTH * WIDTH);
-        cursor_pos = 5 * (1 + hip->cpu_count());
-        Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
-        memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
-        if (res != ENONE) {
-          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", "error");
-          continue;
-        }
-
-        unsigned i = 1;
-        while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
-          cursor_pos = utcb.msg[i] * 5;
-          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%3u%%", utcb.msg[i+1]);
-          memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
-          i += 2;
-        }
-        client_count --;
-      } else {
-        more += 1;
-        cursor_pos = 0;
-        Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", more);
-      }
-    } while (data = _storage.next(data));
-
-    get_idle(hip);
-  }
+  #include "top.h"
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
@@ -260,12 +159,15 @@ class AdmissionService : public NovaProgram, public ProgramConsole
       case AdmissionProtocol::TYPE_SC_PUSH:
         {
           AdmissionProtocol::sched sched;
-          unsigned i, cpu, idx_ec = input.received_cap();
+          unsigned i, cpu, len, idx_ec = input.received_cap();
           bool self = false;
 
           check1(EPROTO, !idx_ec);
           check1(EPROTO, input.get_word(sched));
           check1(EPROTO, input.get_word(cpu));
+          char const * name = input.get_zero_string(len);
+          if (!name) return EPROTO;
+
           if (op == AdmissionProtocol::TYPE_SC_PUSH)
             check1(EPROTO, input.get_word(self));
 
@@ -301,6 +203,8 @@ class AdmissionService : public NovaProgram, public ProgramConsole
           data->scs[i].quantum = 10000U;
           data->scs[i].cpu = cpu;
           data->scs[i].m_last1 = data->scs[i].m_last2 = 0;
+          memcpy(data->scs[i].name, name, len > sizeof(data->scs[i].name) - 1 ? sizeof(data->scs[i].name) - 1 : len);
+          data->scs[i].name[sizeof(data->scs[i].name) - 1] = 0;
 
           if (op == AdmissionProtocol::TYPE_SC_PUSH) {
             data->scs[i].idx = idx_ec; //got from outside
@@ -388,6 +292,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
   bool run_statistics(Utcb * utcb, Hip * hip) {
     Clock * _clock = new Clock(hip->freq_tsc);
     if (!_clock) return false;
+
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
     TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
     unsigned res = timer_service->timer(*utcb, msg);
@@ -395,38 +300,58 @@ class AdmissionService : public NovaProgram, public ProgramConsole
 
     KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
 
-    unsigned timeout = 3000; //3s
+    StdinConsumer stdinconsumer;
+    Sigma0Base::request_stdin(utcb, &stdinconsumer, sem.sm());
 
-    cursor_pos = 0;
-    for (unsigned i=0; i < hip->cpu_count(); i++) {
-      Vprintf::printf(&_putc, _vga_console, "%3u ", i);
-      cursor_pos -=1;
+    {
+      ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, *utcb, this);
+      measure_scs(hip);
     }
-    memset(_vga_console + cursor_pos * 2, 0, 1);
-    cursor_pos = 5 * (1 + hip->cpu_count());
-    Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "idle");
-    memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
-    cursor_pos = 0;
+
+    unsigned update = true;
+    unsigned show = 0, client_num = 0;
+    unsigned timeout = 2000; //2s
 
     while (true) {
+      while (stdinconsumer.has_data()) {
+        MessageInput *kmsg = stdinconsumer.get_buffer();
+        if (!(kmsg->data & KBFLAG_RELEASE)) {
+          bool _update = true;
+          if ((kmsg->data & 0x7f) == 77) { show = show == 2 ? 0 : 2; } //"p"
+          else if ((kmsg->data & 0x7f) == 44) show = 0; //"t"
+          else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) { if (show == 0 && client_num) client_num--; show = 0; }
+          else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 2) client_num++; show = 0; }
+          else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; }
+          else _update = false;
+          update = update ? update : _update;
+        }
+        stdinconsumer.free_buffer();
+      }
+
+      {
+        ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, *utcb, this);
+        unsigned tcount;
+
+        if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) measure_scs(hip);
+
+        if (update || tcount) {
+          if (show == 0)
+            top_dump_scs(*utcb, hip, client_num);
+          else if (show == 1)
+            top_dump_client(client_num);
+          else
+            top_dump_prio(hip);
+        }
+      }
+
       TimerProtocol::MessageTimer to(_clock->abstime(timeout, 1));
       if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
 
       sem.downmulti();
-      {
-        ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, *utcb, this);
-        dump_scs(*utcb, hip);
-      }
+      update = false;
     }
   }
  
-  static unsigned cursor_pos;
-  static void _putc(void * data, int value) {
-    value &= 0xff;
-    if (value == -1 || value == - 2) return; // -1 start, -2 end, can be used for locking
-    Screen::vga_putc(0xf00 | value, reinterpret_cast<unsigned short *>(data), cursor_pos);
-  }
-
   NORETURN
   void run(Utcb *utcb, Hip *hip)
   {
@@ -436,7 +361,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
     init_service();
 
     console_init("admission service");
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+//    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");

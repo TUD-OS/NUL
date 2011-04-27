@@ -219,7 +219,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     u->msg[0] =  cap_sm;
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SYSTEM); //XXX special handling here to get it to prio 4, get rid of that
-    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this) == NOVA_ESUCCESS);
+    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, "irq") == NOVA_ESUCCESS);
   }
 
   unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
@@ -831,7 +831,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) {
       //XXX assign admission cap not to sigma0 !!
-      check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, true));
+      check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, "main", true));
     } else {
       //map temporary child id
       utcb->add_frame();
@@ -845,7 +845,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       unsigned cap_base = alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_count());
       AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
       res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
-      if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr);
+      if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, "main");
       if (!res) s_ad->set_name(*utcb, "x"); 
 
       s_ad->close(*utcb, _hip->cpu_count(), true, false);
@@ -1292,7 +1292,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (prio != ~0u) //IDLE TYPE_NONPERIODIC -> prio=1 
             sched.type = prio ? AdmissionProtocol::sched::TYPE_APERIODIC : AdmissionProtocol::sched::TYPE_PERIODIC; //XXX don't guess here
 
-          return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this) == NOVA_ESUCCESS);
+          return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this, "service") == NOVA_ESUCCESS);
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:

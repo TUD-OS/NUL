@@ -33,8 +33,11 @@ struct AdmissionProtocol : public GenericProtocol {
   };
 
   template<class T>
-  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * obj) { //obj is legacy
-    unsigned res = call_server(init_frame(utcb, TYPE_SC_ALLOC) << Utcb::TypedMapCap(idx_ec, DESC_TYPE_CAP | DESC_RIGHT_SC) << p << cpu, true);
+  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p,
+                    unsigned cpu, T * obj, char const * name) //obj is legacy
+  {
+    unsigned res = call_server(init_frame(utcb, TYPE_SC_ALLOC)
+      << Utcb::TypedMapCap(idx_ec, DESC_TYPE_CAP | DESC_RIGHT_SC) << p << cpu << Utcb::String(name), true);
     if (res != ENONE && obj) {
       unsigned idx_sc = obj->alloc_cap();
       if (!idx_sc) return ERESOURCE;
@@ -50,9 +53,9 @@ struct AdmissionProtocol : public GenericProtocol {
   }
 
 
-  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para q, unsigned cpu) {
+  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para q, unsigned cpu, char const * name) {
     CapAllocator<AdmissionProtocol> * obj = 0;
-    return alloc_sc(utcb, idx_ec, q, cpu, obj);
+    return alloc_sc(utcb, idx_ec, q, cpu, obj, name);
   }
 
   unsigned get_statistics(Utcb &utcb) { //XXX experimental frame must be dropped by caller

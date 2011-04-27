@@ -29,6 +29,7 @@ private:
     unsigned cpu;
     unsigned idx; 
     bool admission_sc;
+    char const * name;
   };
   struct tmp * tmp;
   unsigned tmp_size;
@@ -51,25 +52,25 @@ private:
 
 public:
   template<class T>
-  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * _obj, bool a_sc = false) {
+  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * _obj, char const * name, bool a_sc = false) {
     unsigned res;
 
     if (_blocking) //means early boot finished
-      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, _obj);
+      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, _obj, name);
     else {
       Tmp_a<T> obj(_obj);
-      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, &obj);
+      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, &obj, name);
       assert(!res && counter < tmp_size);
-      tmp[counter++] = { p, cpu, obj.cap, a_sc };
+      tmp[counter++] = { p, cpu, obj.cap, a_sc, name};
       //Logging::printf("   cpu=%u cap=0x%x prio=%u quantum=%u tmp_size=%u\n", cpu, idx_sc, p.type, 10000, tmp_size);
     }
-
+/*
     if (counter) {
       unsigned i;
       for (i=0; i < counter; i++)
         Logging::printf("%u cpu=%u cap=0x%x prio=%u quantum=%u\n", i, tmp[i].cpu, tmp[i].idx, tmp[i].para. type, 10000);
     }
-
+*/
     return res;
   }
 
@@ -80,12 +81,12 @@ public:
       assert(tmp && counter < tmp_size);
       assert(root_cpu != ~0U);
       //XXX guessing quantum of root SC required ;-(
-      tmp[counter++] = { sched(), root_cpu, root_sc, false };
+      tmp[counter++] = { sched(), root_cpu, root_sc, false, "main" };
     }
 
     for (i=0; i<counter; i++) {    
       res = call_server(init_frame(utcb, TYPE_SC_PUSH)
-            << Utcb::TypedMapCap(tmp[i].idx) << tmp[i].para << tmp[i].cpu << tmp[i].admission_sc, true);
+            << Utcb::TypedMapCap(tmp[i].idx) << tmp[i].para << tmp[i].cpu << Utcb::String(tmp[i].name) << tmp[i].admission_sc, true);
       if (res != ENONE) return res;
     }
     delete [] tmp;
