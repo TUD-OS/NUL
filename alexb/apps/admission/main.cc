@@ -159,10 +159,10 @@ class AdmissionService : public NovaProgram, public ProgramConsole
       case AdmissionProtocol::TYPE_SC_PUSH:
         {
           AdmissionProtocol::sched sched;
-          unsigned i, cpu, len, idx_ec = input.received_cap();
+          unsigned i, cpu, len, idx = input.received_cap();
           bool self = false;
 
-          check1(EPROTO, !idx_ec);
+          check1(EPROTO, !idx);
           check1(EPROTO, input.get_word(sched));
           check1(EPROTO, input.get_word(cpu));
           char const * name = input.get_zero_string(len);
@@ -175,8 +175,11 @@ class AdmissionService : public NovaProgram, public ProgramConsole
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-          //check for sigma0 (first data item) - only sigma0 is allowed to push
-          if (op == AdmissionProtocol::TYPE_SC_PUSH && data->next) return EPROTO;
+          //check for sigma0 - only sigma0 is allowed to push
+          if (op == AdmissionProtocol::TYPE_SC_PUSH) {
+            timevalue computetime;
+            if (NOVA_ESUCCESS != nova_ctl_sc(idx, computetime)) return EPROTO;
+          }
           if (op == AdmissionProtocol::TYPE_SC_PUSH && self) data = &own_scs;
 
           //XXX make it atomic
@@ -200,7 +203,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
             }
           }
 */
-          data->scs[i].prio    = !data->next ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
+          data->scs[i].prio    = (op == AdmissionProtocol::TYPE_SC_PUSH) ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
           data->scs[i].quantum = 10000U;
           data->scs[i].cpu = cpu;
           data->scs[i].m_last1 = data->scs[i].m_last2 = 0;
@@ -208,13 +211,13 @@ class AdmissionService : public NovaProgram, public ProgramConsole
           data->scs[i].name[sizeof(data->scs[i].name) - 1] = 0;
 
           if (op == AdmissionProtocol::TYPE_SC_PUSH) {
-            data->scs[i].idx = idx_ec; //got from outside
+            data->scs[i].idx = idx; //got from outside
             free_cap = false;
           } else {
             unsigned idx_sc = alloc_cap();
             unsigned char res;
             //XXX security bug -- force ec to be on right cpu //XXX
-            res = nova_create_sc(idx_sc, idx_ec, Qpd(data->scs[i].prio, data->scs[i].quantum));
+            res = nova_create_sc(idx_sc, idx, Qpd(data->scs[i].prio, data->scs[i].quantum));
             if (res != NOVA_ESUCCESS) {
               memset(&data->scs[i], 0, sizeof(data->scs[i]));
               dealloc_cap(idx_sc);
