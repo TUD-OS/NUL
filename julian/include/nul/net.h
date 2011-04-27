@@ -95,7 +95,22 @@ struct rx_desc {
   union {
     uint64 raw[2];
     uint32 rawd[4];
+#ifdef __SSE2__
+    __m128i rawq;
+#endif
   };
+
+  rx_desc() { }
+
+  rx_desc(const rx_desc &d) {
+#ifdef __SSE2__
+    rawq = d.rawq;
+#else
+#pragma message "SSE-moves are NOT used."
+    raw[0] = d.raw[0];
+    raw[1] = d.raw[1];
+#endif
+  }
 
   void set_done(uint8 type, uint16 len, bool eop)
   {
