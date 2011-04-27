@@ -708,6 +708,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
     // XXX Use deferred_irq_pending together with activity on the TX
     // queues to decide whether we should sleep.
+    (void)deferred_irq_pending;
   }
 
   NORETURN void work()
