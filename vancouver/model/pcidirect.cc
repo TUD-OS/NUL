@@ -111,7 +111,7 @@ public:
 
     // read bars
     for (unsigned i=0; i < count_bars(bdf); i++) {
-      bool is64bit;
+      bool is64bit = false;
       unsigned long long lsize = 0;
       base[i] = vf_bar_base_size(bdf, vf_no, i, lsize, &is64bit);
       size[i] = lsize;
