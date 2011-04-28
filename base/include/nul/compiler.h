@@ -28,6 +28,7 @@
 #define COLD       __attribute__((cold))
 #define ALIGNED(x) __attribute__((aligned(x)))
 #define MEMORY_BARRIER __asm__ __volatile__ ("" ::: "memory")
+#define RESTRICT   __restrict__
 
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4)
 # define WARN_UNUSED __attribute__((warn_unused_result))

@@ -153,8 +153,11 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       }
 
       // Copy raw packet data into local buffer. Don't copy more than
-      // `size' bytes.
-      size_t data_in(uint8 *dest, size_t size, size_t acc = 0)
+      // `size' bytes. If a checksum state is provided, the data is
+      // checksummed while it is copied.
+      size_t data_in(uint8 *dest, size_t size, IPChecksumState *state = NULL,
+                     // Internal use. Don't set when you call this.
+                     size_t acc = 0)
       {
 	assert(dma_prog_cur < dma_prog_len);
 	assert(dma_prog_cur_offset < dma_prog[dma_prog_cur].dtalen());
@@ -163,7 +166,12 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	size_t chunk = min<size_t>(size, dtalen - dma_prog_cur_offset);
 	uint8 const *src = port.convert_ptr<uint8>(dma_prog[dma_prog_cur].raw[0] + dma_prog_cur_offset, chunk);
 	if (src == NULL) { port.b0rken("data_in"); return 0; }
-	memcpy(dest, src, chunk);
+
+        if (state)
+          state->move(dest, src, chunk);
+        else
+          memcpy(dest, src, chunk);
+
         port.vnet->_monitor.add<MONITOR_DATA_IN>(chunk);
 
 	size -= chunk;
@@ -183,7 +191,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  if ((size == 0) or (dma_prog_cur == dma_prog_len))
 	    return acc;
 	  else
-	    return data_in(dest, size, acc);
+	    return data_in(dest, size, state, acc);
 	}
       }
 
@@ -219,7 +227,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	Port       * const dest = vnet->_cache.lookup(target);
 	if (!source.is_multicast()) vnet->_cache.remember(source, &port);
 
-        bool tso = dma_prog[0].dcmd() & tx_desc::DCMD_TSE;
         bool unicast = (dest != NULL) and (dest->is_used());
 
         vnet->_monitor.add<MONITOR_PACKET_IN>(1);
@@ -313,7 +320,7 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 	  }
 
 	} while ((dma_prog_len < MAXDESC) and (tdt != tdh));
-        Logging::printf("%u desc DMA program\n", dma_prog_len);
+        //Logging::printf("%u desc DMA program\n", dma_prog_len);
 
 	if (dma_prog_len == 0)
 	  // Only context descriptors were processed. Nothing left to
@@ -390,14 +397,13 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
       const tx_desc ctx     = txq.ctx[txq.dma_prog[0].idx()];
       unsigned payload_left = txq.dma_prog[0].paylen();
-      unsigned packet_len   = ctx.maclen() + ctx.iplen() + ctx.l4len() + payload_left;
       unsigned mss          = ctx.mss();
-      uint16   header_len   = packet_len - payload_left;
+      uint16   header_len   = ctx.maclen() + ctx.iplen() + ctx.l4len();
       bool     ipv6         = (ctx.tucmd() & tx_desc::TUCMD_IPV4) == 0;
       uint8    l4type       = ctx.l4t();      
 
-      Logging::printf("TSO: payload %u packet %u mss %u header %u ipv6 %u type %u\n",
-                      payload_left, packet_len, mss, header_len, ipv6, l4type);
+      // Logging::printf("TSO: payload %u mss %u header %u ipv6 %u type %u\n",
+      //                 payload_left, mss, header_len, ipv6, l4type);
  
       if (header_len > MAXHEADERSIZE) {
         Logging::printf("Header to large %u (%u)\n", header_len, MAXHEADERSIZE);
@@ -409,22 +415,183 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
         ALIGNED(16) uint8 header[header_len];
         txq.data_in(header, header_len);
 
-        uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(header + ctx.maclen() + 4);
-        uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(header + ctx.maclen() + (ipv6 ? 4 : 2));
-        uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(header + ctx.maclen() + ctx.iplen() + 4);
+        uint16 iplen           = ctx.iplen();
+        uint8  maclen          = ctx.maclen();
+        uint16 &ipv4_sum = *reinterpret_cast<uint16 *>(header + maclen + 10);
+        uint16 &packet_ip4_id  = *reinterpret_cast<uint16 *>(header + maclen + 4);
+        uint16 &packet_ip_len  = *reinterpret_cast<uint16 *>(header + maclen + (ipv6 ? 4 : 2));
+        uint32 &packet_tcp_seq = *reinterpret_cast<uint32 *>(header + maclen + ctx.iplen() + 4);
         uint8  &packet_tcp_flg = header[ctx.maclen() + ctx.iplen() + 13];
         uint8  tcp_orig_flg    = packet_tcp_flg;
 
+        while (payload_left) {
+          uint16 chunk = min<size_t>(payload_left, mss);
+          payload_left -= chunk;
+          
+          // XXX Check header size
+
+          uint8 *l4_sum   = header + maclen + iplen + ((l4type == tx_desc::L4T_UDP) ? 6 : 16);
+          assert(&header[header_len] > &l4_sum[1]);
+          l4_sum[0] = l4_sum[1] = 0;
+
+          IPChecksumState l4_state;
+          
+          rx_desc *rx_first = NULL;
+          rx_desc *rx_out   = NULL;
+          bool     last     = false;
+          uint16   chunk_left = chunk;
+
+          unsigned packet_size = header_len + chunk;
+
+          //Logging::printf(" new packet %u chunk %u\n", packet_size, chunk);
+
+
+          // Loop while there is data and enough receive descriptors
+          // to store them.
+          while (chunk_left and ((rx_out = rx_fetch()) != NULL)) {
+            rx_desc rx = *rx_out;
+            asm ("" : "+m" (*rx_out));
+            
+            unsigned rx_size = rx_buffer_size();
+            uint8   *rx_buf  = convert_ptr<uint8>(rx.raw[0], rx_size);
+            //Logging::printf("  rxbuf %p+%u\n", rx_buf, rx_size);
+
+            // Check for invalid pointer.
+            if (not rx_buf) break;
+
+            if (not rx_first) {
+              // This is the first data block. We need to copy the
+              // header.
+
+              // IPv4 checksum
+              if (not ipv6) {
+                // We could incrementally update our checksum, but I don't
+                // believe that this gains a lot of performance.
+                ipv4_sum = 0;
+                ipv4_sum = IPChecksum::ipsum(header, maclen, iplen);
+                //Logging::printf("  ipv4 %04x\n", ipv4_sum);
+              }
+
+              // Update IP header
+              packet_ip_len = hton16(chunk + header_len - maclen);
+              //if (l4t == tx_desc::L4T_TCP)
+              packet_tcp_flg = tcp_orig_flg &
+                ((payload_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
+
+              l4_state.update_l4_header(header, 6 /* TCP */, maclen, iplen, packet_size);
+
+              //Logging::printf("   len %u id %u seq %u\n", hton16(packet_ip_len), hton16(packet_ip4_id), hton32(packet_tcp_seq));
+
+              // Update l4_sum to point into the receive buffer if
+              // this is the first data block.
+              l4_sum   = rx_buf + maclen + iplen + ((l4type == tx_desc::L4T_UDP) ? 6 : 16);
+
+              memcpy(rx_buf, header, header_len);
+              l4_state.update(rx_buf + maclen + iplen, header_len - maclen - iplen);
+
+              assert(rx_size > header_len);
+              rx_size -= header_len;
+              rx_buf  += header_len;
+
+              //Logging::printf("  header %u\n", header_len);
+            }
+
+            unsigned rx_chunk = min<unsigned>(rx_size, chunk_left);
+            //Logging::printf("  chunk %u\n", rx_chunk);
+
+            // Move and checksum data.
+            size_t data_read = txq.data_in(rx_buf, rx_chunk, &l4_state);
+            assert(data_read == rx_chunk);
+
+            chunk_left -= rx_chunk;
+            last = (chunk_left == 0);
+
+            // There may be the case that a packet is to short. We
+            // always pad it to 60 bytes (64 bytes including FCS).
+            if (last and (packet_size < 60)) {
+              unsigned pad = 60 - packet_size;
+              //Logging::printf("   zero %p+%u\n", rx_buf + rx_chunk, pad);
+              memset(rx_buf + rx_chunk, 0, pad);
+            }
+
+            // In principle we only need to set DD=1,EOP=0 when last
+            // is true, but we set all flags for simplicity.
+
+            if (not rx_first) {
+              // Also remember the first descriptor. 
+              rx_first = rx_out;
+            } else {
+              //Logging::printf("   rxbuf %p done\n", rx_out);
+              rx_out->set_done(rx_desc_type(), packet_size, last);
+            }
+
+            if (last) {
+              // If this is the last data block, writeback the checksum.
+              uint16 sum = l4_state.value();
+              l4_sum[0] = sum;
+              l4_sum[1] = sum >> 8;
+
+              // XXX Check
+              // l4_sum[0] = 0;
+              // l4_sum[1] = 0;
+              // uint16 s = IPChecksum::tcpudpsum(convert_ptr<uint8>(rx.raw[0], 2048),
+              //                                  6, maclen, iplen, packet_size);
+              // l4_sum[0] = s;
+              // l4_sum[1] = s >> 8;
+
+              // Logging::printf("  tcp %04x check %04x\n", sum, s);
+              // if (sum != s)
+              //   Logging::panic("die");
+
+              // ... and the done bit of the first descriptor.
+              rx_first->set_done(rx_desc_type(), packet_size, rx_first == rx_out);
+              //Logging::printf("  rxbuf %p done EOP\n", rx_first);
+
+              break;
+            }
+          } // while
+
+          if (!last) {
+            COUNTER_INC("tso rx drop");
+            // If the queue doesn't have room for this packet, turn it
+            // into a zero-length packet.
+            // XXX Good idea?
+            if (rx_out) {
+              rx_out->set_done(rx_desc_type(), 0, true);
+              Logging::printf("   rxbuf %p done trunc\n", rx_out);
+            } else {
+              Logging::printf("   nothing transmitted");
+            }
+            
+
+            // Since the queue is full, we might as well stop.
+            break;
+          }
+
+          // We have delivered a single packet. Update header.
+          if (payload_left) {
+            
+            // Prepare next chunk
+            if (not ipv6)
+              packet_ip4_id = hton16(ntoh16(packet_ip4_id) + 1);
+            //if (l4t == tx_desc::L4T_TCP)
+            packet_tcp_seq = hton32(ntoh32(packet_tcp_seq) + chunk);
+          }
+
+        }
+
+
       }
-        break;
+        
+
+        // XXX Do something...
+        return true;
       default:
+        Logging::printf("TSO job dropped.\n");
         return false;
       }
 
-
-
-
-      return false;
+      // Not reached.
     }
 
     static void apply_offloads(const tx_desc ctx, const tx_desc d, uint8 *packet, size_t psize)
@@ -491,39 +658,70 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
       }
     }
 
+    uint32 rx_buffer_size()
+    {
+      uint32 b = (rx0[SRRCTL] & 0x7F) * 1024;
+      return (b == 0) ? 2048 : b;
+    }
+
+    uint8  rx_desc_type()
+    {
+      return (rx0[SRRCTL] >> 25) & 0x7;
+    }
+
+    // Fetch a single RX descriptor from the receive queue. Returns
+    // NULL, if there is none.
+    rx_desc *rx_fetch()
+    {
+      uint32   rdh   = rx0[RDH];
+      uint32   rdlen = rx0[RDLEN];
+
+      if (rdh*sizeof(rx_desc) >= rdlen) {
+        rdh = rdh % rdlen;
+      }
+
+      rx_desc *rx_queue = convert_ptr<rx_desc>(static_cast<uint64>(rx0[RDBAH] & ~0x7F)<<32 | rx0[RDBAL],
+                                               rdlen);
+
+      rx_desc *desc = rx_queue ? &rx_queue[rdh] : NULL;
+
+      rdh += 1;
+      if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
+      rx0[RDH] = rdh;
+
+      return desc;
+    }
+  
+
     // Deliver a simple packet to this port. Returns true, iff
     // something was delivered.
     // XXX Cleanup/Refactor
     bool deliver_simple_from(TxQueue &txq)
     {
-      uint32 rdh   = rx0[RDH];
-      uint32 rdlen = rx0[RDLEN];
-
       COUNTER_INC("deliver_sim");
 
-      if (rdh*sizeof(rx_desc) >= rdlen) { b0rken("rdh >= rdlen"); return false; }
-
-      //Logging::printf("RDH %u\n", rdh);
-
-      rx_desc *rx_queue = convert_ptr<rx_desc>(static_cast<uint64>(rx0[RDBAH] & ~0x7F)<<32 | rx0[RDBAL],
-                                               rx0[RDLEN]);
-      if (rx_queue == NULL) { b0rken("rx == NULL"); return false; }
-      rx_desc &rx = rx_queue[rdh];
-
-      uint8 desc_type    = (rx0[SRRCTL] >> 25) & 0x7;
-      size_t buffer_size = (rx0[SRRCTL] & 0x7F) * 1024;
-      if (buffer_size == 0) buffer_size = 2048;
+      uint8 desc_type    = rx_desc_type();
+      size_t buffer_size = rx_buffer_size();
       
       // Direct path, packet not extracted. Single-Copy!
       while (txq.tx_data_pending()) {
-        rx = rx_queue[rdh];
+        rx_desc *rx_out = rx_fetch();
+        
+        if (rx_out == NULL) {
+          COUNTER_INC("drop no rx");
+          break;
+        }
+
+        rx_desc rx = *rx_out;
+        asm ("" : "+m" (*rx_out));
+
         uint8 *data = convert_ptr<uint8>(rx.raw[0], buffer_size);
         if (data == NULL) { b0rken("data == NULL"); return false; }
           
         uint16 psize = txq.data_in(data, buffer_size);
         vnet->_monitor.add<MONITOR_DATA_OUT>(psize);
           
-#warning XXX offloads broken when packet spread over multiple descriptors
+#warning XXX offloads broken when packet spread over multiple RX descriptors
         apply_offloads(txq.ctx[txq.dma_prog[0].idx()], txq.dma_prog[0], data, psize);
         //Logging::printf("Received %u bytes.\n", psize);
 
@@ -533,16 +731,15 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
         }
 
         // XXX Very very evil and slightly b0rken small packet padding.
-#warning Implement PSP
-        if (not txq.tx_data_pending() && (psize < 60))
+        // Is it?
+        if (not txq.tx_data_pending() && (psize < 60)) {
+          unsigned pad = 60 - psize;
+          memset(data + psize, 0, pad);
           psize = 60;
+        }
           
-        rx.set_done(desc_type, psize, not txq.tx_data_pending());
+        rx_out->set_done(desc_type, psize, not txq.tx_data_pending());
         vnet->_monitor.add<MONITOR_PACKET_OUT>(1);
-          
-        rdh += 1;
-        if (rdh * sizeof(rx_desc) >= rdlen) rdh -= rdlen/sizeof(rx_desc);
-        rx0[RDH] = rdh;
       }
 
       return true;
