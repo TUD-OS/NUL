@@ -59,7 +59,7 @@ operator==(EthernetAddr const& a, EthernetAddr const& b)
 class IPChecksum {
 protected:
 
-  static uint32
+  static inline uint32 
   sum_simple(uint8 const *buf, size_t size, bool &odd)
   {
     // Cannot sum more because of overflow
@@ -96,7 +96,7 @@ protected:
   
   // Sums data until buf is 16-byte aligned. This handles odd numbers
   // of align_steps. You should continue in odd mode, if this happens!
-  static uint32
+  static inline uint32
   sum_align(uint8 const * &buf, size_t &size, unsigned &align_steps, bool &odd)
   {
     //Logging::printf("align %u %u\n", align_steps, odd);
@@ -112,7 +112,7 @@ protected:
     return res;
   }
 
-  static uint32
+  static inline  __attribute__((always_inline)) uint32
   addoc(uint32 a, uint32 b)
   {
     asm ("add %1, %0;"
@@ -121,7 +121,7 @@ protected:
   }
 
 #ifdef __SSE2__
-  static inline __m128i
+  static inline __attribute__((always_inline))  __m128i
   sse_step(__m128i sum, __m128i v1, __m128i v2, __m128i z)
   {
     sum = _mm_add_epi64(sum, _mm_add_epi64(_mm_unpackhi_epi32(v1, z),
@@ -132,7 +132,7 @@ protected:
     return sum;
   }
 
-  static inline uint32
+  static inline  __attribute__((always_inline)) uint32
   sse_final(__m128i sum, __m128i z, bool odd)
   {
     /* Add top to bottom 64-bit word */
