@@ -483,9 +483,11 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
               // Update l4_sum to point into the receive buffer if
               // this is the first data block.
-              l4_sum   = rx_buf + maclen + iplen + ((l4type == tx_desc::L4T_UDP) ? 6 : 16);
+              l4_sum   = rx_buf + maclen + iplen + 16 /* TCP */;
 
               memcpy(rx_buf, header, header_len);
+              assert((l4_sum[0] == 0) && (l4_sum[0] == 0));
+
               l4_state.update(rx_buf + maclen + iplen, header_len - maclen - iplen);
 
               assert(rx_size > header_len);
