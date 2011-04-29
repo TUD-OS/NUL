@@ -424,15 +424,15 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
         uint8  &packet_tcp_flg = header[ctx.maclen() + ctx.iplen() + 13];
         uint8  tcp_orig_flg    = packet_tcp_flg;
 
+        uint8 *l4_sum   = header + maclen + iplen + 16 /* TCP */;
+        assert(&header[header_len] > &l4_sum[1]);
+        l4_sum[0] = l4_sum[1] = 0;
+
         while (payload_left) {
           uint16 chunk = min<size_t>(payload_left, mss);
           payload_left -= chunk;
           
           // XXX Check header size
-
-          uint8 *l4_sum   = header + maclen + iplen + ((l4type == tx_desc::L4T_UDP) ? 6 : 16);
-          assert(&header[header_len] > &l4_sum[1]);
-          l4_sum[0] = l4_sum[1] = 0;
 
           IPChecksumState l4_state;
           
