@@ -445,7 +445,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
 
           //Logging::printf(" new packet %u chunk %u\n", packet_size, chunk);
 
-
           // Loop while there is data and enough receive descriptors
           // to store them.
           while (chunk_left and ((rx_out = rx_fetch()) != NULL)) {
@@ -463,6 +462,12 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
               // This is the first data block. We need to copy the
               // header.
 
+              // Update IP header
+              packet_ip_len = hton16(chunk + header_len - maclen);
+
+              //if (l4t == tx_desc::L4T_TCP)
+              packet_tcp_flg = tcp_orig_flg &
+                ((payload_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
               // IPv4 checksum
               if (not ipv6) {
                 // We could incrementally update our checksum, but I don't
@@ -471,12 +476,6 @@ class ALIGNED(16) VirtualNet : public StaticReceiver<VirtualNet>
                 ipv4_sum = IPChecksum::ipsum(header, maclen, iplen);
                 //Logging::printf("  ipv4 %04x\n", ipv4_sum);
               }
-
-              // Update IP header
-              packet_ip_len = hton16(chunk + header_len - maclen);
-              //if (l4t == tx_desc::L4T_TCP)
-              packet_tcp_flg = tcp_orig_flg &
-                ((payload_left == 0) ? /* last */ 0xFF : /* intermediate: set FIN/PSH */ ~9);
 
               l4_state.update_l4_header(header, 6 /* TCP */, maclen, iplen, packet_size);
 
