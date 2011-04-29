@@ -311,8 +311,8 @@ private:
 
 public:
 
-  /// Update checksum state with TCP/UDP pseudo heaer. proto is 17 for
-  /// UDP and 6 for TCP.
+  /// Update checksum state with TCP/UDP pseudo header. proto is 17
+  /// for UDP and 6 for TCP.
   void
   update_l4_header(uint8 const * buf,
                    uint8 proto,
