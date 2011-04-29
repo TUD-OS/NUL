@@ -1293,8 +1293,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           const char * name = msg._alloc_service_thread.name ? msg._alloc_service_thread.name : "service";
 
           AdmissionProtocol::sched sched; //Qpd(prio, 10000)
-          if (prio != ~0u) //IDLE TYPE_NONPERIODIC -> prio=1 
-            sched.type = prio ? AdmissionProtocol::sched::TYPE_APERIODIC : AdmissionProtocol::sched::TYPE_PERIODIC; //XXX don't guess here
+          if (prio != ~0u) //IDLE TYPE_APERIODIC -> prio=1
+            sched.type = prio ? AdmissionProtocol::sched::TYPE_SPORADIC : AdmissionProtocol::sched::TYPE_PERIODIC; //XXX don't guess here
 
           return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpu, this, name) == NOVA_ESUCCESS);
         }

@@ -1,12 +1,14 @@
 /*
- * (C) 2011 Alexander Boettcher
- *     economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
- * This is free software: you can redistribute it and/or
+ * This file is part of NUL (NOVA user land).
+ *
+ * NUL is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
  * 2 as published by the Free Software Foundation.
  *
- * This is distributed in the hope that it will be useful,
+ * NUL is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
@@ -24,58 +26,57 @@
 
 #include <host/keyboard.h>
 
-namespace ab {
-class AdmissionService : public NovaProgram, public ProgramConsole
-{
-  
-  enum {
-    VALUEWIDTH = 2U,
-    WIDTH  = 80U,
-    HEIGHT = 25U,
-  };
+#include "util/capalloc_partition.h"
 
+namespace ab {
+class AdmissionService : public CapAllocatorAtomicPartition<0x10000U>, public NovaProgram, public ProgramConsole
+{
   static char * flag_revoke;
 
-  private:
-    enum {
-      CAP_REGION_START = 0x2000,
-      CAP_REGION_ORDER = 13,
-    };
-    RegionList<512> * cap_range;
+private:
 
-    struct ClientData : public GenericClientData {
-      bool statistics;
+  struct ClientData : public GenericClientData {
+    bool statistics;
+    char name[32];
+    struct {
+      unsigned idx;
+      unsigned cpu;
+      unsigned prio;
+      unsigned quantum;
+      timevalue m_last1;
+      timevalue m_last2;
       char name[32];
-      struct {
-        unsigned idx;
-        unsigned cpu;
-        unsigned prio;
-        unsigned quantum;
-        timevalue m_last1;
-        timevalue m_last2;
-        char name[32];
-      } scs[32];
-    };
+    } scs[32];
+  };
 
-    struct ClientData idle_scs; 
-    struct ClientData own_scs;
+  struct ClientData idle_scs; 
+  struct ClientData own_scs;
 
-    timevalue global_sum[Config::MAX_CPUS];
-    timevalue global_prio[Config::MAX_CPUS][256]; //XXX MAX_PRIO
+  timevalue global_sum[Config::MAX_CPUS];
+  timevalue global_prio[Config::MAX_CPUS][256]; //XXX MAX_PRIO
 
-    ALIGNED(8) ClientDataStorage<ClientData, AdmissionService> _storage;
+  ALIGNED(8) ClientDataStorage<ClientData, AdmissionService> _storage;
 
-  public:
+public:
 
-  void init_service() {
-    cap_range = new RegionList<512>;
-    assert(0 == (CAP_REGION_START & (1 << CAP_REGION_ORDER) - 1));
-    cap_range->add(Region(CAP_REGION_START, 1 << CAP_REGION_ORDER));
+  AdmissionService() : CapAllocatorAtomicPartition<0x10000U>(1), NovaProgram(), ProgramConsole() {}
+
+  void init_service(Hip * hip) {
+    unsigned long long base = alloc_cap_region(0x10000U, 12);
+    assert(base && !(base & 0xFFFULL));
+    _divider  = hip->cpu_count();
+    _cap_base = base;
   }
 
-  inline unsigned alloc_cap(unsigned num = 1) { return cap_range->alloc(num, 0); } ///XXX locking !
+  inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
+    if (num > 1) return CapAllocator::alloc_cap(num);
+    else return CapAllocatorAtomicPartition::alloc_cap(num, cpu);
+  }
+  inline void dealloc_cap(unsigned cap, unsigned count = 1) {
+    assert(count == 1); CapAllocatorAtomicPartition::dealloc_cap(cap, count);
+  }
+
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
-  inline void dealloc_cap(unsigned cap, unsigned count = 1) { cap_range->add(Region(cap, count));} ///XXX locking !
 
   #include "top.h"
 
@@ -164,7 +165,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
 
           check1(EPROTO, !idx);
           check1(EPROTO, input.get_word(sched));
-          check1(EPROTO, input.get_word(cpu));
+          check1(EPROTO, input.get_word(cpu) && cpu < _divider); //check that cpu < number of cpus
           char const * name = input.get_zero_string(len);
           if (!name) return EPROTO;
 
@@ -175,34 +176,23 @@ class AdmissionService : public NovaProgram, public ProgramConsole
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, data, input.identity())) return res;
 
-          //check for sigma0 - only sigma0 is allowed to push
           if (op == AdmissionProtocol::TYPE_SC_PUSH) {
             timevalue computetime;
+            //check for sigma0 - only sigma0 is allowed to push
             if (NOVA_ESUCCESS != nova_ctl_sc(idx, computetime)) return EPROTO;
+            if (self) data = &own_scs;
           }
-          if (op == AdmissionProtocol::TYPE_SC_PUSH && self) data = &own_scs;
 
-          //XXX make it atomic
+          again:
+
           for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
             if (data->scs[i].idx) continue;
-            data->scs[i].idx = 0xaffe;
+            if (0 != Cpu::cmpxchg4b(&data->scs[i].idx, 0, 0xaffe)) goto again;
             break;
           }
           if (i >= sizeof(data->scs) / sizeof(data->scs[0])) return ERESOURCE;
-          //XXX make it atomic
 
-          //XXX
-/*          
-          if (op != AdmissionProtocol::TYPE_SC_PUSH) {
-            if (prio > 1)
-            {
-              prio    = 1;
-              quantum = 1000;
-            } else if (quantum > 10000) {
-              quantum = 10000;
-            }
-          }
-*/
+          if (sched.type < sched.TYPE_APERIODIC || sched.type > sched.TYPE_SYSTEM) sched.type = sched.TYPE_APERIODIC; //sanity check
           data->scs[i].prio    = (op == AdmissionProtocol::TYPE_SC_PUSH) ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
           data->scs[i].quantum = 10000U;
           data->scs[i].cpu = cpu;
@@ -214,7 +204,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
             data->scs[i].idx = idx; //got from outside
             free_cap = false;
           } else {
-            unsigned idx_sc = alloc_cap();
+            unsigned idx_sc = alloc_cap(1, cpu);
             unsigned char res;
             //XXX security bug -- force ec to be on right cpu //XXX
             res = nova_create_sc(idx_sc, idx, Qpd(data->scs[i].prio, data->scs[i].quantum));
@@ -267,8 +257,8 @@ class AdmissionService : public NovaProgram, public ProgramConsole
         idle_scs.scs[cpunr].idx = 512 + cpunr;
         idle_scs.scs[cpunr].cpu = cpunr;
 
-        exc_base_wo = cap_range->alloc(16,4);
-        exc_base_pf = cap_range->alloc(16,4);
+        exc_base_wo = alloc_cap(16);
+        exc_base_pf = alloc_cap(16);
         if (!exc_base_wo || !exc_base_pf) return false;
         pt_wo       = alloc_cap();
         pt_pf       = exc_base_wo + 0xe;
@@ -279,7 +269,7 @@ class AdmissionService : public NovaProgram, public ProgramConsole
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
-        utcb_wo->head.crd_translate = Crd(CAP_REGION_START, CAP_REGION_ORDER, DESC_TYPE_CAP).value();
+        utcb_wo->head.crd_translate = Crd(_cap_base, 12, DESC_CAP_ALL).value();
         utcb_pf->head.crd = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
@@ -362,10 +352,10 @@ class AdmissionService : public NovaProgram, public ProgramConsole
 
     init(hip);
     init_mem(hip);
-    init_service();
+    init_service(hip);
 
     console_init("admission service");
-//    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");

@@ -1,16 +1,25 @@
 /*
- * (C) 2011 Alexander Boettcher
- *     economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
+ * This file is part of NUL (NOVA user land).
+ *
+ * NUL is free software: you can redistribute it and/or
  * This is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
  * 2 as published by the Free Software Foundation.
  *
- * This is distributed in the hope that it will be useful,
+ * NUL is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+
+  enum {
+    VALUEWIDTH = 2U,
+    WIDTH  = 80U,
+    HEIGHT = 25U,
+  };
 
   void get_idle(Hip * hip) {
     cursor_pos = 0;

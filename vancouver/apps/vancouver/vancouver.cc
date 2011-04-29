@@ -341,8 +341,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->msg[1] = hostirq;
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
-    //check1(~3u, nova_create_sc(alloc_cap(), cap_ec, Qpd(2, 10000)));
-    AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
+    AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SPORADIC); //Qpd(2, 10000)
     check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name));
     return cap_ec;
   }
@@ -688,8 +687,7 @@ public:
           unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg,
                                              myutcb()->head.nul_cpunr, PT_IRQ, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
-          //return !nova_create_sc(alloc_cap(), ec_cap, Qpd(2, 10000));
-          AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC); //Qpd(2, 10000)
+          AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SPORADIC); //Qpd(2, 10000)
           return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, this, "service");
         }
         break;

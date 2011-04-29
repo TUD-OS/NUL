@@ -17,8 +17,6 @@
 
 #include "nul/service_admission.h"
 
-class Sigma0;
-
 struct s0_AdmissionProtocol : public AdmissionProtocol {
 
 private:

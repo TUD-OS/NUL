@@ -21,8 +21,13 @@
 struct AdmissionProtocol : public GenericProtocol {
 
   typedef struct para {
-    enum type { TYPE_NONPERIODIC = 1, TYPE_PERIODIC, TYPE_APERIODIC, TYPE_SYSTEM} type; //XXX TYPE_SYSTEM unnecessary, here to support old legacy prio layout
-    para(enum type _type = TYPE_NONPERIODIC) : type(_type) {}
+    enum type { TYPE_APERIODIC = 1, TYPE_PERIODIC, TYPE_SPORADIC, TYPE_SYSTEM} type; //XXX TYPE_SYSTEM unnecessary, here to support old legacy prio layout
+    para(enum type _type = TYPE_APERIODIC) : type(_type), wcet(0), period(0) {}
+    unsigned wcet;
+    unsigned period;
+    //unsigned rel_deadline; //rel_deadline
+    //unsigned rtime; //release time
+    //unsigned mit; (minimal interarrival time)
   } sched;
 
   enum {
@@ -43,7 +48,7 @@ struct AdmissionProtocol : public GenericProtocol {
       if (!idx_sc) return ERESOURCE;
 
       //LEGACY support, guessing that it could be vancouver and adjust prios
-      if (p.type != sched::TYPE_NONPERIODIC) p.type = sched::TYPE_PERIODIC; //fix max prio to 2
+      if (p.type != sched::TYPE_APERIODIC) p.type = sched::TYPE_PERIODIC; //fix max prio to 2
 
       Qpd q(p.type, 10000); //EARLY SIGMA0 BOOT AND LEGACY SUPPORT (no admission service running), legacy support will vanish
       res = nova_create_sc (idx_sc, idx_ec, q);

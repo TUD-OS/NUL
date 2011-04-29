@@ -33,7 +33,6 @@ private:
     unsigned  cap_ec_parent;
   } _percpu[MAXCPUS];
 
-  // synchronisation of GSIs+worker
   /**
    * Missing: kill a client, mem+cap quota support
    */
