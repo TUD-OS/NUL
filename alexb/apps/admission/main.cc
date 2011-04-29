@@ -355,7 +355,7 @@ public:
     init_service(hip);
 
     console_init("admission service");
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    //_console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");
