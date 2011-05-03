@@ -112,7 +112,7 @@ class Model82576vf_vnet : public StaticReceiver<Model82576vf_vnet>
     SHADOW_NEW_ICR = 0xF0/4,
 
     // Set for interrupts that must be injected NOW. This is written
-    // by the switch after IRQ throttling and clear by us.
+    // by the switch after IRQ throttling and cleared by us.
     SHADOW_INJ_ICR = 0xF4/4,
   };
 
