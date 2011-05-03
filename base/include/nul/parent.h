@@ -121,6 +121,10 @@ struct ParentProtocol {
     init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym) << Utcb::TypedMapCap(cap_local_session);
     return call(utcb, CAP_PT_PERCPU, true);
   }
+
+  // Services can use check_singleton in conjunction with
+  // set_singleton to enforce a one-session-per-client policy. This is
+  // not done automatically.
   static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session, Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
     init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     utcb.head.crd_translate = crd.value();
