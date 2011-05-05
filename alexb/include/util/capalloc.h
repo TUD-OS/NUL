@@ -49,6 +49,12 @@ class CapAllocatorAtomic {
       if (wrap && i == byte_start) return 0;
 
       unsigned _new,_old = _bits[i];
+
+      // _bits may have changed since the for loop. We have to check
+      // for the case where all bits are set. Otherwise, we run into
+      // undefined behaviour of bsf.
+      if (~_old == 0U) goto redo;
+
       unsigned pos = Cpu::bsf(~_old);
       if (pos > BITS_PER_INT) goto redo;
       _new = _old | (1U << pos);
