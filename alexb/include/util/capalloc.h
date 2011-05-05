@@ -25,8 +25,8 @@ class CapAllocatorAtomic {
     enum
     {
       BITS_PER_CHAR = 8,
-      BITS_PER_INT = 32,
-      BYTES_PER_INT = 4,
+      BITS_PER_INT  = sizeof(int)*8,
+      BYTES_PER_INT = sizeof(int),
     };
     union {
       unsigned volatile a[(BITS + BITS_PER_INT - 1) / BITS_PER_INT];
