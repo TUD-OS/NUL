@@ -310,7 +310,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // init services required or provided by sigma0
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
-    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), true);
+    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), admission);
   }
 
   /**
@@ -1891,9 +1891,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!mac_host) mac_host = generate_hostmac();
 
-    if (res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr))
+    if (admission && !(res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr)))
+      service_admission->set_name(*utcb, "sigma0");
+    else
       Logging::printf("s0: WARNING admission service missing - error %x\n", res);
-    else service_admission->set_name(*utcb, "sigma0");
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
