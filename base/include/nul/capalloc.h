@@ -45,11 +45,11 @@ class CapAllocator : public _CapAllocator {
   static unsigned long _cap_start;
   static unsigned long _cap_order;
 
-  static inline unsigned alloc_cap(unsigned count = 1) {
+  static unsigned alloc_cap(unsigned count = 1) {
     assert(_cap_ < _cap_start + (1 << _cap_order) - 1);
     return Cpu::atomic_xadd(&_cap_, count);
   }
-  static inline void dealloc_cap(unsigned cap, unsigned count = 1) {
+  static void dealloc_cap(unsigned cap, unsigned count = 1) {
     while (count--) { unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true); assert(res == NOVA_ESUCCESS); }
     // XXX add it back to the cap-allocator
   }
