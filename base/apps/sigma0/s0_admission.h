@@ -35,7 +35,7 @@ private:
   //end
 
   template<class T>
-  class Tmp_a : public _CapAllocator {
+  class Tmp_a : public InternalCapAllocator {
     public:
     T * obj;
     unsigned cap;

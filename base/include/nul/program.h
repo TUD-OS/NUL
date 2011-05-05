@@ -25,7 +25,7 @@
 #include "baseprogram.h"
 #include "config.h"
 
-#include "capalloc.h"
+#include <nul/capalloc.h>
 
 extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
