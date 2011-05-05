@@ -106,7 +106,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failure - request for timeout\n");
 
-      TimerProtocol::MessageTimer to(_clock->time() + arg * hip->freq_tsc);
+      TimerProtocol::MessageTimer to(_clock->abstime(arg, 1));
       if (timer_service->timer(*utcb, to)) Logging::panic("failure - programming timer\n");
       if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
       if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
@@ -125,6 +125,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
       Logging::printf("done    - tcp port=%lu\n", conn.port);
+      Logging::printf(".......   looking for an IP address via DHCP\n");
 
       while (1) {
         unsigned char *buf;
