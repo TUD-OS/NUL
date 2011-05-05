@@ -28,10 +28,8 @@ class CapAllocatorAtomic {
       BITS_PER_INT  = sizeof(int)*8,
       BYTES_PER_INT = sizeof(int),
     };
-    union {
-      unsigned volatile a[(BITS + BITS_PER_INT - 1) / BITS_PER_INT];
-      void * p;
-    } _bits;
+  
+    unsigned volatile _bits[(BITS + BITS_PER_INT - 1) / BITS_PER_INT];
     unsigned long _cap_base;
 
     /*
@@ -47,14 +45,14 @@ class CapAllocatorAtomic {
       redo:
 
       unsigned wrap = 0, i;
-      for (i = byte_start; (!wrap || i != byte_start) && _bits.a[i] == ~0U; wrap += (i + 1) / bytes_max(), i = (i+1) % bytes_max());
+      for (i = byte_start; (!wrap || i != byte_start) && _bits[i] == ~0U; wrap += (i + 1) / bytes_max(), i = (i+1) % bytes_max());
       if (wrap && i == byte_start) return 0;
 
-      unsigned _new,_old = _bits.a[i];
+      unsigned _new,_old = _bits[i];
       unsigned pos = Cpu::bsf(~_old);
       if (pos > BITS_PER_INT) goto redo;
       _new = _old | (1U << pos);
-      if (_old != Cpu::cmpxchg4b(&_bits.a[i], _old, _new)) goto redo;
+      if (_old != Cpu::cmpxchg4b(&_bits[i], _old, _new)) goto redo;
 
       //Logging::printf("i=%u 0x%x _old %x, _new %x, pos %u\n", i, i*8*4, _old, _new, pos);
       return _cap_base + i * BITS_PER_INT + pos;
@@ -62,11 +60,9 @@ class CapAllocatorAtomic {
 
   public:
 
-    CapAllocatorAtomic(unsigned long __cap_start = ~0UL) { //~0U means disabled
-      _bits.p = reinterpret_cast<void *>(reinterpret_cast<unsigned long>(_bits.a));
-      memset(_bits.p, 0U, sizeof(_bits.a));
-      _cap_base = __cap_start;
-    }
+    CapAllocatorAtomic(unsigned long __cap_start = ~0UL) //~0U means disabled
+      : _bits(), _cap_base(__cap_start)
+    { }
 
     unsigned alloc_cap(unsigned count = 1) { return __alloc_cap(count); }
 
@@ -79,7 +75,7 @@ class CapAllocatorAtomic {
 
         redo:
 
-        unsigned _new, _old = _bits.a[i];
+        unsigned _new, _old = _bits[i];
         if (!(_old & (1U << pos))) {
           if (error_doublefree) Logging::panic("double free detected\n");
           //someone else freed the slot and it is ok according to error_doublefree variable
@@ -87,7 +83,7 @@ class CapAllocatorAtomic {
         }
 
         _new = _old & ~(1U << pos);
-        unsigned _got = Cpu::cmpxchg4b(&_bits.a[i], _old, _new);
+        unsigned _got = Cpu::cmpxchg4b(&_bits[i], _old, _new);
         if (_got != _old) goto redo;
 
         unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true);
