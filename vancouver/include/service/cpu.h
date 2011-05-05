@@ -70,6 +70,7 @@ class Cpu
     return union64(high, low);
   }
 
+  // bsr and bsf are undefined, if value is zero.
   static  unsigned bsr(unsigned value) { return __builtin_clz(value) ^ 0x1F; }
   static  unsigned bsf(unsigned value) { return __builtin_ctz(value); }
 
