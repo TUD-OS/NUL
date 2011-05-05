@@ -29,6 +29,7 @@ class CapAllocatorAtomic {
       BYTES_PER_INT = sizeof(int),
     };
   
+    // _bits[ceiling(BITS / sizeof(int))]
     unsigned volatile _bits[(BITS + BITS_PER_INT - 1) / BITS_PER_INT];
     unsigned long _cap_base;
 
@@ -38,7 +39,7 @@ class CapAllocatorAtomic {
     inline unsigned idx_max() const { return sizeof(_bits) * BITS_PER_CHAR; }
     inline unsigned bytes_max() const { return sizeof(_bits) / BYTES_PER_INT; }
 
-    unsigned __alloc_cap(unsigned count = 1, unsigned byte_start = 0) {
+    unsigned internal_alloc_cap(unsigned count = 1, unsigned byte_start = 0) {
       assert(count == 1);
       assert(_cap_base != ~0UL);
 
@@ -66,11 +67,11 @@ class CapAllocatorAtomic {
 
   public:
 
-    CapAllocatorAtomic(unsigned long __cap_start = ~0UL) //~0U means disabled
-      : _bits(), _cap_base(__cap_start)
+    CapAllocatorAtomic(unsigned long _cap_start = ~0UL) //~0U means disabled
+      : _bits(), _cap_base(_cap_start)
     { }
 
-    unsigned alloc_cap(unsigned count = 1) { return __alloc_cap(count); }
+    unsigned alloc_cap(unsigned count = 1) { return internal_alloc_cap(count); }
 
     void dealloc_cap(unsigned cap, unsigned count = 1) {
       assert(_cap_base != ~0UL);
