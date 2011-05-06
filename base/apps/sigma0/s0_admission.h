@@ -32,6 +32,7 @@ private:
   struct tmp * tmp;
   unsigned tmp_size;
   unsigned counter;
+  bool boot_finished;
   //end
 
   template<class T>
@@ -53,7 +54,7 @@ public:
   unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * _obj, char const * name, bool a_sc = false) {
     unsigned res;
 
-    if (_blocking) //means early boot finished
+    if (boot_finished)
       res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, _obj, name);
     else {
       Tmp_a<T> obj(_obj);
@@ -95,7 +96,7 @@ public:
     return ENONE;
   }
 
-  explicit s0_AdmissionProtocol(unsigned cap_base, bool buffer, unsigned num=32) : AdmissionProtocol(cap_base, 0, false)
+  explicit s0_AdmissionProtocol(unsigned cap_base, bool buffer, unsigned num=32) : AdmissionProtocol(cap_base, 0, false), boot_finished(!buffer)
   {
     if (!buffer) return;
     tmp_size = num;
