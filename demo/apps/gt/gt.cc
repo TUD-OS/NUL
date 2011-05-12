@@ -23,7 +23,7 @@
 
 #include "nul/service_timer.h"
 
-class Gt : ProgramConsole, CapAllocator<Gt>
+class Gt : ProgramConsole, CapAllocator
 {
   char *  _vesa_console;
   VgaRegs _vesaregs;
@@ -49,7 +49,7 @@ class Gt : ProgramConsole, CapAllocator<Gt>
 
 
 public:
-  Gt() : CapAllocator<Gt>(0,0,0) {}
+  Gt() : CapAllocator(0,0,0) {}
 
   int run(Utcb *utcb, Hip *hip)
   {

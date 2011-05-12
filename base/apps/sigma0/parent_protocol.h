@@ -24,7 +24,7 @@ PARAM(namespace,, "namespace - used by parent protocol")
 PARAM(name,, "name - used by parent protocol")
 PARAM(quota,, "quota - used by parent protocol")
 
-class s0_ParentProtocol : public CapAllocator<s0_ParentProtocol> {
+class s0_ParentProtocol : public CapAllocator {
 
 private:
 
@@ -382,7 +382,7 @@ public:
   unsigned _cap_all_start, _cap_all_order;
 
   s0_ParentProtocol(unsigned cap_start, unsigned cap_order, unsigned cap_all_start, unsigned cap_all_order)
-    : CapAllocator<s0_ParentProtocol>(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order) {}
+    : CapAllocator(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order) {}
 
   unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 

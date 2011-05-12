@@ -59,7 +59,7 @@ struct AdmissionProtocol : public GenericProtocol {
 
 
   unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para q, unsigned cpu, char const * name) {
-    CapAllocator<AdmissionProtocol> * obj = 0;
+    CapAllocator * obj = 0;
     return alloc_sc(utcb, idx_ec, q, cpu, obj, name);
   }
 

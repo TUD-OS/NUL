@@ -31,33 +31,23 @@ class InternalCapAllocator {
     void dealloc_cap(unsigned cap, unsigned count = 1);
 };
 
-template <class C>
 class CapAllocator : public InternalCapAllocator {
   public:
 
-  CapAllocator(unsigned long __cap_, unsigned long __cap_start, unsigned long __cap_order) {
-    _cap_      = __cap_;
-    _cap_start = __cap_start;
-    _cap_order = __cap_order;
-  }
+  unsigned long _cap_;
+  unsigned long _cap_start;
+  unsigned long _cap_order;
 
-  static unsigned long _cap_;
-  static unsigned long _cap_start;
-  static unsigned long _cap_order;
+  CapAllocator(unsigned long cap_, unsigned long cap_start, unsigned long cap_order)
+    : _cap_(cap_), _cap_start(cap_start), _cap_order(cap_order)
+  { }
 
-  static unsigned alloc_cap(unsigned count = 1) {
+  unsigned alloc_cap(unsigned count = 1) {
     assert(_cap_ < _cap_start + (1 << _cap_order) - 1);
     return Cpu::atomic_xadd(&_cap_, count);
   }
-  static void dealloc_cap(unsigned cap, unsigned count = 1) {
+  void dealloc_cap(unsigned cap, unsigned count = 1) {
     while (count--) { unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true); assert(res == NOVA_ESUCCESS); }
     // XXX add it back to the cap-allocator
   }
 };
-
-template <class C> 
-  unsigned long CapAllocator<C>::_cap_;
-template <class C> 
-  unsigned long CapAllocator<C>::_cap_start;
-template <class C> 
-  unsigned long CapAllocator<C>::_cap_order;

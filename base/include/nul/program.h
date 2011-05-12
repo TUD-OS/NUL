@@ -39,7 +39,7 @@ void dealloc_cap_region(unsigned base, unsigned count) { return _cap_region.add(
 /**
  * Contains common code for nova programms.
  */
-class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
+class NovaProgram : public BaseProgram, public CapAllocator
 {
   enum {
     VIRT_START       = 0x1000,
@@ -65,8 +65,9 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
    * Create an ec and setup the stack.
    */
   template <class C>
-  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned cap = alloc_cap())
+  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL)
   {
+    if (cap == ~0UL) cap = alloc_cap();
     unsigned stack_top = stack_size/sizeof(void *);
     Utcb *utcb = alloc_utcb();
     void **stack = new(stack_size) void *[stack_top];
@@ -104,8 +105,8 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
     }
 
     // add caps
-    assert(!CapAllocator<NovaProgram>::_cap_ && !CapAllocator<NovaProgram>::_cap_start);
-    CapAllocator<NovaProgram>::_cap_order = 16;
+    assert(!CapAllocator::_cap_ && !CapAllocator::_cap_start);
+    CapAllocator::_cap_order = 16;
     assert((1 << 16) < hip->cfg_cap);
     //more than 1 << 20 caps can't be expressed in a CRD currently - even if the hypervisor specifies more to support in cfg_cap
     _cap_region.add(Region(1 << 16, (hip->cfg_cap < (1 << 20) ? hip->cfg_cap : (1 << 20)) - (1 << 16)));
@@ -151,7 +152,7 @@ class NovaProgram : public BaseProgram, public CapAllocator<NovaProgram>
 
 
 public:
-  NovaProgram () : CapAllocator<NovaProgram>(0,0,0) {}
+  NovaProgram () : CapAllocator(0,0,0) {}
 
   /**
    * Default exit function.

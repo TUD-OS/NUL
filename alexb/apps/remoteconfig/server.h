@@ -32,7 +32,7 @@ typedef uint32 uint32_t;
 
 class ConfigProtocol;
 
-class Remcon : public CapAllocator<Remcon> {
+class Remcon : public CapAllocator {
   private:
 
     struct {
@@ -75,7 +75,7 @@ class Remcon : public CapAllocator<Remcon> {
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
            unsigned long cap_start, unsigned long cap_order) :
-      CapAllocator<Remcon>(cap_start, cap_start, cap_order),
+      CapAllocator(cap_start, cap_start, cap_order),
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig), cpu_count(_cpu_count)
     {
       _in  = reinterpret_cast<struct incoming_packet *>(buf_in);

@@ -158,7 +158,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_stdin) __attribute__((noreturn))
   {
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    KernelSemaphore *sem = new KernelSemaphore(tls->alloc_cap(), true);
     StdinConsumer *stdinconsumer = new StdinConsumer();
     assert(stdinconsumer);
     Sigma0Base::request_stdin(utcb, stdinconsumer, sem->sm());
@@ -211,7 +211,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    KernelSemaphore *sem = new KernelSemaphore(tls->alloc_cap(), true);
     DiskConsumer *diskconsumer = new DiskConsumer();
     assert(diskconsumer);
     Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm());
@@ -242,7 +242,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_network) __attribute__((noreturn))
   {
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    KernelSemaphore *sem = new KernelSemaphore(tls->alloc_cap(), true);
     NetworkConsumer *network_consumer = new NetworkConsumer();
     Sigma0Base::request_network_attach(utcb, network_consumer, sem->sm());
     while (1) {
@@ -266,7 +266,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_vnet) __attribute__((noreturn))
   {
-    unsigned sm = alloc_cap();
+    unsigned sm = tls->alloc_cap();
     if (nova_create_sm(sm)) Logging::panic("VNET semaphore creation failed.\n");
     Sigma0Base::request_vnet_attach(utcb, sm);
 

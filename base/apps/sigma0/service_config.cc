@@ -23,12 +23,12 @@
 #include "nul/region.h"
 #include "nul/capalloc.h"
 
-class Service_config : public CapAllocator<Service_config> {
+class Service_config : public CapAllocator {
   Motherboard &mb;
 
 public:
   Service_config(Motherboard &_mb, unsigned long capstart, unsigned long cap_order)
-    : CapAllocator<Service_config> (capstart, capstart, cap_order), mb(_mb) {}
+    : CapAllocator(capstart, capstart, cap_order), mb(_mb) {}
 
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 

@@ -26,7 +26,7 @@
  *
  * Missing: trace-buffer output on debug key
  */
-class Tracebuffer: public CapAllocator<Tracebuffer> {
+class Tracebuffer: public CapAllocator {
   unsigned long _size;
   unsigned long _pos;
   char        * _buf;
@@ -125,7 +125,7 @@ public:
 
 public:
   Tracebuffer(unsigned long size, char *buf, bool verbose, unsigned _cap, unsigned _cap_order, char * flag_revoke)
-    : CapAllocator<Tracebuffer> (_cap, _cap, _cap_order), _size(size), _pos(0), _buf(buf), _verbose(verbose), _flag_revoke(flag_revoke)  {
+    : CapAllocator(_cap, _cap, _cap_order), _size(size), _pos(0), _buf(buf), _verbose(verbose), _flag_revoke(flag_revoke)  {
   }
 
 

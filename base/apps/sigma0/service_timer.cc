@@ -35,7 +35,7 @@
  * Missing:  hold _abs_timeouts-list in ClientData, remove nr, remove count and LAST_TIMEOUT,
  *           split gethosttime, make device list configurable
  */
-class TimerService : public StaticReceiver<TimerService>, public CapAllocator<TimerService> {
+class TimerService : public StaticReceiver<TimerService>, public CapAllocator {
 
   struct ClientData : public GenericClientData {
     volatile unsigned reltime;
@@ -264,10 +264,7 @@ public:
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
   TimerService(Motherboard &hostmb, unsigned _cap, unsigned _cap_order, char * revoke_mem)
-    // XXX Using CapAllocator this way is broken. At each
-    // initialization its members are overwritten (since they are
-    // static), but every instance modifies them.
-    : CapAllocator<TimerService> (_cap, _cap, _cap_order), _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())), flag_revoke(revoke_mem) {
+    : CapAllocator(_cap, _cap, _cap_order), _hostmb(hostmb), _mymb(*new Motherboard(hostmb.clock(), hostmb.hip())), flag_revoke(revoke_mem) {
 
     MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
     if (!hostmb.bus_hostop.send(msg0))

@@ -156,7 +156,7 @@ public:
 
 class PerCpuTimerService : private BasicHpet,
                            public StaticReceiver<PerCpuTimerService>,
-                           public CapAllocator<PerCpuTimerService>
+                           public CapAllocator
 {
   Motherboard      &_mb;
   #include "host/simplehwioout.h"
@@ -871,7 +871,7 @@ public:
 
   PerCpuTimerService(Motherboard &mb, unsigned cap, unsigned cap_order,
            bool hpet_force_legacy, bool force_pit, unsigned pit_period_us)
-    : CapAllocator<PerCpuTimerService>(cap, cap, cap_order),
+    : CapAllocator(cap, cap, cap_order),
       _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
   {
     unsigned cpus = mb.hip()->cpu_count();
