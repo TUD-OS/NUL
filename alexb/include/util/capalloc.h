@@ -36,8 +36,8 @@ class CapAllocatorAtomic {
     /*
      * Get maximum number of bits represented by this field.
      */
-    inline unsigned idx_max() const { return sizeof(_bits) * BITS_PER_CHAR; }
-    inline unsigned bytes_max() const { return sizeof(_bits) / BYTES_PER_INT; }
+    unsigned idx_max()   const { return sizeof(_bits) * BITS_PER_CHAR; }
+    unsigned bytes_max() const { return sizeof(_bits) / BYTES_PER_INT; }
 
     unsigned internal_alloc_cap(unsigned count = 1, unsigned byte_start = 0) {
       assert(count == 1);
