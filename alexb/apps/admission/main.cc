@@ -386,6 +386,8 @@ public:
       if (!strcmp("verbose", args[i])) enable_verbose = true;
     }
 
+    enable_measure = enable_measure || enable_top;
+
     Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",
                     enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
                     enable_top ? "yes" : "no", enable_verbose ? "yes" : "no");
