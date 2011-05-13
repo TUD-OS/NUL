@@ -49,7 +49,7 @@ private:
       timevalue m_last1;
       timevalue m_last2;
       char name[32];
-    } scs[32];
+    } scs[64];
   };
 
   struct ClientData idle_scs; 
