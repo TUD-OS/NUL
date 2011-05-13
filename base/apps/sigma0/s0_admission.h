@@ -77,6 +77,8 @@ public:
   unsigned push_scs(Utcb &utcb, unsigned root_sc = ~0U, unsigned root_cpu = ~0U) {
     unsigned res, i;
 
+    _blocking = true; //enable blocking - early boot finished
+
     if (root_sc != ~0U) {
       assert(tmp && counter < tmp_size);
       assert(root_cpu != ~0U);
@@ -92,7 +94,7 @@ public:
     }
     delete [] tmp;
     tmp = 0; counter = 0;
-    _blocking = true; //enable blocking - early boot finished
+
     return ENONE;
   }
 
