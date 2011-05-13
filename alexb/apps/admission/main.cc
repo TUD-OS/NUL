@@ -23,13 +23,16 @@
 #include <nul/timer.h>
 #include <nul/service_timer.h>
 #include <service/math.h>
+#include <service/cmdline.h>
 
 #include <host/keyboard.h>
 
 #include "util/capalloc_partition.h"
 
+#define CONST_CAP_RANGE 16U
+
 namespace ab {
-class AdmissionService : public CapAllocatorAtomicPartition<0x10000U>, public NovaProgram, public ProgramConsole
+class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>, public NovaProgram, public ProgramConsole
 {
   static char * flag_revoke;
 
@@ -57,15 +60,21 @@ private:
 
   ALIGNED(8) ClientDataStorage<ClientData, AdmissionService> _storage;
 
+  bool enable_top;
+  bool enable_measure;
+  bool enable_log;
+  bool enable_verbose;
+
 public:
 
-  AdmissionService() : CapAllocatorAtomicPartition<0x10000U>(1), NovaProgram(), ProgramConsole() {}
+  AdmissionService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), NovaProgram(), ProgramConsole() {}
 
   void init_service(Hip * hip) {
-    unsigned long long base = alloc_cap_region(0x10000U, 12);
+    unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
     assert(base && !(base & 0xFFFULL));
     _divider  = hip->cpu_count();
     _cap_base = base;
+    enable_verbose = enable_top = enable_measure = enable_log = false;
   }
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
@@ -101,17 +110,20 @@ public:
         unsigned idx = input.received_cap();
         unsigned cap_session = 0;
 
+        if (enable_verbose && !idx) Logging::printf("  open - invalid cap recevied\n");
         if (!idx) return EPROTO;
 
         //check whether we have already a session with this client
         res = ParentProtocol::check_singleton(utcb, idx, cap_session);
         if (!res && cap_session)
         {
+         //XXX check whether pseudo is really invalid otherwise unnecessary to do that
           ClientData volatile *data = 0;
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
             if (data->identity == cap_session) {
               dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
+              if (enable_verbose) Logging::printf("  open - session rebind pseudo=%x->%x\n", data->pseudonym, idx);
               data->pseudonym = idx;
               utcb << Utcb::TypedMapCap(data->identity);
               free_cap = false;
@@ -122,6 +134,7 @@ public:
 
         ClientData *data = 0;
         res = _storage.alloc_client_data(utcb, data, idx, this);
+        if (enable_verbose && res) Logging::printf("  alloc_client - res %x\n", res);
         if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
         else if (res) return res;
         if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
@@ -130,7 +143,7 @@ public:
         assert(!res);
 
         free_cap = false;
-        //Logging::printf("----- created admission client 0x%x 0x%x\n", data->pseudonym, data->identity);
+        if (enable_verbose) Logging::printf("**** created admission client 0x%x 0x%x\n", data->pseudonym, data->identity);
         utcb << Utcb::TypedMapCap(data->identity);
         return res;
       }
@@ -216,7 +229,7 @@ public:
             }
             data->scs[i].idx = idx_sc;
           }
-          //Logging::printf("created sc - prio=%u quantum=%u cpu=%u\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu);
+          if (enable_verbose) Logging::printf("created sc - prio=%u quantum=%u cpu=%u\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu);
           return ENONE;
         }
         break;
@@ -269,7 +282,7 @@ public:
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
-        utcb_wo->head.crd_translate = Crd(_cap_base, 12, DESC_CAP_ALL).value();
+        utcb_wo->head.crd_translate = Crd(_cap_base, CONST_CAP_RANGE, DESC_CAP_ALL).value();
         utcb_pf->head.crd = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
@@ -284,6 +297,8 @@ public:
     }
 
   bool run_statistics(Utcb * utcb, Hip * hip) {
+    assert(enable_measure);
+
     Clock * _clock = new Clock(hip->freq_tsc);
     if (!_clock) return false;
 
@@ -295,7 +310,8 @@ public:
     KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
 
     StdinConsumer stdinconsumer;
-    Sigma0Base::request_stdin(utcb, &stdinconsumer, sem.sm());
+    if (enable_top)
+      Sigma0Base::request_stdin(utcb, &stdinconsumer, sem.sm());
 
     {
       ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, *utcb, this);
@@ -307,19 +323,21 @@ public:
     unsigned timeout = 2000; //2s
 
     while (true) {
-      while (stdinconsumer.has_data()) {
-        MessageInput *kmsg = stdinconsumer.get_buffer();
-        if (!(kmsg->data & KBFLAG_RELEASE)) {
-          bool _update = true;
-          if ((kmsg->data & 0x7f) == 77) { show = show == 2 ? 0 : 2; } //"p"
-          else if ((kmsg->data & 0x7f) == 44) show = 0; //"t"
-          else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) { if (show == 0 && client_num) client_num--; show = 0; }
-          else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 2) client_num++; show = 0; }
-          else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; }
-          else _update = false;
-          update = update ? update : _update;
+      if (enable_top) {
+        while (stdinconsumer.has_data()) {
+          MessageInput *kmsg = stdinconsumer.get_buffer();
+          if (!(kmsg->data & KBFLAG_RELEASE)) {
+            bool _update = true;
+            if ((kmsg->data & 0x7f) == 77) { show = show == 2 ? 0 : 2; } //"p"
+            else if ((kmsg->data & 0x7f) == 44) show = 0; //"t"
+            else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) { if (show == 0 && client_num) client_num--; show = 0; }
+            else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 2) client_num++; show = 0; }
+            else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; }
+            else _update = false;
+            update = update ? update : _update;
+          }
+          stdinconsumer.free_buffer();
         }
-        stdinconsumer.free_buffer();
       }
 
       {
@@ -328,7 +346,7 @@ public:
 
         if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) measure_scs(hip);
 
-        if (update || tcount) {
+        if (enable_top && (update || tcount)) {
           if (show == 0)
             top_dump_scs(*utcb, hip, client_num);
           else if (show == 1)
@@ -355,12 +373,25 @@ public:
     init_service(hip);
 
     console_init("admission service");
-    //_console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");
 
-    if (!run_statistics(utcb, hip))
+    char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    char *args[16];
+    unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+    for (unsigned i=1; i < argv; i++) {
+      if (!strcmp("top", args[i])) enable_top = true;
+      if (!strcmp("measure", args[i])) enable_measure = true;
+      if (!strcmp("log", args[i])) enable_log = true;
+      if (!strcmp("verbose", args[i])) enable_verbose = true;
+    }
+
+    Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",
+                    enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
+                    enable_top ? "yes" : "no", enable_verbose ? "yes" : "no");
+    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    if (enable_measure && !run_statistics(utcb, hip))
       Logging::printf("failure - running statistic loop\n");
 
     block_forever();
