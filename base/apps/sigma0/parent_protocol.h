@@ -400,7 +400,7 @@ public:
   unsigned create_threads(T * __sigma0) {
     for (unsigned cpunr = 0; cpunr < __sigma0->_numcpus; cpunr++) {
       Utcb *utcb = 0;
-      _percpu[cpunr].cap_ec_parent = __sigma0->create_ec_helper(this, cpunr, __sigma0->_percpu[cpunr].exc_base, &utcb);
+      _percpu[cpunr].cap_ec_parent = __sigma0->create_ec_helper(this, __sigma0->_cpunr[cpunr], __sigma0->_percpu[cpunr].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
       utcb->head.crd_translate = Crd(_cap_all_start, _cap_all_order, DESC_CAP_ALL).value();
 
