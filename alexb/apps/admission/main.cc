@@ -255,7 +255,7 @@ public:
 
       const char * service_name = "/admission";
       unsigned res;
-      unsigned exc_base_wo, exc_base_pf, pt_wo, pt_pf, num_cpus = 0;
+      unsigned exc_base_wo, exc_base_pf, pt_wo, pt_pf;
       unsigned service_cap = alloc_cap();
       Utcb *utcb_wo, *utcb_pf;
       
@@ -276,9 +276,9 @@ public:
         pt_wo       = alloc_cap();
         pt_pf       = exc_base_wo + 0xe;
 
-        unsigned cap_ec = create_ec_helper(this, num_cpus, exc_base_wo, &utcb_wo, 0, alloc_cap());
+        unsigned cap_ec = create_ec_helper(this, cpunr, exc_base_wo, &utcb_wo, 0, alloc_cap());
         if (!cap_ec) return false;
-        unsigned cap_pf = create_ec_helper(this, num_cpus, exc_base_pf, &utcb_pf, 0, alloc_cap());
+        unsigned cap_pf = create_ec_helper(this, cpunr, exc_base_pf, &utcb_pf, 0, alloc_cap());
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
@@ -288,9 +288,8 @@ public:
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
         res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
         if (res) return false;
-        res = ParentProtocol::register_service(*utcb, service_name, num_cpus, pt_wo, service_cap, flag_revoke);
+        res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_wo, service_cap, flag_revoke);
         if (res) return !res;
-        num_cpus ++;
       }
 
       return true;
