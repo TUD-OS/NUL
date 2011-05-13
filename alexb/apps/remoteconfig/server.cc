@@ -69,8 +69,6 @@ void Remcon::handle_packet(void) {
   _out->opcode  = Math::htons(op);
   _out->result  = NOVA_OP_FAILED;
   
- // Logging::printf("opcode %u\n", op);
-
   switch (op) {
     case NOVA_LIST_ACTIVE_DOMAINS:
       {
@@ -209,12 +207,14 @@ void Remcon::handle_packet(void) {
               }
 
               module = new(4096) char[fileinfo.size];
+              if (!module) goto cleanup;
+
               res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                          server_data[j].filename, server_data[j].filename_len);
               if (res != NOVA_ESUCCESS) goto cleanup;
 
               unsigned id;
-              res = service_config->start_config(*BaseProgram::myutcb(), module, id);
+              res = service_config->start_config(*BaseProgram::myutcb(), id, module, fileinfo.size);
               if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; }
 
               cleanup:

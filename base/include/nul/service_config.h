@@ -28,8 +28,8 @@ struct ConfigProtocol : public GenericProtocol {
     TYPE_KILL,
   };
 
-  unsigned start_config(Utcb &utcb, char const * config, unsigned &id) {
-    unsigned res = call_server(init_frame(utcb, TYPE_START_CONFIG) << Utcb::String(config), false);
+  unsigned start_config(Utcb &utcb, unsigned &id, char const * config, unsigned long len = ~0UL) {
+    unsigned res = call_server(init_frame(utcb, TYPE_START_CONFIG) << Utcb::String(config, len), false);
     utcb >> id;
     utcb.drop_frame();
     return res;

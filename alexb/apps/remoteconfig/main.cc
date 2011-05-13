@@ -36,7 +36,8 @@ enum {
   IP_IPADDR_DUMP  = 2,
   IP_TIMEOUT_NEXT = 3,
   IP_UDP_OPEN     = 4,
-  IP_TCP_OPEN     = 5
+  IP_TCP_OPEN     = 5,
+  IP_SET_ADDR     = 6
 };
 
 namespace ab {
