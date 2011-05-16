@@ -86,7 +86,7 @@ public:
 
     Logging::printf("request timer\n");
     Clock * clock = new Clock(hip->freq_tsc*1000);
-    TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     TimerProtocol::MessageTimer msg_ti(clock->abstime(0, 1000));
     if (_timer_service->timer(*utcb, msg_ti))
       Logging::panic("setting timeout failed\n");

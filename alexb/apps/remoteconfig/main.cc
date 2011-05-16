@@ -75,7 +75,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
 
-      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
+      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
 
@@ -113,10 +113,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
 
       //create server object
-      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_count()));
+      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
       unsigned cap_region = alloc_cap_region(1 << 14, 14);
       if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
-      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_count(),
+      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
                           cap_region, 14);
 
       struct {
@@ -164,7 +164,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     init_mem(hip);
 
     console_init("remote nova daemon");
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     Logging::printf("booting - NOVA management daemon ...\n");
 

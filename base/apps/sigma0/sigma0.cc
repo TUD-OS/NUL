@@ -310,7 +310,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // init services required or provided by sigma0
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
-    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()), admission, hip->cpu_count() + 16);
+    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), admission, hip->cpu_count() + 16);
   }
 
   /**
@@ -679,7 +679,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned long long msize, physaddr;
     char *addr;
 
-    FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_count()), fs_name);
+    FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), fs_name);
     FsProtocol::dirent fileinfo;
     if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("s0: File not found '%s'\n", file_name); res = __LINE__; goto fs_out; }
 
@@ -707,7 +707,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _free_phys.add(Region(physaddr, msize));
     }
   fs_out:
-    fs_obj.destroy(*utcb, _hip->cpu_count(), this);
+    fs_obj.destroy(*utcb, _hip->cpu_desc_count(), this);
 
     return res;
   }
@@ -845,18 +845,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       utcb->drop_frame();
 
       //allocate sc
-      unsigned cap_base = alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_count());
+      unsigned cap_base = alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count());
       AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
       res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
       if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, "main");
       if (!res) s_ad->set_name(*utcb, "x"); 
 
-      s_ad->close(*utcb, _hip->cpu_count(), true, false);
+      s_ad->close(*utcb, _hip->cpu_desc_count(), true, false);
       delete s_ad;
 
       unsigned char res = nova_revoke(Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, DESC_CAP_ALL), true); //revoke tmp child id
       assert(!res);
-      dealloc_cap(cap_base, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_count());
+      dealloc_cap(cap_base, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count());
     }
 
     _free_caps:

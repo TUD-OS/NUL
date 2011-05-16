@@ -72,7 +72,7 @@ public:
   void init_service(Hip * hip) {
     unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
     assert(base && !(base & 0xFFFULL));
-    _divider  = hip->cpu_count();
+    _divider  = hip->cpu_desc_count();
     _cap_base = base;
     enable_verbose = enable_top = enable_measure = enable_log = false;
   }
@@ -263,7 +263,7 @@ public:
       memset(&own_scs , 0, sizeof(idle_scs));
       memcpy(&own_scs.name, "admission", 9);
 
-      for (unsigned cpunr = 0; cpunr < hip->cpu_count(); cpunr++) {
+      for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
         Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + cpunr*hip->cpu_size);
         if (~cpu->flags & 1) continue;
 
@@ -301,7 +301,7 @@ public:
     Clock * _clock = new Clock(hip->freq_tsc);
     if (!_clock) return false;
 
-    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
     unsigned res = timer_service->timer(*utcb, msg);
     if (res) return false;
@@ -391,7 +391,7 @@ public:
     Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",
                     enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
                     enable_top ? "yes" : "no", enable_verbose ? "yes" : "no");
-    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     if (enable_measure && !run_statistics(utcb, hip))
       Logging::printf("failure - running statistic loop\n");
 

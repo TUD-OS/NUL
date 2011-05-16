@@ -58,7 +58,7 @@ class TestConfig : public NovaProgram, public ProgramConsole
 
       Logging::printf("cmdline %lx %s\n", strlen(config), config);
 
-      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_count()));
+      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
       unsigned id;
       return (!service_config->start_config(*utcb, id, config));
@@ -71,7 +71,7 @@ class TestConfig : public NovaProgram, public ProgramConsole
     init_mem(hip);
 
     console_init("Config test");
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     Logging::printf("Hello\n");
 

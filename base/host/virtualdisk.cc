@@ -99,7 +99,7 @@ PARAM(vdisk,
         return;
       }
 
-      unsigned cap_base = alloc_cap_region(FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_count(), 0);
+      unsigned cap_base = alloc_cap_region(FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count(), 0);
       FsProtocol::dirent fileinfo;
       FsProtocol fs_obj(cap_base, service_name);
       if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, filename)) {
@@ -111,8 +111,8 @@ PARAM(vdisk,
 
       unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                  filename);
-      fs_obj.close(*BaseProgram::myutcb(), mb.hip()->cpu_count());
-      dealloc_cap_region(cap_base, FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_count());
+      fs_obj.close(*BaseProgram::myutcb(), mb.hip()->cpu_desc_count());
+      dealloc_cap_region(cap_base, FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count());
 
       if (res) { Logging::printf("vdisk: Couldn't read file.\n"); delete module; return; }
 

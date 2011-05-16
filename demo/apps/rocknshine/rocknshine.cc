@@ -122,7 +122,7 @@ public:
       Logging::printf("Presentation is '%s' proto '%s'\n", name, proto);
 
       // Get the file
-      unsigned cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_count());
+      unsigned cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count());
       FsProtocol fs(cap_base, proto);
 
       if (ENONE != fs.get_file_info(*myutcb(), file_info, name))
@@ -138,7 +138,7 @@ public:
       if (ENONE != fs.get_file_copy(*myutcb(), pmem, size, name))
         Logging::panic("Failed to read file.");
 
-      fs.destroy(*myutcb(), hip->cpu_count(), this);
+      fs.destroy(*myutcb(), hip->cpu_desc_count(), this);
       break;
     }
     
