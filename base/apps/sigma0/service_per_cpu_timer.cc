@@ -903,6 +903,7 @@ public:
     unsigned part_cpu[cpus];
 
     size_t n = mb.hip()->cpu_desc_count();
+#warning XXX Topology::divide reports logical cpu numbers - not the physical ones understood by the kernel
     Topology::divide(mb.hip()->cpus(), n,
                      _usable_timers,
                      part_cpu,
