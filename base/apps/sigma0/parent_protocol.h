@@ -388,24 +388,27 @@ public:
 
   template <class T>
   unsigned create_pt_per_client(unsigned base, T * __sigma0) {
-    for (unsigned cpunr = 0; cpunr < __sigma0->_numcpus; cpunr++)
-      check1(3, nova_create_pt(base + ParentProtocol::CAP_PT_PERCPU + __sigma0->_cpunr[cpunr],
-               _percpu[__sigma0->_cpunr[cpunr]].cap_ec_parent,
+    for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
+      unsigned pcpu = __sigma0->_cpunr[lcpu];
+      check1(3, nova_create_pt(base + ParentProtocol::CAP_PT_PERCPU + pcpu,
+               _percpu[pcpu].cap_ec_parent,
 			         reinterpret_cast<unsigned long>(StaticPortalFunc<s0_ParentProtocol>::portal_func),
 			         0));
-      return 0;
+    }
+    return 0;
   }
 
   template <class T>
   unsigned create_threads(T * __sigma0) {
-    for (unsigned cpunr = 0; cpunr < __sigma0->_numcpus; cpunr++) {
+    for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
       Utcb *utcb = 0;
-      _percpu[cpunr].cap_ec_parent = __sigma0->create_ec_helper(this, __sigma0->_cpunr[cpunr], __sigma0->_percpu[cpunr].exc_base, &utcb);
+      unsigned pcpu = __sigma0->_cpunr[lcpu];
+      _percpu[pcpu].cap_ec_parent = __sigma0->create_ec_helper(this, pcpu, __sigma0->_percpu[lcpu].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
       utcb->head.crd_translate = Crd(_cap_all_start, _cap_all_order, DESC_CAP_ALL).value();
 
       // create parent portals
-      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + cpunr, _percpu[cpunr].cap_ec_parent,
+      check1(2, nova_create_pt(ParentProtocol::CAP_PT_PERCPU + pcpu, _percpu[pcpu].cap_ec_parent,
                                reinterpret_cast<unsigned long>(StaticPortalFunc<s0_ParentProtocol>::portal_func), 0));
     }
     return 0;
