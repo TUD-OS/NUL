@@ -65,7 +65,7 @@ class NovaProgram : public BaseProgram, public CapAllocator
    * Create an ec and setup the stack.
    */
   template <class C>
-  unsigned  create_ec_helper(C * tls, unsigned cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL)
+  unsigned  create_ec_helper(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL)
   {
     if (cap == ~0UL) cap = alloc_cap();
     unsigned stack_top = stack_size/sizeof(void *);

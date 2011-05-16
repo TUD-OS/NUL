@@ -19,6 +19,7 @@
 
 #include <sys/utcb.h>
 #include <sys/syscalls.h>
+#include <nul/types.h>
 
 /**
  * A simple program that allows to get the UTCB pointer from the stack.
@@ -47,7 +48,7 @@ struct BaseProgram {
   /**
    * Return my CPU number.
    */
-  static unsigned mycpu() { return myutcb()->head.nul_cpunr; }
+  static phy_cpu_no mycpu() { return myutcb()->head.nul_cpunr; }
 
   /**
    * add mappings to a UTCB.

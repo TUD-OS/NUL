@@ -184,8 +184,8 @@ class PerCpuTimerService : private BasicHpet,
     // How often has the timeout triggered?
     volatile unsigned count;
 
-    unsigned nr;
-    unsigned cpu;
+    unsigned   nr;
+    phy_cpu_no cpu;
 
     ClientData * volatile lifo_next;
   };
@@ -222,12 +222,12 @@ class PerCpuTimerService : private BasicHpet,
     unsigned    ack;            // what do we have to write to ack? (0 if nothing)
   };
 
-  PerCpu          *_per_cpu;
   KernelSemaphore  _xcpu_up;
+  PerCpu          *_per_cpu[Config::MAX_CPUS];
 
   uint32 assigned_irqs;
 
-  bool attach_timer_irq(DBus<MessageHostOp> &bus_hostop, Timer *timer, unsigned cpu)
+  bool attach_timer_irq(DBus<MessageHostOp> &bus_hostop, Timer *timer, phy_cpu_no cpu)
   {
     // Prefer MSIs. No sharing, no routing problems, always edge triggered.
     if (not (_reg->config & LEG_RT_CNF) and
@@ -238,8 +238,8 @@ class PerCpuTimerService : private BasicHpet,
       Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
                       timer->_no, msg1.msi_gsi, cpu, msg1.msi_address, msg1.msi_value);
 
-      _per_cpu[cpu].irq = msg1.msi_gsi;
-      _per_cpu[cpu].ack = 0;
+      _per_cpu[cpu]->irq = msg1.msi_gsi;
+      _per_cpu[cpu]->ack = 0;
 
       timer->_reg->msi[0]  = msg1.msi_value;
       timer->_reg->msi[1]  = msg1.msi_address;
@@ -262,11 +262,11 @@ class PerCpuTimerService : private BasicHpet,
       MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, irq, 1, cpu);
       if (not bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
 
-      _per_cpu[cpu].irq = irq;
-      _per_cpu[cpu].ack = (irq < 16) ? 0 : (1U << timer->_no);
+      _per_cpu[cpu]->irq = irq;
+      _per_cpu[cpu]->ack = (irq < 16) ? 0 : (1U << timer->_no);
 
       Logging::printf("TIMER: Timer %u -> IRQ %u (assigned %x ack %x).\n",
-                      timer->_no, irq, assigned_irqs, _per_cpu[cpu].ack);
+                      timer->_no, irq, assigned_irqs, _per_cpu[cpu]->ack);
 
 
       timer->_reg->config &= ~(0x1F << 9) | INT_TYPE_CNF;
@@ -418,7 +418,7 @@ class PerCpuTimerService : private BasicHpet,
     //Logging::printf("PT TLS %p UTCB %p %x: %08x %08x\n", this, u, u->head.mtr, u->msg[0], u->msg[1]);
 
     unsigned cpu     = u->head.nul_cpunr;
-    PerCpu  *per_cpu = &_per_cpu[cpu];
+    PerCpu  *per_cpu = _per_cpu[cpu];
 
     WorkerMessage m;
     // XXX *u >> m; ???
@@ -638,7 +638,7 @@ class PerCpuTimerService : private BasicHpet,
   }
 
   void start_thread(ServiceThreadFn fn,
-                    unsigned prio, unsigned cpu)
+                    unsigned prio, phy_cpu_no cpu)
   {
     MessageHostOp msg = MessageHostOp::alloc_service_thread(fn, this, "timer", prio, cpu);
     if (!_mb.bus_hostop.send(msg))
@@ -674,9 +674,9 @@ class PerCpuTimerService : private BasicHpet,
 
   void xcpu_wakeup_thread() NORETURN
   {
-    Utcb   *utcb = BaseProgram::myutcb();
-    unsigned cpu = BaseProgram::mycpu();
-    PerCpu * const our = &_per_cpu[cpu];
+    Utcb         *utcb = BaseProgram::myutcb();
+    phy_cpu_no     cpu = BaseProgram::mycpu();
+    PerCpu * const our = _per_cpu[cpu];
 
     if (_reg) {
       our->clock_sync.fetch(_reg->counter[0]);
@@ -720,13 +720,13 @@ public:
 
   bool receive(MessageIrq &msg)
   {
-    unsigned cpu = BaseProgram::mycpu();
-    if ((msg.type == MessageIrq::ASSERT_IRQ) && (_per_cpu[cpu].irq == msg.line)) {
+    phy_cpu_no cpu = BaseProgram::mycpu();
+    if ((msg.type == MessageIrq::ASSERT_IRQ) && (_per_cpu[cpu]->irq == msg.line)) {
 
       if (_reg) {
         // ACK the IRQ in non-MSI HPET mode.
-        if (_per_cpu[cpu].ack != 0)
-          _reg->isr = _per_cpu[cpu].ack;
+        if (_per_cpu[cpu]->ack != 0)
+          _reg->isr = _per_cpu[cpu]->ack;
       } else {
         // PIT mode. Increment our clock.
         while (not __sync_bool_compare_and_swap(&_pit_ticks, _pit_ticks, _pit_ticks+1))
@@ -741,7 +741,7 @@ public:
 
       *BaseProgram::myutcb() << m;
 
-      unsigned res = nova_call(_per_cpu[cpu].worker_pt);
+      unsigned res = nova_call(_per_cpu[cpu]->worker_pt);
       if (res != NOVA_ESUCCESS)
         Logging::printf("TIMER: CPU%u irq call fail %u\n", cpu, res);
 
@@ -759,8 +759,8 @@ public:
 
     check1(EPROTO, input.get_word(op));
 
-    unsigned cpu = BaseProgram::mycpu();
-    PerCpu * const our = &_per_cpu[cpu];
+    phy_cpu_no cpu = BaseProgram::mycpu();
+    PerCpu * const our = _per_cpu[cpu];
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
@@ -874,8 +874,15 @@ public:
     : CapAllocator(cap, cap, cap_order),
       _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
   {
-    unsigned cpus = mb.hip()->cpu_count();
-    _per_cpu = new(64) PerCpu[cpus];
+    // XXX Lots of pointless log->phy cpu index conversions...
+
+    log_cpu_no cpus = mb.hip()->cpu_count();
+    assert(cpus < Config::MAX_CPUS);
+
+    for (phy_cpu_no i = 0; i < mb.hip()->cpu_desc_count(); i++) {
+      const Hip_cpu &c = mb.hip()->cpus()[i];
+      _per_cpu[i] = c.enabled() ? (new(64) PerCpu) : NULL;
+    }
 
     if (force_pit or not hpet_init(hpet_force_legacy)) {
       _reg = NULL;
@@ -899,8 +906,8 @@ public:
     else
       _pit_ticks = initial_counter;
 
-    unsigned cpu_cpu[cpus];
-    unsigned part_cpu[cpus];
+    log_cpu_no cpu_cpu[cpus];
+    log_cpu_no part_cpu[cpus];
 
     size_t n = mb.hip()->cpu_desc_count();
 #warning XXX Topology::divide reports logical cpu numbers - not the physical ones understood by the kernel
@@ -910,17 +917,19 @@ public:
                      cpu_cpu);
 
     // Create remote slot mapping and initialize per cpu data structure
-    for (unsigned i = 0; i < cpus; i++) {
-      _per_cpu[i].frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
+    for (log_cpu_no i = 0; i < cpus; i++) {
+      phy_cpu_no pcpu = mb.hip()->cpu_physical(i);
+
+      _per_cpu[pcpu]->frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
 
       // Provide initial hpet counter to get high 32-bit right.
-      _per_cpu[i].clock_sync = ClockSyncInfo(0, initial_counter);
-      _per_cpu[i].abstimeouts.init();
-      _per_cpu[i].last_to = ~0ULL;
+      _per_cpu[pcpu]->clock_sync = ClockSyncInfo(0, initial_counter);
+      _per_cpu[pcpu]->abstimeouts.init();
+      _per_cpu[pcpu]->last_to = ~0ULL;
 
       // Create per CPU worker
-      MessageHostOp msg = MessageHostOp::alloc_service_portal(&_per_cpu[i].worker_pt,
-                                                              do_per_cpu_worker, this, Crd(0), i);
+      MessageHostOp msg = MessageHostOp::alloc_service_portal(&_per_cpu[pcpu]->worker_pt,
+                                                              do_per_cpu_worker, this, Crd(0), pcpu);
       if (!_mb.bus_hostop.send(msg))
         Logging::panic("%s worker creation failed", __func__);
     }
@@ -930,16 +939,16 @@ public:
     // its IRQ when it comes up.
 
     for (unsigned i = 0; i < _usable_timers; i++) {
-      unsigned cpu = part_cpu[i];
+      phy_cpu_no cpu = mb.hip()->cpu_physical(part_cpu[i]);
       Logging::printf("TIMER: CPU%u owns Timer%u.\n", cpu, i);
 
-      _per_cpu[cpu].has_timer = true;
+      _per_cpu[cpu]->has_timer = true;
       if (_reg)
-        _per_cpu[cpu].timer = &_timer[i];
+        _per_cpu[cpu]->timer = &_timer[i];
 
       // We allocate a couple of unused slots if there is an odd
       // combination of CPU count and usable timers. Who cares.
-      _per_cpu[cpu].slots = new RemoteSlot[mb.hip()->cpu_count() / _usable_timers];
+      _per_cpu[cpu]->slots = new RemoteSlot[mb.hip()->cpu_count() / _usable_timers];
 
       // Attach to IRQ
       if (_reg)
@@ -948,40 +957,41 @@ public:
         // Attach to PIT instead.
         MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, PIT_IRQ, 1, cpu);
         if (not mb.bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
-        _per_cpu[cpu].irq = PIT_IRQ;
+        _per_cpu[cpu]->irq = PIT_IRQ;
       }
     }
 
     _xcpu_up = KernelSemaphore(alloc_cap(), true);
-    for (unsigned i = 0; i < cpus; i++)
+    for (log_cpu_no i = 0; i < cpus; i++)
       // Create wakeup semaphores
-      _per_cpu[i].xcpu_sm   = KernelSemaphore(alloc_cap(), true);
+      _per_cpu[mb.hip()->cpu_physical(i)]->xcpu_sm = KernelSemaphore(alloc_cap(), true);
 
-    for (unsigned i = 0; i < cpus; i++) {
-      if (not _per_cpu[i].has_timer) {
-        PerCpu &remote = _per_cpu[cpu_cpu[i]];
+    for (log_cpu_no i = 0; i < cpus; i++) {
+      phy_cpu_no cpu = mb.hip()->cpu_physical(i);
+      if (not _per_cpu[cpu]->has_timer) {
+        PerCpu &remote = *_per_cpu[mb.hip()->cpu_physical(cpu_cpu[i])];
 
-        _per_cpu[i].remote_sm   = remote.xcpu_sm;
-        _per_cpu[i].remote_slot = &remote.slots[remote.slot_count];
+        _per_cpu[cpu]->remote_sm   = remote.xcpu_sm;
+        _per_cpu[cpu]->remote_slot = &remote.slots[remote.slot_count];
 
         // Fake a ClientData for this CPU.
-        _per_cpu[i].remote_slot->data.identity   = _per_cpu[i].xcpu_sm.sm();
-        _per_cpu[i].remote_slot->data.abstimeout = 0;
-        _per_cpu[i].remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[i].remote_slot->data);
+        _per_cpu[cpu]->remote_slot->data.identity   = _per_cpu[cpu]->xcpu_sm.sm();
+        _per_cpu[cpu]->remote_slot->data.abstimeout = 0;
+        _per_cpu[cpu]->remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[cpu]->remote_slot->data);
 
         Logging::printf("TIMER: CPU%u maps to CPU%u slot %u.\n",
-                        i, cpu_cpu[i], remote.slot_count);
+                        i, mb.hip()->cpu_physical(cpu_cpu[i]), remote.slot_count);
 
         remote.slot_count ++;
       }
     }
 
-    for (unsigned i = 0; i < cpus; i++)
+    for (log_cpu_no i = 0; i < cpus; i++)
       // Create wakeup thread
-      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, i);
+      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, mb.hip()->cpu_physical(i));
 
     Logging::printf("TIMER: Waiting for XCPU threads to come up.\n");
-    for (unsigned i = 0; i < cpus; i++)
+    for (log_cpu_no i = 0; i < cpus; i++)
       _xcpu_up.down();
 
     mb.bus_hostirq.add(this, receive_static<MessageIrq>);

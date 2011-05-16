@@ -49,4 +49,10 @@ typedef signed int       int32;
 typedef signed short     int16;
 typedef signed char      int8;
 
+/* NUL specific types */
+
+typedef unsigned log_cpu_no;
+typedef unsigned phy_cpu_no;
+typedef mword    cap_idx;
+
 /* EOF */

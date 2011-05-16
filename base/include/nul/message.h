@@ -455,7 +455,7 @@ struct MessageHostOp
       unsigned msi_gsi;
       unsigned msi_value;
       unsigned long long msi_address;
-      unsigned cpu;
+      phy_cpu_no cpu;
     };
     struct {
       unsigned long long mac;
@@ -467,14 +467,14 @@ struct MessageHostOp
       ServiceThreadFn work;
       void *work_arg;
       unsigned prio;
-      unsigned cpu;
+      phy_cpu_no cpu;
       char const * name;
     } _alloc_service_thread;
     struct {
       ServicePortalFn pt;
       void           *pt_arg;
       unsigned        crd;
-      unsigned        cpu;
+      phy_cpu_no      cpu;
       unsigned       *pt_out;
     } _alloc_service_portal;
 
@@ -482,7 +482,7 @@ struct MessageHostOp
 
   static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg,
                                             char const * name = 0,
-                                            unsigned prio = ~0U, unsigned cpu = ~0U)
+                                            unsigned prio = ~0U, phy_cpu_no cpu = ~0U)
   {
     MessageHostOp n(OP_ALLOC_SERVICE_THREAD, 0UL);
     n._alloc_service_thread.work = work; n._alloc_service_thread.work_arg = arg;
@@ -491,7 +491,7 @@ struct MessageHostOp
     return n;
   }
 
-  static MessageHostOp alloc_service_portal(unsigned *pt_out, ServicePortalFn pt, void *pt_arg, Crd crd, unsigned cpu = ~0U)
+  static MessageHostOp alloc_service_portal(unsigned *pt_out, ServicePortalFn pt, void *pt_arg, Crd crd, phy_cpu_no cpu = ~0U)
   {
     MessageHostOp n(OP_ALLOC_SERVICE_PORTAL, 0UL);
     n._alloc_service_portal.pt  = pt;  n._alloc_service_portal.pt_arg = pt_arg;

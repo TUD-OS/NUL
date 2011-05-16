@@ -19,8 +19,8 @@ public:
          // OUT: Number of CPUs in mappings
          unsigned &parts,     // IN: Desired parts
          // OUT: Actual parts (<= n)
-         unsigned part_cpu[], // Part -> responsible CPU mapping
-         unsigned cpu_cpu[]   // CPU -> responsible CPU mapping
+         log_cpu_no part_cpu[], // Part -> responsible CPU mapping
+         log_cpu_no cpu_cpu[]   // CPU -> responsible CPU mapping
          )
   {
     Hip_cpu local[n];
@@ -28,7 +28,7 @@ public:
     // Copy CPU descriptors into consecutive list.
     unsigned cpus = 0;
     for (unsigned i = 0; i < n; i++) {
-      if (top[i].flags & 1 /* Enabled? */) {
+      if (top[i].enabled()) {
         local[cpus] = top[i];
         local[cpus].reserved = cpus; // Logical CPU number
         cpus++;
@@ -47,7 +47,7 @@ public:
     // Divide list into parts. Update mappings.
     unsigned cpus_per_part = n / parts;
     unsigned cpus_rest     = n % parts;
-    unsigned cur_cpu       = 0;
+    log_cpu_no cur_cpu     = 0;
     for (unsigned i = 0; i < parts; i++) {
       unsigned cpus_to_spend = cpus_per_part;
       if (cpus_rest) { cpus_to_spend++; cpus_rest--; }

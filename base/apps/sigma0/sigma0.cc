@@ -89,9 +89,9 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sigma0>
 {
   // a mapping from virtual cpus to the physical numbers
-  unsigned  _cpunr[MAXCPUS];
-  unsigned  _numcpus;
-  unsigned  _last_affinity;
+  phy_cpu_no _cpunr[MAXCPUS];
+  unsigned   _numcpus;
+  unsigned   _last_affinity;
 
   // data per physical CPU number
   struct {
@@ -211,7 +211,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, unsigned cpunr)
+  bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, phy_cpu_no cpunr)
   {
     char name[16];
     Vprintf::snprintf(name, sizeof(name), "irq %u", gsi);
@@ -226,7 +226,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name) == NOVA_ESUCCESS);
   }
 
-  unsigned attach_msi(MessageHostOp *msg, unsigned cpunr) {
+  unsigned attach_msi(MessageHostOp *msg, phy_cpu_no cpunr) {
     //XXX if attach failed msivector should be reused!
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
@@ -375,11 +375,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
-  unsigned create_worker_threads(Hip *hip, int cpunr) {
-    for (int i = 0; i < (hip->mem_offs - hip->cpu_offs) / hip->cpu_size; i++) {
-
-      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + i*hip->cpu_size);
-      if (~cpu->flags & 1 || (cpunr != -1 && i != cpunr)) continue;
+  unsigned create_worker_threads(Hip *hip, phy_cpu_no cpunr) {
+    for (unsigned i = 0; i < hip->cpu_desc_count(); i++) {
+      Hip_cpu const *cpu = &hip->cpus()[i];
+      if (not cpu->enabled() or (cpunr != ~0U && i != cpunr)) continue;
       Logging::printf("s0: cpu[%x]: %x:%x:%x\n", i, cpu->package, cpu->core, cpu->thread);
       // have we created it already?
       if (_percpu[i].cap_ec_echo)  continue;

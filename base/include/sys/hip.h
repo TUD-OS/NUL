@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <nul/types.h>
+
 class Hip_cpu
 {
     public:
@@ -27,6 +29,8 @@ class Hip_cpu
         unsigned char  core;
         unsigned char  package;
         unsigned  reserved;
+
+        bool enabled() const { return (flags & 1) != 0; }
 };
 
 class Hip_mem
@@ -100,20 +104,23 @@ class Hip
 	  unsigned cpucnt = 0;
 	  for (unsigned i=0; i < cpu_desc_count(); i++) {
 	    Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
-	    if (~cpu->flags & 1) continue;
+	    if (not cpu->enabled()) continue;
 	    cpucnt++;
 	  }
 	  return cpucnt;
 	}
 
-	Hip_cpu *cpus() { return reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs); }
+	Hip_cpu const *cpus() const {
+          //assert(cpu_size == sizeof(Hip_cpu));
+          return reinterpret_cast<Hip_cpu const *>(reinterpret_cast<char const *>(this) + cpu_offs);
+        }
 
 	// Maps a logical CPU number to an index into the Hip_cpu array.
-	unsigned cpu_physical (unsigned logical) {
+	phy_cpu_no cpu_physical (log_cpu_no logical) {
 	  logical %= cpu_count();
 	  for (unsigned i=0; i < cpu_desc_count(); i++) {
 	    Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
-	    if (~cpu->flags & 1) continue;
+	    if (not cpu->enabled()) continue;
 	    if (!logical--) return i;
 	  }
 	  return 0;
