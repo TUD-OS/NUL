@@ -223,7 +223,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     u->msg[1] =  gsi | (unlocked ? 0x200 : 0x0);
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SYSTEM); //XXX special handling here to get it to prio 4, get rid of that
 
-    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name) == NOVA_ESUCCESS);
+    return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpunr, this, name) == NOVA_ESUCCESS);
   }
 
   unsigned attach_msi(MessageHostOp *msg, phy_cpu_no cpunr) {
