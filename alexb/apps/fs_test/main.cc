@@ -114,7 +114,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       //service part - end
 
       //client part
-      FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_count()), "fs/dummy");
+      FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), "fs/dummy");
 
       FsProtocol::dirent fileinfo;
       res = fs->get_file_info(*utcb, fileinfo, "myfile");
@@ -126,7 +126,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       revoke_all_mem(text, 0x1000, DESC_MEM_ALL, false);
       if (res) return false;
       Logging::printf("received '%s'\n", text);
-      fs->destroy(*utcb, hip->cpu_count(), this);
+      fs->destroy(*utcb, hip->cpu_desc_count(), this);
       return true;
     }
 
