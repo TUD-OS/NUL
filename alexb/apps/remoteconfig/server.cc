@@ -196,7 +196,8 @@ void Remcon::handle_packet(void) {
 
               unsigned res;
               char * module = 0;
-              unsigned cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + cpu_count);
+              unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
+              unsigned cap_base = alloc_cap(portal_num);
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
               if (res = fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo,
@@ -220,7 +221,7 @@ void Remcon::handle_packet(void) {
               cleanup:
 
               if (module) delete [] module;
-              fs_obj.destroy(*BaseProgram::myutcb(), cpu_count, this);
+              fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
               if (res != NOVA_ESUCCESS) {
                 server_data[j].active = 0;
