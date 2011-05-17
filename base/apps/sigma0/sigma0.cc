@@ -787,13 +787,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     modhip->fix_checksum();
     assert(_hip->length > modhip->length);
 
-    // fix the BSP flag in the client HIP
-    assert(modhip->cpus()[modinfo->cpunr].enabled());
-    for (unsigned i=0; i < static_cast<unsigned>(modhip->mem_offs - modhip->cpu_offs) / modhip->cpu_size; i++) {
-      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(modhip) + _hip->cpu_offs + i*modhip->cpu_size);
-      if (modinfo->cpunr == i)  cpu->flags |= 2; else  cpu->flags &= ~2;
-    }
-
     // create special portal for every module
     pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
@@ -1072,9 +1065,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  assert(modinfo);
 	  // Logging::printf("s0: [%2u] eip %lx mem %p size %lx\n",
 	  // 		  modinfo->id, modinfo->rip, modinfo->mem, modinfo->physsize);
+
+          utcb->eax = modinfo->cpunr;
+          utcb->ecx = utcb->edx = utcb->ebx = 0;
 	  utcb->eip = modinfo->rip;
 	  utcb->esp = CLIENT_HIP;
-	  utcb->mtd = MTD_RIP_LEN | MTD_RSP;
+	  utcb->mtd = MTD_RIP_LEN | MTD_RSP | MTD_GPR_ACDB;
 	  )
 
   PT_FUNC(do_request,
@@ -1868,7 +1864,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-  void  __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
+  void run(Utcb *utcb, Hip *hip) NORETURN
   {
     unsigned res;
 
@@ -1902,7 +1898,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     block_forever();
   }
 
-  static void start(Hip *hip, Utcb *utcb) asm ("start") __attribute__((noreturn));
+  static void start(phy_cpu_no cpu, Hip *hip, Utcb *utcb) asm ("start") REGPARM(3) NORETURN;
   Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
@@ -1925,12 +1921,13 @@ char * s0_ParentProtocol::get_client_memory(unsigned identity, unsigned client_m
   else return mem_revoke;
 }
 
-void Sigma0::start(Hip *hip, Utcb *utcb) {
+void Sigma0::start(phy_cpu_no cpu, Hip *hip, Utcb *utcb) {
   extern unsigned __nova_api_version;
   assert(hip->api_ver == __nova_api_version);
   assert(hip->cfg_exc + 0 ==  NOVA_DEFAULT_PD_CAP);
   static Sigma0 s0;
   sigma0 = &s0;
+  utcb->head.nul_cpunr = cpu;
   s0.run(utcb, hip);
 }
 
