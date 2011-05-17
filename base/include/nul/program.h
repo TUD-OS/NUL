@@ -27,7 +27,7 @@
 
 #include <nul/capalloc.h>
 
-extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
+extern "C" void NORETURN REGPARM(1) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
 
 // cap map - maintains the list of free capability regions
@@ -160,12 +160,12 @@ public:
  * Unfortunately this can not be a template.
  */
 #define ASMFUNCS(X, Y)							\
-  extern "C" void start(phy_cpu_no cpu, Hip *hip, Utcb *utcb) REGPARM(3) NORETURN; \
-  void start(phy_cpu_no cpu, Hip *hip, Utcb *utcb)                      \
+  extern "C" void start(phy_cpu_no cpu, Utcb *utcb) REGPARM(3) NORETURN; \
+  void start(phy_cpu_no cpu, Utcb *utcb)                                \
   {									\
     static X x;								\
     utcb->head.nul_cpunr = cpu;                                         \
-    x.run(utcb, hip);                                                   \
+    x.run(utcb, &Global::hip);                                          \
     do_exit("run returned");						\
   }									\
   void do_exit(const char *msg)						\

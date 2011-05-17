@@ -8,13 +8,17 @@
 
 __start:
         ## EAX contains our CPU number (first parameter to start)
-        mov     $stack, %edx
-        xchg	%edx,   %esp
-        lea     -0x1000(%edx), %ecx
-        push    %ecx            # push UTCB -- needed for myutcb()
+        mov     %esp,   global_hip
+        lea     -0x1000(%esp), %edx
+        mov     $stack, %esp
+        push    %edx            # push UTCB -- needed for myutcb()
         sub     $12, %esp       # alignment
         call	start
         ud2a
+
+        .global global_hip
+        .section .bss.hip
+global_hip: .space 4
 
 
         .section .bss.stack

@@ -21,6 +21,11 @@
 #include <sys/syscalls.h>
 #include <nul/types.h>
 
+namespace Global {
+  extern Hip &hip asm ("global_hip");
+};
+
+
 /**
  * A simple program that allows to get the UTCB pointer from the stack.
  */

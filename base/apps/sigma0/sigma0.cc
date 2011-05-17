@@ -1898,7 +1898,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     block_forever();
   }
 
-  static void start(phy_cpu_no cpu, Hip *hip, Utcb *utcb) asm ("start") REGPARM(3) NORETURN;
+  static void start(phy_cpu_no cpu, Utcb *utcb) asm ("start") REGPARM(3) NORETURN;
   Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
 
@@ -1921,14 +1921,14 @@ char * s0_ParentProtocol::get_client_memory(unsigned identity, unsigned client_m
   else return mem_revoke;
 }
 
-void Sigma0::start(phy_cpu_no cpu, Hip *hip, Utcb *utcb) {
+void Sigma0::start(phy_cpu_no cpu, Utcb *utcb) {
   extern unsigned __nova_api_version;
-  assert(hip->api_ver == __nova_api_version);
-  assert(hip->cfg_exc + 0 ==  NOVA_DEFAULT_PD_CAP);
+  assert(Global::hip.api_ver == __nova_api_version);
+  assert(Global::hip.cfg_exc + 0 ==  NOVA_DEFAULT_PD_CAP);
   static Sigma0 s0;
   sigma0 = &s0;
   utcb->head.nul_cpunr = cpu;
-  s0.run(utcb, hip);
+  s0.run(utcb, &Global::hip);
 }
 
 
