@@ -706,7 +706,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _free_phys.add(Region(physaddr, msize));
     }
   fs_out:
-    fs_obj.destroy(*utcb, _hip->cpu_desc_count(), this);
+    fs_obj.destroy(*utcb, FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), this);
 
     return res;
   }
@@ -851,7 +851,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, "main");
       if (!res) s_ad->set_name(*utcb, "x"); 
 
-      s_ad->close(*utcb, _hip->cpu_desc_count(), true, false);
+      s_ad->close(*utcb, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), true, false);
       delete s_ad;
 
       unsigned char res = nova_revoke(Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, DESC_CAP_ALL), true); //revoke tmp child id
