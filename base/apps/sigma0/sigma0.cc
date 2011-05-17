@@ -788,6 +788,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     assert(_hip->length > modhip->length);
 
     // fix the BSP flag in the client HIP
+    assert(modhip->cpus()[modinfo->cpunr].enabled());
     for (unsigned i=0; i < static_cast<unsigned>(modhip->mem_offs - modhip->cpu_offs) / modhip->cpu_size; i++) {
       Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(modhip) + _hip->cpu_offs + i*modhip->cpu_size);
       if (modinfo->cpunr == i)  cpu->flags |= 2; else  cpu->flags &= ~2;

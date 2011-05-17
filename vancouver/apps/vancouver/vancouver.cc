@@ -312,13 +312,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
 
-    service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
     unsigned res;
     if ((res = service_timer->timer(*utcb, msg)))
       Logging::panic("Timer service unreachable (error: %x).\n", res);
 
-    service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
 
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
@@ -586,7 +586,8 @@ public:
         {
           char *args = reinterpret_cast<char *>(_hip->get_mod(0)->aux);
           char *end, *s, *cmdline = args;
-          unsigned cmdlen, file_namelen, cap_base, num = msg.module, cpu_count = _mb->hip()->cpu_count();
+          unsigned cmdlen, file_namelen, cap_base, num = msg.module;
+          unsigned portal_num = FsProtocol::CAP_SERVER_PT + _mb->hip()->cpu_desc_count();
           char const * file_name;
           FsProtocol::dirent fileinfo;
           size_t proto_len;
@@ -613,12 +614,12 @@ public:
           //(re)use fs session
           if (fs_obj) {
             if (strcmp(fs_name, fs_tmp)) {
-              fs_obj->close(*myutcb(), cpu_count, false);
+              fs_obj->close(*myutcb(), portal_num, false);
               memcpy(fs_name, fs_tmp, sizeof(fs_name));
             }
           } else {
             memcpy(fs_name, fs_tmp, sizeof(fs_name));
-            fs_obj = new FsProtocol(cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + cpu_count), fs_name);
+            fs_obj = new FsProtocol(cap_base = alloc_cap(portal_num), fs_name);
             if (!fs_obj) goto failure;
           }
 
@@ -644,7 +645,7 @@ public:
           failure:
 
           if (fs_obj)  {
-            fs_obj->destroy(*myutcb(), cpu_count, this);
+            fs_obj->destroy(*myutcb(), portal_num, this);
             delete fs_obj;
             fs_obj = 0;
           }
@@ -807,7 +808,7 @@ public:
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
 
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);
