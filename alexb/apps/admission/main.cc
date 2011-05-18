@@ -264,8 +264,8 @@ public:
       memcpy(&own_scs.name, "admission", 9);
 
       for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
-        Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + cpunr*hip->cpu_size);
-        if (~cpu->flags & 1) continue;
+        Hip_cpu const *cpu = &hip->cpus()[cpunr];
+        if (not cpu->enabled()) continue;
 
         idle_scs.scs[cpunr].idx = 512 + cpunr;
         idle_scs.scs[cpunr].cpu = cpunr;

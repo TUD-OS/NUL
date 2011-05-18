@@ -2,4 +2,6 @@
 
 import nul
 Import('target_env')
+
+target_env.Object("startup.S")
 nul.Lib(target_env, 'service', SOURCES = Glob('*.cc'))

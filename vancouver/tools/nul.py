@@ -33,7 +33,7 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[],
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)
     return env.Link(output + '/apps/%s.nul' % name,
-                    SOURCES + OBJS,
+                    SOURCES + OBJS + ["#service/startup.o"],
                     linkscript = LINKSCRIPT)
 
 def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = []):

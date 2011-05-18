@@ -27,7 +27,7 @@
 
 #include <nul/capalloc.h>
 
-extern "C" void __attribute__((noreturn)) __attribute__((regparm(1))) idc_reply_and_wait_fast(unsigned long mtr);
+extern "C" void NORETURN REGPARM(1) idc_reply_and_wait_fast(unsigned long mtr);
 extern char __image_start, __image_end;
 
 // cap map - maintains the list of free capability regions
@@ -95,15 +95,6 @@ class NovaProgram : public BaseProgram, public CapAllocator
     check1(1, hip->calc_checksum());
     _hip = hip;
 
-    // search for the cpunr of the BSP.
-    for (int i=0; i < (_hip->mem_offs - _hip->cpu_offs) / _hip->cpu_size; i++) {
-      Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(_hip) + _hip->cpu_offs + i*_hip->cpu_size);
-      if ((cpu->flags & 3) == 3) {
-        myutcb()->head.nul_cpunr = i;
-        break;
-      }
-    }
-
     // add caps
     assert(!CapAllocator::_cap_ && !CapAllocator::_cap_start);
     CapAllocator::_cap_order = 16;
@@ -169,11 +160,12 @@ public:
  * Unfortunately this can not be a template.
  */
 #define ASMFUNCS(X, Y)							\
-  extern "C" void start(Hip *hip, Utcb *utcb) __attribute__((regparm(2))) __attribute__((noreturn)); \
-  void start(Hip *hip, Utcb *utcb)					\
+  extern "C" void start(phy_cpu_no cpu, Utcb *utcb) REGPARM(3) NORETURN; \
+  void start(phy_cpu_no cpu, Utcb *utcb)                                \
   {									\
     static X x;								\
-    x.run(utcb, hip);							\
+    utcb->head.nul_cpunr = cpu;                                         \
+    x.run(utcb, &Global::hip);                                          \
     do_exit("run returned");						\
   }									\
   void do_exit(const char *msg)						\
@@ -183,40 +175,4 @@ public:
       asm volatile ("ud2a" : : "a"(msg));				\
   }
 
-/**
- * The startup function and the initial stack.  Called with the HIP in
- * %esp and the UTCB a page below the HIP.
- */
-asm volatile (".global __start;"
-	      ".section .text.__start;"
-	      "__start:;"
-	      "mov	$stack, %eax;"
-	      "xchg	%eax, %esp;"
-	      "mov	%eax, %edx;"
-	      "sub	$0x1000, %edx;"
-              "push     %edx;"           // push UTCB -- needed for myutcb()
-              "push     $0;"
-	      "push	%edx;"           // push UTCB -- as function parameter
-	      "pushl	$0;"             // tls
-	      "call	start;"
-	      "ud2a;"
-	      ".section .bss.stack;"
-	      ".align 0x1000;"
-	      ".space 0x1000;"
-	      "stack:;"
-	      );
-
-/**
- * A fast reply to our client, called by a return to a portal
- * function.
- */
-asm volatile (".section .text.idc_reply_and_wait_fast;"
-	      ".global idc_reply_and_wait_fast;"
-	      "idc_reply_and_wait_fast:;"
-	      // w0: NOVA_IPC_REPLY
-	      "mov	$1, %al;"
-	      // keep a pointer to ourself on the stack
-	      // ecx: stack
-	      "lea	-4(%esp), %ecx;"
-	      "sysenter;"
-	      );
+// EOF

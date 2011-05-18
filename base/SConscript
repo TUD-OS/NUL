@@ -52,6 +52,7 @@ target_env = Environment()
 if ARGUMENTS.get('VERBOSE') != "1":
     target_env.Append(CCCOMSTR  = "\tCC  $TARGET", CXXCOMSTR  = "\tCXX $TARGET", LINKCOMSTR = "\tLNK $TARGET",
                       ASCOMSTR  = "\tAS  $TARGET", ARCOMSTR  = "\tAR  $TARGET", RANLIBCOMSTR  = "\tLIB $TARGET",
+                      ASPPCOMSTR = "\tASC $TARGET",
                       )
 
 if target_cc:
