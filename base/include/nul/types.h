@@ -53,6 +53,6 @@ typedef signed char      int8;
 
 typedef unsigned log_cpu_no;
 typedef unsigned phy_cpu_no;
-typedef mword    cap_idx;
+typedef unsigned cap_sel;       /* capability selector */
 
 /* EOF */
