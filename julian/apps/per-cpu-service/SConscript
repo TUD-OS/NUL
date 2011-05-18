@@ -1,0 +1,12 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'per-cpu-service',
+        SOURCES = [ 'per-cpu-service.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'])
+
+# EOF
