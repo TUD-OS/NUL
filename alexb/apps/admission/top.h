@@ -24,19 +24,20 @@
   void get_idle(Hip * hip) {
     cursor_pos = 0;
 
-    unsigned cpu_from = 0;
-    unsigned cpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = 0;
+    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
 
-    for (unsigned cpu = cpu_from; cpu < cpu_to; cpu++) {
+    for (log_cpu_no lcpu = lcpu_from; lcpu < lcpu_to; lcpu++) {
       timevalue time_con = 0;
       ClientData * data = &idle_scs;
+      phy_cpu_no pcpu = hip->cpu_physical(lcpu);
       for (unsigned i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-        if (!data->scs[i].idx || data->scs[i].cpu != cpu) continue;
+        if (!data->scs[i].idx || data->scs[i].cpu != pcpu) continue;
         time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
       }
 
       timevalue rest;
-      splitfloat(time_con, rest, cpu);
+      splitfloat(time_con, rest, pcpu);
       if (time_con >= 100)
         Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, " 100");
       else
@@ -74,12 +75,12 @@
     return ENONE;
   }
 
-  unsigned measure(ClientData volatile * data, unsigned cpu)
+  unsigned measure(ClientData volatile * data, phy_cpu_no pcpu)
   {
     unsigned i, res = ERESOURCE;
 
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-      if (!data->scs[i].idx || data->scs[i].cpu != cpu) continue;
+      if (!data->scs[i].idx || data->scs[i].cpu != pcpu) continue;
       res = ENONE;
 
       timevalue computetime;
@@ -87,10 +88,10 @@
       if (res != NOVA_ESUCCESS) return EPERM;
 
       timevalue diff        = computetime - data->scs[i].m_last1; //XXX handle wraparounds ...
-      global_sum[cpu]      += diff;
-      global_sum[cpu]      -= data->scs[i].m_last1 - data->scs[i].m_last2;
-      global_prio[cpu][data->scs[i].prio] += diff;
-      global_prio[cpu][data->scs[i].prio] -= data->scs[i].m_last1 - data->scs[i].m_last2;
+      global_sum[pcpu]      += diff;
+      global_sum[pcpu]      -= data->scs[i].m_last1 - data->scs[i].m_last2;
+      global_prio[pcpu][data->scs[i].prio] += diff;
+      global_prio[pcpu][data->scs[i].prio] -= data->scs[i].m_last1 - data->scs[i].m_last2;
       data->scs[i].m_last2  = data->scs[i].m_last1;
       data->scs[i].m_last1  = computetime;
     }
@@ -99,31 +100,32 @@
 
   void top_dump_prio(Hip * hip) {
     unsigned row = 1;
-    unsigned cpu_from = 0;
-    unsigned cpu_to   = 5U * hip->cpu_count() >= (WIDTH - 5) ? (WIDTH - 5) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = 0;
+    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 5) ? (WIDTH - 5) / 5U : hip->cpu_count();
 
     memset(_vga_console, 0, HEIGHT * WIDTH * VALUEWIDTH);
     _vga_regs.cursor_pos = 0;
     _vga_regs.offset = 0;
 
     cursor_pos = 4;
-    for (unsigned i= cpu_from; i < cpu_to; i++) {
-      Vprintf::printf(&_putc, _vga_console, "%4u", i);
+    for (unsigned i=lcpu_from; i < lcpu_to; i++) {
+      Vprintf::printf(&_putc, _vga_console, "%4u", hip->cpu_physical(i));
       cursor_pos -=1;
     }
 
     for (unsigned prio=255; prio < 256; prio--) {
-      unsigned cpu;
-      for (cpu=cpu_from; cpu < cpu_to; cpu++) {
-        if (global_prio[cpu][prio]) break;
+      log_cpu_no lcpu;
+      for (lcpu=lcpu_from; lcpu < lcpu_to; lcpu++) {
+        if (global_prio[hip->cpu_physical(lcpu)][prio]) break;
       }
-      if (cpu != cpu_to) {
+      if (lcpu != lcpu_to) {
         cursor_pos = 0;
         Vprintf::printf(&_putc, _vga_console + row * WIDTH * VALUEWIDTH, "%3u", prio);
         cursor_pos -= 1;
-        for (unsigned cpu=cpu_from; cpu < cpu_to; cpu++) {
-          timevalue rest, val = global_prio[cpu][prio];
-          splitfloat(val, rest, cpu);
+        for (log_cpu_no llcpu=lcpu_from; llcpu < lcpu_to; llcpu++) {
+          phy_cpu_no pcpu = hip->cpu_physical(llcpu);
+          timevalue rest, val = global_prio[pcpu][prio];
+          splitfloat(val, rest, pcpu);
           if (val >= 100)
             Vprintf::printf(&_putc, _vga_console + row * WIDTH * VALUEWIDTH, " 100");
           else
@@ -148,7 +150,11 @@
     idle_scs.next = _storage.next();
 
     do {
-      for (unsigned cpu=0; cpu < hip->cpu_count() ; cpu++) measure(data, cpu);
+      for (phy_cpu_no cpunr=0; cpunr < hip->cpu_desc_count(); cpunr++) {
+        Hip_cpu const *cpu = &hip->cpus()[cpunr];
+        if (not cpu->enabled()) continue;
+        measure(data, cpunr);
+      }
     } while (data = _storage.next(data));
   }
 
@@ -158,16 +164,18 @@
     _vga_regs.cursor_pos = 0;
     _vga_regs.offset = 0;
 
-    unsigned cpu_from = 0;
-    unsigned cpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = 0;
+    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
+    phy_cpu_no pcpu_from = hip->cpu_physical(lcpu_from);
+    phy_cpu_no pcpu_to   = hip->cpu_physical(lcpu_to - 1) + 1;
 
     cursor_pos = 0;
-    for (unsigned i=cpu_from; i < cpu_to; i++) {
-      Vprintf::printf(&_putc, _vga_console, "%4u", i);
+    for (unsigned i=lcpu_from; i < lcpu_to; i++) {
+      Vprintf::printf(&_putc, _vga_console, "%4u", hip->cpu_physical(i));
       cursor_pos -= 1;
     }
     memset(_vga_console + cursor_pos * 2, 0, 1);
-    cursor_pos = 5 * (1 + cpu_to - cpu_from);
+    cursor_pos = 5 * (1 + lcpu_to - lcpu_from);
     Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "idle");
     memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
     cursor_pos = 0;
@@ -184,7 +192,7 @@
 
       res = get_usage(utcb, client);
       if (client_count > 1) {
-        cursor_pos = 5 * (1 + cpu_to - cpu_from);
+        cursor_pos = 5 * (1 + lcpu_to - lcpu_from);
         Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
         memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
         if (res != ENONE) {
@@ -194,8 +202,16 @@
 
         unsigned i = 1;
         while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
-          if (cpu_from <= utcb.msg[i] && utcb.msg[i] < cpu_to) {
-            cursor_pos = utcb.msg[i] * 5;
+          //Logging::printf("pcpu_from %u <= utcb.msg[i] %u < pcu_to %u (logical %u - %u)\n", pcpu_from, utcb.msg[i], pcpu_to, lcpu_from, lcpu_to);
+          if (pcpu_from <= utcb.msg[i] && utcb.msg[i] < pcpu_to) {
+            cursor_pos = 0;
+            for (unsigned j=pcpu_from; j < pcpu_to; j++) { //physical -> logical cpu mapping
+              Hip_cpu const *cpu = &_hip->cpus()[j];
+              if (utcb.msg[i] == j) break;
+              if (not cpu->enabled()) continue;
+              cursor_pos += 5;
+            }
+            //cursor_pos = utcb.msg[i] * 5;
             if (utcb.msg[i+1] >= 100)
               Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, " 100 ");
             else
@@ -241,12 +257,12 @@
     }
   }
 
-  void splitfloat(timevalue &val, timevalue &rest, unsigned cpu) {
+  void splitfloat(timevalue &val, timevalue &rest, phy_cpu_no pcpu) {
     val = val * 1000;
-    if (val && global_sum[cpu]) Math::div64(val, global_sum[cpu]);
+    if (val && global_sum[pcpu]) Math::div64(val, global_sum[pcpu]);
     if (val < 1000) {
       timevalue util = val;
-      if (util && global_sum[cpu]) Math::div64(util, 10U);
+      if (util && global_sum[pcpu]) Math::div64(util, 10U);
       rest = val - util * 10;
       val  = util;
     } else {
