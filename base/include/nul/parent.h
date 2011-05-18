@@ -220,7 +220,7 @@ public:
   template <class T>
   void destroy(Utcb &utcb, unsigned portal_num, T * obj) {
     release_pseudonym(utcb, _cap_base + CAP_PSEUDONYM);
-    obj->dealloc_cap(_cap_base, CAP_SERVER_PT + portal_num);
+    obj->dealloc_cap(_cap_base, portal_num);
   }
 
   /**
