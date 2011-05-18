@@ -808,15 +808,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION) {
       utcb->add_frame();
       *utcb << Crd(0, 31, DESC_CAP_ALL);
-      for (unsigned sci=0; sci < _hip->cpu_count(); sci++) {
+      for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
+        Hip_cpu const *cpu = &_hip->cpus()[sci];
+        if (not cpu->enabled()) continue;
         Utcb::TypedMapCap(0 + sci).fill_words(utcb->msg + utcb->head.untyped, Crd(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, 0, MAP_HBIT).value());
         utcb->head.untyped += 2;
       }
 
       check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
 
-      for (unsigned sci=0; sci < _hip->cpu_count(); sci++) {
+      for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) { //sanity check that we really got the idle scs
         timevalue computetime;
+        Hip_cpu const *cpu = &_hip->cpus()[sci];
+        if (not cpu->enabled()) continue;
         unsigned char res = nova_ctl_sc(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, computetime);
         assert(res == NOVA_ESUCCESS);
       }
