@@ -50,25 +50,28 @@
   }
 
   unsigned get_usage(Utcb & utcb, ClientData * data) {
-    unsigned i, cpu;
+    unsigned i;
 
-    for (cpu=0; cpu < 32 ; cpu++) { //XXX CPU count
+    for (phy_cpu_no cpunr=0; cpunr < Global::hip.cpu_desc_count(); cpunr++) {
+      Hip_cpu const *cpu = &Global::hip.cpus()[cpunr];
+      if (not cpu->enabled()) continue;
+
       timevalue time_con = 0;
       bool avail = false;
 
       for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-        if (!data->scs[i].idx || data->scs[i].cpu != cpu) continue;
+        if (!data->scs[i].idx || data->scs[i].cpu != cpunr) continue;
         time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
         avail = true;
       }
       if (!avail) continue;
 
       timevalue rest;
-      splitfloat(time_con, rest, cpu);
+      splitfloat(time_con, rest, cpunr);
 
       unsigned _util = time_con;
       unsigned _rest = rest;
-      utcb << cpu << _util << _rest;
+      utcb << cpunr << _util << _rest;
     }
 
     utcb << ~0UL;
