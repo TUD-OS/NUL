@@ -122,13 +122,16 @@ WARN_UNUSED inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initi
 static inline unsigned char  nova_revoke(Crd crd, bool myself)
 {  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
-WARN_UNUSED inline Crd nova_lookup(void *address)
+inline Crd nova_lookup(Crd crd)
 {
-  unsigned res;
-  Crd crd(reinterpret_cast<unsigned long>(address) >> 12, 32-12, DESC_MEM_ALL);
-  if (nova_syscall(NOVA_LOOKUP, crd.value(), 0, 0, 0, &res))
-    return Crd(1, 0, 0);
+  unsigned res = 0;
+  nova_syscall(NOVA_LOOKUP, crd.value(), 0, 0, 0, &res);
   return Crd(res);
+}
+
+inline Crd nova_lookup(void *m)
+{
+  return nova_lookup(Crd(reinterpret_cast<mword>(m) >> 12, 32 - 12, DESC_MEM_ALL));
 }
 
 WARN_UNUSED inline unsigned char  nova_recall(unsigned idx_ec)
