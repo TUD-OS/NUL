@@ -50,18 +50,15 @@ public:
   ~NewClient() {
     assert(BaseProgram::myutcb() == &_utcb);
 
-    // XXX uh?! why is this not called in release_pseudonym? How does
-    // the normal client cause a TYPE_CLOSE message to be sent to the
-    // server?
+    // release_pseudonym does not CLOSE the session at the server. It
+    // would be garbage collected eventually, but we close it here
+    // explicitly.
     _utcb.add_frame()
       << ParentProtocol::TYPE_CLOSE << Utcb::TypedMapCap(_pseudonym);
     unsigned res = ParentProtocol::call(_utcb, _portal, true, false);
-    // XXX
     assert(res == ENONE);
 
-    // XXX Do we need this?
     res = ParentProtocol::release_pseudonym(_utcb, _pseudonym);
-    // XXX
     assert(res == ENONE);
 
     nova_revoke(Crd(_pseudonym, 0, DESC_CAP_ALL), true);
