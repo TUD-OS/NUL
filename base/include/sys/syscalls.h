@@ -119,7 +119,7 @@ WARN_UNUSED inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_e
 WARN_UNUSED inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, dstpd, initial, 0, 0); }
 
-WARN_UNUSED inline unsigned char  nova_revoke(Crd crd, bool myself)
+static inline unsigned char  nova_revoke(Crd crd, bool myself)
 {  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
 WARN_UNUSED inline Crd nova_lookup(void *address)
