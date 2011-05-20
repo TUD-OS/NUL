@@ -7,5 +7,7 @@ nul.App(target_env, 'sigma0',
         SOURCES = Glob('*.cc'),
         LIBS    = [ 'runtime', 'hostvesa', 'host', 'service'],
         LINKSCRIPT = 'linker.ld',
+        ROMFS   = [ '#bin/apps/admission.nul' ],
         MEMSIZE = 2<<12) # enough memory for two stacks - echo and worker thread running on boot cpu
+
 # EOF
