@@ -4,7 +4,14 @@
 #include <nul/baseprogram.h>
 #include <nul/parent.h>
 
-class NewClient {
+/// A simple per-cpu client. Constructing a CpuLocalClient implicitly
+/// creates a session to the given service. Sessions are not closed on
+/// object destruction, as it might interfere with modularity (see
+/// comments in ~CpuLocalClient). Subclasses of CpuLocalClient (and
+/// services) are expected to add another layer to multiplex multiple
+/// connections using the same pseudonym (i.e. running in the same
+/// PD).
+class CpuLocalClient {
 protected:
   Utcb           &_utcb;
   CapAllocator   *_cap_alloc;
@@ -22,7 +29,7 @@ public:
   }
 
   // Create session for the calling CPU.
-  NewClient(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true)
+  CpuLocalClient(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true)
     : _utcb(utcb), _cap_alloc(cap), _service(service)
 
   {
@@ -47,19 +54,21 @@ public:
   }
 
 
-  ~NewClient() {
+  ~CpuLocalClient() {
+    // unsigned res;
     assert(BaseProgram::myutcb() == &_utcb);
 
-    // release_pseudonym does not CLOSE the session at the server. It
-    // would be garbage collected eventually, but we close it here
-    // explicitly.
-    _utcb.add_frame()
-      << ParentProtocol::TYPE_CLOSE << Utcb::TypedMapCap(_pseudonym);
-    unsigned res = ParentProtocol::call(_utcb, _portal, true, false);
-    assert(res == ENONE);
+    // Closing the session explicitly would break other sessions to
+    // the same service (see below).
+    // _utcb.add_frame()
+    //   << ParentProtocol::TYPE_CLOSE << Utcb::TypedMapCap(_pseudonym);
+    // res = ParentProtocol::call(_utcb, _portal, true, false);
+    // assert(res == ENONE);
 
-    res = ParentProtocol::release_pseudonym(_utcb, _pseudonym);
-    assert(res == ENONE);
+    // We cannot destroy our pseudonym, because this would break other
+    // sessions using the same pseudonym (perhaps in libraries). 
+    // res = ParentProtocol::release_pseudonym(_utcb, _pseudonym);
+    // assert(res == ENONE);
 
     nova_revoke(Crd(_pseudonym, 0, DESC_CAP_ALL), true);
     nova_revoke(Crd(_portal, 0, DESC_CAP_ALL),    true);

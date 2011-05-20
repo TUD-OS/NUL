@@ -8,20 +8,53 @@
 #include "closure.h"
 #include "client.h"
 
-class PerCpuService : public NovaProgram, public ProgramConsole
-{
-  const static unsigned MAX_PER_CPU_SESSIONS = 0x1000;
-  
-  struct Session {
-    Session * volatile next;
 
-    phy_cpu_no cpu;
-    cap_sel    pt_identity;
-    cap_sel    pt;
-    Closure    closure;
+template<class T>
+class Queue {
+
+  T * volatile _head;
+
+public:
+
+  class ListElement {
+  public:
+    T * volatile next;
   };
 
-  Session * volatile free_sessions;
+  void enqueue(T *e) {
+    T *head;
+    do {
+      head     = _head;
+      e->next  = head;
+    } while (not __sync_bool_compare_and_swap(&_head, head, e));
+
+  }
+
+  T *dequeue() {
+    T *head;
+    do {
+      head = _head;
+      if (head == NULL) return NULL;
+    } while (not __sync_bool_compare_and_swap(&_head, head, head->next));
+    return head;
+  }
+
+  Queue() : _head(NULL) { }
+};
+
+class PerCpuService : public NovaProgram, public ProgramConsole
+{
+  struct Session : Queue<Session>::ListElement {
+    Session * volatile next;
+
+    cap_sel          sm_pseudonym;
+    const cap_sel    pt;
+    Closure          closure;
+
+    explicit Session(cap_sel pt) : pt(pt) { }
+  };
+
+  Queue<Session>     free_sessions;
 
   struct per_cpu {
     cap_sel ec_service;         // session life-cycle (open, close)
@@ -33,10 +66,10 @@ class PerCpuService : public NovaProgram, public ProgramConsole
     // Structure only modified in ec_service!
     Session *sessions;
 
-    Session *find_session(cap_sel pt_identity)
+    Session *find_session(cap_sel sm_pseudonym)
     {
       for (Session *c = sessions; c != NULL; c = c->next)
-        if (c->pt_identity == pt_identity) return c;
+        if (c->sm_pseudonym == sm_pseudonym) return c;
       return NULL;
     }
 
@@ -54,30 +87,17 @@ class PerCpuService : public NovaProgram, public ProgramConsole
 
   } _per_cpu[Config::MAX_CPUS];
 
-  Session *allocate_session_object(mword func)
+  Session *new_session(mword func)
   {
-  again:
-    Session *s = free_sessions;
-    if (s == NULL) goto more_memory;
-    if (not __sync_bool_compare_and_swap(&free_sessions, s, s->next))
-      goto again;
-    return s;
+    Session *s = free_sessions.dequeue();
+    if (s == NULL) {
+      Logging::printf("New session object allocated: %p\n", s);
+      s = new Session(alloc_cap());
+    }
 
-  more_memory:
-    s = new Session;
-    Logging::printf("New session object: %p\n", s);
-    s->pt = alloc_cap();
+    // Update closure
     s->closure.set(reinterpret_cast<mword>(s), func);
     return s;
-  }
-
-  void free_session_object(Session *s)
-  {
-    Session *head;
-    do {
-      head    = free_sessions;
-      s->next = head;
-    } while (not __sync_bool_compare_and_swap(&free_sessions, head, s));
   }
 
 public:
@@ -106,6 +126,48 @@ public:
     return EPROTO;
   }
 
+  void garbace_collect(per_cpu &local)
+  {
+    // This method can only run in ec_service. It modifies the session
+    // list while traversing it, which is no problem as there is no
+    // concurrency. Remember: Session list modifications only happen
+    // in ec_service.
+
+    for (Session *s = local.sessions; s != NULL; s = s->next) {
+      if (nova_lookup(Crd(s->sm_pseudonym, 0, DESC_CAP_ALL)).value() == 0) {
+        Logging::printf("Garbage collect session %p\n", s);
+        close_session(local, s);
+      }
+    }
+  }
+
+  void close_session(per_cpu &local, Session *s)
+  {
+    // This has to run in ec_service!
+
+    // Stop people from entering ec_client with this particular
+    // session object.
+    nova_revoke(Crd(s->pt, 0, DESC_CAP_ALL), true);
+    // Don't free the session cap selector. It is reused.
+
+    // We don't need the pseudonym anymore either.
+    nova_revoke(Crd(s->sm_pseudonym, 0, DESC_CAP_ALL), true);
+    dealloc_cap(s->sm_pseudonym);
+    
+
+    // Ensure that no one holds a pointer to the session object by
+    // helping everyone getting through it.
+    unsigned res = nova_call(local.pt_flush);
+    assert(res == NOVA_ESUCCESS);
+
+    // Now no one can use the session portal anymore and neither is
+    // anyone still executing in ec_client who could have a reference
+    // to the session object. Cleanup!
+    local.remove_session(s);
+    free_sessions.enqueue(s);
+    Logging::printf("Closed %p\n", s);
+  }
+
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
   {
     unsigned op;
@@ -117,12 +179,16 @@ public:
     switch (op) {
     case ParentProtocol::TYPE_OPEN: {
       Session *s = local.find_session(input.received_cap());;
+
       if (s) {
+        Logging::printf("REOPEN: %p\n", s);
         goto map_session;
       }
 
-      // New session
-      s = allocate_session_object(reinterpret_cast<mword>(&PerCpuService::client_func_s));
+      // Garbage collect everytime (we might want to change this)
+      garbace_collect(local);
+
+      s = new_session(reinterpret_cast<mword>(&PerCpuService::client_func_s));
       // pt and closure are already set in s
 
       res = nova_create_pt(s->pt, local.ec_client,
@@ -130,7 +196,7 @@ public:
       assert(res == NOVA_ESUCCESS);
 
       // No synchronization needed. Only modified in this EC
-      s->pt_identity = input.received_cap();
+      s->sm_pseudonym = input.received_cap();
       s->next = local.sessions;
       MEMORY_BARRIER;
       local.sessions = s;
@@ -142,13 +208,8 @@ public:
     case ParentProtocol::TYPE_CLOSE: {
       Session *s = local.find_session(input.received_cap());
       if (s == 0) return EPROTO;
-      assert(s->pt_identity == input.received_cap());
-      nova_revoke(Crd(s->pt, 0, DESC_CAP_ALL), true);
-      // Ensure that no one holds a pointer to the session object
-      res = nova_call(local.pt_flush);
-      assert(res == NOVA_ESUCCESS);
-      local.remove_session(s);
-      free_session_object(s);
+      assert(s->sm_pseudonym == input.received_cap());
+      close_session(local, s);
       return ENONE;
     }
     };
@@ -212,20 +273,21 @@ public:
     // Test
     {
       {
-        NewClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
+        CpuLocalClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
       }
 
-      uint64 start = Cpu::rdtsc();
-      for (unsigned i = 0; i < 0x1000; i++) {
-        NewClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
-      }
-      Logging::printf("open/close cycles %llu\n", (Cpu::rdtsc() - start) / 0x1000);
+      // uint64 start = Cpu::rdtsc();
+      // for (unsigned i = 0; i < 0x1000; i++) {
+      //   CpuLocalClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
+      // }
+      // Logging::printf("open/close cycles %llu\n", (Cpu::rdtsc() - start) / 0x1000);
     }
 
+    Logging::printf("Next...\n");
 
     {
       // Try to open a session:
-      NewClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
+      CpuLocalClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
       // Warmup
       c.call();
 
