@@ -19,9 +19,9 @@
 #pragma once
 #include "elf32.h"
 
-class Elf
+struct Elf
 {
-  static unsigned is_not_elf(struct eh32 *elf, unsigned long modsize)
+  static unsigned is_not_elf(const eh32 *elf, unsigned long modsize)
   {
     check1(1, modsize < sizeof(struct eh32));
     check1(2, modsize < elf->e_phoff + elf->e_phentsize *  elf->e_phnum);
