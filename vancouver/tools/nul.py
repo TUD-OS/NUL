@@ -28,13 +28,25 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[],
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[], ROMFS=[],
         LINKSCRIPT = "#service/linker.ld", MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)
-    return env.Link(output + '/apps/%s.nul' % name,
-                    SOURCES + OBJS + ["#service/startup.o"],
-                    linkscript = LINKSCRIPT)
+    if not ROMFS: 
+        return env.Link(output + '/apps/%s.nul' % name,
+                        SOURCES + OBJS + ["#service/startup.o"],
+                        linkscript = LINKSCRIPT)
+    else:
+        linked = env.Link(output + '/apps/%s.bare.nul' % name,
+                          SOURCES + OBJS + ["#service/startup.o"],
+                          linkscript = LINKSCRIPT)
+        rom_cmd = [ "cp ${TARGET}.tmp $TARGET"]
+        for i in range(len(ROMFS)):
+            # objcopy can deal with input and output being the same file
+            rom_cmd.append( "objcopy --add-section .boot.`basename ${SOURCES[%s]}`=${SOURCES[%s]} %s ${TARGET}"
+                            % (i+1, i+1, "$SOURCE" if i == 0 else "$TARGET" ))
+        return env.Command(output + '/apps/%s.nul' % name, [linked] + ROMFS,
+                           rom_cmd)
 
 def Lib(tenv, name, SOURCES = [], INCLUDE = [], LIBS = []):
     env = LibEnv(tenv, INCLUDE + LIBS + [ name ])
