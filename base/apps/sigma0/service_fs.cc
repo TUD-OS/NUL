@@ -22,6 +22,8 @@
 #include "nul/baseprogram.h"
 
 class Service_fs {
+protected:
+
   Hip * hip;
   unsigned _rights;
 
@@ -29,6 +31,8 @@ class Service_fs {
   static char * backup_page;
 
 public:
+  virtual bool get_file(char const * text, Hip_mem &out) = 0;
+
   Service_fs(Motherboard &mb, bool readonly = true )
     : hip(mb.hip()), _rights(readonly ? DESC_RIGHT_R : DESC_RIGHTS_ALL)
   {
@@ -36,24 +40,6 @@ public:
   }
 
   unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new ones"); }
-
-  Hip_mem * get_file(char const * text) {
-    Hip_mem *hmem;
-    unsigned len;
-
-    for (int i=0; hip->mem_size && i < (hip->length - hip->mem_offs) / hip->mem_size; i++)
-    {
-      hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs + i * hip->mem_size);
-      if (hmem->type != -2 || !hmem->size || !hmem->aux) continue;
-      char * virt_aux = reinterpret_cast<char *>(hmem->aux);
-      len = strcspn(virt_aux, " \t\r\n\f");
-//      if (len >= 10 && !strncmp(virt_aux + len - 10, ".nulconfig", 10)) continue; //skip configuration files for security/spying reasons
-      if (strcmp(virt_aux, text)) continue;
-      return hmem;
-    }
-
-    return 0;
-  }
 
   static void portal_pagefault(Service_fs *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
@@ -81,19 +67,23 @@ public:
     switch (op) {
     case FsProtocol::TYPE_GET_FILE_INFO:
       {
-        Hip_mem * hmem = get_file(input.get_zero_string(len));
-        check1(EPROTO, !hmem || !len);
-        utcb << hmem->size;
+        Hip_mem hmem;
+        if (get_file(input.get_zero_string(len), hmem)) {
+          utcb << hmem.size;
+        } else {
+          return EPROTO;
+        }
       }
       return ENONE;
     case FsProtocol::TYPE_GET_FILE_COPIED:
       {
-        Hip_mem * hmem = get_file(input.get_zero_string(len));
-        check1(EPROTO, !hmem || !len);
+        Hip_mem hmem;
+        if (not get_file(input.get_zero_string(len), hmem))
+          return EPROTO;
 
         unsigned long long foffset;
         check1(EPROTO, input.get_word(foffset));
-        check1(ERESOURCE, foffset > hmem->size);
+        check1(ERESOURCE, foffset > hmem.size);
 
         //XXX handle multiple map items !!!
         //input.dump_typed_items();
@@ -101,7 +91,7 @@ public:
         unsigned long addr = input.received_item();
         check1(EPROTO, !(addr >> 12));
 
-        unsigned long long csize = hmem->size - foffset;
+        unsigned long long csize = hmem.size - foffset;
         if (RECV_WINDOW_SIZE < csize) csize = RECV_WINDOW_SIZE;
         if ((1ULL << (12 + ((addr >> 7) & 0x1f))) < csize) csize = 1ULL << (12 + ((addr >> 7) & 0x1f));
 
@@ -111,7 +101,7 @@ public:
         unsigned long _addr = addr & ~0xffful;
         unsigned long long _size = csize;
         while (!utcb.head.crd_translate && _size && _size <= csize) {
-          memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem->addr + foffset), 0x1000); 
+          memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem.addr + foffset), 0x1000); 
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
         //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
@@ -129,16 +119,96 @@ public:
 
 };
 
+class Service_ModuleFs : public Service_fs {
+public:
+  bool get_file(char const * text, Hip_mem &out)
+  {
+    Hip_mem *hmem;
+    unsigned len;
+
+    for (int i=0; hip->mem_size && i < (hip->length - hip->mem_offs) / hip->mem_size; i++)
+      {
+        hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs + i * hip->mem_size);
+        if (hmem->type != -2 || !hmem->size || !hmem->aux) continue;
+        char * virt_aux = reinterpret_cast<char *>(hmem->aux);
+        len = strcspn(virt_aux, " \t\r\n\f");
+        //      if (len >= 10 && !strncmp(virt_aux + len - 10, ".nulconfig", 10)) continue; //skip configuration files for security/spying reasons
+        if (strcmp(virt_aux, text)) continue;
+
+        out = *hmem;
+        return true;
+      }
+
+    return false;
+  }
+public:
+  Service_ModuleFs(Motherboard &mb, bool readonly = true )
+    : Service_fs(mb, readonly)
+  {}
+};
+
+#include <service/elf.h>
+
+class Service_ElfFs : public Service_fs {
+  bool get_file(char const * text, Hip_mem &out)
+  {
+    const char *file = reinterpret_cast<char *>(hip->get_mod(0)->addr);
+    const eh32 *eh32 = reinterpret_cast<const struct eh32 *>(file);
+    assert(not Elf::is_not_elf(eh32, hip->get_mod(0)->size));
+    
+    if (eh32->e_shstrndx >= eh32->e_shnum)
+      // No string table
+      return NULL;
+
+    const sh32 *sh_strtab = reinterpret_cast<const struct sh32 *>(file + eh32->e_shoff + eh32->e_shentsize*eh32->e_shstrndx);
+    const char *strtab = reinterpret_cast<const char *>(file + sh_strtab->sh_offset);
+
+    // String table always begins with a zero byte.
+    assert(*strtab == 0);
+
+    for (unsigned i = 0; i < eh32->e_shnum; i++) {
+      const  sh32 *sh32 = reinterpret_cast<const struct sh32 *>(file + eh32->e_shoff +
+                                                                eh32->e_shentsize*i);
+      const char *name = strtab + sh32->sh_name;
+
+      if ((strncmp(".boot.", name, sizeof(".boot.") - 1) == 0) and
+          (strcmp(name + sizeof(".boot.") - 1, text) == 0)) {
+        out.type = -2;
+        out.addr = reinterpret_cast<mword>(file + sh32->sh_offset);
+        out.size = sh32->sh_size;
+        return true;
+      }
+    }
+    return false;
+  }
+
+public:
+  Service_ElfFs(Motherboard &mb, bool readonly = true )
+    : Service_fs(mb, readonly)
+  {}
+};
+
 char * Service_fs::backup_page;
 
 PARAM(service_romfs,
-      Service_fs *t = new Service_fs(mb);
-      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_fs>::portal_func), 0, false);
-      msg.portal_pf = reinterpret_cast<unsigned long>(Service_fs::portal_pagefault);
+      Service_ModuleFs *t = new Service_ModuleFs(mb);
+      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ModuleFs>::portal_func), 0, false);
+      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ModuleFs::portal_pagefault);
       msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
       msg.excinc  = 4;
       if (!msg.excbase || !mb.bus_hostop.send(msg))
         Logging::panic("registering the service failed");
       ,
       "romfs - instanciate a file service providing the boot files");
+
+PARAM(service_embeddedromfs,
+      Service_ElfFs *t = new Service_ElfFs(mb);
+      MessageHostOp msg(t, "/fs/embedded", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ElfFs>::portal_func), 0, false);
+      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ModuleFs::portal_pagefault);
+      msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
+      msg.excinc  = 4;
+      if (!msg.excbase || !mb.bus_hostop.send(msg))
+        Logging::panic("registering the service failed");
+      ,
+      "embeddedromfs");
 
