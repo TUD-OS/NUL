@@ -1,6 +1,6 @@
 # -*- Mode: Python -*-
 import sys, os
-sys.path.append(os.path.abspath("../vancouver/tools/"))
+sys.path.append(os.path.abspath("../base/tools/"))
 
 
 # Files are resolved by searching the repositories in the order they
