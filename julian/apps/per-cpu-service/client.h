@@ -20,6 +20,8 @@ protected:
   unsigned _session;
   unsigned _pseudonym;
   unsigned _portal;
+
+  bool     _single;
   
 public:
 
@@ -29,22 +31,22 @@ public:
   }
 
   // Create session for the calling CPU.
-  CpuLocalClient(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true)
-    : _utcb(utcb), _cap_alloc(cap), _service(service)
+  CpuLocalClient(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true, bool single = false)
+    : _utcb(utcb), _cap_alloc(cap), _service(service), _single(single)
 
   {
     unsigned res;
-    _pseudonym = cap->alloc_cap();
 
+    _pseudonym = cap->alloc_cap();
     res = ParentProtocol::get_pseudonym(utcb, service, instance, _pseudonym);
     if (res != ENONE) Logging::panic("Couldn't get pseudonym for service '%s'.",
                                      service);
     _portal = cap->alloc_cap();
-
     res = ParentProtocol::get_portal(utcb, _pseudonym, _portal, blocking);
     if (res != ENONE) Logging::panic("Couldn't get service portal for service '%s'.",
                                      service);
     
+    _session = cap->alloc_cap();
     utcb.add_frame()
       << ParentProtocol::TYPE_OPEN << Utcb::TypedMapCap(_pseudonym)
       << Crd(_session, 0, DESC_CAP_ALL);
@@ -58,17 +60,21 @@ public:
     // unsigned res;
     assert(BaseProgram::myutcb() == &_utcb);
 
-    // Closing the session explicitly would break other sessions to
-    // the same service (see below).
-    // _utcb.add_frame()
-    //   << ParentProtocol::TYPE_CLOSE << Utcb::TypedMapCap(_pseudonym);
-    // res = ParentProtocol::call(_utcb, _portal, true, false);
-    // assert(res == ENONE);
+    if (_single) {
+      unsigned res;
 
-    // We cannot destroy our pseudonym, because this would break other
-    // sessions using the same pseudonym (perhaps in libraries). 
-    // res = ParentProtocol::release_pseudonym(_utcb, _pseudonym);
-    // assert(res == ENONE);
+      // Closing the session explicitly breaks other sessions to
+      // the same service (see below).
+      _utcb.add_frame()
+        << ParentProtocol::TYPE_CLOSE << Utcb::TypedMapCap(_pseudonym);
+      res = ParentProtocol::call(_utcb, _portal, true, false);
+      assert(res == ENONE);
+
+      // This breaks other sessions using the same pseudonym (perhaps
+      // in libraries).
+      res = ParentProtocol::release_pseudonym(_utcb, _pseudonym);
+      assert(res == ENONE);
+    }
 
     nova_revoke(Crd(_pseudonym, 0, DESC_CAP_ALL), true);
     nova_revoke(Crd(_portal, 0, DESC_CAP_ALL),    true);

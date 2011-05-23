@@ -42,19 +42,18 @@ public:
   Queue() : _head(NULL) { }
 };
 
-class PerCpuService : public NovaProgram, public ProgramConsole
-{
-  struct Session : Queue<Session>::ListElement {
-    Session * volatile next;
+class BaseService {
 
+protected:
+  struct BaseSession : public Queue<BaseSession>::ListElement {
     cap_sel          sm_pseudonym;
     const cap_sel    pt;
     Closure          closure;
 
-    explicit Session(cap_sel pt) : pt(pt) { }
+    explicit BaseSession(cap_sel pt) : pt(pt) { }
   };
 
-  Queue<Session>     free_sessions;
+  Queue<BaseSession>     _free_sessions;
 
   struct per_cpu {
     cap_sel ec_service;         // session life-cycle (open, close)
@@ -63,21 +62,22 @@ class PerCpuService : public NovaProgram, public ProgramConsole
     cap_sel ec_client;          // normal client<->server interaction
     cap_sel pt_flush;           // drain clients
 
-    // Structure only modified in ec_service!
-    Session *sessions;
+    // Structure of this list is only modified in ec_service!
+    BaseSession *sessions;
 
-    Session *find_session(cap_sel sm_pseudonym)
+    BaseSession *find_session(cap_sel sm_pseudonym)
     {
-      for (Session *c = sessions; c != NULL; c = c->next)
-        if (c->sm_pseudonym == sm_pseudonym) return c;
+      for (BaseSession *c = sessions; c != NULL; c = c->next)
+        if (c->sm_pseudonym == sm_pseudonym)
+          return c;
       return NULL;
     }
 
-    void remove_session(Session *s)
+    void remove_session(BaseSession *s)
     {
       if (sessions == s) {
         sessions = sessions->next;
-      } else for (Session *c = sessions; c != NULL; c = c->next) {
+      } else for (BaseSession *c = sessions; c != NULL; c = c->next) {
           if (c->next == s) {
             c->next = s->next;
             return;
@@ -87,43 +87,15 @@ class PerCpuService : public NovaProgram, public ProgramConsole
 
   } _per_cpu[Config::MAX_CPUS];
 
-  Session *new_session(mword func)
-  {
-    Session *s = free_sessions.dequeue();
-    if (s == NULL) {
-      Logging::printf("New session object allocated: %p\n", s);
-      s = new Session(alloc_cap());
-    }
+  virtual cap_sel alloc_cap() = 0;
+  virtual void  dealloc_cap(cap_sel c) = 0;
+  virtual cap_sel create_ec(phy_cpu_no cpu, Utcb **utcb_out) = 0;
 
-    // Update closure
-    s->closure.set(reinterpret_cast<mword>(s), func);
-    return s;
-  }
-
-public:
-
-  unsigned alloc_crd()
-  {
-    return Crd(alloc_cap(), 0, DESC_CAP_ALL).value();
-  }
+  virtual BaseSession *new_session() = 0;
 
   static unsigned flush_func()
   {
     return 0;
-  }
-
-  static unsigned client_func_s(unsigned pt_id, Session *s,
-                              PerCpuService *tls, Utcb *utcb) REGPARM(2)
-  {
-    return tls->client_func(pt_id, s);
-  }
-
-  unsigned client_func(unsigned pt_id, Session *session)
-  {
-    // Logging::printf("Client call pt %u session %p tls %p\n",
-    //                 pt_id, session, this);
-
-    return EPROTO;
   }
 
   void garbace_collect(per_cpu &local)
@@ -133,7 +105,7 @@ public:
     // concurrency. Remember: Session list modifications only happen
     // in ec_service.
 
-    for (Session *s = local.sessions; s != NULL; s = s->next) {
+    for (BaseSession *s = local.sessions; s != NULL; s = s->next) {
       if (nova_lookup(Crd(s->sm_pseudonym, 0, DESC_CAP_ALL)).value() == 0) {
         Logging::printf("Garbage collect session %p\n", s);
         close_session(local, s);
@@ -141,7 +113,7 @@ public:
     }
   }
 
-  void close_session(per_cpu &local, Session *s)
+  virtual void close_session(per_cpu &local, BaseSession *s)
   {
     // This has to run in ec_service!
 
@@ -164,35 +136,37 @@ public:
     // anyone still executing in ec_client who could have a reference
     // to the session object. Cleanup!
     local.remove_session(s);
-    free_sessions.enqueue(s);
+    _free_sessions.enqueue(s);
     Logging::printf("Closed %p\n", s);
   }
 
+public:
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
   {
     unsigned op;
     check1(EPROTO, input.get_word(op));
 
-    per_cpu &local = _per_cpu[mycpu()];
+    per_cpu &local = _per_cpu[BaseProgram::mycpu()];
     unsigned res;
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN: {
-      Session *s = local.find_session(input.received_cap());;
+      BaseSession *s = local.find_session(input.received_cap());
 
       if (s) {
-        Logging::printf("REOPEN: %p\n", s);
+        //Logging::printf("REOPEN: %p\n", s);
         goto map_session;
       }
 
       // Garbage collect everytime (we might want to change this)
       garbace_collect(local);
 
-      s = new_session(reinterpret_cast<mword>(&PerCpuService::client_func_s));
+      s = new_session();
+      if (s == NULL) return ERESOURCE;
       // pt and closure are already set in s
 
       res = nova_create_pt(s->pt, local.ec_client,
-                                    s->closure.value(), 0);
+                           s->closure.value(), 0);
       assert(res == NOVA_ESUCCESS);
 
       // No synchronization needed. Only modified in this EC
@@ -206,7 +180,7 @@ public:
       return ENONE;
     }
     case ParentProtocol::TYPE_CLOSE: {
-      Session *s = local.find_session(input.received_cap());
+      BaseSession *s = local.find_session(input.received_cap());
       if (s == 0) return EPROTO;
       assert(s->sm_pseudonym == input.received_cap());
       close_session(local, s);
@@ -217,31 +191,29 @@ public:
     return EPROTO;
   }
 
-  NORETURN
-  void run(Utcb *utcb, Hip *hip)
+  unsigned alloc_crd()
   {
-    init(hip);
-    init_mem(hip);
+    return Crd(alloc_cap(), 0, DESC_CAP_ALL).value();
+  }
 
-    console_init("pcpus");
-    Logging::printf("Hello.\n");
 
+  bool register_service(const char *service_name)
+  {
     Logging::printf("Constructing service...\n");
 
-    const char service_name[] = "/pcpus";
     cap_sel  service_cap = alloc_cap();
     unsigned res;
-    mword portal_func = reinterpret_cast<mword>(StaticPortalFunc<PerCpuService>::portal_func);
-    mword flush_func = reinterpret_cast<mword>(PerCpuService::flush_func);
-    for (phy_cpu_no i = 0; i < hip->cpu_desc_count(); i++) {
-      Hip_cpu const &cpu = hip->cpus()[i];
+    mword portal_func = reinterpret_cast<mword>(StaticPortalFunc<BaseService>::portal_func);
+    mword flush_func = reinterpret_cast<mword>(BaseService::flush_func);
+    for (phy_cpu_no i = 0; i < Global::hip.cpu_desc_count(); i++) {
+      Hip_cpu const &cpu = Global::hip.cpus()[i];
       if (not cpu.enabled()) continue;
 
       _per_cpu[i].sessions = NULL;
 
       // Create client EC
       Utcb *utcb_client;
-      _per_cpu[i].ec_client = create_ec_helper(this, i, 0, &utcb_client, NULL);
+      _per_cpu[i].ec_client = create_ec(i, &utcb_client);
       assert(_per_cpu[i].ec_client != 0);
 
       _per_cpu[i].pt_flush = alloc_cap();
@@ -251,7 +223,7 @@ public:
 
       // Create service EC
       Utcb *utcb_service;
-      _per_cpu[i].ec_service = create_ec_helper(this, i, 0, &utcb_service, NULL);
+      _per_cpu[i].ec_service = create_ec(i, &utcb_service);
       assert(_per_cpu[i].ec_service != 0);
       utcb_service->head.crd = alloc_crd();
       utcb_service->head.crd_translate = Crd(0, 31, DESC_CAP_ALL).value();
@@ -262,18 +234,97 @@ public:
       assert(res == NOVA_ESUCCESS);
 
       // Register service
-      res = ParentProtocol::register_service(*utcb, service_name, i,
+      res = ParentProtocol::register_service(*BaseProgram::myutcb(), service_name, i,
                                              _per_cpu[i].pt_service, service_cap);
       if (res != ENONE)
         Logging::panic("Registering service on CPU%u failed.\n", i);
     }
+           
 
     Logging::printf("Service registered.\n");
+    return true;
+  }
+
+};
+
+
+class ServiceProgram : public BaseService, public NovaProgram, public ProgramConsole
+{
+protected:
+
+  virtual cap_sel alloc_cap()
+  { return NovaProgram::alloc_cap(); }
+
+  virtual void    dealloc_cap(cap_sel c)
+  { return NovaProgram::dealloc_cap(c); }
+
+  cap_sel create_ec(phy_cpu_no cpu, Utcb **utcb_out)
+  {
+    return create_ec_helper(this, cpu, 0, utcb_out, NULL);
+  }
+
+  ServiceProgram(const char *console_name = "service")
+  {
+    Hip *hip = &Global::hip;
+    init(hip);
+    init_mem(hip);
+
+    console_init(console_name);
+  }
+
+};
+
+class PerCpuService : public ServiceProgram
+{
+protected:
+  struct Session : public BaseSession {
+    explicit Session(cap_sel pt) : BaseSession(pt) { }
+  };
+
+  Session *new_session()
+  {
+    mword func = reinterpret_cast<mword>(&PerCpuService::client_func_s);
+    Session *s = static_cast<Session *>(_free_sessions.dequeue());
+    if (s == NULL) {
+      s = new Session(alloc_cap());
+      Logging::printf("New session object allocated: %p\n", s);
+    }
+
+    // Update closure
+    s->closure.set(reinterpret_cast<mword>(s), func);
+    return s;
+  }
+
+  static unsigned client_func_s(unsigned pt_id, Session *s,
+                                PerCpuService *tls, Utcb *utcb) REGPARM(2)
+  {
+    return tls->client_func(pt_id, s);
+  }
+
+  unsigned client_func(unsigned pt_id, Session *session)
+  {
+    return ENONE;
+  }
+
+public:
+
+  PerCpuService()
+  {
+    Logging::printf("Hello.\n");
+    register_service("/pcpus");
+  };
+
+  NORETURN
+  void run(Utcb *utcb, Hip *hip)
+  {
+    unsigned res;
 
     // Test
     {
       {
-        CpuLocalClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
+        CpuLocalClient c(*utcb, this, "/s0/pcpus", 0);
+        res = c.call();
+        assert(res == ENONE);
       }
 
       // uint64 start = Cpu::rdtsc();
@@ -287,7 +338,7 @@ public:
 
     {
       // Try to open a session:
-      CpuLocalClient c(*BaseProgram::myutcb(), this, "/s0/pcpus", 0);
+      CpuLocalClient c(*utcb, this, "/s0/pcpus", 0);
       // Warmup
       c.call();
 
