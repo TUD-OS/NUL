@@ -11,7 +11,7 @@ checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checko
                             "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
 
 build = target_env.Command("nova/build/hypervisor", "nova/README",
-                         "make -C `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
+                         "make -sC `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 AlwaysBuild(build)
 Precious(build)
 
