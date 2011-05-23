@@ -162,7 +162,7 @@
 
     modinfo = alloc_module(mconfig, sigma0_cmdlen, part_of_s0);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }
-    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION; //XXX
+    if ( modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION; //XXX
 
     res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo);
 
@@ -268,7 +268,7 @@
     check2(_free_caps, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     // map idle SCs, so that they can be mapped to the admission service during create_pd
-    if (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION) {
+    if (modinfo->type == ModuleInfo::TYPE_ADMISSION) {
       utcb->add_frame();
       *utcb << Crd(0, 31, DESC_CAP_ALL);
       for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
@@ -295,12 +295,12 @@
       Logging::printf("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 
     check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT,
-           DESC_CAP_ALL & ((!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
+           DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
     check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
 			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
 
-    if (!admission || (admission && modinfo->type == ModuleInfo::TYPE_ADMISSION)) {
+    if (modinfo->type == ModuleInfo::TYPE_ADMISSION) {
       check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, "main", true));
     } else {
       //map temporary child id

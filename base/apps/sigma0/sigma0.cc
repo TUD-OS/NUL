@@ -135,7 +135,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   friend class s0_ParentProtocol;
 
   // services
-  bool admission; 
   s0_AdmissionProtocol * service_admission;
   s0_ParentProtocol    * service_parent;
 
@@ -306,12 +305,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     } else
       _modinfo[0].cmdline = cmdline;
 
-    // check services to support
-    admission = strstr(_modinfo[0].cmdline, "sigma0::admission");
-
     // init services required or provided by sigma0
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
-    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), admission, hip->cpu_count() + 16);
+    service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), true, hip->cpu_count() + 16);
   }
 
   /**
@@ -1513,10 +1509,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if (!mac_host) mac_host = generate_hostmac();
 
-    if (admission && !(res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr)))
-      service_admission->set_name(*utcb, "sigma0");
-    else
-      Logging::printf("s0: WARNING admission service missing - error %x\n", res);
+    if (res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr))
+      Logging::panic("s0: could not start admission service - error %x\n", res);
+    service_admission->set_name(*utcb, "sigma0");
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
