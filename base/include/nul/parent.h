@@ -73,23 +73,19 @@ struct ParentProtocol {
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
-  static unsigned get_portal(Utcb &utcb, unsigned cap_pseudonym, unsigned cap_portal, bool blocking) {
+  static unsigned get_portal(Utcb &utcb, unsigned cap_pseudonym, unsigned cap_portal, bool blocking, char const * service_name = 0) {
     init_frame(utcb, TYPE_GET_PORTAL, cap_pseudonym) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU, true);
 
     // block on the parent session until something happens
-    if (res == ERETRY) {
-//      Logging::printf("block waiting for session %x\n", cap_pseudonym);
-      if (blocking) {
-        res = nova_semdownmulti(cap_pseudonym);
-        if (res == ENONE) res = ERETRY;
-        else {
-          res = nova_revoke(Crd(cap_pseudonym, 0, DESC_CAP_ALL), true);
-          assert(res == ENONE);
-          res = EEXISTS;
-        }
+    if (res == ERETRY && blocking) {
+      Logging::printf("block waiting for session %x %s\n", cap_pseudonym, service_name);
+      res = nova_semdownmulti(cap_pseudonym);
+      Logging::printf("we waked up %u %s\n", res, service_name);
+      if (res != ENONE) {
+        res = nova_revoke(Crd(cap_pseudonym, 0, DESC_CAP_ALL), true);
+        assert(res == ENONE);
       }
-      else res = EABORT;
     }
     return res;
   }
@@ -195,8 +191,9 @@ public:
       {
         // we lock to avoid missing wakeups on retry
         SemaphoreGuard guard(_lock);
-        res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking);
+        res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking, _service);
       }
+      if (res == ERETRY && _blocking) goto do_get_portal;
       if (res == ENONE)     goto do_call;
       if (res == EEXISTS)   goto do_get_pseudonym;
       goto do_out;
