@@ -677,6 +677,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned res;
     unsigned long long msize, physaddr;
     char *addr;
+    ModuleInfo * modinfo;
 
     FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), fs_name);
     FsProtocol::dirent fileinfo;
@@ -693,7 +694,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
-    res = _start_config(utcb, addr, fileinfo.size, mconfig, client_cmdline, sigma0_cmdlen, internal_id);
+    modinfo = alloc_module(mconfig, sigma0_cmdlen);
+    if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }
+    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION;
+
+    res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo);
+    if (!res) internal_id = modinfo->id;
 
   map_out:
     //don't try to unmap from ourself "revoke(..., true)"
@@ -711,18 +717,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size, char const * mconfig,
-                         char const * client_cmdline, unsigned sigma0_cmdlen, unsigned &internal_id)
+  unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size,
+                         char const * client_cmdline, ModuleInfo * modinfo)
   {
     AdmissionProtocol::sched sched; //Qpd(1, 100000)
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
     Hip * modhip = 0;
     char * tmem;
-
-    ModuleInfo *modinfo = alloc_module(mconfig, sigma0_cmdlen);
-    if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); return __LINE__; }
-    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION;
 
     // Figure out how much memory we give the client. If the user
     // didn't give a limit, we give it enough to unpack the ELF.
@@ -873,8 +875,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     _free_module:
     if (res) free_module(modinfo);
-
-    if (!res) internal_id = modinfo->id;
 
     return res;
   }
