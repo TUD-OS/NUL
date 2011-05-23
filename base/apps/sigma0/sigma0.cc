@@ -48,15 +48,15 @@ PARAM(verbose, verbose = VERBOSE_INFO, "verbose - print additional information d
 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"
-            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_per_cpu_timer service_romfs script")
+            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_per_cpu_timer service_romfs service_embeddedromfs script")
 
-#define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission quota::guid"
+#define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/fs/embedded quota::guid"
 
   // module data
   struct ModuleInfo
   {
     unsigned        id;
-    enum { TYPE_S0, TYPE_ADMISSION } type;
+    enum { TYPE_APP, TYPE_S0, TYPE_ADMISSION } type;
     unsigned        cpunr;
     unsigned long   rip;
     bool            dma;
@@ -286,6 +286,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void postinit(Hip * hip) {
     // parse cmdline of sigma0
     char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    memset(&_modinfo[0], 0, sizeof(_modinfo[0]));
     _modinfo[0].sigma0_cmdlen = strlen(cmdline);
     _modinfo[0].type = ModuleInfo::TYPE_S0;
 
@@ -1379,7 +1380,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
     case MessageConsole::TYPE_KILL:
       {
-        if (admission && msg.id < 2) return false;
         unsigned res = kill_module(get_module(msg.id));
         if (res) Logging::printf("s0: [%02x] kill module = %u\n", msg.id, res);
       }
@@ -1509,6 +1509,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _lock_gsi.up();
 
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
+    if ((res = boot_s0_services(utcb)))            Logging::panic("s0: could not start embedded s0 services\n");
 
     if (!mac_host) mac_host = generate_hostmac();
 

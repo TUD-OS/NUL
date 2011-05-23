@@ -28,10 +28,10 @@
     return modinfo;
   }
 
-  ModuleInfo * alloc_module(char const * cmdline, unsigned sigma0_cmdlen) {
+  ModuleInfo * alloc_module(char const * cmdline, unsigned sigma0_cmdlen, bool s0_reserved = false) {
     // search for a free module
     again:
-    unsigned module = 1;
+    unsigned module = s0_reserved ? 1 : 5;
     while (module < MAXMODULES && *reinterpret_cast<unsigned long volatile *>(&_modinfo[module].mem)) module++;
     if (module >= MAXMODULES) return 0;
     if (0 != Cpu::cmpxchg4b(&_modinfo[module].mem, 0, 1)) goto again;
@@ -48,7 +48,8 @@
     p = strstr(cmdline, "sigma0::dma");
     modinfo->dma            = p > cmdline + sigma0_cmdlen ? 0 : p;
     modinfo->cmdline        = cmdline;
-    modinfo->sigma0_cmdlen = sigma0_cmdlen;
+    modinfo->sigma0_cmdlen  = sigma0_cmdlen;
+    modinfo->type           = ModuleInfo::TYPE_APP;
 
     if (verbose & VERBOSE_INFO) {
       Logging::printf("s0: [%2u] module '", modinfo->id);
@@ -56,6 +57,30 @@
     }
 
     return modinfo;
+  }
+
+  unsigned boot_s0_services(Utcb * utcb) {
+    char const * file_name = "admission.nulconfig"; //XXX to do
+    unsigned res, id;
+    char * config = 0;
+
+    FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), "fs/embedded");
+    FsProtocol::dirent fileinfo;
+    if (res = fs_obj.get_file_info(*utcb, fileinfo, file_name)) goto cleanup;
+
+    if (!(config = new (0x1000U) char[fileinfo.size+1])) goto cleanup;
+    res = fs_obj.get_file_copy(*utcb, config, fileinfo.size, file_name);
+    config[fileinfo.size] = 0;
+
+    if (res != ENONE) goto cleanup;
+    res = start_config(utcb, config, id, true);
+
+    cleanup:
+    if (res != ENONE) {
+      if (config) delete [] config;
+    }
+    fs_obj.destroy(*utcb, FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), this);
+    return res;
   }
 
   /**
@@ -99,7 +124,7 @@
   /**
    * Start a configuration from a stable memory region (mconfig). Region has to be zero terminated.
    */
-  unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id)
+  unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id, bool part_of_s0 = false)
   {
     char const * file_name, * client_cmdline;
 
@@ -135,9 +160,9 @@
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
-    modinfo = alloc_module(mconfig, sigma0_cmdlen);
+    modinfo = alloc_module(mconfig, sigma0_cmdlen, part_of_s0);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }
-    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION;
+    if (admission && modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION; //XXX
 
     res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo);
 
@@ -323,7 +348,7 @@
    * Kill the given module.
    */
   unsigned kill_module(ModuleInfo * modinfo) {
-    if (!modinfo || !_modinfo[modinfo->id].mem || !_modinfo[modinfo->id].physsize) return __LINE__;
+    if (!modinfo || !_modinfo[modinfo->id].mem || !_modinfo[modinfo->id].physsize || modinfo->id < 5) return __LINE__;
 
     if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - initiate destruction of client ... \n", modinfo->id);
     // send kill message to parent service so that client specific data structures within a service can be released

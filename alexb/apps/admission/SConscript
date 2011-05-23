@@ -8,6 +8,6 @@ nul.App(target_env, 'admission',
         SOURCES = [ 'main.cc' ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
-        MEMSIZE = 1<<22)
+        MEMSIZE = 1<<18)
 
 # EOF
