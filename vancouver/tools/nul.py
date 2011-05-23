@@ -40,7 +40,7 @@ def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[], ROMFS=[],
         linked = env.Link(output + '/apps/%s.bare.nul' % name,
                           SOURCES + OBJS + ["#service/startup.o"],
                           linkscript = LINKSCRIPT)
-        rom_cmd = [ "cp ${TARGET}.tmp $TARGET"]
+        rom_cmd = []
         for i in range(len(ROMFS)):
             # objcopy can deal with input and output being the same file
             rom_cmd.append( "objcopy --add-section .boot.`basename ${SOURCES[%s]}`=${SOURCES[%s]} %s ${TARGET}"
