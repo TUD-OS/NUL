@@ -101,7 +101,7 @@ public:
         unsigned long _addr = addr & ~0xffful;
         unsigned long long _size = csize;
         while (!utcb.head.crd_translate && _size && _size <= csize) {
-          memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem.addr + foffset), 0x1000); 
+          memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem.addr + foffset), _size > 0x1000U ? 0x1000 : _size);
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
         //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
@@ -204,7 +204,7 @@ PARAM(service_romfs,
 PARAM(service_embeddedromfs,
       Service_ElfFs *t = new Service_ElfFs(mb);
       MessageHostOp msg(t, "/fs/embedded", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ElfFs>::portal_func), 0, false);
-      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ModuleFs::portal_pagefault);
+      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ElfFs::portal_pagefault);
       msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
       msg.excinc  = 4;
       if (!msg.excbase || !mb.bus_hostop.send(msg))
