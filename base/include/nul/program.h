@@ -163,8 +163,8 @@ public:
   extern "C" void start(phy_cpu_no cpu, Utcb *utcb) REGPARM(3) NORETURN; \
   void start(phy_cpu_no cpu, Utcb *utcb)                                \
   {									\
-    static X x;								\
     utcb->head.nul_cpunr = cpu;                                         \
+    static X x;								\
     x.run(utcb, &Global::hip);                                          \
     do_exit("run returned");						\
   }									\
