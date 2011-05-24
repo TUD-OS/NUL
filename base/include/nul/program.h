@@ -95,6 +95,11 @@ class NovaProgram : public BaseProgram, public CapAllocator
     check1(1, hip->calc_checksum());
     _hip = hip;
 
+    // NovaProgram uses the lower 1<<16 caps for his own cap allocator
+    // (minus the first 1<<CAP_RESERVED_ORDER caps, where the
+    // hypervisor or the parent can place objects). Everything else
+    // can be allocated via _cap_region.
+
     // add caps
     assert(!CapAllocator::_cap_ && !CapAllocator::_cap_start);
     CapAllocator::_cap_order = 16;
