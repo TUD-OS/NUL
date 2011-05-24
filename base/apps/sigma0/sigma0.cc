@@ -1505,7 +1505,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _lock_gsi.up();
 
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
-    if ((res = boot_s0_services(utcb)))            Logging::panic("s0: could not start embedded s0 services\n");
+    if ((res = boot_s0_services(utcb)))            Logging::printf("s0: could not start embedded s0 services\n");
 
     if (!mac_host) mac_host = generate_hostmac();
 

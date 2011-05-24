@@ -118,7 +118,7 @@
         *(reinterpret_cast<char *>(mod->addr) + mod->size - 1) = 0;
       }
     }
-    return start_config(utcb, cmdline, internal_id);
+    return start_config(utcb, cmdline, internal_id); //, true) - setting this enables you to run sigma0.bare.nul + admission.nul separately
   }
 
   /**
