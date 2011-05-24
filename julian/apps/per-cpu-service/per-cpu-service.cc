@@ -9,7 +9,7 @@ protected:
     explicit Session(cap_sel pt) : BaseSession(pt) { }
   };
 
-  Session *new_session()
+  BaseSession *new_session()
   {
     mword func = reinterpret_cast<mword>(&PerCpuService::client_func_s);
     Session *s = static_cast<Session *>(_free_sessions.dequeue());
