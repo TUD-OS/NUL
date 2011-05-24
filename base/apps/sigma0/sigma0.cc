@@ -93,6 +93,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned   _numcpus;
   unsigned   _last_affinity;
 
+  // Capabilities
+  unsigned   _irq_cap_base;
+
   // data per physical CPU number
   struct {
     unsigned  cap_ec_worker;
@@ -228,7 +231,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   unsigned attach_msi(MessageHostOp *msg, phy_cpu_no cpunr) {
     //XXX if attach failed msivector should be reused!
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
-    unsigned irq_cap = _hip->cfg_exc + 3 + msg->msi_gsi;
+    if (msg->msi_gsi >= _hip->cfg_gsi) return 0;
+    unsigned irq_cap = _irq_cap_base + msg->msi_gsi;
     unsigned res = nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
     if (res != NOVA_ESUCCESS)
       Logging::printf("s0: failed to setup msi - err=%x, msi_gsi=%x irq_cap=%x cpu=%x\n", res, msg->msi_gsi, irq_cap, cpunr);
@@ -469,8 +473,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     utcb->set_header(2, 0);
 
     // map all IRQs
+    _irq_cap_base = alloc_cap(hip->cfg_gsi);
+
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      Utcb::TypedMapCap(gsi + hip->cpu_desc_count()).fill_words(utcb->msg + utcb->head.untyped, Crd(hip->cfg_exc + 3 + gsi, 0, MAP_HBIT).value());
+      Utcb::TypedMapCap(gsi + hip->cpu_desc_count()).fill_words(utcb->msg + utcb->head.untyped, Crd(_irq_cap_base + gsi, 0, MAP_HBIT).value());
       utcb->head.untyped += 2;
     }
 
@@ -765,7 +771,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ATTACH_IRQ:
 			  if ((msg->value & 0xff) < _hip->cfg_gsi) {
 			    // XXX make sure only one gets it
-			    unsigned gsi_cap = _hip->cfg_exc + 3 + (msg->value & 0xff);
+			    unsigned gsi_cap = _irq_cap_base + (msg->value & 0xff);
 			    unsigned res = nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    if (res != NOVA_ESUCCESS) goto fail;
 			    Logging::printf("s0: [%02x] gsi %lx granted\n", modinfo->id, msg->value);
@@ -774,7 +780,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  else {
-			    Logging::printf("s0: [%02x] irq request dropped %x pre %x nr %x\n", modinfo->id, utcb->msg[2], _hip->cfg_exc, utcb->msg[2] >> Utcb::MINSHIFT);
+			    Logging::printf("s0: [%02x] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
 			    goto fail;
 			  }
 			  break;
@@ -867,7 +873,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           unsigned gsi = msg.value & 0xff;
           if (_gsi & (1 << gsi)) return true;
            _gsi |=  1 << gsi;
-          unsigned irq_cap = _hip->cfg_exc + 3 + gsi;
+          unsigned irq_cap = _irq_cap_base + gsi;
           unsigned cpu = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
           res = nova_assign_gsi(irq_cap, cpu);
           check1(false, res != NOVA_ESUCCESS);
