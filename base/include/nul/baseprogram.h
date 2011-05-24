@@ -30,8 +30,8 @@ namespace Global {
  * A simple program that allows to get the UTCB pointer from the stack.
  */
 struct BaseProgram {
-  /* XXX Don't forget to change the initial stack in nul/program.h at
-     __start */
+  /* XXX Don't forget to change the initial stack in service/startup.S
+     at __start */
   static const unsigned stack_size_shift = 12;
   static const unsigned stack_size = (1U << stack_size_shift);
 
