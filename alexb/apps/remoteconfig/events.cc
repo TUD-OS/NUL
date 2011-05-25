@@ -47,6 +47,7 @@
         res = ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &guid);
  
         Logging::printf("got event from guid=%ld eventid=%x res=0x%x\n", guid, eventid, res);
+        if (eventid == 0xbbbb) Logging::printf("guessing: could be a reboot event ...\n");
         return ENONE;
       }
       case ParentProtocol::TYPE_OPEN:
