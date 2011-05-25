@@ -25,6 +25,7 @@
 #include <sigma0/console.h>
 
 #include "server.h"
+#include "events.h"
 
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
@@ -63,6 +64,16 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     static
     void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len) {
       remcon->recv_call_back(in, in_len, out, out_len);    
+    }
+
+    unsigned  create_ec_helper(void * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL) {
+      return NovaProgram::create_ec_helper(tls, cpunr, excbase, utcb_out, func, cap);
+    }
+
+    bool start_services(Utcb *utcb, Hip * hip) {
+      EventService * event = new EventService();
+      if (!event) return false;
+      return event->start_service(utcb, hip, this);
     }
 
     bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
@@ -168,6 +179,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     Logging::printf("booting - NOVA management daemon ...\n");
 
+    if (!start_services(utcb, hip)) Logging::panic("failure - starting event collector\n");
     if (!use_network(utcb, hip, alloc_cap())) Logging::printf("failure - starting ip stack\n");
   }
 };

@@ -1,0 +1,12 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'test_events',
+        SOURCES = [ 'main.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<20)
+
+# EOF
