@@ -32,7 +32,6 @@
 #include "s0_admission.h"
 
 // global VARs
-unsigned     console_id;
 Motherboard *global_mb;
 class Sigma0;
 Sigma0      *sigma0;
@@ -1249,15 +1248,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   void init_console() {
 
     _mb->bus_console.add(this, receive_static<MessageConsole>);
+
     // alloc consoles for ourself
     MessageConsole msg1;
     msg1.clientname = 0;
     _mb->bus_console.send(msg1);
-    console_id = msg1.id;
+    _console_data[0].console = msg1.id;
 
     // open 3 views
     MessageConsole msg2("sigma0",  _vga + 0x18000, 0x1000, &_vga_regs);
-    msg2.id = console_id;
+    msg2.id = _console_data[0].console;
     _mb->bus_console.send(msg2);
     msg2.name = "HV";
     msg2.ptr += 0x1000;
@@ -1265,7 +1265,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     msg2.name = "boot";
     msg2.ptr += 0x1000;
     _mb->bus_console.send(msg2);
-    switch_view(_mb, 0);
+    switch_view(_mb, 0, _console_data[0].console);
   }
 
 
@@ -1275,16 +1275,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // format the tag
     Vprintf::snprintf(_console_data[client].tag, sizeof(_console_data[client].tag), "CPU(%x) MEM(%ld) %s", modinfo->cpunr, modinfo->physsize >> 20, cmdline);
 
-    MessageConsole msg1;
-    msg1.clientname = _console_data[client].tag;
-    if (_mb->bus_console.send(msg1))  _console_data[client].console = msg1.id;
-
+    if (modinfo->type == ModuleInfo::TYPE_ADMISSION) _console_data[client].console = _console_data[0].console;
+    else {
+      MessageConsole msg1;
+      msg1.clientname = _console_data[client].tag;
+      if (_mb->bus_console.send(msg1))  _console_data[client].console = msg1.id;
+    }
   };
 
   /**
    * Switch to our view.
    */
-  static void switch_view(Motherboard *mb, int view=0, unsigned short consoleid = console_id)
+  void switch_view(Motherboard *mb, int view, unsigned short consoleid)
   {
     MessageConsole msg;
     msg.type = MessageConsole::TYPE_SWITCH_VIEW;
@@ -1320,8 +1322,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             || (msg2.type == MessageConsole::TYPE_GET_FONT
 	            &&  convert_client_ptr(modinfo, msg2.ptr, 0x1000))
             || (msg2.type == MessageConsole::TYPE_GET_MODEINFO
-              && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info)))
-            || !_console_data[modinfo->id].console)
+              && convert_client_ptr(modinfo, msg2.info, sizeof(*msg2.info))))
             break;
           msg2.id = _console_data[modinfo->id].console;
           // alloc a new console and set the name from the commandline
@@ -1563,7 +1564,7 @@ void  do_exit(const char *msg)
 {
   if (consolesem)  consolesem->up();
   Logging::printf("s0:__exit(%s)\n", msg);
-  if (global_mb) Sigma0::switch_view(global_mb);
+  if (global_mb && sigma0) sigma0->switch_view(global_mb, 0, sigma0->_console_data[0].console);
 
   while (1)
     asm volatile ("ud2a" : : "a"(msg));
