@@ -23,6 +23,7 @@
 #include "sigma0/console.h"
 #include "nul/service_timer.h"
 #include "nul/service_admission.h"
+#include "nul/service_events.h"
 #include "nul/service_fs.h"
 #include "nul/service_log.h"
 
@@ -91,6 +92,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _iomem_start;
   static TimerProtocol     * service_timer;
   static AdmissionProtocol * service_admission;
+  EventsProtocol           * service_events;
   FsProtocol *fs_obj;
   char fs_name[32], fs_tmp[32];
   #define VANCOUVER_CONFIG_SEPARATOR "||"
@@ -311,6 +313,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_vnet.add    (this, receive_static<MessageVirtualNet>);
     _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
+    _mb->bus_legacy.add  (this, receive_static<MessageLegacy>);
 
     service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
@@ -320,6 +323,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
+
+    service_events = new EventsProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
@@ -796,6 +801,12 @@ public:
     msg.wallclocktime = _msg.wallclocktime;
     msg.timestamp = _msg.timestamp;
     return res;
+  }
+
+  bool  receive(MessageLegacy &msg) {
+    if (msg.type != MessageLegacy::RESET) return false;
+    service_events->send_event(*myutcb(), 0xbbbb);
+    return true;
   }
 
 public:
