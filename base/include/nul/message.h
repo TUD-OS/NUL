@@ -115,19 +115,13 @@ struct MessagePciConfig
 {
   enum Type {
     TYPE_READ,
-    TYPE_WRITE,
-    TYPE_PTR,
+    TYPE_WRITE
   } type;
-  unsigned  bdf;
-  unsigned  dword;
-  unsigned  value;
-  unsigned *ptr;
-
+  unsigned bdf;
+  unsigned dword;
+  unsigned value;
   MessagePciConfig(unsigned _bdf, unsigned _dword) : type(TYPE_READ), bdf(_bdf), dword(_dword), value(0xffffffff) {}
   MessagePciConfig(unsigned _bdf, unsigned _dword, unsigned _value) : type(TYPE_WRITE), bdf(_bdf), dword(_dword), value(_value) {}
-
-  explicit
-  MessagePciConfig(unsigned _bdf) : type(TYPE_PTR), bdf(_bdf), dword(0), ptr(NULL) {}
 };
 
 
