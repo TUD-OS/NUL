@@ -42,13 +42,20 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
     MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | (msg.dword << 2));
     if (!_hwioout.send(msg1, true)) return false;
 
-    MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
-    if (msg.type == MessagePciConfig::TYPE_WRITE) return _hwioout.send(msg2, true);
-
-    MessageIOIn msg3(MessageIOIn::TYPE_INL, BASE+4);
-    bool res = _hwioin.send(msg3, true);
-    msg.value = msg3.value;
-    return res;
+    switch (msg.type) {
+    case MessagePciConfig::TYPE_WRITE: {
+      MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
+      return _hwioout.send(msg2, true);
+    }
+    case MessagePciConfig::TYPE_READ: {
+      MessageIOIn msg3(MessageIOIn::TYPE_INL, BASE+4);
+      bool res = _hwioin.send(msg3, true);
+      msg.value = msg3.value;
+      return res;
+    }
+    default:
+      return false;
+    }
   }
 };
 
