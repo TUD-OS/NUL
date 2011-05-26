@@ -32,7 +32,6 @@ private:
   struct tmp * tmp;
   unsigned tmp_size;
   unsigned counter;
-  bool boot_finished;
   //end
 
   template<class T>
@@ -45,6 +44,7 @@ private:
       assert(n == 1);
       assert(cap == 0);
       cap = obj->alloc_cap();
+      assert(cap != 0);
       return cap;
     }
   };
@@ -54,7 +54,7 @@ public:
   unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * _obj, char const * name, bool a_sc = false) {
     unsigned res;
 
-    if (boot_finished)
+    if (_blocking)
       res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, _obj, name);
     else {
       Tmp_a<T> obj(_obj);
@@ -88,6 +88,7 @@ public:
     }
 
     for (i=0; i<counter; i++) {    
+      assert(tmp[i].idx != 0);
       res = call_server(init_frame(utcb, TYPE_SC_PUSH)
             << Utcb::TypedMapCap(tmp[i].idx) << tmp[i].para << tmp[i].cpu << Utcb::String(tmp[i].name) << tmp[i].admission_sc, true);
       if (res != ENONE) return res;
@@ -98,7 +99,7 @@ public:
     return ENONE;
   }
 
-  explicit s0_AdmissionProtocol(unsigned cap_base, bool buffer, unsigned num=32) : AdmissionProtocol(cap_base, 0, false), boot_finished(!buffer)
+  explicit s0_AdmissionProtocol(unsigned cap_base, bool buffer, unsigned num=32) : AdmissionProtocol(cap_base, 0, !buffer)
   {
     if (!buffer) return;
     tmp_size = num;
