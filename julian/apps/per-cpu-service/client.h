@@ -11,7 +11,7 @@
 /// services) are expected to add another layer to multiplex multiple
 /// connections using the same pseudonym (i.e. running in the same
 /// PD).
-class CpuLocalClient {
+class Client {
 protected:
   Utcb           &_utcb;
   CapAllocator   *_cap_alloc;
@@ -31,7 +31,7 @@ public:
   }
 
   // Create session for the calling CPU.
-  CpuLocalClient(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true, bool single = false)
+  Client(Utcb &utcb, CapAllocator *cap, const char *service, unsigned instance, bool blocking = true, bool single = false)
     : _utcb(utcb), _cap_alloc(cap), _service(service), _single(single)
 
   {
@@ -56,7 +56,7 @@ public:
   }
 
 
-  ~CpuLocalClient() {
+  ~Client() {
     // unsigned res;
     assert(BaseProgram::myutcb() == &_utcb);
 

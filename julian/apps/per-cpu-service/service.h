@@ -18,6 +18,10 @@ protected:
     const cap_sel    pt;
     Closure          closure;
 
+    // Called during session destruction when no worker holds a
+    // reference to this session object anymore.
+    virtual void cleanup() { }
+
     explicit BaseSession(cap_sel pt) : pt(pt) { }
   };
 
@@ -27,6 +31,7 @@ protected:
     cap_sel ec_service;         // session life-cycle (open, close)
     cap_sel pt_service;         // runs on ec_service
 
+    Utcb   *utcb_client;
     cap_sel ec_client;          // normal client<->server interaction
     cap_sel pt_flush;           // drain clients
 
@@ -182,6 +187,9 @@ public:
       // Create client EC
       Utcb *utcb_client;
       _per_cpu[i].ec_client = create_ec(i, &utcb_client);
+      utcb_client->head.crd           = 0;
+      utcb_client->head.crd_translate = 0;
+      _per_cpu[i].utcb_client = utcb_client;
       assert(_per_cpu[i].ec_client != 0);
 
       _per_cpu[i].pt_flush = alloc_cap();
