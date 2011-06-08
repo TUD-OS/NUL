@@ -159,7 +159,7 @@ public:
     const uint16_t text_bg_attr = 0x0800;
 
     _background->render(now);
-    blt_from(_background);
+    this->blt_from(_background);
 
     if (!_start_init) {
       _start = now - 400<<22;
