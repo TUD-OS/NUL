@@ -1,0 +1,28 @@
+# -*- Mode: Python -*-
+
+def update_doxyfile(target, source, env):
+    """Update the Doxyfile template with up-to-date information"""
+    from subprocess import Popen, PIPE
+    import os
+    import string
+    version = string.rstrip(Popen("git describe", shell=True, stdout=PIPE).communicate()[0])
+    top = os.path.abspath("..")
+
+    t = open(str(target[0]), 'w')
+    t.write(source[0].get_text_contents())
+    t.write('PROJECT_NUMBER="Version %s"\n' % version)
+    t.write('STRIP_FROM_PATH="%s"\n' % top)
+    t.close()    
+
+doxyfileBuilder = Builder(action = update_doxyfile)
+env=Environment(tools=['default', 'doxygen'],
+                toolpath='.',
+                BUILDERS = {'Doxyfile' : doxyfileBuilder})
+
+doxyfile = env.Doxyfile('Doxyfile.tmpl')
+
+if env.Detect("doxygen"):       # Do not fail if doxygen is not installed
+    env.Doxygen(doxyfile)
+else:
+    import SCons.Warnings
+    SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen not found - documentation won't be built")
