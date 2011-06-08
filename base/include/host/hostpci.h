@@ -1,4 +1,4 @@
-/**
+/** @file
  * PCI helper functions for PCI drivers.
  *
  * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>

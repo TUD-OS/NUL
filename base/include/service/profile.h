@@ -1,4 +1,4 @@
-/**
+/** @file
  * Profiling support.
  *
  * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>

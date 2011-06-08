@@ -1,4 +1,4 @@
-/**
+/** @file
  * HostRtc generic code
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

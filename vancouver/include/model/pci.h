@@ -1,4 +1,4 @@
-/**
+/** @file
  * Generic PCI classes.
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>

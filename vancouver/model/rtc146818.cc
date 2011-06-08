@@ -1,4 +1,4 @@
-/**
+/** @file
  * MC146818A Realtime Clock and CMOS emulation.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

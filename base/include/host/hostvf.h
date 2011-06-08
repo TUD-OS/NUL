@@ -1,4 +1,4 @@
-/**
+/** @file
  * PCI helper functions for virtual functions.
  *
  * Copyright (C) 2009-2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

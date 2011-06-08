@@ -1,4 +1,4 @@
-/**
+/** @file
  * Arp ping test.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

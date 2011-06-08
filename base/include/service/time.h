@@ -1,4 +1,4 @@
-/**
+/** @file
  * Standard include file: time.h
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

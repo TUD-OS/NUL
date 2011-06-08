@@ -1,4 +1,4 @@
-/**
+/** @file
  * VGA screen output.
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>

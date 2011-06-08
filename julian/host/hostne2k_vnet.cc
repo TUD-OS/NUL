@@ -1,4 +1,4 @@
-/**
+/** @file
  * Host ne2k driver.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

@@ -1,4 +1,5 @@
-/** -*- Mode: C++ -*-
+// -*- Mode: C++ -*-
+/** @file
  * Sinus plasma and some motivational quotes.
  *
  * Copyright (C) 2009, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

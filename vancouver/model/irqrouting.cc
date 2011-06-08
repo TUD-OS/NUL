@@ -1,4 +1,4 @@
-/**
+/** @file
  * Route messages between HostIrq and Irqlines.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

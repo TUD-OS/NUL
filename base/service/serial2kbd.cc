@@ -1,4 +1,4 @@
-/**
+/** @file
  * Converts ascii chars to keystrokes.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>

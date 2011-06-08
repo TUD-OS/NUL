@@ -1,4 +1,4 @@
-/**
+/** @file
  * Null Memory access.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

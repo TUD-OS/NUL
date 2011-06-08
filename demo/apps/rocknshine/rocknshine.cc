@@ -1,4 +1,4 @@
-/**
+/** @file
  * Minimalistic presentation tool.
  *
  * Copyright (C) 2009, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

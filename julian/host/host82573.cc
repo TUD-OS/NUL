@@ -1,4 +1,4 @@
-/**
+/** @file
  * Host Intel 82573L driver (probably works for other devices, too).
  *
  * Copyright (C) 2010-2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

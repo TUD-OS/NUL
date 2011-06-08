@@ -1,4 +1,4 @@
-/**
+/** @file
  * Generic DMA definitions.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>

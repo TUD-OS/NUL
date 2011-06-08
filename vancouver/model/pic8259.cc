@@ -1,4 +1,4 @@
-/**
+/** @file
  * PIC8259 emulation.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>

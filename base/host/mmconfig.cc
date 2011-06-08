@@ -1,4 +1,4 @@
-/**
+/** @file
  * PCI config space access via mmconfig.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

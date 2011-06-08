@@ -1,4 +1,4 @@
-/**
+/** @file
  * HostAcpi driver.
  *
  * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>

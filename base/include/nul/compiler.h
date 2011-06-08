@@ -1,4 +1,4 @@
-/**
+/** @file
  * Compiler-specific annotations
  *
  * Copyright (C) 2010-2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

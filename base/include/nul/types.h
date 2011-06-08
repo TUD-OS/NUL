@@ -1,4 +1,4 @@
-/**
+/** @file
  * Fixed-width integer types.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

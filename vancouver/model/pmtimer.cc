@@ -1,4 +1,4 @@
-/**
+/** @file
  * Power Management Timer.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

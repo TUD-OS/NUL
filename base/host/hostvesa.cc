@@ -1,4 +1,4 @@
-/**
+/** @file
  * Host VESA console driver.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

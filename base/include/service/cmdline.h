@@ -1,4 +1,5 @@
-/** -*- Mode: C++ -*-
+// -*- Mode: C++ -*-
+/** @file
  * Command line parsing.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

@@ -1,4 +1,4 @@
-/**
+/** @file
  * VCPU to VBios bridge.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

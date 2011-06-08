@@ -1,4 +1,4 @@
-/**
+/** @file
  * Generic NOVA producer/consumer code based on shared memory and
  * semaphores.
  *

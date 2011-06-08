@@ -1,4 +1,4 @@
-/**
+/** @file
  * Cpu abstraction with inline asm.
  *
  * Copyright (C) 2007-2010, Bernhard Kauer <bk@vmmon.org>

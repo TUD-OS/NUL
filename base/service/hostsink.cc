@@ -1,4 +1,4 @@
-/**
+/** @file
  * Output bus messages via printf.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>

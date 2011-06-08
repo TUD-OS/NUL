@@ -1,4 +1,4 @@
-/**
+/** @file
  * ATARE - ACPI table IRQ routing extraction.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

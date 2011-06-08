@@ -1,4 +1,5 @@
-/** -*- Mode: C++ -*-
+// -*- Mode: C++ -*-
+/** @file
  * Math helpers
  *
  * Copyright (C) 2009, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

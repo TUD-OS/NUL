@@ -1,4 +1,5 @@
-/** -*- Mode: C++ -*-
+// -*- Mode: C++ -*-
+/** @file
  * Show a screenful of helpful tips.
  *
  * Copyright (C) 2009-2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

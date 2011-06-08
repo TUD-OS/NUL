@@ -1,4 +1,4 @@
-/**
+/** @file
  * Helper functions.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

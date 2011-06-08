@@ -1,4 +1,4 @@
-/**
+/** @file
  * Logging support.
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <bk@vmmon.org>

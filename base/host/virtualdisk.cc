@@ -1,4 +1,4 @@
-/**
+/** @file
  * Memory backed virtual disk.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

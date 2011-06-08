@@ -1,4 +1,4 @@
-/**
+/** @file
  * I/OxAPIC model.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

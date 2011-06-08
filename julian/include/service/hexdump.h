@@ -1,4 +1,4 @@
-/**
+/** @file
  * General-purpose hexadecimal dump.
  *
  * Copyright (C) 2010, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>

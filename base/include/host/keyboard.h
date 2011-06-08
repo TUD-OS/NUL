@@ -1,4 +1,4 @@
-/**
+/** @file
  * Generic keyboard defines and scancode translations.
  * Documentation: PS2 hitrc chapter 11; Andries Brouwer Keyboard scancodes;
  *

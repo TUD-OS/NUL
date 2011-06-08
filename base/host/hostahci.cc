@@ -1,4 +1,4 @@
-/**
+/** @file
  * Host AHCI driver.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>

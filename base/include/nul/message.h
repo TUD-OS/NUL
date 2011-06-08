@@ -1,4 +1,6 @@
-/** -*- Mode: C++ -*-
+// -*- Mode: C++ -*-
+/**
+ * @file
  * Message Type defintions.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

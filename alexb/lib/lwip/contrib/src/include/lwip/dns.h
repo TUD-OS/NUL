@@ -1,4 +1,4 @@
-/**
+/** @file
  * lwip DNS resolver header file.
 
  * Author: Jim Pettinato 

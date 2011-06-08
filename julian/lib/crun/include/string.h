@@ -1,4 +1,4 @@
-/**
+/** @file
  * Standard include file and asm implementation.
  *
  * Copyright (C) 2007-2008, Bernhard Kauer <kauer@tudos.org>

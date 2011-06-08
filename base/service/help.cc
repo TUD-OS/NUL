@@ -1,4 +1,4 @@
-/**
+/** @file
  * Define help output.
  *
  * Copyright (C) 2009, Bernhard Kauer <bk@vmmon.org>

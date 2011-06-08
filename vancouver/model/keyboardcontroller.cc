@@ -1,4 +1,4 @@
-/**
+/** @file
  * PS2 keyboard controller emulation.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>

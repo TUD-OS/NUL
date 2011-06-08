@@ -1,4 +1,4 @@
-/**
+/** @file
  * Null IOIO access.
  *
  * Copyright (C) 2007-2009, Bernhard Kauer <bk@vmmon.org>

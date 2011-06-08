@@ -1,4 +1,4 @@
-/**
+/** @file
  * Sigma0 request interface defintions.
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>

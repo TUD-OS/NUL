@@ -1,4 +1,4 @@
-/**
+/** @file
  * Generic ATA functions.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>

@@ -1,4 +1,4 @@
-/**
+/** @file
  * Instruction helper.
  *
  * Copyright (C) 2009-2010, Bernhard Kauer <bk@vmmon.org>

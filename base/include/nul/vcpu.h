@@ -1,4 +1,4 @@
-/**
+/** @file
  * External Virtual CPU interface.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

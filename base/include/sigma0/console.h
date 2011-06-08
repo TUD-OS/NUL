@@ -1,4 +1,4 @@
-/**
+/** @file
  * Programm console helper.
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
