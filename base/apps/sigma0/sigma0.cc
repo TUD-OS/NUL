@@ -29,6 +29,7 @@
 #include "service/logging.h"
 #include "sigma0/sigma0.h"
 #include "nul/service_fs.h"
+#include <nul/service_events.h>
 #include "s0_admission.h"
 
 // global VARs
@@ -232,7 +233,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     if (msg->msi_gsi >= _hip->cfg_gsi) return 0;
     unsigned irq_cap = _irq_cap_base + msg->msi_gsi;
-    unsigned res = nova_assign_gsi(irq_cap, cpunr, msg->value, &msg->msi_address, &msg->msi_value);
+    MessagePciConfig msg_resolve(msg->value);
+    msg_resolve.ptr = NULL;
+    if ((msg->value != 0) and not _mb->bus_hwpcicfg.send(msg_resolve)) {
+      Logging::printf("s0: could not assign gsi for device %lx. No mmconfig?\n", msg->value);
+      return false;
+    }
+
+    unsigned res = nova_assign_gsi(irq_cap, cpunr, msg_resolve.ptr, &msg->msi_address, &msg->msi_value);
     if (res != NOVA_ESUCCESS)
       Logging::printf("s0: failed to setup msi - err=%x, msi_gsi=%x irq_cap=%x cpu=%x\n", res, msg->msi_gsi, irq_cap, cpunr);
     return res == NOVA_ESUCCESS ? irq_cap : 0;
@@ -593,7 +601,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
 	if (!_pcidirect[i])
 	  {
-	    unsigned res = nova_assign_pci(pd_cap, bdf, vfbdf);
+            MessagePciConfig msg_resolve(bdf);
+            if (not _mb->bus_hwpcicfg.send(msg_resolve)) {
+              Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
+              return false;
+            }
+	    unsigned res = nova_assign_pci(pd_cap, msg_resolve.ptr, vfbdf);
 	    if (!res) _pcidirect[i] = vfbdf ? vfbdf : bdf;
 	    return res;
 	  }

@@ -57,6 +57,8 @@ public:
     switch (msg.type) {
     case MessagePciConfig::TYPE_READ:  msg.value = *field; break;
     case MessagePciConfig::TYPE_WRITE: *field = msg.value; break;
+    case MessagePciConfig::TYPE_PTR:   msg.ptr = field;    break;
+    default: return false;
     }
     return true;
   }

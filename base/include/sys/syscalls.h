@@ -148,14 +148,14 @@ WARN_UNUSED inline unsigned char  nova_semdown(unsigned idx_sm)
 WARN_UNUSED inline unsigned char  nova_semdownmulti(unsigned idx_sm)
 {  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_DOWN_MULTI); }
 
-WARN_UNUSED inline unsigned char  nova_assign_pci(unsigned pd, unsigned pf_rid, unsigned vf_rid)
-{  return nova_syscall(pd << 8 | NOVA_ASSIGN_PCI, pf_rid, vf_rid, 0, 0); }
+WARN_UNUSED inline unsigned char  nova_assign_pci(unsigned pd, void *pf_cfg_mem, unsigned vf_rid)
+{  return nova_syscall(pd << 8 | NOVA_ASSIGN_PCI, reinterpret_cast<unsigned>(pf_cfg_mem), vf_rid, 0, 0); }
 
 
-WARN_UNUSED inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, unsigned rid=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
+WARN_UNUSED inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, void *pci_cfg_mem=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
 {
   unsigned out1;
-  unsigned char res = nova_syscall(idx_sm << 8 | NOVA_ASSIGN_GSI, cpu_nr, rid, 0, 0, &out1, msi_value);
+  unsigned char res = nova_syscall(idx_sm << 8 | NOVA_ASSIGN_GSI, reinterpret_cast<unsigned>(pci_cfg_mem), cpu_nr, 0, 0, &out1, msi_value);
   if (msi_address) *msi_address = out1;
   return res;
 }
