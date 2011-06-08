@@ -13,6 +13,7 @@ Repository('../vancouver')
 Repository('../alexb')
 Repository('../kernel')
 Repository('../ben')
+Repository('../michal')
 
 # We pull the top-level SCons logic from the first repository that has
 # a SConscript file in its root directory.
