@@ -1,0 +1,13 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul S0_DEFAULT \
+    verbose \
+    hostserial \
+    hostvga \
+    script_start:1,1 \
+    hostkeyb:0,0x60,1,12,2
+bin/apps/hello.nul
+hello.nulconfig <<EOF
+sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/hello.nul
+EOF
