@@ -1,0 +1,44 @@
+#+TITLE: WvTest framework in NUL
+
+* Test writing HOWTO
+
+- Inherit you test class from =WvTest= (included from wvtest.h) and
+  implement the =run= method.
+- Annotate all checks with macros like WVPASS(), WVFAIL(), etc.
+- Write novaboot configuration file and name it as *.wv (e.g.
+  example.wv).
+- Test it under quemu by simply running the file.
+- To run all tests in the tree run =michal/wvtest/runall=.
+
+* Boot configurations
+
+NUL implementation of wvtest uses novaboot script to run the test in
+qemu or on a real machine. The novaboot configuration files containing
+wvtest output should be named as *.wv.
+
+* Automatic rebooting of the test machine (or qemu)
+
+In order to reboot the test machine (or kill qemu) after each test has
+finished (or the machine hang), the tests (novaboot configuration
+files) should be run under =wvnulrun= program which takes care of
+that.
+
+* Changes to the WvTest protocol
+
+Tracebuffer prefixes the output going from the applications with the
+number of the console. Therefor we allow each WvTest line to be
+prefixed with console number in parentheses and followed by a space.
+
+There is an additional line printed at the end of the text:
+
+    Finished testing in %s.
+
+This line signals the =wvnulrun= script, that it is OK to reboot the
+machine.
+
+* ORG settings							   :noexport:
+#+STARTUP: showall hidestars
+
+;; Local Variables:
+;; mode: org
+;; End:

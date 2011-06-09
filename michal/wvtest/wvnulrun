@@ -1,0 +1,96 @@
+#!/usr/bin/perl -w
+#
+# @file 
+# Script to supervise the execution of wvtest-based tests.
+#
+# It takes care of killing test (qemu or serial reader) when the test
+# finishes or hangs.
+#
+# Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+# Economic rights: Technische Universitaet Dresden (Germany)
+#
+# This file is part of NUL (NOVA user land).
+#
+# NUL is free software: you can redistribute it and/or
+# modify it under the terms of the GNU General Public License version
+# 2 as published by the Free Software Foundation.
+#
+# NUL is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License version 2 for more details.
+#/
+
+use strict;
+
+# always flush
+$| = 1;
+
+$ENV{'WVTESTRUN'} = 1;		# Tell the child it is run in background (needed for qemu)
+my $pid = open(my $fh, "-|");
+if (!$pid) {
+    # child
+    setpgrp();
+    open STDERR, '>&STDOUT' or die("Can't dup stdout: $!\n");
+    exec(@ARGV);
+    exit 126; # just in case
+}
+
+sub bigkill($)
+{
+    my $pid = shift;
+    ($pid > 0) || die("pid is '$pid'?!\n");
+
+    local $SIG{CHLD} = sub { }; # this will wake us from sleep() faster
+    kill 15, $pid;
+    sleep(2);
+
+    if ($pid > 1) {
+	kill 9, -$pid;
+    }
+    kill 9, $pid;
+
+    exit(125);
+}
+
+# parent
+local $SIG{INT} = sub { bigkill($pid); };
+local $SIG{TERM} = sub { bigkill($pid); };
+local $SIG{ALRM} = sub {
+    print STDERR "Alarm timed out!  No test results for too long.\n";
+    bigkill($pid);
+};
+
+my $allstart = time();
+my ($start, $stop);
+
+alarm(100);
+while (<$fh>)
+{
+    alarm(100);
+    print;
+    chomp;
+    s/\r//g;
+
+#     if (/^(\([0-9]+\) )?Finished testing in .*\./)
+#     {
+# 	kill 15, $pid;		# Kill qemu
+#     }
+    if (/resetting machine via method/)
+    {
+	kill 15, $pid;		# Kill novaboot or qemu
+    }
+}
+my $newpid = waitpid($pid, 0);
+if ($newpid != $pid) {
+    die("waitpid returned '$newpid', expected '$pid'\n");
+}
+
+my $code = $?;
+my $ret = ($code >> 8);
+
+# return death-from-signal exits as >128.  This is what bash does if you ran
+# the program directly.
+if ($code && !$ret) { $ret = $code | 128; }
+
+exit $ret;

@@ -1,0 +1,15 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+WVDESC=Tests WvTest framework itself
+bin/apps/sigma0.nul S0_DEFAULT \
+    verbose \
+    hostserial \
+    hostvga \
+    hostkeyb:0,0x60,1,12,2 \
+    tracebuffer:32768,1 \
+    script_start:1
+bin/apps/wvtesttest.nul
+wvtesttest.nulconfig <<EOF
+sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/wvtesttest.nul
+EOF
