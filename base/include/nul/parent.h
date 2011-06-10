@@ -56,9 +56,9 @@ struct ParentProtocol {
   /**
    * Low-level systemcall.
    */
-  static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame, bool base = true) {
+  static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame, bool percpu = true) {
     unsigned res;
-    res = nova_call(cap_base + (base ? utcb.head.nul_cpunr : 0));
+    res = nova_call(cap_base + (percpu ? utcb.head.nul_cpunr : 0));
     if (!res) res = utcb.msg[0];
     if (drop_frame) utcb.drop_frame();
     return res;
