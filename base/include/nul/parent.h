@@ -64,8 +64,11 @@ struct ParentProtocol {
     return res;
   }
 
-  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance, unsigned cap_pseudonym, unsigned parent_id = CAP_PARENT_ID) {
-    return call(init_frame(utcb, TYPE_OPEN, parent_id) << instance << Utcb::String(service) << Crd(cap_pseudonym, 0, DESC_CAP_ALL), CAP_PT_PERCPU, true);
+  static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance,
+				unsigned cap_pseudonym, unsigned parent_id = CAP_PARENT_ID) {
+    return call(init_frame(utcb, TYPE_OPEN, parent_id) << instance << Utcb::String(service)
+						       << Crd(cap_pseudonym, 0, DESC_CAP_ALL),
+		CAP_PT_PERCPU, true);
   }
 
   static unsigned release_pseudonym(Utcb &utcb, unsigned cap_pseudonym) {
@@ -95,8 +98,8 @@ struct ParentProtocol {
                    unsigned cap_service, char * revoke_mem = 0)
   {
     assert(cap_service);
-    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service)
-      << reinterpret_cast<unsigned>(revoke_mem) << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+    init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service) << reinterpret_cast<unsigned>(revoke_mem)
+						   << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 
@@ -106,7 +109,8 @@ struct ParentProtocol {
   }
 
   static unsigned get_quota(Utcb &utcb, unsigned cap_client_pseudonym, const char *name, long invalue, long *outvalue=0) {
-    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << Utcb::String(name) << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << Utcb::String(name)
+						    << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();
@@ -114,14 +118,16 @@ struct ParentProtocol {
   }
 
   static unsigned set_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned cap_local_session) {
-    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym) << Utcb::TypedMapCap(cap_local_session);
+    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym)
+						    << Utcb::TypedMapCap(cap_local_session);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
   // Services can use check_singleton in conjunction with
   // set_singleton to enforce a one-session-per-client policy. This is
   // not done automatically.
-  static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session, Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
+  static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session,
+				  Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
     init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(cap_client_pseudonym);
     utcb.head.crd_translate = crd.value();
     Utcb::Frame input(&utcb, sizeof(utcb.msg) / sizeof(unsigned));
@@ -181,7 +187,8 @@ public:
       goto do_out;
 
     do_open_session:
-      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM) << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
+      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM)
+		       << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
       if (res == ENONE)     goto do_call;
       if (res == EEXISTS)   goto do_get_pseudonym;
@@ -191,7 +198,8 @@ public:
       {
         // we lock to avoid missing wakeups on retry
         SemaphoreGuard guard(_lock);
-        res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM, _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking, _service);
+        res = ParentProtocol::get_portal(utcb, _cap_base + CAP_PSEUDONYM,
+					 _cap_base + CAP_SERVER_PT + utcb.head.nul_cpunr, _blocking, _service);
       }
       if (res == ERETRY && _blocking) goto do_get_portal;
       if (res == ENONE)     goto do_call;
