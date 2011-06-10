@@ -95,6 +95,9 @@ struct Utcb
     unsigned _consumed;
   public:
 
+    /**
+     * Returns the skip-th delegated capability range descriptor.
+     */
     unsigned received_item(unsigned skip=0) {
       for (unsigned i=0; i < _utcb->head.typed; i++)
         if (_utcb->msg[_end - i * 2 - 1] & 1 && !skip--)
@@ -102,6 +105,10 @@ struct Utcb
       return 0;
     }
 
+    /** 
+     * Returns the first capability in the first range delegated to
+     * us.
+     */
     unsigned received_cap() {
       return Crd(received_item()).cap();
     }
@@ -170,12 +177,14 @@ struct Utcb
     return Frame(x, x->head.untyped + 2*x->head.typed);
   }
 
+  /** Used with << operator to set up "delegate" typed item in UTCB. */
   struct TypedMapCap {
     unsigned value;
     void fill_words(unsigned *ptr, unsigned hotspot=MAP_MAP) {   *ptr++ = value;  *ptr = hotspot;  }
     TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
+  /** Used with << operator  to set up "translate" typed item in UTCB. */
   struct TypedIdentifyCap {
     unsigned value;
     void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 0;  }
