@@ -27,24 +27,31 @@
  * The protocol our parent provides.  It allows to open a new session
  * and request per-CPU-portals.
  *
+ * To be used by both clients and services.
+ *
  * Missing:   restrict quota, get_quota
  */
 struct ParentProtocol {
 
+  /** Protocol operations (message types). */
   enum {
-    // generic protocol functions
-    TYPE_INVALID = 0, // used as error indicator
-    TYPE_OPEN,
+    // generic protocol operations (sent either to parent or to services)
+    TYPE_INVALID = 0, ///< used as error indicator
+    TYPE_OPEN, 	      ///< Get pseudonym (when sent to the parent) or open session (when sent to a service)
     TYPE_CLOSE,
     TYPE_GENERIC_END,
 
-    // server specific functions
+    // service specific operations
     TYPE_GET_PORTAL,
     TYPE_REGISTER,
     TYPE_UNREGISTER,
     TYPE_GET_QUOTA,
     TYPE_SINGLETON,
     TYPE_REQ_KILL,
+  };
+
+  /** Capabilities passed by parents to children. */
+  enum {
     CAP_CHILD_EC  = 253,
     CAP_CHILD_ID  = 254,
     CAP_PARENT_ID = 255,
@@ -76,7 +83,11 @@ struct ParentProtocol {
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
+  /** 
+   * Ask parent to get the portal to talk to the service.
+   */
   static unsigned get_portal(Utcb &utcb, unsigned cap_pseudonym, unsigned cap_portal, bool blocking, char const * service_name = 0) {
+
     init_frame(utcb, TYPE_GET_PORTAL, cap_pseudonym) << Crd(cap_portal, 0, DESC_CAP_ALL);
     unsigned res = call(utcb, CAP_PT_PERCPU, true);
 
@@ -93,6 +104,12 @@ struct ParentProtocol {
     return res;
   }
 
+  /**
+   * @param revoke_mem Memory page used to substitute the memory that
+   * was provided to the service by a client, but was revoked later.
+   * Having such memory makes it easier for services to deal with
+   * situations when the memory is revoked during service operation.
+   */
   static unsigned
   register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt,
                    unsigned cap_service, char * revoke_mem = 0)
@@ -117,15 +134,16 @@ struct ParentProtocol {
     return res;
   }
 
+  /// @see check_singleton()
   static unsigned set_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned cap_local_session) {
     init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym)
 						    << Utcb::TypedMapCap(cap_local_session);
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
-  // Services can use check_singleton in conjunction with
-  // set_singleton to enforce a one-session-per-client policy. This is
-  // not done automatically.
+  /// Services can use check_singleton() in conjunction with
+  /// set_singleton() to enforce a one-session-per-client policy. This is
+  /// not done automatically.
   static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session,
 				  Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
     init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(cap_client_pseudonym);
@@ -147,6 +165,7 @@ struct ParentProtocol {
 /**
  * Generic protocol handling, hides the parent protocol
  * handling. Specific protocols will be inherited from it.
+ * This is meant to be used only by clients.
  *
  * Features: session-open, parent-open, request-portal, optional blocking
  * Missing: restrict-quota
@@ -155,17 +174,18 @@ class GenericProtocol : public ParentProtocol {
 protected:
   const char *_service;
   unsigned    _instance;
-  unsigned    _cap_base;
+  unsigned    _cap_base;	///< Base of the capability range. This cap refers to CAP_PSEUDONYM.
   Semaphore   _lock;
   bool        _blocking;
   bool        _disabled;
 public:
 
+  /// Client capabilities used to talk to the service 
   enum {
     CAP_PSEUDONYM,
     CAP_LOCK,
     CAP_SERVER_SESSION,
-    CAP_SERVER_PT              // Portal for CPU0
+    CAP_SERVER_PT              ///< Portal for CPU0
   };
 
   /**

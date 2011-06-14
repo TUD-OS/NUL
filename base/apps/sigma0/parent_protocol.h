@@ -78,8 +78,8 @@ private:
   typedef typename ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;
   typedef typename ClientDataStorage<ServerData, s0_ParentProtocol, false>::Guard GuardS;
 
-  ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> _client;
-  ALIGNED(8) ClientDataStorage<ServerData, s0_ParentProtocol, false> _server;
+  ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> _client; /// Client "registry"
+  ALIGNED(8) ClientDataStorage<ServerData, s0_ParentProtocol, false> _server; /// Service "registry"
 
   static unsigned get_client_number(unsigned cap) {
     cap -= CLIENT_PT_OFFSET;

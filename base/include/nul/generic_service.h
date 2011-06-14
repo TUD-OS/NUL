@@ -41,13 +41,13 @@ template <class T> class QuotaGuard {
 
 
 /**
- * Data that is stored by every client.
+ * Data that is stored by a service for every client.
  */
 struct GenericClientData {
   void volatile * volatile next;
   void volatile * volatile del;
-  unsigned           pseudonym;
-  unsigned           identity;
+  unsigned           pseudonym; ///< A capability identifying the client. This is also known to the parent.
+  unsigned           identity;  ///< A capability created by the service to identify the session.
   /**
    * We implement a get_quota here, so that derived classes can
    * overwrite it.  Usefull for example in sigma0 that has a different

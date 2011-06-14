@@ -308,6 +308,8 @@ PARAM(service_timer,
       TimerService * t = new (8) TimerService(mb, cap_region, 12, revoke_mem);
 
       //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
+
+      // Register the service
       MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), revoke_mem);
       msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
       if (!cap_region || !mb.bus_hostop.send(msg))
