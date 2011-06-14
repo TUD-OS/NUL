@@ -10,4 +10,8 @@ nul.App(target_env, 'sigma0',
         ROMFS   = [ 'cfg/admission.nulconfig', '#bin/apps/admission.nul' ],
         MEMSIZE = 2<<12) # enough memory for two stacks - echo and worker thread running on boot cpu
 
+# Sigma0 binary is bloated. Install a gzipped version by default.
+target_env.Command("#bin/apps/sigma0.nul.gz", "#bin/apps/sigma0.nul",
+                   "gzip -c $SOURCE > $TARGET")
+
 # EOF

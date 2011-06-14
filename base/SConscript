@@ -102,11 +102,9 @@ def link(env, target, source, linkscript=None, **rest):
                     LINKFLAGS=env['LINKFLAGS'] + add_ld,
                     **rest)
     g = env.Command(target, p,
-                    [ Copy("$TARGET", "$SOURCE"),
-                      "@strip $TARGET",
+                    [ "@strip -o $TARGET $SOURCE",
                       "@size $TARGET",
                       ])
-    z = env.Command(target + ".gz", g, ["@gzip -c $SOURCE > $TARGET"])
     # Explicitly add linkscript to the dependencies.
     if linkscript:
         env.Depends(p, linkscript)
@@ -114,7 +112,6 @@ def link(env, target, source, linkscript=None, **rest):
     # directory. Even if they are already built elsewhere.
     Local(p)
     Local(g)
-    Local(z)
     return g
 
 target_env.AddMethod(link, "Link")
