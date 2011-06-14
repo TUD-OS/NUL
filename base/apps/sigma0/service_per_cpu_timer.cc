@@ -47,25 +47,11 @@
 //   releases?
 // - restructure code to allow helping
 // - PIT mode is not as exact as it could be. Do we care? 
-// - TSC frequency estimation might not be worth the trouble.
 
 // Tick at least this often between overflows of the lower 32-bit of
 // the HPET main counter. If we don't tick between overflows, the
 // overflow might not be detected correctly.
 #define MIN_TICKS_BETWEEN_HPET_WRAP 4
-
-// If more than this amount of cycles pass while reading the HPET
-// counter, consider the TSC and HPET counter read to be out of sync
-// and try again.
-#define MAX_HPET_READ_TIME          100000
-
-// Try at most this often to get an HPET counter. After that just use
-// the inexact one.
-#define MAX_HPET_READ_TRIES         8 
-
-// If our HPET counter estimation error exceeds this value, the
-// assumed TSC clock frequency is adjusted.
-#define HPET_ESTIMATION_TOLERANCE   100 /* HPET ticks */
 
 // Resolution of our TSC clocks per HPET clock measurement. Lower
 // resolution mean larger error in HPET counter estimation.
@@ -81,41 +67,32 @@
 
 static uint64 atomic_read(volatile uint64 &v)
 {
-  uint64 r;
-  do { r = v; } while (r != v);
-  return r;
+  uint64 res;
+  asm ("movq %1, %0" : "=x" (res) : "m" (v));
+  return res;
+}
+
+static void atomic_write(volatile uint64 &to, uint64 value)
+{
+  asm ("movq %1, %0" : "=m" (to) : "x" (value));
 }
 
 class ClockSyncInfo {
 private:
-  // These two values are only synchronized when you read them from
-  // the corresponding per_cpu thread.
-  volatile uint64 last_tsc;
   volatile uint64 last_hpet;
 
 public:
   uint64 unsafe_hpet() const { return last_hpet; }
-  uint64 unsafe_tsc()  const { return last_tsc;  }
 
   explicit
-  ClockSyncInfo(uint64 tsc = 0, uint64 hpet = 0)
-    : last_tsc(tsc), last_hpet(hpet)
+  ClockSyncInfo(uint64 hpet = 0)
+    : last_hpet(hpet)
   {}
 
-  // Fast and unsafe version of estimate HPET.
-  uint64 unsafe_estimate_hpet(uint32 frac_clocks_per_tick, uint64 tsc = Cpu::rdtsc())
-  { 
-    // XXX Does this handle overflow correctly?
-    uint64 diff = tsc - last_tsc;
-    uint64 res = diff * CPT_RESOLUTION;
-    Math::div64(res, frac_clocks_per_tick);
-    return last_hpet + res;
-  }
-    
   uint64 correct_overflow(uint64 last, uint32 newv)
   {
-    bool of = (static_cast<uint32>(newv) < static_cast<uint32>(last_hpet));
-    return (((last_hpet >> 32) + of) << 32) | newv;
+    bool of = (static_cast<uint32>(newv) < static_cast<uint32>(last));
+    return (((last >> 32) + of) << 32) | newv;
   }
 
   // Safe to call from anywhere. Returns current (non-estimated) HPET
@@ -125,32 +102,14 @@ public:
     return correct_overflow(atomic_read(last_hpet), r);
   }
 
-  // Can only be called from per_cpu thread. Fetches TSC and HPET
-  // value for HPET estimation.
-  void fetch(volatile uint32 &r)
+  // Fetch a new timer value.
+  uint64 fetch(volatile uint32 &r)
   {
-    uint64 newv;
-    uint64 tsc1, tsc2;
-    unsigned tries = 0;
+    uint64 newv = r;
+    newv = correct_overflow(atomic_read(last_hpet), newv);
 
-    do {
-      tsc1 = Cpu::rdtsc();
-      newv = r;
-      tsc2 = Cpu::rdtsc();
-    } while (((tsc2 - tsc1) > MAX_HPET_READ_TIME) and
-             (tries++ < MAX_HPET_READ_TRIES));
-
-    // 2 tries is ok, 3 is fishy...
-    if (tries >= MAX_HPET_READ_TRIES) {
-      COUNTER_INC("HPET inexact");
-    }
-
-    newv = correct_overflow(last_hpet, newv);
-
-    // Interruptible write. Don't read these outside of per_cpu
-    // thread.
-    last_hpet = newv;
-    last_tsc  = tsc1;
+    atomic_write(last_hpet, newv);
+    return newv;
   }
 };
 
@@ -201,8 +160,6 @@ class PerCpuTimerService : private BasicHpet,
     ClockSyncInfo          clock_sync;
     bool                   has_timer;
     Timer                 *timer;
-    uint32                 frac_clocks_per_tick;
-    bool                   tsc_unstable;
     AtomicLifo<ClientData> work_queue;
     TimeoutList<CLIENTS, ClientData> abstimeouts;
 
@@ -291,7 +248,7 @@ class PerCpuTimerService : private BasicHpet,
     Math::idiv64(diff, static_cast<int32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
     uint64 estimated_main;
     if (_reg)
-      estimated_main = per_cpu->clock_sync.unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick);
+      estimated_main = per_cpu->clock_sync.current_hpet(_reg->counter[0]);
     else
       estimated_main = _pit_ticks + 1; // Compute from next tick.
           
@@ -341,13 +298,15 @@ class PerCpuTimerService : private BasicHpet,
     // XXX Set abstimeout to zero here?
     if (t == 0 /* timer in the past */) {
       COUNTER_INC("TO early");
-      nova_semup(data->identity);
+      unsigned res = nova_semup(data->identity);
+      (void)res;                // avoid compiler warning. nothing to
+                                // be done in error case.
       return false;
     }
 
     per_cpu->abstimeouts.request(nr, t);
 
-    uint64 tsc = Cpu::rdtsc();
+    // uint64 tsc = Cpu::rdtsc();
     // Logging::printf("CPU%u CLIENT now %016llx to %016llx diff %016llx\n", BaseProgram::mycpu(),
     //                 tsc, data->abstimeout, data->abstimeout - tsc);
 
@@ -375,33 +334,8 @@ class PerCpuTimerService : private BasicHpet,
   // new HPET main counter value.
   void update_hpet_estimation(PerCpu *per_cpu)
   {
-    // Estimate the current HPET value using the old HPET,TSC
-    // tuple. Adjust frac_clocks_per_tick accordingly.
     ClockSyncInfo old = per_cpu->clock_sync;
     per_cpu->clock_sync.fetch(_reg->counter[0]);
-    uint64 estimated_main = old.unsafe_estimate_hpet(per_cpu->frac_clocks_per_tick,
-                                                     per_cpu->clock_sync.unsafe_tsc());
-
-        
-    int64 diff = estimated_main - per_cpu->clock_sync.unsafe_hpet();
-        
-    // Slightly adapt clocks per tick when our estimation is off.
-    if (diff > HPET_ESTIMATION_TOLERANCE)
-      per_cpu->frac_clocks_per_tick += 1;
-        
-    if (diff < -HPET_ESTIMATION_TOLERANCE)
-      per_cpu->frac_clocks_per_tick -= 1;
-        
-    // Sanity
-    if (((diff < 0LL) ? -diff : diff) > 10000000LL) {
-          
-      Logging::printf("TIMER: CPU%u est %016llx real %016llx diff %016llx\n",
-                      BaseProgram::mycpu(), estimated_main, per_cpu->clock_sync.unsafe_hpet(), diff);
-      Logging::printf("TIMER: CPU%u detected unstable TSC.\n", BaseProgram::mycpu());
-
-      per_cpu->tsc_unstable = true;
-      // XXX Do something with this.
-    }
   }
 
   struct WorkerMessage {
@@ -919,10 +853,8 @@ public:
     for (log_cpu_no i = 0; i < cpus; i++) {
       phy_cpu_no pcpu = mb.hip()->cpu_physical(i);
 
-      _per_cpu[pcpu]->frac_clocks_per_tick = _nominal_tsc_ticks_per_timer_tick;
-
       // Provide initial hpet counter to get high 32-bit right.
-      _per_cpu[pcpu]->clock_sync = ClockSyncInfo(0, initial_counter);
+      _per_cpu[pcpu]->clock_sync = ClockSyncInfo(initial_counter);
       _per_cpu[pcpu]->abstimeouts.init();
       _per_cpu[pcpu]->last_to = ~0ULL;
 
