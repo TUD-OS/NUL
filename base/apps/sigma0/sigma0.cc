@@ -592,10 +592,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Assign a PCI device to a PD. It makes sure only the first will
    * get it.
-   *
-   * Returns 0 on success.
    */
-  unsigned assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned vfbdf)
+  bool assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned vfbdf)
   {
     for (unsigned i = 0; i < MAXPCIDIRECT; i++)
       {
@@ -608,14 +606,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             }
 	    unsigned res = nova_assign_pci(pd_cap, msg_resolve.ptr, vfbdf);
 	    if (!res) _pcidirect[i] = vfbdf ? vfbdf : bdf;
-	    return res;
+	    return (res == NOVA_ESUCCESS);
 	  }
 	if ((vfbdf == 0) && (bdf == _pcidirect[i]))
-	  return 1;
+	  return false;
 	if (vfbdf != 0 && vfbdf == _pcidirect[i])
-	  return 2;
+	  return false;
       }
-    return 3;
+    return false;
   }
 
   /*
@@ -774,10 +772,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ASSIGN_PCI:
 			  if (modinfo->dma) {
-			    utcb->msg[0] = assign_pci_device(NOVA_DEFAULT_PD_CAP + (modinfo->id << CLIENT_PT_SHIFT) + CLIENT_PT_OFFSET, msg->value, msg->len);
-			      //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", modinfo->id, msg->value, msg->len, utcb->msg[0]);
+                            if (assign_pci_device(NOVA_DEFAULT_PD_CAP + (modinfo->id << CLIENT_PT_SHIFT) + CLIENT_PT_OFFSET, msg->value, msg->len))
+                              utcb->msg[0] = 0;
+                            else goto fail;
+                            //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", modinfo->id, msg->value, msg->len, utcb->msg[0]);
 			  } else {
 			    Logging::printf("s0: [%02x] DMA access denied.\n", modinfo->id);
+                            goto fail;
 			  }
 			  break;
 			case MessageHostOp::OP_ATTACH_IRQ:
@@ -950,7 +951,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         }
         break;
       case MessageHostOp::OP_ASSIGN_PCI:
-        res = !assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
+        res = assign_pci_device(NOVA_DEFAULT_PD_CAP, msg.value, msg.len);
         break;
       case MessageHostOp::OP_GET_MAC:
         msg.mac = get_mac(_mac++ * MAXMODULES);
