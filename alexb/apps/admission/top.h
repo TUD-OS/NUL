@@ -224,8 +224,6 @@
           i += 3;
         }
         cursor_pos = 0;
-        if (client_count == (HEIGHT - 1 - (client_num % (HEIGHT - 2))))
-          _putc(_vga_console + (client_count + 1) * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH, '#');
         client_count --;
       } else {
         more += 1;
@@ -233,7 +231,7 @@
         Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", more);
       }
     } while (data = _storage.next(data));
-
+    _putc(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - (client_num % (HEIGHT - 2)) * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH, '#');
     get_idle(hip);
   }
 

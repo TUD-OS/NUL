@@ -330,7 +330,7 @@ public:
             if ((kmsg->data & 0x7f) == 77) { show = show == 2 ? 0 : 2; } //"p"
             else if ((kmsg->data & 0x7f) == 44) show = 0; //"t"
             else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) { if (show == 0 && client_num) client_num--; show = 0; }
-            else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 2) client_num++; show = 0; }
+            else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 3) client_num++; show = 0; }
             else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; }
             else _update = false;
             update = update ? update : _update;
