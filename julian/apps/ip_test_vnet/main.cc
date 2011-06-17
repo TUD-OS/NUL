@@ -93,7 +93,7 @@ namespace js {
       unsigned long long arg;
       Clock * _clock = new Clock(hip->freq_tsc);
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
 
       TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
