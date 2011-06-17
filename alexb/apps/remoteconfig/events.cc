@@ -15,7 +15,6 @@
  */
 
 #include "events.h"
-
 #include <nul/service_events.h>
 
   void EventService::check_clients(Utcb &utcb) {
@@ -46,9 +45,13 @@
 
         res = ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &guid);
  
-        Logging::printf("got event from guid=%ld eventid=%x res=0x%x\n", guid, eventid, res);
-        if (eventid == 0xbbbb) Logging::printf("guessing: could be a reboot event ...\n");
-        return ENONE;
+        Logging::printf("        - got event from guid=%ld eventid=%x res=0x%x\n", guid, eventid, res);
+        if (eventid == EventsProtocol::EVENT_REBOOT) Logging::printf("        - could be a reboot event ...\n");
+
+        if (server->push_event(guid, eventid)) return ENONE;
+
+        Logging::printf("        - didn't found uuid to event source\n");
+        return EABORT;
       }
       case ParentProtocol::TYPE_OPEN:
       {
@@ -69,9 +72,15 @@
         utcb << Utcb::TypedMapCap(data->identity);
         return res;
       }
+      case ParentProtocol::TYPE_CLOSE:
+      {
+        ClientData *data = 0;
+        ClientDataStorage<ClientData, EventService>::Guard guard_c(&_storage, utcb, this);
+        check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
+        return _storage.free_client_data(utcb, data, this);
+      }
       default:
         Logging::printf("unknown proto\n");
         return EPROTO;
       }
     }
-

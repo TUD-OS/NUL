@@ -1,6 +1,6 @@
 /*
- * (C) 2011 Alexander Boettcher
- *     economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
  *
@@ -23,11 +23,11 @@
 
 #include "server.h"
 
-bool Remcon::check_uuid(char uuid[UUID_LEN]) {
+struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
   unsigned i;
   for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++)
-    if (!memcmp(server_data[i].uuid, uuid, UUID_LEN)) return false;
-  return true;
+    if (!memcmp(server_data[i].uuid, uuid, UUID_LEN)) return &server_data[i];
+  return NULL;
 }
 
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
@@ -52,8 +52,8 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 void Remcon::handle_packet(void) {
 
   //version check
-  if (_in->version != Math::htons(0xaffe)) {
-    _out->version = Math::htons(0xaffe);
+  if (_in->version != Math::htons(0xafff)) {
+    _out->version = Math::htons(0xafff);
     _out->result  = NOVA_UNSUPPORTED_VERSION;
     if (sizeof(buf_out) != send(buf_out, sizeof(buf_out)))
       Logging::printf("failure - sending reply\n");
@@ -65,7 +65,7 @@ void Remcon::handle_packet(void) {
 
   //set default values 
   unsigned op = Math::ntohs(_in->opcode);
-  _out->version = Math::htons(0xaffe);
+  _out->version = Math::htons(0xafff);
   _out->opcode  = Math::htons(op);
   _out->result  = NOVA_OP_FAILED;
   
@@ -156,6 +156,22 @@ void Remcon::handle_packet(void) {
         }
         break;
       }
+    case NOVA_GET_NAME_UUID:
+      {
+        struct server_data * entry;
+
+        char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
+        entry = check_uuid(_uuid);
+        Logging::printf("entry %p\n", entry );
+        if (!entry) break;
+
+        unsigned len = entry->showname_len + 1;
+        uint32_t id = Math::htonl(entry->id);
+        memcpy(&_out->opspecific, &id, sizeof(id));
+        memcpy(&_out->opspecific + sizeof(id), entry->showname, len);
+        *(&_out->opspecific + sizeof(id) + len - 1) = 0;
+        _out->result  = NOVA_OP_SUCCEEDED;
+      }
     case NOVA_GET_NAME_ID:
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
@@ -175,7 +191,7 @@ void Remcon::handle_packet(void) {
     case NOVA_VM_START:
       {
         char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
-        if (!check_uuid(_uuid + UUID_LEN)) break; //if we have this uuid already deny starting
+        if (check_uuid(_uuid + UUID_LEN)) break; //if we have this uuid already deny starting
 
         unsigned i, j;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
@@ -186,7 +202,7 @@ void Remcon::handle_packet(void) {
               if(server_data[j].id != 0) continue;
 
               server_data[j].id = j + 1;
-              server_data[j].active = 1;
+              server_data[j].active = true;
               memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
               server_data[j].filename     = server_data[i].filename;
               server_data[j].filename_len = server_data[i].filename_len;
@@ -214,9 +230,9 @@ void Remcon::handle_packet(void) {
                                          server_data[j].filename, server_data[j].filename_len);
               if (res != NOVA_ESUCCESS) goto cleanup;
 
-              unsigned id;
+              unsigned short id;
               res = service_config->start_config(*BaseProgram::myutcb(), id, module, fileinfo.size);
-              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; }
+              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; Logging::printf("[%u] started %u\n", j, id); }
 
               cleanup:
 
@@ -224,14 +240,14 @@ void Remcon::handle_packet(void) {
               fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
               if (res != NOVA_ESUCCESS) {
-                server_data[j].active = 0;
+                server_data[j].active = false;
                 server_data[j].id = 0;
               }
 
               break;
             }
           } else {
-            server_data[i].active = 1;
+            server_data[i].active = true;
             _out->result  = NOVA_OP_SUCCEEDED;
           }
           break;
@@ -245,13 +261,51 @@ void Remcon::handle_packet(void) {
         unsigned res;
 
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-
+        Logging::printf("[%u] kill remoteid %u\n", localid, server_data[localid].remoteid);
         res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == NOVA_ESUCCESS) {
           server_data[localid].id     = 0;
-          server_data[localid].active = 0;
+          server_data[localid].active = false;
           _out->result  = NOVA_OP_SUCCEEDED;
         }
+        break;
+      }
+    case NOVA_DISABLE_EVENT:
+      {
+        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
+        uint32_t localid = Math::ntohl(*_id);
+
+        if (localid == ~0U) {
+          gevents = false;
+          _out->result  = NOVA_OP_SUCCEEDED;
+          break;
+        }
+
+        localid -= 1;
+        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
+        server_data[localid].events = false;
+
+        _out->result  = NOVA_OP_SUCCEEDED;
+        break;
+      }
+    case NOVA_ENABLE_EVENT:
+      {
+        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
+        uint32_t localid = Math::ntohl(*_id);
+
+        Logging::printf("localid %x %lx\n", localid, Math::ntohl(*_id));
+        if (localid == ~0U) {
+          gevents = true;
+          _out->result  = NOVA_OP_SUCCEEDED;
+          break;
+        }
+
+        localid -= 1;
+        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
+        server_data[localid].events = true;
+
+        _out->result  = NOVA_OP_SUCCEEDED;
+      
         break;
       }
     default:

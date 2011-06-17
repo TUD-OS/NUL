@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
+ *
+ * This file is part of NUL (NOVA user land).
+ *
+ * NUL is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version
+ * 2 as published by the Free Software Foundation.
+ *
+ * NUL is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * General Public License version 2 for more details.
+ */
 #pragma once
 
 #include <nul/compiler.h>
@@ -6,6 +21,8 @@
 #include <util/capalloc_partition.h>
 
 #define CONST_CAP_RANGE 16U
+
+#include "server.h"
 
 class EventService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE> 
 {
@@ -20,10 +37,11 @@ private:
 
   bool enable_verbose;
   char * flag_revoke;
+  Remcon * server;
 
 public:
 
-  EventService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1) {
+  EventService(Remcon * _server) : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), server(_server) {
     unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
     assert(base && !(base & 0xFFFULL));
     _cap_base = base;

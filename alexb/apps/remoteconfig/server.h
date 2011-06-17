@@ -1,6 +1,6 @@
 /*
- * (C) 2011 Alexander Boettcher
- *     economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
  *
@@ -13,6 +13,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
  */
+#pragma once
 
 #include <service/string.h> //memset
 #include <service/math.h> // htonl, htons
@@ -32,14 +33,22 @@ typedef uint32 uint32_t;
 
 class ConfigProtocol;
 
+#include <sigma0/consumer.h>
+
+typedef PacketConsumer<NOVA_PACKET_LEN * 64> EventConsumer;
+typedef PacketProducer<NOVA_PACKET_LEN * 64> EventProducer;
+
 class Remcon : public CapAllocator {
   private:
 
-    struct {
-      short active;
+    bool gevents;
+
+    struct server_data {
+      bool active;
+      bool events;
       short istemplate;
       uint32_t id;
-      unsigned remoteid;
+      unsigned short remoteid;
       char uuid[UUID_LEN];
       char fsname[32];
       const char * filename;
@@ -69,14 +78,17 @@ class Remcon : public CapAllocator {
       }
     }
 
-    bool check_uuid(char uuid[UUID_LEN]);
+    struct server_data * check_uuid(char uuid[UUID_LEN]);
+
+    EventProducer * eventproducer;
 
   public:
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
-           unsigned long cap_start, unsigned long cap_order) :
-      CapAllocator(cap_start, cap_start, cap_order),
-      data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig), cpu_count(_cpu_count)
+           unsigned long cap_start, unsigned long cap_order, EventProducer * producer) :
+      CapAllocator(cap_start, cap_start, cap_order), gevents(false),
+      data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
+      cpu_count(_cpu_count), eventproducer(producer)
     {
       _in  = reinterpret_cast<struct incoming_packet *>(buf_in);
       _out = reinterpret_cast<struct outgoing_packet *>(buf_out);
@@ -114,7 +126,7 @@ class Remcon : public CapAllocator {
       
         char _uuid[UUID_LEN];
         gen_uuid(filename, _uuid);
-        if (!check_uuid(_uuid)) Logging::panic("Generating uuid failed\n");
+        if (check_uuid(_uuid)) Logging::panic("Generating uuid failed\n");
         memcpy(server_data[pos].uuid, _uuid, UUID_LEN);
 
         server_data[pos].id = pos + 1;
@@ -131,4 +143,31 @@ class Remcon : public CapAllocator {
 
     void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len);
     int send(void * mem, size_t count) { assert(mem == buf_out); assert(count == sizeof(buf_out)); dowrite = true; return count; }
+
+    bool find_uuid(unsigned remoteid, char uuid[UUID_LEN]) {
+      for(unsigned i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
+        if (server_data[i].remoteid != 0 && server_data[i].remoteid == remoteid)
+          return memcpy(uuid, server_data[i].uuid, UUID_LEN);
+      }
+      return false;
+    }
+
+    bool push_event(int guid, uint32_t eventid) {
+      unsigned char buf[NOVA_PACKET_LEN];
+      struct outgoing_packet * out  = reinterpret_cast<struct outgoing_packet *>(buf);
+
+      out->version = Math::htons(0xafff);
+      out->opcode  = Math::htons(NOVA_EVENT);
+      out->result  = NOVA_OP_SUCCEEDED;
+      char * uuid  = reinterpret_cast<char *>(&out->opspecific);
+      if (!find_uuid(guid, uuid)) return false;
+      if (!gevents) {
+        struct server_data * entry = check_uuid(uuid);
+        if (!entry || !entry->events) return false;
+      }
+
+      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN) = Math::htonl(eventid);
+      eventproducer->produce(buf, NOVA_PACKET_LEN);
+      return true;
+    }
 };

@@ -1,6 +1,6 @@
 /*
- * (C) 2011 Alexander Boettcher
- *     economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
  *
@@ -38,7 +38,8 @@ enum {
   IP_TIMEOUT_NEXT = 3,
   IP_UDP_OPEN     = 4,
   IP_TCP_OPEN     = 5,
-  IP_SET_ADDR     = 6
+  IP_SET_ADDR     = 6,
+  IP_TCP_SEND     = 7
 };
 
 namespace ab {
@@ -70,32 +71,31 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       return NovaProgram::create_ec_helper(tls, cpunr, excbase, utcb_out, func, cap);
     }
 
-    bool start_services(Utcb *utcb, Hip * hip) {
-      EventService * event = new EventService();
+    bool start_services(Utcb *utcb, Hip * hip, EventProducer * producer) {
+      //create network service object
+      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+      unsigned cap_region = alloc_cap_region(1 << 14, 14);
+      if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
+      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
+                          cap_region, 14, producer);
+
+      //create event service object
+      EventService * event = new EventService(remcon);
       if (!event) return false;
       return event->start_service(utcb, hip, this);
     }
 
-    bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
+    bool use_network(Utcb *utcb, Hip * hip, EventConsumer * sendconsumer,
+                     Clock * _clock, KernelSemaphore &sem, TimerProtocol * timer_service)
+    {
       bool res;
       unsigned long long arg = 0;
-      Clock * _clock = new Clock(hip->freq_tsc);
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
-
-      TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-      TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-      res = timer_service->timer(*utcb, msg);
-
-      Logging::printf("%s - request timer attach\n", (res == 0 ? "done   " : "failure"));
-      if (res) return false;
-
-      KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
       res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
-
       Logging::printf("%s - request network attach\n", (res == 0 ? "done   " : "failure"));
       if (res) return false;
 
@@ -123,12 +123,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
       if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
 
-      //create server object
-      ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-      unsigned cap_region = alloc_cap_region(1 << 14, 14);
-      if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
-      remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
-                          cap_region, 14);
 
       struct {
         unsigned long port;
@@ -136,7 +130,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       } conn = { 9999, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      Logging::printf("done    - tcp port=%lu\n", conn.port);
+      conn = { 10000, 0 };
+      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
+
+      Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);
       Logging::printf(".......   looking for an IP address via DHCP\n");
 
       while (1) {
@@ -163,6 +160,18 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
           nul_ip_input(buf, size);
           netconsumer->free_buffer();
         }
+
+        while (sendconsumer->has_data()) {
+          unsigned size = sendconsumer->get_buffer(buf);
+
+          struct {
+            unsigned long port;
+            size_t count;
+            void * data;
+          } arg = { conn.port, size, buf };
+          nul_ip_config(IP_TCP_SEND, &arg);
+          sendconsumer->free_buffer();
+        }
       }
 
       return !res;
@@ -174,13 +183,28 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     init(hip);
     init_mem(hip);
 
-    console_init("remote nova daemon");
+    console_init("NOVA daemon");
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    Logging::printf("booting - NOVA management daemon ...\n");
+    Logging::printf("booting - NOVA daemon ...\n");
 
-    if (!start_services(utcb, hip)) Logging::panic("failure - starting event collector\n");
-    if (!use_network(utcb, hip, alloc_cap())) Logging::printf("failure - starting ip stack\n");
+    Clock * _clock = new Clock(hip->freq_tsc);
+
+    TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+    TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
+    bool res = timer_service->timer(*utcb, msg);
+
+    Logging::printf("%s - request timer attach\n", (res == 0 ? "done   " : "failure"));
+    if (res) Logging::panic("failure - attaching to timer service");
+
+    KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
+
+    EventConsumer * send_consumer = new EventConsumer();
+    EventProducer * send_producer = new EventProducer(send_consumer, sem.sm());
+
+    if (!start_services(utcb, hip, send_producer)) Logging::panic("failure - starting event collector\n");
+    if (!use_network(utcb, hip, send_consumer, _clock, sem, timer_service)) Logging::printf("failure - starting ip stack\n");
+
   }
 };
 
