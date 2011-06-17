@@ -67,7 +67,7 @@ public:
       }
     case ConfigProtocol::TYPE_KILL:
       {
-        unsigned id;
+        unsigned short id;
         check1(EPROTO, input.get_word(id));
 
         MessageConsole msg(MessageConsole::TYPE_KILL, id);
