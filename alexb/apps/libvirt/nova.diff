@@ -346,7 +346,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +\
 +  if (_in->version != ntohs(0xafff)) { printf("version error\n"); return ERRORCODE; } \
 +  if (_in->opcode != ntohs(NOVAOPCODE)) { printf("opcode error\n"); return ERRORCODE; } \
-+  if (_in->result != NOVA_OP_SUCCEDED) { printf("result error\n"); return ERRORCODE; }
++  if (_in->result != NOVA_OP_SUCCEEDED) { printf("result error\n"); return ERRORCODE; }
 +
 +static int numOfDomains(virConnectPtr conn) {
 +
@@ -702,7 +702,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_types.h libvirt-0.8.8-own/src/nova/nova_ty
 @@ -0,0 +1,32 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
-+  NOVA_OP_SUCCEDED = 0x9,
++  NOVA_OP_SUCCEEDED = 0x9,
 +  NOVA_PACKET_LEN  = 0x40,
 +  NOVA_NUM_OF_ACTIVE_DOMAINS = 0x20,
 +  NOVA_NUM_OF_DEFINED_DOMAINS,
