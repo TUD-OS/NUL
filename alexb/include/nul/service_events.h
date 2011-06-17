@@ -28,6 +28,9 @@ struct EventsProtocol : public GenericProtocol {
   enum {
     TYPE_GET_EVENTS_INFO = ParentProtocol::TYPE_GENERIC_END,
   };
+  enum {
+    EVENT_REBOOT = 0xbbbb,
+  };
 
   unsigned send_event(Utcb &utcb, unsigned id) {
     return call_server(init_frame(utcb, TYPE_GET_EVENTS_INFO) << id, true);

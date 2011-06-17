@@ -805,7 +805,7 @@ public:
 
   bool  receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
-    service_events->send_event(*myutcb(), 0xbbbb);
+    service_events->send_event(*myutcb(), EventsProtocol::EVENT_REBOOT);
     return true;
   }
 
