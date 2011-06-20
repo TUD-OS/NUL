@@ -162,7 +162,6 @@ void Remcon::handle_packet(void) {
 
         char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
         entry = check_uuid(_uuid);
-        Logging::printf("entry %p\n", entry );
         if (!entry) break;
 
         unsigned len = entry->showname_len + 1;
@@ -232,7 +231,7 @@ void Remcon::handle_packet(void) {
 
               unsigned short id;
               res = service_config->start_config(*BaseProgram::myutcb(), id, module, fileinfo.size);
-              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; Logging::printf("[%u] started %u\n", j, id); }
+              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; }
 
               cleanup:
 
@@ -261,7 +260,6 @@ void Remcon::handle_packet(void) {
         unsigned res;
 
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        Logging::printf("[%u] kill remoteid %u\n", localid, server_data[localid].remoteid);
         res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == NOVA_ESUCCESS) {
           server_data[localid].id     = 0;
@@ -293,7 +291,7 @@ void Remcon::handle_packet(void) {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
         uint32_t localid = Math::ntohl(*_id);
 
-        Logging::printf("localid %x %lx\n", localid, Math::ntohl(*_id));
+        //Logging::printf("localid %x %lx\n", localid, Math::ntohl(*_id));
         if (localid == ~0U) {
           gevents = true;
           _out->result  = NOVA_OP_SUCCEEDED;

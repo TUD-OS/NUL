@@ -35,8 +35,12 @@
       switch (op) {
       case EventsProtocol::TYPE_GET_EVENTS_INFO:
       {
-        unsigned eventid;
+        unsigned eventid, extra_len, extra_len2;
+        char * extra = 0;
+
         check1(EPROTO, input.get_word(eventid));
+        check1(EPROTO, input.get_word(extra_len));
+        if (extra_len > 0) extra = input.get_string(extra_len2);
 
         long guid = 0xaffe;
         ClientData *data = 0;
@@ -45,13 +49,9 @@
 
         res = ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &guid);
  
-        Logging::printf("        - got event from guid=%ld eventid=%x res=0x%x\n", guid, eventid, res);
-        if (eventid == EventsProtocol::EVENT_REBOOT) Logging::printf("        - could be a reboot event ...\n");
-
-        if (server->push_event(guid, eventid)) return ENONE;
-
-        Logging::printf("        - didn't found uuid to event source\n");
-        return EABORT;
+        bool bres = server->push_event(guid, eventid, extra_len, extra);
+        Logging::printf("        - got event from guid=%ld eventid=%x res=0x%x forwarded=%s\n", guid, eventid, res, bres ? "yes" : "no");
+        return bres ? ENONE : EABORT;
       }
       case ParentProtocol::TYPE_OPEN:
       {

@@ -30,10 +30,12 @@ struct EventsProtocol : public GenericProtocol {
   };
   enum {
     EVENT_REBOOT = 0xbbbb,
+    EVENT_UNSERVED_IOACCESS = 0xbbc0,
   };
 
-  unsigned send_event(Utcb &utcb, unsigned id) {
-    return call_server(init_frame(utcb, TYPE_GET_EVENTS_INFO) << id, true);
+  unsigned send_event(Utcb &utcb, unsigned id, unsigned data_len = 0, void * data = 0) {
+    return call_server(init_frame(utcb, TYPE_GET_EVENTS_INFO) << id << data_len
+           << Utcb::String(reinterpret_cast<char const *>(data), data_len), true);
   }
 
   EventsProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("events", instance, cap_base, true) {}

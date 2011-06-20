@@ -152,13 +152,10 @@ class Remcon : public CapAllocator {
       return false;
     }
 
-    bool push_event(int guid, uint32_t eventid) {
+    bool push_event(int guid, uint32_t eventid, uint32_t extra_len = 0, char const * extra = 0) {
       unsigned char buf[NOVA_PACKET_LEN];
       struct outgoing_packet * out  = reinterpret_cast<struct outgoing_packet *>(buf);
 
-      out->version = Math::htons(0xafff);
-      out->opcode  = Math::htons(NOVA_EVENT);
-      out->result  = NOVA_OP_SUCCEEDED;
       char * uuid  = reinterpret_cast<char *>(&out->opspecific);
       if (!find_uuid(guid, uuid)) return false;
       if (!gevents) {
@@ -167,7 +164,16 @@ class Remcon : public CapAllocator {
       }
 
       *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN) = Math::htonl(eventid);
+      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN + sizeof(uint32_t)) = Math::htonl(extra_len);
+      if (&out->opspecific - buf + UUID_LEN + 2 * sizeof(uint32_t) + extra_len > NOVA_PACKET_LEN) return false;
+      if (extra_len) memcpy(&out->opspecific + UUID_LEN + 2 * sizeof(uint32_t), extra, extra_len);
+
+      out->version = Math::htons(0xafff);
+      out->opcode  = Math::htons(NOVA_EVENT);
+      out->result  = NOVA_OP_SUCCEEDED;
+
       eventproducer->produce(buf, NOVA_PACKET_LEN);
+
       return true;
     }
 };

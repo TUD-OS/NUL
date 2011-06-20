@@ -148,6 +148,29 @@
  # if WITH_XENAPI
          if (STRCASEEQ(type, "XenAPI"))
              *typeVer = LIBVIR_VERSION_NUMBER;
+--- libvirt-0.8.8/examples/domain-events/events-c/event-test.c	2010-05-14 15:40:42.000000000 +0200
++++ libvirt-0.8.8-own/examples/domain-events/events-c/event-test.c	2011-06-20 15:23:43.000000000 +0200
+@@ -166,9 +166,9 @@
+                                   int detail,
+                                   void *opaque ATTRIBUTE_UNUSED)
+ {
+-    printf("%s EVENT: Domain %s(%d) %s %s\n", __func__, virDomainGetName(dom),
++    printf("%s EVENT: Domain %s(%d) %s %s detail=%x\n", __func__, virDomainGetName(dom),
+            virDomainGetID(dom), eventToString(event),
+-           eventDetailToString(event, detail));
++           eventDetailToString(event, detail), detail);
+     return 0;
+ }
+ 
+@@ -444,7 +444,7 @@
+                                                     VIR_DOMAIN_EVENT_CALLBACK(myDomainEventGraphicsCallback),
+                                                     strdup("callback graphics"), myFreeFunc);
+ 
+-    if ((callback1ret != -1) &&
++    if (//(callback1ret != -1) &&
+         (callback2ret != -1) &&
+         (callback3ret != -1) &&
+         (callback4ret != -1) &&
 diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_conf.h
 --- libvirt-0.8.8/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
 +++ libvirt-0.8.8-own/src/nova/nova_conf.h	2011-06-17 10:49:20.000000000 +0200
@@ -167,8 +190,8 @@ diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_driver.c
 --- libvirt-0.8.8/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-17 14:03:39.000000000 +0200
-@@ -0,0 +1,515 @@
++++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-20 15:10:45.000000000 +0200
+@@ -0,0 +1,517 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -220,13 +243,15 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +    virDomainPtr dom = virDomainLookupByUUID(nconn, &in->opspecific);
 +    if (!dom) continue;
 +
-+    uint32_t eventid = *((uint32_t *)(&in->opspecific + 16));
++    uint32_t eventid      = *((uint32_t *)(&in->opspecific + 16));
++    uint32_t extra_len    = *((uint32_t *)(&in->opspecific + 16 + sizeof(uint32_t)));
++    unsigned char * extra = &in->opspecific + 16 + 2 * sizeof(uint32_t);
 +    virDomainEventPtr event;
 +
 +    if (ntohl(eventid) == EVENT_REBOOT)
 +      event = virDomainEventRebootNewFromDom(dom);
 +    else
-+      event = virDomainEventNewFromDom(dom, eventid, 0);
++      event = virDomainEventNewFromDom(dom, eventid, ntohl(extra_len) == sizeof(uint32_t) ? *((uint32_t *)extra) : 0);
 +
 +    if (!event) goto cleanup;
 +//    if (virDomainEventQueuePush(conn->domainEventQueue, event) < 0) { virDomainEventFree(event); continue; }
@@ -698,7 +723,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.h libvirt-0.8.8-own/src/nova/nova_d
 +#endif /* __VIR_NOVA_INTERNAL_H__ */
 diff -urN libvirt-0.8.8/src/nova/nova_types.h libvirt-0.8.8-own/src/nova/nova_types.h
 --- libvirt-0.8.8/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_types.h	2011-06-17 13:52:27.000000000 +0200
++++ libvirt-0.8.8-own/src/nova/nova_types.h	2011-06-17 15:36:27.000000000 +0200
 @@ -0,0 +1,32 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
