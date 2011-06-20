@@ -42,12 +42,12 @@ struct CpuMessage {
     struct {
       CpuState *cpu;
       union {
-	unsigned  cpuid_index;
-	struct {
-	  unsigned  io_order;
-	  unsigned  short port;
-	  void     *dst;
-	};
+        unsigned  cpuid_index;
+        struct {
+          unsigned  io_order;
+          unsigned  short port;
+          void     *dst;
+        };
       };
     };
     struct {
@@ -59,10 +59,11 @@ struct CpuMessage {
   };
   unsigned mtr_in;
   unsigned mtr_out;
-  CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
-  CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value) {}
+  unsigned consumed; //info whether a model consumed this event
+  CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0), consumed(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
+  CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value), consumed(0) {}
   CpuMessage(bool is_in, CpuState *_cpu, unsigned _io_order, unsigned _port, void *_dst, unsigned _mtr_in)
-  : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(_io_order), port(_port), dst(_dst), mtr_in(_mtr_in), mtr_out(0) {}
+  : type(is_in ? TYPE_IOIN : TYPE_IOOUT), cpu(_cpu), io_order(_io_order), port(_port), dst(_dst), mtr_in(_mtr_in), mtr_out(0), consumed(0) {}
 };
 
 

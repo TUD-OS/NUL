@@ -53,6 +53,7 @@ bool           _dpci;
 unsigned       _ncpu=1;
 bool           _tsc_offset = false;
 bool           _rdtsc_exit;
+bool           _service_events = false;
 
 PARAM(kbmodifier,
       _keyboard_modifier = argv[0];
@@ -77,6 +78,7 @@ PARAM(vcpus,
 
 PARAM(tsc_offset, _tsc_offset = true, "Enable TSC offsetting.");
 PARAM(rdtsc_exit, _rdtsc_exit = true, "Enable RDTSC exits.");
+PARAM(service_events, _service_events = true, "Enable generating events.");
 
 /****************************************************/
 /* Vancouver class                                  */
@@ -92,7 +94,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _iomem_start;
   static TimerProtocol     * service_timer;
   static AdmissionProtocol * service_admission;
-  EventsProtocol           * service_events;
+  static EventsProtocol    * service_events;
   FsProtocol *fs_obj;
   char fs_name[32], fs_tmp[32];
   #define VANCOUVER_CONFIG_SEPARATOR "||"
@@ -324,9 +326,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
 
-    service_events = new EventsProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
+
+    if (_service_events)
+      service_events = new EventsProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     _mb->bus_hwioin.debug_dump();
   }
@@ -428,9 +431,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     assert(vcpu);
     CpuMessage msg(is_in, static_cast<CpuState *>(utcb), io_order, port, &utcb->eax, utcb->mtd);
     skip_instruction(msg);
-    SemaphoreGuard l(_lock);
-    if (!vcpu->executor.send(msg, true))
-      Logging::panic("nobody to excute %s at %x:%x\n", __func__, msg.cpu->cs.sel, msg.cpu->eip);
+    {
+      SemaphoreGuard l(_lock);
+      if (!vcpu->executor.send(msg, true))
+        Logging::panic("nobody to execute %s at %x:%x\n", __func__, msg.cpu->cs.sel, msg.cpu->eip);
+    }
+    if (service_events && !msg.consumed)
+      service_events->send_event(*utcb, EventsProtocol::EVENT_UNSERVED_IOACCESS, sizeof(port), &port);
   }
 
 
@@ -805,7 +812,7 @@ public:
 
   bool  receive(MessageLegacy &msg) {
     if (msg.type != MessageLegacy::RESET) return false;
-    service_events->send_event(*myutcb(), EventsProtocol::EVENT_REBOOT);
+    if (service_events) service_events->send_event(*myutcb(), EventsProtocol::EVENT_REBOOT);
     return true;
   }
 
@@ -894,6 +901,7 @@ public:
 
 TimerProtocol     * Vancouver::service_timer;
 AdmissionProtocol * Vancouver::service_admission;
+EventsProtocol    * Vancouver::service_events = 0;
 
 ASMFUNCS(Vancouver, Vancouver)
 

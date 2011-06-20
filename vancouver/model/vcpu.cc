@@ -32,6 +32,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
   volatile unsigned _event;
   volatile unsigned _sipi;
 
+  unsigned char debugioin[8192];
+  unsigned char debugioout[8192];
+
   void dprintf(const char *format, ...) {
     Logging::printf("[%2d] ", CPUID_EDXb);
     va_list ap;
@@ -151,6 +154,9 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     msg.mtr_out  |= MTD_ALL;
     if (reset) {
       Logging::printf("reset CPU from %x mtr_in %x\n", msg.type, msg.mtr_in);
+
+      memset(debugioin , 0, sizeof(debugioin));
+      memset(debugioout, 0, sizeof(debugioout));
       // XXX reset TSC
       // XXX floating point
       // XXX MXCSR
@@ -262,11 +268,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     Cpu::move(msg.dst, &msg2.value, msg.io_order);
     msg.mtr_out |= MTD_GPR_ACDB;
 
-    static unsigned char debugioin[8192];
     if (!res && ~debugioin[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioin[msg.port >> 3] |= 1 << (msg.port & 7);
       //dprintf("could not read from ioport %x eip %x cs %x-%x\n", msg.port, msg.cpu->eip, msg.cpu->cs.base, msg.cpu->cs.ar);
-    }
+    } else msg.consumed = 1;
   }
 
 
@@ -275,11 +280,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     Cpu::move(&msg2.value, msg.dst, msg.io_order);
 
     bool res = _mb.bus_ioout.send(msg2);
-    static unsigned char debugioout[8192];
     if (!res && ~debugioout[msg.port >> 3] & (1 << (msg.port & 7))) {
       debugioout[msg.port >> 3] |= 1 << (msg.port & 7);
       //dprintf("could not write %x to ioport %x eip %x\n", msg.cpu->eax, msg.port, msg.cpu->eip);
-    }
+    } else msg.consumed = 1;
   }
 
   /**
