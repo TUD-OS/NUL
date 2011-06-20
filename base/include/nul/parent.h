@@ -93,9 +93,9 @@ struct ParentProtocol {
 
     // block on the parent session until something happens
     if (res == ERETRY && blocking) {
-      Logging::printf("block waiting for session %x %s\n", cap_pseudonym, service_name);
+      //Logging::printf("blocked - waiting for session %x %s\n", cap_pseudonym, service_name);
       res = nova_semdownmulti(cap_pseudonym);
-      Logging::printf("we woke up %u %s\n", res, service_name);
+      //Logging::printf("we woke up %u %s\n", res, service_name);
       if (res != ENONE) {
         res = nova_revoke(Crd(cap_pseudonym, 0, DESC_CAP_ALL), true);
         assert(res == ENONE);
