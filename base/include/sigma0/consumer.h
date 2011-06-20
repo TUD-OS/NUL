@@ -72,6 +72,7 @@ public:
     _dropping = false;
     _consumer->_buffer[_consumer->_wpos] = value;
     _consumer->_wpos = (_consumer->_wpos + 1) % SIZE;
+    MEMORY_BARRIER;
     if (_sem.up(false)) Logging::printf("  : producer consumer issue - wake up failed\n");
     return true;
   }
@@ -164,6 +165,7 @@ public:
       Parent::_consumer->_wpos = 0;
     else
       Parent::_consumer->_wpos = ofs + needed;
+    MEMORY_BARRIER;
     if (Parent::_sem.up(false)) Logging::printf("  : producer consumer issue - wake up failed\n");
     return true;
   }
