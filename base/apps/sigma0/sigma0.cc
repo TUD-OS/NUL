@@ -593,26 +593,28 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Assign a PCI device to a PD. It makes sure only the first will
    * get it.
    */
-  bool assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned vfbdf)
+  bool assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned hint)
   {
+    // Check if the device is already allocated.
     for (unsigned i = 0; i < MAXPCIDIRECT; i++)
-      {
-	if (!_pcidirect[i])
-	  {
-            MessagePciConfig msg_resolve(bdf);
-            if (not _mb->bus_hwpcicfg.send(msg_resolve)) {
-              Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
-              return false;
-            }
-	    unsigned res = nova_assign_pci(pd_cap, msg_resolve.ptr, vfbdf);
-	    if (!res) _pcidirect[i] = vfbdf ? vfbdf : bdf;
-	    return (res == NOVA_ESUCCESS);
-	  }
-	if ((vfbdf == 0) && (bdf == _pcidirect[i]))
-	  return false;
-	if (vfbdf != 0 && vfbdf == _pcidirect[i])
-	  return false;
+      if (bdf == _pcidirect[i]) {
+        Logging::printf("s0: PCI device %x is requested again. Denied!\n", bdf);
+        return false;
       }
+
+    // Allocate a new slot and assign it.
+    for (unsigned i = 0; i < MAXPCIDIRECT; i++)
+      if (!_pcidirect[i]) {
+        MessagePciConfig msg_resolve(bdf);
+        if (not _mb->bus_hwpcicfg.send(msg_resolve)) {
+          Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
+          return false;
+        }
+        unsigned res = nova_assign_pci(pd_cap, msg_resolve.ptr, hint);
+        if (!res) _pcidirect[i] = bdf;
+        return (res == NOVA_ESUCCESS);
+      }
+
     return false;
   }
 
