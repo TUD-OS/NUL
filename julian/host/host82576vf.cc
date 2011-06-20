@@ -365,7 +365,7 @@ PARAM(host82576vf, {
     }
 
     // Setup DMA remapping
-    MessageHostOp assign_msg(MessageHostOp::OP_ASSIGN_PCI, parent_bdf, vf_bdf);
+    MessageHostOp assign_msg(MessageHostOp::OP_ASSIGN_PCI, vf_bdf, parent_bdf);
     if (!mb.bus_hostop.send(assign_msg)) {
       Logging::printf("Could not assign PCI device.\n");
       return;
