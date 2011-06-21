@@ -610,9 +610,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
           return false;
         }
+        
         unsigned res = nova_assign_pci(pd_cap, msg_resolve.ptr, hint);
-        if (!res) _pcidirect[i] = bdf;
-        return (res == NOVA_ESUCCESS);
+        if (res == NOVA_ESUCCESS) {
+          _pcidirect[i] = bdf;
+          return true;
+        } else {
+          Logging::printf("s0: assign_pci(%p, %x) failed: %u\n", msg_resolve.ptr, hint, res);
+          return false;
+        }
       }
 
     return false;
