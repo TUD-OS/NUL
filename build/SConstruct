@@ -34,8 +34,9 @@ Default('bin/boot')
 
 cmd_env = Environment(ENV = os.environ)
 AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
-                                     "bin/apps/sigma0.nul"],
-                            """qemu -cpu coreduo -serial stdio -smp 4 -kernel ${SOURCES[0]} -append "spinner serial" -initrd "${SOURCES[1]} S0_DEFAULT hostvga:0+0 hostkeyb:0+0x60+1+12 hostserial sigma0::admission " """))
+                                     "bin/apps/sigma0.nul",
+                                     ],
+                            """qemu -cpu coreduo -serial stdio -smp 4 -kernel ${SOURCES[0]} -append "spinner serial" -initrd "${SOURCES[1]} S0_DEFAULT hostvga:0+0 hostkeyb:0+0x60+1+12 hostserial " """))
 
 AlwaysBuild(cmd_env.Command("test", ["wvtest/wvtestrun",
                                      "wvtest/runall",
