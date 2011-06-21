@@ -1,2 +1,2 @@
-namespace::/s0 name::/s0/admission name::/s0/timer || 
-embedded://admission.nul top
+namespace::/s0 name::/s0/admission name::/s0/timer name::/s0/log || 
+embedded://admission.nul top log

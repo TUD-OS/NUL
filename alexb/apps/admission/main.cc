@@ -371,7 +371,7 @@ public:
     init_mem(hip);
     init_service(hip);
 
-    console_init("admission service");
+    console_init("admission service", new Semaphore(alloc_cap(), true));
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");

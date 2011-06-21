@@ -137,7 +137,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       init_mem(hip);
       init_service();
 
-      console_init("dummy fs");
+      console_init("dummy fs", new Semaphore(alloc_cap(), true));
 
       Logging::printf("Hello\n");
 

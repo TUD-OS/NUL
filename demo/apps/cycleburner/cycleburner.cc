@@ -319,7 +319,7 @@ class Cycleburner : public NovaProgram,
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
-    console_init("CYC");
+    console_init("CYC", new Semaphore(alloc_cap(), true));
 
     init(hip);
 

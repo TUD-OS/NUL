@@ -135,7 +135,7 @@ class TestIP : public NovaProgram, public ProgramConsole
     init(hip);
     init_mem(hip);
 
-    console_init("IP test");
+    console_init("IP test", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     Logging::printf("Hello\n");

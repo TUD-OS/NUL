@@ -19,12 +19,13 @@
 #include "sigma0/console.h"
 #include "nul/program.h"
 
-class Hello : public ProgramConsole
+class Hello : public NovaProgram, public ProgramConsole
 {
 public:
   void run(Utcb *utcb, Hip *hip)
   {
-    console_init("Hello");
+    init(hip);
+    console_init("Hello", new Semaphore(alloc_cap(), true));
     for (unsigned i=1; i; i++)
       Logging::printf("%8x Hello World!\n", i++);
   }

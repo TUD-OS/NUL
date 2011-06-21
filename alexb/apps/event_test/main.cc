@@ -38,7 +38,7 @@ class EventTest : public NovaProgram, public ProgramConsole
       init(hip);
       init_mem(hip);
 
-      console_init("test event service");
+      console_init("test event service", new Semaphore(alloc_cap(), true));
 
       Logging::printf("Hello\n");
 

@@ -360,11 +360,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _lock = Semaphore(alloc_cap());
     check1(1, nova_create_sm(_lock.sm()));
 
-    Semaphore *sem = new Semaphore(alloc_cap());
-    check1(2, nova_create_sm(sem->sm()));
-    sem->up();
-    _console_data.lock.sem = sem;
-
     // create exception EC
     unsigned cap_ex = create_ec_helper(this,  myutcb()->head.nul_cpunr, 0);
     // create portals for exceptions
@@ -821,9 +816,10 @@ public:
   {
     assert(hip);
     char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-    console_init("VMM");
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
+
+    console_init("VMM", new Semaphore(alloc_cap(), true));
 
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));

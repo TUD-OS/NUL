@@ -107,7 +107,7 @@ public:
   void test_init(Utcb *utcb, Hip *hip) {
     init(hip);
     init_mem(hip);
-    console_init("");
+    console_init("wvtest", new Semaphore(alloc_cap(), true));
 
     // Connect to the trace buffer
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));

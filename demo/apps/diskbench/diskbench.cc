@@ -64,7 +64,7 @@ public:
   NORETURN
   int run(Utcb *utcb, Hip *hip)
   {
-    console_init("Disk Benchmark");
+    console_init("Disk Benchmark", new Semaphore(alloc_cap(), true));
     init(hip);
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     Logging::printf("Benchmark up and running\n");

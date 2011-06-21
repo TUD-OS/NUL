@@ -53,7 +53,7 @@ public:
 
   int run(Utcb *utcb, Hip *hip)
   {
-    console_init("GT");
+    console_init("GT", new Semaphore(alloc_cap(), true));
     Logging::printf("GT up and running\n");
 
     unsigned size = 0;

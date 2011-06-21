@@ -178,7 +178,7 @@ namespace js {
       init(hip);
       init_mem(hip);
 
-      console_init("VNET IP test");
+      console_init("VNET IP test", new Semaphore(alloc_cap(), true));
 
       Logging::printf("Hello\n");
 

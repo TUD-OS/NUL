@@ -29,7 +29,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
       init(hip);
       init_mem(hip);
 
-      console_init("syscall tests");
+      console_init("syscall tests", new Semaphore(alloc_cap(), true));
 
       Logging::printf("Hello\n");
 

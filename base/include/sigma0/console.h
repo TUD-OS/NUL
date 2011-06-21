@@ -27,7 +27,7 @@ class MultiEntranceLock {
   void *_lock_owner;
   int   _nesting_level;
  public:
-  Semaphore *sem;
+  Semaphore * sem;
   MultiEntranceLock() : _lock_owner(0), _nesting_level(0), sem(0) {}
 
   void lock(void *myself) {
@@ -73,16 +73,16 @@ class ProgramConsole
     if (d->screen_address)  Screen::vga_putc(0xf00 | value, d->screen_address, d->regs->cursor_pos);
     if (value == '\n' || d->index == sizeof(d->buffer) - 1)
       {
-	d->buffer[d->index] = 0;
-	if (d->log && !d->lock.nesting_level())
-	  d->log->log(*BaseProgram::myutcb(), d->buffer);
-	d->index = 0;
-	if (value != '\n')
-	  {
-	    d->buffer[d->index++] = '|';
-	    d->buffer[d->index++] = ' ';
-	    d->buffer[d->index++] = value;
-	  }
+        d->buffer[d->index] = 0;
+        if (d->log && !d->lock.nesting_level())
+          d->log->log(*BaseProgram::myutcb(), d->buffer);
+        d->index = 0;
+        if (value != '\n')
+        {
+          d->buffer[d->index++] = '|';
+          d->buffer[d->index++] = ' ';
+          d->buffer[d->index++] = value;
+        }
       }
     else
       d->buffer[d->index++] = value;
@@ -92,10 +92,13 @@ class ProgramConsole
   VgaRegs             _vga_regs;
   struct console_data _console_data;
   char                _vga_console[0x1000];
-  void console_init(const char *name)
+  void console_init(const char *name, Semaphore * sem)
   {
+    assert(sem);
     _console_data.screen_address = reinterpret_cast<unsigned short *>(_vga_console);
-    _console_data.regs = &_vga_regs;
+    _console_data.regs      = &_vga_regs;
+    _console_data.lock.sem = sem;
+    sem->up();
     Logging::init(putc, &_console_data);
     _vga_regs.cursor_pos = 24*80*2;
     _vga_regs.offset = 0;

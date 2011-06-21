@@ -245,7 +245,7 @@ protected:
     init(hip);
     init_mem(hip);
 
-    console_init(console_name);
+    console_init(console_name, new Semaphore(alloc_cap(), true));
   }
 
 };
