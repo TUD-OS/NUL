@@ -89,7 +89,6 @@ PARAM(service_config,
       MessageHostOp msg(service_config, "/config", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
       if (!mb.bus_hostop.send(msg))
         Logging::panic("starting of config service failed");
-      //Logging::printf("start service - config\n");
       ,
       "service_config - managing a config, e.g. start, stop");
 

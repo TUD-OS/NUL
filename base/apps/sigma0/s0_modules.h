@@ -171,7 +171,7 @@
 
   map_out:
     //don't try to unmap from ourself "revoke(..., true)"
-    //map_self may return a already mapped page (backed by 4M) which contains the requested phys. page
+    //map_self may return an already mapped page (backed by 4M) which contains the requested phys. page
     //revoking a small junk of a larger one unmaps the whole area ...
     revoke_all_mem(reinterpret_cast<void *>(addr), msize, DESC_MEM_ALL, false);
   phys_out:

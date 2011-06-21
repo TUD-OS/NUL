@@ -49,6 +49,11 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
   }
 }
 
+#define GET_LOCAL_ID \
+        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific); \
+        uint32_t localid = Math::ntohl(*_id) - 1; \
+        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break
+
 void Remcon::handle_packet(void) {
 
   //version check
@@ -158,10 +163,7 @@ void Remcon::handle_packet(void) {
       }
     case NOVA_GET_NAME_UUID:
       {
-        struct server_data * entry;
-
-        char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
-        entry = check_uuid(_uuid);
+        struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
         if (!entry) break;
 
         unsigned len = entry->showname_len + 1;
@@ -173,12 +175,10 @@ void Remcon::handle_packet(void) {
       }
     case NOVA_GET_NAME_ID:
       {
-        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
-        uint32_t localid = Math::ntohl(*_id) - 1;
-        unsigned len;
- 
-        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0 || !server_data[localid].active) break;
-        len = server_data[localid].showname_len + 1;
+        GET_LOCAL_ID;
+        if (!server_data[localid].active) break;
+
+        unsigned len = server_data[localid].showname_len + 1;
         if (&_out->opspecific + UUID_LEN + len > buf_out + NOVA_PACKET_LEN) break; // no space left
 
         memcpy(&_out->opspecific, server_data[localid].uuid, UUID_LEN);
@@ -255,12 +255,8 @@ void Remcon::handle_packet(void) {
       }
     case NOVA_VM_DESTROY:
       {
-        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
-        uint32_t localid = Math::ntohl(*_id) - 1;
-        unsigned res;
-
-        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
+        GET_LOCAL_ID;
+        unsigned res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == NOVA_ESUCCESS) {
           server_data[localid].id     = 0;
           server_data[localid].active = false;
@@ -268,42 +264,35 @@ void Remcon::handle_packet(void) {
         }
         break;
       }
+    case NOVA_GET_VM_INFO:
+      {
+        struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
+        if (!entry) break;
+       
+        *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(1024 * 1024);
+        *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus
+        *reinterpret_cast<uint64_t *>(&_out->opspecific + 2*sizeof(uint32_t)) = (0ULL + Math::htonl(30000)) << 32 + Math::htonl(0); //in microseconds
+        _out->result  = NOVA_OP_SUCCEEDED;
+
+        break;
+      }
+    case NOVA_ENABLE_EVENT:
     case NOVA_DISABLE_EVENT:
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
         uint32_t localid = Math::ntohl(*_id);
 
         if (localid == ~0U) {
-          gevents = false;
+          gevents = (op == NOVA_ENABLE_EVENT);
           _out->result  = NOVA_OP_SUCCEEDED;
           break;
         }
 
         localid -= 1;
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        server_data[localid].events = false;
+        server_data[localid].events = (op == NOVA_ENABLE_EVENT);
 
         _out->result  = NOVA_OP_SUCCEEDED;
-        break;
-      }
-    case NOVA_ENABLE_EVENT:
-      {
-        uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
-        uint32_t localid = Math::ntohl(*_id);
-
-        //Logging::printf("localid %x %lx\n", localid, Math::ntohl(*_id));
-        if (localid == ~0U) {
-          gevents = true;
-          _out->result  = NOVA_OP_SUCCEEDED;
-          break;
-        }
-
-        localid -= 1;
-        if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        server_data[localid].events = true;
-
-        _out->result  = NOVA_OP_SUCCEEDED;
-      
         break;
       }
     default:
