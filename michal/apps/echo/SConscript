@@ -1,0 +1,29 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'echo',
+        SOURCES = [ 'echo.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(target_env, 'echotest',
+        SOURCES = [ 'echotest.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(target_env, 'echo2',
+        SOURCES = [ 'echo2.cc' ],
+        INCLUDE = [ 'sigma0' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(target_env, 'echo2test',
+        SOURCES = [ 'echo2test.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+# EOF

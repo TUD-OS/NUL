@@ -1,0 +1,25 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+WVDESC=Echo service with sessions
+bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
+    tracebuffer:32768,1 \
+    script \
+    script_start:1 \
+    script_wait:1000 \
+    script_start:2 \
+    script_wait:1000 \
+    script_start:3
+bin/apps/echo2.nul
+echo.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo2.nul
+EOF
+bin/apps/echo2test.nul
+echotest.nulconfig <<EOF
+sigma0::mem:16 sigma0::cpu:0 name::/s0/log name::/s0/fs/rom name::/tmp/echo name::/s0/admission ||
+rom://bin/apps/echo2test.nul
+EOF
+echotest2.nulconfig <<EOF
+sigma0::mem:16 sigma0::cpu:1 name::/s0/log name::/s0/fs/rom name::/tmp/echo name::/s0/admission ||
+rom://bin/apps/echo2test.nul
+EOF
