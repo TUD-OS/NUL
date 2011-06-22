@@ -61,7 +61,9 @@ class TestConfig : public NovaProgram, public ProgramConsole
       ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
       unsigned short id;
-      return (!service_config->start_config(*utcb, id, config));
+      unsigned long mem;
+      cap_sel scs_usage = alloc_cap();
+      return (!service_config->start_config(*utcb, id, mem, scs_usage, config));
     }
 
   void run(Utcb *utcb, Hip *hip)

@@ -39,7 +39,7 @@ class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE
 private:
 
   struct ClientData : public GenericClientData {
-    bool statistics;
+    cap_sel statistics;
     char name[32];
     struct {
       unsigned idx;
@@ -229,24 +229,97 @@ public:
             }
             data->scs[i].idx = idx_sc;
           }
+//          *reinterpret_cast<unsigned long *>(0xaffe) = 0xaffe;
           if (enable_verbose) Logging::printf("created sc - prio=%u quantum=%u cpu=%u\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu);
           return ENONE;
         }
         break;
+      case AdmissionProtocol::TYPE_GET_USAGE_CAP:
+        {
+          ClientData *client;
+          ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
+          if (res = _storage.get_client_data(utcb, client, input.identity())) return res;
+ 
+          if (!(client->statistics = alloc_cap())) return ERESOURCE;
+          if (NOVA_ESUCCESS != nova_create_sm(client->statistics)) {
+            dealloc_cap(client->statistics); client->statistics = 0; return ERESOURCE;
+          }
+
+          utcb << Utcb::TypedMapCap(client->statistics);
+          return ENONE;
+        }
+        break;
       case AdmissionProtocol::TYPE_SC_USAGE:
-      {
-        ClientData *caller, * client;
-        ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
-        if (res = _storage.get_client_data(utcb, caller, input.identity())) return res; //caller
-//        if (!caller->statistics) return EPERM;
-//        input.dump_typed_items();
-        if (res = _storage.get_client_data(utcb, client, input.identity(1))) return res; //the client you want to have statistics about
-        return get_usage(utcb, client);
-      }
+        {
+          ClientData *caller;
+          cap_sel stats;
+
+          ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
+          if (res = _storage.get_client_data(utcb, caller, input.identity())) return res; //caller
+          if (!(stats = input.identity(1))) return EPROTO; //client statistic cap
+
+          //input.dump_typed_items();
+          //check whether provided stat cap match to one of our client
+          ClientData volatile *client = 0;
+          for (client = _storage.next(client); client; client = _storage.next(client))
+            if (client->statistics == stats) break;
+          if (!client) return EPERM;
+
+          uint64 time_con = get_usage(client);
+          utcb << time_con;
+          return ENONE;
+        }
+        break;
       default:
         return EPROTO;
       }
     }
+
+  /*
+   * Calculates subsumed time of all SCs of a client on all CPUs
+   */
+  timevalue get_usage(ClientData volatile * data) {
+    unsigned i;
+    timevalue time_con = 0;
+    for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
+      if (!data->scs[i].idx) continue;
+      time_con += data->scs[i].m_last1;
+    }
+    return time_con;
+  }
+
+  /*
+   * Calculates subsumed time of all SCs of a client per CPU.
+   * Result is passed on UTCB.
+   */
+  unsigned get_usage(Utcb & utcb, ClientData volatile * data) {
+    unsigned i;
+
+    for (phy_cpu_no cpunr=0; cpunr < Global::hip.cpu_desc_count(); cpunr++) {
+      Hip_cpu const *cpu = &Global::hip.cpus()[cpunr];
+      if (not cpu->enabled()) continue;
+
+      timevalue time_con = 0;
+      bool avail = false;
+
+      for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
+        if (!data->scs[i].idx || data->scs[i].cpu != cpunr) continue;
+        time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
+        avail = true;
+      }
+      if (!avail) continue;
+
+      timevalue rest;
+      splitfloat(time_con, rest, cpunr);
+
+      unsigned _util = time_con;
+      unsigned _rest = rest;
+      utcb << cpunr << _util << _rest;
+    }
+
+    utcb << ~0UL;
+    return ENONE;
+  }
 
   bool start_service (Utcb *utcb, Hip * hip)
     {
@@ -288,6 +361,7 @@ public:
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
         res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
         if (res) return false;
+
         res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_wo, service_cap, flag_revoke);
         if (res) return !res;
       }

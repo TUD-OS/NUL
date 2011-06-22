@@ -20,6 +20,7 @@
 #include <service/logging.h>
 #include <service/helper.h> //assert
 
+#include <nul/service_admission.h>
 #include <nul/service_fs.h>
 #include <nul/capalloc.h>
 
@@ -47,6 +48,8 @@ class Remcon : public CapAllocator {
     struct server_data {
       bool active;
       bool events;
+      cap_sel scs_usage;
+      unsigned long maxmem;
       short istemplate;
       uint32_t id;
       unsigned short remoteid;
@@ -81,7 +84,8 @@ class Remcon : public CapAllocator {
 
     struct server_data * check_uuid(char uuid[UUID_LEN]);
 
-    EventProducer * eventproducer;
+    EventProducer     * eventproducer;
+    AdmissionProtocol * service_admission;
 
   public:
 
@@ -91,6 +95,8 @@ class Remcon : public CapAllocator {
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
       cpu_count(_cpu_count), eventproducer(producer)
     {
+      service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _cpu_count));
+
       _in  = reinterpret_cast<struct incoming_packet *>(buf_in);
       _out = reinterpret_cast<struct outgoing_packet *>(buf_out);
 

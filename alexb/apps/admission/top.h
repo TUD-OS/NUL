@@ -49,34 +49,6 @@
     cursor_pos = 0;
   }
 
-  unsigned get_usage(Utcb & utcb, ClientData * data) {
-    unsigned i;
-
-    for (phy_cpu_no cpunr=0; cpunr < Global::hip.cpu_desc_count(); cpunr++) {
-      Hip_cpu const *cpu = &Global::hip.cpus()[cpunr];
-      if (not cpu->enabled()) continue;
-
-      timevalue time_con = 0;
-      bool avail = false;
-
-      for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-        if (!data->scs[i].idx || data->scs[i].cpu != cpunr) continue;
-        time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
-        avail = true;
-      }
-      if (!avail) continue;
-
-      timevalue rest;
-      splitfloat(time_con, rest, cpunr);
-
-      unsigned _util = time_con;
-      unsigned _rest = rest;
-      utcb << cpunr << _util << _rest;
-    }
-
-    utcb << ~0UL;
-    return ENONE;
-  }
 
   unsigned measure(ClientData volatile * data, phy_cpu_no pcpu)
   {
@@ -156,7 +128,7 @@
       for (phy_cpu_no cpunr=0; cpunr < hip->cpu_desc_count(); cpunr++) {
         Hip_cpu const *cpu = &hip->cpus()[cpunr];
         if (not cpu->enabled()) continue;
-        measure(data, cpunr);
+        if (EPERM == measure(data, cpunr)) Logging::printf("measure error ... cpu %u client '%s' \n", cpunr, data->name);
       }
     } while (data = _storage.next(data));
   }

@@ -56,7 +56,7 @@ public:
         if (mb.bus_console.send(msg)) {
           //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
           utcb.head.untyped = 1;
-          utcb << msg.id;
+          utcb << msg.id << msg.mem << Utcb::TypedMapCap(msg.cap_sc_usage);
           return ENONE;
         }
 

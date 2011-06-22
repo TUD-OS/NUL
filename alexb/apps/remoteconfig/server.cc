@@ -198,9 +198,22 @@ void Remcon::handle_packet(void) {
           
           if(server_data[i].istemplate) {
             for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
-              if(server_data[j].id != 0) continue;
+              if(server_data[j].id != 0) continue; //XXX racy
 
-              server_data[j].id = j + 1;
+              unsigned crdout;
+              unsigned char rrres;
+              unsigned res = EABORT;
+              char * module = 0;
+              unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
+              unsigned cap_base = alloc_cap(portal_num);
+              cap_sel scs_usage = alloc_cap();
+              if (!cap_base || !scs_usage) {
+                if (cap_base) dealloc_cap(cap_base, portal_num);
+                if (scs_usage) dealloc_cap(scs_usage);
+                break;
+              }
+
+              server_data[j].id = j + 1; //XXX racy!
               server_data[j].active = true;
               memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
               server_data[j].filename     = server_data[i].filename;
@@ -209,10 +222,6 @@ void Remcon::handle_packet(void) {
               server_data[j].showname_len = server_data[i].showname_len; //XXX which name to choose
               memcpy(server_data[j].fsname, server_data[i].fsname, sizeof(server_data[i].fsname)); //XXX which name to choose
 
-              unsigned res;
-              char * module = 0;
-              unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
-              unsigned cap_base = alloc_cap(portal_num);
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
               if (res = fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo,
@@ -230,15 +239,24 @@ void Remcon::handle_packet(void) {
               if (res != NOVA_ESUCCESS) goto cleanup;
 
               unsigned short id;
-              res = service_config->start_config(*BaseProgram::myutcb(), id, module, fileinfo.size);
-              if (res == NOVA_ESUCCESS) { server_data[j].remoteid = id; _out->result  = NOVA_OP_SUCCEEDED; }
+              unsigned long mem;
+              res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
+              if (res == ENONE) {
+                rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
+                if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
+                server_data[j].scs_usage = scs_usage;
+                server_data[j].maxmem    = mem;
+                server_data[j].remoteid  = id;
+                _out->result  = NOVA_OP_SUCCEEDED;
+              }
 
               cleanup:
 
               if (module) delete [] module;
               fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
-              if (res != NOVA_ESUCCESS) {
+              if (res != ENONE) {
+                dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
                 server_data[j].active = false;
                 server_data[j].id = 0;
               }
@@ -269,9 +287,12 @@ void Remcon::handle_packet(void) {
         struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
         if (!entry) break;
        
-        *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(1024 * 1024);
+        uint64 consumed_time = 0;
+        service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time);
+
+        *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(entry->maxmem / 1024); //in kB
         *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus
-        *reinterpret_cast<uint64_t *>(&_out->opspecific + 2*sizeof(uint32_t)) = (0ULL + Math::htonl(30000)) << 32 + Math::htonl(0); //in microseconds
+        *reinterpret_cast<uint64_t *>(&_out->opspecific + 2*sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
         _out->result  = NOVA_OP_SUCCEEDED;
 
         break;
