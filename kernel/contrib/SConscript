@@ -1,9 +1,13 @@
 # -*- Mode: Python -*-
 
 import nul
+import os
 
 Import('target_env')
 Import('host_env')
+
+if os.environ['SSH_AUTH_SOCK']:
+    host_env['ENV']['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK'];
 
 # If a NOVA directory exists, use it as-is, otherwise checkout a
 # known-good revision and apply our patches (if there are any).
