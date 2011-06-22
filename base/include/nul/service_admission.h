@@ -33,6 +33,7 @@ struct AdmissionProtocol : public GenericProtocol {
   enum {
     TYPE_SC_ALLOC = ParentProtocol::TYPE_GENERIC_END,
     TYPE_SC_USAGE,
+    TYPE_GET_USAGE_CAP,
     TYPE_SET_NAME,
     TYPE_SC_PUSH,
   };
@@ -63,8 +64,21 @@ struct AdmissionProtocol : public GenericProtocol {
     return alloc_sc(utcb, idx_ec, q, cpu, obj, name);
   }
 
-  unsigned get_statistics(Utcb &utcb) { //XXX experimental frame must be dropped by caller
-    return call_server(init_frame(utcb, TYPE_SC_USAGE) << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION), false);
+  unsigned get_statistics(Utcb &utcb, cap_sel client, uint64 &con_time) {
+    if (!client) return EPERM;
+    unsigned res = call_server(init_frame(utcb, TYPE_SC_USAGE) << Utcb::TypedIdentifyCap(client), false);
+    utcb >> con_time;
+    utcb.drop_frame();
+    return res;
+  }
+
+  unsigned get_usage_cap(Utcb &utcb, cap_sel client) {
+    cap_sel crdout;
+    Crd client_crd = Crd(client, 0, DESC_CAP_ALL);
+    if (!client) return EPERM;
+    unsigned char res = nova_syscall(NOVA_LOOKUP, client_crd.value(), 0, 0, 0, &crdout);
+    assert(res == NOVA_ESUCCESS && crdout == 0); //sanity check for unused cap;
+    return call_server(init_frame(utcb, TYPE_GET_USAGE_CAP) << client_crd, true);
   }
 
   unsigned get_pseudonym(Utcb &utcb, unsigned client_id) {

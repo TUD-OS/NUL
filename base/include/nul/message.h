@@ -367,6 +367,10 @@ struct MessageConsole
     struct {
       char const * cmdline;
     };
+    struct {
+      unsigned cap_sc_usage;
+      unsigned long mem;
+    };
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
   MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}

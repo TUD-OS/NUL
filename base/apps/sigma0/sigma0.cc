@@ -1390,7 +1390,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         unsigned res;
         unsigned internal_id;
         if (msg.id == (~0U & ((1 << (sizeof(msg.id) * 8)) - 1) )) {
-          res = start_config(myutcb(), msg.cmdline, internal_id);
+          res = start_config(myutcb(), msg.cmdline, internal_id, msg.cap_sc_usage, msg.mem);
           if (res) {
             Logging::printf("s0: start of config failed, error line = %d, config :\n'", res);
             fancy_output(msg.cmdline, 4096);

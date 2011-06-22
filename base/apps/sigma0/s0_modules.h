@@ -61,7 +61,8 @@
 
   unsigned boot_s0_services(Utcb * utcb) {
     char const * file_name = "admission.nulconfig"; //XXX to do
-    unsigned res, id;
+    unsigned res, id, sc_usage_cap;
+    unsigned long mem;
     char * config = 0;
 
     FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), "fs/embedded");
@@ -73,7 +74,7 @@
     config[fileinfo.size] = 0;
 
     if (res != ENONE) goto cleanup;
-    res = start_config(utcb, config, id, true);
+    res = start_config(utcb, config, id, sc_usage_cap, mem, true);
 
     cleanup:
     if (res != ENONE) {
@@ -86,13 +87,14 @@
   /**
    * Starts a configuration loaded during boottime. Configuration numbers start at zero.
    */
-  unsigned start_config(Utcb *utcb, unsigned which, unsigned &internal_id)
+  unsigned start_config(Utcb *utcb, unsigned short which, unsigned &internal_id)
   {
     // Skip to interesting configuration
     char const *cmdline = 0;
     Hip_mem *mod;
     unsigned configs = 0;
-    unsigned i, len;
+    unsigned i, len, sc_usage_cap;
+    unsigned long mem;
 
     for (i=1; mod = __hip->get_mod(i); i++) {
       cmdline = reinterpret_cast<char const *>(mod->aux);
@@ -118,13 +120,14 @@
         *(reinterpret_cast<char *>(mod->addr) + mod->size - 1) = 0;
       }
     }
-    return start_config(utcb, cmdline, internal_id); //, true) - setting this enables you to run sigma0.bare.nul + admission.nul separately
+    return start_config(utcb, cmdline, internal_id, sc_usage_cap, mem); //, true) - setting this enables you to run sigma0.bare.nul + admission.nul separately
   }
 
   /**
    * Start a configuration from a stable memory region (mconfig). Region has to be zero terminated.
    */
-  unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id, bool part_of_s0 = false)
+  unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id,
+                        unsigned &sc_usage_cap, unsigned long &usage_mem, bool part_of_s0 = false)
   {
     char const * file_name, * client_cmdline;
 
@@ -164,9 +167,10 @@
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }
     if ( modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION; //XXX
 
-    res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo);
+    res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo, sc_usage_cap);
 
     if (!res) internal_id = modinfo->id;
+    if (!res) usage_mem   = modinfo->physsize;
     if (res) free_module(modinfo);
 
   map_out:
@@ -186,7 +190,7 @@
   }
 
   unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size,
-                         char const * client_cmdline, ModuleInfo * modinfo)
+                         char const * client_cmdline, ModuleInfo * modinfo, unsigned &sc_usage_cap)
   {
     AdmissionProtocol::sched sched; //Qpd(1, 100000)
     unsigned res = 0, slen, pt = 0;
@@ -316,13 +320,18 @@
       AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
       res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
       if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, "main");
+      if (!res) {
+        res = s_ad->get_usage_cap(*utcb, pt + ParentProtocol::CAP_SC_USAGE);
+        if (res != ENONE) nova_revoke(Crd(pt + ParentProtocol::CAP_SC_USAGE, 0, DESC_CAP_ALL), true);
+        else sc_usage_cap = pt + ParentProtocol::CAP_SC_USAGE;
+      }
       if (!res) s_ad->set_name(*utcb, "x"); 
 
       s_ad->close(*utcb, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), true, false);
       delete s_ad;
 
-      unsigned char res = nova_revoke(Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, DESC_CAP_ALL), true); //revoke tmp child id
-      assert(!res);
+      unsigned char err = nova_revoke(Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, DESC_CAP_ALL), true); //revoke tmp child id
+      assert(!err);
       dealloc_cap(cap_base, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count());
     }
 

@@ -52,8 +52,9 @@ struct ParentProtocol {
 
   /** Capabilities passed by parents to children. */
   enum {
-    CAP_CHILD_EC  = 253,
-    CAP_CHILD_ID  = 254,
+    CAP_CHILD_ID  = 252,
+    CAP_SC_USAGE  = 253,
+    CAP_CHILD_EC  = 254,
     CAP_PARENT_ID = 255,
     CAP_PT_PERCPU = 256,
   };
