@@ -190,7 +190,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_driver.c
 --- libvirt-0.8.8/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-21 13:59:32.000000000 +0200
++++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-22 15:12:03.000000000 +0200
 @@ -0,0 +1,525 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
@@ -371,7 +371,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +\
 +  if (_in->version != ntohs(0xafff)) { printf("version error\n"); return ERRORCODE; } \
 +  if (_in->opcode != ntohs(NOVAOPCODE)) { printf("opcode error\n"); return ERRORCODE; } \
-+  if (_in->result != NOVA_OP_SUCCEEDED) { printf("result error\n"); return ERRORCODE; }
++  if (_in->result != NOVA_OP_SUCCEEDED) { return ERRORCODE; }
 +
 +static int numOfDomains(virConnectPtr conn) {
 +
