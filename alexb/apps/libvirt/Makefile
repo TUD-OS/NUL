@@ -1,8 +1,8 @@
 all:
-	wget ftp://libvirt.org/libvirt/libvirt-0.8.8.tar.gz
-	tar -xzf libvirt-0.8.8.tar.gz
+	wget ftp://libvirt.org/libvirt/libvirt-0.9.2.tar.gz
+	tar -xzf libvirt-0.9.2.tar.gz
 	
-	cd libvirt-0.8.8 ; \
+	cd libvirt-0.9.2 ; \
 	if [ "$$?" -eq "0" ]; then \
 		patch -p1 <../nova.diff; \
 		if [ "$$?" -eq "0" ]; then autoconf; \
@@ -14,4 +14,4 @@ all:
 	fi
 
 clean:
-	rm libvirt-0.8.8* -rf
+	rm libvirt-0.9.2* -rf

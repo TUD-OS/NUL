@@ -95,13 +95,11 @@
  	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
 --- libvirt-0.8.8/src/driver.h	2011-02-09 10:48:30.000000000 +0100
 +++ libvirt-0.8.8-own/src/driver.h	2011-03-04 16:57:29.000000000 +0100
-@@ -28,7 +28,8 @@
-     VIR_DRV_ESX = 10,
-     VIR_DRV_PHYP = 11,
+@@ -29,6 +29,7 @@
      VIR_DRV_XENAPI = 12,
--    VIR_DRV_VMWARE = 13
-+    VIR_DRV_VMWARE = 13,
-+    VIR_DRV_NOVA = 14
+     VIR_DRV_VMWARE = 13,
+     VIR_DRV_LIBXL = 14,
++    VIR_DRV_NOVA
  } virDrvNo;
  
  
@@ -191,7 +189,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_con
 diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_driver.c
 --- libvirt-0.8.8/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
 +++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-22 15:12:03.000000000 +0200
-@@ -0,0 +1,525 @@
+@@ -0,0 +1,435 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -597,113 +595,23 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +}
 +
 +static virDriver novaDriver = {
-+    VIR_DRV_NOVA,
-+    "NOVA",
-+    novaOpen, /* open */
-+    novaClose, /* close */
-+    NULL, /* supports_feature */
-+    NULL, /* type */
-+    NULL, /* version */
-+    NULL, /* libvirtVersion (impl. in libvirt.c) */
-+    NULL, /* getHostname */
-+    NULL, /* getSysinfo */
-+    NULL, /* getMaxVcpus */
-+    NULL, /* nodeGetInfo */
-+    NULL, /* getCapabilities */
-+    listDomains, /* listDomains */
-+    numOfDomains, /* numOfDomains */
-+    NULL, /* domainCreateXML */
-+    domainLookupByID, /* domainLookupByID */
-+    domainLookupByUUID, /* domainLookupByUUID */
-+    domainLookupByName, /* domainLookupByName */
-+    NULL, /* domainSuspend */
-+    NULL, /* domainResume */
-+    NULL, /* domainShutdown */
-+    NULL, /* domainReboot */
-+    domainDestroy, /* domainDestroy */
-+    NULL, /* domainGetOSType */
-+    NULL, /* domainGetMaxMemory */
-+    NULL, /* domainSetMaxMemory */
-+    NULL, /* domainSetMemory */
-+    domainGetInfo, /* domainGetInfo */
-+    NULL, /* domainSave */
-+    NULL, /* domainRestore */
-+    NULL, /* domainCoreDump */
-+    NULL, /* domainSetVcpus */
-+    NULL, /* domainSetVcpusFlags */
-+    NULL, /* domainGetVcpusFlags */
-+    NULL, /* domainPinVcpu */
-+    NULL, /* domainGetVcpus */
-+    NULL, /* domainGetMaxVcpus */
-+    NULL, /* domainGetSecurityLabel */
-+    NULL, /* nodeGetSecurityModel */
-+    NULL, /* domainDumpXML */
-+    NULL, /* domainXMLFromNative */
-+    NULL, /* domainXMLToNative */
-+    listDefinedDomains, /* listDefinedDomains */
-+    numOfDefinedDomains, /* numOfDefinedDomains */
-+    domainCreate, /* domainCreate */
-+    NULL, /* domainCreateWithFlags */
-+    NULL, /* domainDefineXML */
-+    NULL, /* domainUndefine */
-+
-+    NULL, /* domainAttachDevice */
-+    NULL, /* domainAttachDeviceFlags */
-+    NULL, /* domainDetachDevice */
-+    NULL, /* domainDetachDeviceFlags */
-+    NULL, /* domainUpdateDeviceFlags */
-+    NULL, /* domainGetAutostart */
-+    NULL, /* domainSetAutostart */
-+    NULL, /* domainGetSchedulerType */
-+    NULL, /* domainGetSchedulerParameters */
-+    NULL, /* domainSetSchedulerParameters */
-+    NULL, /* domainMigratePrepare */
-+    NULL, /* domainMigratePerform */
-+    NULL, /* domainMigrateFinish */
-+    NULL, /* domainBlockStats */
-+    NULL, /* domainInterfaceStats */
-+    NULL, /* domainMemoryStats */
-+    NULL, /* domainBlockPeek */
-+    NULL, /* domainMemoryPeek */
-+    NULL, /* domainGetBlockInfo */
-+    NULL, /* nodeGetCellsFreeMemory */
-+    NULL, /* getFreeMemory */
-+    NULL, /* domainEventRegister */
-+    NULL, /* domainEventDeregister */
-+    NULL, /* domainMigratePrepare2 */
-+    NULL, /* domainMigrateFinish2 */
-+    NULL, /* nodeDeviceDettach */
-+    NULL, /* nodeDeviceReAttach */
-+    NULL, /* nodeDeviceReset */
-+    NULL, /* domainMigratePrepareTunnel */
-+    NULL, /* isEncrypted */
-+    NULL, /* isEncrypted */
-+    NULL, /* domainIsActive */
-+    domainIsPersistent, /* domainIsPersistent */
-+    NULL, /* domainIsUpdated */
-+    NULL, /* cpuCompare */
-+    NULL, /* cpuBaseline */
-+    NULL, /* domainGetJobInfo */
-+    NULL, /* domainAbortJob */
-+    NULL, /* domainMigrateSetMaxDowntime */
-+    domainEventRegisterAny, /* domainEventRegisterAny */
-+    domainEventDeregisterAny, /* domainEventDeregisterAny */
-+    NULL, /* domainManagedSave */
-+    NULL, /* domainHasManagedSaveImage */
-+    NULL, /* domainManagedSaveRemove */
-+    NULL, /* domainSnapshotCreateXML */
-+    NULL, /* domainSnapshotDumpXML */
-+    NULL, /* domainSnapshotNum */
-+    NULL, /* domainSnapshotListNames */
-+    NULL, /* domainSnapshotLookupByName */
-+    NULL, /* domainHasCurrentSnapshot */
-+    NULL, /* domainSnapshotCurrent */
-+    NULL, /* domainRevertToSnapshot */
-+    NULL, /* domainSnapshotDelete */
-+    NULL, /* qemuDomainMonitorCommand */
-+    NULL, /* domainSetMemoryParameters */
-+    NULL, /* domainGetMemoryParameters */
-+    NULL, /* domainOpenConsole */
++    .no = VIR_DRV_NOVA,
++    .name = "NOVA",
++    .open = novaOpen, /* 0.8.8 */
++    .close = novaClose, /* 0.8.8 */
++    .listDomains = listDomains, /* 0.8.8 */
++    .numOfDomains = numOfDomains, /* 0.8.8 */
++    .domainLookupByID = domainLookupByID, /* 0.8.8 */
++    .domainLookupByUUID = domainLookupByUUID, /* 0.8.8 */
++    .domainLookupByName = domainLookupByName, /* 0.8.8 */
++    .domainDestroy = domainDestroy, /* 0.8.8 */
++    .domainGetInfo = domainGetInfo, /* 0.8.8 */
++    .listDefinedDomains = listDefinedDomains, /* 0.8.8 */
++    .numOfDefinedDomains = numOfDefinedDomains, /* 0.8.8 */
++    .domainCreate = domainCreate, /* 0.8.8 */
++    .domainIsPersistent = domainIsPersistent, /* 0.8.8 */
++    .domainEventRegisterAny = domainEventRegisterAny, /* 0.8.8 */
++    .domainEventDeregisterAny = domainEventDeregisterAny, /* 0.8.8 */
 +};
 +
 +/**
