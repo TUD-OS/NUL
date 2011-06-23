@@ -341,7 +341,7 @@ template <class C> struct StaticPortalFunc {
   {
     bool free_cap;
 
-    if (not utcb->validate_bounds()) {
+    if (not utcb->validate_recv_bounds()) {
       utcb->msg[0]   = EPROTO;
       free_cap = (utcb->head.typed != 0);
       utcb->head.mtr = 1 /* untyped word */;

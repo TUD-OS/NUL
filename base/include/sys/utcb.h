@@ -272,10 +272,16 @@ struct Utcb
     return *this;
   }
 
+  // Optional check to avoid IPCs where receiver will reject
+  // the message because of validate_recv_bounds() result.
+  bool validate_send_bounds() {
+    return (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START); //XXX there are more checks
+  }
+
   // Check whether the UTCB is empty (e.g. after receiving a message
   // through a portal) and does not violate our message size
   // constraints.
-  bool validate_bounds()
+  bool validate_recv_bounds()
   {
     return
       (msg[STACK_START] == 0) and

@@ -236,7 +236,7 @@ void Remcon::handle_packet(void) {
 
               res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
                                          server_data[j].filename, server_data[j].filename_len);
-              if (res != NOVA_ESUCCESS) goto cleanup;
+              if (res != ENONE) goto cleanup;
 
               unsigned short id;
               unsigned long mem;
@@ -250,7 +250,8 @@ void Remcon::handle_packet(void) {
                 server_data[j].maxmem    = mem;
                 server_data[j].remoteid  = id;
                 _out->result  = NOVA_OP_SUCCEEDED;
-              }
+              } else if (res == ConfigProtocol::ECONFIGTOOBIG)
+                Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
 
               cleanup:
 
@@ -277,7 +278,7 @@ void Remcon::handle_packet(void) {
       {
         GET_LOCAL_ID;
         unsigned res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
-        if (res == NOVA_ESUCCESS) {
+        if (res == ENONE) {
           server_data[localid].id     = 0;
           server_data[localid].active = false;
           _out->result  = NOVA_OP_SUCCEEDED;

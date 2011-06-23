@@ -25,4 +25,5 @@ enum {
   EABORT,
   ERESOURCE,
   EEXISTS,
+  ELASTGLOBAL
 };

@@ -17,6 +17,7 @@
  */
 #pragma once
 
+#include <nul/error.h>
 #include "parent.h"
 
 /**
@@ -26,14 +27,20 @@ struct ConfigProtocol : public GenericProtocol {
   enum {
     TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END,
     TYPE_KILL,
+    ECONFIGTOOBIG = ELASTGLOBAL,
   };
 
   unsigned start_config(Utcb &utcb, unsigned short &id, unsigned long &maxmem,
                         cap_sel cap_sc_usage, char const * config, unsigned long len = ~0UL)
   {
-    unsigned res = call_server(init_frame(utcb, TYPE_START_CONFIG) << Utcb::String(config, len) << Crd(cap_sc_usage, 0, DESC_CAP_ALL), false);
+    unsigned res;
+    Utcb & utcb2 = init_frame(utcb, TYPE_START_CONFIG) << Utcb::String(config, len) << Crd(cap_sc_usage, 0, DESC_CAP_ALL);
+    if (!utcb2.validate_send_bounds()) {res = ECONFIGTOOBIG; goto out; }
+    res = call_server(utcb2, false);
     utcb >> id;
     utcb >> maxmem;
+
+    out:
     utcb.drop_frame();
     return res;
   }
