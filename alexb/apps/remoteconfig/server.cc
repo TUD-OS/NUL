@@ -244,6 +244,8 @@ void Remcon::handle_packet(void) {
               if (res == ENONE) {
                 rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
                 if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
+                if (ENONE != service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)) { Logging::printf("failure - rebind of sc usage cap failed\n"); };
+
                 server_data[j].scs_usage = scs_usage;
                 server_data[j].maxmem    = mem;
                 server_data[j].remoteid  = id;
@@ -288,7 +290,9 @@ void Remcon::handle_packet(void) {
         if (!entry) break;
        
         uint64 consumed_time = 0;
-        service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time);
+        if (entry->active &&
+            ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time))
+          Logging::printf("failure - could not get consumed time of client\n");
 
         *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(entry->maxmem / 1024); //in kB
         *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus

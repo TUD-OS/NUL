@@ -239,7 +239,7 @@ public:
           ClientData *client;
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, client, input.identity())) return res;
- 
+
           if (!(client->statistics = alloc_cap())) return ERESOURCE;
           if (NOVA_ESUCCESS != nova_create_sm(client->statistics)) {
             dealloc_cap(client->statistics); client->statistics = 0; return ERESOURCE;
@@ -249,6 +249,7 @@ public:
           return ENONE;
         }
         break;
+      case AdmissionProtocol::TYPE_REBIND_USAGE_CAP:
       case AdmissionProtocol::TYPE_SC_USAGE:
         {
           ClientData *caller;
@@ -265,9 +266,15 @@ public:
             if (client->statistics == stats) break;
           if (!client) return EPERM;
 
-          uint64 time_con = get_usage(client);
-          utcb << time_con;
-          return ENONE;
+          if (op == AdmissionProtocol::TYPE_SC_USAGE) {
+            uint64 time_con = get_usage(client);
+            utcb << time_con;
+            return ENONE;
+          } else if (op == AdmissionProtocol::TYPE_REBIND_USAGE_CAP) {
+            nova_revoke(Crd(client->statistics, 0, DESC_CAP_ALL), false); //rebind - revoke old mapping
+            utcb << Utcb::TypedMapCap(client->statistics);
+            return ENONE;
+          } else return EPROTO;
         }
         break;
       default:

@@ -34,6 +34,7 @@ struct AdmissionProtocol : public GenericProtocol {
     TYPE_SC_ALLOC = ParentProtocol::TYPE_GENERIC_END,
     TYPE_SC_USAGE,
     TYPE_GET_USAGE_CAP,
+    TYPE_REBIND_USAGE_CAP,
     TYPE_SET_NAME,
     TYPE_SC_PUSH,
   };
@@ -70,6 +71,15 @@ struct AdmissionProtocol : public GenericProtocol {
     utcb >> con_time;
     utcb.drop_frame();
     return res;
+  }
+
+  unsigned rebind_usage_cap(Utcb &utcb, cap_sel client) {
+    cap_sel crdout;
+    Crd client_crd = Crd(client, 0, DESC_CAP_ALL);
+    if (!client) return EPERM;
+    unsigned char res = nova_syscall(NOVA_LOOKUP, client_crd.value(), 0, 0, 0, &crdout);
+    assert(res == NOVA_ESUCCESS && crdout != 0); //sanity check for used cap;
+    return call_server(init_frame(utcb, TYPE_REBIND_USAGE_CAP) << Utcb::TypedIdentifyCap(client) << client_crd, true);
   }
 
   unsigned get_usage_cap(Utcb &utcb, cap_sel client) {
