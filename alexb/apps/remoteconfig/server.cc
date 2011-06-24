@@ -197,8 +197,10 @@ void Remcon::handle_packet(void) {
           if(memcmp(server_data[i].uuid, _uuid, UUID_LEN)) continue;
           
           if(server_data[i].istemplate) {
+            again:
             for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
-              if(server_data[j].id != 0) continue; //XXX racy
+              if(server_data[j].id != 0) continue;
+              if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
 
               unsigned crdout;
               unsigned char rrres;
@@ -210,11 +212,10 @@ void Remcon::handle_packet(void) {
               if (!cap_base || !scs_usage) {
                 if (cap_base) dealloc_cap(cap_base, portal_num);
                 if (scs_usage) dealloc_cap(scs_usage);
+                server_data[j].id = 0;
                 break;
               }
 
-              server_data[j].id = j + 1; //XXX racy!
-              server_data[j].active = true;
               memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
               server_data[j].filename     = server_data[i].filename;
               server_data[j].filename_len = server_data[i].filename_len;
@@ -258,9 +259,9 @@ void Remcon::handle_packet(void) {
               if (module) delete [] module;
               fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
-              if (res != ENONE) {
+              if (res == ENONE) server_data[j].active = true;
+              else {
                 dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
-                server_data[j].active = false;
                 server_data[j].id = 0;
               }
 
