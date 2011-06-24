@@ -52,13 +52,13 @@ struct ParentProtocol {
 
   /** Capabilities used by parent to construct child */
   enum {
-    CAP_CHILD_ID  = 252, //Temporary capability used by parent during child construction
+    CAP_CHILD_ID  = 252, //Temporary SM capability used by parent during child construction
                          // alloc_cap don't work here - translate window issue
-    CAP_SC_USAGE  = 253, //Capability to get access to utilization information of admission service
+    CAP_SC_USAGE  = 253, //SM capability to get access to child utilization information provided by admission service
                          // Temporary capability - If this cap is rebound this index becomes invalid.
-    CAP_CHILD_EC  = 254, //Capability of first child thread
-    CAP_PARENT_ID = 255, //Capability passed by parent to child
-    CAP_PT_PERCPU = 256, //Capability passed by parent to child
+    CAP_CHILD_EC  = 254, //EC capability of first child thread
+    CAP_PARENT_ID = 255, //Portal capability of parent passed to child
+    CAP_PT_PERCPU = 256, //Portal capabilities (according to number of CPUs) passed by parent to child
   };
 
   static Utcb & init_frame(Utcb &utcb, unsigned op, unsigned id) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(id); }
