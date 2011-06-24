@@ -54,6 +54,19 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
         uint32_t localid = Math::ntohl(*_id) - 1; \
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break
 
+#define HIP_COUNT(X, XNUM, Y) \
+        mask = 0, num = 0; \
+        cpu = Global::hip.cpus(); \
+        for (i=0; i < Global::hip.cpu_desc_count(); i++) { \
+          if (XNUM == cpu->X) \
+            if (!(mask & (1 << cpu->Y))) { \
+              mask |= 1 << cpu->Y; \
+              num ++; \
+            } \
+          cpu++; \
+        } \
+        Y = num
+
 void Remcon::handle_packet(void) {
 
   //version check
@@ -322,6 +335,46 @@ void Remcon::handle_packet(void) {
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
+    case NOVA_HW_INFO:
+      {
+        unsigned long mask = 0, num = 0, i, lookfor;
+        uint32_t core, thread, package;
+
+        Hip_cpu const * cpu = Global::hip.cpus();
+        for (i=0; i < Global::hip.cpu_desc_count(); i++) {
+          if (!(mask & (1 << cpu->package))) {
+            mask |= 1 << cpu->package;
+            num += 1;
+          }
+          cpu++;
+        }
+        package = num;
+
+        lookfor = Cpu::bsr(mask); //XXX check whether all packages has same number of cores?
+        HIP_COUNT(package, lookfor, core);
+
+        lookfor = Cpu::bsr(mask); //XXX check whether all cores has same number of threads?
+        HIP_COUNT(core, lookfor, thread);
+
+        Logging::printf("packages %u, cores %u, threads %u, vendor ", package, core, thread);
+        unsigned eax = 0, ebx = 0, ecx = 0, edx = 0;
+        eax = Cpu::cpuid(eax, ebx, ecx, edx);
+
+        uint32_t * data = reinterpret_cast<uint32_t *>(&_out->opspecific);
+        *data++ = Math::htonl(0); //memory size kb
+        *data++ = Math::htonl(Global::hip.cpu_count()); //active cpus
+        *data++ = Math::htonl(Global::hip.freq_tsc / 1000); //freq in MHz
+        *data++ = Math::htonl(1); //NUMA nodes
+        *data++ = Math::htonl(package); *data++ = Math::htonl(core); *data++ = Math::htonl(thread);
+
+        char * name = reinterpret_cast<char *>(data);
+        *data++ = ebx; *data++ = edx; *data++ = ecx; *data++ = 0;
+        //be aware not to exceed NOVA_PACKET_LEN here if you add a longer string !
+        Logging::printf("%s\n", name);
+
+        _out->result  = NOVA_OP_SUCCEEDED;
+      }
+      break;
     default:
       Logging::printf("got bad packet op=%u\n", op);
   }

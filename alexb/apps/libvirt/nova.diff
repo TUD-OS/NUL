@@ -1,6 +1,6 @@
---- libvirt-0.8.8/configure.ac	2011-02-17 04:00:39.000000000 +0100
-+++ libvirt-0.8.8-own/configure.ac	2011-03-04 16:57:29.000000000 +0100
-@@ -274,6 +274,8 @@
+--- libvirt-0.9.2/configure.ac	2011-06-06 05:09:25.000000000 +0200
++++ libvirt-0.9.2-own/configure.ac	2011-06-23 17:13:31.000000000 +0200
+@@ -281,6 +281,8 @@
    AC_HELP_STRING([--with-remote], [add remote driver support @<:@default=yes@:>@]),[],[with_remote=yes])
  AC_ARG_WITH([libvirtd],
    AC_HELP_STRING([--with-libvirtd], [add libvirtd support @<:@default=yes@:>@]),[],[with_libvirtd=yes])
@@ -9,7 +9,7 @@
  
  dnl
  dnl in case someone want to build static binaries
-@@ -443,6 +445,11 @@
+@@ -463,6 +465,11 @@
  fi
  AM_CONDITIONAL([WITH_TEST], [test "$with_test" = "yes"])
  
@@ -21,17 +21,17 @@
  if test "$with_remote" = "yes" ; then
      AC_DEFINE_UNQUOTED([WITH_REMOTE], 1, [whether Remote driver is enabled])
  fi
-@@ -2356,6 +2363,7 @@
+@@ -2431,6 +2438,7 @@
+ AC_MSG_NOTICE([     LXC: $with_lxc])
  AC_MSG_NOTICE([    PHYP: $with_phyp])
- AC_MSG_NOTICE([     ONE: $with_one])
  AC_MSG_NOTICE([     ESX: $with_esx])
 +AC_MSG_NOTICE([    NOVA: $with_nova])
  AC_MSG_NOTICE([    Test: $with_test])
  AC_MSG_NOTICE([  Remote: $with_remote])
  AC_MSG_NOTICE([ Network: $with_network])
---- libvirt-0.8.8/src/Makefile.am	2011-02-10 04:08:11.000000000 +0100
-+++ libvirt-0.8.8-own/src/Makefile.am	2011-03-04 16:57:29.000000000 +0100
-@@ -244,6 +244,9 @@
+--- libvirt-0.9.2/src/Makefile.am	2011-06-06 02:15:12.000000000 +0200
++++ libvirt-0.9.2-own/src/Makefile.am	2011-06-23 17:13:31.000000000 +0200
+@@ -284,6 +284,9 @@
  		lxc/lxc_controller.c				\
  		lxc/veth.c lxc/veth.h
  
@@ -41,7 +41,7 @@
  SECURITY_DRIVER_APPARMOR_HELPER_SOURCES =			\
  		security/virt-aa-helper.c
  
-@@ -488,6 +491,21 @@
+@@ -545,6 +548,21 @@
  libvirt_driver_test_la_SOURCES = $(TEST_DRIVER_SOURCES)
  endif
  
@@ -63,17 +63,17 @@
  if WITH_REMOTE
  if WITH_DRIVER_MODULES
  mod_LTLIBRARIES += libvirt_driver_remote.la
-@@ -976,6 +994,7 @@
- 		$(XENAPI_DRIVER_SOURCES)			\
+@@ -1001,6 +1019,7 @@
+ 		$(LIBXL_DRIVER_SOURCES)			\
  		$(ESX_DRIVER_SOURCES)				\
  		$(ESX_DRIVER_EXTRA_DIST)			\
 +		$(NOVA_DRIVER_SOURCES)				\
  		$(NETWORK_DRIVER_SOURCES)			\
  		$(INTERFACE_DRIVER_SOURCES)			\
  		$(STORAGE_DRIVER_SOURCES)			\
-@@ -1226,6 +1245,10 @@
- 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/lxc"
- 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/lxc"
+@@ -1287,6 +1306,10 @@
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/libxl"
+ 	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/log/libvirt/libxl"
  endif
 +if WITH_NOVA
 +	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/nova"
@@ -82,9 +82,9 @@
  if WITH_UML
  	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/lib/libvirt/uml"
  	$(MKDIR_P) "$(DESTDIR)$(localstatedir)/run/libvirt/uml"
-@@ -1263,6 +1286,10 @@
- 	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/lxc" ||:
- 	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/lxc" ||:
+@@ -1329,6 +1352,10 @@
+ 	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/libxl" ||:
+ 	rmdir "$(DESTDIR)$(localstatedir)/log/libvirt/libxl" ||:
  endif
 +if WITH_NOVA
 +	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/nova" ||:
@@ -93,8 +93,8 @@
  if WITH_UML
  	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/uml" ||:
  	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
---- libvirt-0.8.8/src/driver.h	2011-02-09 10:48:30.000000000 +0100
-+++ libvirt-0.8.8-own/src/driver.h	2011-03-04 16:57:29.000000000 +0100
+--- libvirt-0.9.2/src/driver.h	2011-05-29 12:58:54.000000000 +0200
++++ libvirt-0.9.2-own/src/driver.h	2011-06-23 17:13:31.000000000 +0200
 @@ -29,6 +29,7 @@
      VIR_DRV_XENAPI = 12,
      VIR_DRV_VMWARE = 13,
@@ -103,9 +103,9 @@
  } virDrvNo;
  
  
---- libvirt-0.8.8/src/libvirt.c	2011-02-16 07:36:53.000000000 +0100
-+++ libvirt-0.8.8-own/src/libvirt.c	2011-03-04 16:57:29.000000000 +0100
-@@ -69,6 +69,9 @@
+--- libvirt-0.9.2/src/libvirt.c	2011-06-06 02:15:12.000000000 +0200
++++ libvirt-0.9.2-own/src/libvirt.c	2011-06-23 17:13:31.000000000 +0200
+@@ -68,6 +68,9 @@
  # ifdef WITH_XENAPI
  #  include "xenapi/xenapi_driver.h"
  # endif
@@ -115,7 +115,7 @@
  #endif
  
  #define VIR_FROM_THIS VIR_FROM_NONE
-@@ -398,6 +401,9 @@
+@@ -432,6 +435,9 @@
  # ifdef WITH_XENAPI
      virDriverLoadModule("xenapi");
  # endif
@@ -125,7 +125,7 @@
  # ifdef WITH_REMOTE
      virDriverLoadModule("remote");
  # endif
-@@ -426,6 +432,9 @@
+@@ -460,6 +466,9 @@
  # ifdef WITH_XENAPI
      if (xenapiRegister() == -1) return -1;
  # endif
@@ -135,7 +135,7 @@
  # ifdef WITH_REMOTE
      if (remoteRegister () == -1) return -1;
  # endif
-@@ -940,6 +949,10 @@
+@@ -979,6 +988,10 @@
          if (STRCASEEQ(type, "ESX"))
              *typeVer = LIBVIR_VERSION_NUMBER;
  # endif
@@ -146,9 +146,9 @@
  # if WITH_XENAPI
          if (STRCASEEQ(type, "XenAPI"))
              *typeVer = LIBVIR_VERSION_NUMBER;
---- libvirt-0.8.8/examples/domain-events/events-c/event-test.c	2010-05-14 15:40:42.000000000 +0200
-+++ libvirt-0.8.8-own/examples/domain-events/events-c/event-test.c	2011-06-20 15:23:43.000000000 +0200
-@@ -166,9 +166,9 @@
+--- libvirt-0.9.2/examples/domain-events/events-c/event-test.c	2011-05-29 14:52:16.000000000 +0200
++++ libvirt-0.9.2-own/examples/domain-events/events-c/event-test.c	2011-06-23 17:13:31.000000000 +0200
+@@ -145,9 +145,9 @@
                                    int detail,
                                    void *opaque ATTRIBUTE_UNUSED)
  {
@@ -160,18 +160,18 @@
      return 0;
  }
  
-@@ -444,7 +444,7 @@
-                                                     VIR_DOMAIN_EVENT_CALLBACK(myDomainEventGraphicsCallback),
-                                                     strdup("callback graphics"), myFreeFunc);
+@@ -354,7 +354,7 @@
+                                                     VIR_DOMAIN_EVENT_CALLBACK(myDomainEventControlErrorCallback),
+                                                     strdup("callback control error"), myFreeFunc);
  
 -    if ((callback1ret != -1) &&
 +    if (//(callback1ret != -1) &&
          (callback2ret != -1) &&
          (callback3ret != -1) &&
          (callback4ret != -1) &&
-diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_conf.h
---- libvirt-0.8.8/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_conf.h	2011-06-17 10:49:20.000000000 +0200
+diff -urN libvirt-0.9.2/src/nova/nova_conf.h libvirt-0.9.2-own/src/nova/nova_conf.h
+--- libvirt-0.9.2/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
++++ libvirt-0.9.2-own/src/nova/nova_conf.h	2011-06-23 17:13:31.000000000 +0200
 @@ -0,0 +1,13 @@
 +#ifndef __VIR_NOVA_CONF_H__
 +# define __VIR_NOVA_CONF_H__
@@ -186,10 +186,10 @@ diff -urN libvirt-0.8.8/src/nova/nova_conf.h libvirt-0.8.8-own/src/nova/nova_con
 +};
 +
 +#endif /* __VIR_NOVA_CONF_H__ */
-diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_driver.c
---- libvirt-0.8.8/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_driver.c	2011-06-22 15:12:03.000000000 +0200
-@@ -0,0 +1,435 @@
+diff -urN libvirt-0.9.2/src/nova/nova_driver.c libvirt-0.9.2-own/src/nova/nova_driver.c
+--- libvirt-0.9.2/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
++++ libvirt-0.9.2-own/src/nova/nova_driver.c	2011-06-24 16:17:01.000000000 +0200
+@@ -0,0 +1,448 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -370,6 +370,18 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +  if (_in->version != ntohs(0xafff)) { printf("version error\n"); return ERRORCODE; } \
 +  if (_in->opcode != ntohs(NOVAOPCODE)) { printf("opcode error\n"); return ERRORCODE; } \
 +  if (_in->result != NOVA_OP_SUCCEEDED) { return ERRORCODE; }
++
++static int nodeGetInfo(virConnectPtr conn, virNodeInfoPtr info) {
++  create_nova_request(conn, NOVA_HW_INFO, -1, {});
++
++  uint32_t * data = (uint32_t *)&_in->opspecific;
++  info->memory = ntohl(*data++); info->cpus = ntohl(*data++);
++  info->mhz = ntohl(*data++); info->nodes = ntohl(*data++);
++  info->sockets = ntohl(*data++); info->cores = ntohl(*data++);
++  info->threads = ntohl(*data++);
++  memcpy(info->model, data, 13);
++  return 0;
++}
 +
 +static int numOfDomains(virConnectPtr conn) {
 +
@@ -599,6 +611,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +    .name = "NOVA",
 +    .open = novaOpen, /* 0.8.8 */
 +    .close = novaClose, /* 0.8.8 */
++    .nodeGetInfo = nodeGetInfo, /* 0.2.0 */
 +    .listDomains = listDomains, /* 0.8.8 */
 +    .numOfDomains = numOfDomains, /* 0.8.8 */
 +    .domainLookupByID = domainLookupByID, /* 0.8.8 */
@@ -625,9 +638,9 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.c libvirt-0.8.8-own/src/nova/nova_d
 +    if (virRegisterDriver(&novaDriver) < 0) return -1;
 +    return 0;
 +}
-diff -urN libvirt-0.8.8/src/nova/nova_driver.h libvirt-0.8.8-own/src/nova/nova_driver.h
---- libvirt-0.8.8/src/nova/nova_driver.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_driver.h	2011-05-26 10:21:26.000000000 +0200
+diff -urN libvirt-0.9.2/src/nova/nova_driver.h libvirt-0.9.2-own/src/nova/nova_driver.h
+--- libvirt-0.9.2/src/nova/nova_driver.h	1970-01-01 01:00:00.000000000 +0100
++++ libvirt-0.9.2-own/src/nova/nova_driver.h	2011-06-23 17:13:31.000000000 +0200
 @@ -0,0 +1,8 @@
 +#ifndef __VIR_NOVA_INTERNAL_H__
 +# define __VIR_NOVA_INTERNAL_H__
@@ -637,10 +650,10 @@ diff -urN libvirt-0.8.8/src/nova/nova_driver.h libvirt-0.8.8-own/src/nova/nova_d
 +int novaRegister(void);
 +
 +#endif /* __VIR_NOVA_INTERNAL_H__ */
-diff -urN libvirt-0.8.8/src/nova/nova_types.h libvirt-0.8.8-own/src/nova/nova_types.h
---- libvirt-0.8.8/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.8.8-own/src/nova/nova_types.h	2011-06-21 12:49:46.000000000 +0200
-@@ -0,0 +1,33 @@
+diff -urN libvirt-0.9.2/src/nova/nova_types.h libvirt-0.9.2-own/src/nova/nova_types.h
+--- libvirt-0.9.2/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
++++ libvirt-0.9.2-own/src/nova/nova_types.h	2011-06-24 14:20:23.000000000 +0200
+@@ -0,0 +1,34 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
 +  NOVA_OP_SUCCEEDED = 0x9,
@@ -659,6 +672,7 @@ diff -urN libvirt-0.8.8/src/nova/nova_types.h libvirt-0.8.8-own/src/nova/nova_ty
 +  NOVA_ENABLE_EVENT,
 +  NOVA_DISABLE_EVENT,
 +  NOVA_EVENT,
++  NOVA_HW_INFO,
 +  EVENT_REBOOT = 0xbbbb
 +};
 +
