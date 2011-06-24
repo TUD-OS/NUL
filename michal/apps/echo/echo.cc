@@ -34,8 +34,6 @@
 
 #include <host/keyboard.h>
 
-#include "util/capalloc_partition.h"
-
 class EchoService : public NovaProgram, public ProgramConsole
 {
 public:
