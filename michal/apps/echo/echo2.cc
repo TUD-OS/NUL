@@ -33,9 +33,7 @@
 
 #include <host/keyboard.h>
 
-#include "util/capalloc_partition.h"
-
-class EchoService : public CapAllocatorAtomicPartition<0x10000U>, public NovaProgram, public ProgramConsole
+class EchoService : public NovaProgram, public ProgramConsole
 {
 private:
 
@@ -50,22 +48,7 @@ private:
 
 public:
 
-  EchoService() : CapAllocatorAtomicPartition<0x10000U>(1), NovaProgram(), ProgramConsole() {}
-
-  void init_service(Hip * hip) {
-    unsigned long long base = alloc_cap_region(0x10000U, 12);
-    assert(base && !(base & 0xFFFULL));
-    _divider  = hip->cpu_count(); // This is for CapAllocatorAtomicPartition. What it really is?
-    _cap_base = base; // for CapAllocatorAtomic
-  }
-
-  inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
-    if (num > 1) return CapAllocator::alloc_cap(num);
-    else return CapAllocatorAtomicPartition::alloc_cap(num, cpu);
-  }
-  inline void dealloc_cap(unsigned cap, unsigned count = 1) {
-    assert(count == 1); CapAllocatorAtomicPartition::dealloc_cap(cap, count);
-  }
+  EchoService() : NovaProgram(), ProgramConsole() {}
 
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
@@ -196,8 +179,7 @@ public:
         if (!cap_pagefault_ec) return false;
 
         utcb_worker->head.crd = alloc_crd();
-	// XXX Can translation collide with already allocated capabilities via alloc_cap?
-        utcb_worker->head.crd_translate = Crd(_cap_base, 16, DESC_CAP_ALL).value();
+        utcb_worker->head.crd_translate = Crd(0, 31, DESC_CAP_ALL).value();
         utcb_pagefault->head.crd = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EchoService>::portal_func);
@@ -216,7 +198,6 @@ public:
 
     init(hip);
     init_mem(hip);
-    init_service(hip);
 
     console_init("Echo2 Server", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
