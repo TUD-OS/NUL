@@ -36,9 +36,6 @@
 
 #include "util/capalloc_partition.h"
 
-#define printf Logging::printf
-#define printcap(cap) printf(#cap "=%u\n", cap)
-
 class EchoService : public NovaProgram, public ProgramConsole
 {
 public:
