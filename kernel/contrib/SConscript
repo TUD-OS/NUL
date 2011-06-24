@@ -6,7 +6,7 @@ import os
 Import('target_env')
 Import('host_env')
 
-if os.environ['SSH_AUTH_SOCK']:
+if 'SSH_AUTH_SOCK' in os.environ:
     host_env['ENV']['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK'];
 
 # If a NOVA directory exists, use it as-is, otherwise checkout a
