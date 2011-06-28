@@ -228,19 +228,30 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return (service_admission->alloc_sc(*myutcb(), cap_ec, sched, cpunr, this, name) == NOVA_ESUCCESS);
   }
 
+  /**
+   * Returns a pointer to the memory-mapped config space of a PCI device.
+   */
+  void *get_config_space(uint16 rid)
+  {
+    MessagePciConfig msg_resolve(rid);
+    msg_resolve.ptr = NULL;
+    if (not _mb->bus_hwpcicfg.send(msg_resolve))
+      return NULL;
+    return msg_resolve.ptr;
+  }
+
   unsigned attach_msi(MessageHostOp *msg, phy_cpu_no cpunr) {
     //XXX if attach failed msivector should be reused!
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     if (msg->msi_gsi >= _hip->cfg_gsi) return 0;
     unsigned irq_cap = _irq_cap_base + msg->msi_gsi;
-    MessagePciConfig msg_resolve(msg->value);
-    msg_resolve.ptr = NULL;
-    if ((msg->value != 0) and not _mb->bus_hwpcicfg.send(msg_resolve)) {
+    void    *mconf   = get_config_space(msg->value);
+    if (mconf == NULL) {
       Logging::printf("s0: could not assign gsi for device %lx. No mmconfig?\n", msg->value);
       return false;
     }
 
-    unsigned res = nova_assign_gsi(irq_cap, cpunr, msg_resolve.ptr, &msg->msi_address, &msg->msi_value);
+    unsigned res = nova_assign_gsi(irq_cap, cpunr, mconf, &msg->msi_address, &msg->msi_value);
     if (res != NOVA_ESUCCESS)
       Logging::printf("s0: failed to setup msi - err=%x, msi_gsi=%x irq_cap=%x cpu=%x\n", res, msg->msi_gsi, irq_cap, cpunr);
     return res == NOVA_ESUCCESS ? irq_cap : 0;
