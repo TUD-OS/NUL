@@ -512,6 +512,18 @@ struct MessageHostOp
     return n;
   }
 
+  static MessageHostOp attach_msi(phy_cpu_no cpu, bool locked, uint16 rid)
+  {
+    MessageHostOp n(OP_ATTACH_MSI, rid, ~locked, cpu);
+    return n;
+  }
+
+  static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked)
+  {
+    MessageHostOp n(OP_ATTACH_IRQ, irq, ~locked, cpu);
+    return n;
+  }
+
   explicit MessageHostOp(VCpu *_vcpu) : type(OP_VCPU_CREATE_BACKEND), value(0), vcpu(_vcpu) {}
   explicit MessageHostOp(unsigned _module, char * _start, unsigned long _size=0) : type(OP_GET_MODULE), module(_module), start(_start), size(_size), cmdlen(0)  {}
   explicit MessageHostOp(Type _type, unsigned long _value, unsigned long _len=0, unsigned _cpu=~0U) : type(_type), value(_value),
