@@ -21,6 +21,7 @@
 
 #include <nul/types.h>
 #include <nul/motherboard.h>
+#include <service/acpi.h>
 
 class BasicHpet {
 public:
@@ -75,28 +76,59 @@ public:
 
 
   /**
-   * Get the HPET address from the ACPI table.
+   * Get the HPET address from the ACPI table. Returns 0 on failure.
    */
   static unsigned long get_hpet_address(DBus<MessageAcpi> &bus_acpi)
   {
     MessageAcpi msg0("HPET");
-    if (bus_acpi.send(msg0, true) && msg0.table)
+    if (bus_acpi.send(msg0, true) and msg0.table) {
+      struct HpetAcpiTable
       {
-	struct HpetAcpiTable
-	{
-	  char res[40];
-	  unsigned char gas[4];
-          uint32 address[2];
-	} *table = reinterpret_cast<HpetAcpiTable *>(msg0.table);
+        char res[40];
+        unsigned char gas[4];
+        uint32 address[2];
+      } *table = reinterpret_cast<HpetAcpiTable *>(msg0.table);
 
-	if (table->gas[0])
-	  Logging::printf("HPET access must be MMIO but is %d", table->gas[0]);
-	else if (table->address[1])
-	  Logging::printf("HPET must be below 4G");
-	else
-	  return table->address[0];
+      if (table->gas[0])
+        Logging::printf("HPET access must be MMIO but is %d", table->gas[0]);
+      else if (table->address[1])
+        Logging::printf("HPET must be below 4G");
+      else
+        return table->address[0];
+    }
+
+    return 0;
+  }
+
+  /** Try to find out HPET routing ID. Returns 0 on failure.
+   *
+   * \todo Will always find the first HPET. If there are multiple, you
+   * may be screwed.
+   */
+  static uint16 get_hpet_rid(DBus<MessageAcpi> &bus_acpi)
+  {
+    MessageAcpi msg0("DMAR");
+    if (not bus_acpi.send(msg0, true) or not msg0.table)
+      return 0;
+
+    DmarTableParser p(msg0.table);
+    DmarTableParser::Element e = p.get_element();
+
+    do {
+      if (e.type() == DmarTableParser::DHRD) {
+        DmarTableParser::Dhrd dhrd = e.get_dhrd();
+        
+        if (dhrd.has_scopes()) {
+          DmarTableParser::DeviceScope s = dhrd.get_scope();
+          do {
+            if (s.type() == DmarTableParser::MSI_CAPABLE_HPET)
+              return s.rid();
+              
+          } while (s.has_next() and ((s = s.next()), true));
+        }
       }
-
+    } while (e.has_next() and ((e = p.get_element()), true));
+    
     return 0;
   }
 

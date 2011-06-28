@@ -27,6 +27,7 @@
 #define PURE       __attribute__((pure))
 #define COLD       __attribute__((cold))
 #define ALIGNED(x) __attribute__((aligned(x)))
+#define PACKED     __attribute__((packed))
 #define MEMORY_BARRIER __asm__ __volatile__ ("" ::: "memory")
 #define RESTRICT   __restrict__
 

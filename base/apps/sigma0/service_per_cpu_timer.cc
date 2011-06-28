@@ -189,7 +189,7 @@ class PerCpuTimerService : private BasicHpet,
     // Prefer MSIs. No sharing, no routing problems, always edge triggered.
     if (not (_reg->config & LEG_RT_CNF) and
         (timer->_reg->config & FSB_INT_DEL_CAP)) {
-      MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0UL, 1, cpu);
+      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, get_hpet_rid(_mb.bus_acpi));
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
       Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
@@ -216,7 +216,7 @@ class PerCpuTimerService : private BasicHpet,
       unsigned irq = Cpu::bsr(possible_irqs);
       assigned_irqs |= (1U << irq);
 
-      MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, irq, 1, cpu);
+      MessageHostOp msg = MessageHostOp::attach_irq(irq, cpu, false);
       if (not bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
 
       _per_cpu[cpu]->irq = irq;
