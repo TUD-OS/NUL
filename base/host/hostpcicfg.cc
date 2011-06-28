@@ -36,7 +36,8 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
   PciConfigAccess(DBus<MessageIOIn> &hwioin, DBus<MessageIOOut> &hwioout, unsigned semcap) : _hwioin(hwioin), _hwioout(hwioout), _lock(Semaphore(semcap)) { _lock.up(); };
   bool  receive(MessagePciConfig &msg) {
 
-    if (msg.dword >= 0x40 || (msg.bdf >= 0x10000)) return false;
+    if ((msg.type == MessagePciConfig::TYPE_PTR) ||
+        msg.dword >= 0x40 || (msg.bdf >= 0x10000)) return false;
 
     SemaphoreGuard l(_lock);
     MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | (msg.dword << 2));
