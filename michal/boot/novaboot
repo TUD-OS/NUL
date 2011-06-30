@@ -104,17 +104,23 @@ below).
 
 =head1 ENVIRONMENT VARIABLES
 
+Some options can be specified not only via config file or command line
+but also through environment variables. Environment overrides the
+configuration file and command line parameters override the
+environment.
+
 =over 4
 
-=item NOVABOOTROOT
+=item NOVABOOT_ROOT
 
     The NUL build directory. Defaults to $HOME/deve/nul/build.
 
-=item NOVABOOTHYPERVISOR
+=item NOVABOOT_HYPERVISOR
 
     The hypervisor binary to use. Defaults to bin/apps/hypervisor.
 
 =back
+
 =cut
 
 # TODO: Allow specification of qemu parameters in config file
@@ -148,8 +154,8 @@ if (-f $cfg) {
 
 { # Override config from environment
     my $v;
-    if ($v = $ENV{'NOVABOOTROOT'}) {$CFG::builddir = $v;}
-    if ($v = $ENV{'NOVABOOTHYPERVISOR'}) { $CFG::hypervisor = $v;}
+    if ($v = $ENV{'NOVABOOT_ROOT'}) {$CFG::builddir = $v;}
+    if ($v = $ENV{'NOVABOOT_HYPERVISOR'}) { $CFG::hypervisor = $v;}
 }
 
 
@@ -171,13 +177,13 @@ my $server;
 my $dump_config;
 
 GetOptions (
-    "append|a=s" => \$append,
-    "dump-config" => \$dump_config,
-    "grub|g:s" => \$grub_config,
-    "serial|s:s" => \$serial,
-    "server:s" => \$server,
-    "h" => \$help,
-    "help" => \$man,
+    "append|a=s"     => \$append,
+    "dump-config"    => \$dump_config,
+    "grub|g:s" 	     => \$grub_config,
+    "serial|s:s"     => \$serial,
+    "server:s" 	     => \$server,
+    "h" 	     => \$help,
+    "help" 	     => \$man,
     ) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -288,8 +294,9 @@ if ($grub_config) {
 			 @modules);
 }
 
+my $run_qemu = 1;
 if (defined $server) {
-    $qemu = 0;
+    $run_qemu = 0;
     my $gc = $grub_config || '';
     system("scp -p -r $gc $CFG::hypervisor " .
 	   join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules)) .
@@ -322,7 +329,7 @@ if ($serial) {
     exit;    
 }
 
-if ($qemu) {
+if ($run_qemu) {
     # Escape commas for qemu (requires patched qemu)
     foreach (@modules) {s/,/,,/g;}
    
