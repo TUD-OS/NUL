@@ -35,6 +35,10 @@ binaries to load and their parameters. See below for the syntax.
 
     Print short (-h) or long (--help) help.
 
+=item -q, --qemu_flags=<flags>
+
+    Use other qemu flags than are the default, i.e. "-cpu coreduo -smp 2".
+
 =item --server[=[user@]server:path]
 
     Copy all files needed for booting to a server (implies -g).
@@ -87,6 +91,7 @@ hello.nulconfig file is generated on the fly from the lines between
 =over 4
 
 =item WVDESC Description of the wvtest-compliant program.
+=item QEMU_FLAGS Use specific qemu flags (can be overriden by -q).
 
 =back
 
@@ -119,6 +124,10 @@ environment.
 
     The hypervisor binary to use. Defaults to bin/apps/hypervisor.
 
+=item NOVABOOT_QEMU_FLAGS
+
+    Additional flags to pass to qemu
+
 =back
 
 =cut
@@ -136,6 +145,8 @@ $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::server = "os.inf.tu-dresden.de:boot/novaboot";
 $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/";
+
+my $qemu_flags = "-cpu coreduo -smp 2";
 
 my $cfg = $ENV{'HOME'}."/.novaboot";
 if (-f $cfg) {
@@ -156,6 +167,7 @@ if (-f $cfg) {
     my $v;
     if ($v = $ENV{'NOVABOOT_ROOT'}) {$CFG::builddir = $v;}
     if ($v = $ENV{'NOVABOOT_HYPERVISOR'}) { $CFG::hypervisor = $v;}
+    if ($v = $ENV{'NOVABOOT_QEMU_FLAGS'}) { $qemu_flags = $v;}
 }
 
 
@@ -167,19 +179,14 @@ my $file;
 my $line;
 my $EOF;
 
-my $man;
-my $help;
-my $append;
-my $grub_config;
-my $serial;
-my $qemu = 1;
-my $server;
-my $dump_config;
+# Command line 
+my ($append, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
 
 GetOptions (
     "append|a=s"     => \$append,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
+    "qemu_flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
     "h" 	     => \$help,
@@ -342,8 +349,12 @@ if ($run_qemu) {
     }
 
     my $initrd = join ",", @modules;
+
+    $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
+    $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
+
     if (!$ENV{'WVTESTRUN'}) {
-	exec "qemu -name '$config_name' -cpu coreduo -smp 4 -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" -serial stdio"
+	exec "qemu -name '$config_name' -serial stdio -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" $qemu_flags"
     } else {
 	# We must use pipe and cat to get qemu's serial output to
 	# stdout. Qemu's stdio backend cannot be used here as it
@@ -354,6 +365,6 @@ if ($run_qemu) {
 	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
 	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
 	system("cat tmppipe.out &");
-	exec "qemu -name '$config_name' -cpu coreduo -smp 4 -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
+	exec "qemu -name '$config_name' -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" $qemu_flags";
     }
 }
