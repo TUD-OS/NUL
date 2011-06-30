@@ -299,6 +299,18 @@ class Host82573 : public PciDriver,
     }
   }
 
+  void tx_handle()
+  {
+    DmaDesc *cur;
+    while (((cur = &_tx_ring[_tx_last])->hi >> 32) & 1 /* done? */) {
+      uint16 plen = cur->hi >> 32;
+      msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", _tx_last, cur->lo, cur->hi, plen);
+
+      cur->hi = cur->lo = 0;
+      _tx_last = (_tx_last+1) % desc_ring_len;
+    }
+  }
+
 public:
 
   bool receive(MessageIrq &irq_msg)
@@ -325,7 +337,7 @@ public:
 
     if (icr & ICR_TXDW) {
       // TX descriptor writeback 
-
+      tx_handle();
     }
 
     if (icr & ICR_RXT) {
@@ -343,8 +355,34 @@ public:
       nmsg.mac = Endian::hton64(_mac.raw) >> 16;
       return true;
     case MessageNetwork::PACKET:
-      // XXX TODO
-      return false;
+        // Protect against our own packets. WTF?
+        if ((nmsg.buffer >= static_cast<void *>(_rx_buf[0])) &&
+            (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
+        msg(INFO, "Send packet (size %u)\n", nmsg.len);
+
+        {
+          unsigned tail = _hwreg[TDT];
+          memcpy(_tx_buf[tail], nmsg.buffer, nmsg.len);
+
+          // If the dma descriptor is not zero, it is still in use.
+          if ((_tx_ring[tail].lo | _tx_ring[tail].hi) != 0)  {
+            msg(INFO, "Descriptor still in use. Drop packet.\n");
+            return false;
+          }
+
+          _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
+          _tx_ring[tail].hi = static_cast<uint64>(nmsg.len) | (static_cast<uint64>(nmsg.len))<<46
+            | (3U<<20 /* adv descriptor */)
+            | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
+            | (1U<<25 /* Append MAC FCS */)
+            | (1U<<27 /* Report Status = IRQ */);
+          msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
+
+          MEMORY_BARRIER;
+          _hwreg[TDT] = (tail+1) % desc_ring_len;
+        }
+
+      return true;
     default:
       return false;
     }
