@@ -125,6 +125,7 @@ class PerCpuTimerService : private BasicHpet,
   uint64            _nominal_tsc_ticks_per_timer_tick;
   unsigned          _usable_timers;
   uint64            _pit_ticks;
+  uint16            _hpet_rid;
 
   struct Timer {
     unsigned       _no;
@@ -189,7 +190,7 @@ class PerCpuTimerService : private BasicHpet,
     // Prefer MSIs. No sharing, no routing problems, always edge triggered.
     if (not (_reg->config & LEG_RT_CNF) and
         (timer->_reg->config & FSB_INT_DEL_CAP)) {
-      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, get_hpet_rid(_mb.bus_acpi));
+      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, _hpet_rid);
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
       Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
@@ -457,6 +458,9 @@ class PerCpuTimerService : private BasicHpet,
       Logging::printf("TIMER: No HPET found.\n");
       return false;
     }
+
+    _hpet_rid = get_hpet_rid(_mb.bus_acpi);
+    Logging::printf("TIMER: RID %x\n", _hpet_rid);
 
     MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, hpet_addr, 1024);
     if (!_mb.bus_hostop.send(msg1) || !msg1.ptr) {
