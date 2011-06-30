@@ -78,7 +78,7 @@ private:
   typedef typename ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;
   typedef typename ClientDataStorage<ServerData, s0_ParentProtocol, false>::Guard GuardS;
 
-  ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> _client; /// Client "registry"
+  ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> session; /// client "registry" of sessions to services
   ALIGNED(8) ClientDataStorage<ServerData, s0_ParentProtocol, false> _server; /// Service "registry"
 
   static unsigned get_client_number(unsigned cap) {
@@ -92,8 +92,8 @@ private:
     ServerData volatile *sdata;
     unsigned res;
 
-    GuardC guard_c(&_client);
-    if ((res = _client.get_client_data(utcb, cdata, cap_client))) return res;
+    GuardC guard_c(&session);
+    if ((res = session.get_client_data(utcb, cdata, cap_client))) return res;
     //Logging::printf("\tfound session cap %x for client %x %.*s\n", cap_client, cdata->pseudonym, cdata->len, cdata->name);
 
     GuardS guard_s(&_server);
@@ -183,8 +183,8 @@ public:
 
         // check whether such a session is already known from our client
         {
-          GuardC guard_c(&_client);
-          for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
+          GuardC guard_c(&session);
+          for (ClientData volatile * c = session.next(); c; c = session.next(c))
             if (c->name == service_name && c->pseudonym == input.identity()) {
               utcb << Utcb::TypedMapCap(c->identity);
             //Logging::printf("has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->identity, c->pseudonym, service_name);
@@ -192,21 +192,21 @@ public:
             }
         }
 
-        res = _client.alloc_client_data(utcb, cdata, input.identity(), this);
+        res = session.alloc_client_data(utcb, cdata, input.identity(), this);
         if (res) {
           if (res != ERESOURCE) return res;
 
           unsigned count = 0;
-          GuardC guard_c(&_client, utcb, this);
-          ClientData volatile * data = _client.get_invalid_client(utcb, this);
+          GuardC guard_c(&session, utcb, this);
+          ClientData volatile * data = session.get_invalid_client(utcb, this);
           while (data) {
             Logging::printf("s0: found dead client - freeing datastructure\n");
             count++;
 
             notify_service(utcb, data);
 
-            _client.free_client_data(utcb, data, this);
-            data = _client.get_invalid_client(utcb, this, data);
+            session.free_client_data(utcb, data, this);
+            data = session.get_invalid_client(utcb, this, data);
           }
           if (count > 0) return ERETRY;
           else return ERESOURCE;
@@ -221,12 +221,12 @@ public:
 
     case ParentProtocol::TYPE_CLOSE:
       {
-        GuardC guard_c(&_client, utcb, this);
+        GuardC guard_c(&session, utcb, this);
         ClientData *cdata;
 
-        if ((res = _client.get_client_data(utcb, cdata, input.identity()))) return res;
+        if ((res = session.get_client_data(utcb, cdata, input.identity()))) return res;
         //Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
-        return _client.free_client_data(utcb, cdata, this);
+        return session.free_client_data(utcb, cdata, this);
       }
     case ParentProtocol::TYPE_GET_PORTAL:
       {
@@ -297,8 +297,8 @@ public:
 
         // wakeup clients that wait for us
         {
-          GuardC guard_c(&_client);
-          for (ClientData volatile * c = _client.next(); c; c = _client.next(c))
+          GuardC guard_c(&session);
+          for (ClientData volatile * c = session.next(); c; c = session.next(c))
           if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
             //Logging::printf("\tnotify client %x\n", c->pseudonym);
             unsigned res = nova_semup(c->identity);
@@ -326,8 +326,8 @@ public:
         if (input.get_word(op)) return EPROTO;
 
         ClientData *cdata;
-        GuardC guard_c(&_client);
-        if ((res = _client.get_client_data(utcb, cdata, input.identity(1)))) return res;
+        GuardC guard_c(&session);
+        if ((res = session.get_client_data(utcb, cdata, input.identity(1)))) return res;
 
         if (op == 1U) //set
         {
@@ -345,8 +345,8 @@ public:
     case ParentProtocol::TYPE_GET_QUOTA:
       {
         ClientData *cdata;
-        GuardC guard_c(&_client);
-        if ((res = _client.get_client_data(utcb, cdata, input.identity(1))))  return res;
+        GuardC guard_c(&session);
+        if ((res = session.get_client_data(utcb, cdata, input.identity(1))))  return res;
 
         long invalue;
         char *request;
@@ -360,16 +360,16 @@ public:
       }
     case ParentProtocol::TYPE_REQ_KILL:
       {
-        GuardC guard_c(&_client, utcb, this);
+        GuardC guard_c(&session, utcb, this);
 
         // find all sessions for a given client
-        for (ClientData volatile * c = _client.next(); c; c = _client.next(c)) {
+        for (ClientData volatile * c = session.next(); c; c = session.next(c)) {
           if (c->pseudonym != input.identity(1)) continue;
 
           notify_service(utcb, c);
 
           Logging::printf("s0: freeing session to service on behalf of a dying client\n");
-          res = _client.free_client_data(utcb, c, this);
+          res = session.free_client_data(utcb, c, this);
           assert(res == ENONE);
         }
         return ENONE;
