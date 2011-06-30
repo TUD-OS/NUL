@@ -127,7 +127,7 @@ public:
           } while (s.has_next() and ((s = s.next()), true));
         }
       }
-    } while (e.has_next() and ((e = p.get_element()), true));
+    } while (e.has_next() and ((e = e.next()), true));
     
     return 0;
   }
