@@ -128,6 +128,11 @@ environment.
 
     Additional flags to pass to qemu
 
+=item NOVABOOT_GRUB_KEYS
+
+    Key strokes to send to GRUB over serial line in order to boot the
+    files copied to the test machine (perhaps by using --server).
+
 =back
 
 =cut
@@ -145,6 +150,7 @@ $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::server = "os.inf.tu-dresden.de:boot/novaboot";
 $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/";
+$CFG::grub_keys = "/novaboot\n\n";
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
@@ -168,6 +174,7 @@ if (-f $cfg) {
     if ($v = $ENV{'NOVABOOT_ROOT'}) {$CFG::builddir = $v;}
     if ($v = $ENV{'NOVABOOT_HYPERVISOR'}) { $CFG::hypervisor = $v;}
     if ($v = $ENV{'NOVABOOT_QEMU_FLAGS'}) { $qemu_flags = $v;}
+    if ($v = $ENV{'NOVABOOT_GRUB_KEYS'}) { $CFG::grub_keys = $v;}
 }
 
 
@@ -203,6 +210,7 @@ if ($dump_config) {
 \$hypervisor = '$CFG::hypervisor';
 \$server = '$CFG::server';
 \$server_grub_prefix = '$CFG::server_grub_prefix';
+\$grub_keys = '$CFG::grub_keys';
 ";
     exit;
 }
@@ -324,7 +332,7 @@ if ($serial) {
 	print;
 	if (/Press any key to continue/) { print $fh "\n"; last; }
     }
-    foreach ("/wvtest\n\n") {
+    foreach ($CFG::grub_keys) {
 	print $fh $_;
 	sleep(0.05);
     }
