@@ -102,6 +102,7 @@ sub mstime($$$)
 sub resultline($$$)
 {
     my ($prefix, $name, $result) = @_;
+    if (!defined $prefix) { $prefix = ""; }
     return sprintf("$prefix! %s %s", $name, colourize(length($prefix)+2+length($name)+1, $result));
 }
 

@@ -63,6 +63,7 @@ local $SIG{ALRM} = sub {
 
 my $allstart = time();
 my ($start, $stop);
+my $tests_executed = 0;
 
 alarm(100);
 while (<$fh>)
@@ -76,7 +77,10 @@ while (<$fh>)
 #     {
 # 	kill 15, $pid;		# Kill qemu
 #     }
-    if (/resetting machine via method/)
+    if (/^(\([0-9]+\) )?!\s*(.*?)\s+(\S+)\s*$/) {
+	$tests_executed++;
+    }
+    elsif (/resetting machine via method/)
     {
 	kill 15, $pid;		# Kill novaboot or qemu
     }
@@ -85,6 +89,8 @@ my $newpid = waitpid($pid, 0);
 if ($newpid != $pid) {
     die("waitpid returned '$newpid', expected '$pid'\n");
 }
+
+printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
 
 my $code = $?;
 my $ret = ($code >> 8);
