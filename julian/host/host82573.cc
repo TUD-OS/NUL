@@ -75,13 +75,13 @@ static const NICInfo intel_nics[] = {
 class Host82573 : public PciDriver,
 		  public StaticReceiver<Host82573>
 {
+  static const unsigned desc_ring_len = 32;
+
   const NICInfo &_info;
   EthernetAddr   _mac;
 
-  const unsigned _tx_ring_len_shift;
-  const unsigned _rx_ring_len_shift;
-
   DBus<MessageHostOp>      &_bus_hostop;
+  DBus<MessageNetwork>     &_bus_network;
 
   volatile uint32 *_hwreg;
   unsigned         _hostirq;
@@ -92,6 +92,9 @@ class Host82573 : public PciDriver,
   uint16        _tx_last;
   uint16        _tx_tail;	// Mirrors TDT
   DmaDesc      *_tx_ring;
+
+  PacketBuffer _rx_buf[desc_ring_len];
+  PacketBuffer _tx_buf[desc_ring_len];
 
   // Test for a specific feature
   bool feature(unsigned bit) { return (_info.features & bit) != 0; }
@@ -125,14 +128,14 @@ class Host82573 : public PciDriver,
 
   void tx_configure()
   {
-    _tx_ring = new(256) DmaDesc[1 << _tx_ring_len_shift];
+    _tx_ring = new(256) DmaDesc[desc_ring_len];
 
     _hwreg[TCTL] &= ~(1<<1 /* Enable */);
     _hwreg[TIDV] = 8;	     // Need to set this to something non-zero.
     mword phys_tx_ring = addr2phys(_tx_ring);
     _hwreg[TDBAL] = static_cast<uint64>(phys_tx_ring) & 0xFFFFFFFFU;
     _hwreg[TDBAH] = static_cast<uint64>(phys_tx_ring) >> 32;
-    _hwreg[TDLEN] = sizeof(DmaDesc) << _tx_ring_len_shift;
+    _hwreg[TDLEN] = sizeof(DmaDesc)*desc_ring_len;
     _hwreg[TDT] = 0;
     _hwreg[TDH] = 0;
     _hwreg[TCTL] = (1<<1 /* Enable */) | (1<<3 /* Pad */);
@@ -140,7 +143,7 @@ class Host82573 : public PciDriver,
 
   void rx_configure()
   {
-    _rx_ring = new(256) DmaDesc[1 << _rx_ring_len_shift];
+    _rx_ring = new(256) DmaDesc[desc_ring_len];
 
     _hwreg[RCTL]  &= ~(1<<1 /* Enable */);
     _hwreg[RXDCTL] = 0;	      // The spec says so: 11.2.1.3.13. Only
@@ -149,7 +152,7 @@ class Host82573 : public PciDriver,
     mword phys_rx_ring = addr2phys(_rx_ring);
     _hwreg[RDBAL] = static_cast<uint64>(phys_rx_ring) & 0xFFFFFFFFU;
     _hwreg[RDBAH] = static_cast<uint64>(phys_rx_ring) >> 32;
-    _hwreg[RDLEN] = sizeof(DmaDesc) << _rx_ring_len_shift;
+    _hwreg[RDLEN] = sizeof(DmaDesc)*desc_ring_len;
     _hwreg[RDT]   = 0;
     _hwreg[RDH]   = 0;
     _hwreg[RDTR]  = 0;	     // Linux source warns that Rx will likely
@@ -165,6 +168,15 @@ class Host82573 : public PciDriver,
       // client MAC addresses to the hardware filters. Shouldn't be a
       // problem in a switched Ethernet, though.
       | (1<<3 /* Unicast promiscuous */);
+
+    // Add descriptors
+    for (unsigned i = 0; i < desc_ring_len - 1; i++) {
+      _rx_ring[i].lo = reinterpret_cast<mword>(_rx_buf[i]);
+      _rx_ring[i].hi = 0;
+
+      // Tell NIC about receive descriptor.
+      _hwreg[RDT] = i+1;
+    }
   }
 
   bool rx_desc_done(DmaDesc &desc)
@@ -187,26 +199,41 @@ class Host82573 : public PciDriver,
   // Consume and distribute all received packets from the RX queue.
   void rx_handle()
   {
-    // unsigned processed = 0;
+    unsigned processed = 0;
 
     // Process all filled RX buffers
-    // while (rx_desc_done(_rx_ring[_rx_last])) {
-    //   // Propagate packet
-    //   rx_packet_process(_rx_buf[_rx_last], rx_desc_size(_rx_ring[_rx_last]));
+    while ((processed < desc_ring_len/2)
+           and rx_desc_done(_rx_ring[_rx_last])) {
+      // Propagate packet
+      //rx_packet_process(_rx_buf[_rx_last], rx_desc_size(_rx_ring[_rx_last]));
       
-    //   // Rearm RX descriptor
-    //   _rx_ring[_rx_last].lo = _rx_buf_phys[_rx_last];
-    //   _rx_ring[_rx_last].hi = 0;
+      uint16 plen = _rx_ring[_rx_last].hi >> 32;
+      Logging::printf("RX %016llx %016llx\n", _rx_ring[_rx_last].lo, _rx_ring[_rx_last].hi);
+      Logging::printf("   plen %u\n", plen);
+      assert(plen <= 2048);
 
-    //   processed += 1;
-    //   _rx_last = (_rx_last+1)%desc_ring_len;
-    // }
+      MessageNetwork nmsg(_rx_buf[_rx_last], plen, 0);
+      _bus_network.send(nmsg);
 
-    // // Enqueue as many buffers as we consumed.
-    // _hwreg[RDT] = (_hwreg[RDT] + processed) % desc_ring_len;
+      _rx_ring[_rx_last].lo = 0;
+      _rx_ring[_rx_last].hi = 0;
 
-    // if (processed != 0)
-    //   msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
+
+      processed += 1;
+      _rx_last = (_rx_last+1) % desc_ring_len;
+
+      // XXX Use shadow RDT
+      unsigned rdt = _hwreg[RDT];
+      _rx_ring[rdt].lo = reinterpret_cast<mword>(_rx_buf[rdt]);
+      _rx_ring[rdt].hi = 0;
+      _hwreg[RDT] = (rdt+1) % desc_ring_len;
+    }
+
+    // Enqueue as many buffers as we consumed.
+    //_hwreg[RDT] = (_hwreg[RDT] + processed) % desc_ring_len;
+
+    if (processed != 0)
+      msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
 
   }
 
@@ -309,13 +336,27 @@ public:
     return true;
   }
 
+  bool receive(MessageNetwork &nmsg)
+  {
+    switch (nmsg.type) {
+    case MessageNetwork::QUERY_MAC:
+      nmsg.mac = Endian::hton64(_mac.raw) >> 16;
+      return true;
+    case MessageNetwork::PACKET:
+      // XXX TODO
+      return false;
+    default:
+      return false;
+    }
+  }
+
   Host82573(unsigned vnet, HostPci pci, DBus<MessageHostOp> &bus_hostop,
-	    DBus<MessageAcpi> &bus_acpi,
+	    DBus<MessageNetwork> &bus_network, DBus<MessageAcpi> &bus_acpi,
 	    Clock *clock, unsigned bdf, const NICInfo &info)
     : PciDriver("82573", bus_hostop, clock, ALL, bdf), 
       _info(info),
-      _tx_ring_len_shift(10), _rx_ring_len_shift(10),
-      _bus_hostop(bus_hostop), _rx_last(0), _tx_last(0), _tx_tail(0)
+      _bus_hostop(bus_hostop), _bus_network(bus_network),
+      _rx_last(0), _tx_last(0), _tx_tail(0)
   {
     msg(INFO, "Type: %s\n", info.name);
     if (info.type == INTEL_82540EM) msg(WARN, "This NIC has only been tested in QEMU.\n");
@@ -398,9 +439,11 @@ PARAM(host82573, {
       unsigned i;
       for (i = 0; i < (sizeof(intel_nics)/sizeof(NICInfo)); i++) {
 	if ((cfg0>>16 == intel_nics[i].devid) && (found++ == argv[0])) {
-	  Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_acpi,
+	  Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
+                                         mb.bus_acpi,
 					 mb.clock(), bdf, intel_nics[i]);
 	  mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
+          mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
 	}
       }
     }
