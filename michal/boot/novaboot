@@ -6,7 +6,8 @@ novaboot - NOVA boot script interpreter
 
 =head1 SYNOPSIS
 
-B<novaboot> [ --help ] [ --append=... ] [ --server ]  [ --grub ] [ --serial ] [ --dump-config ]
+B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --dump-config ]
+            [ --grub ] [ --qemu-flags=<flags> ] [ --serial ] [ --server ]
 
 =head1 DESCRIPTION
 
@@ -19,6 +20,10 @@ binaries to load and their parameters. See below for the syntax.
 =item -a, --append=<parameters>
 
     Appends a string to the root task's command line.
+
+=item -b, --bender
+
+    Boot bender tool to find serial ports.
 
 =item --dump-config
 
@@ -133,13 +138,13 @@ environment.
     Key strokes to send to GRUB over serial line in order to boot the
     files copied to the test machine (perhaps by using --server).
 
+=item NOVABOOT_BENDER
+
+    When defined, has the same meaning as --bender option.
+
 =back
 
 =cut
-
-# TODO: Allow specification of qemu parameters in config file
-
-
 
 use Getopt::Long;
 use Pod::Usage;
@@ -187,10 +192,11 @@ my $line;
 my $EOF;
 
 # Command line 
-my ($append, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
 
 GetOptions (
     "append|a=s"     => \$append,
+    "bender|b"       => \$bender,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "qemu_flags|q=s" => \$qemu_flags_cmd,
@@ -261,6 +267,9 @@ while (<>) {
     $line = '';
 }
 
+@modules = ($CFG::hypervisor . " serial", @modules);
+@modules = ("../base/tools/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
+
 chdir($CFG::builddir);
 print "novaboot: Entering directory `$CFG::builddir'\n";
 
@@ -272,11 +281,10 @@ sub generate_grub_config($$$@)
     my ($filename, $allinroot, $base, @modules) = @_;
     open(my $fg, '>', $filename);
     print $fg "title $config_name\n";
-    if ($allinroot) {
-	print $fg "kernel ${base}hypervisor serial\n";
-    } else {
-	print $fg "kernel ${base}contrib/nova/build/hypervisor serial\n"; # TODO: Obey $NOVABOOTHYPERVISOR
-    }
+    my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
+    $kbin =~ s|[^ ]*/|| if ($allinroot);
+    $kcmd = '' if !defined $kcmd;
+    print $fg "kernel ${base}$kbin $kcmd\n";
     foreach (@modules) {
 	s|[^ ]*/|| if ($allinroot);
 	print $fg "module $base$_\n";
@@ -302,14 +310,15 @@ if ($variables{WVDESC}) {
     print "Testing \"all\" in $filename:\n";
 }
 
+my $run_qemu = 1;
 if ($grub_config) {
+    $run_qemu = 0;
     generate_grub_config($grub_config,
 			 defined $server ? 1 : 0,
 			 defined $server ? $CFG::server_grub_prefix : "",
 			 @modules);
 }
 
-my $run_qemu = 1;
 if (defined $server) {
     $run_qemu = 0;
     my $gc = $grub_config || '';
@@ -356,13 +365,15 @@ if ($run_qemu) {
 	close($f);
     }
 
+    my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
+    $kcmd = '' if !defined $kcmd;
     my $initrd = join ",", @modules;
 
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
     $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
 
     if (!$ENV{'WVTESTRUN'}) {
-	exec "qemu -name '$config_name' -serial stdio -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" $qemu_flags"
+	exec "qemu -name '$config_name' -serial stdio -kernel $kbin -append '$kcmd' -initrd \"$initrd\" $qemu_flags"
     } else {
 	# We must use pipe and cat to get qemu's serial output to
 	# stdout. Qemu's stdio backend cannot be used here as it
@@ -373,6 +384,6 @@ if ($run_qemu) {
 	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
 	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
 	system("cat tmppipe.out &");
-	exec "qemu -name '$config_name' -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe -kernel $CFG::hypervisor -append 'serial' -initrd \"$initrd\" $qemu_flags";
+	exec "qemu -name '$config_name' -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe -kernel $kbin -append '$kcmd' -initrd \"$initrd\" $qemu_flags";
     }
 }
