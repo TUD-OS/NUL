@@ -139,6 +139,21 @@ class Host82573 : public PciDriver,
     _hwreg[TDT] = 0;
     _hwreg[TDH] = 0;
     _hwreg[TCTL] = (1<<1 /* Enable */) | (1<<3 /* Pad */);
+
+
+// [ 3586.454146] TXDCTL[0-1]     0141001f 0141001f 
+// [ 3586.454152] TADV            00000020
+// [ 3586.454157] TARC[0-1]       0d800403 45000403 
+// [ 3586.454163] TDFH            00000d00
+// [ 3586.454167] TDFT            00000d00
+// [ 3586.454170] TDFHS           00000d00
+// [ 3586.454173] TDFTS           00000d00
+// [ 3586.454177] TDFPC           00000000
+
+    _hwreg[TCTL]    = 0x3103f0f8 | (1<<1 /* Enable */);
+    //_hwreg[TXDCTL] = 0x0141001f;
+    _hwreg[TXDCTL] = 0;
+    //_hwreg[TXDCTL1] = 0x0141001f;
   }
 
   void rx_configure()

@@ -43,6 +43,7 @@ enum Registers {
   TDBAH     = 0x3804U/4,
   TDLEN     = 0x3808U/4,
   TIDV      = 0x3820U/4,
+  TXDCTL    = 0x3828U/4,
   
   MTA       = 0x5200U/4,
 };
