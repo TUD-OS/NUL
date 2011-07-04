@@ -27,6 +27,13 @@
     }
   }
 
+  void EventService::portal_pf(EventService *tls, Utcb *utcb)
+  {
+    Logging::printf("daemon: worker thread died - pagefault %x/%x for %llx err %llx at %x\n",
+       utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+    while(1) {}
+  }
+
   unsigned EventService::portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
     {
       unsigned op, res;

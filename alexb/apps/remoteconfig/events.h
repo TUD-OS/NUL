@@ -47,6 +47,7 @@ public:
     _cap_base = base;
   }
 
+  static void portal_pf(EventService *tls, Utcb *utcb) __attribute__((regparm(0)));
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) {
     unsigned cap, cap_last, first_cap;
@@ -106,6 +107,9 @@ public:
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EventService>::portal_func);
         res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
+        if (res) return false;
+        unsigned long portal_pf_addr = reinterpret_cast<unsigned long>(&portal_pf);
+        res = nova_create_pt(pt_pf, cap_pf, portal_pf_addr, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP);
         if (res) return false;
         res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_wo, service_cap, flag_revoke);
         if (res) return !res;
