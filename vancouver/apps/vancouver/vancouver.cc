@@ -329,7 +329,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
     if (_service_events)
-      service_events = new EventsProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+      service_events = new EventsProtocol(alloc_cap(EventsProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
     _mb->bus_hwioin.debug_dump();
   }
