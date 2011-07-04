@@ -17,7 +17,10 @@ enum LIBVIRT_NOVA_OPCODE {
   NOVA_DISABLE_EVENT,
   NOVA_EVENT,
   NOVA_HW_INFO,
-  EVENT_REBOOT = 0xbbbb
+  EVENT_REBOOT = 0xbbbb,
+  EVENT_UNSERVED_IOACCESS = 0xbbc0,
+  EVENT_DMAR_ACCESS = 0xbbd0,
+  EVENT_VDEV_HONEYPOT = 0xbbd1,
 };
 
 struct incoming_packet {
