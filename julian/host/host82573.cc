@@ -376,7 +376,7 @@ public:
             | (1U<<24 /* EOP */) | (1U<<29 /* ADESC */)
             | (1U<<25 /* Append MAC FCS */)
             | (1U<<27 /* Report Status = IRQ */);
-          msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT0], _hwreg[TDH0]);
+          msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT], _hwreg[TDH]);
 
           MEMORY_BARRIER;
           _hwreg[TDT] = (tail+1) % desc_ring_len;
