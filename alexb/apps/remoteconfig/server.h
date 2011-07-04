@@ -151,7 +151,7 @@ class Remcon : public CapAllocator {
     void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len);
     int send(void * mem, size_t count) { assert(mem == buf_out); assert(count == sizeof(buf_out)); dowrite = true; return count; }
 
-    bool find_uuid(unsigned remoteid, char uuid[UUID_LEN]) {
+    bool find_uuid(unsigned remoteid, char * uuid) {
       for(unsigned i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
         if (server_data[i].remoteid != 0 && server_data[i].remoteid == remoteid)
           return memcpy(uuid, server_data[i].uuid, UUID_LEN);
@@ -164,7 +164,10 @@ class Remcon : public CapAllocator {
       struct outgoing_packet * out  = reinterpret_cast<struct outgoing_packet *>(buf);
 
       char * uuid  = reinterpret_cast<char *>(&out->opspecific);
-      if (!find_uuid(guid, uuid)) return false;
+      if (!find_uuid(guid, uuid)) {
+        if (!gevents) return false;
+        memset(uuid, -1, UUID_LEN);
+      }
       if (!gevents) {
         struct server_data * entry = check_uuid(uuid);
         if (!entry || !entry->events) return false;

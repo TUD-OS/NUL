@@ -26,7 +26,7 @@
 struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
   unsigned i;
   for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++)
-    if (!memcmp(server_data[i].uuid, uuid, UUID_LEN)) return &server_data[i];
+    if (server_data[i].id != 0 && !memcmp(server_data[i].uuid, uuid, UUID_LEN)) return &server_data[i];
   return NULL;
 }
 
@@ -293,8 +293,7 @@ void Remcon::handle_packet(void) {
         GET_LOCAL_ID;
         unsigned res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == ENONE) {
-          server_data[localid].id     = 0;
-          server_data[localid].active = false;
+          memset(&server_data[localid], 0, sizeof(server_data[localid]));
           _out->result  = NOVA_OP_SUCCEEDED;
         }
         break;
