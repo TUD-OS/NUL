@@ -267,7 +267,7 @@ while (<>) {
     $line = '';
 }
 
-@modules = ($CFG::hypervisor . " serial", @modules);
+@modules = ($CFG::hypervisor . " serial spinner", @modules);
 @modules = ("../base/tools/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
 chdir($CFG::builddir);
