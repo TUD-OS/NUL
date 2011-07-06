@@ -12,7 +12,7 @@ B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --dump-config ]
 =head1 DESCRIPTION
 
 This script boots the NOVA system either in qemu or on a real
-hardware. The operation is controlled by a scrit which determines the
+hardware. The operation is controlled by a script which determines the
 binaries to load and their parameters. See below for the syntax.
 
 =over 4
@@ -46,7 +46,11 @@ binaries to load and their parameters. See below for the syntax.
 
 =item --server[=[user@]server:path]
 
-    Copy all files needed for booting to a server (implies -g).
+    Copy all files needed for booting to a server (implies -g). The
+    files will be copied to the directory path/NAME/, where NAME is
+    the name of the novaboot script. Additionally, a file called
+    path/menu.lst will be created on the server by concatenating all
+    path/*/menu.lst files found on the server.
 
 =item -s, --serial[=device]
 
@@ -136,7 +140,9 @@ environment.
 =item NOVABOOT_GRUB_KEYS
 
     Key strokes to send to GRUB over serial line in order to boot the
-    files copied to the test machine (perhaps by using --server).
+    files copied to the test machine (perhaps by using --server). The
+    string "$NAME" will be replaced by the name of the script being
+    interpreted.
 
 =item NOVABOOT_BENDER
 
@@ -154,8 +160,8 @@ use File::Basename;
 $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::server = "os.inf.tu-dresden.de:boot/novaboot";
-$CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/";
-$CFG::grub_keys = "/novaboot\n\n";
+$CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot";
+$CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
@@ -183,7 +189,7 @@ if (-f $cfg) {
 }
 
 
-my $config_name = $ARGV[0] || "Unknown";
+(my $config_name = $ARGV[0] || "Unknown") =~ s#.*/##;
 my %configs;
 my %variables;
 my @modules = ();
@@ -276,17 +282,15 @@ print "novaboot: Entering directory `$CFG::builddir'\n";
 # always flush
 $| = 1;
 
-sub generate_grub_config($$$@)
+sub generate_grub_config($$@)
 {
-    my ($filename, $allinroot, $base, @modules) = @_;
+    my ($filename, $base, @modules) = @_;
     open(my $fg, '>', $filename);
     print $fg "title $config_name\n";
     my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
-    $kbin =~ s|[^ ]*/|| if ($allinroot);
     $kcmd = '' if !defined $kcmd;
     print $fg "kernel ${base}$kbin $kcmd\n";
     foreach (@modules) {
-	s|[^ ]*/|| if ($allinroot);
 	print $fg "module $base$_\n";
     }
     # Generate configs
@@ -295,7 +299,6 @@ sub generate_grub_config($$$@)
 	open(my $f, '>', $fn);
 	foreach (@{$config}) {
 	    if (m|^rom://|) {
-		s|rom://.*/(.*)|rom://$1| if ($allinroot);
 		s|rom://(.*)|rom://$base$1|;
 	    }
 	    print $f "$_";
@@ -314,17 +317,16 @@ my $run_qemu = 1;
 if ($grub_config) {
     $run_qemu = 0;
     generate_grub_config($grub_config,
-			 defined $server ? 1 : 0,
-			 defined $server ? $CFG::server_grub_prefix : "",
+			 defined $server ? "$CFG::server_grub_prefix/$config_name/" : "",
 			 @modules);
 }
 
 if (defined $server) {
     $run_qemu = 0;
+    my ($hostname, $path) = split(":", $CFG::server, 2);
     my $gc = $grub_config || '';
-    system("scp -p -r $gc $CFG::hypervisor " .
-	   join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules)) .
-	   " $CFG::server");
+    my $files = "$gc $CFG::hypervisor " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules));
+    system("set -x; tar czf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
 #     foreach (($CFG::hypervisor, $gc, @modules)) {
 # 	(my $src) = m/([^ ]*)/;
 # 	(my $x,$path,) = fileparse($src,"");
@@ -341,7 +343,8 @@ if ($serial) {
 	print;
 	if (/Press any key to continue/) { print $fh "\n"; last; }
     }
-    foreach ($CFG::grub_keys) {
+    (my $keys = $CFG::grub_keys) =~ s/\$NAME/$config_name/;
+    foreach ($keys) {
 	print $fh $_;
 	sleep(0.05);
     }
