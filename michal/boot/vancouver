@@ -1,0 +1,14 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 tracebuffer:32768 script_start:1,1 service_config
+bin/apps/vancouver.nul
+bin/boot/munich
+linux/bzImage-js
+linux/initrd-js.lzma
+vancuver.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/vancouver.nul PC_PS2 ||
+rom://bin/boot/munich ||
+rom://linux/bzImage-js clocksource=tsc ||
+rom://linux/initrd-js.lzma
+EOF
