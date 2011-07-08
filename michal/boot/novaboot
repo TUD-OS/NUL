@@ -146,7 +146,7 @@ environment.
 
 =item NOVABOOT_BENDER
 
-    When defined, has the same meaning as --bender option.
+    Defining this variable has the same meaning as --bender option.
 
 =back
 
@@ -162,6 +162,7 @@ $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::server = "os.inf.tu-dresden.de:boot/novaboot";
 $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot";
 $CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
+$CFG::genisoimage = "genisoimage";
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
@@ -223,18 +224,18 @@ if ($dump_config) {
 \$server = '$CFG::server';
 \$server_grub_prefix = '$CFG::server_grub_prefix';
 \$grub_keys = '$CFG::grub_keys';
+\$genisoimage = '$CFG::genisoimage';
 ";
     exit;
 }
 
 if (defined $serial) {
-    $serial = $serial || "/dev/ttyUSB0";
+    $serial ||= "/dev/ttyUSB0";
     $server = '';
 }
-$grub_config = '' if (defined $server && !defined $grub_config);
 
 if (defined $grub_config) {
-    $grub_config = $grub_config || "menu.lst";
+    $grub_config ||= "menu.lst";
 }
 
 my $filename=$ARGV[0];
@@ -282,28 +283,32 @@ print "novaboot: Entering directory `$CFG::builddir'\n";
 # always flush
 $| = 1;
 
-sub generate_grub_config($$@)
-{
-    my ($filename, $base, @modules) = @_;
-    open(my $fg, '>', $filename);
-    print $fg "title $config_name\n";
-    my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
-    $kcmd = '' if !defined $kcmd;
-    print $fg "kernel ${base}$kbin $kcmd\n";
-    foreach (@modules) {
-	print $fg "module $base$_\n";
-    }
-    # Generate configs
-    foreach my $fn(keys %configs) {
-	$config = $configs{$fn};
+sub generate_configs($$) {
+    my ($base, $configs) = @_;
+    foreach my $fn(keys %$configs) {
+	$config = $$configs{$fn};
 	open(my $f, '>', $fn);
-	foreach (@{$config}) {
-	    if (m|^rom://|) {
-		s|rom://(.*)|rom://$base$1|;
-	    }
-	    print $f "$_";
-	}
+	map { s|^rom://(.*)|rom://$base$1|; print $f "$_"; } @{$config};
 	close($f);
+    }
+}
+
+sub generate_grub_config($$$;$)
+{
+    my ($filename, $base, $modules_ref, $prepend) = @_;
+    open(my $fg, '>', $filename) or die "$filename: $!";
+    print $fg "$prepend\n" if $prepend;
+    print $fg "title $config_name\n";
+    my $first = 1;
+    foreach (@$modules_ref) {
+	if ($first) {
+	    $first = 0;
+	    my ($kbin, $kcmd) = split(' ', $_, 2);
+	    $kcmd = '' if !defined $kcmd;
+	    print $fg "kernel ${base}$kbin $kcmd\n";
+	} else {
+	    print $fg "module $base$_\n";
+	}
     }
 }
 
@@ -313,26 +318,22 @@ if ($variables{WVDESC}) {
     print "Testing \"all\" in $filename:\n";
 }
 
-my $run_qemu = 1;
-if ($grub_config) {
-    $run_qemu = 0;
-    generate_grub_config($grub_config,
-			 defined $server ? "$CFG::server_grub_prefix/$config_name/" : "",
-			 @modules);
+if (defined $grub_config) {
+    generate_configs("", \%configs);
+    generate_grub_config($grub_config, "", \@modules);
+    print("$CFG::builddir/$grub_config generated.\n");
+    exit;
 }
 
+my $run_qemu = 1;
 if (defined $server) {
     $run_qemu = 0;
+    generate_configs("$CFG::server_grub_prefix/$config_name/", \%configs);
+    $grub_config ||= "menu.lst";
+    generate_grub_config($grub_config, "$CFG::server_grub_prefix/$config_name/", \@modules);
     my ($hostname, $path) = split(":", $CFG::server, 2);
-    my $gc = $grub_config || '';
-    my $files = "$gc $CFG::hypervisor " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules));
+    my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules));
     system("set -x; tar czf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
-#     foreach (($CFG::hypervisor, $gc, @modules)) {
-# 	(my $src) = m/([^ ]*)/;
-# 	(my $x,$path,) = fileparse($src,"");
-# 	system("ssh os mkdir -p boot/$path") if ($path);
-#         system("scp -p -r $src os:boot/$src");
-#     }
 }
 
 if ($serial) {
@@ -353,30 +354,38 @@ if ($serial) {
     while (<$fh>) {
 	print;
     }
-    exit;    
+    exit;
 }
 
 if ($run_qemu) {
-    # Escape commas for qemu (requires patched qemu)
-    foreach (@modules) {s/,/,,/g;}
-   
-    # Generate configs
-    foreach my $fn(keys %configs) {
-	$config = $configs{$fn};
-	open(my $f, '>', $fn);
-	map { print $f "$_"; } @{$config};
-	close($f);
-    }
-
-    my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
-    $kcmd = '' if !defined $kcmd;
-    my $initrd = join ",", @modules;
-
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
     $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
 
+    if (1) {
+	# Boot NOVA with grub
+	generate_configs("(cd)/", \%configs);
+	$grub_config ||= "menu.lst";
+	generate_grub_config($grub_config, "(cd)/", \@modules, "timeout 0");
+
+	my $files = "boot/grub/menu.lst=$grub_config " . join(" ", map({ ($path,undef,$file) = m|(([^ ]*)/)?([^ ]*)|; $path ||= ''; "$path$file=$path$file"; } @modules));
+	my $ret = system("set -x; $CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $config_name.iso -graft-points bin/boot/grub/ $files");
+	if ($ret >> 8) { die("The above command failed!"); }
+
+	$qemu_flags .= " -cdrom $config_name.iso";
+    } else {
+	# Boot NOVA without GRUB - this requires patched qemu to allow commas in module command lines
+
+	foreach (@modules) {s/,/,,/g;}
+	generate_configs("", \%configs);
+
+	my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
+	$kcmd = '' if !defined $kcmd;
+	my $initrd = join ",", @modules;
+
+	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
+    }
     if (!$ENV{'WVTESTRUN'}) {
-	exec "qemu -name '$config_name' -serial stdio -kernel $kbin -append '$kcmd' -initrd \"$initrd\" $qemu_flags"
+	$qemu_flags .= " -serial stdio"
     } else {
 	# We must use pipe and cat to get qemu's serial output to
 	# stdout. Qemu's stdio backend cannot be used here as it
@@ -387,6 +396,9 @@ if ($run_qemu) {
 	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
 	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
 	system("cat tmppipe.out &");
-	exec "qemu -name '$config_name' -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe -kernel $kbin -append '$kcmd' -initrd \"$initrd\" $qemu_flags";
+	$qemu_flags .= " -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
     }
+    my $cmd = "qemu -name '$config_name' $qemu_flags";
+    print "Running: $cmd\n";
+    exec $cmd;
 }
