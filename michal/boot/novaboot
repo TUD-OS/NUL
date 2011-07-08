@@ -6,14 +6,15 @@ novaboot - NOVA boot script interpreter
 
 =head1 SYNOPSIS
 
-B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --dump-config ]
-            [ --grub ] [ --qemu-flags=<flags> ] [ --serial ] [ --server ]
+B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --config=<file> ]
+            [ --dump-config ] [ --grub ] [ --qemu-flags=<flags> ] [--serial ]
+	    [ --server ]
 
 =head1 DESCRIPTION
 
-This script boots the NOVA system either in qemu or on a real
-hardware. The operation is controlled by a script which determines the
-binaries to load and their parameters. See below for the syntax.
+This program boots the NOVA system either in qemu or on a real
+hardware. Its operation is controlled by a script which determines
+which binaries to load and their parameters. See below for the syntax.
 
 =over 4
 
@@ -24,6 +25,10 @@ binaries to load and their parameters. See below for the syntax.
 =item -b, --bender
 
     Boot bender tool to find serial ports.
+
+=item -c, --config=<filename>
+
+    Use a different config than the default one (i.e. ~/.novaboot).
 
 =item --dump-config
 
@@ -66,14 +71,14 @@ script are relative to the NUL build directory (see below).
 
 Lines starting with "#" are ignored.
 
-Lines that end with "\" is contatenated with the following line
+Lines that end with "\" are concatenated with the following line
 after removal of the final "\".
 
 Lines matching '[A-Z_]+=' regexp assign values to internal variables.
 See VARIABLES section.
 
-First word on a line represents the module to load, the remaining
-words are its command line parameters.
+First word on a line represents the filename of the module to load,
+the remaining words are its command line parameters.
 
 When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
@@ -91,11 +96,13 @@ Example:
   EOF
 
 This example will load three modules: sigma0.nul, hello.nul and
-hello.nulconfig. sigma0 get some command line parameters and
+hello.nulconfig. sigma0 gets some command line parameters and
 hello.nulconfig file is generated on the fly from the lines between
 <<EOF and EOF.
 
 =head2 VARIABLES
+
+The following variables are interpreted in the novaboot script:
 
 =over 4
 
@@ -106,9 +113,10 @@ hello.nulconfig file is generated on the fly from the lines between
 
 =head1 CONFIGURATION FILE
 
-novaboot can read configuration from ~/.novaboot. It is a file with
-perl syntax, which sets values to certain variables. The current
-configuration can be dumped with --dump-config switch. Use
+novaboot can read its configuration from ~/.novaboot (or another file
+specified with -c parameter). It is a file with perl syntax, which
+sets values to certain variables. The current configuration can be
+dumped with --dump-config switch. Use
 
     novaboot --dumpconfig > ~/.novaboot
 
@@ -125,24 +133,9 @@ environment.
 
 =over 4
 
-=item NOVABOOT_ROOT
+=item NOVABOOT_CONFIG
 
-    The NUL build directory. Defaults to $HOME/deve/nul/build.
-
-=item NOVABOOT_HYPERVISOR
-
-    The hypervisor binary to use. Defaults to bin/apps/hypervisor.
-
-=item NOVABOOT_QEMU_FLAGS
-
-    Additional flags to pass to qemu
-
-=item NOVABOOT_GRUB_KEYS
-
-    Key strokes to send to GRUB over serial line in order to boot the
-    files copied to the test machine (perhaps by using --server). The
-    string "$NAME" will be replaced by the name of the script being
-    interpreted.
+    A name of default novaboot configuration file.
 
 =item NOVABOOT_BENDER
 
@@ -166,29 +159,27 @@ $CFG::genisoimage = "genisoimage";
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
-my $cfg = $ENV{'HOME'}."/.novaboot";
-if (-f $cfg) {
-    package CFG; # Put config data into a separate namespace
-    my $rc = do($cfg);
-    
-    # Check for errors
-    if ($@) {
-	die("ERROR: Failure compiling '$file' - $@");
-    } elsif (! defined($rc)) {
-	die("ERROR: Failure reading '$file' - $!");
-    } elsif (! $rc) {
-	die("ERROR: Failure processing '$file'");
+
+sub read_config($) {
+    my ($cfg) = @_;
+    {
+	package CFG; # Put config data into a separate namespace
+	my $rc = do($cfg);
+
+	# Check for errors
+	if ($@) {
+	    die("ERROR: Failure compiling '$cfg' - $@");
+	} elsif (! defined($rc)) {
+	    die("ERROR: Failure reading '$cfg' - $!");
+	} elsif (! $rc) {
+	    die("ERROR: Failure processing '$cfg'");
+	}
     }
 }
 
-{ # Override config from environment
-    my $v;
-    if ($v = $ENV{'NOVABOOT_ROOT'}) {$CFG::builddir = $v;}
-    if ($v = $ENV{'NOVABOOT_HYPERVISOR'}) { $CFG::hypervisor = $v;}
-    if ($v = $ENV{'NOVABOOT_QEMU_FLAGS'}) { $qemu_flags = $v;}
-    if ($v = $ENV{'NOVABOOT_GRUB_KEYS'}) { $CFG::grub_keys = $v;}
-}
-
+my $cfg = $ENV{'NOVABOOT_CONFIG'};
+if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
+if (-s $cfg) { read_config($cfg); }
 
 (my $config_name = $ARGV[0] || "Unknown") =~ s#.*/##;
 my %configs;
@@ -198,12 +189,13 @@ my $file;
 my $line;
 my $EOF;
 
-# Command line 
+# Command line
 my ($append, $bender, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
 
 GetOptions (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
+    "config|c=s"     => sub { read_config($_[1]); },
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "qemu_flags|q=s" => \$qemu_flags_cmd,
@@ -218,8 +210,8 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 if ($server) { $CFG::server = $server; }
 
 if ($dump_config) {
-    print "\
-\$builddir = '$CFG::builddir';
+    print
+"\$builddir = '$CFG::builddir';
 \$hypervisor = '$CFG::hypervisor';
 \$server = '$CFG::server';
 \$server_grub_prefix = '$CFG::server_grub_prefix';
