@@ -142,6 +142,11 @@
   demo/example.conf. Another example is the Demo CD. For explanation
   of the individual parameters refer to README.sigma0 and README.vmm.
 
+* Building libvirt with NOVA support
+
+  Building a modified libvirt is currently not integrated into the
+  normal build process. Use =make= in alexb/apps/libvirt.
+
 * Feedback
 
   NUL is the work of Bernhard Kauer <bk@vmmon.org>, Alexander

@@ -1,6 +1,10 @@
 
+* Changes since 2011.2
+- preliminary libvirt support
+- admission server
+
 * Changes since 2010.7
- - bug fixes and cleanup
+- bug fixes and cleanup
 
 * Changes since the XMas Alpha:
 
