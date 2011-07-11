@@ -38,6 +38,7 @@
 
 enum NICType {
   INTEL_82540EM,
+  INTEL_82567,
   INTEL_82573L,
   INTEL_82577,
   INTEL_82578,
@@ -70,6 +71,7 @@ static const NICInfo intel_nics[] = {
   { "82577LM",           INTEL_82577,   0x10EA, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
   { "82573L",            INTEL_82573L,  0x109A, ADVANCED_QUEUE },
   { "82540EM",           INTEL_82540EM, 0x100E, HAS_EERD },
+  { "82567LM-2",         INTEL_82567,   0x10CC, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
 };
 
 class Host82573 : public PciDriver,
@@ -141,7 +143,7 @@ class Host82573 : public PciDriver,
 
     // Assume some sensible defaults
     _hwreg[TCTL]  |= (1<<1 /* Enable */) | (1<<3 /* Pad */);
-    _hwreg[TXDCTL] = 0;
+    //_hwreg[TXDCTL] = 0;
   }
 
   void rx_configure()
@@ -231,9 +233,6 @@ class Host82573 : public PciDriver,
       _rx_ring[rdt].hi = 0;
       _hwreg[RDT] = (rdt+1) % desc_ring_len;
     }
-
-    // Enqueue as many buffers as we consumed.
-    //_hwreg[RDT] = (_hwreg[RDT] + processed) % desc_ring_len;
 
     if (processed != 0)
       msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
