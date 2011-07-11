@@ -325,7 +325,7 @@ if (defined $server) {
     generate_grub_config($grub_config, "$CFG::server_grub_prefix/$config_name/", \@modules);
     my ($hostname, $path) = split(":", $CFG::server, 2);
     my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules));
-    system("set -x; tar czf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
+    system("set -x; tar czhf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
 }
 
 if ($serial) {
