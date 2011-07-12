@@ -7,8 +7,8 @@ novaboot - NOVA boot script interpreter
 =head1 SYNOPSIS
 
 B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --config=<file> ]
-            [ --dump-config ] [ --grub ] [ --qemu-flags=<flags> ] [--serial ]
-	    [ --server ]
+	    [ --dhcp-tftp ] [ --dump-config ] [ --grub ] [ --qemu-flags=<flags> ]
+	    [--serial ] [ --server ]
 
 =head1 DESCRIPTION
 
@@ -29,6 +29,12 @@ which binaries to load and their parameters. See below for the syntax.
 =item -c, --config=<filename>
 
     Use a different config than the default one (i.e. ~/.novaboot).
+
+=item -d, --dhcp-tftp
+
+    Turns your workstation into a DHCP and TFTP server so that NOVA
+    can be booted via PXE BIOS on a test machine directly connected by
+    a plain Ethernet cable to your workstation.
 
 =item --dump-config
 
@@ -59,8 +65,8 @@ which binaries to load and their parameters. See below for the syntax.
 
 =item -s, --serial[=device]
 
-    Use serial line to boot (and reset) the test machine. Implies
-    --server. The default value is /dev/ttyUSB0.
+    Use serial line to boot (and reset) the test machine. The default
+    value is /dev/ttyUSB0.
 
 =back
 
@@ -190,12 +196,13 @@ my $line;
 my $EOF;
 
 # Command line
-my ($append, $bender, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $dhcp_tftp, $dump_config, $grub_config, $help, $man, $qemu_flags_cmd, $serial, $server);
 
 GetOptions (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
     "config|c=s"     => sub { read_config($_[1]); },
+    "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
@@ -223,7 +230,6 @@ if ($dump_config) {
 
 if (defined $serial) {
     $serial ||= "/dev/ttyUSB0";
-    $server = '';
 }
 
 if (defined $grub_config) {
@@ -328,26 +334,63 @@ if (defined $server) {
     system("set -x; tar czhf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
 }
 
+my $dhcpd_pid, $tftpd_pid;
+
+if (defined $dhcp_tftp)
+{
+    $run_qemu = 0;
+    generate_configs("(nd)/", \%configs);
+    system('mkdir -p tftpboot');
+    generate_grub_config("tftpboot/os-menu.lst", "(nd)/", \@modules, "timeout 0");
+    open(my $fh, '>', 'dhcpd.conf');
+    print $fh 'subnet 10.23.23.0 netmask 255.255.255.0 {
+		      range 10.23.23.10 10.23.23.10;
+		      filename "bin/boot/grub/pxegrub.pxe";
+		      next-server 10.23.23.1;}';
+    close($fh);
+    system("ip a add 10.23.23.1/24 dev eth0;
+	    ip l set dev eth0 up;
+	    touch dhcpd.leases");
+
+    $dhcpd_pid = fork();
+    if ($dhcpd_pid == 0) {
+	# This way, the spawned server are killed when this script is killed.
+	exec("dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid");
+    }
+    $tftpd_pid = fork();
+    if ($tftpd_pid == 0) {
+	exec("in.tftpd --foreground --secure $CFG::builddir");
+    }
+    $SIG{TERM} = sub { print "CHILDS KILLED\n"; kill 15, $dhcpd_pid, $tftpd_pid; };
+}
+
 if ($serial) {
     # TODO: Reset the connected machine
     system("stty -F $serial  115200");
     open(my $fh, "+<", $serial) || die;
+    if (!defined $dhcp_tftp) {
+	# Control grub via the serial line
+	while (<$fh>) {
+	    print;
+	    if (/Press any key to continue/) { print $fh "\n"; last; }
+	}
+	(my $keys = $CFG::grub_keys) =~ s/\$NAME/$config_name/;
+	foreach ($keys) {
+	    print $fh $_;
+	    sleep(0.05);
+	}
+	sleep(1);
+	print $fh "\n";
+    }
+    # Pass the NOVA output to stdout.
     while (<$fh>) {
 	print;
-	if (/Press any key to continue/) { print $fh "\n"; last; }
     }
-    (my $keys = $CFG::grub_keys) =~ s/\$NAME/$config_name/;
-    foreach ($keys) {
-	print $fh $_;
-	sleep(0.05);
-    }
-    sleep(1);
-    print $fh "\n";
-    while (<$fh>) {
-	print;
-    }
+    kill 15, $dhcpd_pid, $tftpd_pid if ($dhcp_tftp);
     exit;
 }
+
+wait if (defined $dhcp_tftp);
 
 if ($run_qemu) {
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};

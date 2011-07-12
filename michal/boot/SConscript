@@ -3,5 +3,6 @@
 Import('target_env')
 
 Install('#bin/boot/grub', 'stage2_eltorito')
+Install('#bin/boot/grub', 'pxegrub.pxe')
 
 # EOF
