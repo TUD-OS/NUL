@@ -1,7 +1,0 @@
-# -*- Mode: Python -*-
-
-Import('target_env')
-
-Install('#bin/boot/grub', 'stage2_eltorito')
-
-# EOF
