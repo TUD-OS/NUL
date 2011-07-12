@@ -273,7 +273,7 @@ while (<>) {
 }
 
 @modules = ($CFG::hypervisor . " serial spinner", @modules);
-@modules = ("../base/tools/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
+@modules = ("bin/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
 chdir($CFG::builddir);
 print "novaboot: Entering directory `$CFG::builddir'\n";
