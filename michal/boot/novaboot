@@ -353,7 +353,7 @@ if ($run_qemu) {
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
     $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
 
-    if (1) {
+    if (0) {
 	# Boot NOVA with grub
 	generate_configs("(cd)/", \%configs);
 	$grub_config ||= "menu.lst";
@@ -365,9 +365,10 @@ if ($run_qemu) {
 
 	$qemu_flags .= " -cdrom $config_name.iso";
     } else {
-	# Boot NOVA without GRUB - this requires patched qemu to allow commas in module command lines
+	# Boot NOVA without GRUB
 
-	foreach (@modules) {s/,/,,/g;}
+	# Non-patched qemu doesn't like commas, but NUL can live with pluses instead of commans
+	foreach (@modules) {s/,/+/g;}
 	generate_configs("", \%configs);
 
 	my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
