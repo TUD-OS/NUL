@@ -45,7 +45,7 @@ which binaries to load and their parameters. See below for the syntax.
 
     Print short (-h) or long (--help) help.
 
-=item -q, --qemu_flags=<flags>
+=item -q, --qemu-flags=<flags>
 
     Use other qemu flags than are the default, i.e. "-cpu coreduo -smp 2".
 
@@ -198,7 +198,7 @@ GetOptions (
     "config|c=s"     => sub { read_config($_[1]); },
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
-    "qemu_flags|q=s" => \$qemu_flags_cmd,
+    "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
     "h" 	     => \$help,
