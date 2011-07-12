@@ -10,7 +10,7 @@ Repository('../base')
 Repository('../demo')
 Repository('../julian')
 Repository('../vancouver')
-Repository('../alexb')
+Repository('../passive')
 Repository('../michal')
 
 # We pull the top-level SCons logic from the first repository that has
