@@ -80,6 +80,8 @@
   To compile nul with an old version of GCC, type:
   =scons target_cc=gcc-4.4.4 target_cxx=g++-4.4.4=
 
+  To generate HTML documentation run =scons doc=.
+
 ** Using Git                                                       :noexport:
 
    We use git to manage our source code. (Un)fortunately, there are
@@ -136,11 +138,50 @@
     to commit them, you can now do =git push= to send them to the
     central repository.
 
-* Booting a Vancouver System
+** Automated testing
 
-  An example GRUB configuration can be found in
-  demo/example.conf. Another example is the Demo CD. For explanation
-  of the individual parameters refer to README.sigma0 and README.vmm.
+   NUL provides a simple infrastructure for automated testing. It is
+   located in michal/wvtest. To write a test you need to:
+
+   1. Write your test program. The easiest way is to include
+      "wvtest.h", inherit your program from =WvTest= instead of
+      =NovaProgram= and write the =wvrun(...)= method.
+
+      Somewhere in your code use assert-like macros starting with WV*.
+      See wvtesttest.cc for an example.
+
+   2. Write a [[novaboot howto][novaboot]] script, make it executable and name it as *.wv.
+
+   3. Run =scons test= in the build directory. If you see only green
+      "ok" at the right column of your screen, all tests passed.
+
+* Booting
+
+  The easiest way to boot a NOVA system is using =novaboot= script. It
+  allows you to boot NOVA either in qemu or helps with booting on a
+  real machine.
+
+** novaboot howto
+
+    0. =cd michal/boot=
+    1. Copy novaboot somewhere to your path e.g. 
+       =cp novaboot ~/bin=.
+    2. Configure novaboot for your system
+       =novaboot --dump-config > ~/.novaboot=
+       =vi ~/.novaboot=  # edit at least $builddir variable
+    3. Try to boot "hello world" in qemu
+       =./hello=
+       or copy the needed files to your tftp server
+       =./hello --server=
+
+    See =novaboot --help= for more details.
+
+** Booting a Vancouver System
+
+  An example novaboot script is located at michal/boot/vancouver.
+  Other GRUB configuration can be found in demo/example.conf. Another
+  example is the Demo CD. For explanation of the individual parameters
+  refer to README.sigma0 and README.vmm.
 
 * Feedback
 
