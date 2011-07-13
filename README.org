@@ -141,7 +141,7 @@
 ** Automated testing
 
    NUL provides a simple infrastructure for automated testing. It is
-   located in michal/wvtest. To write a test you need to:
+   located in misc/wvtest. To write a test you need to:
 
    1. Write your test program. The easiest way is to include
       "wvtest.h", inherit your program from =WvTest= instead of
@@ -163,7 +163,7 @@
 
 ** novaboot howto
 
-    0. =cd michal/boot=
+    0. =cd misc/boot=
     1. Copy novaboot somewhere to your path e.g. 
        =cp novaboot ~/bin=.
     2. Configure novaboot for your system
@@ -178,7 +178,7 @@
 
 ** Booting a Vancouver System
 
-  An example novaboot script is located at michal/boot/vancouver.
+  An example novaboot script is located at misc/boot/vancouver.
   Other GRUB configuration can be found in demo/example.conf. Another
   example is the Demo CD. For explanation of the individual parameters
   refer to README.sigma0 and README.vmm.
