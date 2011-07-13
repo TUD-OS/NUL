@@ -7,8 +7,8 @@ novaboot - NOVA boot script interpreter
 =head1 SYNOPSIS
 
 B<novaboot> [ --help ] [ --append=... ] [ --bender ] [ --config=<file> ]
-	    [ --dhcp-tftp ] [ --dump-config ] [ --grub ] [ --qemu-flags=<flags> ]
-	    [--serial ] [ --server ]
+	    [ --dhcp-tftp ] [ --dump-config ] [ --grub ] [ --iso ]
+	    [ --qemu-flags=<flags> ] [--serial ] [ --server ]
 
 =head1 DESCRIPTION
 
@@ -50,6 +50,12 @@ which binaries to load and their parameters. See below for the syntax.
 =item -h, --help
 
     Print short (-h) or long (--help) help.
+
+=item -i, --iso[=filename]
+
+    Generate the ISO image that boots NOVA system via Grub. If no
+    filename is given, the image is stored under NAME.iso, where NAME
+    is the name of novaboot stript.
 
 =item -q, --qemu-flags=<flags>
 
@@ -205,6 +211,7 @@ GetOptions (
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
+    "iso|i:s" 	     => \$iso_image,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
@@ -319,7 +326,7 @@ if ($variables{WVDESC}) {
 if (defined $grub_config) {
     generate_configs("", \%configs);
     generate_grub_config($grub_config, "", \@modules);
-    print("$CFG::builddir/$grub_config generated.\n");
+    print("GRUB menu created: $CFG::builddir/$grub_config\n");
     exit;
 }
 
@@ -334,7 +341,7 @@ if (defined $server) {
     system("set -x; tar czhf - $files | ssh $hostname 'cd $path; mkdir -p $config_name; tar xzpf - -C $config_name; cat */menu.lst > menu.lst'");
 }
 
-my $dhcpd_pid, $tftpd_pid;
+my ($dhcpd_pid, $tftpd_pid);
 
 if (defined $dhcp_tftp)
 {
@@ -390,22 +397,26 @@ if ($serial) {
     exit;
 }
 
+if (defined $iso_image) {
+	generate_configs("(cd)/", \%configs);
+	$grub_config ||= "menu.lst";
+	generate_grub_config($grub_config, "(cd)/", \@modules, "timeout 1");
+
+	my $files = "boot/grub/menu.lst=$grub_config " . join(" ", map({ ($path,undef,$file) = m|(([^ ]*)/)?([^ ]*)|; $path ||= ''; "$path$file=$path$file"; } @modules));
+	$iso_image ||= "$config_name.iso";
+	my $ret = system("set -x; $CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
+	if ($ret >> 8) { die("The above command failed!"); }
+	print("ISO image created: $CFG::builddir/$iso_image\n");
+}
+
 wait if (defined $dhcp_tftp);
 
 if ($run_qemu) {
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
     $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
 
-    if (0) {
-	# Boot NOVA with grub
-	generate_configs("(cd)/", \%configs);
-	$grub_config ||= "menu.lst";
-	generate_grub_config($grub_config, "(cd)/", \@modules, "timeout 0");
-
-	my $files = "boot/grub/menu.lst=$grub_config " . join(" ", map({ ($path,undef,$file) = m|(([^ ]*)/)?([^ ]*)|; $path ||= ''; "$path$file=$path$file"; } @modules));
-	my $ret = system("set -x; $CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $config_name.iso -graft-points bin/boot/grub/ $files");
-	if ($ret >> 8) { die("The above command failed!"); }
-
+    if (defined $iso_image) {
+	# Boot NOVA with grub (and test the iso image)
 	$qemu_flags .= " -cdrom $config_name.iso";
     } else {
 	# Boot NOVA without GRUB
