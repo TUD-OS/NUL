@@ -24,7 +24,7 @@
 #include "nul/error.h"
 
 /**
- * This class defines the call interface to sigma0 services.
+ * This class defines the legacy call interface to sigma0 services.
  */
 class Sigma0Base : public BaseProgram
 {

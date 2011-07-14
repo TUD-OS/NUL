@@ -717,6 +717,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   Logging::panic("s0: %s(%x, %x) request failed with %x\n", __func__, gsi, cap_irq, res);
 		   )
 
+  /**
+   * Handle startup exception of spawned childs.
+   */
   PT_FUNC(do_startup,
 	  ModuleInfo *modinfo = get_module((pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT);
 	  assert(modinfo);
@@ -730,6 +733,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP | MTD_GPR_ACDB;
 	  )
 
+  /**
+   * Handle child page-faults and "legacy call interface" requests.
+   */
   PT_FUNC(do_request,
 	  ModuleInfo *modinfo = get_module((pid - CLIENT_PT_OFFSET) >> CLIENT_PT_SHIFT);
 	  assert(modinfo);
