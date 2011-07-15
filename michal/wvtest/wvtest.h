@@ -11,9 +11,12 @@
 #include <nul/program.h>
 #include "sigma0/console.h"
 
+// Whether to print info before execution of the test. Zero means
+// print info after execution together with results.
 #define WVTEST_PRINT_INFO_BEFORE 0
 
 #define WVPASS(cond)   ({ WvTest::start(__FILE__, __LINE__, #cond);            WvTest::check(cond); })
+#define WVNUL(nulerr)  ({ WvTest::start(__FILE__, __LINE__, #nulerr);          WvTest::check_nulerr(nulerr); })
 #define WVPASSEQ(a, b) ({ WvTest::start(__FILE__, __LINE__, #a " == " #b);     WvTest::check_eq((a), (b), true); })
 #define WVPASSLT(a, b) ({ WvTest::start(__FILE__, __LINE__, #a " < " #b);      WvTest::check_lt((a), (b)); })
 #define WVFAIL(cond)   ({ WvTest::start(__FILE__, __LINE__, "NOT(" #cond ")"); !WvTest::check(!(cond)); })
@@ -26,6 +29,30 @@ class WvTest : public NovaProgram, public ProgramConsole
   const char *file, *condstr;
   int line;
   unsigned tests_failed, tests_run;
+
+  struct NulErr {
+    unsigned err;
+    NulErr(unsigned _err) : err(_err) {};
+
+    const char *tostr() {
+      #define ER(x) case x: return #x
+      switch (err) {
+      case ENONE: return "ok";
+	ER(EPROTO);
+	ER(EPERM);
+	ER(ERETRY);
+	ER(EABORT);
+	ER(ERESOURCE);
+	ER(EEXISTS);
+	ER(ELASTGLOBAL);
+      default:
+	char *ret = new char[30]; // XXX memory leak
+	Vprintf::snprintf(ret, 30, "ERR:0x%x", err);
+	return ret;
+      }
+    }
+    #undef ER
+  };
 protected:
   const char *resultstr(bool result)
     {
@@ -39,6 +66,13 @@ protected:
       if (!strcmp(result, "ok")) 
 	tests_failed++;
       return result;
+    }
+
+  const char *resultstr(NulErr result)
+    {
+      if (result.err != ENONE)
+	tests_failed++;
+      return result.tostr();
     }
 
   void save_info(const char *_file, int _line, const char *_condstr)
@@ -71,6 +105,11 @@ protected:
   bool check(bool cond, const char* suffix = "") {
     print_result(cond, suffix);
     return cond;
+  }
+
+  bool check_nulerr(unsigned nulerr) {
+    print_result(NulErr(nulerr));
+    return nulerr == ENONE;
   }
 
   void print_failed_cmp(const char *op, const char *a, const char *b)
