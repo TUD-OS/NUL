@@ -119,6 +119,7 @@ The following variables are interpreted in the novaboot script:
 =over 4
 
 =item WVDESC Description of the wvtest-compliant program.
+
 =item QEMU_FLAGS Use specific qemu flags (can be overriden by -q).
 
 =back
