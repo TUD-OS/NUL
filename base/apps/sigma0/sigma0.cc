@@ -1206,7 +1206,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   bool request_disks(ModuleInfo * modinfo, Utcb *utcb) {
 
     DiskData  *disk_data = _disk_data + modinfo->id;
-
     switch(utcb->msg[0]) {
     case REQUEST_DISKS_ATTACH:
       handle_attach<DiskConsumer>(modinfo, disk_data->prod_disk, utcb);
@@ -1219,8 +1218,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	else
 	  {
 	    MessageDisk msg2 = *msg;
-
-	    if (msg2.disknr >= disk_data->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; utcb->head.typed = 0; return true; }
+	    if (msg2.disknr >= disk_data->disk_count) { msg->error = MessageDisk::DISK_STATUS_DEVICE; utcb->msg[0] = ERESOURCE; utcb->head.typed = 0; return true; }
 	    switch (msg2.type)
 	      {
 	      case MessageDisk::DISK_GET_PARAMS:
