@@ -141,7 +141,10 @@
 ** Automated testing
 
    NUL provides a simple infrastructure for automated testing. It is
-   located in michal/wvtest. To write a test you need to:
+   located in michal/wvtest. To run all tests in qemu, invoke =scons
+   test= from the build directory.
+
+   To write a test you need to:
 
    1. Write your test program. The easiest way is to include
       "wvtest.h", inherit your program from =WvTest= instead of
