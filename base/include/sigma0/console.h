@@ -16,6 +16,8 @@
  * General Public License version 2 for more details.
  */
 
+#pragma once
+
 #include "nul/message.h"
 #include "host/screen.h"
 #include "sigma0/sigma0.h"
