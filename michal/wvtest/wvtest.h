@@ -77,10 +77,12 @@ protected:
     { Logging::printf("wvtest comparison %s %s %s FAILED\n", a, op, b); }
 
   void print_failed_cmp(const char *op, unsigned a, unsigned b)
-    { Logging::printf("wvtest comparison %d %s %d FAILED\n", a, op, b); }
+    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
+		      a, a, op, b, b); }
 
   void print_failed_cmp(const char *op, int a, int b)
-    { Logging::printf("wvtest comparison %d %s %d FAILED\n", a, op, b); }
+    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
+		      a, a, op, b, b); }
 
 
   template <typename T>
