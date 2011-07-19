@@ -82,13 +82,14 @@ public:
 
 };
 
-PARAM(service_config,
-      unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      Service_config *service_config = new Service_config(mb, cap_region, 12);
+PARAM_HANDLER(service_config,
+	      "service_config - managing a config, e.g. start, stop")
+{
+  unsigned cap_region = alloc_cap_region(1 << 12, 12);
+  Service_config *service_config = new Service_config(mb, cap_region, 12);
 
-      MessageHostOp msg(service_config, "/config", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
-      if (!mb.bus_hostop.send(msg))
-        Logging::panic("starting of config service failed");
-      ,
-      "service_config - managing a config, e.g. start, stop");
+  MessageHostOp msg(service_config, "/config", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_config>::portal_func));
+  if (!mb.bus_hostop.send(msg))
+    Logging::panic("starting of config service failed");
+}
 

@@ -436,14 +436,15 @@ public:
   GsiOverride(unsigned bdf, unsigned gsi) : _bdf(bdf), _gsi(gsi) {}
 };
 
-PARAM(atare,
-      mb.bus_acpi.add(new Atare(mb.bus_acpi, ~argv[0] ? argv[0] : 0), Atare::receive_static<MessageAcpi>);
-      ,
-      "atare:debug=0 - provide GSI lookup to PCI drivers.")
+PARAM_HANDLER(atare,
+	      "atare:debug=0 - provide GSI lookup to PCI drivers.")
+{
+  mb.bus_acpi.add(new Atare(mb.bus_acpi, ~argv[0] ? argv[0] : 0), Atare::receive_static<MessageAcpi>);
+}
 
-
-PARAM(gsi_override,
-      mb.bus_acpi.add(new GsiOverride(argv[0], argv[1]), GsiOverride::receive_static<MessageAcpi>);
-      ,
-      "gsi_override:bdf,gsi - allow to override GSI interrupts.",
-      "Example: 'gsi_override:0xfa,19' specifies gsi 19 for device 0:1f:2.")
+PARAM_HANDLER(gsi_override,
+	      "gsi_override:bdf,gsi - allow to override GSI interrupts.",
+	      "Example: 'gsi_override:0xfa,19' specifies gsi 19 for device 0:1f:2.")
+{
+  mb.bus_acpi.add(new GsiOverride(argv[0], argv[1]), GsiOverride::receive_static<MessageAcpi>);
+}

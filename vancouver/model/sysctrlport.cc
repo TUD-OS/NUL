@@ -97,11 +97,11 @@ class SystemControlPort : public StaticReceiver<SystemControlPort>
     : _bus_legacy(bus_legacy), _bus_pit(bus_pit), _port_a(port_a), _port_b(port_b), _last_porta(0), _last_portb(0) {}
 };
 
-PARAM(scp,
-      {
-	SystemControlPort *scp = new SystemControlPort(mb.bus_legacy, mb.bus_pit, argv[0], argv[1]);
-	mb.bus_ioin.add(scp,  SystemControlPort::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(scp, SystemControlPort::receive_static<MessageIOOut>);
-      },
-      "scp:porta,portb - provide the system control ports A+B.",
-      "Example: 'scp:0x92,0x61'")
+PARAM_HANDLER(scp,
+	      "scp:porta,portb - provide the system control ports A+B.",
+	      "Example: 'scp:0x92,0x61'")
+{
+  SystemControlPort *scp = new SystemControlPort(mb.bus_legacy, mb.bus_pit, argv[0], argv[1]);
+  mb.bus_ioin.add(scp,  SystemControlPort::receive_static<MessageIOIn>);
+  mb.bus_ioout.add(scp, SystemControlPort::receive_static<MessageIOOut>);
+}

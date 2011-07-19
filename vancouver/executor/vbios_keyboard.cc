@@ -283,7 +283,8 @@ public:
   }
 };
 
-PARAM(vbios_keyboard,
-      new VirtualBiosKeyboard(mb);
-      ,
-      "vbios_keyboard - provide keyboard related virtual BIOS functions.");
+PARAM_HANDLER(vbios_keyboard,
+	      "vbios_keyboard - provide keyboard related virtual BIOS functions.")
+{
+  new VirtualBiosKeyboard(mb);
+}

@@ -947,34 +947,34 @@ public:
 
 };
 
-PARAM(82576vf,
-      {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
-	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
+PARAM_HANDLER(82576vf,
+	      "82576vf:[promisc][,mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
+	      "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
+	      "txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)",
+	      "rx_map    - if !=0, map RX registers to guest. (Default: Yes)",
+	      "Example: 82576vf"
+	      )
+{
+  MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
+  if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
-	Model82576vf *dev = new Model82576vf(hton64(msg.mac) >> 16,
-					     mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
-					     mb.clock(), mb.bus_timer,
-					     (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
-					     (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
-					     (argv[3] == ~0UL) ? 0 : argv[3],
-					     argv[4],
-					     PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U),
-					     (argv[0] == ~0UL) ? true : (argv[0] != 0) );
-	mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
-	mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
-	mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>);
-	mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);
-	mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
-	mb.bus_legacy.  add(dev, &Model82576vf::receive_static<MessageLegacy>);
+  Model82576vf *dev = new Model82576vf(hton64(msg.mac) >> 16,
+				       mb.bus_network, &mb.bus_mem, &mb.bus_memregion,
+				       mb.clock(), mb.bus_timer,
+				       (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
+				       (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
+				       (argv[3] == ~0UL) ? 0 : argv[3],
+				       argv[4],
+				       PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U),
+				       (argv[0] == ~0UL) ? true : (argv[0] != 0) );
+  mb.bus_mem.add(dev, &Model82576vf::receive_static<MessageMem>);
+  mb.bus_memregion.add(dev, &Model82576vf::receive_static<MessageMemRegion>);
+  mb.bus_pcicfg.  add(dev, &Model82576vf::receive_static<MessagePciConfig>);
+  mb.bus_network. add(dev, &Model82576vf::receive_static<MessageNetwork>);
+  mb.bus_timeout. add(dev, &Model82576vf::receive_static<MessageTimeout>);
+  mb.bus_legacy.  add(dev, &Model82576vf::receive_static<MessageLegacy>);
+}
 
-      },
-      "82576vf:[promisc][,mem_mmio][,mem_msix][,txpoll_us][,rx_map] - attach an Intel 82576VF to the PCI bus.",
-      "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
-      "txpoll_us - if !=0, map TX registers to guest and poll them every txpoll_us microseconds. (Default 0)",
-      "rx_map    - if !=0, map RX registers to guest. (Default: Yes)",
-      "Example: 82576vf"
-      );
 
 
 // EOF

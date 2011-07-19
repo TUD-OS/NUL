@@ -98,9 +98,10 @@ public:
   VirtualBiosTime(Motherboard &mb) : BiosCommon(mb) {}
 };
 
-PARAM(vbios_time,
-      mb.bus_bios.add(new VirtualBiosTime(mb), VirtualBiosTime::receive_static<MessageBios>);
-      ,
-      "vbios_time - provide time related virtual BIOS functions.");
+PARAM_HANDLER(vbios_time,
+	      "vbios_time - provide time related virtual BIOS functions.")
+{
+  mb.bus_bios.add(new VirtualBiosTime(mb), VirtualBiosTime::receive_static<MessageBios>);
+}
 
 

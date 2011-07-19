@@ -436,17 +436,17 @@ class PitDevice : public StaticReceiver<PitDevice>
 };
 
 
-PARAM(pit,
-      {
-	static unsigned pit_count;
-	PitDevice *dev = new PitDevice(mb,
-				       argv[0],
-				       argv[1],
-				       pit_count++);
+PARAM_HANDLER(pit,
+	      "pit:iobase,irq - attach a PIT8254 to the system.",
+	      "Example: 'pit:0x40,0'")
+{
+  static unsigned pit_count;
+  PitDevice *dev = new PitDevice(mb,
+				 argv[0],
+				 argv[1],
+				 pit_count++);
 
-	mb.bus_ioin.add(dev,  PitDevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, PitDevice::receive_static<MessageIOOut>);
-	mb.bus_pit.add(dev,   PitDevice::receive_static<MessagePit>);
-      },
-      "pit:iobase,irq - attach a PIT8254 to the system.",
-      "Example: 'pit:0x40,0'")
+  mb.bus_ioin.add(dev,  PitDevice::receive_static<MessageIOIn>);
+  mb.bus_ioout.add(dev, PitDevice::receive_static<MessageIOOut>);
+  mb.bus_pit.add(dev,   PitDevice::receive_static<MessagePit>);
+} 

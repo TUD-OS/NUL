@@ -938,20 +938,21 @@ public:
 static bool default_force_hpet_legacy = false;
 static bool default_force_pit         = false;
 
-PARAM(timer_hpet_legacy, default_force_hpet_legacy = true);
-PARAM(timer_force_pit,   default_force_pit         = true);
+PARAM_HANDLER(timer_hpet_legacy) { default_force_hpet_legacy = true; }
+PARAM_HANDLER(timer_force_pit)   { default_force_pit 	     = true; }
 
-PARAM(service_per_cpu_timer,
-      unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      bool     hpet_legacy   = (argv[0] == ~0U) ? default_force_hpet_legacy : argv[0];
-      bool     force_pit     = (argv[1] == ~0U) ? default_force_pit : argv[1];
-      unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
+PARAM_HANDLER(service_per_cpu_timer,
+	      "service_per_cpu_timer:[hpet_force_legacy=0][,force_pit=0][,pit_period_us]")
+{
+  unsigned cap_region = alloc_cap_region(1 << 12, 12);
+  bool     hpet_legacy   = (argv[0] == ~0U) ? default_force_hpet_legacy : argv[0];
+  bool     force_pit     = (argv[1] == ~0U) ? default_force_pit : argv[1];
+  unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
 
-      PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
+  PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
 
-      MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<PerCpuTimerService>::portal_func));
-      msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
-      if (!cap_region || !mb.bus_hostop.send(msg))
-        Logging::panic("starting of timer service failed");
-      ,
-      "service_per_cpu_timer:[hpet_force_legacy=0][,force_pit=0][,pit_period_us]");
+  MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<PerCpuTimerService>::portal_func));
+  msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
+  if (!cap_region || !mb.bus_hostop.send(msg))
+    Logging::panic("starting of timer service failed");
+}

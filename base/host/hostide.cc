@@ -233,44 +233,44 @@ class HostIde : public StaticReceiver<HostIde>
 };
 
 
-PARAM(hostide,
-      {
-	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++);)
-	  {
-	    if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 1) & 1))
-	      {
-		Logging::printf("Ignore IDE controller #%x at %x\n", num, bdf);
-		continue;
-	      }
-	    Logging::printf("DISK controller #%x IDE at %x\n", num, bdf);
+PARAM_HANDLER(hostide,
+	      "hostide:mask - provide a hostdriver for all IDE controller.",
+	      "Example: Use 'hostide:1' to have a driver for the first IDE controller.",
+	      "The mask allows to ignore certain controllers. The default is to use all controllers.")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x1, num++);)
+    {
+      if (~argv[0] & (1UL << num) || (~pci.conf_read(bdf, 1) & 1))
+	{
+	  Logging::printf("Ignore IDE controller #%x at %x\n", num, bdf);
+	  continue;
+	}
+      Logging::printf("DISK controller #%x IDE at %x\n", num, bdf);
 
-	    // primary and secondary controller
-	    for (unsigned i=0; i < 2; i++)
-	      {
-		unsigned bar1 = pci.conf_read(bdf, 4+i*2);
-		unsigned bar2 = pci.conf_read(bdf, 4+i*2 + 1);
+      // primary and secondary controller
+      for (unsigned i=0; i < 2; i++)
+	{
+	  unsigned bar1 = pci.conf_read(bdf, 4+i*2);
+	  unsigned bar2 = pci.conf_read(bdf, 4+i*2 + 1);
 
-		// try legacy port
-		if (!bar1 && !bar2) { if (!i) { bar1=0x1f1; bar2=0x3f7; } else { bar1=0x171; bar2=0x377; } }
-		// we need both ports
-		if (!(bar1 & bar2 & 1)) continue;
+	  // try legacy port
+	  if (!bar1 && !bar2) { if (!i) { bar1=0x1f1; bar2=0x3f7; } else { bar1=0x171; bar2=0x377; } }
+	  // we need both ports
+	  if (!(bar1 & bar2 & 1)) continue;
 
-		// alloc io-ports
-		MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar1 & ~3) << 8) |  3);
-		MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar2 & ~3) << 8) |  0);
-		if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
-		  {
-		    Logging::printf("%s could not allocate ioports %x, %x\n", __PRETTY_FUNCTION__, bar1, bar2);
-		    continue;
-		  }
-		// create controller
-		HostIde *dev = new HostIde(mb.bus_hwioin, mb.bus_hwioout, mb.bus_diskcommit,
-					   mb.bus_disk.count(), bar1 & ~0x3, bar2 & ~0x3, mb.clock());
-		for (unsigned j=0; j < dev->disk_count(); j++)  mb.bus_disk.add(dev, HostIde::receive_static<MessageDisk>);
-	      }
-	  }
-      },
-      "hostide:mask - provide a hostdriver for all IDE controller.",
-      "Example: Use 'hostide:1' to have a driver for the first IDE controller.",
-      "The mask allows to ignore certain controllers. The default is to use all controllers.");
+	  // alloc io-ports
+	  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar1 & ~3) << 8) |  3);
+	  MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((bar2 & ~3) << 8) |  0);
+	  if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
+	    {
+	      Logging::printf("%s could not allocate ioports %x, %x\n", __PRETTY_FUNCTION__, bar1, bar2);
+	      continue;
+	    }
+	  // create controller
+	  HostIde *dev = new HostIde(mb.bus_hwioin, mb.bus_hwioout, mb.bus_diskcommit,
+				     mb.bus_disk.count(), bar1 & ~0x3, bar2 & ~0x3, mb.clock());
+	  for (unsigned j=0; j < dev->disk_count(); j++)  mb.bus_disk.add(dev, HostIde::receive_static<MessageDisk>);
+	}
+    }
+}

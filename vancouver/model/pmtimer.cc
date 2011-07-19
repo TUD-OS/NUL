@@ -59,9 +59,9 @@ public:
   }
 };
 
-PARAM(pmtimer,
-      new PmTimer(mb, argv[0]);
-      ,
-      "pmtimer:ioport - provide an PMTimer at the given ioport.",
-      "Example: 'pmtimer:0x8000'."
-      )
+PARAM_HANDLER(pmtimer,
+	      "pmtimer:ioport - provide an PMTimer at the given ioport.",
+	      "Example: 'pmtimer:0x8000'.")
+{
+  new PmTimer(mb, argv[0]);
+}

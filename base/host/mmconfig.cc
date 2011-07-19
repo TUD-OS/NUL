@@ -68,30 +68,31 @@ public:
   : _start_bdf(start_bdf), _bdf_size(bdf_size), _mmconfig(mmconfig) {}
 };
 
-PARAM(mmconfig,
-      {
-	MessageAcpi msg("MCFG");
-	check0(!mb.bus_acpi.send(msg, true) || !msg.table, "mm: XXX No MCFG table found.");
+PARAM_HANDLER(mmconfig,
+	      "mmconfig - provide HW PCI config space access via mmconfig.")
+{
+  MessageAcpi msg("MCFG");
+  check0(!mb.bus_acpi.send(msg, true) || !msg.table, "mm: XXX No MCFG table found.");
 
-	AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
+  AcpiMCFG *mcfg = reinterpret_cast<AcpiMCFG *>(msg.table);
 
-	for (unsigned i = 0; i < (mcfg->len - sizeof(AcpiMCFG)) / sizeof(AcpiMCFG::Entry); i++) {
-	  AcpiMCFG::Entry *entry = mcfg->entries + i;
-	  Logging::printf("mm: mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
-			  entry->base, entry->pci_seg,
-			  entry->pci_bus_start, entry->pci_bus_end);
+  for (unsigned i = 0; i < (mcfg->len - sizeof(AcpiMCFG)) / sizeof(AcpiMCFG::Entry); i++) {
+    AcpiMCFG::Entry *entry = mcfg->entries + i;
+    Logging::printf("mm: mmconfig: base 0x%llx seg %02x bus %02x-%02x\n",
+		    entry->base, entry->pci_seg,
+		    entry->pci_bus_start, entry->pci_bus_end);
 
-	  unsigned buses = entry->pci_bus_end - entry->pci_bus_start + 1;
-	  unsigned long size = buses * 32 * 8 * 4096;
-	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
+    unsigned buses = entry->pci_bus_end - entry->pci_bus_start + 1;
+    unsigned long size = buses * 32 * 8 * 4096;
+    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, entry->base, size);
 
-	  if (!mb.bus_hostop.send(msg) || !msg.ptr) {
-	    Logging::printf("mm: %s failed to allocate iomem %llx+%lx\n", __PRETTY_FUNCTION__, entry->base, size);
-	    return;
-	  }
+    if (!mb.bus_hostop.send(msg) || !msg.ptr) {
+      Logging::printf("mm: %s failed to allocate iomem %llx+%lx\n", __PRETTY_FUNCTION__, entry->base, size);
+      return;
+    }
 
-	  Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
-	  mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessagePciConfig>);
-	}
-      },
-      "mmconfig - provide HW PCI config space access via mmconfig.");
+    Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
+    mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessagePciConfig>);
+  }
+}
+

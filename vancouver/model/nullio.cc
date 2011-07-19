@@ -42,11 +42,12 @@ class NullIODevice : public StaticReceiver<NullIODevice>
 };
 
 
-PARAM(nullio,
-      {
-	Device *dev = new NullIODevice(argv[0], argv[1] == ~0UL ? 1 : argv[1], argv[2]);
-	mb.bus_ioin.add(dev,  NullIODevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, NullIODevice::receive_static<MessageIOOut>);
-      },
-      "nullio:<range>[,value] - ignore IOIO at given port range. An optional value can be given to return a fixed value on read..",
-      "Example: 'nullio:0x80+1'.");
+PARAM_HANDLER(nullio,
+	      "nullio:<range>[,value] - ignore IOIO at given port range. An optional value can be given to return a fixed value on read..",
+	      "Example: 'nullio:0x80+1'.")
+{
+  Device *dev = new NullIODevice(argv[0], argv[1] == ~0UL ? 1 : argv[1], argv[2]);
+  mb.bus_ioin.add(dev,  NullIODevice::receive_static<MessageIOIn>);
+  mb.bus_ioout.add(dev, NullIODevice::receive_static<MessageIOOut>);
+}
+

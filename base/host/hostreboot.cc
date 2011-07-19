@@ -125,14 +125,15 @@ struct HostReboot : public StaticReceiver<HostReboot>
 };
 
 
-PARAM(hostreboot,
-      HostReboot *r = new HostReboot(mb.bus_hwioin, mb.bus_hwioout, argv[0]);
-      if (r->init(mb)) {
-        Logging::printf("hr: add reset method %ld\n", argv[0]);
-        mb.bus_console.add(r, HostReboot::receive_static);
-      },
-      "hostreboot:type - provide the functionality to reboot the host.",
-      "Example: 'hostreboot:0' uses the keyboard to reboot the host.",
-      "type is one of [0:Keyboard, 1:FastGate, 2:PCI, 3:ACPI].")
-
+PARAM_HANDLER(hostreboot,
+	      "hostreboot:type - provide the functionality to reboot the host.",
+	      "Example: 'hostreboot:0' uses the keyboard to reboot the host.",
+	      "type is one of [0:Keyboard, 1:FastGate, 2:PCI, 3:ACPI].")
+{
+  HostReboot *r = new HostReboot(mb.bus_hwioin, mb.bus_hwioout, argv[0]);
+  if (r->init(mb)) {
+    Logging::printf("hr: add reset method %ld\n", argv[0]);
+    mb.bus_console.add(r, HostReboot::receive_static);
+  }
+}
 // EOF

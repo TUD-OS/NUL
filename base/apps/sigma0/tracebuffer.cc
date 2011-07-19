@@ -140,15 +140,16 @@ public:
 #endif
 };
 
-PARAM(tracebuffer,
-      unsigned long size = ~argv[0] ? argv[0] : 32768;
-      unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      char * revoke_mem = new (0x1000) char[0x1000];
+PARAM_HANDLER(tracebuffer,
+	      "tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients")
+{
+  unsigned long size = ~argv[0] ? argv[0] : 32768;
+  unsigned cap_region = alloc_cap_region(1 << 12, 12);
+  char * revoke_mem = new (0x1000) char[0x1000];
 
-      Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12, revoke_mem);
-      MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), revoke_mem);
-      msg.crd_t = Crd(cap_region, 12, DESC_CAP_ALL).value();
-      if (!cap_region || !mb.bus_hostop.send(msg))
-        Logging::panic("registering the service failed");
-      ,
-      "tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients")
+  Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12, revoke_mem);
+  MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), revoke_mem);
+  msg.crd_t = Crd(cap_region, 12, DESC_CAP_ALL).value();
+  if (!cap_region || !mb.bus_hostop.send(msg))
+    Logging::panic("registering the service failed");
+}

@@ -40,11 +40,11 @@ Semaphore   *consolesem;
 unsigned     mac_prefix = 0x42000000;
 unsigned     mac_host;
 
-// extra params
-PARAM(mac_prefix, mac_prefix = argv[0],  "mac_prefix:value=0x42000000 - override the MAC prefix.")
-PARAM(mac_host,   mac_host = argv[0],    "mac_host:value - override the host part of the MAC.")
+// extra_HANDLER_HANDLER params
+PARAM_HANDLER(mac_prefix, "mac_prefix:value=0x42000000 - override the MAC prefix.") { mac_prefix = argv[0]; }
+PARAM_HANDLER(mac_host, "mac_host:value - override the host part of the MAC.") 	    { mac_host = argv[0]; }
 enum { VERBOSE_ERRORS = 0, VERBOSE_INFO = 1 } verbose = VERBOSE_ERRORS;
-PARAM(verbose, verbose = VERBOSE_INFO, "verbose - print additional information during runtime")
+PARAM_HANDLER(verbose, "verbose - print additional information during runtime") { verbose = VERBOSE_INFO; }
 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"

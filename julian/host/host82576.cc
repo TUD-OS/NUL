@@ -389,21 +389,22 @@ public:
   }
 };
 
-PARAM(host82576, {
-    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-    unsigned found = 0;
+PARAM_HANDLER(host82576,
+	      "host82576:instance - provide driver for Intel 82576 Ethernet controller.",
+	      "Example: host82576:0")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned found = 0;
 
-    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
-      unsigned cfg0 = pci.conf_read(bdf, 0x0);
-      if (cfg0 == 0x10c98086) {
-	if (found++ == argv[0]) {
-	  Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
-	  mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
-	}
+  for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+    unsigned cfg0 = pci.conf_read(bdf, 0x0);
+    if (cfg0 == 0x10c98086) {
+      if (found++ == argv[0]) {
+	Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
+	mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
       }
     }
-  },
-  "host82576:instance - provide driver for Intel 82576 Ethernet controller.",
-  "Example: host82576:0");
+  }
+}
 
 // EOF

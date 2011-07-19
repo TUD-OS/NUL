@@ -17,26 +17,25 @@
  */
 #include "nul/motherboard.h"
 
-PARAM(help,
-      {
-	unsigned maxi = (&__param_table_end - &__param_table_start) / 2;
+PARAM_HANDLER(help, "help:nr - prints a list of valid parameters and give detailed help for a given parameter.")
+{
+  unsigned maxi = (&__param_table_end - &__param_table_start) / 2;
 
-	Logging::printf("Supported cmdline parameters:\n");
-	for (unsigned i=0; i < maxi; i++)
-	  {
-	    char **strings = reinterpret_cast<char **>((&__param_table_start)[i*2+1]);
-	    Logging::printf("\t%2d) %s\n", i, strings[1]);
-	  }
+  Logging::printf("Supported cmdline parameters:\n");
+  for (unsigned i=0; i < maxi; i++)
+    {
+      char **strings = reinterpret_cast<char **>((&__param_table_start)[i*2+1]);
+      Logging::printf("\t%2d) %s\n", i, strings[1]);
+    }
 
-	if (argv[0] <= maxi)
-	  {
-	    char **strings = reinterpret_cast<char **>((&__param_table_start)[argv[0]*2+1]);
-	    Logging::printf("\nHelp for '%s':\n", strings[0]);
-	    for (unsigned j=1; strings[j]; j++)
-	      Logging::printf("\t%s\n", strings[j]);
-	  }
-	else
-	  Logging::printf("No valid parameter number. Use 'help:0' to give detailed help for the first parameter in the list.\n");
-	Logging::printf("Binary build at '%s %s'\n", __DATE__, __TIME__);
-      },
-      "help:nr - prints a list of valid parameters and give detailed help for a given parameter.")
+  if (argv[0] <= maxi)
+    {
+      char **strings = reinterpret_cast<char **>((&__param_table_start)[argv[0]*2+1]);
+      Logging::printf("\nHelp for '%s':\n", strings[0]);
+      for (unsigned j=1; strings[j]; j++)
+	Logging::printf("\t%s\n", strings[j]);
+    }
+  else
+    Logging::printf("No valid parameter number. Use 'help:0' to give detailed help for the first parameter in the list.\n");
+  Logging::printf("Binary build at '%s %s'\n", __DATE__, __TIME__);
+}

@@ -450,27 +450,27 @@ class HostAhci : public StaticReceiver<HostAhci>
 
 };
 
-PARAM(hostahci,
+PARAM_HANDLER(hostahci,
+	      "hostahci:mask - provide a hostdriver for all AHCI controller.",
+	      "Example: Use 'hostahci:5' to have a driver for the first and third AHCI controller.",
+	      "The mask allows to ignore certain controllers. The default is to use all controllers.")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+
+  for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x6, num++);) {
+    if (~argv[0] & (1UL << num))
       {
-	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+	Logging::printf("Ignore AHCI controller #%x at %x\n", num, bdf);
+	continue;
+      }
 
-	for (unsigned bdf, num = 0; bdf = pci.search_device(0x1, 0x6, num++);) {
-	  if (~argv[0] & (1UL << num))
-	    {
-	      Logging::printf("Ignore AHCI controller #%x at %x\n", num, bdf);
-	      continue;
-	    }
+    MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
+    bool dmar = mb.bus_hostop.send(msg1);
+    unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 
-	  MessageHostOp msg1(MessageHostOp::OP_ASSIGN_PCI, bdf);
-	  bool dmar = mb.bus_hostop.send(msg1);
-	  unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
+    Logging::printf("DISK controller #%x AHCI %x id %x mmio %x\n", num, bdf, pci.conf_read(bdf, 0), pci.conf_read(bdf, 9));
+    HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
+    mb.bus_hostirq.add(dev, HostAhci::receive_static<MessageIrq>);
 
-	  Logging::printf("DISK controller #%x AHCI %x id %x mmio %x\n", num, bdf, pci.conf_read(bdf, 0), pci.conf_read(bdf, 9));
-	  HostAhci *dev = new HostAhci(pci, mb.bus_hostop, mb.bus_disk, mb.bus_diskcommit, mb.clock(), bdf, irqline, dmar);
-	  mb.bus_hostirq.add(dev, HostAhci::receive_static<MessageIrq>);
-
-	}
-      },
-      "hostahci:mask - provide a hostdriver for all AHCI controller.",
-      "Example: Use 'hostahci:5' to have a driver for the first and third AHCI controller.",
-      "The mask allows to ignore certain controllers. The default is to use all controllers.")
+  }
+}

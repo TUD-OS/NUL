@@ -265,8 +265,10 @@ public:
 };
 
 
-PARAM(serial,
-      new SerialDevice(mb, argv[0], argv[1], argv[2]);,
-      "serial:iobase,irq,hdev -  attach a virtual serial port that should use the given hostdev as backend.",
-      "Example: 'serial:0x3f8,8,0x47'.",
-      "The input comes from hdev and the output is redirected to hdev+1.");
+PARAM_HANDLER(serial,
+	      "serial:iobase,irq,hdev -  attach a virtual serial port that should use the given hostdev as backend.",
+	      "Example: 'serial:0x3f8,8,0x47'.",
+	      "The input comes from hdev and the output is redirected to hdev+1.")
+{
+  new SerialDevice(mb, argv[0], argv[1], argv[2]);
+}

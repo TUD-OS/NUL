@@ -102,10 +102,10 @@ public:
 };
 
 
-PARAM(serial2kbd,
-      {
-	mb.bus_serial.add(new SerialKbdBridge(mb.bus_input, argv[0], argv[1]), SerialKbdBridge::receive_static<MessageSerial>);
-      },
-      "serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.",
-      "Example: 'serial2kbd:0x4711,0x2bad'.",
-      "The serial input at source serialbus is transformed to keystrokes on the dest keycodebus.");
+PARAM_HANDLER(serial2kbd,
+	      "serial2kbd:serial,keyboard - attach a bridge between serial and keyboard.",
+	      "Example: 'serial2kbd:0x4711,0x2bad'.",
+	      "The serial input at source serialbus is transformed to keystrokes on the dest keycodebus.")
+{
+  mb.bus_serial.add(new SerialKbdBridge(mb.bus_input, argv[0], argv[1]), SerialKbdBridge::receive_static<MessageSerial>);
+}

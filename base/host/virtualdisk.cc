@@ -86,47 +86,48 @@ public:
     _bus_commit(bus_commit), _disknr(disknr), _data(data), _length(length), _cmdline(cmdline) {}
 };
 
-PARAM(vdisk,
-      char url[128];
-      memcpy(url, args, args_len);
-      url[args_len] = 0;
+PARAM_HANDLER(vdisk,
+	      "vdisk:file - create a virtual disk from the given file"
+	      "Example: vdisk:rom://foo/bar creates a virtual disk from the module foo/bar")
+{
+  char url[128];
+  memcpy(url, args, args_len);
+  url[args_len] = 0;
 
-      char service_name[32] = "fs/";
-      size_t service_name_len = sizeof(service_name) - 4;
-      const char *filename = FsProtocol::parse_file_name(url, service_name + 3, service_name_len);
-      if (filename == NULL) {
-        Logging::printf("vdisk: Could not parse '%s'.\n", url);
-        return;
-      }
+  char service_name[32] = "fs/";
+  size_t service_name_len = sizeof(service_name) - 4;
+  const char *filename = FsProtocol::parse_file_name(url, service_name + 3, service_name_len);
+  if (filename == NULL) {
+    Logging::printf("vdisk: Could not parse '%s'.\n", url);
+    return;
+  }
 
-      unsigned cap_base = alloc_cap_region(FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count(), 0);
-      FsProtocol::dirent fileinfo;
-      FsProtocol fs_obj(cap_base, service_name);
-      if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, filename)) {
-        Logging::printf("vdisk: Failed to load file '%s'\n", url);
-        return;
-      }
+  unsigned cap_base = alloc_cap_region(FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count(), 0);
+  FsProtocol::dirent fileinfo;
+  FsProtocol fs_obj(cap_base, service_name);
+  if (fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo, filename)) {
+    Logging::printf("vdisk: Failed to load file '%s'\n", url);
+    return;
+  }
 
-      char *module = new(4096) char[fileinfo.size];
+  char *module = new(4096) char[fileinfo.size];
 
-      unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
-                                 filename);
-      fs_obj.close(*BaseProgram::myutcb(), FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count());
-      dealloc_cap_region(cap_base, FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count());
+  unsigned res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
+				      filename);
+  fs_obj.close(*BaseProgram::myutcb(), FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count());
+  dealloc_cap_region(cap_base, FsProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count());
 
-      if (res) { Logging::printf("vdisk: Couldn't read file.\n"); delete module; return; }
+  if (res) { Logging::printf("vdisk: Couldn't read file.\n"); delete module; return; }
 
-      Logging::printf("vdisk: Opened '%s' 0x%llx bytes.\n"
-                      "vdisk: Attached as vdisk %u.\n",
-                      fileinfo.name, fileinfo.size, mb.bus_disk.count());
+  Logging::printf("vdisk: Opened '%s' 0x%llx bytes.\n"
+		  "vdisk: Attached as vdisk %u.\n",
+		  fileinfo.name, fileinfo.size, mb.bus_disk.count());
           
 
-      Device * dev = new VirtualDisk(mb.bus_diskcommit,
-                                     mb.bus_disk.count(),
-                                     module,
-                                     fileinfo.size,
-                                     "virtualdisk");
-      mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
-      ,
-      "vdisk:file - create a virtual disk from the given file"
-      "Example: vdisk:rom://foo/bar creates a virtual disk from the module foo/bar")
+  Device * dev = new VirtualDisk(mb.bus_diskcommit,
+				 mb.bus_disk.count(),
+				 module,
+				 fileinfo.size,
+				 "virtualdisk");
+  mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
+}

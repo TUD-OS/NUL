@@ -145,11 +145,11 @@ public:
       : _bus_network(bus_network), _ip(ip), _mask(mask) {}
 };
 
-PARAM(bootp,
-      {
-	Device *dev = new SimpleBootp(mb.bus_network, argv[0], (1 << (32 - argv[1])) - 1);
-	mb.bus_network.add(dev, SimpleBootp::receive_static<MessageNetwork>);
-      },
-      "bootp:ip,netmask - provide a simple BOOTP server.",
-      "Example: 'bootp:0x0a000000,8'.",
-      "Please note that we deduce IP addresses from the MAC address, thus the same MAC will result in the same IP.")
+PARAM_HANDLER(bootp,
+	      "bootp:ip,netmask - provide a simple BOOTP server.",
+	      "Example: 'bootp:0x0a000000,8'.",
+	      "Please note that we deduce IP addresses from the MAC address, thus the same MAC will result in the same IP.")
+{
+  Device *dev = new SimpleBootp(mb.bus_network, argv[0], (1 << (32 - argv[1])) - 1);
+  mb.bus_network.add(dev, SimpleBootp::receive_static<MessageNetwork>);
+}

@@ -38,11 +38,12 @@ NubusManager::NubusManager(HostVfPci pcicfg, Clock *clock)
 }
 
 
-PARAM(nubus,
-      {
-	HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	new NubusManager(pci, mb.clock());
-      },
-      "nubus - PCI bus manager");
+PARAM_HANDLER(nubus,
+	      "nubus - PCI bus manager")
+{
+  HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  new NubusManager(pci, mb.clock());
+}
+
 
 // EOF

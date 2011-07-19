@@ -60,15 +60,15 @@ public:
 };
 
 
-PARAM(hostrtc,
-      {
-	unsigned short iobase = argv[0] == ~0ul ? 0x70 : argv[0];
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (iobase << 8) |  1);
-	if (!mb.bus_hostop.send(msg1))
-	  Logging::panic("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
+PARAM_HANDLER(hostrtc,
+	      "hostrtc:hostiobase=0x70 - use the host RTC as wall clock time backend.",
+	      "Example: 'hostrtc'.")
+{
+  unsigned short iobase = argv[0] == ~0ul ? 0x70 : argv[0];
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (iobase << 8) |  1);
+  if (!mb.bus_hostop.send(msg1))
+    Logging::panic("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
 
-	Device *dev = new HostRtc(mb.bus_hwioin, mb.bus_hwioout, mb.clock(), iobase);
-	mb.bus_time.add(dev, HostRtc::receive_static<MessageTime>);
-      },
-      "hostrtc:hostiobase=0x70 - use the host RTC as wall clock time backend.",
-      "Example: 'hostrtc'.");
+  Device *dev = new HostRtc(mb.bus_hwioin, mb.bus_hwioout, mb.clock(), iobase);
+  mb.bus_time.add(dev, HostRtc::receive_static<MessageTime>);
+}

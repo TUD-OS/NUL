@@ -22,14 +22,14 @@
  * Defines strings and functions for a parameter with the given
  * name. The variadic part is used to store a help text.
  *
- * PARAM(example, { Logging::printf("example parameter function called!\n");},
- *       "example - this is just an example for parameter Passing",
- *       "Another help line...");
+ * PARAM_HANDLER(example, "example - this is just an example for parameter Passing",
+ *       		  "Another help line...")
+ * { Logging::printf("example parameter function called!\n"); }
  */
-#define PARAM(NAME, CODE, ...)						\
+#define PARAM_HANDLER(NAME, ...)						\
   const char * __parameter_##NAME##_strings[] asm ("__parameter_" #NAME "_strings") = { #NAME, ##__VA_ARGS__, 0}; \
-  extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len) { CODE; } \
-  asm volatile (".section .param; .long __parameter_" #NAME "_function, __parameter_" #NAME "_strings; .previous;");
+  asm volatile (".section .param; .long __parameter_" #NAME "_function, __parameter_" #NAME "_strings; .previous;"); \
+  extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len)
 
 /* Defined in linker script: */
 extern long __param_table_start, __param_table_end;
@@ -38,4 +38,4 @@ extern long __param_table_start, __param_table_end;
 /**
  * Define an alias for a set of parameters.
  */
-#define PARAM_ALIAS(NAME, DESC, VALUE) PARAM(NAME, mb.parse_args(VALUE);, #NAME " - " DESC, "value: "  VALUE)
+#define PARAM_ALIAS(NAME, DESC, VALUE) PARAM_HANDLER(NAME, #NAME " - " DESC, "value: "  VALUE) { mb.parse_args(VALUE); }

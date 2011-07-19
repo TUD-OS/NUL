@@ -25,22 +25,26 @@
 char disk_buffer[4<<20];
 unsigned long blocksize = 512;
 unsigned outstanding=5;
-PARAM(blocksize,
-      blocksize = argv[0];
-      if (blocksize > sizeof(disk_buffer)) {
-	blocksize = sizeof(disk_buffer);
-	Logging::printf("limited the blocksize to %ld\n", blocksize);
-      },
-      "blocksize:value - override the default blocksize", "Example: 'blocksize:65536'")
-PARAM(outstanding,
-      outstanding = argv[0];
-      if (outstanding > DISKS_SIZE) {
-	outstanding = DISKS_SIZE;
-	Logging::printf("limited the number of outstanding requests to %d\n", outstanding);
-      },
-      "set the number of outstanding requests",
-      "Example: 'outstanding:4'")
+PARAM_HANDLER(blocksize,
+	      "blocksize:value - override the default blocksize", "Example: 'blocksize:65536'")
+{
+  blocksize = argv[0];
+  if (blocksize > sizeof(disk_buffer)) {
+    blocksize = sizeof(disk_buffer);
+    Logging::printf("limited the blocksize to %ld\n", blocksize);
+  }
+}
 
+PARAM_HANDLER(outstanding,
+	      "set the number of outstanding requests",
+	      "Example: 'outstanding:4'")
+{
+  outstanding = argv[0];
+  if (outstanding > DISKS_SIZE) {
+    outstanding = DISKS_SIZE;
+    Logging::printf("limited the number of outstanding requests to %d\n", outstanding);
+  }
+}
 
 class App : public NovaProgram, ProgramConsole
 {

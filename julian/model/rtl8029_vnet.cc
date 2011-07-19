@@ -375,27 +375,28 @@ public:
 };
 
 
-PARAM(rtl8029_vnet,
-      {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
-	if (!mb.bus_hostop.send(msg))  Logging::panic("Could not get a MAC address");
-	Rtl8029Vnet *dev = new Rtl8029Vnet(mb.bus_vnet, mb.bus_hostop, mb.bus_irqlines, argv[1], msg.mac, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
-	mb.bus_pcicfg.add (dev, Rtl8029Vnet::receive_static<MessagePciConfig>);
-	mb.bus_ioin.add   (dev, Rtl8029Vnet::receive_static<MessageIOIn>);
-	mb.bus_ioout.add  (dev, Rtl8029Vnet::receive_static<MessageIOOut>);
-	mb.bus_vnetping.add(dev, Rtl8029Vnet::receive_static<MessageVirtualNetPing>);
+PARAM_HANDLER(rtl8029_vnet,
+	      "rtl8029_vnet:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus",
+	      "Example: 'rtl8029_vnet:,9,0x300'.",
+	      "if no bdf is given a free one is used.")
+{
+  MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
+  if (!mb.bus_hostop.send(msg))  Logging::panic("Could not get a MAC address");
+  Rtl8029Vnet *dev = new Rtl8029Vnet(mb.bus_vnet, mb.bus_hostop, mb.bus_irqlines, argv[1], msg.mac, PciHelper::find_free_bdf(mb.bus_pcicfg, argv[0]));
+  mb.bus_pcicfg.add (dev, Rtl8029Vnet::receive_static<MessagePciConfig>);
+  mb.bus_ioin.add   (dev, Rtl8029Vnet::receive_static<MessageIOIn>);
+  mb.bus_ioout.add  (dev, Rtl8029Vnet::receive_static<MessageIOOut>);
+  mb.bus_vnetping.add(dev, Rtl8029Vnet::receive_static<MessageVirtualNetPing>);
 
-	// set IO region and IRQ
-	dev->PCI_write(Rtl8029Vnet::PCI_INTR_offset, argv[1]);
-	dev->PCI_write(Rtl8029Vnet::PCI_BAR_offset,  argv[2]);
+  // set IO region and IRQ
+  dev->PCI_write(Rtl8029Vnet::PCI_INTR_offset, argv[1]);
+  dev->PCI_write(Rtl8029Vnet::PCI_BAR_offset,  argv[2]);
 
-	// set default state, this is normally done by the BIOS
-	// enable IO accesses
-	dev->PCI_write(Rtl8029Vnet::PCI_CMD_STS_offset, 1);
-      },
-      "rtl8029_vnet:bdf,irq,ioio - attach an rtl8029 (ne2k compatible) network controller to the PCI bus",
-      "Example: 'rtl8029_vnet:,9,0x300'.",
-      "if no bdf is given a free one is used.");
+  // set default state, this is normally done by the BIOS
+  // enable IO accesses
+  dev->PCI_write(Rtl8029Vnet::PCI_CMD_STS_offset, 1);
+}
+
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,       0x0, 0x802910ec)

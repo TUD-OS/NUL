@@ -190,25 +190,27 @@ public:
 
 char * Service_fs::backup_page;
 
-PARAM(service_romfs,
-      Service_ModuleFs *t = new Service_ModuleFs(mb);
-      MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ModuleFs>::portal_func), 0, false);
-      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ModuleFs::portal_pagefault);
-      msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
-      msg.excinc  = 4;
-      if (!msg.excbase || !mb.bus_hostop.send(msg))
-        Logging::panic("registering the service failed");
-      ,
-      "romfs - instanciate a file service providing the boot files");
+PARAM_HANDLER(service_romfs,
+	      "romfs - instanciate a file service providing the boot files")
+{
+  Service_ModuleFs *t = new Service_ModuleFs(mb);
+  MessageHostOp msg(t, "/fs/rom", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ModuleFs>::portal_func), 0, false);
+  msg.portal_pf = reinterpret_cast<unsigned long>(Service_ModuleFs::portal_pagefault);
+  msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
+  msg.excinc  = 4;
+  if (!msg.excbase || !mb.bus_hostop.send(msg))
+    Logging::panic("registering the service failed");
+}
 
-PARAM(service_embeddedromfs,
-      Service_ElfFs *t = new Service_ElfFs(mb);
-      MessageHostOp msg(t, "/fs/embedded", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ElfFs>::portal_func), 0, false);
-      msg.portal_pf = reinterpret_cast<unsigned long>(Service_ElfFs::portal_pagefault);
-      msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
-      msg.excinc  = 4;
-      if (!msg.excbase || !mb.bus_hostop.send(msg))
-        Logging::panic("registering the service failed");
-      ,
-      "embeddedromfs");
+PARAM_HANDLER(service_embeddedromfs,
+	      "embeddedromfs")
+{
+  Service_ElfFs *t = new Service_ElfFs(mb);
+  MessageHostOp msg(t, "/fs/embedded", reinterpret_cast<unsigned long>(StaticPortalFunc<Service_ElfFs>::portal_func), 0, false);
+  msg.portal_pf = reinterpret_cast<unsigned long>(Service_ElfFs::portal_pagefault);
+  msg.excbase = alloc_cap_region(16 * mb.hip()->cpu_count(), 4);
+  msg.excinc  = 4;
+  if (!msg.excbase || !mb.bus_hostop.send(msg))
+    Logging::panic("registering the service failed");
+}
 

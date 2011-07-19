@@ -122,9 +122,10 @@ public:
 
 };
 
-PARAM(vbios,
-      if (!mb.last_vcpu) Logging::panic("no VCPU for this VBIOS");
-      new VBios(mb, mb.last_vcpu);
-      ,
-      "vbios - create a bridge between VCPU and the BIOS bus.");
+PARAM_HANDLER(vbios,
+	      "vbios - create a bridge between VCPU and the BIOS bus.")
+{
+  if (!mb.last_vcpu) Logging::panic("no VCPU for this VBIOS");
+  new VBios(mb, mb.last_vcpu);
+}
 

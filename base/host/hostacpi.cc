@@ -148,9 +148,9 @@ public:
 };
 
 
-PARAM(hostacpi,
-      {
-        Device *dev = new HostAcpi(mb.bus_hostop);
-        mb.bus_acpi.add(dev, HostAcpi::receive_static<MessageAcpi>);
-      },
-      "hostacpi - provide ACPI tables to drivers.")
+PARAM_HANDLER(hostacpi,
+	      "hostacpi - provide ACPI tables to drivers.")
+{
+  Device *dev = new HostAcpi(mb.bus_hostop);
+  mb.bus_acpi.add(dev, HostAcpi::receive_static<MessageAcpi>);
+}

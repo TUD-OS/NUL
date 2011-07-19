@@ -546,30 +546,35 @@ public:
 };
 
 static unsigned long _default_vga_fbsize = 128;
-PARAM(vga_fbsize,  _default_vga_fbsize = argv[0];, "vga_fbsize:size - override the default fbsize for the 'vga' parameter (in KB)")
-PARAM(vga,
-      {
-	unsigned long fbsize = argv[1];
-	if (fbsize == ~0ul) fbsize = _default_vga_fbsize;
+PARAM_HANDLER(vga_fbsize,
+	      "vga_fbsize:size - override the default fbsize for the 'vga' parameter (in KB)")
+{
+  _default_vga_fbsize = argv[0];
+}
 
-	// We need at least 128k for 0xa0000-0xbffff.
-	if (fbsize   < 128)  fbsize = 128;
-	fbsize <<= 10;
-	MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
-	MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0UL);
-	if (!mb.bus_hostop.send(msg) || !mb.bus_hostop.send(msg2))
-	  Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
+PARAM_HANDLER(vga,
+	      "vga:iobase,fbsize=128 - attach a virtual VGA controller.",
+	      "Example: 'vga:0x3c0,4096'",
+	      "The framebuffersize is given in kilobyte and the minimum is 128k.",
+	      "This also adds support for VGA and VESA graphics BIOS.")
+{
+  unsigned long fbsize = argv[1];
+  if (fbsize == ~0ul) fbsize = _default_vga_fbsize;
 
-	Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
-	mb.bus_ioin     .add(dev, Vga::receive_static<MessageIOIn>);
-	mb.bus_ioout    .add(dev, Vga::receive_static<MessageIOOut>);
-	mb.bus_bios     .add(dev, Vga::receive_static<MessageBios>);
-	mb.bus_mem      .add(dev, Vga::receive_static<MessageMem>);
-	mb.bus_memregion.add(dev, Vga::receive_static<MessageMemRegion>);
-	mb.bus_discovery.add(dev, Vga::receive_static<MessageDiscovery>);
+  // We need at least 128k for 0xa0000-0xbffff.
+  if (fbsize   < 128)  fbsize = 128;
+  fbsize <<= 10;
+  MessageHostOp msg(MessageHostOp::OP_ALLOC_FROM_GUEST, fbsize);
+  MessageHostOp msg2(MessageHostOp::OP_GUEST_MEM, 0UL);
+  if (!mb.bus_hostop.send(msg) || !mb.bus_hostop.send(msg2))
+    Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
 
-      },
-      "vga:iobase,fbsize=128 - attach a virtual VGA controller.",
-      "Example: 'vga:0x3c0,4096'",
-      "The framebuffersize is given in kilobyte and the minimum is 128k.",
-      "This also adds support for VGA and VESA graphics BIOS.");
+  Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
+  mb.bus_ioin     .add(dev, Vga::receive_static<MessageIOIn>);
+  mb.bus_ioout    .add(dev, Vga::receive_static<MessageIOOut>);
+  mb.bus_bios     .add(dev, Vga::receive_static<MessageBios>);
+  mb.bus_mem      .add(dev, Vga::receive_static<MessageMem>);
+  mb.bus_memregion.add(dev, Vga::receive_static<MessageMemRegion>);
+  mb.bus_discovery.add(dev, Vga::receive_static<MessageDiscovery>);
+}
+

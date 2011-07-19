@@ -159,8 +159,9 @@ public:
   { }
 };
 
-PARAM(vbios_mem,
-      mb.bus_bios.add(new VirtualBiosMem(mb), VirtualBiosMem::receive_static<MessageBios>);
-      ,
-      "vbios_mem - provide memory related virtual BIOS functions.");
+PARAM_HANDLER(vbios_mem,
+	      "vbios_mem - provide memory related virtual BIOS functions.")
+{
+  mb.bus_bios.add(new VirtualBiosMem(mb), VirtualBiosMem::receive_static<MessageBios>);
+}
 

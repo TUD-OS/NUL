@@ -977,10 +977,11 @@ public:
 
 };
 
-PARAM(vnet,
-      VirtualNet *n = new(16) VirtualNet(mb);
-      assert((reinterpret_cast<mword>(n) & 0xF) == 0);
-      ,
-      "vnet - virtual network switch");
+PARAM_HANDLER(vnet,
+	      "vnet - virtual network switch")
+{
+  VirtualNet *n = new(16) VirtualNet(mb);
+  assert((reinterpret_cast<mword>(n) & 0xF) == 0);
+}
 
 // EOF

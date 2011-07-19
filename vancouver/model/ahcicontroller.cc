@@ -385,27 +385,28 @@ class AhciController : public ParentIrqProvider,
   };
 };
 
-PARAM(ahci,
-      {
-	AhciController *dev = new AhciController(mb, argv[1], PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
-	mb.bus_mem.add(dev, AhciController::receive_static<MessageMem>);
+PARAM_HANDLER(ahci,
+	      "ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.",
+	      "Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
+	      "If no bdf is given, the first free one is searched.",
+	      "The AHCI controllers are automatically numbered, starting with 0."
+	      )
+{
+  AhciController *dev = new AhciController(mb, argv[1], PciHelper::find_free_bdf(mb.bus_pcicfg, argv[2]));
+  mb.bus_mem.add(dev, AhciController::receive_static<MessageMem>);
 
-	// register PCI device
-	mb.bus_pcicfg.add(dev, AhciController::receive_static<MessagePciConfig>);
+  // register PCI device
+  mb.bus_pcicfg.add(dev, AhciController::receive_static<MessagePciConfig>);
 
-	// register for AhciSetDrive messages
-	mb.bus_ahcicontroller.add(dev, AhciController::receive_static<MessageAhciSetDrive>);
+  // register for AhciSetDrive messages
+  mb.bus_ahcicontroller.add(dev, AhciController::receive_static<MessageAhciSetDrive>);
 
-	// set default state, this is normally done by the BIOS
-	// set MMIO region and IRQ
-	dev->PCI_write(AhciController::PCI_ABAR_offset, argv[0]);
-	dev->PCI_write(AhciController::PCI_INTR_offset, argv[1]);
-	// enable IRQ, busmaster DMA and memory accesses
-	dev->PCI_write(AhciController::PCI_CMD_STS_offset, 0x406);
-      },
-      "ahci:mem,irq,bdf - attach an AHCI controller to a PCI bus.",
-      "Example: Use 'ahci:0xe0800000,14,0x30' to attach an AHCI controller to 00:06.0 on address 0xe0800000 with irq 14.",
-      "If no bdf is given, the first free one is searched.",
-      "The AHCI controllers are automatically numbered, starting with 0."
-      );
+  // set default state, this is normally done by the BIOS
+  // set MMIO region and IRQ
+  dev->PCI_write(AhciController::PCI_ABAR_offset, argv[0]);
+  dev->PCI_write(AhciController::PCI_INTR_offset, argv[1]);
+  // enable IRQ, busmaster DMA and memory accesses
+  dev->PCI_write(AhciController::PCI_CMD_STS_offset, 0x406);
+}
+
 #endif

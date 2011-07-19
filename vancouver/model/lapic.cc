@@ -770,21 +770,23 @@ public:
 };
 
 
-PARAM(lapic, {
-    if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
+PARAM_HANDLER(lapic,
+	      "lapic:inital_apic_id - provide an x2APIC for the last VCPU",
+	      "Example: 'lapic:2'",
+	      "If no inital_apic_id is given the lapic number is used.")
+{
+  if (!mb.last_vcpu) Logging::panic("no VCPU for this APIC");
 
-    // allocate a timer
-    MessageTimer msg0;
-    if (!mb.bus_timer.send(msg0))
-      Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+  // allocate a timer
+  MessageTimer msg0;
+  if (!mb.bus_timer.send(msg0))
+    Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
 
-    static unsigned lapic_count;
-    new Lapic(mb, mb.last_vcpu, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
-    lapic_count++;
-  },
-  "lapic:inital_apic_id - provide an x2APIC for the last VCPU",
-  "Example: 'lapic:2'",
-  "If no inital_apic_id is given the lapic number is used.");
+  static unsigned lapic_count;
+  new Lapic(mb, mb.last_vcpu, ~argv[0] ? argv[0]: lapic_count, msg0.nr);
+  lapic_count++;
+}
+
 
 
 #else

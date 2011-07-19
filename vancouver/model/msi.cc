@@ -59,7 +59,9 @@ public:
   Msi(DBus<MessageApic>  &bus_apic) : _bus_apic(bus_apic) {}
 };
 
-PARAM(msi, {
-    mb.bus_mem.add(new Msi(mb.bus_apic), Msi::receive_static<MessageMem>);
-  },
-  "msi - provide MSI support by forwarding access to 0xfee00000 to the LocalAPICs.");
+PARAM_HANDLER(msi,
+	      "msi - provide MSI support by forwarding access to 0xfee00000 to the LocalAPICs.")
+{
+  mb.bus_mem.add(new Msi(mb.bus_apic), Msi::receive_static<MessageMem>);
+}
+

@@ -217,30 +217,30 @@ public:
 
 
 
-PARAM(hostne2k,
+PARAM_HANDLER(hostne2k,
+	      "hostne2k - provide ne2k-pci drivers.",
+	      "Example: hostne2k.")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  for (unsigned bdf, num = 0; bdf = pci.search_device(0x2, 0x0, num++);)
+    if (pci.conf_read(bdf, 0) == 0x802910ec)
       {
-	HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	for (unsigned bdf, num = 0; bdf = pci.search_device(0x2, 0x0, num++);)
-	  if (pci.conf_read(bdf, 0) == 0x802910ec)
-	    {
-	      unsigned port = pci.conf_read(bdf, HostPci::BAR0);
-	      // must be an ioport
-	      if ((port & 3) != 1 || (port >> 16)) continue;
-	      port &= ~3;
-	      unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
+	unsigned port = pci.conf_read(bdf, HostPci::BAR0);
+	// must be an ioport
+	if ((port & 3) != 1 || (port >> 16)) continue;
+	port &= ~3;
+	unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 
-	      Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
-	      MessageHostOp msg_io(MessageHostOp::OP_ALLOC_IOIO_REGION, port << 8 | 5);
-	      if (!mb.bus_hostop.send(msg_io))
-		{
-		  Logging::printf("%s could not allocate ioports %x-%x\n", __PRETTY_FUNCTION__, port, port + (1 << 5) - 1);
-		  continue;
-		}
+	Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
+	MessageHostOp msg_io(MessageHostOp::OP_ALLOC_IOIO_REGION, port << 8 | 5);
+	if (!mb.bus_hostop.send(msg_io))
+	  {
+	    Logging::printf("%s could not allocate ioports %x-%x\n", __PRETTY_FUNCTION__, port, port + (1 << 5) - 1);
+	    continue;
+	  }
 
-	      HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
-	      mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
-	      mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
-	    }
-      },
-      "hostne2k - provide ne2k-pci drivers.",
-      "Example: hostne2k.");
+	HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
+	mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
+	mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
+      }
+}

@@ -300,9 +300,9 @@ public:
 };
 
 
-PARAM(hostvesa,
-      {
-	new HostVesa(mb, ~argv[0] ? argv[0] : 0);
-      },
-      "hostvesa:debug=0 - provide a VESA console as backend for a VESA model.",
-      "Use 'hostvesa:3' for debug output.")
+PARAM_HANDLER(hostvesa,
+	      "hostvesa:debug=0 - provide a VESA console as backend for a VESA model.",
+	      "Use 'hostvesa:3' for debug output.")
+{
+  new HostVesa(mb, ~argv[0] ? argv[0] : 0);
+}

@@ -363,27 +363,29 @@ class PicDevice : public StaticReceiver<PicDevice>
 };
 
 
-PARAM(pic,
-      { static unsigned virq;
-	PicDevice *dev = new PicDevice(mb.bus_irqlines,
-				       mb.bus_pic,
-				       mb.bus_legacy,
-				       mb.bus_irqnotify,
-				       argv[0],
-				       argv[1],
-				       argv[2],
-				       virq);
-	mb.bus_ioin.    add(dev, PicDevice::receive_static<MessageIOIn>);
-	mb.bus_ioout.   add(dev, PicDevice::receive_static<MessageIOOut>);
-	mb.bus_irqlines.add(dev, PicDevice::receive_static<MessageIrq>);
-	mb.bus_pic.     add(dev, PicDevice::receive_static<MessagePic>);
-	if (!virq)
-	  mb.bus_legacy.add(dev, PicDevice::receive_static<MessageLegacy>);
-	virq += 8;
-      },
-      "pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.",
-      "Example: 'pic:0x20,,0x4d0 pic:0xa0,2'",
-      "The first PIC is always the master. An irq can be given when creating",
-      "a slave pic.  The irqlines are automatically distributed, such that",
-      "the first pic gets 0-7, the second one 8-15,... The optional elcr",
-      "parameter specifies the io address of the ELCR register");
+PARAM_HANDLER(pic,
+	      "pic:iobase,(irq),(elcr) - Attach an PIC8259 at the given iobase.",
+	      "Example: 'pic:0x20,,0x4d0 pic:0xa0,2'",
+	      "The first PIC is always the master. An irq can be given when creating",
+	      "a slave pic.  The irqlines are automatically distributed, such that",
+	      "the first pic gets 0-7, the second one 8-15,... The optional elcr",
+	      "parameter specifies the io address of the ELCR register")
+{
+  static unsigned virq;
+  PicDevice *dev = new PicDevice(mb.bus_irqlines,
+				 mb.bus_pic,
+				 mb.bus_legacy,
+				 mb.bus_irqnotify,
+				 argv[0],
+				 argv[1],
+				 argv[2],
+				 virq);
+  mb.bus_ioin.    add(dev, PicDevice::receive_static<MessageIOIn>);
+  mb.bus_ioout.   add(dev, PicDevice::receive_static<MessageIOOut>);
+  mb.bus_irqlines.add(dev, PicDevice::receive_static<MessageIrq>);
+  mb.bus_pic.     add(dev, PicDevice::receive_static<MessagePic>);
+  if (!virq)
+    mb.bus_legacy.add(dev, PicDevice::receive_static<MessageLegacy>);
+  virq += 8;
+}
+

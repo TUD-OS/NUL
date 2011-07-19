@@ -339,15 +339,16 @@ public:
   {}
 };
 
-PARAM(kbc,
-      {
-	static unsigned kbc_count;
-	Device *dev = new KeyboardController(mb.bus_irqlines, mb.bus_ps2, mb.bus_legacy, argv[0], argv[1], argv[2], 2*kbc_count++);
-	mb.bus_ioin.add(dev,  KeyboardController::receive_static<MessageIOIn>);
-	mb.bus_ioout.add(dev, KeyboardController::receive_static<MessageIOOut>);
-	mb.bus_ps2.add(dev,   KeyboardController::receive_static<MessagePS2>);
-	mb.bus_legacy.add(dev,KeyboardController::receive_static<MessageLegacy>);
-      },
-      "kbc:iobase,irqkeyb,irqaux - attach an PS2 keyboard controller at the given iobase.",
-      "Example: 'kbc:0x60,1,12'",
-      "The PS2 ports are automatically distributed, such that the first KBC gets 0-1, the second one 2-3,...");
+PARAM_HANDLER(kbc,
+	      "kbc:iobase,irqkeyb,irqaux - attach an PS2 keyboard controller at the given iobase.",
+	      "Example: 'kbc:0x60,1,12'",
+	      "The PS2 ports are automatically distributed, such that the first KBC gets 0-1, the second one 2-3,...")
+{
+  static unsigned kbc_count;
+  Device *dev = new KeyboardController(mb.bus_irqlines, mb.bus_ps2, mb.bus_legacy, argv[0], argv[1], argv[2], 2*kbc_count++);
+  mb.bus_ioin.add(dev,  KeyboardController::receive_static<MessageIOIn>);
+  mb.bus_ioout.add(dev, KeyboardController::receive_static<MessageIOOut>);
+  mb.bus_ps2.add(dev,   KeyboardController::receive_static<MessagePS2>);
+  mb.bus_legacy.add(dev,KeyboardController::receive_static<MessageLegacy>);
+}
+

@@ -134,50 +134,51 @@ public:
   }
 };
 
-PARAM(hosthpet,
-      {
-	unsigned timer = ~argv[0] ? argv[0] : 0;
-        unsigned long address = argv[1];
-        if (address == ~0U) address = BasicHpet::get_hpet_address(mb.bus_acpi);
-	unsigned irq = argv[2];
+PARAM_HANDLER(hosthpet,
+	      "hosthpet:timer=0,address,irq=~0u,level=1,maxfreq=10000 - use the host HPET as timer.",
+	      "If no address is given, the ACPI HPET table or 0xfed00000 is used.",
+	      "If no irq is given, either the legacy or the lowest possible IRQ is used.",
+	      "The maxfreq parameter defines the maximum IRQ rate and therefore accuracy of the device.",
+	      "Example: 'hosthpet:1,0xfed00000' - for the second timer of the hpet at 0xfed00000.")
+{
+  unsigned timer = ~argv[0] ? argv[0] : 0;
+  unsigned long address = argv[1];
+  if (address == ~0U) address = BasicHpet::get_hpet_address(mb.bus_acpi);
+  unsigned irq = argv[2];
 
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
-	if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address, 1024);
+  if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %lx+0x400\n", __PRETTY_FUNCTION__, address);
 
-	if (not BasicHpet::check_hpet_present(msg1.ptr, timer, irq)) {
-	  Logging::printf("This is not an HPET timer at %lx timer %x\n", address, timer);
-	  return;
-	}
+  if (not BasicHpet::check_hpet_present(msg1.ptr, timer, irq)) {
+    Logging::printf("This is not an HPET timer at %lx timer %x\n", address, timer);
+    return;
+  }
 
-	// create device
-	HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, argv[3], argv[4]);
-	mb.bus_hostirq.add(dev, HostHpet::receive_static<MessageIrq>);
-	mb.bus_timer.add(dev,   HostHpet::receive_static<MessageTimer>);
+  // create device
+  HostHpet *dev = new HostHpet(mb.bus_timeout, mb.bus_hostop, mb.clock(), msg1.ptr, timer, irq, argv[3], argv[4]);
+  mb.bus_hostirq.add(dev, HostHpet::receive_static<MessageIrq>);
+  mb.bus_timer.add(dev,   HostHpet::receive_static<MessageTimer>);
 
-      },
-      "hosthpet:timer=0,address,irq=~0u,level=1,maxfreq=10000 - use the host HPET as timer.",
-      "If no address is given, the ACPI HPET table or 0xfed00000 is used.",
-      "If no irq is given, either the legacy or the lowest possible IRQ is used.",
-      "The maxfreq parameter defines the maximum IRQ rate and therefore accuracy of the device.",
-      "Example: 'hosthpet:1,0xfed00000' - for the second timer of the hpet at 0xfed00000.");
+}
 
 
 #include "host/hostpci.h"
-PARAM(quirk_hpet_ich,
-      HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-      unsigned address = pci.conf_read(0xf8, 0x3c);
-
-      if (!address) return;
-
-      MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address & ~0x3fff, 0x4000);
-      if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %x+0x4000\n", __PRETTY_FUNCTION__, address);
-
-      volatile unsigned *reg = reinterpret_cast<volatile unsigned *>(msg1.ptr + 0x3404);
-      Logging::printf("HPET try enable on ICH addr %x val %x\n", address, *reg);
-
-      // enable hpet decode
-      *reg = *reg | 0x80;
-      Logging::printf("ICH HPET force %s %x\n", *reg & 0x80 ? "enabled" : "failed", *reg);
-      ,
+PARAM_HANDLER(quirk_hpet_ich,
       "quirk_hpet_ich - force enable the HPET on an ICH chipset.",
-      "Please note that this does not check whether this is done on the right chipset - use it on your own risk!");
+      "Please note that this does not check whether this is done on the right chipset - use it on your own risk!")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned address = pci.conf_read(0xf8, 0x3c);
+
+  if (!address) return;
+
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, address & ~0x3fff, 0x4000);
+  if (!mb.bus_hostop.send(msg1) || !msg1.ptr)  Logging::panic("%s failed to allocate iomem %x+0x4000\n", __PRETTY_FUNCTION__, address);
+
+  volatile unsigned *reg = reinterpret_cast<volatile unsigned *>(msg1.ptr + 0x3404);
+  Logging::printf("HPET try enable on ICH addr %x val %x\n", address, *reg);
+
+  // enable hpet decode
+  *reg = *reg | 0x80;
+  Logging::printf("ICH HPET force %s %x\n", *reg & 0x80 ? "enabled" : "failed", *reg);
+}

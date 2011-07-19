@@ -41,9 +41,9 @@ public:
   void *operator new(unsigned size)  { return new(__alignof__(Halifax)) char[size]; }
 };
 
-PARAM(halifax,
-      {
-	if (!mb.last_vcpu) Logging::panic("no VCPU for this Halifax");
-	new Halifax(mb.last_vcpu);
-      },
-      "halifax - create a halifax that emulatates instructions.")
+PARAM_HANDLER(halifax,
+	      "halifax - create a halifax that emulatates instructions.")
+{
+  if (!mb.last_vcpu) Logging::panic("no VCPU for this Halifax");
+  new Halifax(mb.last_vcpu);
+}

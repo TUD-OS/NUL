@@ -60,18 +60,18 @@ class HostPit : public StaticReceiver<HostPit>
 };
 
 
-PARAM(hostpit,
-      {
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (argv[1] << 8) |  2);
-	if (!mb.bus_hostop.send(msg1))
-	  Logging::panic("%s failed to allocate ports %lx+4\n", __PRETTY_FUNCTION__, argv[1]);
+PARAM_HANDLER(hostpit,
+	      "hostpit:period,hostiobase,hostirq - use the host PIT as timer, the period is given in microseconds.",
+	      "Example: 'hostpit:4000,0x40,2'.")
+{
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (argv[1] << 8) |  2);
+  if (!mb.bus_hostop.send(msg1))
+    Logging::panic("%s failed to allocate ports %lx+4\n", __PRETTY_FUNCTION__, argv[1]);
 
-	Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, mb.clock(), argv[0], argv[1], argv[2]);
-	mb.bus_hostirq.add(dev, HostPit::receive_static<MessageIrq>);
+  Device *dev = new HostPit(mb.bus_hwioout, mb.bus_timeout, mb.clock(), argv[0], argv[1], argv[2]);
+  mb.bus_hostirq.add(dev, HostPit::receive_static<MessageIrq>);
 
-	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2], 1);
-	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
-	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
-      },
-      "hostpit:period,hostiobase,hostirq - use the host PIT as timer, the period is given in microseconds.",
-      "Example: 'hostpit:4000,0x40,2'.");
+  MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2], 1);
+  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
+    Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
+}

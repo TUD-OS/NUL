@@ -99,36 +99,36 @@ class HostSerial : public StaticReceiver<HostSerial>
 };
 
 
-PARAM(hostserial,
-      {
-	unsigned iobase = argv[1];
+PARAM_HANDLER(hostserial,
+	      "hostserial:hostdevnr,hostiobase,hostirq,speed=115200,lcr=3 - provide an in+output backend from the host serial port.",
+	      "Example:   'hostserial:0x4711,0x3f8,4,115200,3'.",
+	      "If no iobase is given, the first serial port from the BIOS is used.",
+	      "The lcr is used to define word-length, length of stop-bit and parity.",
+	      "See the LCR encoding of the 16550. The default is lcr=3, which means 8N1.",
+	      "The output is received from hostdevnr+1.")
+{
+  unsigned iobase = argv[1];
 
-	if (iobase == ~0u) {
+  if (iobase == ~0u) {
 
-	  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
-	  if (mb.bus_hostop.send(msg) && msg.ptr)
-	    iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
-	  Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
-	}
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (iobase << 8) |  3);
-	if (!mb.bus_hostop.send(msg1))
-	  Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
+    MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
+    if (mb.bus_hostop.send(msg) && msg.ptr)
+      iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
+    Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
+  }
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (iobase << 8) |  3);
+  if (!mb.bus_hostop.send(msg1))
+    Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
 
-	Device *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial,
-				     argv[0] == ~0UL ? 0 : argv[0], iobase, argv[2],
-				     argv[3] == ~0UL ? 115200 : argv[3],
-				     argv[4] == ~0UL ? 3 : argv[4], argv[2] != ~0U);
-	mb.bus_hostirq.add(dev, HostSerial::receive_static<MessageIrq>);
-	mb.bus_serial.add(dev,  HostSerial::receive_static<MessageSerial>);
+  Device *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial,
+			       argv[0] == ~0UL ? 0 : argv[0], iobase, argv[2],
+			       argv[3] == ~0UL ? 115200 : argv[3],
+			       argv[4] == ~0UL ? 3 : argv[4], argv[2] != ~0U);
+  mb.bus_hostirq.add(dev, HostSerial::receive_static<MessageIrq>);
+  mb.bus_serial.add(dev,  HostSerial::receive_static<MessageSerial>);
 
-	MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
-	if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
-	  Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
+  MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
+  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
+    Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
 
-      },
-      "hostserial:hostdevnr,hostiobase,hostirq,speed=115200,lcr=3 - provide an in+output backend from the host serial port.",
-      "Example:   'hostserial:0x4711,0x3f8,4,115200,3'.",
-      "If no iobase is given, the first serial port from the BIOS is used.",
-      "The lcr is used to define word-length, length of stop-bit and parity.",
-      "See the LCR encoding of the 16550. The default is lcr=3, which means 8N1.",
-      "The output is received from hostdevnr+1.");
+}

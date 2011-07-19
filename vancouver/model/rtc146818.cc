@@ -418,21 +418,22 @@ public:
   {}
 };
 
-PARAM(rtc,
-      {
-	MessageTimer msg0;
-	if (!mb.bus_timer.send(msg0))
-	  Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
+PARAM_HANDLER(rtc,
+	      "rtc:iobase,irq - Attach a realtime clock including its CMOS RAM.",
+	      "Example: 'rtc:0x70,8'")
+{
+  MessageTimer msg0;
+  if (!mb.bus_timer.send(msg0))
+    Logging::panic("%s can't get a timer", __PRETTY_FUNCTION__);
 
-	Rtc146818 *rtc = new Rtc146818(mb.bus_timer, mb.bus_irqlines, mb.clock(), msg0.nr, argv[0],argv[1]);
-	MessageTime msg1;
-	if (!mb.bus_time.send(msg1))
-	  Logging::printf("could not get wallclock time!\n");
-	rtc->reset(msg1);
-	mb.bus_ioin.     add(rtc, Rtc146818::receive_static<MessageIOIn>);
-	mb.bus_ioout.    add(rtc, Rtc146818::receive_static<MessageIOOut>);
-	mb.bus_timeout.  add(rtc, Rtc146818::receive_static<MessageTimeout>);
-	mb.bus_irqnotify.add(rtc, Rtc146818::receive_static<MessageIrqNotify>);
-      },
-      "rtc:iobase,irq - Attach a realtime clock including its CMOS RAM.",
-      "Example: 'rtc:0x70,8'");
+  Rtc146818 *rtc = new Rtc146818(mb.bus_timer, mb.bus_irqlines, mb.clock(), msg0.nr, argv[0],argv[1]);
+  MessageTime msg1;
+  if (!mb.bus_time.send(msg1))
+    Logging::printf("could not get wallclock time!\n");
+  rtc->reset(msg1);
+  mb.bus_ioin.     add(rtc, Rtc146818::receive_static<MessageIOIn>);
+  mb.bus_ioout.    add(rtc, Rtc146818::receive_static<MessageIOOut>);
+  mb.bus_timeout.  add(rtc, Rtc146818::receive_static<MessageTimeout>);
+  mb.bus_irqnotify.add(rtc, Rtc146818::receive_static<MessageIrqNotify>);
+}
+

@@ -425,30 +425,30 @@ public:
 
 };
 
-PARAM(82576vf_vnet,
-      {
-	MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
-	if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
+PARAM_HANDLER(82576vf_vnet,
+	      "82576vf_vnet:[promisc][,mem_mmio][,mem_msix] - attach an Intel 82576VF to the PCI bus.",
+	      "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
+	      // XXX promisc = 0 is ignored for now.
+	      "Example: 82576vf_vnet"
+	      )
+{
+  MessageHostOp msg(MessageHostOp::OP_GET_MAC, 0UL);
+  if (!mb.bus_hostop.send(msg)) Logging::panic("Could not get a MAC address");
 
-	Model82576vf_vnet *dev = new Model82576vf_vnet(hton64(msg.mac) >> 16,
-						       mb.clock(),
-						       mb.bus_hostop, mb.bus_vnet,
-						       &mb.bus_mem, &mb.bus_memregion,
-						       (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
-						       (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
-						       PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
+  Model82576vf_vnet *dev = new Model82576vf_vnet(hton64(msg.mac) >> 16,
+						 mb.clock(),
+						 mb.bus_hostop, mb.bus_vnet,
+						 &mb.bus_mem, &mb.bus_memregion,
+						 (argv[1] == ~0UL) ? 0xF7CE0000 : argv[1],
+						 (argv[2] == ~0UL) ? 0xF7CC0000 : argv[2],
+						 PciHelper::find_free_bdf(mb.bus_pcicfg, ~0U));
 	
-	mb.bus_mem.add(dev, &Model82576vf_vnet::receive_static<MessageMem>);
-	mb.bus_memregion.add(dev, &Model82576vf_vnet::receive_static<MessageMemRegion>);
-	mb.bus_pcicfg.  add(dev, &Model82576vf_vnet::receive_static<MessagePciConfig>);
-	mb.bus_legacy.  add(dev, &Model82576vf_vnet::receive_static<MessageLegacy>);
-	mb.bus_vnetping.add(dev, &Model82576vf_vnet::receive_static<MessageVirtualNetPing>);
+  mb.bus_mem.add(dev, &Model82576vf_vnet::receive_static<MessageMem>);
+  mb.bus_memregion.add(dev, &Model82576vf_vnet::receive_static<MessageMemRegion>);
+  mb.bus_pcicfg.  add(dev, &Model82576vf_vnet::receive_static<MessagePciConfig>);
+  mb.bus_legacy.  add(dev, &Model82576vf_vnet::receive_static<MessageLegacy>);
+  mb.bus_vnetping.add(dev, &Model82576vf_vnet::receive_static<MessageVirtualNetPing>);
+}
 
-      },
-      "82576vf_vnet:[promisc][,mem_mmio][,mem_msix] - attach an Intel 82576VF to the PCI bus.",
-      "promisc   - if !=0, be always promiscuous (use for Linux VMs that need it for bridging) (Default 1)",
-      // XXX promisc = 0 is ignored for now.
-      "Example: 82576vf_vnet"
-      );
 
 // EOF

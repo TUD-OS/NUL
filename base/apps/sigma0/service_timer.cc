@@ -302,17 +302,18 @@ public:
   void * operator new (unsigned size, unsigned alignment) { return  new (alignment) char [sizeof(TimerService)]; }
 };
 
-PARAM(service_timer,
-      unsigned cap_region = alloc_cap_region(1 << 12, 12);
-      char * revoke_mem = new (0x1000) char[0x1000];
-      TimerService * t = new (8) TimerService(mb, cap_region, 12, revoke_mem);
+PARAM_HANDLER(service_timer,
+	      "service_timer - multiplexes either the hosthpet or the hostpit between different clients")
+{
+  unsigned cap_region = alloc_cap_region(1 << 12, 12);
+  char * revoke_mem = new (0x1000) char[0x1000];
+  TimerService * t = new (8) TimerService(mb, cap_region, 12, revoke_mem);
 
-      //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
+  //Logging::printf("cap region timer %x %x\n", cap_region, mb.hip()->cfg_cap);
 
-      // Register the service
-      MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), revoke_mem);
-      msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
-      if (!cap_region || !mb.bus_hostop.send(msg))
-        Logging::panic("starting of timer service failed");
-      ,
-      "service_timer - multiplexes either the hosthpet or the hostpit between different clients");
+  // Register the service
+  MessageHostOp msg(t, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<TimerService>::portal_func), revoke_mem);
+  msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();
+  if (!cap_region || !mb.bus_hostop.send(msg))
+    Logging::panic("starting of timer service failed");
+}

@@ -467,28 +467,29 @@ public:
   }
 };
 
-PARAM(host82573, {
-    HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-    unsigned found = 0;
+PARAM_HANDLER(host82573,
+	      "host82573:instance,vnet - provide driver for Intel 82573L Ethernet controller.",
+	      "Example: 'host82573:0")
+{
+  HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned found = 0;
 
-    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
-      unsigned cfg0 = pci.conf_read(bdf, 0x0);
-      if ((cfg0 & 0xFFFF) != 0x8086 /* INTEL */) continue;
+  for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+    unsigned cfg0 = pci.conf_read(bdf, 0x0);
+    if ((cfg0 & 0xFFFF) != 0x8086 /* INTEL */) continue;
 
-      // Find specific device
-      unsigned i;
-      for (i = 0; i < (sizeof(intel_nics)/sizeof(NICInfo)); i++) {
-	if ((cfg0>>16 == intel_nics[i].devid) && (found++ == argv[0])) {
-	  Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
-                                         mb.bus_acpi,
-					 mb.clock(), bdf, intel_nics[i]);
-	  mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
-          mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
-	}
+    // Find specific device
+    unsigned i;
+    for (i = 0; i < (sizeof(intel_nics)/sizeof(NICInfo)); i++) {
+      if ((cfg0>>16 == intel_nics[i].devid) && (found++ == argv[0])) {
+	Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
+				       mb.bus_acpi,
+				       mb.clock(), bdf, intel_nics[i]);
+	mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
+	mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
       }
     }
-  },
-  "host82573:instance,vnet - provide driver for Intel 82573L Ethernet controller.",
-  "Example: 'host82573:0");
+  }
+}
 
 // EOF

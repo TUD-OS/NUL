@@ -411,20 +411,21 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   }
 };
 
-PARAM(drive,
-      {
-	DiskParameter params;
-	unsigned hostdisk = argv[0];
-	MessageDisk msg0(hostdisk, &params);
-	check0(!mb.bus_disk.send(msg0) || msg0.error != MessageDisk::DISK_OK, "%s could not get disk %x parameters error %x", __PRETTY_FUNCTION__, hostdisk, msg0.error);
+PARAM_HANDLER(drive,
+	      "drive:sigma0drive,controller,port - put a drive to the given port of an ahci controller by using a drive from sigma0 as backend.",
+	      "Example: 'drive:0,1,2' to put the first sigma0 drive on the third port of the second controller.")
+{
+  DiskParameter params;
+  unsigned hostdisk = argv[0];
+  MessageDisk msg0(hostdisk, &params);
+  check0(!mb.bus_disk.send(msg0) || msg0.error != MessageDisk::DISK_OK, "%s could not get disk %x parameters error %x", __PRETTY_FUNCTION__, hostdisk, msg0.error);
 
-	SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, hostdisk, params);
-	mb.bus_diskcommit.add(drive, SataDrive::receive_static<MessageDiskCommit>);
+  SataDrive *drive = new SataDrive(mb.bus_disk, &mb.bus_memregion, &mb.bus_mem, hostdisk, params);
+  mb.bus_diskcommit.add(drive, SataDrive::receive_static<MessageDiskCommit>);
 
-	// XXX put on SATA bus
-	MessageAhciSetDrive msg(drive, argv[2]);
-	if (!mb.bus_ahcicontroller.send(msg, argv[1]))
-	  Logging::panic("AHCI controller #%ld does not allow to set drive #%lx\n", argv[1], argv[2]);
-      },
-      "drive:sigma0drive,controller,port - put a drive to the given port of an ahci controller by using a drive from sigma0 as backend.",
-      "Example: 'drive:0,1,2' to put the first sigma0 drive on the third port of the second controller.");
+  // XXX put on SATA bus
+  MessageAhciSetDrive msg(drive, argv[2]);
+  if (!mb.bus_ahcicontroller.send(msg, argv[1]))
+    Logging::panic("AHCI controller #%ld does not allow to set drive #%lx\n", argv[1], argv[2]);
+}
+

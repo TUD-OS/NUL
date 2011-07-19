@@ -234,32 +234,31 @@ public:
     :  _mb(mb), _busnum(busnum), _buscount(buscount), _iobase(iobase), _membase(membase) {}
 };
 
-PARAM(pcihostbridge,
-      {
-	unsigned busnum = argv[0];
-	PciHostBridge *dev = new PciHostBridge(mb, busnum, argv[1], argv[2], argv[3]);
+PARAM_HANDLER(pcihostbridge,
+	      "pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.",
+	      "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",
+	      "If not iobase is given, no io-accesses are performed.",
+	      "Similar if membase is not given, MMCFG is disabled.")
+{
+  unsigned busnum = argv[0];
+  PciHostBridge *dev = new PciHostBridge(mb, busnum, argv[1], argv[2], argv[3]);
 
-	// ioport interface
-	if (~argv[2]) {
-	  mb.bus_ioin.add(dev,  PciHostBridge::receive_static<MessageIOIn>);
-	  mb.bus_ioout.add(dev, PciHostBridge::receive_static<MessageIOOut>);
-	}
+  // ioport interface
+  if (~argv[2]) {
+    mb.bus_ioin.add(dev,  PciHostBridge::receive_static<MessageIOIn>);
+    mb.bus_ioout.add(dev, PciHostBridge::receive_static<MessageIOOut>);
+  }
 
-	// MMCFG interface
-	if (~argv[3]) {
-	  mb.bus_mem.add(dev,       PciHostBridge::receive_static<MessageMem>);
-	  mb.bus_discovery.add(dev, PciHostBridge::discover);
-	}
+  // MMCFG interface
+  if (~argv[3]) {
+    mb.bus_mem.add(dev,       PciHostBridge::receive_static<MessageMem>);
+    mb.bus_discovery.add(dev, PciHostBridge::discover);
+  }
 
-	mb.bus_pcicfg.add(dev, PciHostBridge::receive_static<MessagePciConfig>);
-	mb.bus_legacy.add(dev, PciHostBridge::receive_static<MessageLegacy>);
-	mb.bus_bios.add  (dev, PciHostBridge::receive_static<MessageBios>);
-      },
-      "pcihostbridge:start,count,iobase,membase - attach a pci host bridge to the system.",
-      "Example: 'pcihostbridge:0,0x10,0xcf8,0xe0000000'",
-      "If not iobase is given, no io-accesses are performed.",
-      "Similar if membase is not given, MMCFG is disabled.")
-
+  mb.bus_pcicfg.add(dev, PciHostBridge::receive_static<MessagePciConfig>);
+  mb.bus_legacy.add(dev, PciHostBridge::receive_static<MessageLegacy>);
+  mb.bus_bios.add  (dev, PciHostBridge::receive_static<MessageBios>);
+}
 #else
 REGSET(PCI,
        REG_RO(PCI_ID,  0x0, 0x27a08086)

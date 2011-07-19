@@ -440,49 +440,48 @@ private:
 };
 
 
-PARAM(dpci,
-      {
-	HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	unsigned hostbdf  = pci.search_device(argv[0], argv[1], argv[2]);
-	Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], hostbdf);
-	check0(!hostbdf, "dpci device not found");
-	new DirectPciDevice(mb, hostbdf, argv[3], argv[4], argv[5]);
-      },
-      "dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.",
-      "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
-      "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
-      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.",
-      "If assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.",
-      "If irq is zero, IRQs are disabled.")
-
+PARAM_HANDLER(dpci,
+	      "dpci:class,subclass,instance,bdf,assign=1,irqs=1 - makes the specified hostdevice directly accessible to the guest.",
+	      "Example: Use 'dpci:2,,0,0x21' to attach the first network controller to 00:04.1.",
+	      "If class or subclass is ommited it is not compared. If the instance is ommited the last instance is used.",
+	      "If bdf is zero the very same bdf as in the host is used, if it is ommited a free bdf is used.",
+	      "If assign is zero, the BDF is not assigned via the IOMMU and can not do DMA.",
+	      "If irq is zero, IRQs are disabled.")
+{
+  HostPci  pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned hostbdf  = pci.search_device(argv[0], argv[1], argv[2]);
+  Logging::printf("search_device(%lx,%lx,%lx) bdf %x \n", argv[0], argv[1], argv[2], hostbdf);
+  check0(!hostbdf, "dpci device not found");
+  new DirectPciDevice(mb, hostbdf, argv[3], argv[4], argv[5]);
+}
 
 #include "host/hostvf.h"
 
-PARAM(vfpci,
-      {
-	HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-	unsigned vf_no      = argv[2];
+PARAM_HANDLER(vfpci,
+	      "vfpci:parent_id,parent_no,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
+	      "If no guest_bdf is given, a free one is used.")
+{
+  HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned vf_no      = argv[2];
 
-        // Find parent BDF
-        uint16 parent_bdf = 0;
-        unsigned found = 0;
+  // Find parent BDF
+  uint16 parent_bdf = 0;
+  unsigned found = 0;
 
-        for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
-          unsigned cfg0 = pci.conf_read(bdf, 0x0);
-          if (cfg0 == argv[0]) {
-            if (found++ == argv[1]) {
-              parent_bdf = bdf;
-              break;
-            }
-          }
-        }
+  for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+    unsigned cfg0 = pci.conf_read(bdf, 0x0);
+    if (cfg0 == argv[0]) {
+      if (found++ == argv[1]) {
+	parent_bdf = bdf;
+	break;
+      }
+    }
+  }
 
-	// Check if VF exists, before creating the object.
-	unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
-	check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
-	Logging::printf("VF is at %04x.\n", vf_bdf);
+  // Check if VF exists, before creating the object.
+  unsigned vf_bdf = pci.vf_bdf(parent_bdf, vf_no);
+  check0(!vf_bdf, "XXX VF%d does not exist in parent %x.", vf_no, parent_bdf);
+  Logging::printf("VF is at %04x.\n", vf_bdf);
 
-	new DirectPciDevice(mb, 0, argv[3], true, true, parent_bdf, vf_no, true);
-      },
-      "vfpci:parent_id,parent_no,vf_no,guest_bdf - directly assign a given virtual function to the guest.",
-      "If no guest_bdf is given, a free one is used.")
+  new DirectPciDevice(mb, 0, argv[3], true, true, parent_bdf, vf_no, true);
+}

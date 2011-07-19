@@ -20,7 +20,9 @@
 #include "executor/bios.h"
 
 bool use_x2apic_mode;
-PARAM(x2apic_mode, use_x2apic_mode = true, "x2apic_mode - enable x2apic mode in the LAPICs")
+PARAM_HANDLER(x2apic_mode,
+	      "x2apic_mode - enable x2apic mode in the LAPICs")
+{use_x2apic_mode = true;}
 
 /**
  * Virtual Bios reset routines.
@@ -301,9 +303,10 @@ public:
   VirtualBiosReset(Motherboard &mb) : BiosCommon(mb) {}
 };
 
-PARAM(vbios_reset,
-      Device * dev = new VirtualBiosReset(mb);
-      mb.bus_bios.add(dev,      VirtualBiosReset::receive_static<MessageBios>);
-      mb.bus_discovery.add(dev, VirtualBiosReset::receive_static<MessageDiscovery>);
-      ,
-      "vbios_reset - provide reset handling for virtual BIOS functions.");
+PARAM_HANDLER(vbios_reset,
+	      "vbios_reset - provide reset handling for virtual BIOS functions.")
+{
+  Device * dev = new VirtualBiosReset(mb);
+  mb.bus_bios.add(dev,      VirtualBiosReset::receive_static<MessageBios>);
+  mb.bus_discovery.add(dev, VirtualBiosReset::receive_static<MessageDiscovery>);
+}

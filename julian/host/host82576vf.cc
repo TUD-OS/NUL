@@ -316,75 +316,76 @@ public:
 
 };
 
-PARAM(host82576vf, {
-    HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
-    unsigned vf_no    = argv[1];
-    bool   promisc    = (argv[2] == ~0U) ? 0 : argv[2] ;
-    uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
+PARAM_HANDLER(host82576vf,
+	      "host82576vf:pf,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.",
+	      "Example: 'host82576vf:0,0'")
+{
+  HostVfPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
+  unsigned vf_no    = argv[1];
+  bool   promisc    = (argv[2] == ~0U) ? 0 : argv[2] ;
+  uint32 itr_us     = (argv[3] == ~0U) ? 0 : argv[3] ;
 
-    // Find parent BDF
-    uint16 parent_bdf = 0;
-    unsigned found = 0;
+  // Find parent BDF
+  uint16 parent_bdf = 0;
+  unsigned found = 0;
 
-    for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
-      unsigned cfg0 = pci.conf_read(bdf, 0x0);
-      if (cfg0 == 0x10c98086) {
-	if (found++ == argv[0]) {
-          parent_bdf = bdf;
-          break;
-	}
+  for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
+    unsigned cfg0 = pci.conf_read(bdf, 0x0);
+    if (cfg0 == 0x10c98086) {
+      if (found++ == argv[0]) {
+	parent_bdf = bdf;
+	break;
       }
     }
+  }
 
-    uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
+  uint16 vf_bdf     = pci.vf_bdf(parent_bdf, vf_no);
 
-    if (pci.vf_device_id(parent_bdf) != 0x10ca8086) {
-      Logging::printf("Invalid device.\n");
-      return;
-    }
+  if (pci.vf_device_id(parent_bdf) != 0x10ca8086) {
+    Logging::printf("Invalid device.\n");
+    return;
+  }
 
-    unsigned sriov_cap = pci.find_extended_cap(parent_bdf, pci.EXTCAP_SRIOV);
-    uint16 numvfs = pci.conf_read(parent_bdf, sriov_cap + 4) & 0xFFFF;
-    if (vf_no >= numvfs) {
-      Logging::printf("VF%d does not exist.\n", vf_no);
-      return;
-    }
+  unsigned sriov_cap = pci.find_extended_cap(parent_bdf, pci.EXTCAP_SRIOV);
+  uint16 numvfs = pci.conf_read(parent_bdf, sriov_cap + 4) & 0xFFFF;
+  if (vf_no >= numvfs) {
+    Logging::printf("VF%d does not exist.\n", vf_no);
+    return;
+  }
 
-    uint64 size = 0;
-    uint64 base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
+  uint64 size = 0;
+  uint64 base = pci.vf_bar_base_size(parent_bdf, vf_no, 0, size);
 
-    MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
+  MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 
-    base = pci.vf_bar_base_size(parent_bdf, vf_no, 3, size);
-    MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
+  base = pci.vf_bar_base_size(parent_bdf, vf_no, 3, size);
+  MessageHostOp msix_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
 
-    if (!(mb.bus_hostop.send(reg_msg) && mb.bus_hostop.send(msix_msg) &&
-          reg_msg.ptr && msix_msg.ptr)) {
-      Logging::printf("Could not map register windows.\n");
-      return;
-    }
+  if (!(mb.bus_hostop.send(reg_msg) && mb.bus_hostop.send(msix_msg) &&
+	reg_msg.ptr && msix_msg.ptr)) {
+    Logging::printf("Could not map register windows.\n");
+    return;
+  }
 
-    // Setup DMA remapping
-    MessageHostOp assign_msg(MessageHostOp::OP_ASSIGN_PCI, vf_bdf, parent_bdf);
-    if (!mb.bus_hostop.send(assign_msg)) {
-      Logging::printf("Could not assign PCI device.\n");
-      return;
-    }
+  // Setup DMA remapping
+  MessageHostOp assign_msg(MessageHostOp::OP_ASSIGN_PCI, vf_bdf, parent_bdf);
+  if (!mb.bus_hostop.send(assign_msg)) {
+    Logging::printf("Could not assign PCI device.\n");
+    return;
+  }
 
-    // IRQs
-    unsigned irqs[2];
-    for (unsigned i = 0; i < 2; i++)
-      irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
+  // IRQs
+  unsigned irqs[2];
+  for (unsigned i = 0; i < 2; i++)
+    irqs[i] = pci.get_gsi_msi(mb.bus_hostop, vf_bdf, i, msix_msg.ptr);
 
-    Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
-                                       mb.clock(), vf_bdf,
-                                       irqs, reg_msg.ptr, itr_us,
-				       promisc);
+  Host82576VF *dev = new Host82576VF(pci, mb.bus_hostop, mb.bus_network,
+				     mb.clock(), vf_bdf,
+				     irqs, reg_msg.ptr, itr_us,
+				     promisc);
 
-    mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
-    mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
-  },
-  "host82576vf:pf,vf,[promisc=no[,throttle_us=off]] - provide driver for Intel 82576 virtual function.",
-  "Example: 'host82576vf:0,0'");
+  mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
+  mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
+}
 
 // EOF

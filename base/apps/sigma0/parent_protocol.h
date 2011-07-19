@@ -20,9 +20,9 @@
 #include "nul/generic_service.h"
 #include "nul/capalloc.h"
 
-PARAM(namespace,, "namespace - namespace to register service names in (server parameter)")
-PARAM(name,, "name - allow client to access the given service")
-PARAM(quota,, "quota - used by parent protocol")
+PARAM_HANDLER(namespace, "namespace - namespace to register service names in (server parameter)") {}
+PARAM_HANDLER(name, "name - allow client to access the given service") {}
+PARAM_HANDLER(quota, "quota - used by parent protocol") {}
 
 class s0_ParentProtocol : public CapAllocator {
 

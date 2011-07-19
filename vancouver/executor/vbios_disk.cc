@@ -313,8 +313,9 @@ public:
 
 };
 
-PARAM(vbios_disk,
-      mb.bus_bios.add(new VirtualBiosDisk(mb), VirtualBiosDisk::receive_static<MessageBios>);
-      ,
-      "vbios_disk- provide disk related virtual BIOS functions.");
+PARAM_HANDLER(vbios_disk,
+	      "vbios_disk- provide disk related virtual BIOS functions.")
+{
+  mb.bus_bios.add(new VirtualBiosDisk(mb), VirtualBiosDisk::receive_static<MessageBios>);
+}
 

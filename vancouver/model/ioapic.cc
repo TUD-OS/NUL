@@ -267,10 +267,11 @@ public:
 };
 
 
-PARAM(ioapic,
-      static unsigned ioapic_count;
-      new IOApic(mb, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
-      ioapic_count++;
-      ,
-      "ioapic - create an ioapic.",
-      "The GSIs are automatically distributed, so that the first IOAPIC gets GSI0-23, the next 24-47...");
+PARAM_HANDLER(ioapic,
+	      "ioapic - create an ioapic.",
+	      "The GSIs are automatically distributed, so that the first IOAPIC gets GSI0-23, the next 24-47...")
+{
+  static unsigned ioapic_count;
+  new IOApic(mb, IOApic::IOAPIC_BASE + 0x1000 * ioapic_count, IOApic::PINS*ioapic_count);
+  ioapic_count++;
+}

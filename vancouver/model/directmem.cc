@@ -60,24 +60,25 @@ class DirectMemDevice : public StaticReceiver<DirectMemDevice>
 };
 
 
-PARAM(mio,
-      {
-	unsigned long size;
-	unsigned long dest = (argv[2] == ~0UL) ? argv[0] : argv[2];
-	if ( argv[1] == ~0UL)
-	  size = 1;
-	else
-	  size = Cpu::bsr(argv[1] | 1);
+PARAM_HANDLER(mio,
+	      "mio:base,size,dest=base - map hostmemory directly into the VM.",
+	      "Example: 'mio:0xa0000,0x10000'.")
+{
+  unsigned long size;
+  unsigned long dest = (argv[2] == ~0UL) ? argv[0] : argv[2];
+  if ( argv[1] == ~0UL)
+    size = 1;
+  else
+    size = Cpu::bsr(argv[1] | 1);
 
 
-	MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, argv[0], 1 << size);
-	if (!mb.bus_hostop.send(msg) || !msg.ptr)
-	  Logging::panic("can not map IOMEM region %lx+%lx", msg.value, msg.len);
+  MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, argv[0], 1 << size);
+  if (!mb.bus_hostop.send(msg) || !msg.ptr)
+    Logging::panic("can not map IOMEM region %lx+%lx", msg.value, msg.len);
 
-	Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
-	mb.bus_memregion.add(dev,  DirectMemDevice::receive_static<MessageMemRegion>);
-	mb.bus_mem.add(dev,        DirectMemDevice::receive_static<MessageMem>);
+  Device *dev = new DirectMemDevice(msg.ptr, dest, 1 << size);
+  mb.bus_memregion.add(dev,  DirectMemDevice::receive_static<MessageMemRegion>);
+  mb.bus_mem.add(dev,        DirectMemDevice::receive_static<MessageMem>);
 
-      },
-      "mio:base,size,dest=base - map hostmemory directly into the VM.",
-      "Example: 'mio:0xa0000,0x10000'.");
+}
+

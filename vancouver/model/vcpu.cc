@@ -454,11 +454,11 @@ public:
  }
 };
 
-PARAM(vcpu,
-      mb.last_vcpu = new VirtualCpu(mb.last_vcpu, mb);
-      ,
-      "vcpu - create a new VCPU")
-
+PARAM_HANDLER(vcpu,
+	      "vcpu - create a new VCPU")
+{
+  mb.last_vcpu = new VirtualCpu(mb.last_vcpu, mb);
+}
 #else
 REGSET(CPUID,
        REG_RW(CPUID_EAX0,  0x00, 2, ~0u,)

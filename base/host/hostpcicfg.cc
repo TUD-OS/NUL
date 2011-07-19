@@ -61,15 +61,15 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
 };
 
 
-PARAM(pcicfg,
-      {
-	MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
-	check0(!mb.bus_hostop.send(msg0), "%s could not allocate semaphore\n", __PRETTY_FUNCTION__);
+PARAM_HANDLER(pcicfg,
+	      "pcicfg - provide HW PCI config space access through IO ports 0xcf8/0xcfc.")
+{
+  MessageHostOp msg0(MessageHostOp::OP_ALLOC_SEMAPHORE, 0UL);
+  check0(!mb.bus_hostop.send(msg0), "%s could not allocate semaphore\n", __PRETTY_FUNCTION__);
 
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (PciConfigAccess::BASE << 8) | 3);
-	check0(!mb.bus_hostop.send(msg1), "%s could not allocate ioports %x+8\n", __PRETTY_FUNCTION__, PciConfigAccess::BASE);
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (PciConfigAccess::BASE << 8) | 3);
+  check0(!mb.bus_hostop.send(msg1), "%s could not allocate ioports %x+8\n", __PRETTY_FUNCTION__, PciConfigAccess::BASE);
 
-	Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout, msg0.value);
-	mb.bus_hwpcicfg.add(dev, PciConfigAccess::receive_static<MessagePciConfig>);
-      },
-      "pcicfg - provide HW PCI config space access through IO ports 0xcf8/0xcfc.");
+  Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout, msg0.value);
+  mb.bus_hwpcicfg.add(dev, PciConfigAccess::receive_static<MessagePciConfig>);
+}

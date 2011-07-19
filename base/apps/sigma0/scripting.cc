@@ -143,28 +143,33 @@ struct Script : public StaticReceiver<Script> {
 };
 
 static Script *_script;
-PARAM(script,
-      _script = new Script(mb.bus_console, mb.clock(), &mb);
+PARAM_HANDLER(script,
+	      "script - add scripting support")
+{
+  _script = new Script(mb.bus_console, mb.clock(), &mb);
+  mb.bus_legacy.add(_script,  Script::receive_static<MessageLegacy>);
+}
 
-      mb.bus_legacy.add(_script,  Script::receive_static<MessageLegacy>);
-      ,
-      "script - add scripting support")
+PARAM_HANDLER(script_wait,
+	      "script_wait:t - wait t milliseconds until the next scripting operation will happen")
+{
+  check0(_script == 0);
+  _script->add(new ScriptItem(ScriptItem::TYPE_WAIT, argv[0], 0, 0));
+}
 
-PARAM(script_wait,
-      check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_WAIT, argv[0], 0, 0));,
-      "script_wait:t - wait t milliseconds until the next scripting operation will happen")
+PARAM_HANDLER(script_start,
+	      "script_start:config=1,number=1,count=1 - start a config count times",
+	      "Example: 'script_start:5,3,4' - starts 4 times the configs 5, 6 and 7")
+{
+  check0(_script == 0);
+  _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[2] : 1));
+}
 
-PARAM(script_start,
-      check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[2] : 1));,
-      "script_start:config=1,number=1,count=1 - start a config count times",
-      "Example: 'script_start:5,3,4' - starts 4 times the configs 5, 6 and 7")
-
-PARAM(script_reboot,
-      check0(_script == 0);
-      _script->add(new ScriptItem(ScriptItem::TYPE_REBOOT, 0, 0 ,0));
-      ,
-      "script_reboot - schedule a reboot")
+PARAM_HANDLER(script_reboot,
+	      "script_reboot - schedule a reboot")
+{
+  check0(_script == 0);
+  _script->add(new ScriptItem(ScriptItem::TYPE_REBOOT, 0, 0 ,0));
+}
 
 // EOF

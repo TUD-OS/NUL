@@ -481,22 +481,24 @@ public:
   }
 };
 
-PARAM(kiosk_mode, _kiosk_mode = 1;, "kiosk_mode - disable starting of VMs via keyboard inputs and disable debugging keys")
-PARAM(hostvga,
-      {
-	unsigned modifier_switch = ~argv[0] ? argv[0] : (0 + KBFLAG_LWIN);
-	unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
-	unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
+PARAM_HANDLER(kiosk_mode, "kiosk_mode - disable starting of VMs via keyboard inputs and disable debugging keys")
+{ _kiosk_mode = 1; }
 
-	MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, 0x3c000 |  5);
-	check0(!mb.bus_hostop.send(msg1), "can not allocate VGA ioports");
+PARAM_HANDLER(hostvga,
+	       "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.",
+	       "Example: 'hostvga'.",
+	       "Use 'hostvga:0x10000,0x20000' to use LCTRL and RCTRL as keymodifier."
+	       "See keyboard.h for definitions.")
+{
+  unsigned modifier_switch = ~argv[0] ? argv[0] : (0 + KBFLAG_LWIN);
+  unsigned modifier_system = ~argv[1] ? argv[1] : (0 + KBFLAG_RWIN);
+  unsigned refresh_freq    = ~argv[2] ? argv[2] : 25;
 
-	MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
-	check0(!mb.bus_hostop.send(msg2), "can not allocate VGA backend");
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, 0x3c000 |  5);
+  check0(!mb.bus_hostop.send(msg1), "can not allocate VGA ioports");
 
-	new HostVga(mb, msg2.ptr, modifier_switch, modifier_system, refresh_freq);
-      },
-      "hostvga:<switchmodifier=LWIN><,systemmodifer=RWIN><,refresh_freq=25> - provide a VGA console.",
-      "Example: 'hostvga'.",
-      "Use 'hostvga:0x10000,0x20000' to use LCTRL and RCTRL as keymodifier."
-      "See keyboard.h for definitions.")
+  MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOMEM, 0xb8000, HostVga::BACKEND_SIZE);
+  check0(!mb.bus_hostop.send(msg2), "can not allocate VGA backend");
+
+  new HostVga(mb, msg2.ptr, modifier_switch, modifier_system, refresh_freq);
+}
