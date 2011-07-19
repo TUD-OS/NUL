@@ -344,9 +344,19 @@ if (defined $server) {
 
 my ($dhcpd_pid, $tftpd_pid);
 
+sub exec_verbose($)
+{
+    my $cmd = shift;
+    print "Running: $cmd\n";
+    exec($cmd);
+}
+
 if (defined $dhcp_tftp)
 {
     $run_qemu = 0;
+
+    if (! -d $CFG::builddir) { die("TFTP directory ($CFG::builddir) is missing"); }
+
     generate_configs("(nd)/", \%configs);
     system('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", "(nd)/", \@modules, "timeout 0");
@@ -363,11 +373,11 @@ if (defined $dhcp_tftp)
     $dhcpd_pid = fork();
     if ($dhcpd_pid == 0) {
 	# This way, the spawned server are killed when this script is killed.
-	exec("dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid");
+	exec_verbose("dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid");
     }
     $tftpd_pid = fork();
     if ($tftpd_pid == 0) {
-	exec("in.tftpd --foreground --secure $CFG::builddir");
+	exec_verbose("in.tftpd --foreground --secure -v -v -v $CFG::builddir");
     }
     $SIG{TERM} = sub { print "CHILDS KILLED\n"; kill 15, $dhcpd_pid, $tftpd_pid; };
 }
@@ -410,7 +420,12 @@ if (defined $iso_image) {
 	print("ISO image created: $CFG::builddir/$iso_image\n");
 }
 
-wait if (defined $dhcp_tftp);
+if (defined $dhcp_tftp) {
+    my $pid = wait();
+    if ($pid == $dhcpd_pid) { print "dhcpd exited!\n"; }
+    elsif ($pid == $tftpd_pid) { print "tftpd exited!\n"; }
+    else { print "wait returned: $pid\n"; }
+}
 
 if ($run_qemu) {
     $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
@@ -446,7 +461,5 @@ if ($run_qemu) {
 	system("cat tmppipe.out &");
 	$qemu_flags .= " -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
     }
-    my $cmd = "qemu -name '$config_name' $qemu_flags";
-    print "Running: $cmd\n";
-    exec $cmd;
+    exec_verbose("qemu -name '$config_name' $qemu_flags");
 }
