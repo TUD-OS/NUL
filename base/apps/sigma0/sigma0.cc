@@ -296,6 +296,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       Logging::printf("s0: [%2u] consumer %p out of memory %lx\n", modinfo->id, con, modinfo->physsize);
     else
       {
+	// Create producer attached to consumer's buffer and semaphore 
         res = PRODUCER(con, utcb->head.crd >> Utcb::MINSHIFT);
         utcb->msg[0] = 0;
       }

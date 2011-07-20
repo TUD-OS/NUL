@@ -82,7 +82,7 @@ enum {
   MAP_HBIT       = 0x801,
   MAP_EPT        = 0x401,
   MAP_DPT        = 0x201,
-  MAP_MAP        =     1,
+  MAP_MAP        =     1,	///< Delegate typed item
 };
 
 
