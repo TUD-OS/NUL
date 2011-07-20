@@ -283,7 +283,7 @@ while (<>) {
 @modules = ($CFG::hypervisor . " serial spinner", @modules);
 @modules = ("bin/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
-chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\n";
+chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
 print "novaboot: Entering directory `$CFG::builddir'\n";
 
 # always flush
@@ -354,8 +354,6 @@ sub exec_verbose($)
 if (defined $dhcp_tftp)
 {
     $run_qemu = 0;
-
-    if (! -d $CFG::builddir) { die("TFTP directory ($CFG::builddir) is missing"); }
 
     generate_configs("(nd)/", \%configs);
     system('mkdir -p tftpboot');
