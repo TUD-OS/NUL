@@ -20,7 +20,7 @@
 #include <wvtest.h>
 #include "service_echo.h"
 
-class EchoTest : public WvTest
+class EchoTest : public WvProgram
 {
 public:
   void wvrun(Utcb *utcb, Hip *hip)

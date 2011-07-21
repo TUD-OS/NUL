@@ -20,7 +20,7 @@
 // TODO: Add nul/ below
 #include "wvtest.h"
 
-class Test : public WvTest
+class Test : public WvProgram
 {
 public:
   void wvrun(Utcb *utcb, Hip *hip)

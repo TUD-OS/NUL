@@ -147,8 +147,8 @@
    To write a test you need to:
 
    1. Write your test program. The easiest way is to include
-      "wvtest.h", inherit your program from =WvTest= instead of
-      =NovaProgram= and write the =wvrun(...)= method.
+      "wvtest.h", inherit your program from =WvProgram= instead of
+      =NovaProgram= and implement =wvrun(...)= method.
 
       Somewhere in your code use assert-like macros starting with WV*.
       See wvtesttest.cc for an example.

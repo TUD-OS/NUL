@@ -24,8 +24,9 @@
 #define WVPASSNE(a, b) WVFAILEQ(a, b)
 #define WVFAILNE(a, b) WVPASSEQ(a, b)
 
-class WvTest : public NovaProgram, public ProgramConsole
+class WvTest
 {
+protected:
   const char *file, *condstr;
   int line;
   unsigned tests_failed, tests_run;
@@ -112,14 +113,14 @@ protected:
     return nulerr == ENONE;
   }
 
-  void print_failed_cmp(const char *op, const char *a, const char *b)
+  static void print_failed_cmp(const char *op, const char *a, const char *b)
     { Logging::printf("wvtest comparison %s %s %s FAILED\n", a, op, b); }
 
-  void print_failed_cmp(const char *op, unsigned a, unsigned b)
+  static void print_failed_cmp(const char *op, unsigned a, unsigned b)
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
 		      a, a, op, b, b); }
 
-  void print_failed_cmp(const char *op, int a, int b)
+  static void print_failed_cmp(const char *op, int a, int b)
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
 		      a, a, op, b, b); }
 
@@ -141,8 +142,10 @@ protected:
       check(result);
       return result;
     }  
+};
 
-
+class WvProgram : public NovaProgram, public ProgramConsole, public WvTest
+{
 public:
 
   void test_init(Utcb *utcb, Hip *hip) {
