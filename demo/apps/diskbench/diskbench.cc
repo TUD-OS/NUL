@@ -21,10 +21,12 @@
 #include "sigma0/console.h"
 #include "sigma0/sigma0.h"
 #include "host/dma.h"
+#include "wvtest.h"
 
 char disk_buffer[4<<20];
 unsigned long blocksize = 512;
 unsigned outstanding=5;
+bool wvtest = false;
 PARAM_HANDLER(blocksize,
 	      "blocksize:value - override the default blocksize", "Example: 'blocksize:65536'")
 {
@@ -46,7 +48,9 @@ PARAM_HANDLER(outstanding,
   }
 }
 
-class App : public NovaProgram, ProgramConsole
+PARAM_HANDLER(wvtest) {wvtest = true;}
+
+class App : public NovaProgram, ProgramConsole, WvTest
 {
   enum {
     FREQ    = 1000,
@@ -58,7 +62,8 @@ class App : public NovaProgram, ProgramConsole
     DmaDescriptor dma;
     dma.byteoffset = 0;
     dma.bytecount  = blocksize;
-    MessageDisk msg1(MessageDisk::DISK_READ, 0, requests++, 0, 1, &dma, reinterpret_cast<unsigned long>(disk_buffer), sizeof(disk_buffer));
+    MessageDisk msg1(MessageDisk::DISK_READ, /*disknum*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma,
+		     reinterpret_cast<unsigned long>(disk_buffer), sizeof(disk_buffer));
     unsigned res;
     if ((res = Sigma0Base::disk(msg1)))
       Logging::panic("submit(%ld) failed: %x err %x\n", blocksize, res, msg1.error);
@@ -79,7 +84,7 @@ public:
     KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
     DiskConsumer *diskconsumer = new DiskConsumer();
     assert(diskconsumer);
-    Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm());
+    assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()));
 
     DiskParameter params;
     MessageDisk msg0(0, &params);
@@ -87,6 +92,7 @@ public:
     Logging::printf("DISK flags %x sectors %lld ssize %d maxreq %d name '%s'\n", params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
 
     unsigned  req_nr = requests_done;
+    unsigned print = 0;
     timevalue start = mb->clock()->clock(FREQ);
 
     // prefill the buffer
@@ -105,9 +111,15 @@ public:
 	// check for a timeout
 	timevalue now = mb->clock()->clock(FREQ);
 	if (now - start > TIMEOUT) {
-	  unsigned long long x = (requests_done-req_nr) * blocksize;
-	  Math::div64(x, now - start);
-	  Logging::printf("Speed: %lld kb/s Request: %d/s\n", x, (requests_done-req_nr)*FREQ/TIMEOUT);
+	  unsigned long long throughput = (requests_done-req_nr) * blocksize;
+	  Math::div64(throughput, now - start);
+	  unsigned request_rate = (requests_done-req_nr)*FREQ/TIMEOUT;
+	  Logging::printf("Speed: %lld kb/s Request: %d/s\n", throughput, request_rate);
+	  if (wvtest && ++print == 2) {
+	    WVPERF(throughput); 
+	    WVPERF(request_rate);
+	    block_forever();
+	  }
 	  req_nr = requests_done;
 	  start = now;
 	}
@@ -118,4 +130,4 @@ public:
   }
 };
 
-ASMFUNCS(App, NovaProgram)
+ASMFUNCS(App, WvTest)
