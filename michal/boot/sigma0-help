@@ -1,0 +1,4 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-display none -cpu coreduo
+bin/apps/sigma0.nul S0_DEFAULT hostserial help
