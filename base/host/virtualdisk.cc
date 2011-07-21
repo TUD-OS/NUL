@@ -87,7 +87,7 @@ public:
 };
 
 PARAM_HANDLER(vdisk,
-	      "vdisk:file - create a virtual disk from the given file"
+	      "vdisk:file - create a virtual disk from the given file",
 	      "Example: vdisk:rom://foo/bar creates a virtual disk from the module foo/bar")
 {
   char url[128];
