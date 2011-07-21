@@ -55,7 +55,13 @@ which binaries to load and their parameters. See below for the syntax.
 
     Generate the ISO image that boots NOVA system via Grub. If no
     filename is given, the image is stored under NAME.iso, where NAME
-    is the name of novaboot stript.
+    is the name of novaboot stript (see also --name).
+
+=item --name=<string>
+
+    Use the name <string> instread of the name of the novaboot script.
+    This name is used for things like a title of grub menu or for the
+    server directory where the boot files are copied to.
 
 =item -q, --qemu-flags=<flags>
 
@@ -213,6 +219,7 @@ GetOptions (
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "iso|i:s" 	     => \$iso_image,
+    "name=s"	     => \$config_name,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
