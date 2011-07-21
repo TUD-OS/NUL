@@ -24,6 +24,9 @@
 #define WVPASSNE(a, b) WVFAILEQ(a, b)
 #define WVFAILNE(a, b) WVPASSEQ(a, b)
 
+// Performance monitoring
+#define WVPERF(value)  ({ WvTest::start(__FILE__, __LINE__, "PERF: " #value);  WvTest::check_perf(value); })
+
 class WvTest
 {
 protected:
@@ -141,7 +144,21 @@ protected:
       if (!result) print_failed_cmp("<", a, b);
       check(result);
       return result;
-    }  
+    }
+
+  template <typename T>
+  T check_perf(T val)
+  {
+    char valstr[20];
+    stringify(valstr, sizeof(valstr), val);
+    print_result(true, valstr);
+    return val;
+  }
+private:
+  void stringify(char *buf, unsigned size, unsigned long long val) {Vprintf::snprintf(buf, size, "%llu", val);}
+  void stringify(char *buf, unsigned size, unsigned val)      	   {Vprintf::snprintf(buf, size, "%u", val);}
+  void stringify(char *buf, unsigned size, int val)      	   {Vprintf::snprintf(buf, size, "%d", val);}
+
 };
 
 class WvProgram : public NovaProgram, public ProgramConsole, public WvTest
