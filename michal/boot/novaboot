@@ -313,6 +313,7 @@ sub generate_grub_config($$$;$)
 	    $kcmd = '' if !defined $kcmd;
 	    print $fg "kernel ${base}$kbin $kcmd\n";
 	} else {
+	    s|rom://([^ ]*)|rom://$base$1|; # Translate rom:// files - needed for vdisk parameter of sigma0
 	    print $fg "module $base$_\n";
 	}
     }
