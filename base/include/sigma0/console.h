@@ -62,7 +62,7 @@ class ProgramConsole
     unsigned short *screen_address;
     unsigned index;
     MultiEntranceLock lock;
-    char buffer[100];
+    char buffer[200];
     LogProtocol *log;
   };
 
