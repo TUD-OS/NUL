@@ -40,4 +40,4 @@ public:
   }
 };
 
-ASMFUNCS(Test, Test)
+ASMFUNCS(Test, WvTest)

@@ -32,6 +32,7 @@
 #include <service/math.h>
 
 #include <host/keyboard.h>
+#include <wvtest.h>
 
 class EchoService : public NovaProgram, public ProgramConsole
 {
@@ -208,5 +209,5 @@ public:
   }
 };
 
-ASMFUNCS(EchoService, NovaProgram)
+ASMFUNCS(EchoService, WvTest)
 

@@ -178,6 +178,16 @@ private:
   void stringify(char *buf, unsigned size, unsigned val)      	   {Vprintf::snprintf(buf, size, "%u", val);}
   void stringify(char *buf, unsigned size, int val)      	   {Vprintf::snprintf(buf, size, "%d", val);}
 
+public:
+  /**
+   * Custom exit function. Reports exit as a failure because it is
+   * typically called via assert() or panic().
+   */
+  static void exit(const char *msg)
+  {
+    if (msg)
+      Logging::printf("! %s() - %s FAILED\n", __func__, msg);
+  }
 };
 
 class WvProgram : public NovaProgram, public ProgramConsole, public WvTest
@@ -211,7 +221,7 @@ public:
     test_init(utcb, hip);
     wvrun(utcb, hip);
     test_done();
-    do_exit("run returned");
+    do_exit(0);
   }
 };
 

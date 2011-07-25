@@ -32,4 +32,4 @@ public:
   }
 };
 
-ASMFUNCS(EchoTest, NovaProgram)
+ASMFUNCS(EchoTest, WvTest)
