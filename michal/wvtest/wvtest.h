@@ -181,7 +181,8 @@ private:
 public:
   /**
    * Custom exit function. Reports exit as a failure because it is
-   * typically called via assert() or panic().
+   * typically called via assert() or panic(). Use this as
+   * ASMFUNCS(..., WvTest).
    */
   static void exit(const char *msg)
   {

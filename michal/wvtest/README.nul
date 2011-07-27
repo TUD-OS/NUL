@@ -2,12 +2,16 @@
 
 * Test writing HOWTO
 
-- Inherit you test class from =WvTest= (included from wvtest.h) and
-  implement the =run= method.
+- Inherit you test class from =WvProgram= (included from wvtest.h) and
+  implement the =wvrun= method. You can also inherit only from
+  =WvTest= if you want to setup console and other staff by yourself.
 - Annotate all checks with macros like WVPASS(), WVFAIL(), etc.
+- Use =WvTest= as the second parameter to =ASMFUNCS(YouClass, WvTest)=
+  in order to emit WvTest compatible failure messages for failed
+  assertions and for =Logging::panic= calls.
 - Write novaboot configuration file and name it as *.wv (e.g.
   example.wv).
-- Test it under quemu by simply running the file.
+- Test it under qemu by simply running the file.
 - To run all tests in the tree run =michal/wvtest/runall=.
 
 * Boot configurations
@@ -28,13 +32,6 @@ that.
 Tracebuffer prefixes the output going from the applications with the
 number of the console. Therefor we allow each WvTest line to be
 prefixed with console number in parentheses and followed by a space.
-
-There is an additional line printed at the end of the text:
-
-    Finished testing in %s.
-
-This line signals the =wvnulrun= script, that it is OK to reboot the
-machine.
 
 * ORG settings							   :noexport:
 #+STARTUP: showall hidestars
