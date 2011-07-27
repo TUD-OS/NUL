@@ -108,7 +108,7 @@ private:
          portal = sdata->pt;
          return ENONE;
        }
-    Logging::printf("s0: we have no service portal for '%10s...' yet - retry later\n", cdata->name);
+    //Logging::printf("s0: we have no service portal for '%10s...' yet - retry later\n", cdata->name);
     // we do not have a server portal yet, thus tell the client to retry later
     return ERETRY;
   }

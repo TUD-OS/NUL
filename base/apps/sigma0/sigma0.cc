@@ -707,7 +707,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		   bool shared   = (utcb->msg[1] >> 8) & 1;
 		   bool locked   = !(utcb->msg[1] & 0x200);
 		   unsigned cap_irq = utcb->msg[0];
-		   Logging::printf("s0: %s(%x) vec %x %s\n", __func__, cap_irq,  gsi, locked ? "locked" : "unlocked");
+		   //Logging::printf("s0: %s(%x) vec %x %s\n", __func__, cap_irq,  gsi, locked ? "locked" : "unlocked");
 		   MessageIrq msg(shared ? MessageIrq::ASSERT_NOTIFY : MessageIrq::ASSERT_IRQ, gsi);
 		   while (!(res = nova_semdownmulti(cap_irq))) {
 		     COUNTER_INC("GSI");
