@@ -29,9 +29,9 @@ struct Tutor : public NovaProgram,
 {
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
-    console_init("TUT", new Semaphore(alloc_cap(), true));
-
     init(hip);
+    init_mem(hip);
+    console_init("TUT", new Semaphore(alloc_cap(), true));
 
     // Get keyboard
     Logging::printf("Getting keyboard\n");
