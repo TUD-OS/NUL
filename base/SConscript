@@ -82,6 +82,9 @@ target_env['ASFLAGS'] = "-m32 -pipe -g"
 target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections", "-N", "--whole-archive", "--warn-common"]
 
+if ARGUMENTS.get('MAP'):
+    target_env.Append(LINKFLAGS = ['-Map=${TARGET}.map'])
+
 target_env['CPPPATH'] = [chomp(collect_output([target_env['CXX'], "-print-file-name=include"])),
                          "#include"]
 
