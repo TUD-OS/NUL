@@ -44,3 +44,41 @@
 #undef  REG_RO
 #undef  DEFINE_REG
 #undef REGBASE
+
+/**
+ * \def REG_RO(NAME, OFFSET, VALUE)
+ *
+ * Defines a read-only register.
+ */
+
+/**
+ * \def REG_RW(NAME, OFFSET, VALUE, MASK, WRITE_CALLBACK)
+ *
+ * Defines a read/write register.
+ *
+ * \param NAME Name of the register
+ * \param OFFSET Offset of the register
+ * \param VALUE Reset value of the register.
+ * \param MASK Defines which bits of the register are writable - the corresponding bit is set to 1
+ * \param WRITE_CALLBACK Code that is executed whenever the register gets a new value.
+ */
+
+/**
+ * \def REG_WR(NAME, OFFSET, VALUE, MASK, RW1S, RW1C, WRITE_CALLBACK)
+ *
+ * Defines a read/write register with set/clear bits.
+ *
+ * \param NAME Name of the register
+ * \param OFFSET Offset of the register
+ * \param VALUE Reset value of the register.
+ * \param MASK Defines which bits of the register are writable - the corresponding bit is set to 1
+ * \param RW1S Defines which bits of the register are set when 1 is written to the bit. Writing 0 to that bit does nothing.
+ * \param RW1C Defines which bits of the register are cleared when 1 is written to the bit. Writing 0 to that bit does nothing.
+ * \param WRITE_CALLBACK Code that is executed whenever the register gets a new value.
+ */
+
+/**
+ * \def REGSET(NAME, ...)
+ *
+ * Defines a set of registers.
+ */
