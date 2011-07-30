@@ -604,6 +604,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   /**
    * Assign a PCI device to a PD. It makes sure only the first will
    * get it.
+   * \param bdf Bus/Device/Function
    */
   bool assign_pci_device(unsigned pd_cap, unsigned bdf, unsigned hint)
   {
