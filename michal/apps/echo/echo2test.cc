@@ -17,7 +17,7 @@
  * General Public License version 2 for more details.
  */
 
-#include <wvtest.h>
+#include <wvprogram.h>
 #include "service_echo.h"
 
 class EchoTest : public WvProgram

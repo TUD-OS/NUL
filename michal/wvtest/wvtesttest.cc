@@ -18,7 +18,7 @@
  */
 
 // TODO: Add nul/ below
-#include <wvtest.h>
+#include <wvprogram.h>
 
 class Test : public WvProgram
 {
