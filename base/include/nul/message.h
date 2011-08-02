@@ -118,7 +118,7 @@ struct MessagePciConfig
   enum Type {
     TYPE_READ,
     TYPE_WRITE,
-    TYPE_PTR,
+    TYPE_PTR, ///< Return pointer to memory mapped PCI configuration space register
   } type;
   unsigned  bdf;
   unsigned  dword;
