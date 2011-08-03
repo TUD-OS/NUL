@@ -57,8 +57,10 @@ struct Script : public StaticReceiver<Script> {
     while (1) {
       _worker.down();
 
+      bool work_done = false;
       while (_head) {
-        Logging::printf("sc: << run script: >>\n");
+        work_done = true;
+
         ScriptItem * tmp = _head;
         ScriptItem item = *tmp;
         delete tmp;
@@ -66,7 +68,7 @@ struct Script : public StaticReceiver<Script> {
 
         if (item.type == ScriptItem::TYPE_WAIT) {
           TimerProtocol::MessageTimer msg1(_clock->abstime(item.param0, 1000));
-          Logging::printf("sc: wait %ld abs %llx now %llx\n", item.param0,msg1.abstime, _clock->time());
+          Logging::printf("sc: wait %ldms\n", item.param0);
           if (_service_timer->timer(utcb, msg1))
             Logging::printf("sc: setting timeout failed\n");
           break;
@@ -93,10 +95,9 @@ struct Script : public StaticReceiver<Script> {
           } else
           assert(0);
       }
-      if (_head)
-        Logging::printf("sc: waiting ...\n");
-      else
-        Logging::printf("sc: done.\n");
+
+      if (work_done)
+        Logging::printf("sc: %s.\n", _head ? "waiting.." : "done");
     }
   }
 
