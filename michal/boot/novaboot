@@ -298,7 +298,7 @@ my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 
 $CFG::server_grub_prefix =~ s/\$NAME/$config_name/;
 $CFG::server 		 =~ s/\$NAME/$config_name/;
-$CFG::grub_keys 	 =~ s/\$NAME/$config_name/;
+$CFG::grub_keys 	 =~ s/\$NAME/$config_name;/;
 
 chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
 print "novaboot: Entering directory `$CFG::builddir'\n";
@@ -323,7 +323,8 @@ sub generate_grub_config($$$;$)
     if ($base) { $base = "$base/"; };
     open(my $fg, '>', $filename) or die "$filename: $!";
     print $fg "$prepend\n" if $prepend;
-    print $fg "title $config_name\n";
+    my $endmark = $serial ? ';' : '';
+    print $fg "title $config_name$endmark\n";
     my $first = 1;
     foreach (@$modules_ref) {
 	if ($first) {
