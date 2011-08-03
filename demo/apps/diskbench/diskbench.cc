@@ -84,7 +84,7 @@ public:
     KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
     DiskConsumer *diskconsumer = new DiskConsumer();
     assert(diskconsumer);
-    assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()));
+    assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()) == 0);
 
     DiskParameter params;
     MessageDisk msg0(0, &params);
