@@ -1,0 +1,14 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+nul.App(target_env, 'bridge',
+        SOURCES = [ 'bridge.cc',
+                    ],
+        INCLUDE = [ 'sigma0' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<20)
+
+# EOF
