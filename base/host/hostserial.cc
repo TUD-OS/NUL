@@ -108,14 +108,19 @@ PARAM_HANDLER(hostserial,
 	      "The output is received from hostdevnr+1.")
 {
   unsigned iobase = argv[1];
-
+  
   if (iobase == ~0u) {
-
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0x400, 0x1000);
     if (mb.bus_hostop.send(msg) && msg.ptr)
       iobase = *reinterpret_cast<unsigned short *>(msg.ptr);
-    Logging::printf("HostSerial %x %p\n", iobase, msg.ptr);
+
+    if (iobase == 0) {
+      Logging::printf("Couldn't find ports for serial controller.\n");
+      return;
+    } else
+      Logging::printf("Serial ports found at 0x%x\n", iobase);
   }
+
   MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (iobase << 8) |  3);
   if (!mb.bus_hostop.send(msg1))
     Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
