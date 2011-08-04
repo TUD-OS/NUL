@@ -20,7 +20,9 @@
 
 #include <util/capalloc_partition.h>
 
-#define CONST_CAP_RANGE 16U
+enum {
+  CONST_CAP_RANGE = 16U,
+};
 
 #include "server.h"
 
