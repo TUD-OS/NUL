@@ -165,6 +165,7 @@ sub generate_grub_config($$$;$)
     print $fg "$prepend\n" if $prepend;
     my $endmark = ($serial || defined $iprelay) ? ';' : '';
     print $fg "title $config_name$endmark\n";
+    #print $fg "root $base\n"; # root doesn't really work for (nd)
     my $first = 1;
     foreach (@$modules_ref) {
 	if ($first) {
