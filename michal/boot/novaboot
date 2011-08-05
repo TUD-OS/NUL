@@ -263,7 +263,7 @@ if ($variables->{WVDESC}) {
 
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
     # Qemu
-    $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
+    $qemu_flags = $variables->{QEMU_FLAGS} if $variables->{QEMU_FLAGS};
     $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
 
     if (defined $iso_image) {
