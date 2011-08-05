@@ -255,8 +255,8 @@ if (scalar(@scripts) > 1 && ( defined $dhcp_tftp || defined $serial || defined $
     die "You cannot do this with multiple scripts simultaneously";
 }
 
-if ($variables{WVDESC}) {
-    print "Testing \"$variables{WVDESC}\" in $filename:\n";
+if ($variables->{WVDESC}) {
+    print "Testing \"$variables->{WVDESC}\" in $filename:\n";
 } elsif ($filename =~ /\.wv$/) {
     print "Testing \"all\" in $filename:\n";
 }
