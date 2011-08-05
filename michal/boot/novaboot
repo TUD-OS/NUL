@@ -388,13 +388,48 @@ novaboot - NOVA boot script interpreter
 
 B<novaboot> [--help] [--append=...] [--bender] [--config=<file>]
 [--dhcp-tftp] [--dump-config] [--grub] [--iprelay] [--iso]
-[--qemu-flags=<flags>] [--serial] [--server]
+[--qemu-flags=<flags>] [--serial] [--server] [--] script...
 
 =head1 DESCRIPTION
 
 This program boots the NOVA system either in qemu or on a real
 hardware. Its operation is controlled by a script which determines
 which binaries to load and their parameters. See below for the syntax.
+
+If it is possible, the program also redirects the serial output of the
+booted system to stdout.
+
+Besides that, this program can also create bootable ISO images based
+on one or more scripts.
+
+Typical use cases are:
+
+=over 8
+
+=item ./script
+
+Boots NOVA system described in I<script> (which is made executable and
+starts with #!/usr/bin/env novaboot) in B<qemu>.
+
+=item ./script --server --iprelay
+
+Copy files to a PXE server and uses TCP/IP-controlled relay to reset
+the test machine and receive its serial output.
+
+=item sudo ./script --dhcp-tftp
+
+Starts local DHCP and TFTP server to boot the configuration described
+in I<script>. The test machine is supposed to be connected via direct
+Ethernet connection to the local machine.
+
+=item novaboot script1 script2 --iso
+
+Creates bootable ISO image with configurations I<script1> and
+I<script2> in GRUB's menu.
+
+=back
+
+=head1 OPTIONS
 
 =over 8
 
@@ -443,11 +478,11 @@ Note: This option is expected to work with HWG-ER02a IP relays.
 
 Generate the ISO image that boots NOVA system via Grub. If no
 filename is given, the image is stored under NAME.iso, where NAME
-is the name of novaboot stript (see also --name).
+is the name of novaboot script (see also --name).
 
 =item --name=<string>
 
-Use the name <string> instread of the name of the novaboot script.
+Use the name <string> instead of the name of the novaboot script.
 This name is used for things like a title of grub menu or for the
 server directory where the boot files are copied to.
 
