@@ -9,7 +9,6 @@ use Socket;
 use FileHandle;
 use IPC::Open2;
 
-
 # Get configuration
 $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
@@ -42,14 +41,6 @@ my $cfg = $ENV{'NOVABOOT_CONFIG'};
 if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
 if (-s $cfg) { read_config($cfg); }
 
-(my $config_name = $ARGV[0] || "Unknown") =~ s#.*/##;
-my %configs;
-my %variables;
-my @modules = ();
-my $file;
-my $line;
-my $EOF;
-
 # Command line
 my ($append, $bender, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $man, $qemu_flags_cmd, $serial, $server);
 
@@ -62,7 +53,7 @@ GetOptions (
     "grub|g:s" 	     => \$grub_config,
     "iprelay"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
-    "name=s"	     => \$config_name,
+    "name=s"	     => \$config_name_opt,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
@@ -71,6 +62,8 @@ GetOptions (
     ) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
+
+if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
 
 if ($server) { $CFG::server = $server; }
 
@@ -95,20 +88,33 @@ if (defined $grub_config) {
     $grub_config ||= "menu.lst";
 }
 
-my $filename=$ARGV[0];
-
-# Parse the config
+# Parse the config(s)
+my @scripts;
+my $file;
+my $line;
+my $EOF;
+my $last_fn = '';
 while (<>) {
+    if ($ARGV ne $last_fn) { # New script
+	die "Missing EOF in $last_fn" if $file;
+	die "Unfinished line in $last_fn" if $line;
+	$last_fn = $ARGV;
+	push @scripts, { 'filename' => $ARGV,
+			 'modules' => $modules = [],
+			 'variables' => $variables = {},
+			 'configs' => $configs = {}};
+
+    }
     chomp();
     next if /^#/ || /^\s*$/;	# Skip comments and empty lines
     if (/^([A-Z_]+)=(.*)$/) {	# Internal variable
-	$variables{$1} = $2;
+	$$variables{$1} = $2;
 	next;
     }
     if (/^([^ ]*)(.*)<<([^ ]*)$/) { # Heredoc start
-	push @modules, "$1$2";
+	push @$modules, "$1$2";
 	$file = [];
-	$configs{$1} = $file;
+	$$configs{$1} = $file;
 	$EOF = $3;
 	next;
     }
@@ -126,25 +132,12 @@ while (<>) {
     }
 
     $line .= $_;
-    $line .= " $append" if ($append && scalar(@modules) == 0);
-    push @modules, $line;
+    $line .= " $append" if ($append && scalar(@$modules) == 0);
+    push @$modules, $line;
     $line = '';
 }
-
-@modules = ($CFG::hypervisor . " serial spinner", @modules);
-@modules = ("bin/boot/bender", @modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
-
-my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
-
-$CFG::server_grub_prefix =~ s/\$NAME/$config_name/;
-$CFG::server 		 =~ s/\$NAME/$config_name/;
-$CFG::grub_keys 	 =~ s/\$NAME/$config_name;/;
-
-chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
-print "novaboot: Entering directory `$CFG::builddir'\n";
-
-# always flush
-$| = 1;
+#use Data::Dumper;
+#print Dumper(\@scripts);
 
 sub generate_configs($$) {
     my ($base, $configs) = @_;
@@ -157,14 +150,14 @@ sub generate_configs($$) {
     }
 }
 
-sub generate_grub_config($$$;$)
+sub generate_grub_config($$$$;$)
 {
-    my ($filename, $base, $modules_ref, $prepend) = @_;
+    my ($filename, $title, $base, $modules_ref, $prepend) = @_;
     if ($base) { $base = "$base/"; };
     open(my $fg, '>', $filename) or die "$filename: $!";
     print $fg "$prepend\n" if $prepend;
     my $endmark = ($serial || defined $iprelay) ? ';' : '';
-    print $fg "title $config_name$endmark\n";
+    print $fg "title $title$endmark\n" if $title;
     #print $fg "root $base\n"; # root doesn't really work for (nd)
     my $first = 1;
     foreach (@$modules_ref) {
@@ -178,34 +171,8 @@ sub generate_grub_config($$$;$)
 	    print $fg "module $base$_\n";
 	}
     }
+    close($fg);
 }
-
-if ($variables{WVDESC}) {
-    print "Testing \"$variables{WVDESC}\" in $filename:\n";
-} elsif ($filename =~ /\.wv$/) {
-    print "Testing \"all\" in $filename:\n";
-}
-
-if (defined $grub_config) {
-    generate_configs("", \%configs);
-    generate_grub_config($grub_config, "", \@modules);
-    print("GRUB menu created: $CFG::builddir/$grub_config\n");
-    exit;
-}
-
-my $run_qemu = 1;
-if (defined $server) {
-    $run_qemu = 0;
-    generate_configs($CFG::server_grub_prefix, \%configs);
-    $grub_config ||= "menu.lst";
-    generate_grub_config($grub_config, $CFG::server_grub_prefix, \@modules);
-    my ($hostname, $path) = split(":", $CFG::server, 2);
-    my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @modules));
-    system("set -x; tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-	   ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : ""));
-}
-
-my ($dhcpd_pid, $tftpd_pid);
 
 sub exec_verbose($)
 {
@@ -214,13 +181,131 @@ sub exec_verbose($)
     exec($cmd);
 }
 
+sub system_verbose($)
+{
+    my $cmd = shift;
+    print "Running: $cmd\n";
+    system($cmd);
+}
+
+
+chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
+print "novaboot: Entering directory `$CFG::builddir'\n";
+
+foreach $script (@scripts) {
+    $filename = $$script{filename};
+    $modules = $$script{modules};
+    $configs = $$script{configs};
+    $variables = $$script{variables};
+    
+    if (defined $config_name_opt) {
+	$config_name = $config_name_opt;
+    } else {
+	($config_name = $filename) =~ s#.*/##;
+    }
+
+    @$modules = ($CFG::hypervisor . " serial spinner", @$modules);
+    @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
+
+    if (defined $grub_config) {
+	generate_configs("", $configs);
+	generate_grub_config($grub_config, $config_name, "", $modules);
+	print("GRUB menu created: $CFG::builddir/$grub_config\n");
+	exit;
+    }
+
+    if (defined $server) {
+	($server_grub_prefix = $CFG::server_grub_prefix) =~ s/\$NAME/$config_name/;
+	($server = $CFG::server)			 =~ s/\$NAME/$config_name/;
+	generate_configs($server_grub_prefix, $configs);
+	my $grub_config ||= "menu.lst";
+	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules);
+	my ($hostname, $path) = split(":", $server, 2);
+	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
+	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
+	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
+		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : ""));
+    }
+    
+    if (defined $iso_image) {
+	generate_configs("(cd)", $configs);
+	my $menu;
+	generate_grub_config(\$menu, $config_name, "(cd)", $modules);
+	$menu_iso .= "$menu\n";
+	map { ($file,undef) = split; $files_iso{$file} = 1; } @$modules;
+    }
+}
+
+if (defined $iso_image) {
+    open(my $fh, ">menu-iso.lst");
+    print $fh "timeout 5\n\n$menu_iso";
+    close($fh);
+    my $files = "boot/grub/menu.lst=menu-iso.lst " . join(" ", map("$_=$_", keys(%files_iso)));
+    $iso_image ||= "$config_name.iso";
+    my $ret = system_verbose("$CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
+    if ($ret >> 8) { die("The above command failed!"); }
+    print("ISO image created: $CFG::builddir/$iso_image\n");
+}
+
+######################################################################
+# Boot NOVA using various methods and send serial output to stdout
+######################################################################
+
+if (scalar(@scripts) > 1 && ( defined $dhcp_tftp || defined $serial || defined $iprelay)) {
+    die "You cannot do this with multiple scripts simultaneously";
+}
+
+if ($variables{WVDESC}) {
+    print "Testing \"$variables{WVDESC}\" in $filename:\n";
+} elsif ($filename =~ /\.wv$/) {
+    print "Testing \"all\" in $filename:\n";
+}
+
+if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
+    # Qemu
+    $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
+    $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
+
+    if (defined $iso_image) {
+	# Boot NOVA with grub (and test the iso image)
+	$qemu_flags .= " -cdrom $config_name.iso";
+    } else {
+	# Boot NOVA without GRUB
+
+	# Non-patched qemu doesn't like commas, but NUL can live with pluses instead of commans
+	foreach (@$modules) {s/,/+/g;}
+	generate_configs("", $configs);
+
+	my ($kbin, $kcmd) = split(' ', shift(@$modules), 2);
+	$kcmd = '' if !defined $kcmd;
+	my $initrd = join ",", @$modules;
+
+	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
+    }
+    if (!$ENV{'WVTESTRUN'}) {
+	$qemu_flags .= " -serial stdio"
+    } else {
+	# We must use pipe and cat to get qemu's serial output to
+	# stdout. Qemu's stdio backend cannot be used here as it
+	# accesses terminal which is not allowed when we are executing
+	# under wvtestrun because we are not the controlling process
+	# of the terminal.
+	use POSIX qw(mkfifo);
+	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
+	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
+	system("cat tmppipe.out &");
+	$qemu_flags .= " -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
+}
+    exec_verbose("qemu -name '$config_name' $qemu_flags");
+}
+
+my ($dhcpd_pid, $tftpd_pid);
+
 if (defined $dhcp_tftp)
 {
-    $run_qemu = 0;
-
-    generate_configs("(nd)", \%configs);
+    generate_configs("(nd)", $configs);
     system('mkdir -p tftpboot');
-    generate_grub_config("tftpboot/os-menu.lst", "(nd)", \@modules, "timeout 0");
+    generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
     print $fh 'subnet 10.23.23.0 netmask 255.255.255.0 {
 		      range 10.23.23.10 10.23.23.10;
@@ -260,18 +345,19 @@ if ($serial || defined $iprelay) {
 	connect(CONN, $paddr)    || die "connect: $!";
 	CONN->autoflush(1);
 	print CONN relaycmd(2, 1); # Reset the machine
-	usleep(100000);
+	usleep(200000);
 	print CONN relaycmd(2, 0);
     } elsif ($serial) {
-	system("stty -F $serial raw -crtscts 115200");
+	system("stty -F $serial raw -crtscts -onlcr 115200");
 	open(CONN, "+<", $serial) || die "open $serial: $!";
 	CONN->autoflush(1);
     }
     if (!defined $dhcp_tftp) {
-	# Control grub via the serial line
+	# Control grub via serial line
 	while (<CONN>) {
 	    if (/Press any key to continue/) { print CONN "\n"; last; }
 	}
+	$CFG::grub_keys =~ s/\$NAME/$config_name;/;
 	my @characters = split(//, $CFG::grub_keys);
 	foreach (@characters) {
 	    print CONN $_;
@@ -287,60 +373,11 @@ if ($serial || defined $iprelay) {
     exit;
 }
 
-if (defined $iso_image) {
-	generate_configs("(cd)", \%configs);
-	$grub_config ||= "menu.lst";
-	generate_grub_config($grub_config, "(cd)", \@modules, "timeout 1");
-
-	my $files = "boot/grub/menu.lst=$grub_config " . join(" ", map({ ($path,undef,$file) = m|(([^ ]*)/)?([^ ]*)|; $path ||= ''; "$path$file=$path$file"; } @modules));
-	$iso_image ||= "$config_name.iso";
-	my $ret = system("set -x; $CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
-	if ($ret >> 8) { die("The above command failed!"); }
-	print("ISO image created: $CFG::builddir/$iso_image\n");
-}
-
 if (defined $dhcp_tftp) {
     my $pid = wait();
     if ($pid == $dhcpd_pid) { print "dhcpd exited!\n"; }
     elsif ($pid == $tftpd_pid) { print "tftpd exited!\n"; }
     else { print "wait returned: $pid\n"; }
-}
-
-if ($run_qemu) {
-    $qemu_flags = $variables{QEMU_FLAGS} if $variables{QEMU_FLAGS};
-    $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
-
-    if (defined $iso_image) {
-	# Boot NOVA with grub (and test the iso image)
-	$qemu_flags .= " -cdrom $config_name.iso";
-    } else {
-	# Boot NOVA without GRUB
-
-	# Non-patched qemu doesn't like commas, but NUL can live with pluses instead of commans
-	foreach (@modules) {s/,/+/g;}
-	generate_configs("", \%configs);
-
-	my ($kbin, $kcmd) = split(' ', shift(@modules), 2);
-	$kcmd = '' if !defined $kcmd;
-	my $initrd = join ",", @modules;
-
-	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
-    }
-    if (!$ENV{'WVTESTRUN'}) {
-	$qemu_flags .= " -serial stdio"
-    } else {
-	# We must use pipe and cat to get qemu's serial output to
-	# stdout. Qemu's stdio backend cannot be used here as it
-	# accesses terminal which is not allowed when we are executing
-	# under wvtestrun because we are not the controlling process
-	# of the terminal.
-	use POSIX qw(mkfifo);
-	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
-	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
-	system("cat tmppipe.out &");
-	$qemu_flags .= " -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
-    }
-    exec_verbose("qemu -name '$config_name' $qemu_flags");
 }
 
 =head1 NAME
