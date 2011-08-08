@@ -30,6 +30,7 @@ struct ScriptItem {
     TYPE_WAIT,
     TYPE_START,
     TYPE_REBOOT,
+    TYPE_WAITCHILD,
   } type;
   ScriptItem *next;
   unsigned long param0;
@@ -46,6 +47,7 @@ struct ScriptItem {
 struct Script : public StaticReceiver<Script> {
   TimerProtocol       *_service_timer;
   DBus<MessageConsole>&_bus_console;
+  DBus<MessageHostOp> &_bus_hostop;
   Clock               *_clock;
   KernelSemaphore      _worker;
   ScriptItem          *_head;
@@ -58,6 +60,7 @@ struct Script : public StaticReceiver<Script> {
       _worker.down();
 
       bool work_done = false;
+      unsigned last_child_id = ~0U;
       while (_head) {
         work_done = true;
 
@@ -83,6 +86,7 @@ struct Script : public StaticReceiver<Script> {
                 cont = (nr != item.param0);
                 break;
               }
+	      last_child_id = msg2.id;
             }
           }
           if (cont) continue;
@@ -92,7 +96,14 @@ struct Script : public StaticReceiver<Script> {
             Logging::printf("sc: reboot\n");
             MessageConsole m(MessageConsole::TYPE_RESET);
             _bus_console.send(m);
-          } else
+          } else if (item.type == ScriptItem::TYPE_WAITCHILD) {
+	    if (last_child_id != ~0U) {
+	      Logging::printf("sc: wait for child %d\n", last_child_id);
+	      MessageHostOp m(MessageHostOp::OP_WAIT_CHILD, last_child_id);
+	      _bus_hostop.send(m);
+	    } else
+	      Logging::printf("sc: error: Nobody to wait for! %d\n", last_child_id);
+	  } else
           assert(0);
       }
 
@@ -122,7 +133,7 @@ struct Script : public StaticReceiver<Script> {
   }
 
   Script(DBus<MessageConsole> &bus_console, Clock *clock, Motherboard * mb)
-    : _bus_console(bus_console), _clock(clock)
+    : _bus_console(bus_console), _bus_hostop(mb->bus_hostop), _clock(clock)
   {
 
     // alloc a timer
@@ -138,7 +149,7 @@ struct Script : public StaticReceiver<Script> {
     // create the worker thread
     MessageHostOp msg = MessageHostOp::alloc_service_thread(Script::do_work,
                                                             this, "scripting", 1UL);
-    if (!mb->bus_hostop.send(msg))
+    if (!_bus_hostop.send(msg))
       Logging::panic("sc: %s alloc service thread failed", __func__);
   }
 };
@@ -164,6 +175,13 @@ PARAM_HANDLER(script_start,
 {
   check0(_script == 0);
   _script->add(new ScriptItem(ScriptItem::TYPE_START, ~argv[0] ? argv[0] - 1 : 0, ~argv[1] ? argv[1] : 1, ~argv[2] ? argv[2] : 1));
+}
+
+PARAM_HANDLER(script_waitchild,
+	      "script_waitchild - wait for event from the last started child")
+{
+  check0(_script == 0);
+  _script->add(new ScriptItem(ScriptItem::TYPE_WAITCHILD, 0, 0, 0));
 }
 
 PARAM_HANDLER(script_reboot,

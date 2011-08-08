@@ -9,9 +9,11 @@
 #define __WVTEST_H
 
 #include <nul/error.h>
+#include <nul/parent.h>
 #include <service/vprintf.h>
 #include <service/string.h>
 #include <service/logging.h>
+#include <nul/baseprogram.h>
 
 // Whether to print info before execution of the test. Zero means
 // print info after execution together with results.
@@ -190,6 +192,9 @@ public:
   {
     if (msg)
       Logging::printf("! %s() - %s FAILED\n", __func__, msg);
+
+    // Signal an event to parent
+    ParentProtocol::signal(*BaseProgram::myutcb(), 0);
   }
 };
 

@@ -374,6 +374,13 @@ public:
         }
         return ENONE;
       }
+    case ParentProtocol::TYPE_SIGNAL:
+      {
+        unsigned value;
+        if (input.get_word(value)) return EPROTO;
+	/* The child cannot call semup, because it has insufficient permissions. */
+	return nova_semup(input.identity());
+      }
     default:
       return EPROTO;
     }

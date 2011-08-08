@@ -48,6 +48,7 @@ struct ParentProtocol {
     TYPE_GET_QUOTA,
     TYPE_SINGLETON,
     TYPE_REQ_KILL,
+    TYPE_SIGNAL,
   };
 
   /** Capabilities used by parent to construct child */
@@ -57,7 +58,7 @@ struct ParentProtocol {
     CAP_SC_USAGE  = 253, //SM capability to get access to child utilization information provided by admission service
                          // Temporary capability - If this cap is rebound this index becomes invalid.
     CAP_CHILD_EC  = 254, //EC capability of first child thread
-    CAP_PARENT_ID = 255, //Portal capability of parent passed to child
+    CAP_PARENT_ID = 255, //Semaphore capability used by parent to identify children. Also used by child to signal events to parents (ParentProtocol::signal()).
     CAP_PT_PERCPU = 256, //Portal capabilities (according to number of CPUs) passed by parent to child
   };
 
@@ -162,6 +163,14 @@ struct ParentProtocol {
     return call(utcb, service_cap ? service_cap : 0U + CAP_PT_PERCPU, true, !service_cap);
   }
 
+  /**
+   * Signals an (arbitrary) event to the parent.
+   * @param value Identifies the event.
+   */
+  static unsigned signal(Utcb &utcb, unsigned value) {
+    init_frame(utcb, TYPE_SIGNAL, CAP_PARENT_ID) << value;
+    return call(utcb, CAP_PT_PERCPU, true);
+  }
 };
 
 
