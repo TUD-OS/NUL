@@ -39,9 +39,9 @@ struct ParentProtocol {
     TYPE_INVALID = 0, ///< used as error indicator
     TYPE_OPEN, 	      ///< Get pseudonym (when sent to the parent) or open session (when sent to a service)
     TYPE_CLOSE,
-    TYPE_GENERIC_END,
+    TYPE_GENERIC_END, ///< Marks the end of generic operations - service specific operations can start here.
 
-    // service specific operations
+    // Parent specific operations
     TYPE_GET_PORTAL,
     TYPE_REGISTER,
     TYPE_UNREGISTER,
