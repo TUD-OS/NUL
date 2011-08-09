@@ -159,9 +159,8 @@ public:
       const char * service_name = "/echo";
       unsigned res;
       unsigned exc_base_worker, pt_worker;
-      unsigned exc_base_pagefault;
       unsigned service_cap = alloc_cap();
-      Utcb *utcb_worker, *utcb_pagefault;
+      Utcb *utcb_worker;
 
       // Create worker threads and portals for each CPU
       for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
@@ -169,19 +168,15 @@ public:
         if (~cpu->flags & 1) continue; // Skip disabled CPUs
 
         exc_base_worker    = alloc_cap(16);
-        exc_base_pagefault = alloc_cap(16);
 
-        if (!exc_base_worker || !exc_base_pagefault) return false;
+        if (!exc_base_worker) return false;
         pt_worker    = alloc_cap();
 
         unsigned cap_worker_ec = create_ec_helper(this, cpunr, exc_base_worker, &utcb_worker, 0, alloc_cap());
         if (!cap_worker_ec) return false;
-        unsigned cap_pagefault_ec = create_ec_helper(this, cpunr, exc_base_pagefault, &utcb_pagefault, 0, alloc_cap());
-        if (!cap_pagefault_ec) return false;
 
         utcb_worker->head.crd = alloc_crd();
         utcb_worker->head.crd_translate = Crd(0, 31, DESC_CAP_ALL).value();
-        utcb_pagefault->head.crd = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EchoService>::portal_func);
         res = nova_create_pt(pt_worker, cap_worker_ec, portal_func, 0);
