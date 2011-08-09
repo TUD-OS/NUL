@@ -136,9 +136,9 @@ PARAM_HANDLER(hostserialpci,
 
     unsigned irqline = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 
-    Logging::printf("PCI serial controller #%x %x id %x mmio %x\n", num, bdf, pci.conf_read(bdf, 0), pci.conf_read(bdf, 4));
+    Logging::printf("PCI serial controller #%x %x id %x mmio %x\n", num, bdf, pci.conf_read(bdf, 0), pci.conf_read(bdf, HostPci::BAR0));
 
-    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, pci.bar_base(bdf, 0+4), pci.bar_size(bdf, 0+4));
+    MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOMEM, pci.bar_base(bdf, HostPci::BAR0), pci.bar_size(bdf, HostPci::BAR0));
     if (!mb.bus_hostop.send(msg1) || !msg1.ptr)
       Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
     char *base = msg1.ptr + offset;
