@@ -224,7 +224,7 @@ foreach $script (@scripts) {
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : ""));
+		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
     }
     
     if (defined $iso_image) {
