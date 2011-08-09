@@ -6,7 +6,7 @@
 #include <nul/program.h>
 #include "sigma0/console.h"
 
-class WvProgram : public NovaProgram, public ProgramConsole, public WvTest
+class WvProgram : public NovaProgram, public ProgramConsole
 {
 public:
 
@@ -22,13 +22,11 @@ public:
   }
 
   void test_done() {
-    WVPASS(tests_run > 0);
+    WVPASS(WvTest::tests_run > 0);
 
     Logging::printf("WvTest: %d test%s, %d failure%s.\n",
-		    tests_run, tests_run==1 ? "" : "s",
-		    tests_failed, tests_failed==1 ? "": "s");
-    Logging::printf("\nFinished testing in %s.\n", file);
-    //return tests_failed != 0;
+		    WvTest::tests_run, WvTest::tests_run==1 ? "" : "s",
+		    WvTest::tests_failed, WvTest::tests_failed==1 ? "": "s");
   }
 
   virtual void wvrun(Utcb *utcb, Hip *hip) = 0;

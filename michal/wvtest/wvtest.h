@@ -13,30 +13,27 @@
 #include <service/vprintf.h>
 #include <service/string.h>
 #include <service/logging.h>
-#include <nul/baseprogram.h>
 
 // Whether to print info before execution of the test. Zero means
 // print info after execution together with results.
 #define WVTEST_PRINT_INFO_BEFORE 0
 
-#define WVPASS(cond)   ({ WvTest::start(__FILE__, __LINE__, #cond);            WvTest::check(cond); })
-#define WVNUL(nulerr)  ({ WvTest::start(__FILE__, __LINE__, #nulerr);          WvTest::check_nulerr(nulerr); })
-#define WVPASSEQ(a, b) ({ WvTest::start(__FILE__, __LINE__, #a " == " #b);     WvTest::check_eq((a), (b), true); })
-#define WVPASSLT(a, b) ({ WvTest::start(__FILE__, __LINE__, #a " < " #b);      WvTest::check_lt((a), (b)); })
-#define WVFAIL(cond)   ({ WvTest::start(__FILE__, __LINE__, "NOT(" #cond ")"); !WvTest::check(!(cond)); })
-#define WVFAILEQ(a, b) ({ WvTest::start(__FILE__, __LINE__, #a " != " #b);     WvTest::check_eq((a), (b), false); })
+#define WVPASS(cond)   ({ WvTest t(__FILE__, __LINE__, #cond);            t.check(cond); })
+#define WVNUL(nulerr)  ({ WvTest t(__FILE__, __LINE__, #nulerr);          t.check_nulerr(nulerr); })
+#define WVPASSEQ(a, b) ({ WvTest t(__FILE__, __LINE__, #a " == " #b);     t.check_eq((a), (b), true); })
+#define WVPASSLT(a, b) ({ WvTest t(__FILE__, __LINE__, #a " < " #b);      t.check_lt((a), (b)); })
+#define WVFAIL(cond)   ({ WvTest t(__FILE__, __LINE__, "NOT(" #cond ")"); !t.check(!(cond)); })
+#define WVFAILEQ(a, b) ({ WvTest t(__FILE__, __LINE__, #a " != " #b);     t.check_eq((a), (b), false); })
 #define WVPASSNE(a, b) WVFAILEQ(a, b)
 #define WVFAILNE(a, b) WVPASSEQ(a, b)
 
 // Performance monitoring
-#define WVPERF(value)  ({ WvTest::start(__FILE__, __LINE__, "PERF: " #value);  WvTest::check_perf(value); })
+#define WVPERF(value)  ({ WvTest t(__FILE__, __LINE__, "PERF: " #value);  t.check_perf(value); })
 
 class WvTest
 {
-protected:
   const char *file, *condstr;
   int line;
-  unsigned tests_failed, tests_run;
 
   struct NulErr {
     unsigned err;
@@ -61,7 +58,7 @@ protected:
     }
     #undef ER
   };
-protected:
+
   const char *resultstr(bool result)
     {
       if (!result)
@@ -120,7 +117,26 @@ protected:
       tests_run++;
     }
 #endif
-  void start(const char *file, int line, const char *condstr) {
+
+  static void print_failed_cmp(const char *op, const char *a, const char *b)
+    { Logging::printf("wvtest comparison %s %s %s FAILED\n", a, op, b); }
+
+  static void print_failed_cmp(const char *op, unsigned a, unsigned b)
+    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
+		      a, a, op, b, b); }
+
+  static void print_failed_cmp(const char *op, int a, int b)
+    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
+		      a, a, op, b, b); }
+
+  static void stringify(char *buf, unsigned size, unsigned long long val) {Vprintf::snprintf(buf, size, "%llu", val);}
+  static void stringify(char *buf, unsigned size, unsigned val)		  {Vprintf::snprintf(buf, size, "%u", val);}
+  static void stringify(char *buf, unsigned size, int val)		  {Vprintf::snprintf(buf, size, "%d", val);}
+
+public:
+  static unsigned tests_failed, tests_run;
+
+  WvTest(const char *file, int line, const char *condstr) {
     save_info(file, line, condstr);
 #if WVTEST_PRINT_INFO_BEFORE    
     // If we are sure that nothing is printed during the "check", we can
@@ -138,18 +154,6 @@ protected:
     print_result(NulErr(nulerr));
     return nulerr == ENONE;
   }
-
-  static void print_failed_cmp(const char *op, const char *a, const char *b)
-    { Logging::printf("wvtest comparison %s %s %s FAILED\n", a, op, b); }
-
-  static void print_failed_cmp(const char *op, unsigned a, unsigned b)
-    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
-		      a, a, op, b, b); }
-
-  static void print_failed_cmp(const char *op, int a, int b)
-    { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
-		      a, a, op, b, b); }
-
 
   template <typename T>
   bool check_eq(T a, T b, bool expect_equal)
@@ -177,12 +181,7 @@ protected:
     print_result(true, valstr);
     return val;
   }
-private:
-  void stringify(char *buf, unsigned size, unsigned long long val) {Vprintf::snprintf(buf, size, "%llu", val);}
-  void stringify(char *buf, unsigned size, unsigned val)      	   {Vprintf::snprintf(buf, size, "%u", val);}
-  void stringify(char *buf, unsigned size, int val)      	   {Vprintf::snprintf(buf, size, "%d", val);}
 
-public:
   /**
    * Custom exit function. Reports exit as a failure because it is
    * typically called via assert() or panic(). Use this as
@@ -194,8 +193,12 @@ public:
       Logging::printf("! %s() - %s FAILED\n", __func__, msg);
 
     // Signal an event to parent
-    ParentProtocol::signal(*BaseProgram::myutcb(), 0);
+    if (ParentProtocol::signal(*BaseProgram::myutcb(), 0);)
+      Logging::printf("! wvtest.h:%d ParentProtocol::signal(0)) FAILED\n", __LINE__);
   }
 };
+
+unsigned WvTest::tests_failed, WvTest::tests_run;
+
 
 #endif // __WVTEST_H

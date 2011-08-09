@@ -50,7 +50,7 @@ PARAM_HANDLER(outstanding,
 
 PARAM_HANDLER(wvtest) {wvtest = true;}
 
-class App : public NovaProgram, ProgramConsole, WvTest
+class App : public NovaProgram, ProgramConsole
 {
   enum {
     FREQ    = 1000,
