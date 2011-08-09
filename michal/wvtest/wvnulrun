@@ -30,8 +30,8 @@ $ENV{'WVTESTRUN'} = 1;		# Tell the child it is run in background (needed for qem
 my $pid = open(my $fh, "-|");
 if (!$pid) {
     # child
-    setpgrp();
     open STDERR, '>&STDOUT' or die("Can't dup stdout: $!\n");
+    #setpgrp();
     exec(@ARGV);
     exit 126; # just in case
 }
@@ -74,10 +74,6 @@ while (<$fh>)
     chomp;
     s/\r//g;
 
-#     if (/^(\([0-9]+\) )?Finished testing in .*\./)
-#     {
-# 	kill 15, $pid;		# Kill qemu
-#     }
     if (/^(\([0-9]+\) )?!\s*(.*?)\s+(\S+)\s*$/) {
 	$tests_executed++;
     }

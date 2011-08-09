@@ -9,6 +9,9 @@ use Socket;
 use FileHandle;
 use IPC::Open2;
 
+# always flush
+$| = 1;
+
 # Get configuration
 $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
