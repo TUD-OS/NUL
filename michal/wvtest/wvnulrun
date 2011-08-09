@@ -65,7 +65,7 @@ my $allstart = time();
 my ($start, $stop);
 my $tests_executed = 0;
 my $waits_for_child = 0;
-
+my $kill_ok = 0;
 alarm(100);
 while (<$fh>)
 {
@@ -82,6 +82,7 @@ while (<$fh>)
 	   /resetting machine via method/)
     {
 	kill 15, $pid;		# Kill novaboot or qemu
+	$kill_ok = 1;
     }
 }
 my $newpid = waitpid($pid, 0);
@@ -96,6 +97,6 @@ my $ret = ($code >> 8);
 
 # return death-from-signal exits as >128.  This is what bash does if you ran
 # the program directly.
-if ($code && !$ret) { $ret = $code | 128; }
+if ($code && !$ret && !($kill_ok && $code == 15)) { $ret = $code | 128; }
 
 exit $ret;
