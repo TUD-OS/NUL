@@ -5,7 +5,7 @@ DIR=$(dirname $0)
 cd $DIR
 
 find ../.. -name '*.wv' | while read file; do
-    ( set -x; ./wvnulrun $file "$@" -a 'script_wait:1000 script_reboot'; )
+    ( set -x; ./wvnulrun $file "$@"; )
     ret=$?
     if [ "$ret" -ne 0 ]; then
 	echo "! $file returned non-zero exit code ($ret)  FAILED";
