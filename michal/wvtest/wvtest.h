@@ -13,6 +13,7 @@
 #include <service/vprintf.h>
 #include <service/string.h>
 #include <service/logging.h>
+#include <nul/baseprogram.h>
 
 // Whether to print info before execution of the test. Zero means
 // print info after execution together with results.
@@ -193,7 +194,7 @@ public:
       Logging::printf("! %s() - %s FAILED\n", __func__, msg);
 
     // Signal an event to parent
-    if (ParentProtocol::signal(*BaseProgram::myutcb(), 0);)
+    if (ParentProtocol::signal(*BaseProgram::myutcb(), 0))
       Logging::printf("! wvtest.h:%d ParentProtocol::signal(0)) FAILED\n", __LINE__);
   }
 };
