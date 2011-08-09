@@ -219,7 +219,8 @@ foreach $script (@scripts) {
 	($server = $CFG::server)			 =~ s/\$NAME/$config_name/;
 	generate_configs($server_grub_prefix, $configs);
 	my $grub_config ||= "menu.lst";
-	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules);
+	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules,
+			     $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
 	my ($hostname, $path) = split(":", $server, 2);
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
