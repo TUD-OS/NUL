@@ -31,6 +31,11 @@
 // Performance monitoring
 #define WVPERF(value)  ({ WvTest t(__FILE__, __LINE__, "PERF: " #value);  t.check_perf(value); })
 
+// Debuging
+#define WV(code)  ({ WvTest t(__FILE__, __LINE__, #code);  t.check(true); })
+#define WVDEC(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_dec(val); })
+#define WVHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
+
 class WvTest
 {
   const char *file, *condstr;
@@ -130,9 +135,23 @@ class WvTest
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
 		      a, a, op, b, b); }
 
-  static void stringify(char *buf, unsigned size, unsigned long long val) {Vprintf::snprintf(buf, size, "%llu", val);}
-  static void stringify(char *buf, unsigned size, unsigned val)		  {Vprintf::snprintf(buf, size, "%u", val);}
-  static void stringify(char *buf, unsigned size, int val)		  {Vprintf::snprintf(buf, size, "%d", val);}
+  static void stringify(char *buf, unsigned size, unsigned long long val, const char *prefix="")
+  { Vprintf::snprintf(buf, size, "%s%llu", prefix, val); }
+
+  static void stringify(char *buf, unsigned size, unsigned val, const char *prefix="")
+  {Vprintf::snprintf(buf, size, "%s%u", prefix, val);}
+
+  static void stringify(char *buf, unsigned size, int val, const char *prefix="")
+  {Vprintf::snprintf(buf, size, "%s%d", prefix, val);}
+
+  static void stringifyx(char *buf, unsigned size, unsigned long long val, const char *prefix="")
+  { Vprintf::snprintf(buf, size, "%s0x%llx", prefix, val); }
+
+  static void stringifyx(char *buf, unsigned size, unsigned val, const char *prefix="")
+  {Vprintf::snprintf(buf, size, "%s0x%x", prefix, val);}
+
+  static void stringifyx(char *buf, unsigned size, int val, const char *prefix="")
+  {Vprintf::snprintf(buf, size, "%s0x%x", prefix, val);}
 
 public:
   static unsigned tests_failed, tests_run;
@@ -179,6 +198,24 @@ public:
   {
     char valstr[20];
     stringify(valstr, sizeof(valstr), val);
+    print_result(true, valstr);
+    return val;
+  }
+
+  template <typename T>
+  T show_dec(T val)
+  {
+    char valstr[20];
+    stringify(valstr, sizeof(valstr), val, "= ");
+    print_result(true, valstr);
+    return val;
+  }
+
+  template <typename T>
+  T show_hex(T val)
+  {
+    char valstr[20];
+    stringifyx(valstr, sizeof(valstr), val, "= ");
     print_result(true, valstr);
     return val;
   }
