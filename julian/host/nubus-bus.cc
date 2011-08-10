@@ -124,8 +124,8 @@ void PCIBus::discover_devices()
     // Non-ARI (i.e. normal) discovery
     for (unsigned df = 0; df < 32*8; df += 8) {
       if (device_exists(df)) {
-	add_device(new PCIDevice(*this, df));
-	if (_devices->multifunction())
+	PCIDevice *dev = add_device(new PCIDevice(*this, df));
+	if (dev->multifunction())
 	  for (unsigned f = 1; f < 8; f++)
 	    if (device_exists(df | f))
 	      add_device(new PCIDevice(*this, df | f));
