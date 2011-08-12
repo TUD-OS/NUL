@@ -18,10 +18,150 @@
 #include <sigma0/sigma0.h>
 #include <sigma0/console.h>
 
+#include <nul/generic_service.h>
+#include <util/capalloc_partition.h>
 #include <nul/service_bridge.h>
+
+enum {
+  CONST_CAP_RANGE = 16U,
+};
+
+class BridgeService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>  {
+  enum {
+    MAX_CLIENTS      = (1 << Config::MAX_CLIENTS_ORDER),
+  };
+
+  bool enable_verbose;
+
+  uint8 *ring_buffer[2*MAX_CLIENTS][BridgeProtocol::RING_BUFFER_SIZE];
+
+  struct ClientData : public GenericClientData {
+  };
+
+  ALIGNED(8) ClientDataStorage<ClientData, BridgeService> _storage;
+  typedef ClientDataStorage<ClientData, BridgeService> CData;
+
+  void check_clients(Utcb &utcb) {
+    CData::Guard guard_c(&_storage, utcb, this);
+    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    while (data) {
+      Logging::printf("br: found dead client - freeing datastructure\n");
+      _storage.free_client_data(utcb, data, this);
+      data = _storage.get_invalid_client(utcb, this, data);
+    }
+  }
+
+public:
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
+  {
+    unsigned op, res;
+    check1(EPROTO, input.get_word(op));
+
+    switch (op) {
+    case ParentProtocol::TYPE_OPEN:
+      {
+        unsigned idx = input.received_cap();
+
+        if (enable_verbose && !idx) Logging::printf("  open - invalid cap received\n");
+        if (!idx) return EPROTO;
+
+        ClientData *data = 0;
+        res = _storage.alloc_client_data(utcb, data, idx, this);
+        if (enable_verbose && res) Logging::printf("  alloc_client - res %x\n", res);
+        if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
+        else if (res) return res;
+
+        free_cap = false;
+        if (enable_verbose) Logging::printf("**** created event client 0x%x 0x%x\n", data->pseudonym, data->identity);
+        utcb << Utcb::TypedMapCap(data->identity);
+        return res;
+      }
+    case ParentProtocol::TYPE_CLOSE:
+      {
+        ClientData *data = 0;
+        CData::Guard guard_c(&_storage, utcb, this);
+        check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
+        return _storage.free_client_data(utcb, data, this);
+      }
+    default:
+      Logging::printf("unknown proto\n");
+      return EPROTO;
+    }
+      
+  }
+
+  unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) {
+    unsigned cap, cap_last, first_cap;
+
+    first_cap = CapAllocatorAtomicPartition::alloc_cap(1, cpu);
+    if (!first_cap) return 0;
+    cap_last = first_cap;
+
+    while (--num) { //XXX fix me 
+      cap = CapAllocatorAtomicPartition::alloc_cap(1, cpu);
+      assert(cap);
+      assert(cap_last + 1 == cap);
+      cap_last = cap;
+    } while (--num);
+
+    return first_cap;
+  }
+
+  unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
+
+  template <class C>
+    unsigned start_service (Utcb *utcb, Hip * hip, const char *service_name, C * c)
+  {
+    unsigned res;
+    unsigned exc_base_wo;
+    unsigned pt_wo;
+    unsigned service_cap = alloc_cap();
+    Utcb *utcb_wo;
+      
+    for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
+      Hip_cpu const *cpu = &hip->cpus()[cpunr];
+      if (not cpu->enabled()) continue;
+
+      exc_base_wo = alloc_cap(16);
+      if (!exc_base_wo) return ERESOURCE;
+      pt_wo       = alloc_cap();
+
+      unsigned cap_ec = c->create_ec_helper(this, cpunr, exc_base_wo, &utcb_wo, 0, alloc_cap());
+      if (!cap_ec) return ERESOURCE;;
+
+      utcb_wo->head.crd = alloc_crd();
+      utcb_wo->head.crd_translate = Crd(_cap_base, CONST_CAP_RANGE, DESC_CAP_ALL).value();
+
+      unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<BridgeService>::portal_func);
+      res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
+      if (res) return res;
+
+      Logging::printf("Announcing service on CPU%u", cpunr);
+      res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_wo, service_cap, NULL);
+      Logging::printf(" %u\n", res);
+      if (res != ENONE) return res;
+    }
+
+    return ENONE;
+  }
+
+    
+ public:
+ 
+  BridgeService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), enable_verbose(true) {
+    unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
+    assert(base && !(base & 0xFFFULL));
+    _cap_base = base;
+
+
+  }
+
+
+ };
 
 class Bridge : public NovaProgram, public ProgramConsole
 {
+  friend class BridgeService;
 public:
 
   void run(Utcb *utcb, Hip *hip)
@@ -35,6 +175,19 @@ public:
 
     Logging::printf("booting - bridge ...\n");
 
+    BridgeService *b = new BridgeService();
+    unsigned res = b->start_service(utcb, hip, "/bridge", this);
+    switch (res) {
+    case ENONE:
+      Logging::printf("Service registered.\n");
+      break;
+    case EPERM:
+      Logging::printf("EPERM - check your config file.\n");
+      break;
+    default:
+      Logging::printf("Error %u\n", res);
+      break;
+    };
 
   }
 };

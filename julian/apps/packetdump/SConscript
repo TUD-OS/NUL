@@ -4,11 +4,11 @@ import nul
 
 Import('target_env')
 
-nul.App(target_env, 'bridge',
-        SOURCES = [ 'bridge.cc',
+nul.App(target_env, 'packetdump',
+        SOURCES = [ 'packetdump.cc',
                     ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
-        MEMSIZE = 4*1<<20)
+        MEMSIZE = 1<<20)
 
 # EOF

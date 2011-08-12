@@ -23,6 +23,10 @@
 struct BridgeProtocol : public GenericProtocol {
 
   enum {
+    RING_BUFFER_SIZE = 4096,
+  };
+
+  enum {
     TYPE_GET_RING = ParentProtocol::TYPE_GENERIC_END,
   };
 
