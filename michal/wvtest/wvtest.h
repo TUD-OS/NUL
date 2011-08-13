@@ -19,6 +19,7 @@
 // print info after execution together with results.
 #define WVTEST_PRINT_INFO_BEFORE 0
 
+// Standard WVTEST API
 #define WVPASS(cond)   ({ WvTest t(__FILE__, __LINE__, #cond);            t.check(cond); })
 #define WVNUL(nulerr)  ({ WvTest t(__FILE__, __LINE__, #nulerr);          t.check_nulerr(nulerr); })
 #define WVPASSEQ(a, b) ({ WvTest t(__FILE__, __LINE__, #a " == " #b);     t.check_eq((a), (b), true); })
@@ -31,7 +32,7 @@
 // Performance monitoring
 #define WVPERF(value)  ({ WvTest t(__FILE__, __LINE__, "PERF: " #value);  t.check_perf(value); })
 
-// Debuging
+// Debugging
 #define WV(code)  ({ WvTest t(__FILE__, __LINE__, #code);   t.check(true); code })
 #define WVDEC(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_dec(val); })
 #define WVHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
