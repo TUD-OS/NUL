@@ -289,7 +289,7 @@ PARAM_HANDLER(mouse,
 	      "mouse:ps2port,hostmouse:  attach a PS2 mouse at the given PS2 port that gets input from the given hostmouse.",
 	      "Example: 'mouse:1,0x17'")
 {
-  Device *dev = new PS2Mouse(mb.bus_ps2, argv[0], argv[1]);
+  PS2Mouse *dev = new PS2Mouse(mb.bus_ps2, argv[0], argv[1]);
   mb.bus_ps2.add(dev,   PS2Mouse::receive_static<MessagePS2>);
   mb.bus_input.add(dev, PS2Mouse::receive_static<MessageInput>);
 }

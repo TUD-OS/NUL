@@ -345,7 +345,7 @@ PARAM_HANDLER(kbc,
 	      "The PS2 ports are automatically distributed, such that the first KBC gets 0-1, the second one 2-3,...")
 {
   static unsigned kbc_count;
-  Device *dev = new KeyboardController(mb.bus_irqlines, mb.bus_ps2, mb.bus_legacy, argv[0], argv[1], argv[2], 2*kbc_count++);
+  KeyboardController *dev = new KeyboardController(mb.bus_irqlines, mb.bus_ps2, mb.bus_legacy, argv[0], argv[1], argv[2], 2*kbc_count++);
   mb.bus_ioin.add(dev,  KeyboardController::receive_static<MessageIOIn>);
   mb.bus_ioout.add(dev, KeyboardController::receive_static<MessageIOOut>);
   mb.bus_ps2.add(dev,   KeyboardController::receive_static<MessagePS2>);

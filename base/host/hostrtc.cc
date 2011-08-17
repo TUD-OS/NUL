@@ -69,6 +69,6 @@ PARAM_HANDLER(hostrtc,
   if (!mb.bus_hostop.send(msg1))
     Logging::panic("%s failed to allocate ports %x+2\n", __PRETTY_FUNCTION__, iobase);
 
-  Device *dev = new HostRtc(mb.bus_hwioin, mb.bus_hwioout, mb.clock(), iobase);
+  HostRtc *dev = new HostRtc(mb.bus_hwioin, mb.bus_hwioout, mb.clock(), iobase);
   mb.bus_time.add(dev, HostRtc::receive_static<MessageTime>);
 }

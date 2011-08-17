@@ -569,7 +569,7 @@ PARAM_HANDLER(vga,
   if (!mb.bus_hostop.send(msg) || !mb.bus_hostop.send(msg2))
     Logging::panic("%s failed to alloc %ld from guest memory\n", __PRETTY_FUNCTION__, fbsize);
 
-  Device *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
+  Vga *dev = new Vga(mb, argv[0], msg2.ptr + msg.phys, msg.phys, fbsize);
   mb.bus_ioin     .add(dev, Vga::receive_static<MessageIOIn>);
   mb.bus_ioout    .add(dev, Vga::receive_static<MessageIOOut>);
   mb.bus_bios     .add(dev, Vga::receive_static<MessageBios>);

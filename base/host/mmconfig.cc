@@ -91,7 +91,7 @@ PARAM_HANDLER(mmconfig,
       return;
     }
 
-    Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
+    PciMMConfigAccess *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
     mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessageHwPciConfig>);
   }
 }

@@ -125,7 +125,7 @@ PARAM_HANDLER(hostserial,
   if (!mb.bus_hostop.send(msg1))
     Logging::panic("%s failed to allocate ports %lx+8\n", __PRETTY_FUNCTION__, argv[1]);
 
-  Device *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial,
+  HostSerial *dev = new HostSerial(mb.bus_hwioin, mb.bus_hwioout, mb.bus_serial,
 			       argv[0] == ~0UL ? 0 : argv[0], iobase, argv[2],
 			       argv[3] == ~0UL ? 115200 : argv[3],
 			       argv[4] == ~0UL ? 3 : argv[4], argv[2] != ~0U);

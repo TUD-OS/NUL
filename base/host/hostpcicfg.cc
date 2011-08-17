@@ -70,6 +70,6 @@ PARAM_HANDLER(pcicfg,
   MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION,  (PciConfigAccess::BASE << 8) | 3);
   check0(!mb.bus_hostop.send(msg1), "%s could not allocate ioports %x+8\n", __PRETTY_FUNCTION__, PciConfigAccess::BASE);
 
-  Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout, msg0.value);
+  PciConfigAccess *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout, msg0.value);
   mb.bus_hwpcicfg.add(dev, PciConfigAccess::receive_static<MessageHwPciConfig>);
 }
