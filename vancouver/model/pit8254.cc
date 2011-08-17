@@ -61,7 +61,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   };
   timevalue            _start;
   DBus<MessageTimer> * _bus_timer;
-  DBus<MessageIrq>   * _bus_irq;
+  DBus<MessageIrqLines> * _bus_irq;
   unsigned             _irq;
   Clock                _clock;
   unsigned             _timer;
@@ -333,7 +333,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     if (msg.nr == _timer)
       {
 	// a timeout has triggerd
-	MessageIrq msg1(MessageIrq::ASSERT_NOTIFY, _irq);
+	MessageIrqLines msg1(MessageIrq::ASSERT_NOTIFY, _irq);
 	_bus_irq->send(msg1);
 	return true;
       }
@@ -341,7 +341,7 @@ class PitCounter : public StaticReceiver<PitCounter>
   }
 
 
-  PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrq> *bus_irq, unsigned irq, Clock *clock)
+  PitCounter(DBus<MessageTimer> *bus_timer, DBus<MessageIrqLines> *bus_irq, unsigned irq, Clock *clock)
     : _start(0), _bus_timer(bus_timer), _bus_irq(bus_irq), _irq(irq), _clock(*clock), _timer(0)
   {
     assert(_clock.freq() != 0);

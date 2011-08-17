@@ -258,8 +258,8 @@ public:
   // wrapper
   static void do_work(void *t) REGPARM(0) NORETURN { reinterpret_cast<TimerService *>(t)->work(); }
   bool  receive(MessageHostOp  &msg) { return _hostmb.bus_hostop.send(msg); }
-  bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(msg); }
-  bool  receive(MessageIOIn &msg)    { return _hostmb.bus_hwioin.send(msg); }
+  bool  receive(MessageIOOut &msg)   { return _hostmb.bus_hwioout.send(static_cast<MessageHwIOOut&>(msg)); }
+  bool  receive(MessageIOIn &msg)    { return _hostmb.bus_hwioin.send(static_cast<MessageHwIOIn&>(msg)); }
   bool  receive(MessageAcpi &msg)    { return _hostmb.bus_acpi.send(msg); }
   bool  receive(MessageIrq &msg)     { return _mymb.bus_hostirq.send(msg, true); }
 
@@ -285,8 +285,8 @@ public:
 
     _mymb.bus_timeout.add(this, receive_static<MessageTimeout>);
     _mymb.bus_hostop.add(this, receive_static<MessageHostOp>);
-    _mymb.bus_hwioout.add(this, receive_static<MessageIOOut>);
-    _mymb.bus_hwioin.add(this, receive_static<MessageIOIn>);
+    _mymb.bus_hwioout.add(this, receive_static<MessageHwIOOut>);
+    _mymb.bus_hwioin.add(this, receive_static<MessageHwIOIn>);
     _mymb.bus_acpi.add(this, receive_static<MessageAcpi>);
 
     // create backend devices

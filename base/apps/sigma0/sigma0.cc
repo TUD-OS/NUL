@@ -233,7 +233,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   void *get_config_space(uint16 rid)
   {
-    MessagePciConfig msg_resolve(rid);
+    MessageHwPciConfig msg_resolve(rid);
     msg_resolve.ptr = NULL;
     if (not _mb->bus_hwpcicfg.send(msg_resolve))
       return NULL;
@@ -618,7 +618,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Allocate a new slot and assign it.
     for (unsigned i = 0; i < MAXPCIDIRECT; i++)
       if (!_pcidirect[i]) {
-        MessagePciConfig msg_resolve(bdf);
+        MessageHwPciConfig msg_resolve(bdf);
         if (not _mb->bus_hwpcicfg.send(msg_resolve)) {
           Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
           return false;
@@ -1470,7 +1470,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     switch(utcb->msg[0]) {
     case REQUEST_PCICFG:
       {
-        MessagePciConfig *msg = reinterpret_cast<MessagePciConfig *>(utcb->msg+1);
+        MessageHwPciConfig *msg = reinterpret_cast<MessageHwPciConfig *>(utcb->msg+1);
         if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg))
           utcb->msg[0] = ~0x10u;
         else {

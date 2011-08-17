@@ -65,5 +65,5 @@ public:
     return (conf_read(parent_bdf, sriov_cap + 6) & 0xFFFF0000)
       | (conf_read(parent_bdf, 0) & 0xFFFF);
   }
- HostVfPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : HostPci(bus_pcicfg, bus_hostop) {}
+ HostVfPci(DBus<MessageHwPciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : HostPci(bus_pcicfg, bus_hostop) {}
 };

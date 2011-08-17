@@ -104,7 +104,7 @@ struct HostReboot : public StaticReceiver<HostReboot>
       case 1: outb(_acpi_value, _acpi_address);             break;
       case 2:
 	{
-	  MessageIOOut msg(MessageIOOut::TYPE_OUTL, 0xcf8, 0x80000000);
+	  MessageHwIOOut msg(MessageIOOut::TYPE_OUTL, 0xcf8, 0x80000000);
 	  msg.value |= (_acpi_address & 0x1f00000000ull) >> (32-11);
 	  msg.value |= (_acpi_address & 0x70000) >> (16 - 8);
 	  msg.value |= _acpi_address & 0x3c;
@@ -121,7 +121,7 @@ struct HostReboot : public StaticReceiver<HostReboot>
     return true;
   }
 
-  HostReboot(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned method) : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _method(method) {}
+  HostReboot(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, unsigned method) : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _method(method) {}
 };
 
 

@@ -220,7 +220,7 @@ class HostIde : public StaticReceiver<HostIde>
     return true;
   };
 
-  HostIde(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageDiskCommit> &bus_commit,
+  HostIde(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, DBus<MessageDiskCommit> &bus_commit,
 	  unsigned disknr, unsigned short iobase, unsigned short iobase_ctrl, Clock *clock) :
      _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_commit(bus_commit),
      _disknr(disknr), _iobase(iobase), _iobase_ctrl(iobase_ctrl), _clock(clock), _disk_count(0)

@@ -46,9 +46,9 @@ class PicDevice : public StaticReceiver<PicDevice>
     ICW4_SFNM = 0x10,
   };
 
-  DBus<MessageIrq>       &_bus_irq;
-  DBus<MessagePic>       &_bus_pic;
-  DBus<MessageLegacy>    &_bus_legacy;
+  DBus<MessageIrqLines>  &_bus_irq;
+  DBus<MessagePic> 	 &_bus_pic;
+  DBus<MessageLegacy> 	 &_bus_legacy;
   DBus<MessageIrqNotify> &_bus_notify;
   unsigned short _base;
   unsigned       _upstream_irq;
@@ -155,7 +155,7 @@ class PicDevice : public StaticReceiver<PicDevice>
 	_bus_legacy.send(msg);
       }
       else {
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
+	MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _upstream_irq);
 	_bus_irq.send(msg);
       }
     }
@@ -352,7 +352,7 @@ class PicDevice : public StaticReceiver<PicDevice>
     }
 
 
- PicDevice(DBus<MessageIrq> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageLegacy> &bus_legacy, DBus<MessageIrqNotify> &bus_notify,
+ PicDevice(DBus<MessageIrqLines> &bus_irq, DBus<MessagePic> &bus_pic, DBus<MessageLegacy> &bus_legacy, DBus<MessageIrqNotify> &bus_notify,
 	   unsigned short base, unsigned char irq, unsigned short elcr_base, unsigned char virq) :
    _bus_irq(bus_irq), _bus_pic(bus_pic), _bus_legacy(bus_legacy), _bus_notify(bus_notify),
    _base(base), _upstream_irq(irq), _elcr_base(elcr_base), _virq(virq), _icw_mode(OCW1)
@@ -382,7 +382,7 @@ PARAM_HANDLER(pic,
 				 virq);
   mb.bus_ioin.    add(dev, PicDevice::receive_static<MessageIOIn>);
   mb.bus_ioout.   add(dev, PicDevice::receive_static<MessageIOOut>);
-  mb.bus_irqlines.add(dev, PicDevice::receive_static<MessageIrq>);
+  mb.bus_irqlines.add(dev, PicDevice::receive_static<MessageIrqLines>);
   mb.bus_pic.     add(dev, PicDevice::receive_static<MessagePic>);
   if (!virq)
     mb.bus_legacy.add(dev, PicDevice::receive_static<MessageLegacy>);

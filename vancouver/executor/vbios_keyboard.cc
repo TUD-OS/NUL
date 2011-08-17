@@ -273,8 +273,8 @@ public:
     _hostmb = new Motherboard(mb.clock(), mb.hip());
     _hostmb->bus_input.add(this,   receive_static<MessageInput>);
     _hostmb->bus_hostop .add(this, receive_static<MessageHostOp>);
-    _hostmb->bus_hwioin .add(this, receive_static<MessageIOIn>);
-    _hostmb->bus_hwioout.add(this, receive_static<MessageIOOut>);
+    _hostmb->bus_hwioin .add(this, receive_static<MessageHwIOIn>);
+    _hostmb->bus_hwioout.add(this, receive_static<MessageHwIOOut>);
     _mb.bus_bios        .add(this, receive_static<MessageBios>);
     _mb.bus_discovery   .add(this, receive_static<MessageDiscovery>);
     _hostmb->parse_args("hostkeyb:0x10,0x60,1,,1");

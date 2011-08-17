@@ -197,7 +197,7 @@ private:
   {
     unsigned old_port = msg.port;
     if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
-    bool res = _mb.bus_hwioin.send(msg, true);
+    bool res = _mb.bus_hwioin.send(static_cast<MessageHwIOIn&>(msg), true);
     msg.port = old_port;
     return res;
   }
@@ -207,7 +207,7 @@ private:
   {
     unsigned old_port = msg.port;
     if (!match_iobars(old_port, msg.port, 1 << msg.type))  return false;
-    bool res = _mb.bus_hwioout.send(msg, true);
+    bool res = _mb.bus_hwioout.send(static_cast<MessageHwIOOut&>(msg), true);
     msg.port = old_port;
     return res;
   }
@@ -285,7 +285,7 @@ private:
 	}
 
 	// we send a single GSI
-	MessageIrq msg2(msg.type, _cfgspace[15] & 0xff);
+	MessageIrqLines msg2(msg.type, _cfgspace[15] & 0xff);
 	return _mb.bus_irqlines.send(msg2);
       }
     return false;

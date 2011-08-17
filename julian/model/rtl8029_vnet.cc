@@ -35,7 +35,7 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
 {
   VancouverMemory       _net_mem;
   SimpleNetworkClient   _net;
-  DBus<MessageIrq>     &_bus_irqlines;
+  DBus<MessageIrqLines> &_bus_irqlines;
 
   unsigned char _irq;
   unsigned long long _mac;
@@ -96,7 +96,7 @@ class Rtl8029Vnet: public StaticReceiver<Rtl8029Vnet>
     _regs.isr |= value;
     if (_regs.isr & _regs.imr)
       {
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+	MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irq);
 	_bus_irqlines.send(msg);
       }
   }
@@ -340,7 +340,7 @@ public:
 
   Rtl8029Vnet(DBus<MessageVirtualNet> &bus_vnet,
               DBus<MessageHostOp>     &bus_hostop,
-              DBus<MessageIrq>        &bus_irqlines,
+              DBus<MessageIrqLines>        &bus_irqlines,
               unsigned char irq, unsigned long long mac, unsigned bdf)
     : _net_mem(bus_hostop), _net(_net_mem, bus_vnet),
       _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac), _bdf(bdf),

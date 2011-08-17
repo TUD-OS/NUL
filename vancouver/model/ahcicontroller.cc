@@ -295,8 +295,8 @@ class AhciController : public ParentIrqProvider,
   enum {
     MAX_PORTS = 32,
   };
-  DBus<MessageIrq> &_bus_irqlines;
-  DBus<MessageMem> &_bus_mem;
+  DBus<MessageIrqLines> &_bus_irqlines;
+  DBus<MessageMem> 	&_bus_mem;
   unsigned char _irq;
   AhciPort _ports[MAX_PORTS];
   unsigned _bdf;
@@ -326,7 +326,7 @@ class AhciController : public ParentIrqProvider,
 	      _bus_mem.send(msg);
 
 	    } else {
-	      MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+	      MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irq);
 	      _bus_irqlines.send(msg);
 	    }
 	  }

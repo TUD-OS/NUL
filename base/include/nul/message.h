@@ -48,6 +48,11 @@ struct MessageIOIn
   MessageIOIn(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {}
 };
 
+struct MessageHwIOIn : public MessageIOIn {
+  MessageHwIOIn(Type _type, unsigned short _port) : MessageIOIn(_type, _port) {}
+  MessageHwIOIn(Type _type, unsigned short _port, unsigned _count, void *_ptr) : MessageIOIn(_type, _port, _count, _ptr) {}
+};
+
 
 /**
  * An out() to an ioport.
@@ -66,6 +71,11 @@ struct MessageIOOut {
   };
   MessageIOOut(Type _type, unsigned short _port, unsigned _value) : type(_type), port(_port), count(0), value(_value) {}
   MessageIOOut(Type _type, unsigned short _port, unsigned _count, void *_ptr) : type(_type), port(_port), count(_count), ptr(_ptr) {}
+};
+
+struct MessageHwIOOut : public MessageIOOut {
+  MessageHwIOOut(Type _type, unsigned short _port, unsigned _value) : MessageIOOut(_type, _port, _value) {}
+  MessageHwIOOut(Type _type, unsigned short _port, unsigned _count, void *_ptr) : MessageIOOut(_type, _port, _count, _ptr) {}
 };
 
 
@@ -132,6 +142,14 @@ struct MessagePciConfig
   MessagePciConfig(unsigned _bdf) : type(TYPE_PTR), bdf(_bdf), dword(0), ptr(NULL) {}
 };
 
+struct MessageHwPciConfig : public MessagePciConfig {
+  MessageHwPciConfig(unsigned _bdf, unsigned _dword) : MessagePciConfig(_bdf, _dword) {}
+  MessageHwPciConfig(unsigned _bdf, unsigned _dword, unsigned _value) : MessagePciConfig(_bdf, _dword, _value) {}
+
+  explicit
+  MessageHwPciConfig(unsigned _bdf) : MessagePciConfig(_bdf) {}
+};
+
 
 /****************************************************/
 /* SATA messages                                    */
@@ -172,6 +190,9 @@ struct MessageIrq
   MessageIrq(Type _type, unsigned char _line) :  type(_type), line(_line) {}
 };
 
+struct MessageIrqLines : public MessageIrq {
+  MessageIrqLines(Type _type, unsigned char _line) :  MessageIrq(_type, _line) {}
+};
 
 /**
  * Notify that a level-triggered IRQ can be reraised.

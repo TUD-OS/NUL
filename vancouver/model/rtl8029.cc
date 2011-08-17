@@ -29,8 +29,8 @@
 #ifndef REGBASE
 class Rtl8029: public StaticReceiver<Rtl8029>
 {
-  DBus<MessageNetwork> &_bus_network;
-  DBus<MessageIrq>     &_bus_irqlines;
+  DBus<MessageNetwork>  &_bus_network;
+  DBus<MessageIrqLines> &_bus_irqlines;
   unsigned char _irq;
   unsigned long long _mac;
   unsigned _bdf;
@@ -74,7 +74,7 @@ class Rtl8029: public StaticReceiver<Rtl8029>
     _regs.isr |= value;
     if (_regs.isr & _regs.imr)
       {
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+	MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irq);
 	_bus_irqlines.send(msg);
       }
   }
@@ -307,7 +307,7 @@ public:
   bool receive(MessagePciConfig &msg)  {  return PciHelper::receive(msg, this, _bdf); }
 
 
-  Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrq> &bus_irqlines, unsigned char irq, unsigned long long mac, unsigned bdf) :
+  Rtl8029(DBus<MessageNetwork> &bus_network, DBus<MessageIrqLines> &bus_irqlines, unsigned char irq, unsigned long long mac, unsigned bdf) :
     _bus_network(bus_network), _bus_irqlines(bus_irqlines),  _irq(irq), _mac(mac), _bdf(bdf)
   {
     PCI_reset();

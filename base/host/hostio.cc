@@ -94,6 +94,6 @@ PARAM_HANDLER(ioio,
 	      "ioio - provide HW IO port access.")
 {
   Device *dev = new IOAccess();
-  mb.bus_hwioin.add(dev,  IOAccess::receive_static<MessageIOIn>);
-  mb.bus_hwioout.add(dev, IOAccess::receive_static<MessageIOOut>);
+  mb.bus_hwioin.add(dev,  IOAccess::receive_static<MessageHwIOIn>);
+  mb.bus_hwioout.add(dev, IOAccess::receive_static<MessageHwIOOut>);
 }

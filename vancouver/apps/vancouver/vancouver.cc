@@ -313,7 +313,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_time.add    (this, receive_static<MessageTime>);
     _mb->bus_network.add (this, receive_static<MessageNetwork>);
     _mb->bus_vnet.add    (this, receive_static<MessageVirtualNet>);
-    _mb->bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
+    _mb->bus_hwpcicfg.add(this, receive_static<MessageHwPciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
     _mb->bus_legacy.add  (this, receive_static<MessageLegacy>);
 

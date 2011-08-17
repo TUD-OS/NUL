@@ -203,7 +203,7 @@ public:
   }
 
 
-  HostNe2k(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageNetwork> &bus_network, Clock * clock, unsigned short port, unsigned irq)
+  HostNe2k(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, DBus<MessageNetwork> &bus_network, Clock * clock, unsigned short port, unsigned irq)
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_network(bus_network), _clock(clock), _port(port), _irq(irq)
   {
     reset();

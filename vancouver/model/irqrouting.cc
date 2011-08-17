@@ -38,7 +38,7 @@ class IRQRouting : public StaticReceiver<IRQRouting>
     if (msg.line == _host_irq) {
 
       MessageMem msg1(false, MessageMem::MSI_ADDRESS, &_msi_vector);
-      MessageIrq msg2(msg.type, _guest_irq);
+      MessageIrqLines msg2(msg.type, _guest_irq);
       if (_msi_vector >= 0x10 && _msi_vector < 0x100) _mb.bus_mem.send(msg1);
       return _mb.bus_irqlines.send(msg2);
     }

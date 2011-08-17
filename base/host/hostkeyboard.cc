@@ -355,7 +355,7 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
   }
 
 
-  HostKeyboard(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageInput> &bus_input,
+  HostKeyboard(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, DBus<MessageInput> &bus_input,
 	       Clock *clock, unsigned hostdev, unsigned short base,
 	       unsigned irq, unsigned irqaux, unsigned char scset, bool verbose)
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_input(bus_input),

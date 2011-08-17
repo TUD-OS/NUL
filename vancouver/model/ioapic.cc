@@ -260,7 +260,7 @@ public:
   {
     reset();
     _mb.bus_mem.add(this,       receive_static<MessageMem>);
-    _mb.bus_irqlines.add(this,  receive_static<MessageIrq>);
+    _mb.bus_irqlines.add(this,  receive_static<MessageIrqLines>);
     _mb.bus_legacy.add(this,    receive_static<MessageLegacy>);
     _mb.bus_discovery.add(this, discover);
   };

@@ -243,7 +243,7 @@ public:
 	write_bda(DISK_COMPLETION_CODE, msg.status, 1);
 	if (_diskop_inprogress) {
 	  _diskop_inprogress = false;
-	  MessageIrq msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
+	  MessageIrqLines msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
 	  _mb.bus_irqlines.send(msg2);
 	  return true;
 	}
@@ -265,7 +265,7 @@ public:
 	_diskop_inprogress = false;
 
 	// send a message to wakeup the client
-	MessageIrq msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
+	MessageIrqLines msg2(MessageIrq::ASSERT_IRQ, WAKEUP_IRQ);
 	_mb.bus_irqlines.send(msg2);
       }
       return true;

@@ -25,8 +25,8 @@
  */
 class HostPci
 {
-  DBus<MessagePciConfig> &_bus_pcicfg;
-  DBus<MessageHostOp>    &_bus_hostop;
+  DBus<MessageHwPciConfig> &_bus_pcicfg;
+  DBus<MessageHostOp> 	   &_bus_hostop;
 
  public:
 
@@ -50,7 +50,7 @@ class HostPci
 
   unsigned conf_read(unsigned bdf, unsigned dword)
   {
-    MessagePciConfig msg(bdf, dword);
+    MessageHwPciConfig msg(bdf, dword);
     _bus_pcicfg.send(msg, true);
     return msg.value;
   }
@@ -58,7 +58,7 @@ class HostPci
 
   void conf_write(unsigned bdf, unsigned dword, unsigned value)
   {
-    MessagePciConfig msg(bdf, dword, value);
+    MessageHwPciConfig msg(bdf, dword, value);
     _bus_pcicfg.send(msg, true);
   }
 
@@ -314,5 +314,5 @@ class HostPci
     return size;
   }
 
- HostPci(DBus<MessagePciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
+ HostPci(DBus<MessageHwPciConfig> &bus_pcicfg, DBus<MessageHostOp> &bus_hostop) : _bus_pcicfg(bus_pcicfg), _bus_hostop(bus_hostop) {};
 };

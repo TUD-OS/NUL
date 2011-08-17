@@ -83,8 +83,8 @@ private:
 
   void set_vga_reg(unsigned short offset, unsigned char index, unsigned char value)
   {
-    MessageIOOut msg1(MessageIOOut::TYPE_OUTB, 0x3c0 + offset, index);
-    MessageIOOut msg2(MessageIOOut::TYPE_OUTB, 0x3c1 + offset, value);
+    MessageHwIOOut msg1(MessageIOOut::TYPE_OUTB, 0x3c0 + offset, index);
+    MessageHwIOOut msg2(MessageIOOut::TYPE_OUTB, 0x3c1 + offset, value);
     _mb.bus_hwioout.send(msg1, true) && _mb.bus_hwioout.send(msg2, true);
   };
 

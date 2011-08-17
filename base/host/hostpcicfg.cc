@@ -29,27 +29,27 @@
 struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
 {
   static const unsigned BASE = 0xcf8;
-  DBus<MessageIOIn>  &_hwioin;
-  DBus<MessageIOOut> &_hwioout;
+  DBus<MessageHwIOIn>  &_hwioin;
+  DBus<MessageHwIOOut> &_hwioout;
   Semaphore          _lock;
 
-  PciConfigAccess(DBus<MessageIOIn> &hwioin, DBus<MessageIOOut> &hwioout, unsigned semcap) : _hwioin(hwioin), _hwioout(hwioout), _lock(Semaphore(semcap)) { _lock.up(); };
-  bool  receive(MessagePciConfig &msg) {
+  PciConfigAccess(DBus<MessageHwIOIn> &hwioin, DBus<MessageHwIOOut> &hwioout, unsigned semcap) : _hwioin(hwioin), _hwioout(hwioout), _lock(Semaphore(semcap)) { _lock.up(); };
+  bool  receive(MessageHwPciConfig &msg) {
 
     if ((msg.type == MessagePciConfig::TYPE_PTR) ||
         msg.dword >= 0x40 || (msg.bdf >= 0x10000)) return false;
 
     SemaphoreGuard l(_lock);
-    MessageIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | (msg.dword << 2));
+    MessageHwIOOut msg1(MessageIOOut::TYPE_OUTL, BASE, 0x80000000 |  (msg.bdf << 8) | (msg.dword << 2));
     if (!_hwioout.send(msg1, true)) return false;
 
     switch (msg.type) {
     case MessagePciConfig::TYPE_WRITE: {
-      MessageIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
+      MessageHwIOOut msg2(MessageIOOut::TYPE_OUTL, BASE+4, msg.value);
       return _hwioout.send(msg2, true);
     }
     case MessagePciConfig::TYPE_READ: {
-      MessageIOIn msg3(MessageIOIn::TYPE_INL, BASE+4);
+      MessageHwIOIn msg3(MessageIOIn::TYPE_INL, BASE+4);
       bool res = _hwioin.send(msg3, true);
       msg.value = msg3.value;
       return res;
@@ -71,5 +71,5 @@ PARAM_HANDLER(pcicfg,
   check0(!mb.bus_hostop.send(msg1), "%s could not allocate ioports %x+8\n", __PRETTY_FUNCTION__, PciConfigAccess::BASE);
 
   Device *dev = new PciConfigAccess(mb.bus_hwioin, mb.bus_hwioout, msg0.value);
-  mb.bus_hwpcicfg.add(dev, PciConfigAccess::receive_static<MessagePciConfig>);
+  mb.bus_hwpcicfg.add(dev, PciConfigAccess::receive_static<MessageHwPciConfig>);
 }

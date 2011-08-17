@@ -46,7 +46,7 @@ class HostPit : public StaticReceiver<HostPit>
   }
 
 
-  HostPit(DBus<MessageIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, Clock *clock, unsigned period, unsigned iobase, unsigned irq)
+  HostPit(DBus<MessageHwIOOut> &bus_hwioout, DBus<MessageTimeout> &bus_timeout, Clock *clock, unsigned period, unsigned iobase, unsigned irq)
     :  _bus_hwioout(bus_hwioout), _bus_timeout(bus_timeout), _clock(clock), _period(period), _iobase(iobase), _irq(irq)
   {
     unsigned long long value = FREQ*period;

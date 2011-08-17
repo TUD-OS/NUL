@@ -72,7 +72,7 @@ class HostSerial : public StaticReceiver<HostSerial>
   }
 
 
-  HostSerial(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, DBus<MessageSerial> &bus_serial,
+  HostSerial(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, DBus<MessageSerial> &bus_serial,
 	     unsigned serialdev, unsigned base, unsigned irq, unsigned speed, unsigned lcr, unsigned ier)
     : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _bus_serial(bus_serial),
       _serialdev(serialdev), _base(base), _irq(irq), _speed(speed), _lcr(lcr)

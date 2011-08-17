@@ -50,7 +50,7 @@ class PciMMConfigAccess : public StaticReceiver<PciMMConfigAccess>
 
 public:
 
-  bool receive(MessagePciConfig &msg) {
+  bool receive(MessageHwPciConfig &msg) {
     if (!in_range(msg.bdf, _start_bdf, _bdf_size) || msg.dword >= 0x400)  return false;
 
     unsigned *field = _mmconfig + (msg.bdf << 10) + msg.dword;
@@ -92,7 +92,7 @@ PARAM_HANDLER(mmconfig,
     }
 
     Device *dev = new PciMMConfigAccess((entry->pci_seg << 16) + entry->pci_bus_start * 32 * 8, buses * 32 * 8, reinterpret_cast<unsigned *>(msg.ptr));
-    mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessagePciConfig>);
+    mb.bus_hwpcicfg.add(dev, PciMMConfigAccess::receive_static<MessageHwPciConfig>);
   }
 }
 

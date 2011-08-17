@@ -43,7 +43,7 @@ public:
     return true;
   }
 
-  HostRtc(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, Clock *clock, unsigned iobase)
+  HostRtc(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, Clock *clock, unsigned iobase)
     : BasicRtc(bus_hwioin, bus_hwioout, iobase)
   {
 

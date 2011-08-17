@@ -204,9 +204,9 @@ public:
   }
 
 
-  bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(msg, true);   }
-  bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(msg, true);  }
-  bool  receive(MessagePciConfig &msg) {  return _hostmb.bus_hwpcicfg.send(msg, true); }
+  bool  receive(MessageIOIn      &msg) {  return _hostmb.bus_hwioin.send(static_cast<MessageHwIOIn&>(msg), true);   }
+  bool  receive(MessageIOOut     &msg) {  return _hostmb.bus_hwioout.send(static_cast<MessageHwIOOut&>(msg), true);  }
+  bool  receive(MessageHwPciConfig &msg) {  return _hostmb.bus_hwpcicfg.send(msg, true); }
   bool  receive(MessageVesa   &msg)
   {
     if (msg.index < _modecount)
@@ -239,9 +239,9 @@ public:
   {
     _mb.bus_hostop.  add(this, receive_static<MessageHostOp>);
     _mb.bus_timer.   add(this, receive_static<MessageTimer>);
-    _mb.bus_hwioin.  add(this, receive_static<MessageIOIn>);
-    _mb.bus_hwioout. add(this, receive_static<MessageIOOut>);
-    _mb.bus_hwpcicfg.add(this, receive_static<MessagePciConfig>);
+    _mb.bus_hwioin.  add(this, receive_static<MessageHwIOIn>);
+    _mb.bus_hwioout. add(this, receive_static<MessageHwIOOut>);
+    _mb.bus_hwpcicfg.add(this, receive_static<MessageHwPciConfig>);
 
 
     MessageHostOp msg(MessageHostOp::OP_ALLOC_IOMEM, 0UL , 1<<20);

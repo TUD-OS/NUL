@@ -228,7 +228,7 @@ public:
 
 
   HostNe2kVnet(DBus<MessageVirtualNet> &bus_vnet,
-               DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout,
+               DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout,
                Clock * clock, unsigned short port, unsigned irq)
     : _net(_net_mem, bus_vnet), _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _clock(clock), _port(port), _irq(irq), _tx_done(*this)
   {

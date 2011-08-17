@@ -80,7 +80,7 @@ private:
 
   void update_irq()
   {
-    MessageIrq msg(MessageIrq::ASSERT_IRQ, _irq);
+    MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irq);
     if (~get_iir() & 1 && _regs[MCR] & 8)
       _mb.bus_irqlines.send(msg);
   }

@@ -64,9 +64,9 @@ class KeyboardController : public StaticReceiver<KeyboardController>
     RAM_LOCK      = 0x18,
   };
 
-  DBus<MessageIrq>    &_bus_irqlines;
-  DBus<MessagePS2>    &_bus_ps2;
-  DBus<MessageLegacy> &_bus_legacy;
+  DBus<MessageIrqLines> &_bus_irqlines;
+  DBus<MessagePS2>	&_bus_ps2;
+  DBus<MessageLegacy>   &_bus_legacy;
   unsigned short _base;
   unsigned _irqkbd;
   unsigned _irqaux;
@@ -143,13 +143,13 @@ class KeyboardController : public StaticReceiver<KeyboardController>
     if ((_ram[RAM_STATUS] & STATUS_AUXOBF) == STATUS_AUXOBF   && _ram[RAM_CMDBYTE] & CMD_IRQAUX)
       {
 	_ram[RAM_OUTPORT] |= OUTPORT_IRQAUX;
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irqaux);
+	MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irqaux);
 	_bus_irqlines.send(msg);
       }
     else if ((_ram[RAM_STATUS] & STATUS_AUXOBF) == STATUS_OBF && _ram[RAM_CMDBYTE] & CMD_IRQKBD)
       {
 	_ram[RAM_OUTPORT] |= OUTPORT_IRQKBD;
-	MessageIrq msg(MessageIrq::ASSERT_IRQ, _irqkbd);
+	MessageIrqLines msg(MessageIrq::ASSERT_IRQ, _irqkbd);
 	_bus_irqlines.send(msg);
       }
   }
@@ -266,7 +266,7 @@ public:
 		_ram[RAM_STATUS] = _ram[RAM_STATUS] & ~STATUS_AUXOBF | STATUS_OBF;
 		if (_ram[RAM_CMDBYTE] & CMD_IRQKBD)
 		  {
-		    MessageIrq msg2(MessageIrq::ASSERT_IRQ, _irqkbd);
+		    MessageIrqLines msg2(MessageIrq::ASSERT_IRQ, _irqkbd);
 		    _bus_irqlines.send(msg2);
 		  }
 	      }
@@ -333,7 +333,7 @@ public:
     return false;
   }
 
-  KeyboardController(DBus<MessageIrq> &bus_irqlines, DBus<MessagePS2> &bus_ps2, DBus<MessageLegacy> &bus_legacy,
+  KeyboardController(DBus<MessageIrqLines> &bus_irqlines, DBus<MessagePS2> &bus_ps2, DBus<MessageLegacy> &bus_legacy,
 		     unsigned short base, unsigned irqkbd, unsigned irqaux, unsigned ps2ports)
    : _bus_irqlines(bus_irqlines), _bus_ps2(bus_ps2), _bus_legacy(bus_legacy), _base(base), _irqkbd(irqkbd), _irqaux(irqaux), _ps2ports(ps2ports)
   {}

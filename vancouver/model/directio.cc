@@ -27,15 +27,15 @@
  */
 class DirectIODevice : public StaticReceiver<DirectIODevice>
 {
-  DBus<MessageIOIn>  &_bus_hwioin;
-  DBus<MessageIOOut> &_bus_hwioout;
+  DBus<MessageHwIOIn>  &_bus_hwioin;
+  DBus<MessageHwIOOut> &_bus_hwioout;
   unsigned _base;
   unsigned _size;
 
  public:
-  bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(msg, true);  return false; }
-  bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(msg, true); return false; }
-  DirectIODevice(DBus<MessageIOIn> &bus_hwioin, DBus<MessageIOOut> &bus_hwioout, unsigned base, unsigned size)
+  bool  receive(MessageIOIn &msg)  {  if (in_range(msg.port, _base, _size)) return _bus_hwioin.send(static_cast<MessageHwIOIn&>(msg), true);  return false; }
+  bool  receive(MessageIOOut &msg) {  if (in_range(msg.port, _base, _size)) return _bus_hwioout.send(static_cast<MessageHwIOOut&>(msg), true); return false; }
+  DirectIODevice(DBus<MessageHwIOIn> &bus_hwioin, DBus<MessageHwIOOut> &bus_hwioout, unsigned base, unsigned size)
   : _bus_hwioin(bus_hwioin), _bus_hwioout(bus_hwioout), _base(base), _size(size) {}
 };
 
