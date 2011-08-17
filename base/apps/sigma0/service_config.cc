@@ -24,11 +24,11 @@
 #include "nul/capalloc.h"
 
 class Service_config : public CapAllocator {
-  Motherboard &mb;
+  DBus<MessageConsole> &_bus_console;
 
 public:
   Service_config(Motherboard &_mb, unsigned long capstart, unsigned long cap_order)
-    : CapAllocator(capstart, capstart, cap_order), mb(_mb) {}
+    : CapAllocator(capstart, capstart, cap_order), _bus_console(_mb.bus_console) {}
 
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
@@ -53,7 +53,7 @@ public:
 
         MessageConsole msg(MessageConsole::TYPE_START, ~0);
         msg.cmdline = config;
-        if (mb.bus_console.send(msg)) {
+        if (_bus_console.send(msg)) {
           //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
           utcb.head.untyped = 1;
           utcb << msg.id << msg.mem << Utcb::TypedMapCap(msg.cap_sc_usage);
@@ -71,7 +71,7 @@ public:
         check1(EPROTO, input.get_word(id));
 
         MessageConsole msg(MessageConsole::TYPE_KILL, id);
-        if (mb.bus_console.send(msg)) return ENONE;
+        if (_bus_console.send(msg)) return ENONE;
 
         return EPROTO; 
       }
