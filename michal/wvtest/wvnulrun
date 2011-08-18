@@ -74,7 +74,7 @@ while (<$fh>)
     chomp;
     s/\r//g;
 
-    if (/^(\([0-9]+\) )?!\s*(.*?)\s+(\S+)\s*$/) {
+    if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
 	$tests_executed++;
     }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }

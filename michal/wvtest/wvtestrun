@@ -139,11 +139,11 @@ while (<$fh>)
 	@log = ("-"x78);
 	$start = $stop;
     }
-    elsif (/^(\([0-9]+\) )?!\s*(.*?)\s+(\S+)\s*$/)
+    elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
     {
         alarm(120);
 
-	my ($prefix, $name, $result) = ($1, $2, $3);
+	my ($prefix, $name, $result) = ($1, $3, $4);
 	my $pass = ($result eq "ok");
 
 	if (!$start) {
