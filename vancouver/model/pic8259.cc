@@ -323,7 +323,7 @@ class PicDevice : public StaticReceiver<PicDevice>
    * Raise the an irqline. This function needs to be multi-entrance
    * ready! It should only touch the _irr.
    */
-  bool  receive(MessageIrq &msg)
+  bool  receive(MessageIrqLines &msg)
     {
       if (in_range(msg.line, _virq, 8))
 	{
