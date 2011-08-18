@@ -31,7 +31,9 @@ class VCpu;
 
 /**
  * A virtual motherboard is a collection of busses.
- * The devices are later attached to the busses.
+ * The devices are later attached to the busses. To find out what the
+ * individual busses are good for, check the documentation of the
+ * message classes.
  *
  * This also knows the backend devices.
  */
@@ -41,7 +43,7 @@ class Motherboard : public StaticReceiver<Motherboard>
   class Hip   *_hip;
 
   /**
-   * To avoid bugs we disallow the copy constuctor.
+   * To avoid bugs we disallow the copy constructor.
    */
   Motherboard(const Motherboard &bus) { Logging::panic("%s copy constructor called", __func__); }
 
@@ -55,27 +57,27 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageDisk>         bus_disk;
   DBus<MessageDiskCommit>   bus_diskcommit;
   DBus<MessageHostOp>       bus_hostop;
-  DBus<MessageHwIOIn>       bus_hwioin;
-  DBus<MessageIOIn>         bus_ioin;
-  DBus<MessageHwIOOut>      bus_hwioout;
-  DBus<MessageIOOut>        bus_ioout;
+  DBus<MessageHwIOIn>       bus_hwioin;	    ///< HW I/O space reads
+  DBus<MessageIOIn>         bus_ioin;       ///< I/O space reads from virtual machines
+  DBus<MessageHwIOOut>      bus_hwioout;    ///< HW I/O space writes
+  DBus<MessageIOOut>        bus_ioout;	    ///< I/O space writes from virtual machines
   DBus<MessageInput>        bus_input;
-  DBus<MessageIrq>          bus_hostirq;
-  DBus<MessageIrqLines>	    bus_irqlines;
+  DBus<MessageIrq>          bus_hostirq;    ///< Host IRQs
+  DBus<MessageIrqLines>	    bus_irqlines;   ///< Virtual IRQs before they reach (virtual) IRQ controller
   DBus<MessageIrqNotify>    bus_irqnotify;
   DBus<MessageLegacy>       bus_legacy;
-  DBus<MessageMem>          bus_mem;
-  DBus<MessageMemRegion>    bus_memregion;
+  DBus<MessageMem>          bus_mem;	    ///< Access to memory from virtual devices
+  DBus<MessageMemRegion>    bus_memregion;  ///< Access to memory pages from virtual devices
   DBus<MessageNetwork>      bus_network;
   DBus<MessagePS2>          bus_ps2;
-  DBus<MessageHwPciConfig>  bus_hwpcicfg;
-  DBus<MessagePciConfig>    bus_pcicfg;
+  DBus<MessageHwPciConfig>  bus_hwpcicfg;   ///< Access to real HW PCI configuration space
+  DBus<MessagePciConfig>    bus_pcicfg;	    ///< Access to PCI configuration space of virtual devices
   DBus<MessagePic>          bus_pic;
   DBus<MessagePit>          bus_pit;
   DBus<MessageSerial>       bus_serial;
   DBus<MessageTime>         bus_time;
-  DBus<MessageTimeout>      bus_timeout;
-  DBus<MessageTimer>        bus_timer;
+  DBus<MessageTimeout>      bus_timeout;    ///< Timer expiration notifications 
+  DBus<MessageTimer>        bus_timer;      ///< Request for timers
   DBus<MessageVesa>         bus_vesa;
   DBus<MessageVirtualNet>   bus_vnet;
   DBus<MessageVirtualNetPing> bus_vnetping;
