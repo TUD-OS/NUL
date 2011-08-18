@@ -1,0 +1,15 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-cpu phenom -smp 2
+bin/apps/sigma0.nul S0_DEFAULT hostserial hostserialpci hostvga hostkeyb:0,0x60,1,12 tracebuffer:32768,1 script_start:1,1 service_config
+bin/apps/vancouver.nul
+bin/boot/munich
+linux/bzImage-js
+linux/initrd-wvtest-boot.lzma
+vancuver.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/vancouver.nul PC_PS2 ||
+rom://bin/boot/munich ||
+rom://linux/bzImage-js clocksource=tsc console=ttyS0 ||
+rom://linux/initrd-wvtest-boot.lzma
+EOF

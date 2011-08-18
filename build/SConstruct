@@ -31,6 +31,7 @@ Alias('install', tftp_dir)
 
 Default('bin/apps')
 Default('bin/boot')
+Default('linux')
 
 cmd_env = Environment(ENV = os.environ)
 AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
