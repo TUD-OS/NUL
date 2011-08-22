@@ -50,7 +50,7 @@ struct GenericClientData {
   unsigned           identity;  ///< A capability created by the service to identify the session.
   /**
    * We implement a get_quota here, so that derived classes can
-   * overwrite it.  Usefull for example in sigma0 that has a different
+   * overwrite it.  Useful for example in sigma0 that has a different
    * way to get the quota of a client.
    */
   static unsigned get_quota(Utcb &utcb, unsigned _pseudonym, const char *name, long value_in, long *value_out=0) {
@@ -248,7 +248,7 @@ public:
       }
 
     if (__DEBUG__) {
-      Logging::printf("didn't found item %p\n list:", data);
+      Logging::printf("didn't find item %p\n list:", data);
     
       for (T volatile * volatile * prev = &_head; T volatile * current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
         Logging::printf(" %p ->", current);
