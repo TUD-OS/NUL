@@ -145,8 +145,8 @@ public:
       }
     } while (e.has_next() and ((e = e.next()), true));
     
-    // When we get here, either we either haven't found a single RID
-    // or only one. For the latter case, we assume it's the right one.
+    // When we get here, either we haven't found a single RID or only
+    // one. For the latter case, we assume it's the right one.
     return first_rid_found;
   }
 
