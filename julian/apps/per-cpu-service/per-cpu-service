@@ -1,0 +1,8 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul S0_DEFAULT verbose hostserial hostvga tracebuffer:32768,1 script_start:1,1 hostkeyb:0,0x60,1,12,2
+bin/apps/per-cpu-service.nul
+bin/apps/per-cpu-service.nulconfig <<EOF
+namespace::/s0 name::/s0/admission name::/s0/pcpus namespace::/s0 || 
+rom://bin/apps/per-cpu-service.nul
+EOF
