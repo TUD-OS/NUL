@@ -129,11 +129,13 @@ while (<>) {
 	push @{$file}, "$_\n";
 	next;
     }
+    $_ =~ s/^[[:space:]]*// if ($continuation);
     if (/\\$/) {		# Line continuation
 	$line .= substr($_, 0, length($_)-1);
+	$continuation = 1;
 	next;
     }
-
+    $continuation = 0;
     $line .= $_;
     $line .= " $append" if ($append && scalar(@$modules) == 0);
     push @$modules, $line;
@@ -520,8 +522,8 @@ script are relative to the NUL build directory (see below).
 
 Lines starting with "#" are ignored.
 
-Lines that end with "\" are concatenated with the following line
-after removal of the final "\".
+Lines that end with "\" are concatenated with the following line after
+removal of the final "\" and leading whitespace of the following line.
 
 Lines matching '[A-Z_]+=' regexp assign values to internal variables.
 See VARIABLES section.
