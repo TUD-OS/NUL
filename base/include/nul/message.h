@@ -477,6 +477,7 @@ struct MessageHostOp
     struct {
       char *ptr;
       unsigned long len;
+      phy_cpu_no cpu;
     };
     struct {
       unsigned module;
@@ -489,7 +490,6 @@ struct MessageHostOp
       unsigned msi_gsi;
       unsigned msi_value;
       unsigned long long msi_address;
-      phy_cpu_no cpu;
     };
     struct {
       unsigned long long mac;
