@@ -1,4 +1,4 @@
-/*
+/** @file
  * Common code for NOVA programs.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

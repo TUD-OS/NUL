@@ -1,4 +1,4 @@
-/*
+/** @file
  * Generic service helper.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

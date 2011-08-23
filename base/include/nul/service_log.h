@@ -1,4 +1,4 @@
-/*
+/** @file
  * Client part of the log protocol.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

@@ -1,4 +1,4 @@
-/*
+/** @file
  * Client part of the fs protocol.
  *
  * Copyright (C) 2010, Alexander Boettcher <boettcher@tudos.org>

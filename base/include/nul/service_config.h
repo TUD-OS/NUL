@@ -1,4 +1,4 @@
-/*
+/** @file
  * Client part of the config protocol.
  *
  * Copyright (C) 2010-2011, Alexander Boettcher <boettcher@tudos.org>

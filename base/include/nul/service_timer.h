@@ -1,4 +1,4 @@
-/*
+/** @file
  * Client part of the timer protocol
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>

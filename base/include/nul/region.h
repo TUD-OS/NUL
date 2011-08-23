@@ -1,4 +1,4 @@
-/*
+/** @file
  * Region list.
  *
  * Copyright (C) 2009 Bernhard Kauer <bk@vmmon.org>
