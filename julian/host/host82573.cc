@@ -42,6 +42,7 @@ enum NICType {
   INTEL_82573L,
   INTEL_82577,
   INTEL_82578,
+  INTEL_82579,
 };
 
 enum Features {
@@ -69,6 +70,10 @@ typedef uint8 PacketBuffer[2048];
 static const NICInfo intel_nics[] = {
   { "82578DC (b0rken?)", INTEL_82578,   0x10F0, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
   { "82577LM",           INTEL_82577,   0x10EA, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
+
+  // XXX Largely untested. Check spec!
+  { "82579LM",           INTEL_82579,   0x1502, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
+
   { "82573L",            INTEL_82573L,  0x109A, ADVANCED_QUEUE },
   { "82540EM",           INTEL_82540EM, 0x100E, HAS_EERD },
   { "82567LM-2",         INTEL_82567,   0x10CC, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
