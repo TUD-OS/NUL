@@ -1,5 +1,6 @@
 #!/usr/bin/perl -w
 
+use strict;
 use Getopt::Long;
 use Pod::Usage;
 use File::Basename;
@@ -45,7 +46,7 @@ if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $man, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $qemu_flags_cmd, $serial, $server);
 
 GetOptions (
     "append|a=s"     => \$append,
@@ -97,6 +98,7 @@ my $file;
 my $line;
 my $EOF;
 my $last_fn = '';
+my ($modules, $variables, $configs, $continuation);
 while (<>) {
     if ($ARGV ne $last_fn) { # New script
 	die "Missing EOF in $last_fn" if $file;
@@ -148,7 +150,7 @@ sub generate_configs($$) {
     my ($base, $configs) = @_;
     if ($base) { $base = "$base/"; };
     foreach my $fn(keys %$configs) {
-	$config = $$configs{$fn};
+	my $config = $$configs{$fn};
 	open(my $f, '>', $fn);
 	map { s|^rom://(.*)|rom://$base$1|; print $f "$_"; } @{$config};
 	close($f);
@@ -197,11 +199,14 @@ sub system_verbose($)
 chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
 print "novaboot: Entering directory `$CFG::builddir'\n";
 
-foreach $script (@scripts) {
+my (%files_iso, $menu_iso, $config_name, $filename);
+
+foreach my $script (@scripts) {
     $filename = $$script{filename};
     $modules = $$script{modules};
     $configs = $$script{configs};
     $variables = $$script{variables};
+    my ($server_grub_prefix);
     
     if (defined $config_name_opt) {
 	$config_name = $config_name_opt;
