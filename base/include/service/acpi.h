@@ -43,6 +43,7 @@ public:
     size_t _size_left;
 
   public:
+    uint8     id()   const { return _elem->id; }
     ScopeType type() const { return ScopeType(_elem->type); }
     
     uint16  rid() {

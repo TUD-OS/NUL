@@ -105,7 +105,7 @@ public:
    * \todo Will always find the first HPET. If there are multiple, you
    * may be screwed.
    */
-  static uint16 get_hpet_rid(DBus<MessageAcpi> &bus_acpi)
+  static uint16 get_hpet_rid(DBus<MessageAcpi> &bus_acpi, unsigned block, unsigned comparator)
   {
     MessageAcpi msg0("DMAR");
     if (not bus_acpi.send(msg0, true) or not msg0.table)
@@ -121,8 +121,16 @@ public:
         if (dhrd.has_scopes()) {
           DmarTableParser::DeviceScope s = dhrd.get_scope();
           do {
-            if (s.type() == DmarTableParser::MSI_CAPABLE_HPET)
-              return s.rid();
+            if (s.type() == DmarTableParser::MSI_CAPABLE_HPET) {
+              // We assume the enumaration IDs correspond to timer blocks.
+              // XXX Is this true? We haven't seen an HPET with
+              // multiple blocks yet.
+              if (s.id() != block) continue;
+              
+              // Return the RID for the right comparator.
+              if (comparator-- == 0)
+                return s.rid();
+            }
               
           } while (s.has_next() and ((s = s.next()), true));
         }
