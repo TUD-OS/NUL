@@ -149,7 +149,7 @@ public:
   DmarTableParser(const char *base)
     : _base(base)
   {
-    assert(_header->signature == 'RAMD'); // "DMAR"
+    assert(_header->signature == 0x52414d44U); // "DMAR"
   }
 };
 
