@@ -102,8 +102,12 @@ public:
 
   /** Try to find out HPET routing ID. Returns 0 on failure.
    *
-   * \todo Will always find the first HPET. If there are multiple, you
-   * may be screwed.
+   * HPET routing IDs are stored in the DMAR table and we need them
+   * for interrupt remapping to work. This method is complicated by
+   * weird BIOSes that give each comparator its own RID. Our heuristic
+   * is to check, whether we see multiple device scope entries per
+   * ID. If this is the case, we assume that each comparator has a
+   * different RID.
    */
   static uint16 get_hpet_rid(DBus<MessageAcpi> &bus_acpi, unsigned block, unsigned comparator)
   {
@@ -113,6 +117,8 @@ public:
 
     DmarTableParser p(msg0.table);
     DmarTableParser::Element e = p.get_element();
+
+    uint16 first_rid_found = 0;
 
     do {
       if (e.type() == DmarTableParser::DHRD) {
@@ -126,18 +132,22 @@ public:
               // XXX Is this true? We haven't seen an HPET with
               // multiple blocks yet.
               if (s.id() != block) continue;
+
+              if (first_rid_found == 0)
+                first_rid_found = s.rid();
               
               // Return the RID for the right comparator.
               if (comparator-- == 0)
                 return s.rid();
             }
-              
           } while (s.has_next() and ((s = s.next()), true));
         }
       }
     } while (e.has_next() and ((e = e.next()), true));
     
-    return 0;
+    // When we get here, either we either haven't found a single RID
+    // or only one. For the latter case, we assume it's the right one.
+    return first_rid_found;
   }
 
 
