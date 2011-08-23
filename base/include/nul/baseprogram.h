@@ -56,7 +56,8 @@ struct BaseProgram {
   static phy_cpu_no mycpu() { return myutcb()->head.nul_cpunr; }
 
   /**
-   * add mappings to a UTCB.
+   * Add mappings to a UTCB.
+   * TODO Move this to sys/utcb.h
    */
   static unsigned long add_mappings(Utcb *utcb, unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
   {
