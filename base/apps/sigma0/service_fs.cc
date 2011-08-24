@@ -124,14 +124,14 @@ public:
   bool get_file(char const * text, Hip_mem &out)
   {
     Hip_mem *hmem;
-    unsigned len;
+    //unsigned len;
 
     for (int i=0; hip->mem_size && i < (hip->length - hip->mem_offs) / hip->mem_size; i++)
       {
         hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(hip) + hip->mem_offs + i * hip->mem_size);
         if (hmem->type != -2 || !hmem->size || !hmem->aux) continue;
         char * virt_aux = reinterpret_cast<char *>(hmem->aux);
-        len = strcspn(virt_aux, " \t\r\n\f");
+        //len = strcspn(virt_aux, " \t\r\n\f");
         //      if (len >= 10 && !strncmp(virt_aux + len - 10, ".nulconfig", 10)) continue; //skip configuration files for security/spying reasons
         if (strcmp(virt_aux, text)) continue;
 
