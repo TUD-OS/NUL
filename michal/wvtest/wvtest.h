@@ -33,7 +33,7 @@
 #define WVPERF(value)  ({ WvTest t(__FILE__, __LINE__, "PERF: " #value);  t.check_perf(value); })
 
 // Debugging
-#define WV(code)  ({ WvTest t(__FILE__, __LINE__, #code);   t.check(true); code })
+#define WV(code)    ({ WvTest t(__FILE__, __LINE__, #code); t.check(true); code; })
 #define WVDEC(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_dec(val); })
 #define WVHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
 
