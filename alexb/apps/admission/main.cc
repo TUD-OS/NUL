@@ -335,7 +335,7 @@ public:
 
       const char * service_name = "/admission";
       unsigned res;
-      unsigned exc_base_wo, exc_base_pf, pt_wo, pt_pf;
+      unsigned exc_base_wo, exc_base_pf, pt_wo;
       unsigned service_cap = alloc_cap();
       Utcb *utcb_wo, *utcb_pf;
       
@@ -354,7 +354,6 @@ public:
         exc_base_pf = alloc_cap(16);
         if (!exc_base_wo || !exc_base_pf) return false;
         pt_wo       = alloc_cap();
-        pt_pf       = exc_base_wo + 0xe;
 
         unsigned cap_ec = create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap());
         if (!cap_ec) return false;
