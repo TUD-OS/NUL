@@ -252,21 +252,22 @@ void Remcon::handle_packet(void) {
                                          server_data[j].filename, server_data[j].filename_len);
               if (res != ENONE) goto cleanup;
 
-              unsigned short id;
-              unsigned long mem;
-              res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
-              if (res == ENONE) {
-                rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
-                if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
-                if (ENONE != service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)) { Logging::printf("failure - rebind of sc usage cap failed\n"); };
+              {
+                unsigned short id;
+                unsigned long mem = 0;
+                res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
+                if (res == ENONE) {
+                  rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
+                  if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
+                  if (ENONE != service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)) { Logging::printf("failure - rebind of sc usage cap failed\n"); };
 
-                server_data[j].scs_usage = scs_usage;
-                server_data[j].maxmem    = mem;
-                server_data[j].remoteid  = id;
-                _out->result  = NOVA_OP_SUCCEEDED;
-              } else if (res == ConfigProtocol::ECONFIGTOOBIG)
-                Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
-
+                  server_data[j].scs_usage = scs_usage;
+                  server_data[j].maxmem    = mem;
+                  server_data[j].remoteid  = id;
+                  _out->result  = NOVA_OP_SUCCEEDED;
+                } else if (res == ConfigProtocol::ECONFIGTOOBIG)
+                  Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
+              }
               cleanup:
 
               if (module) delete [] module;
