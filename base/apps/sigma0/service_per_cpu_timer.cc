@@ -338,7 +338,7 @@ class PerCpuTimerService : private BasicHpet,
   // new HPET main counter value.
   void update_hpet_estimation(PerCpu *per_cpu)
   {
-    ClockSyncInfo old = per_cpu->clock_sync;
+    //ClockSyncInfo old = per_cpu->clock_sync;
     per_cpu->clock_sync.fetch(_reg->counter[0]);
   }
 
