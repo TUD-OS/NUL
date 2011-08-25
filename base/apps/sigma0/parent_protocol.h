@@ -134,7 +134,10 @@ private:
         cmdline = strstr(cmdline + namelen, "name::");
         continue;
       }
-      if (instance--) continue;
+      if (instance--) {
+	cmdline = strstr(cmdline + namelen, "name::");
+	continue;
+      }
       return ENONE;
     }
     Logging::printf("s0: client has no permission to access service '%s'\n", request);
