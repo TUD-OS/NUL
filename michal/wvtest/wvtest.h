@@ -126,7 +126,7 @@ class WvTest
 #endif
 
   static void print_failed_cmp(const char *op, const char *a, const char *b)
-    { Logging::printf("wvtest comparison %s %s %s FAILED\n", a, op, b); }
+    { Logging::printf("wvtest comparison '%s' %s '%s' FAILED\n", a, op, b); }
 
   static void print_failed_cmp(const char *op, unsigned a, unsigned b)
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
