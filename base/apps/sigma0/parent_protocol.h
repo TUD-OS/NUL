@@ -129,7 +129,8 @@ private:
     while (cmdline && cmdline < cmdline_end) {
       cmdline += 6;
       namelen = strcspn(cmdline, " \t\r\n\f");
-      if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len))) {
+      if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len)) ||
+	  (*(cmdline + namelen - request_len - 1) != '/')) {
         cmdline = strstr(cmdline + namelen, "name::");
         continue;
       }
