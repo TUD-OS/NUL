@@ -68,22 +68,22 @@ class WvTest
 
   const char *resultstr(bool result)
     {
-      if (!result)
-	tests_failed++;
+//       if (!result)
+// 	tests_failed++;
       return result ? "ok" : "FAILED";
     }
 
   const char *resultstr(char *result)
     {
-      if (!strcmp(result, "ok")) 
-	tests_failed++;
+//       if (!strcmp(result, "ok")) 
+// 	tests_failed++;
       return result;
     }
 
   const char *resultstr(NulErr result)
     {
-      if (result.err != ENONE)
-	tests_failed++;
+//       if (result.err != ENONE)
+// 	tests_failed++;
       return result.tostr();
     }
 
@@ -121,7 +121,7 @@ class WvTest
   void print_result(T result, const char* suffix="")
     {
       Logging::printf("! %s:%d %s %s %s\n", file, line, condstr, suffix, resultstr(result));
-      tests_run++;
+      //tests_run++;
     }
 #endif
 
@@ -155,7 +155,7 @@ class WvTest
   {Vprintf::snprintf(buf, size, "%s0x%x", prefix, val);}
 
 public:
-  static unsigned tests_failed, tests_run;
+  //static unsigned tests_failed, tests_run;
 
   WvTest(const char *file, int line, const char *condstr) {
     save_info(file, line, condstr);
@@ -237,7 +237,7 @@ public:
   }
 };
 
-unsigned WvTest::tests_failed, WvTest::tests_run;
+//unsigned WvTest::tests_failed, WvTest::tests_run;
 
 
 #endif // __WVTEST_H

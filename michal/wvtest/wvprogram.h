@@ -22,11 +22,11 @@ public:
   }
 
   void test_done() {
-    WVPASS(WvTest::tests_run > 0);
+//    WVPASS(WvTest::tests_run > 0);
 
-    Logging::printf("WvTest: %d test%s, %d failure%s.\n",
-		    WvTest::tests_run, WvTest::tests_run==1 ? "" : "s",
-		    WvTest::tests_failed, WvTest::tests_failed==1 ? "": "s");
+//    Logging::printf("WvTest: %d test%s, %d failure%s.\n",
+//		    WvTest::tests_run, WvTest::tests_run==1 ? "" : "s",
+//		    WvTest::tests_failed, WvTest::tests_failed==1 ? "": "s");
   }
 
   virtual void wvrun(Utcb *utcb, Hip *hip) = 0;
