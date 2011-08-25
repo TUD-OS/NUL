@@ -113,14 +113,25 @@ private:
     return ERETRY;
   }
 
+  /**
+   * Check whether a client has the permission to access a service.
+   *
+   * Parse the cmdline for "name::" prefixes and check whether the
+   * postfix matches the requested name. In the current
+   * implementation, it is only checked whether the trailing part of
+   * the postfix (without the namespace) matches the requested name.
+   *
+   * @param identity The identity of the client (i.e. ParentProtocol::CAP_PARENT_ID)
+   * @param request Name of the requested service
+   * @param request_len Length of the name
+   * @param instance Which instance of the service is requested
+   * @param[out] cmdline Pointer to the postfix of the matching "name::" parameter (including the namespace)
+   * @param[out] namelen The length the postfix
+   */
   unsigned check_permission(
     unsigned identity, const char *request, unsigned request_len,
     unsigned instance, char const * &cmdline, unsigned &namelen)
   {
-    /**
-     * Parse the cmdline for "name::" prefixes and check whether the
-     * postfix matches the requested name.
-     */
     unsigned long s0_cmdlen;
     cmdline = get_client_cmdline(identity, s0_cmdlen);
     char const * cmdline_end = cmdline + s0_cmdlen;
