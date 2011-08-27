@@ -1,6 +1,7 @@
 #include "closure.h"
 #include "client.h"
 #include "service.h"
+#include <wvtest.h>
 
 class PerCpuService : public ServiceProgram
 {
@@ -47,6 +48,8 @@ public:
   {
     unsigned res;
 
+    _console_data.log = new LogProtocol(NovaProgram::alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+
     // Test
     {
       {
@@ -78,12 +81,13 @@ public:
       Logging::printf("call cycles %llu\n", (Cpu::rdtsc() - start) / 0x1000);
     }
 
-    Logging::printf("Done.\n");
+    WV("Done");
+    ParentProtocol::signal(*BaseProgram::myutcb(), 0);
     block_forever();
   }
 
 };
 
-ASMFUNCS(PerCpuService, NovaProgram)
+ASMFUNCS(PerCpuService, WvTest)
 
 // EOF
