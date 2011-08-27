@@ -1,13 +1,12 @@
 #!/bin/sh
 
-DIR=$(dirname $0)
-
-cd $DIR
-
-find ../.. -name '*.wv' | while read file; do
-    ( set -x; ./wvnulrun $file "$@"; )
+dir=$(dirname $0)
+root=$(readlink -f $dir/../..)
+tests=$(find $root -name '*.wv')
+for file in $tests; do
+    ( set -x; $dir/wvnulrun $file "$@"; )
     ret=$?
     if [ "$ret" -ne 0 ]; then
-	echo "! 'runall: ./wvnulrun returned non-zero exit code ($ret)  FAILED";
+	echo "! $0: $dir/wvnulrun returned non-zero exit code ($ret)  FAILED";
     fi
 done
