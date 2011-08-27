@@ -236,7 +236,7 @@ protected:
 
   cap_sel create_ec(phy_cpu_no cpu, Utcb **utcb_out)
   {
-    return create_ec_helper(this, cpu, 0, utcb_out, NULL);
+    return create_ec4pt(this, cpu, 0, utcb_out);
   }
 
   ServiceProgram(const char *console_name = "service")

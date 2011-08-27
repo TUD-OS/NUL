@@ -126,7 +126,7 @@ public:
       if (!exc_base_wo) return ERESOURCE;
       pt_wo       = alloc_cap();
 
-      unsigned cap_ec = c->create_ec_helper(this, cpunr, exc_base_wo, &utcb_wo, 0, alloc_cap());
+      unsigned cap_ec = c->create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap());
       if (!cap_ec) return ERESOURCE;;
 
       utcb_wo->head.crd = alloc_crd();

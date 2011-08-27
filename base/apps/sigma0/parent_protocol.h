@@ -425,7 +425,7 @@ public:
     for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
       Utcb *utcb = 0;
       unsigned pcpu = __sigma0->_cpunr[lcpu];
-      _percpu[pcpu].cap_ec_parent = __sigma0->create_ec_helper(this, pcpu, __sigma0->_percpu[lcpu].exc_base, &utcb);
+      _percpu[pcpu].cap_ec_parent = __sigma0->create_ec4pt(this, pcpu, __sigma0->_percpu[lcpu].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
       utcb->head.crd_translate = Crd(_cap_all_start, _cap_all_order, DESC_CAP_ALL).value();
 

@@ -82,7 +82,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
     pt_wo       = alloc_cap();
     if (!exc_base_wo || !pt_wo) return false;
 
-    unsigned cap_ec = create_ec_helper(this, cpu, exc_base_wo, 0, 0, alloc_cap());
+    unsigned cap_ec = create_ec4pt(this, cpu, exc_base_wo, 0, alloc_cap());
     if (!cap_ec) return false;
 
     unsigned long func_wo = reinterpret_cast<unsigned long>(portal_wo);
@@ -96,7 +96,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
       exc_base_pf = alloc_cap(16);
       if (!exc_base_pf) return false;
 
-      cap_pf[i] = create_ec_helper(this, cpu, exc_base_pf, 0, 0, alloc_cap());
+      cap_pf[i] = create_ec4pt(this, cpu, exc_base_pf, 0, alloc_cap());
       if (!cap_pf[i]) return false;
 
       unsigned long func_pf = reinterpret_cast<unsigned long>(portal_pf);

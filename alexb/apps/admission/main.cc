@@ -356,9 +356,9 @@ public:
         pt_wo       = alloc_cap();
         pt_pf       = exc_base_wo + 0xe;
 
-        unsigned cap_ec = create_ec_helper(this, cpunr, exc_base_wo, &utcb_wo, 0, alloc_cap());
+        unsigned cap_ec = create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap());
         if (!cap_ec) return false;
-        unsigned cap_pf = create_ec_helper(this, cpunr, exc_base_pf, &utcb_pf, 0, alloc_cap());
+        unsigned cap_pf = create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap());
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();

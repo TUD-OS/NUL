@@ -405,14 +405,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _cpunr[_numcpus++] = i;
 
       // Create the ec_echo with an invalid exception base.
-      _percpu[i].cap_ec_echo = create_ec_helper(this, i, 0);
+      _percpu[i].cap_ec_echo = create_ec4pt(this, i, 0);
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
       _percpu[i].exc_base = alloc_cap(0x20);
 
       Utcb *utcb = 0;
-      _percpu[i].cap_ec_worker = create_ec_helper(this, i, _percpu[i].exc_base, &utcb);
+      _percpu[i].cap_ec_worker = create_ec4pt(this, i, _percpu[i].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
 
       // Create error handling portals.
@@ -937,8 +937,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           unsigned cpu    = msg._alloc_service_portal.cpu;
           if (cpu == ~0U) cpu = _cpunr[CPUGSI % _numcpus];
           Utcb *utcb      = NULL;
-          unsigned ec_cap = create_ec_helper(msg._alloc_service_portal.pt_arg,
-                                             cpu, _percpu[cpu].exc_base, &utcb);
+          unsigned ec_cap = create_ec4pt(msg._alloc_service_portal.pt_arg,
+					 cpu, _percpu[cpu].exc_base, &utcb);
           unsigned pt = alloc_cap();
           if (!ec_cap || !utcb || !pt) return false;
           utcb->head.crd = msg._alloc_service_portal.crd;
@@ -990,7 +990,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           for (unsigned i = 0; i < _numcpus; i++) {
             Utcb *utcb = NULL;
             unsigned cpu = _cpunr[i];
-            unsigned ec_cap = create_ec_helper(msg.obj, cpu, msg.excbase, &utcb);
+            unsigned ec_cap = create_ec4pt(msg.obj, cpu, msg.excbase, &utcb);
             unsigned pt = alloc_cap();
 
             if (!ec_cap || !utcb || !pt) return false;
@@ -1011,7 +1011,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             check1(false, ParentProtocol::register_service(*myutcb(), msg.service_name, cpu, pt, service_cap, msg.revoke_mem));
             //Logging::printf("s0: service registered on cpu %x\n", cpu);
             if (msg.portal_pf) {
-              unsigned ec_pf = create_ec_helper(msg.obj, cpu, _percpu[cpu].exc_base, &utcb);
+              unsigned ec_pf = create_ec4pt(msg.obj, cpu, _percpu[cpu].exc_base, &utcb);
               if (!ec_pf || !utcb) return false;
               utcb->head.crd = 0;
               check1(false, nova_create_pt(msg.excbase + 0xe, ec_pf, msg.portal_pf, MTD_GPR_ACDB | MTD_GPR_BSD | MTD_QUAL | MTD_RIP_LEN | MTD_RSP));

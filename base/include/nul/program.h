@@ -68,8 +68,8 @@ class NovaProgram : public BaseProgram, public CapAllocator
    *
    * @param tls Pointer passed to @a func as the first parameter
    */
-  template <class C>
-  unsigned  create_ec_helper(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL)
+  template <class C> __attribute__((nonnull (6))) /* func should be non-null */
+  unsigned  create_ec_helper(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out, void *func, unsigned long cap = ~0UL, bool local = false)
   {
     if (cap == ~0UL) cap = alloc_cap();
     unsigned stack_top = stack_size/sizeof(void *);
@@ -79,10 +79,10 @@ class NovaProgram : public BaseProgram, public CapAllocator
     stack[--stack_top] = reinterpret_cast<void *>(0xDEAD);
     stack[--stack_top] = utcb; // push UTCB -- as function parameter
     stack[--stack_top] = tls;
-    stack[--stack_top] = func ? func : reinterpret_cast<void *>(idc_reply_and_wait_fast);
+    stack[--stack_top] = func;
     //Logging::printf("\t\tcreate ec[%x,%x] stack %p utcb %p at %p = %p tls %p\n",
 		//    cpunr, cap, stack, utcb, stack + stack_top, stack[stack_top], tls);
-    check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, !func));
+    check1(0, nova_create_ec(cap, utcb,  stack + stack_top, cpunr, excbase, local));
     utcb->head.nul_cpunr = cpunr;
     utcb->head.crd = utcb->head.crd_translate = 0;
     if (utcb_out)
@@ -90,6 +90,12 @@ class NovaProgram : public BaseProgram, public CapAllocator
     return cap;
   }
 
+  /** Create an EC that will be bound to the portal handled with StaticPortalFunc. */
+  template <class C>
+  unsigned  create_ec4pt(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, unsigned long cap = ~0UL)
+  {
+    return create_ec_helper(tls, cpunr, excbase, utcb_out, reinterpret_cast<void *>(idc_reply_and_wait_fast), cap, true);
+  }
 
   /**
    * Initialize ourself.

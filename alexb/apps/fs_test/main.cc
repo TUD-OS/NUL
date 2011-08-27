@@ -99,7 +99,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       unsigned res;
 
       Utcb *worker_utcb;
-      unsigned cap_ec = create_ec_helper(this, utcb->head.nul_cpunr, 0, &worker_utcb, 0, alloc_cap());
+      unsigned cap_ec = create_ec4pt(this, utcb->head.nul_cpunr, 0, &worker_utcb, alloc_cap());
       if (!cap_ec) return false;
 
       worker_utcb->head.crd = alloc_crd();

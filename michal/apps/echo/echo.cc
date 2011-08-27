@@ -85,7 +85,7 @@ public:
 
         pt_worker    = alloc_cap();
 
-        unsigned cap_worker_ec = create_ec_helper(this, cpunr, exc_base_worker, &utcb_worker, 0, alloc_cap());
+        unsigned cap_worker_ec = create_ec4pt(this, cpunr, exc_base_worker, &utcb_worker, alloc_cap());
         if (!cap_worker_ec)
 	  return false;
 
