@@ -90,13 +90,17 @@ if ($newpid != $pid) {
     die("waitpid returned '$newpid', expected '$pid'\n");
 }
 
-printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
-
 my $code = $?;
 my $ret = ($code >> 8);
 
 # return death-from-signal exits as >128.  This is what bash does if you ran
 # the program directly.
 if ($code && !$ret && !($kill_ok && $code == 15)) { $ret = $code | 128; }
+
+if ($code != 0) {
+    print "! $0: Program '", join(" ", @ARGV), "' returned non-zero exit code ($ret)  FAILED\n";
+}
+
+printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
 
 exit $ret;

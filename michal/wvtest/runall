@@ -8,6 +8,6 @@ find ../.. -name '*.wv' | while read file; do
     ( set -x; ./wvnulrun $file "$@"; )
     ret=$?
     if [ "$ret" -ne 0 ]; then
-	echo "! $file returned non-zero exit code ($ret)  FAILED";
+	echo "! 'runall: ./wvnulrun returned non-zero exit code ($ret)  FAILED";
     fi
 done
