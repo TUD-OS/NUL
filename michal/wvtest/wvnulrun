@@ -31,7 +31,7 @@ my $pid = open(my $fh, "-|");
 if (!$pid) {
     # child
     open STDERR, '>&STDOUT' or die("Can't dup stdout: $!\n");
-    setpgrp(); # Terminal won't send signals to the child
+#    setpgrp(); # Terminal won't send signals to the child
     exec(@ARGV);
     exit 126; # just in case
 }

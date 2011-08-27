@@ -293,20 +293,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 
 	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
     }
-    if (!$ENV{'WVTESTRUN'}) {
-	$qemu_flags .= " -serial stdio"
-    } else {
-	# We must use pipe and cat to get qemu's serial output to
-	# stdout. Qemu's stdio backend cannot be used here as it
-	# accesses terminal which is not allowed when we are executing
-	# under wvtestrun because we are not the controlling process
-	# of the terminal.
-	use POSIX qw(mkfifo);
-	mkfifo("tmppipe.in", 0600) unless (-p "tmppipe.in");
-	mkfifo("tmppipe.out", 0600) unless (-p "tmppipe.out");
-	system("cat tmppipe.out &");
-	$qemu_flags .= " -chardev pipe,id=mypipe,path=tmppipe -serial chardev:mypipe";
-}
+    $qemu_flags .= " -serial stdio"; # Redirect serial output (for collecting test restuls)
     exec_verbose("qemu -name '$config_name' $qemu_flags");
 }
 
