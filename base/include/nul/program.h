@@ -63,7 +63,10 @@ class NovaProgram : public BaseProgram, public CapAllocator
   Utcb * alloc_utcb() { return reinterpret_cast<Utcb *>(_free_virt.alloc(2*UTCB_PAD + sizeof(Utcb), 12) + UTCB_PAD); }
 
   /**
-   * Create an EC and setup the stack. Returns the EC cap.
+   * Create an EC and setup the stack.
+   * @return The EC cap.
+   *
+   * @param tls Pointer passed to @a func as the first parameter
    */
   template <class C>
   unsigned  create_ec_helper(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL)
