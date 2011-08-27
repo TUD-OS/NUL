@@ -50,7 +50,7 @@ public:
     // Test
     {
       {
-        Client c(*utcb, this, "/s0/pcpus", 0);
+        Client c(*utcb, this, "s0/pcpus", 0);
         res = c.call();
         assert(res == ENONE);
       }
@@ -66,7 +66,7 @@ public:
 
     {
       // Try to open a session:
-      Client c(*utcb, this, "/s0/pcpus", 0);
+      Client c(*utcb, this, "s0/pcpus", 0);
       // Warmup
       c.call();
 
