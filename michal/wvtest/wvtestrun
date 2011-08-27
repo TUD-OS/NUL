@@ -22,7 +22,7 @@ $ENV{'WVTESTRUN'} = 1;		# Tell the child it is run in background (needed for qem
 my $pid = open(my $fh, "-|");
 if (!$pid) {
     # child
-    setpgrp();
+    setpgrp(); # Terminal won't send signals to the child
     open STDERR, '>&STDOUT' or die("Can't dup stdout: $!\n");
     print(join(" ",@ARGV), "\n");
     exec(@ARGV);
