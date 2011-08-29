@@ -34,8 +34,8 @@
 
 // Debugging
 #define WV(code)    ({ WvTest t(__FILE__, __LINE__, #code); t.check(true); code; })
-#define WVDEC(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_dec(val); })
-#define WVHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
+#define WVSHOW(val) ({ WvTest t(__FILE__, __LINE__, #val);  t.show(val); })
+#define WVSHOWHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
 
 class WvTest
 {
@@ -114,13 +114,13 @@ class WvTest
     { Logging::printf("! %s:%d %s ", file, line, condstr); }
 
   template <typename T>
-  void print_result(T result, const char* suffix="")
-    { Logging::printf("%s %s\n", suffix, resultstr(result)); }
+  void print_result(T result, const char* suffix="", const char *sb="", const char *se="")
+    { Logging::printf("%s%s%s %s\n", sb, suffix, se, resultstr(result)); }
 #else
   template <typename T>
-  void print_result(T result, const char* suffix="")
+  void print_result(T result, const char* suffix="", const char *sb="", const char *se="")
     {
-      Logging::printf("! %s:%d %s %s %s\n", file, line, condstr, suffix, resultstr(result));
+      Logging::printf("! %s:%d %s %s%s%s %s\n", file, line, condstr, sb, suffix, se, resultstr(result));
       //tests_run++;
     }
 #endif
@@ -136,23 +136,23 @@ class WvTest
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
 		      a, a, op, b, b); }
 
-  static void stringify(char *buf, unsigned size, unsigned long long val, const char *prefix="")
-  { Vprintf::snprintf(buf, size, "%s%llu", prefix, val); }
+  static void stringify(char *buf, unsigned size, unsigned long long val)
+  { Vprintf::snprintf(buf, size, "%llu", val); }
 
-  static void stringify(char *buf, unsigned size, unsigned val, const char *prefix="")
-  {Vprintf::snprintf(buf, size, "%s%u", prefix, val);}
+  static void stringify(char *buf, unsigned size, unsigned val)
+  {Vprintf::snprintf(buf, size, "%u", val);}
 
-  static void stringify(char *buf, unsigned size, int val, const char *prefix="")
-  {Vprintf::snprintf(buf, size, "%s%d", prefix, val);}
+  static void stringify(char *buf, unsigned size, int val)
+  {Vprintf::snprintf(buf, size, "%d", val);}
 
-  static void stringifyx(char *buf, unsigned size, unsigned long long val, const char *prefix="")
-  { Vprintf::snprintf(buf, size, "%s0x%llx", prefix, val); }
+  static void stringifyx(char *buf, unsigned size, unsigned long long val)
+  { Vprintf::snprintf(buf, size, "0x%llx", val); }
 
-  static void stringifyx(char *buf, unsigned size, unsigned val, const char *prefix="")
-  {Vprintf::snprintf(buf, size, "%s0x%x", prefix, val);}
+  static void stringifyx(char *buf, unsigned size, unsigned val)
+  {Vprintf::snprintf(buf, size, "0x%x", val);}
 
-  static void stringifyx(char *buf, unsigned size, int val, const char *prefix="")
-  {Vprintf::snprintf(buf, size, "%s0x%x", prefix, val);}
+  static void stringifyx(char *buf, unsigned size, int val)
+  {Vprintf::snprintf(buf, size, "0x%x", val);}
 
 public:
   //static unsigned tests_failed, tests_run;
@@ -203,11 +203,17 @@ public:
     return val;
   }
 
+  const char *show(const char *val)
+  {
+    print_result(true, val, "= \"", "\"");
+    return val;
+  }
+
   template <typename T>
-  T show_dec(T val)
+  T show(T val)
   {
     char valstr[20];
-    stringify(valstr, sizeof(valstr), val, "= ");
+    stringify(valstr, sizeof(valstr), val);
     print_result(true, valstr);
     return val;
   }
@@ -216,7 +222,7 @@ public:
   T show_hex(T val)
   {
     char valstr[20];
-    stringifyx(valstr, sizeof(valstr), val, "= ");
+    stringifyx(valstr, sizeof(valstr), val);
     print_result(true, valstr);
     return val;
   }
