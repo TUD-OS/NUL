@@ -19,6 +19,12 @@ nul.App(target_env, 'echo2',
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<22)
 
+nul.App(target_env, 'echo2ss',
+        SOURCES = [ 'echo2ss.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        LIBS    = [ 'runtime' ],
+        MEMSIZE = 1<<22)
+
 nul.App(target_env, 'echo2test',
         SOURCES = [ 'echo2test.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],

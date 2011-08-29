@@ -90,6 +90,9 @@ class ClientDataStorage {
 
 
 public:
+  typedef T ClientData;
+  typedef A CapAllocator;
+
   class Guard {
     ClientDataStorage * storage;
     A * obj;
