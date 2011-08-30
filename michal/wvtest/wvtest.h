@@ -24,6 +24,7 @@
 #define WVNUL(nulerr)  ({ WvTest __t(__FILE__, __LINE__, #nulerr);          __t.check_nulerr(nulerr); })
 #define WVPASSEQ(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " == " #b);     __t.check_eq((a), (b), true); })
 #define WVPASSLT(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " < " #b);      __t.check_lt((a), (b)); })
+#define WVPASSGE(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " >= " #b);     __t.check_le((b), (a)); })
 #define WVFAIL(cond)   ({ WvTest __t(__FILE__, __LINE__, "NOT(" #cond ")"); !__t.check(!(cond)); })
 #define WVFAILEQ(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " != " #b);     __t.check_eq((a), (b), false); })
 #define WVPASSNE(a, b) WVFAILEQ(a, b)
@@ -190,6 +191,15 @@ public:
     {
       bool result = (a < b);
       if (!result) print_failed_cmp("<", a, b);
+      check(result);
+      return result;
+    }
+
+  template <typename T>
+  bool check_le(T a, T b)
+    {
+      bool result = (a <= b);
+      if (!result) print_failed_cmp("<=", a, b);
       check(result);
       return result;
     }
