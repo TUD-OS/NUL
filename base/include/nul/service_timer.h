@@ -20,6 +20,7 @@
 
 #include "nul/parent.h"
 #include "nul/generic_service.h"
+#include "nul/timer.h"
 
 struct TimerProtocol : public GenericProtocol {
   /**
