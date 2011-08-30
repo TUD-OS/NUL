@@ -49,6 +49,12 @@ class Clock
 
   /**
    * Returns a timeout in absolute TSC time.
+   * @param thedelta The timeout
+   * @param freq Scale of @a thedelta
+   *
+   * The timeout equals to thedelta/freq seconds.
+   *
+   * Example: abstime(5, 1000) returns the time of now plus 5 milliseconds.
    */
   timevalue abstime(timevalue thedelta, timevalue freq) {  return time() + Math::muldiv128(thedelta, _source_freq, freq); }
 
