@@ -21,6 +21,7 @@ $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/\$NAME";
 $CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
 $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
+$CFG::qemu = 'qemu';
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
@@ -46,8 +47,9 @@ if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $qemu, $qemu_flags_cmd, $serial, $server);
 
+Getopt::Long::Configure("no_ignore_case");
 GetOptions (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
@@ -58,6 +60,7 @@ GetOptions (
     "iprelay"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
+    "qemu|Q=s" 	     => \$qemu,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
@@ -70,6 +73,7 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
 
 if ($server) { $CFG::server = $server; }
+if ($qemu) { $CFG::qemu = $qemu; }
 
 if ($dump_config) {
     print
@@ -80,6 +84,7 @@ if ($dump_config) {
 \$grub_keys = '$CFG::grub_keys';
 \$genisoimage = '$CFG::genisoimage';
 \$iprelay_addr = '$CFG::iprelay_addr';
+\$qemu = '$CFG::qemu';
 ";
     exit;
 }
@@ -294,7 +299,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
     }
     $qemu_flags .= " -serial stdio"; # Redirect serial output (for collecting test restuls)
-    exec_verbose("qemu -name '$config_name' $qemu_flags");
+    exec_verbose("$CFG::qemu -name '$config_name' $qemu_flags");
 }
 
 my ($dhcpd_pid, $tftpd_pid);
@@ -386,7 +391,7 @@ novaboot - NOVA boot script interpreter
 
 B<novaboot> [--help] [--append=...] [--bender] [--config=<file>]
 [--dhcp-tftp] [--dump-config] [--grub] [--iprelay] [--iso]
-[--qemu-flags=<flags>] [--serial] [--server] [--] script...
+[--qemu=...] [--qemu-flags=<flags>] [--serial] [--server] [--] script...
 
 =head1 DESCRIPTION
 
@@ -483,6 +488,10 @@ is the name of novaboot script (see also --name).
 Use the name <string> instead of the name of the novaboot script.
 This name is used for things like a title of grub menu or for the
 server directory where the boot files are copied to.
+
+=item -Q, --qemu=<qemu-binary>
+
+Use specific version of qemu binary. The default is 'qemu'.
 
 =item -q, --qemu-flags=<flags>
 
