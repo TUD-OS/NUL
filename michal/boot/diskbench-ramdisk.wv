@@ -3,7 +3,7 @@
 bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     tracebuffer:32768,1 \
     vdisk:rom://bin/apps/diskbench.nul \
-    script_start:1
+    script_start:1 script_waitchild
 bin/apps/diskbench.nul
 diskbench.nulconfig <<EOF
 namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission sigma0::drive:0 ||

@@ -82,7 +82,7 @@ public:
     }
 
     WV("Done");
-    ParentProtocol::signal(*BaseProgram::myutcb(), 0);
+    WvTest::exit(0);
     block_forever();
   }
 

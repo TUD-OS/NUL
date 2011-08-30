@@ -118,6 +118,7 @@ public:
 	  if (wvtest && ++print == 2) {
 	    WVPERF(throughput); 
 	    WVPERF(request_rate);
+	    WvTest::exit(0);
 	    block_forever();
 	  }
 	  req_nr = requests_done;
