@@ -530,7 +530,7 @@ class PerCpuTimerService : private BasicHpet,
     // XXX This overcompensates and is suboptimal. We need
     // backtracking search. It's a bin packing problem.
     unsigned irqs = Cpu::popcount(combined_irqs);
-    if (irqs > _usable_timers) {
+    if (irqs < _usable_timers) {
       Logging::printf("TIMER: Reducing usable timers from %u to %u. Combined IRQ mask is %x\n",
                       _usable_timers, irqs, combined_irqs);
       _usable_timers = irqs;
