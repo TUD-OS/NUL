@@ -506,6 +506,8 @@ class PerCpuTimerService : private BasicHpet,
     unsigned timers = ((_reg->cap >> 8) & 0x1F) + 1;
 
     _usable_timers = 0;
+
+    uint32 combined_irqs = ~0U;
     for (unsigned i=0; i < timers; i++) {
       Logging::printf("TIMER: HPET Timer[%d]: config %x int %x\n", i, _reg->timer[i].config, _reg->timer[i].int_route);
       if ((_reg->timer[i].config | _reg->timer[i].int_route) == 0) {
@@ -513,15 +515,27 @@ class PerCpuTimerService : private BasicHpet,
         continue;
       }
 
-      // if ((_reg->timer[i].config & FSB_INT_DEL_CAP) == 0) {
-      //   Logging::printf("\t\tSkip timer %u. Not MSI capable.\n", i);
-      //   continue;
-      // }
+      if ((_reg->timer[i].config & FSB_INT_DEL_CAP) == 0) {
+        // Comparator is not MSI capable.
+        combined_irqs &= _reg->timer[i].int_route;
+      }
 
       _timer[_usable_timers]._no   = i;
       _timer[_usable_timers]._reg = &_reg->timer[i];
       _usable_timers++;
     }
+
+    // Reduce the number of comparators to ones we can assign
+    // individual IRQs.
+    // XXX This overcompensates and is suboptimal. We need
+    // backtracking search. It's a bin packing problem.
+    unsigned irqs = Cpu::popcount(combined_irqs);
+    if (irqs > _usable_timers) {
+      Logging::printf("TIMER: Reducing usable timers from %u to %u. Combined IRQ mask is %x\n",
+                      _usable_timers, irqs, combined_irqs);
+      _usable_timers = irqs;
+    }
+
 
     if (_usable_timers == 0) {
       // XXX Can this happen?
