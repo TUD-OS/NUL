@@ -20,22 +20,22 @@
 #define WVTEST_PRINT_INFO_BEFORE 0
 
 // Standard WVTEST API
-#define WVPASS(cond)   ({ WvTest t(__FILE__, __LINE__, #cond);            t.check(cond); })
-#define WVNUL(nulerr)  ({ WvTest t(__FILE__, __LINE__, #nulerr);          t.check_nulerr(nulerr); })
-#define WVPASSEQ(a, b) ({ WvTest t(__FILE__, __LINE__, #a " == " #b);     t.check_eq((a), (b), true); })
-#define WVPASSLT(a, b) ({ WvTest t(__FILE__, __LINE__, #a " < " #b);      t.check_lt((a), (b)); })
-#define WVFAIL(cond)   ({ WvTest t(__FILE__, __LINE__, "NOT(" #cond ")"); !t.check(!(cond)); })
-#define WVFAILEQ(a, b) ({ WvTest t(__FILE__, __LINE__, #a " != " #b);     t.check_eq((a), (b), false); })
+#define WVPASS(cond)   ({ WvTest __t(__FILE__, __LINE__, #cond);            __t.check(cond); })
+#define WVNUL(nulerr)  ({ WvTest __t(__FILE__, __LINE__, #nulerr);          __t.check_nulerr(nulerr); })
+#define WVPASSEQ(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " == " #b);     __t.check_eq((a), (b), true); })
+#define WVPASSLT(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " < " #b);      __t.check_lt((a), (b)); })
+#define WVFAIL(cond)   ({ WvTest __t(__FILE__, __LINE__, "NOT(" #cond ")"); !__t.check(!(cond)); })
+#define WVFAILEQ(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " != " #b);     __t.check_eq((a), (b), false); })
 #define WVPASSNE(a, b) WVFAILEQ(a, b)
 #define WVFAILNE(a, b) WVPASSEQ(a, b)
 
 // Performance monitoring
-#define WVPERF(value)  ({ WvTest t(__FILE__, __LINE__, "PERF: " #value);  t.check_perf(value); })
+#define WVPERF(value)  ({ WvTest __t(__FILE__, __LINE__, "PERF: " #value);  __t.check_perf(value); })
 
 // Debugging
-#define WV(code)    ({ WvTest t(__FILE__, __LINE__, #code); t.check(true); code; })
-#define WVSHOW(val) ({ WvTest t(__FILE__, __LINE__, #val);  t.show(val); })
-#define WVSHOWHEX(val)  ({ WvTest t(__FILE__, __LINE__, #val);  t.show_hex(val); })
+#define WV(code)    ({ WvTest __t(__FILE__, __LINE__, #code); __t.check(true); code; })
+#define WVSHOW(val) ({ WvTest __t(__FILE__, __LINE__, #val);  __t.show(val); })
+#define WVSHOWHEX(val)  ({ WvTest __t(__FILE__, __LINE__, #val);  __t.show_hex(val); })
 
 class WvTest
 {
