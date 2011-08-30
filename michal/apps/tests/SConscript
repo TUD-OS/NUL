@@ -1,0 +1,13 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+for src in Glob('*.cc'):
+    nul.App(target_env, str(src)[:-3],
+            SOURCES = [ src ],
+            OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+            MEMSIZE = 1<<22)
+    
+# EOF
