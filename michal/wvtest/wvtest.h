@@ -222,8 +222,8 @@ public:
   T show_hex(T val)
   {
     char valstr[20];
-    stringifyx(valstr, sizeof(valstr), val, "= ");
-    print_result(true, valstr);
+    stringifyx(valstr, sizeof(valstr), val);
+    print_result(true, valstr, "= ");
     return val;
   }
 
