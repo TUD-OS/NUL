@@ -19,4 +19,15 @@
 extern "C" void __cxa_pure_virtual(void) __attribute__((noreturn));
 extern "C" void __cxa_pure_virtual(void) { __builtin_trap(); }
 
+extern "C" int
+__popcountsi2(unsigned int v)
+{
+  // I am itching to rewrite this in inline assembler using
+  // shr/adc... ;-)
+  unsigned n = 0;
+  for ( ; v != 0; v >>= 1 )
+    n += (v & 1);
+  return n;
+}
+
 // EOF

@@ -82,6 +82,9 @@ class Cpu
     return minshift;
   }
 
+  static int popcount(unsigned int  v) { return __builtin_popcount (v); }
+  static int popcount(unsigned long v) { return __builtin_popcountl(v); }
+
   static  unsigned cpuid(unsigned eax, unsigned &ebx, unsigned &ecx, unsigned &edx) {
     asm volatile ("cpuid": "+a"(eax), "+b"(ebx), "+c"(ecx), "+d"(edx));
     return eax;
