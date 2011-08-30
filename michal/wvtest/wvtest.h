@@ -214,7 +214,7 @@ public:
   {
     char valstr[20];
     stringify(valstr, sizeof(valstr), val);
-    print_result(true, valstr);
+    print_result(true, valstr, "= ");
     return val;
   }
 
@@ -222,7 +222,7 @@ public:
   T show_hex(T val)
   {
     char valstr[20];
-    stringifyx(valstr, sizeof(valstr), val);
+    stringifyx(valstr, sizeof(valstr), val, "= ");
     print_result(true, valstr);
     return val;
   }
