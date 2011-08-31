@@ -103,7 +103,7 @@ public:
 	Parent::_rpos = 0;
 	len = Parent::_buffer + Parent::_rpos;
       }
-    assert(*len < sizeof(unsigned) * SIZE);
+    assert(*len < sizeof(unsigned) * (SIZE - 1));
     buffer =  reinterpret_cast<unsigned char *>(Parent::_buffer + Parent::_rpos + 1);
     return *len;
   }
