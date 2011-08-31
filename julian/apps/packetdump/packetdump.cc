@@ -37,10 +37,15 @@ public:
 
     Logging::printf("booting - packet dump ...\n");
 
-    char *mem_region = reinterpret_cast<char *>(_free_virt.alloc(0x1000, 12));
+    char *mem_region = reinterpret_cast<char *>(_free_virt.alloc(BridgeProtocol::MEMORY_SIZE, BridgeProtocol::MEMORY_SHIFT));
+    Logging::printf("window at %p+%x\n", mem_region, BridgeProtocol::MEMORY_SIZE);
 
+    BridgeProtocol *bridge = new BridgeProtocol(alloc_cap(BridgeProtocol::CAP_SERVER_PT + hip->cpu_desc_count()),
+                                                alloc_cap(2),
+                                                mem_region
+                                                );
 
-    BridgeProtocol *bridge = new BridgeProtocol(alloc_cap(BridgeProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+    // ...
 
   }
 };
