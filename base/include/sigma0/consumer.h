@@ -159,8 +159,8 @@ public:
       ofs = 0;
     }
     Parent::_consumer->_buffer[ofs] = len;
-    memcpy(Parent::_consumer->_buffer + ofs + 1, buf, len);
     assert(ofs + needed <= SIZE);
+    memcpy(Parent::_consumer->_buffer + ofs + 1, buf, len);
     if (ofs + needed == SIZE)
       Parent::_consumer->_wpos = 0;
     else
