@@ -713,11 +713,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
 
   PT_FUNC(do_breakpoint,
+          if (consolesem) consolesem->up();
           Logging::printf(">>> Break EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
+          if (consolesem) consolesem->down();
           )
 
   PT_FUNC(do_singlestep,
+          if (consolesem) consolesem->up();
+          const uint8 *prefix = reinterpret_cast<const uint8 *>(utcb->eip);
           Logging::printf(">>> Step  EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
+          if (consolesem) consolesem->down();
           )
 
   PT_FUNC(do_map,
