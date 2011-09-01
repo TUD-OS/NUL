@@ -395,6 +395,21 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   //XXX opening a CRD for everybody is a security risk, as another client could have alread mapped something at this cap!
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
+
+  // Returns the exception handler address for a given exception.
+  unsigned long exception_handler_address(unsigned vector)
+  {
+    switch (vector) {
+    case 1:  return reinterpret_cast<unsigned long>(do_singlestep_wrapper);
+    case 3:  return reinterpret_cast<unsigned long>(do_breakpoint_wrapper);
+    default: return reinterpret_cast<unsigned long>(do_error_wrapper);
+    }
+  }
+
+  /// Create exception and startup handling portals. If cpunr is
+  /// given, it only initializes this single CPU and assumes that this
+  /// is the bootstrap CPU, i.e. exception handling portals start at
+  /// capability index 0.
   unsigned create_worker_threads(Hip *hip, phy_cpu_no cpunr) {
     for (unsigned i = 0; i < hip->cpu_desc_count(); i++) {
       Hip_cpu const *cpu = &hip->cpus()[i];
@@ -409,7 +424,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _percpu[i].cap_pt_echo = alloc_cap();
       check1(1, nova_create_pt(_percpu[i].cap_pt_echo, _percpu[i].cap_ec_echo, reinterpret_cast<unsigned long>(do_map_wrapper), 0));
 
-      _percpu[i].exc_base = alloc_cap(0x20);
+      if (i == cpunr)
+        // Special case for the bootstrap thread.
+        _percpu[i].exc_base = 0;
+      else
+        _percpu[i].exc_base = alloc_cap(0x20);
 
       Utcb *utcb = 0;
       _percpu[i].cap_ec_worker = create_ec4pt(this, i, _percpu[i].exc_base, &utcb);
@@ -419,7 +438,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       // XXX All threads that use ec_echo have broken error handling
       for (unsigned pt = 0; pt <= 0x1D; pt++)
         check1(4, nova_create_pt(_percpu[i].exc_base + pt, _percpu[i].cap_ec_echo,
-                                 reinterpret_cast<unsigned long>(do_error_wrapper),
+                                 exception_handler_address(pt),
                                  MTD_ALL));
 
       // Create GSI boot wrapper.
@@ -692,6 +711,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   PT_FUNC_NORETURN(do_error, internal_error(pid, utcb);)
+
+  PT_FUNC(do_breakpoint,
+          Logging::printf(">>> Break EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
+          )
+
+  PT_FUNC(do_singlestep,
+          Logging::printf(">>> Step  EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
+          )
 
   PT_FUNC(do_map,
 	  // make sure we have got an even number of words
