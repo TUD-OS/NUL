@@ -1,0 +1,1331 @@
+#+TITLE:     Preliminary NUL documentation
+#+AUTHOR:    Michal Sojka
+#+EMAIL:     sojka@os.inf.tu-dresden.de
+#+LANGUAGE:  en
+#+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:{} -:t f:t *:t <:t author:nil timestamp:t
+
+* TODO How to generate doxygen from this file			   :noexport:
+* Introduction
+
+The NOVA OS Virtualization Architecture is a research project aimed at
+constructing a secure virtualization environment with a small trusted
+computing base. NOVA consists of a microhypervisor and an unprivileged
+multi-server user environment running on top of it.
+
+[[file:nova.png]]
+
+NOVA User-Level Environment (NUL) is the multi-server user environment
+designed for NOVA. It is componentized into host-drivers, device
+models and virtual executors. From these components applications are
+build. The most prominent apps are the Partition Manager, called
+sigma0, and the x86 VMM (Virtual-Machine Monitor) called Vancouver.
+
+The Partition Manager statically partitions the platform resources
+such as memory or CPU. Device drivers, for example for the disk and
+the graphics card, are linked to it. Moving them out to their own
+tasks is currently work in progress.
+
+The VMM allows to run unmodified guest operating systems ontop of the
+microhypervisor. It contains the virtual device models to give an OS
+the illusion of running on bare hardware. Furthermore it emulates
+realmode and MMIO instructions and provides a virtual BIOS.
+
+* Status of this documentation
+Very preliminary!
+* Compilation
+  :PROPERTIES:
+  :CUSTOM_ID: compid
+  :END:
+
+To see full command lines run =scons VERBOSE=1=. To compile a
+debugging version (with less optimization applied), use =scons
+debug=1=.
+
+Most of the compiler parameters is defined in base/SConscript.
+* Debugging							       :page:
+** How to decode crash messages
+
+#+begin_example
+[ 0] Killed EC:0xc13dd3c0 SC:0xc0010580 V:0xe CS:0x1b EIP:0x80000c39 CR2:0xc ERR:0x4 (PT wrong CPU)
+#+end_example
+
+- *V:* exception vector - in this case "page fault". See NOVA
+  Microhypervisor specification, section "Event-Speciﬁc Capability
+  Selectors".
+- *EIP:* Instruction pointer (dissassemble your binary and find that
+  address).
+#+begin_example
+objdump -S myapp.nul.debug|less -p80000c39
+#+end_example
+- *CR2:* Page fault address
+- *ERR:* The error code. In this case, the page-fault handling portal
+  is bound to another CPU than the one where the page-fault occured.
+
+* Interfaces							       :page:
+** Semaphores
+Futex-like semaphore is defined in semaphore.h as =class Semaphore=.
+** Console							       :page:
+
+Applications can inherit their class from =ProgramConsole= class in
+order to have access to the console. The console is created by
+=calling console_init()=. This also initializes the Logging facility.
+** Service protocol (Parent protocol)				       :page:
+# <<parent protocol>>
+Service protocol (formerly called parent protocol) is used for
+communication between clients and services (also called servers). It
+offers the following properties:
+
+- *Name service*: Services are identified by strings such as
+  "s0/timer".
+- *Authorization*: Clients must by authorized by a parent to use a
+  particular service.
+- *Anonymity*: the service does not know the real identity of the
+  client.
+- *Quota*: ...
+
+The service protocol consists of several closely related protocols:
+- *Parent protocol* covers communication between a client (or a
+  service) and its parent.
+- *Session protocol* is used in communication between the client and
+  the service.
+
+
+Parent protocol (class =ParentProtocol=) implements the lowest level
+of the protocol. The message is composed in UTCB (untyped items) and
+its format is defined as:
+
+#+CAPTION: Request message format
+#+LABEL: service-protocol-request-message
+|-------+-----------------------------------------------------------------------------------------------|
+|  Word | Content                                                                                       |
+|-------+-----------------------------------------------------------------------------------------------|
+|     0 | Operation type                                                                                |
+|     1 | client identifier (typically one of the following: client ID, client pseudonym or session ID) |
+| other | operation dependent data                                                                      |
+|-------+-----------------------------------------------------------------------------------------------|
+
+#+CAPTION: Response message format
+#+LABEL: service-protocol-response-message
+|-------+--------------------------|
+| Word  | Content                  |
+|-------+--------------------------|
+| 0     | Return value             |
+| other | operation dependent data |
+|-------+--------------------------|
+
+IdentifyCap is a capability that is used to identify the sender in a
+parent. If the child calls its parent, the identity is the semaphore
+created by the parent in =Sigma0::_start_config()=.
+*** Unsorted notes
+
+- Although the parent protocol and the session protocol are logically
+  different, there is some similarity between them. Namely, the
+  parent also provides a service to clients. This service allows them
+  to connect to other services. Because of that the <<CAP_PARENT_ID>>
+  can be treated as the pseudonym of the child, i.e. it is used when
+  the parent is first contacted by the child. Children uses this
+  pseudonym to open sessions (<<TYPE_OPEN>>) with parent. This
+  parent-child session ID is also used as pseudonym for the other
+  services contacted by the child.
+
+- 
+
+*** Operations
+Name of the constant (the name of the method, if it differs from the
+constant in anything but case and TYPE_ prefix).
+
+**** <<TYPE_OPEN>> (get_pseudonym)
+
+This operation serves two distinct purposes. 
+
+- In parent :: When a client wants to access a service, it needs to
+  get a "pseudonym" for that service. Is uses the =TYPE_OPEN=
+  operation to get the pseudonym from its parent. The parent can
+  identify which client is asking for pseudonym by the id capability,
+  which was delegated to him on startup. Depending on the identity and
+  configuration, the parent either grants the client the access to the
+  service by delegating him the "pseudonym" capability and returning 0
+  or it denies the access by not delegating the pseudonym and
+  returning ERROR.
+
+- In service :: When it is required by the serivce, the client uses
+  this operation to open the session with the service. The client uses
+  the pseudonym obtained from the parent to identify itself to the
+  service.
+
+**** TYPE_CLOSE (release_pseudonym)
+**** TYPE_GET_PORTAL
+
+Returns the portal for the service previously requested by <<TYPE_OPEN>>.
+
+**** TYPE_REGISTER (register_service)
+**** TYPE_UNREGISTER (unregister_service)
+**** TYPE_GET_QUOTA
+**** TYPE_REQ_KILL (kill)
+*** Generic protocol
+
+Generic protocol (class =GenericProtocol=) is a client-side
+implementation of the whole protocol for talking to the service. Its
+method =call_server()= takes care of setting up everything as well as
+of sending the message. Typically, service specific protocols are
+derived from this class.
+
+The protocol operates on a continuous range of capability selectors as
+shown in the table below:
+
+#+CAPTION: Capability selectors used by the service protocol
+|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
+| Selector      | Symbol                 | Meaning                                                                                                                          |
+|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
+| base + 0      | <<CAP_PSEUDONYM>>      | Identifies the client to the service                                                                                             |
+| base + 1      | <<CAP_LOCK>>           | TODO                                                                                                                             |
+| base + 2      | <<CAP_SERVER_SESSION>> | Identifies the session to the service (one client can open multiple sessions to the service)                                     |
+| base + 3, ... | <<CAP_SERVER_PT>>      | Per-CPU portals to talk to the service. If the service is available only on a single CPU, there might be only a single selector. |
+|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
+
+The protocol is defined by the following rules:
+
+- A portal to talk to the service ([[CAP_SERVER_PT]]) is obtained from the
+  parent by using [[TYPE_GET_PORTAL]] message.
+
+- A service is called by using a per-CPU portal and the client uses
+  [[CAP_SERVER_SESSION]] capability to identify itself to the service.
+
+- If the identity supplied by the client is not known to the callee it
+  should return =EEXISTS= error.
+
+- 
+
+A typical communication sequence between a client and a service (and
+also a parent) looks like this:
+
+1. Client calls the service (using the operation of its choice) by
+   using [[CAP_SERVER_PT]] selector and identifies itself to the service
+   by [[CAP_SERVER_SESSION]]. In the beginning, the portal selector refers
+   to the null capability and therefore the call returns NOVA_ECAP.
+2. The client then calls its parent through [[CAP_PT_PERCPU]] portal and
+   sends the [[TYPE_GET_PORTAL]] message. It identifies itself with
+   [[CAP_PSEUDONYM]], but because it refers to the null capability, the
+   parent (typically [[Sigma0]] responds with =EEXIST=).
+3. The client calls the parent through [[CAP_PT_PERCPU]] to get the
+   pseudonym ([[TYPE_OPEN]]) and identify itself with [[CAP_PARENT_ID]]. If
+   the client is allowed to use the service, the parent delegates
+   [[CAP_PSEUDONYM]] to the client.
+4. Now, the client retries from step 1, but it still gets =ECAP=.
+5. However, the it succeeds in getting the portal.
+6. Then it again goes to 1 to call the service. If the service is
+   designed to use sessions ([[CAP_SERVER_SESSION]]), =EEXIST= is returned
+   (6a) and the client continues by step 7, otherwise the call is finished (6b).
+7. The client sends [[TYPE_OPEN]] to the service delegates him a
+   [[CAP_SERVER_SESSION]].
+8. Finally, the client calls the service with the original operation
+   and a valid [[CAP_SERVER_SESSION]] and hopefully it succeeds.
+
+... the ID field is always the session ID. Generic protocol
+automatically opens the session if it is required, i.e. when the call
+returns =EEXISTS=.
+
+Ellipses represent IPC (=nova_call=) and arrows represent action taken
+based on the return of the IPC. 
+
+#+begin_src dot :file generic_proto.png :cmdline -Tpng
+digraph nova_com {
+dpi=50;
+in [shape=point];
+out [shape=point];
+call [label="service.call"]
+open_session [label="service.open"]
+get_portal [label="parent.get_portal"]
+get_pseudonym [label="parent.get_pseudonym"]
+
+in -> out [label="disabled?"];
+in -> call [weight=10];
+
+call -> open_session [label="EEXIST (6a)"];
+call -> get_portal [label="ECAP (1., 4.)"];
+call -> out [weight=10,label="OK (6b, 8.)"];
+
+open_session -> call [label="OK (7.)"];
+open_session -> get_pseudonym [label=EEXIST];
+open_session -> get_portal [label=ECAP];
+
+get_portal -> call [label="OK (5.)"];
+get_portal -> get_pseudonym [label="EEXIST (2.)"];
+
+get_pseudonym -> call [label="OK (3.)"];
+get_pseudonym -> out [label=disable];
+}
+#+end_src
+*** Service implementation 
+
+Server side of the protocol is implemented in class s0_ParentProtocol
+and ...
+
+... Services can use =class ClientDataStorage= to store and search for
+client specific data.
+
+** Logging							       :page:
+
+Sometimes it is usefull to have central log of multiple applications.
+This can be achieved by using the tracebuffer implemented in Sigma0.
+The tracebuffer is activated by the following command line option to Sigma0
+
+#+begin_example
+tracebuffer:32768,1
+#+end_example
+
+Redirecting the logging output (=Logging::printf()=) of applications
+to the tracebuffer is achieved by running this code in the
+application(s):
+
+#+begin_example
+_console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
+#+end_example
+
+When the second parameter in the command line is non-zero (1 in the
+example above), the traced outout also goes to the sigma0 output, i.e.
+to the VGA and/or serial line if those are enabled.
+
+** Admission service						       :page:
+
+Admission service is responsible for creating scheduling contexts. No
+other protection domain (besides Sigma0) has the right to create
+scheduling contexts and hence those protection domains must contact
+admission service and ask to create scheduling contexts for them.
+
+*** Usage
+
+The following is the example how to initialize admission service and
+how to create a scheduling context for an ececution context.
+
+#+begin_src C++
+#include "nul/service_admission.h"
+...
+AdmissionProtocol * service_admission;
+
+service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+service_admission->set_name(*utcb, "My App");
+
+unsigned ec = nova_create_ec(...);
+
+AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_PERIODIC);
+service_admission->alloc_sc(*myutcb(), ec, sched, service_admission->myutcb()->head.nul_cpunr, "worker thread");
+#+end_src
+
+*** Configuration
+
+The admission service is part of Sigma0 binary and is executed
+automatically without user intervention. You can configure the
+admission service by changing the content of
+~base/apps/sigma0/cfg/admission.nulconfig~. For instnace, you can
+remove the ~top~ parameter and add ~log~ parameter to get some logging
+output from the service.
+** Restrictions/Caveats						       :page:
+*** Static constructors (C++)
+NUL does not support automatic calling of constructors of static
+objects. 
+
+* NUL Components						       :page:
+  This section lists the main components (servers) of NUL.
+** Sigma0 - Partition Manager 					       :page:
+*** Basic operation
+Sigma0 is the root task (i.e. it runs in a root protection domain and
+it is the first task run by the hypervisor). Its initialization is
+controlled by command line parameters. Every parameter basically
+describe the operations to be performed on startup. In Sigma0 sources,
+every parameter is defined with PARAM_HANDLER() macro. Its first argument is
+the name of the parameter, the second argument is the code to be
+performed when the parameter is encountered in the script and the rest
+of arguments are lines of the help text.
+
+After all parameters are processed, the main thread blocks and Sigma0
+is controlled only through inter-process communication (IPC).
+
+*** TODO Provided services 
+*** Entry point
+
+The entry point of sigma0 is the symbol start, which is defined to be
+the same as static method =Sigma0::start()= in sigma0.cc. This
+function is called from program.h, which defines =__start= symbol (an
+entry point defined in the linker script).
+
+*** Memory management 
+
+Sigma0 class iherits =_free_virt= members, which is a region list used
+to manage free virtual memory for later delegation to childs.
+Initially, all memory is put into this list.
+
+*** Memory mapping
+
+Memory mapping is only possible during IPC. Therefore, to map the
+memory from hypervisor sigma0 calls itself through "echo portal". This
+is implemented in =map_self()= method. The actual mapping is performed
+by hypervisor during reply to the echo call. It cannot be done during
+the call, because =utcb->crd= of receiving thread must correspond the
+mapping and the caller cannot easily manipulate =utcb->crd= of the
+receiving thread.
+
+*** Memory allocation
+Memory allocations (operator new) is implemented in library called
+service (file simplemalloc.cc). The implementation simply calls the
+function pointed out by =memalloc= pointer, whose value defaults to
+=memalloc_mempool()=.
+
+Sigma0 uses a more sofisticated memory allocator defined in
+=sigma0_memalloc()=. It allocate physical memory by consulting
+_free_phys region list and then maps the memory to its address space.
+
+Memory freeing (=memfree= pointer) is not currently implemented.
+*** Portals
+
+Portal wrapper functions cannot be greped - they are defined with
+PT_FUNC() or PT_FUNC_NORETURN() macros.
+*** Capability selector allocation				       :page:
+TODO How are capability selectors allocated?
+|-----------------------+------------------------------------------------------------------------------|
+| 0 -- 0x10000          | reserved by program.h                                                        |
+| 0xff                  | parent id - parent identifies us by translation of this capability to its PD |
+| 0x100 -- 0x1ff        | MAC_CPUS??? - new parent protocol.                                           |
+| 0x200                 | semaphore to block the main thread after initialization is done              |
+| 0x10000 -- 0xffffffff | (CLIENT_PT_OFFSET, CLIENT_PT_ORDER)                                          |
+|-----------------------+------------------------------------------------------------------------------|
+
+The following is the excerpt from a boot log on a 2-CPU system sorted
+by the capability selector (idx\_*). Note that these events are not
+normally logged; these messages were only added for the purpose of
+this list. It lists the objects created in sigma0, their selectors and
+other parameters. Memory mapping selectors are not included in this
+list.
+
+#+begin_src c
+nova_create_pt(idx_pt=0x00000100, idx_ec=0x00000227, eip=0x0040c7a8, mtd=0x00000000, dstpd=0x00000020) // parent portal CPU0
+nova_create_pt(idx_pt=0x00000101, idx_ec=0x0000024e, eip=0x0040c7a8, mtd=0x00000000, dstpd=0x00000020) // parent portal CPU1
+nova_create_sm(idx_sm=0x00000200, initial=0, dstpd=0x00000020) // _cap_block (program.h)
+nova_create_sm(idx_sm=0x00000201, initial=0, dstpd=0x00000020) // _lock_gsi
+nova_create_sm(idx_sm=0x00000202, initial=0, dstpd=0x00000020) // _lock_mem
+nova_create_ec(idx_ec=0x00000203, utcb=0x3fe000, esp=0x43dff4, cpunr=0, excpt_base=0x00000000, dstpd=0x00000020) // do_map portal
+// Exception handling portals CPU0
+nova_create_pt(idx_pt=0x00000204, idx_ec=0x00000203, eip=0x0041128a, mtd=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000205, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000206, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000207, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000208, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000209, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020a, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020b, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020c, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020d, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020e, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000020f, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000210, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000211, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000212, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000213, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000214, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000215, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000216, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000217, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000218, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000219, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021a, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021b, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021c, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021d, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021e, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000021f, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000220, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000221, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000222, idx_ec=0x00000203, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+
+nova_create_pt(idx_pt=0x00000223, idx_ec=0x00000203, eip=0x00408755, mtd=0x0000000c, dstpd=0x00000020) // do_thread_startup
+nova_create_ec(idx_ec=0x00000225, utcb=0x3fb000, esp=0x43cff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020) // ec_echo
+nova_create_ec(idx_ec=0x00000227, utcb=0x3f8000, esp=0x43bff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000229, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000022a, utcb=0x2fc000, esp=0x2faff4, cpunr=1, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022b, idx_ec=0x0000022a, eip=0x0041128a, mtd=0x00000000, dstpd=0x00000020)
+
+// Exception handling portals CPU1
+nova_create_pt(idx_pt=0x0000022c, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022d, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022e, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022f, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000230, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000231, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000232, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000233, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000234, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000235, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000236, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000237, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000238, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000239, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023a, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023b, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023c, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023d, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023e, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023f, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000240, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000241, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000242, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000243, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000244, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000245, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000246, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000247, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000248, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000249, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+
+nova_create_pt(idx_pt=0x0000024a, idx_ec=0x0000022a, eip=0x00408755, mtd=0x0000000c, dstpd=0x00000020) // do_thread_startup
+nova_create_ec(idx_ec=0x0000024c, utcb=0x2f8000, esp=0x2f6ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000024e, utcb=0x2f4000, esp=0x2f2ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000250, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000251, utcb=0x2e9000, esp=0xbfbf6ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000252, idx_ec=0x00000251, eip=0x00402bfe, mtd=0x00000000, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000253, utcb=0x2e6000, esp=0xbfbf5ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000254, idx_ec=0x00000253, eip=0x00402bfe, mtd=0x00000000, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000255, utcb=0x2e3000, esp=0xbfbf3ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000256, idx_ec=0x00000255, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000257, utcb=0x2e0000, esp=0xbfbf1ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000258, idx_ec=0x00000257, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000259, utcb=0x2dd000, esp=0xbfbf0ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x0000025a, idx_ec=0x00000259, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000025c, utcb=0x2da000, esp=0xbfbeeff4, cpunr=0, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000025d, idx_ec=0x0000025c, eip=0x004045e6, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x0000025f, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000261, utcb=0x2d7000, esp=0xbfbecff4, cpunr=1, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000262, idx_ec=0x00000261, eip=0x004045e6, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000264, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000267, utcb=0x2d4000, esp=0xbfbe9ff4, cpunr=0, excpt_base=0x000fefe0, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000268, idx_ec=0x00000267, eip=0x00401b21, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000269, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000026b, utcb=0x2d1000, esp=0xbfbe7ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000026c, utcb=0x2ce000, esp=0xbfbe6ff4, cpunr=1, excpt_base=0x000fefe4, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000026d, idx_ec=0x0000026c, eip=0x00401b21, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x0000026e, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000270, utcb=0x2cb000, esp=0xbfbe4ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000271, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000272, utcb=0x2c8000, esp=0xbfbd4ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000273, idx_ec=0x00000272, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000274, utcb=0x2c5000, esp=0xbfbd2ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000275, idx_ec=0x00000274, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000276, utcb=0x2c2000, esp=0xbfbd0ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000277, idx_ec=0x00000276, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000278, utcb=0x2bf000, esp=0xbfbcfff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000279, idx_ec=0x00000278, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000100ff, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000fefd7, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000fefdc, initial=0, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x000fefee, idx_ec=0x0000026b, eip=0x004016dd, mtd=0x0000800f, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x000feff2, idx_ec=0x00000270, eip=0x004016dd, mtd=0x0000800f, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff000, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff001, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff002, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff003, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff005, initial=0, dstpd=0x00000020)
+#+end_src c
+
+**** Full log							   :noexport:
+#+begin_example
+nova_create_sm(idx_sm=0x000100ff, initial=0, dstpd=0x00000020)
+s0:  hip 0xbffff000 caps 8000000 memsize 18
+s0: init memory map
+s0:  mmap[00] addr                0 len            9f400 type  1 aux        0
+s0:  mmap[01] addr            9f400 len              c00 type  2 aux        0
+s0:  mmap[02] addr            f0000 len            10000 type  2 aux        0
+s0:  mmap[03] addr           100000 len          7deed20 type  1 aux        0
+s0:  mmap[04] addr          7ffd000 len             3000 type  2 aux        0
+s0:  mmap[05] addr         fffc0000 len            40000 type  2 aux        0
+s0:  mmap[06] addr          4000000 len            790e8 type -2 aux    2007b
+s0:  mmap[07] addr           400000 len          1400000 type -1 aux        0
+s0: map self 4000000 -> 300000 size 80000 offset 0 s 0 typed 1
+s0: map self 20000 -> 2ff000 size 1000 offset 0 s 0 typed 1
+s0: map self 3ff000 -> 2fe000 size 1000 offset 0 s 0 typed 1
+s0: considering cpu[0]: 0:0:0 flags=0x03
+s0: cpu[0]: 0:0:0
+s0: considering cpu[1]: 1:0:0 flags=0x01
+s0: cpu[1]: 1:0:0
+s0: map self 3fe000 -> 2fa000 size 1000 offset 0 s 0 typed 1
+nova_create_ec(idx_ec=0x0000022a, utcb=0x2fc000, esp=0x2faff4, cpunr=1, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022b, idx_ec=0x0000022a, eip=0x0041128a, mtd=0x00000000, dstpd=0x00000020)
+s0: map self 3fd000 -> 2f6000 size 1000 offset 0 s 0 typed 1
+nova_create_ec(idx_ec=0x0000024c, utcb=0x2f8000, esp=0x2f6ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+s0: map self 3fc000 -> 2f2000 size 1000 offset 0 s 0 typed 1
+nova_create_ec(idx_ec=0x0000024e, utcb=0x2f4000, esp=0x2f2ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022c, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022d, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022e, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000022f, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000230, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000231, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000232, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000233, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000234, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000235, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000236, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000237, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000238, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000239, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023a, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023b, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023c, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023d, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023e, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000023f, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000240, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000241, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000242, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000243, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000244, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000245, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000246, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000247, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000248, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000249, idx_ec=0x0000022a, eip=0x00408d78, mtd=0x000effff, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000024a, idx_ec=0x0000022a, eip=0x00408755, mtd=0x0000000c, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000101, idx_ec=0x0000024e, eip=0x0040c7a8, mtd=0x00000000, dstpd=0x00000020)
+s0: considering cpu[2]: 0:0:0 flags=0x00
+s0: considering cpu[3]: 0:0:0 flags=0x00
+s0: considering cpu[4]: 0:0:0 flags=0x00
+s0: considering cpu[5]: 0:0:0 flags=0x00
+s0: considering cpu[6]: 0:0:0 flags=0x00
+s0: considering cpu[7]: 0:0:0 flags=0x00
+s0: considering cpu[8]: 0:0:0 flags=0x00
+s0: considering cpu[9]: 0:0:0 flags=0x00
+s0: considering cpu[a]: 0:0:0 flags=0x00
+s0: considering cpu[b]: 0:0:0 flags=0x00
+s0: considering cpu[c]: 0:0:0 flags=0x00
+s0: considering cpu[d]: 0:0:0 flags=0x00
+s0: considering cpu[e]: 0:0:0 flags=0x00
+s0: considering cpu[f]: 0:0:0 flags=0x00
+s0: considering cpu[10]: 0:0:0 flags=0x00
+s0: considering cpu[11]: 0:0:0 flags=0x00
+s0: considering cpu[12]: 0:0:0 flags=0x00
+s0: considering cpu[13]: 0:0:0 flags=0x00
+s0: considering cpu[14]: 0:0:0 flags=0x00
+s0: considering cpu[15]: 0:0:0 flags=0x00
+s0: considering cpu[16]: 0:0:0 flags=0x00
+s0: considering cpu[17]: 0:0:0 flags=0x00
+s0: considering cpu[18]: 0:0:0 flags=0x00
+s0: considering cpu[19]: 0:0:0 flags=0x00
+s0: considering cpu[1a]: 0:0:0 flags=0x00
+s0: considering cpu[1b]: 0:0:0 flags=0x00
+s0: considering cpu[1c]: 0:0:0 flags=0x00
+s0: considering cpu[1d]: 0:0:0 flags=0x00
+s0: considering cpu[1e]: 0:0:0 flags=0x00
+s0: considering cpu[1f]: 0:0:0 flags=0x00
+s0: map self 0 -> bf800000 size 400000 offset 0 s 0 typed 1
+source freq 2194988000
+Ignored parameter: 'sigma0.nul'
+	=> ioio <=
+	=> hostserial <=
+HostSerial 3f8 0xbf800400
+s0: map self 3f8000 -> 0 size 8000 offset 0 s 0 typed 1
+	=> flushputc <=
+	=> hostacpi <=
+	=> pcicfg <=
+nova_create_sm(idx_sm=0x00000250, initial=0, dstpd=0x00000020)
+s0: map self cf8000 -> 0 size 8000 offset 0 s 0 typed 1
+	=> mmconfig <=
+ac: search ACPI table MCFG
+s0: map self 7ffd000 -> 2f0000 size 2000 offset 0 s 0 typed 2
+s0: map self 7fff000 -> 2ee000 size 2000 offset 0 s 0 typed 2
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+ac: acpi table at 7ffdd40 0x2f0d40 sig SSDT
+ac: acpi table at 7ffdc50 0x2f0c50 sig APIC
+ac: acpi table at 7ffdc10 0x2f0c10 sig HPET
+__parameter_mmconfig_function() line 95: '!mb.bus_acpi.send(msg, true) || !msg.table' error = 1 mm: XXX No MCFG table found.
+	=> atare <=
+ac: search ACPI table DSDT
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+ac: acpi table at 7ffde40 0x2f0e40 sig DSDT
+s0: map self 7ffd000 -> 2eb000 size 3000 offset 0 s 0 typed 2
+ac: search ACPI table SSDT
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+ac: acpi table at 7ffdd40 0x2ebd40 sig SSDT
+ac: search ACPI table SSDT
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+ac: acpi table at 7ffdd40 0x2ebd40 sig SSDT
+ac: acpi table at 7ffdc50 0x2ebc50 sig APIC
+ac: acpi table at 7ffdc10 0x2ebc10 sig HPET
+at: ATARE initialized
+	=> hostreboot:0 <=
+s0: map self 64000 -> 0 size 1000 offset 0 s 0 typed 1
+hr: add reset method 0
+	=> hostreboot:1 <=
+s0: map self 92000 -> 0 size 1000 offset 0 s 0 typed 1
+hr: add reset method 1
+	=> hostreboot:2 <=
+s0: map self cf9000 -> 0 size 1000 offset 0 s 0 typed 1
+hr: add reset method 2
+	=> hostreboot:3 <=
+ac: search ACPI table FACP
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+init() line 57: 'msg1.len < 129' error = 1 FACP too small
+	=> service_per_cpu_timer <=
+ac: search ACPI table HPET
+ac: acpi table at 7fffe40 0x2eee40 sig FACP
+ac: acpi table at 7ffdd40 0x2ebd40 sig SSDT
+ac: acpi table at 7ffdc50 0x2ebc50 sig APIC
+ac: acpi table at 7ffdc10 0x2ebc10 sig HPET
+s0: map self fec00000 -> bf400000 size 400000 offset 0 s 0 typed 1
+TIMER: HPET at fed00000 -> 0xbf500000.
+TIMER: HPET vendor 8086 revision 01: LEGACY 64BIT
+TIMER: HPET: cap 8086a201 config 0 period 10000000
+TIMER: HPET Timer[0]: config 30 int 4
+TIMER: HPET Timer[1]: config 30 int 4
+TIMER: HPET Timer[2]: config 30 int 4
+TIMER: Found 3 usable timers.
+TIMER: More timers than CPUs. (Good!) Use only 2 timers.
+TIMER: HPET ticks with 100000000 HZ.
+TIMER: 21+7781/8192 TSC ticks per timer tick.
+s0: map self 70000 -> 0 size 2000 offset 0 s 0 typed 1
+TIMER: 19.04.2011 9:39:24
+top_divide: Divide 2 CPU(s) (30 dead) into 2 part(s).
+nova_create_ec(idx_ec=0x00000251, utcb=0x2e9000, esp=0xbfbf6ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000252, idx_ec=0x00000251, eip=0x00402bfe, mtd=0x00000000, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000253, utcb=0x2e6000, esp=0xbfbf5ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000254, idx_ec=0x00000253, eip=0x00402bfe, mtd=0x00000000, dstpd=0x00000020)
+TIMER: CPU0 owns Timer0.
+nova_create_ec(idx_ec=0x00000255, utcb=0x2e3000, esp=0xbfbf3ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000256, idx_ec=0x00000255, dstpd=0x00000020)
+s0: do_gsi(25) vec 2 unlocked
+TIMER: Timer 0 -> IRQ 2 (assigned 4 ack 0).
+TIMER: CPU1 owns Timer1.
+TIMER: No IRQs left.
+nova_create_sm(idx_sm=0x000ff000, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff001, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff002, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000257, utcb=0x2e0000, esp=0xbfbf1ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000258, idx_ec=0x00000257, dstpd=0x00000020)
+TIMER: Enable interrupts for CPU0.
+nova_create_ec(idx_ec=0x00000259, utcb=0x2dd000, esp=0xbfbf0ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x0000025a, idx_ec=0x00000259, dstpd=0x00000020)
+TIMER: Waiting for XCPU threads to come up.
+TIMER: Enable interrupts for CPU1.
+TIMER: Initialized!
+nova_create_ec(idx_ec=0x0000025c, utcb=0x2da000, esp=0xbfbeeff4, cpunr=0, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000025d, idx_ec=0x0000025c, eip=0x004045e6, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x0000025f, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000261, utcb=0x2d7000, esp=0xbfbecff4, cpunr=1, excpt_base=0x00000000, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000262, idx_ec=0x00000261, eip=0x004045e6, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000264, initial=0, dstpd=0x00000020)
+	=> service_romfs <=
+nova_create_ec(idx_ec=0x00000267, utcb=0x2d4000, esp=0xbfbe9ff4, cpunr=0, excpt_base=0x000fefe0, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x00000268, idx_ec=0x00000267, eip=0x00401b21, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000269, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000026b, utcb=0x2d1000, esp=0xbfbe7ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x000fefee, idx_ec=0x0000026b, eip=0x004016dd, mtd=0x0000800f, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x0000026c, utcb=0x2ce000, esp=0xbfbe6ff4, cpunr=1, excpt_base=0x000fefe4, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x0000026d, idx_ec=0x0000026c, eip=0x00401b21, mtd=0x00000000, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x0000026e, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000270, utcb=0x2cb000, esp=0xbfbe4ff4, cpunr=1, excpt_base=0x0000022c, dstpd=0x00000020)
+nova_create_pt(idx_pt=0x000feff2, idx_ec=0x00000270, eip=0x004016dd, mtd=0x0000800f, dstpd=0x00000020)
+	=> hostvga <=
+s0: map self 3c0000 -> 0 size 20000 offset 0 s 0 typed 1
+nova_create_sm(idx_sm=0x000fefdc, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x00000271, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff003, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000272, utcb=0x2c8000, esp=0xbfbd4ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000273, idx_ec=0x00000272, dstpd=0x00000020)
+	=> script <=
+nova_create_sm(idx_sm=0x000fefd7, initial=0, dstpd=0x00000020)
+nova_create_sm(idx_sm=0x000ff005, initial=0, dstpd=0x00000020)
+nova_create_ec(idx_ec=0x00000274, utcb=0x2c5000, esp=0xbfbd2ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000275, idx_ec=0x00000274, dstpd=0x00000020)
+sc: done.
+	=> namespace::/s0 <=
+	=> name::/s0/timer <=
+	=> name::/s0/fs/rom <=
+	=> quota::guid <=
+	=> script_start:1,1 <=
+	=> verbose <=
+	=> hostkeyb:0x17,0x60,1,12,2 <=
+s0: map self 60000 -> 0 size 1000 offset 0 s 0 typed 1
+s0: map self 64000 -> 0 size 1000 offset 0 s 0 typed 1
+nova_create_ec(idx_ec=0x00000276, utcb=0x2c2000, esp=0xbfbd0ff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000277, idx_ec=0x00000276, dstpd=0x00000020)
+s0: do_gsi(24) vec 1 locked
+nova_create_ec(idx_ec=0x00000278, utcb=0x2bf000, esp=0xbfbcfff4, cpunr=0, excpt_base=0x00000205, dstpd=0x00000020)
+nova_create_sc(idx_sc=0x00000279, idx_ec=0x00000278, dstpd=0x00000020)
+s0: do_gsi(2f) vec c locked
+sc: << run script: >>
+sc: start 0-1 count 1
+Cannot find configuration 0.
+s0: start of config failed, error line = 648, config id=0
+sc: done.
+s0:	=> INIT done <=
+
+QEMU: Terminated
+#+end_example
+
+*** Communication between various parts of Sigma0
+
+The communication is currently handled by means of "devices"
+interconnected via various "buses". Sigma0 is also a "device".
+Currently, all the devices live in a single address space and
+therefore the bus simply pass the messages (sent by calling =send_*()=
+method) to receiving devices by calling =receive()= method of all
+devices on the bus.
+
+Technically, the =receive()= methods are called by static methods
+inherited from =StaticReceiver= class template. This template
+generates static methods =receive_static()= which simply call normal
+member functions =receive()=. There might be several of these
+functions differentiated by the type of the message.
+
+**** List of bus and devices					   :noexport:
+#+begin_example
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageHostOp]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Sigma0] (0x45ae20)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageDiskCommit]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Sigma0] (0x45ae20)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageNetwork]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Sigma0] (0x45ae20)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageVirtualNetPing]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Sigma0] (0x45ae20)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageIOIn]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = IOAccess] (0xbfbfedb4)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageIOOut]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = IOAccess] (0xbfbfedb4)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageIrq]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostSerial] (0xbfbfed80)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageSerial]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostSerial] (0xbfbfed80)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageAcpi]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostAcpi] (0xbfbfed68)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessagePciConfig]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = PciConfigAccess] (0xbfbfed4c)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageAcpi]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Atare] (0xbfbfed3c)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageConsole]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostReboot] (0xbfbfc548)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageConsole]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostReboot] (0xbfbfc524)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageConsole]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostReboot] (0xbfbfc4f8)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageIrq]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = PerCpuTimerService] (0xbfbfc3b0)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageInput]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostVga] (0xbfbe1d74)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageConsole]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostVga] (0xbfbe1d74)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageLegacy]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Script] (0xbfbdffe8)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageIrq]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostKeyboard] (0xbfbddfb4)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageLegacy]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = HostKeyboard] (0xbfbddfb4)
+void DBus<M>::add(Device*, bool (*)(Device*, M&)) [with M = MessageConsole]:  dev = StaticReceiver<Y>::StaticReceiver() [with Y = Sigma0] (0x45ae20)
+#+end_example
+**** Communication diagram
+The diagram below tries to express interconnection between the devices
+(ellipses) and the buses (rectangles). It was created
+semi-automatically so there might be some inaccuracies. The
+connections of =bus_hostop= and =bus_hwioin/out= were intentionally
+not included because almost every devices sends the messages there.
+#+begin_src dot :file nova_com.png :cmdline -Tpng
+digraph nova_com {
+    dpi=50;
+    Sigma0 [peripheries=2];
+    subgraph {
+	node [shape=box, style=filled, fillcolor=gray];
+	PciConfig;
+	Time;
+	Mem;
+	IrqNotify;
+	Serial;
+	Legacy;
+	DiskCommit;
+	VirtualNetPing;
+	HwPciConfig;
+	Disk;
+	Pit;
+	Input;
+	Discovery;
+	IrqLines;
+	Cpu;
+	Network;
+	LapicEvent;
+	MemRegion;
+	IOOut;
+	CpuEvent;
+	Console;
+	Acpi;
+	Bios;
+	VirtualNet;
+	Irq;
+	Timer;
+	IOIn;
+	Timeout;
+	Vesa;
+    }
+
+subgraph {
+    edge [color=blue];
+    Mem -> PciHostBridge;
+    HwPciConfig -> PciMMConfigAccess;
+    LapicEvent -> VirtualCpu;
+    Mem -> DirectPciDevice;
+    VirtualNetPing -> Sigma0;
+    Time -> HostRtc;
+    Irq -> PerCpuTimerService;
+    Irq -> HostSerial;
+    IOIn -> PitDevice;
+    Irq -> Host82576VF;
+    Network -> HostNe2k;
+    IrqNotify -> PitCounter;
+    Irq -> HostNe2k;
+    IOOut -> DirectIODevice;
+    Irq -> HostSerialPci;
+    Network -> Sigma0;
+    Console -> HostVga;
+    Console -> Sigma0;
+    Disk -> HostAhci;
+    CpuEvent -> VirtualCpu;
+    Legacy -> Script;
+    Bios -> PciHostBridge;
+    MemRegion -> DirectPciDevice;
+    IOOut -> DirectPciDevice;
+    Serial -> HostSink;
+    Irq -> Host82573;
+    VirtualNetPing -> HostNe2kVnet;
+    Timeout -> TimerService;
+    Disk -> HostIde;
+    Acpi -> GsiOverride;
+    Input -> HostVga;
+    HwPciConfig -> HostVesa;
+    IOIn -> DirectPciDevice;
+    Disk -> Device;
+    PciConfig -> PciHostBridge;
+    Irq -> HostNe2kVnet;
+    Serial -> HostSerial;
+    MemRegion -> MemoryController;
+    Cpu -> Halifax;
+    Console -> HostReboot;
+    Mem -> MemoryController;
+    Irq -> DirectPciDevice;
+    Irq -> HostAhci;
+    Cpu -> VirtualCpu;
+    DiskCommit -> Sigma0;
+    Irq -> TimerService;
+    Irq -> HostHpet;
+    Serial -> HostSerialPci;
+    Mem -> VirtualCpu;
+    MemRegion -> VirtualCpu;
+    Acpi -> HostAcpi;
+    Timer -> HostHpet;
+    Timer -> HostVesa;
+    Pit -> PitDevice;
+    Network -> Host82576VF;
+    PciConfig -> DirectPciDevice;
+    Irq -> HostPit;
+    IOIn -> SystemControlPort;
+    Legacy -> VirtualCpu;
+    Network -> SimpleArpPing;
+    Legacy -> DirectPciDevice;
+    IOIn -> DirectIODevice;
+    Legacy -> PciHostBridge;
+    Legacy -> HostKeyboard;
+    Input -> KbdSerialBridge;
+    IOOut -> SystemControlPort;
+    IOOut -> PitDevice;
+    Network -> Host82573;
+    IOIn -> PciHostBridge;
+    VirtualNet -> VirtualNet;
+    IOOut -> PciHostBridge;
+    Serial -> SerialKbdBridge;
+    Acpi -> Atare;
+    Network -> SimpleBootp;
+    Irq -> Host82576;
+    Timeout -> PitCounter;
+    Irq -> HostKeyboard;
+    HwPciConfig -> PciConfigAccess;
+    Discovery -> PciHostBridge;
+    Vesa -> HostVesa;
+    Acpi -> TimerService;
+}
+TimerService -> Acpi;
+Sigma0 -> Irq;
+Service_config -> Console;
+PciMMConfigAccess -> Acpi;
+VirtualDisk -> DiskCommit;
+SimpleBootp -> Network;
+SerialKbdBridge -> Input;
+HostVga -> Vesa;
+HostSerialPci -> Serial;
+SystemControlPort -> Legacy;
+TimerService -> Time;
+HostVga -> Console;
+HostIde -> DiskCommit;
+BasicHpet -> Acpi;
+TimerService -> Irq;
+HostAhci -> DiskCommit;
+PciHostBridge -> PciConfig;
+MemCache -> Mem;
+HostVesa -> Cpu;
+PitCounter -> Timer;
+VirtualCpu -> IOOut;
+HostSerial -> Serial;
+KbdSerialBridge -> Serial;
+HostVesa -> HwPciConfig;
+SystemControlPort -> Pit;
+InstructionCache -> Cpu;
+Sigma0 -> VirtualNet;
+DirectPciDevice -> IrqLines;
+Sigma0 -> HwPciConfig;
+VirtualCpu -> MemRegion;
+VirtualCpu -> Legacy;
+VirtualCpu -> Mem;
+TimerService -> Timer;
+HostReboot -> Acpi;
+DirectPciDevice -> Mem;
+HostKeyboard -> Input;
+PciHelper -> PciConfig;
+VirtualCpu -> LapicEvent;
+Host82576VF -> Network;
+PitCounter -> IrqLines;
+Sigma0 -> Console;
+VirtualCpu -> IOIn;
+PciHostBridge -> Legacy;
+SimpleNetworkClient -> VirtualNet;
+Script -> Console;
+HostVesa -> Timeout;
+HostNe2k -> Network;
+VirtualNet -> VirtualNetPing;
+Sigma0 -> Disk;
+HostPit -> Timeout;
+MemCache -> MemRegion;
+Atare -> Acpi;
+Sigma0 -> Serial;
+HostPci -> Acpi;
+HostPci -> HwPciConfig;
+SimpleArpPing -> Network;
+HostHpet -> Timeout;
+Sigma0 -> Acpi;
+Sigma0 -> Network;
+Sigma0 -> Legacy;
+Host82573 -> Network;
+}
+#+end_src dot
+
+#+results:
+[[file:nova_com.png]]
+
+
+
+*** TimerService
+TimerService is a service that provides timers and time functionality
+to its clients. It currently runs within Sigma0, but it is planned to
+run in its own protection domain.
+
+It listens on portal to perform requests from clients. The main
+services provided are OPEN, REQUEST_TIMER, REQUEST_TIME and CLONE.
+OPEN operation creates a semaphore which is shared with the client.
+This semaphore is signaled when a timer, set up with REQUEST_TIMER,
+fires.
+
+TimerService internally uses motherboard and buses =_mymb=), similarly
+as Sigma0, but these seem not to be used for anything useful.
+
+#+begin_src dot :file timer_service.png :cmdline -Tpng
+digraph timer_service {
+dpi=50;
+
+TimerService [peripheries=2];
+
+subgraph {
+node [shape=box, style=filled, fillcolor=gray];
+bus_acpi;
+bus_timeout;
+bus_hostirq;
+bus_time;
+bus_timer;
+}
+
+TimerService -> bus_hostirq;
+TimerService -> bus_time;
+TimerService -> bus_timer;
+
+bus_acpi -> TimerService;
+bus_timeout -> TimerService;
+}
+#+end_src dot
+
+#+results:
+[[file:timer_service.png]]
+
+*** HostKeyboard
+This driver handles keyboard (and probably even mouse) IRQs,
+translates the scancodes somehow and sends =MessageInput= messages to
+bus_input.
+
+The HostKeyboard 0 is special in that it allows switching consoles and
+reboot host and guest systems. The HostKeyboard 0 is initialized by
+the following SIgma0 parameter: 
+
+#+begin_example
+hostkeyb:0,0x60,1
+#+end_example
+*** Console
+I do not yet fully understand how console works, but it seems it
+might be like this:
+
+The actual virtual consoles are implemented in HostVga. A virtual
+console is a set of views and the view seems to be basically a bunch
+of VGA and VGA memory. The emulations seems to provide both text and
+graphical modes. HostVga worker thread periodically (25Hz) updates the
+real VGA with the content of the currently selected view.
+
+TODO How is console attached to other protection domains? What is
+exactly bus_console used to.
+
+*** HostVga
+Listens for =MessageInput= and uses this for switching the consoles.
+
+*** Starting programs						       :page:
+
+Starting of programs other than Sigma0 (let us call them childs) is
+controlled by configuration scripts (text files with /.nulconfig/
+extension). The scripts have to be loaded by the bootloader into the
+memory. Programs can be started either automatically by using =script=
+and =script_start:<num>:1= Sigma0 parameters or manually by keyboard
+shortcuts (by default LWin+<num>). The number /<num>/ refers to the
+/num/-th /.nulconfig/ script.
+
+The actual spawning of the program is implemented in
+=Sigma0::_start_config()=. It involves the following steps:
+1. Allocation of memory and copying the executable to that memory.
+2. Allocation of a console for the the new program
+3. Preparation of a new Hypervisor Information Page (HIP) for the
+   program.
+4. Creation of exception handling portals (page-fault and startup).
+
+   The portal capability selectors are allocated in the range /base/
+   -- /base/ + 0x400. The /base/ is calculated as =CLIENT_PT_OFFSET +
+      (<num>-1)*(1<<CLIENT_PT_SHIFT)=, i.e.
+   for the first client the range is equal to 0x10000 - 0x10400.
+5. Creation of parent protocol portals, one per CPU, staring at
+   /base/ + 0x100.
+6. Creation of a semaphore, that is used for later identification of
+   the client. The capability selector for this semaphore is /base/ +
+   0xfd.
+7. Creation of client protection domain, execution context and
+   scheduling context (through [[Admission service]]).
+
+   During the protection domain creation the capabilities in the range
+   described above (/base/ through /base/ + 0x10400) are delegated to
+   the client where they occupy selectors from 0x0 to 0x400.
+   Therefore, the child knows implicitely how to contact the parent
+   and how to idetify itself to the parent (see [[parent protocol]]).
+
+**** State of a program after startup
+
+#+CAPTION: The capability selectors 0x0 -- 0x3ff in a newly created program.
+|-------------------+-----------------------------------+-------------------------------------------------------------------------|
+|          Selector | Symbol                            | Capability                                                              |
+|-------------------+-----------------------------------+-------------------------------------------------------------------------|
+|             0x00E |                                   | Page fault handling portal (handled in Sigma0)                          |
+|             0x01E |                                   | Startup exception handling portal (handled in Sigma0)                   |
+|             0x020 | NOVA_DEFAULT_PD_CAP               | Child protection domain                                                 |
+|             0x0FF | ParentProtocol::<<CAP_PARENT_ID>> | Identifier (a semaphore) the parent uses to distinguish between clients |
+| 0x100, 0x101, ... | ParentProtocol::<<CAP_PT_PERCPU>> | Per-CPU portals for calling the parent using a [[parent protocol]].         |
+|-------------------+-----------------------------------+-------------------------------------------------------------------------|
+
+
+
+
+**** Controlling the startup
+
+- =sigma0::cpu= specifies the CPU where to create the new program.
+- =sigma0::dma= TODO
+** Vancouver - VMM 						       :page:
+
+So far, this section contains only inteconnection diagram of
+Vancouver. For clarity, this diagram omits connections to hostop,
+ioout, ioin, mem and memregion busses.
+
+
+#+begin_src dot :file vancouver_com.png :cmdline -Tpng
+digraph nova_com {
+dpi=50;
+Vancouver [peripheries=2];
+subgraph {
+  node [shape=box, style=filled, fillcolor=gray];
+PciConfig;
+Time;
+Serial;
+IrqNotify;
+Legacy;
+Apic;
+VirtualNetPing;
+DiskCommit;
+Disk;
+HwPciConfig;
+Pit;
+Discovery;
+IrqLines;
+Input;
+Cpu;
+Network;
+LapicEvent;
+CpuEvent;
+Console;
+Acpi;
+Bios;
+VirtualNet;
+Irq;
+Pic;
+Timer;
+PS2;
+AhciSetDrive;
+Timeout;
+}
+
+subgraph {
+edge [color=blue];
+Time -> Vancouver;
+PS2 -> KeyboardController;
+Discovery -> PmTimer;
+Legacy -> PicDevice;
+Irq -> IRQRouting;
+Bios -> Device;
+Bios -> Vga;
+HwPciConfig -> Vancouver;
+LapicEvent -> VirtualCpu;
+Pic -> PicDevice;
+Timeout -> VirtualBiosDisk;
+VirtualNet -> Vancouver;
+Discovery -> Vga;
+Serial -> SerialDevice;
+VirtualNetPing -> Model82576vf_vnet;
+Legacy -> KeyboardController;
+PciConfig -> AhciController;
+IrqNotify -> PitCounter;
+Bios -> VirtualBiosTime;
+Acpi -> Vancouver;
+Bios -> VirtualBiosDisk;
+Legacy -> IOApic;
+CpuEvent -> VirtualCpu;
+Timeout -> Lapic;
+VirtualNetPing -> Rtl8029Vnet;
+Timeout -> Rtc146818;
+PS2 -> PS2Mouse;
+PciConfig -> Model82576vf_vnet;
+Bios -> PciHostBridge;
+Discovery -> VBios;
+Serial -> HostSink;
+Cpu -> Vancouver;
+PciConfig -> Rtl8029Vnet;
+Legacy -> Vancouver;
+PciConfig -> Rtl8029;
+Network -> Vancouver;
+Discovery -> VirtualBiosKeyboard;
+IrqLines -> PicDevice;
+Network -> Rtl8029;
+Disk -> Vancouver;
+IrqLines -> IOApic;
+AhciSetDrive -> AhciController;
+Cpu -> VBios;
+PciConfig -> PciHostBridge;
+Discovery -> Lapic;
+Discovery -> Device;
+Cpu -> Halifax;
+Console -> Vancouver;
+DiskCommit -> SataDrive;
+Irq -> DirectPciDevice;
+Cpu -> VirtualCpu;
+Discovery -> SerialDevice;
+DiskCommit -> VirtualBiosDisk;
+Timeout -> Model82576vf;
+Discovery -> IOApic;
+Pit -> PitDevice;
+PciConfig -> Model82576vf;
+PciConfig -> DirectPciDevice;
+Legacy -> Lapic;
+Legacy -> Model82576vf_vnet;
+IrqNotify -> Rtc146818;
+Legacy -> VirtualCpu;
+Apic -> Lapic;
+Network -> SimpleArpPing;
+Legacy -> DirectPciDevice;
+Legacy -> HostKeyboard;
+Legacy -> PciHostBridge;
+Input -> KbdSerialBridge;
+Cpu -> Lapic;
+Legacy -> Model82576vf;
+Input -> VirtualBiosKeyboard;
+Legacy -> PS2Keyboard;
+Bios -> VirtualBiosMultiboot;
+Network -> Model82576vf;
+Serial -> SerialKbdBridge;
+Network -> SimpleBootp;
+Irq -> HostKeyboard;
+Timeout -> PitCounter;
+PS2 -> PS2Keyboard;
+Timer -> Vancouver;
+LapicEvent -> Lapic;
+Discovery -> PciHostBridge;
+Input -> PS2Keyboard;
+Bios -> VirtualBiosKeyboard;
+Input -> PS2Mouse;
+}
+VBios -> Bios;
+SimpleBootp -> Network;
+SystemControlPort -> Legacy;
+KeyboardController -> PS2;
+VCpu -> Cpu;
+VirtualBiosDisk -> Disk;
+PicDevice -> IrqLines;
+PciHostBridge -> PciConfig;
+PS2Keyboard -> PS2;
+Vancouver -> Timeout;
+VirtualBiosDisk -> Timer;
+Vancouver -> VirtualNetPing;
+InstructionCache -> Cpu;
+DirectPciDevice -> IrqLines;
+VirtualCpu -> Legacy;
+Model82576vf -> Network;
+PicDevice -> IrqNotify;
+Vancouver -> Irq;
+HostKeyboard -> Input;
+Vancouver -> Legacy;
+VirtualBiosReset -> Cpu;
+PitCounter -> IrqLines;
+IOApic -> IrqNotify;
+Rtl8029Vnet -> IrqLines;
+SimpleNetworkClient -> VirtualNet;
+Lapic -> Cpu;
+Lapic -> Timer;
+Model82576vf -> Timer;
+VirtualBiosDisk -> IrqLines;
+Rtl8029 -> Network;
+VirtualBiosKeyboard -> Legacy;
+VirtualBiosKeyboard -> Discovery;
+Vancouver -> Input;
+Model82576vf_vnet -> VirtualNet;
+HostPci -> HwPciConfig;
+HostPci -> Acpi;
+VirtualBiosReset -> Discovery;
+SimpleArpPing -> Network;
+PicDevice -> Legacy;
+SataDrive -> AhciSetDrive;
+Msi -> Apic;
+Vancouver -> DiskCommit;
+Rtc146818 -> IrqLines;
+PicDevice -> Pic;
+Vancouver -> CpuEvent;
+SerialKbdBridge -> Input;
+SerialDevice -> Serial;
+SataDrive -> Disk;
+Vancouver -> Network;
+Vancouver -> Cpu;
+PitCounter -> Timer;
+Rtc146818 -> Timer;
+KbdSerialBridge -> Serial;
+SystemControlPort -> Pit;
+IRQRouting -> IrqLines;
+Lapic -> CpuEvent;
+SerialDevice -> IrqLines;
+PciHelper -> PciConfig;
+VirtualCpu -> LapicEvent;
+AhciController -> IrqLines;
+KeyboardController -> IrqLines;
+VirtualBiosKeyboard -> Irq;
+PciHostBridge -> Legacy;
+KeyboardController -> Legacy;
+Lapic -> Apic;
+Rtl8029 -> IrqLines;
+Vga -> Console;
+Rtc146818 -> Time;
+PS2Mouse -> PS2;
+}
+#+end_src dot
+
+#+results:
+[[file:vancouver_com.png]]
+
+* Local variables						   :noexport:
+# Local Variables:
+# org-confirm-babel-evaluate: nil
+# End:
