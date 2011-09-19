@@ -23,6 +23,7 @@ $CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
 $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
+$CFG::script_modifier = '';
 
 my $qemu_flags = "-cpu coreduo -smp 2";
 
@@ -86,6 +87,7 @@ if ($dump_config) {
 \$genisoimage = '$CFG::genisoimage';
 \$iprelay_addr = '$CFG::iprelay_addr';
 \$qemu = '$CFG::qemu';
+\$script_modifier = '$CFG::script_modifier';
 ";
     exit;
 }
@@ -175,6 +177,11 @@ while (<>) {
     $continuation = 0;
     $line .= $_;
     $line .= " $append" if ($append && scalar(@$modules) == 0);
+    {
+	$_ = $line;
+	eval $CFG::script_modifier;
+	$line = $_;
+    }
     push @$modules, $line;
     $line = '';
 }
