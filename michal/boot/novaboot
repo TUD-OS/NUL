@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use strict;
+use warnings;
 use Getopt::Long;
 use Pod::Usage;
 use File::Basename;
@@ -57,7 +58,7 @@ GetOptions (
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
-    "iprelay"	     => \$iprelay,
+    "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
     "qemu|Q=s" 	     => \$qemu,
@@ -96,6 +97,35 @@ if (defined $serial) {
 if (defined $grub_config) {
     $grub_config ||= "menu.lst";
 }
+
+my $IPRELAY;
+if (defined $iprelay) {
+    my $paddr   = sockaddr_in(23, inet_aton($CFG::iprelay_addr));
+    my $proto   = getprotobyname('tcp');
+    socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
+    connect($IPRELAY, $paddr)    || die "connect: $!";
+    $IPRELAY->autoflush(1);
+
+    sub relaycmd($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+
+	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
+	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
+    }
+}
+
+if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
+    print $IPRELAY relaycmd(1, 1); # Press power button
+    if ($iprelay eq "on") {
+	usleep(200000);		# Short press
+    } else {
+	usleep(5000000);	# Long press to switch off
+    }
+    print $IPRELAY relaycmd(1, 0);
+    exit;
+}
+
 
 # Parse the config(s)
 my @scripts;
@@ -331,45 +361,34 @@ if (defined $dhcp_tftp)
     $SIG{TERM} = sub { print "CHILDS KILLED\n"; kill 15, $dhcpd_pid, $tftpd_pid; };
 }
 
-sub relaycmd($$) {
-    my ($relay, $onoff) = @_;
-    die unless ($relay == 1 || $relay == 2);
-
-    my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
-    return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
-}
-
-
 if ($serial || defined $iprelay) {
+    my $CONN;
     if (defined $iprelay) {
-	my $paddr   = sockaddr_in(23, inet_aton($CFG::iprelay_addr));
-	my $proto   = getprotobyname('tcp');
-	socket(CONN, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
-	connect(CONN, $paddr)    || die "connect: $!";
-	CONN->autoflush(1);
-	print CONN relaycmd(2, 1); # Reset the machine
+	print $IPRELAY relaycmd(2, 1); # Reset the machine
 	usleep(200000);
-	print CONN relaycmd(2, 0);
+	print $IPRELAY relaycmd(2, 0);
+
+	$CONN = $IPRELAY;
     } elsif ($serial) {
 	system("stty -F $serial raw -crtscts -onlcr 115200");
-	open(CONN, "+<", $serial) || die "open $serial: $!";
-	CONN->autoflush(1);
+	open($CONN, "+<", $serial) || die "open $serial: $!";
+	$CONN->autoflush(1);
     }
     if (!defined $dhcp_tftp && $CFG::grub_keys) {
 	# Control grub via serial line
-	while (<CONN>) {
-	    if (/Press any key to continue/) { print CONN "\n"; last; }
+	while (<$CONN>) {
+	    if (/Press any key to continue/) { print $CONN "\n"; last; }
 	}
 	$CFG::grub_keys =~ s/\$NAME/$config_name;/;
 	my @characters = split(//, $CFG::grub_keys);
 	foreach (@characters) {
-	    print CONN $_;
+	    print $CONN $_;
 	    usleep($_ eq "\n" ? 100000 : 10000);
 	}
-	print CONN "\n";
+	print $CONN "\n";
     }
     # Pass the NOVA output to stdout.
-    while (<CONN>) {
+    while (<$CONN>) {
 	print;
     }
     kill 15, $dhcpd_pid, $tftpd_pid if ($dhcp_tftp);
@@ -469,11 +488,15 @@ directory.
 
 Print short (-h) or long (--help) help.
 
-=item --iprelay
+=item --iprelay[=cmd]
 
-Use IP relay to reset the machine and to get the serial output.
-The IP address of the relay is determined by $iprelay_addr
-configuration variable.
+If not I<cmd> is given, use IP relay to reset the machine and to get
+the serial output. The IP address of the relay is determined by
+$iprelay_addr configuration variable.
+
+If I<cmd> is one of "on" or "off", the IP relay is used press power
+button for a short (in case of "on") or long (in case of "off") time.
+The script then exits.
 
 Note: This option is expected to work with HWG-ER02a IP relays.
 
