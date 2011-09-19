@@ -605,7 +605,7 @@ specified with -c parameter). It is a file with perl syntax, which
 sets values to certain variables. The current configuration can be
 dumped with --dump-config switch. Use
 
-    novaboot --dumpconfig > ~/.novaboot
+    novaboot --dump-config > ~/.novaboot
 
 to create a default config file and modify if to your needs. Some
 configuration variables can be overriden by environment variables (see
