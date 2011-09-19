@@ -29,7 +29,12 @@ if (!$pid) {
 }
 
 my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
-my $columns = `tput cols` if ($istty);
+my $columns;
+if ($istty) {
+    $columns = `tput cols`;
+} else {
+    $columns = 80;
+}
 
 my @log = ();
 my ($gpasses, $gfails) = (0,0);
@@ -135,7 +140,7 @@ while (<$fh>)
 	my $msg = sprintf("$prefix! %s  %s: ", $file, $sect);
 	print $msg;
 	$column = length($prefix.$msg);
-	@log = ("-"x78);
+	@log = '╭'.('─'x($columns - 2)).'╮';
 	$start = $stop;
     }
     elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
@@ -157,9 +162,9 @@ while (<$fh>)
 	    $gfails++;
 	    if (@log) {
 		print "\n" if ($column);
-		print join("\n", @log) . "\n";
+		print join("\n", @log) . "\n" . '╰'.('─'x($columns - 2)) . "╯\n";
 		$column = 0;
-		@log = ();
+		@log = '╭'.('─'x($columns - 2)).'╮';
 	    }
 	} else {
 	    $gpasses++;
