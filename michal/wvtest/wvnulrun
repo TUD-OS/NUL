@@ -26,7 +26,6 @@ use strict;
 # always flush
 $| = 1;
 
-$ENV{'WVTESTRUN'} = 1;		# Tell the child it is run in background (needed for qemu)
 my $pid = open(my $fh, "-|");
 if (!$pid) {
     # child
