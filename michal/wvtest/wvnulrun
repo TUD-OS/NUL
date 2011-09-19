@@ -93,11 +93,18 @@ if ($newpid != $pid) {
 my $code = $?;
 my $ret = ($code >> 8);
 
-# return death-from-signal exits as >128.  This is what bash does if you ran
-# the program directly.
-if ($code && !$ret && !($kill_ok && $code == 15)) { $ret = $code | 128; }
+if ($code && !$ret) {
+    if ($kill_ok && $code == 15) {
+	# We have killed the child - it is OK
+	$code = 0;
+    } else {
+	# return death-from-signal exits as >128.  This is what bash does if you ran
+	# the program directly.
+	$ret = $code | 128;
+    }
+}
 
-if ($code != 0) {
+if ($ret != 0) {
     print "! $0: Program '", join(" ", @ARGV), "' returned non-zero exit code ($ret)  FAILED\n";
 }
 
