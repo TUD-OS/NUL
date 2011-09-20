@@ -42,6 +42,6 @@ AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
 AlwaysBuild(cmd_env.Command("test", ["wvtest/wvtestrun",
                                      "wvtest/runall",
                                      ],
-                            """${SOURCES[0]} ${SOURCES[1]}"""))
+                            """${SOURCES[0]} ${SOURCES[1]} --build-dir=."""))
 
 # EOF
