@@ -31,7 +31,6 @@ Alias('install', tftp_dir)
 
 Default('bin/apps')
 Default('bin/boot')
-Default('linux')
 
 cmd_env = Environment(ENV = os.environ)
 AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
@@ -39,9 +38,16 @@ AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
                                      ],
                             """qemu -cpu coreduo -serial stdio -smp 4 -kernel ${SOURCES[0]} -append "spinner serial" -initrd "${SOURCES[1]} S0_DEFAULT hostvga:0+0 hostkeyb:0+0x60+1+12 hostserial " """))
 
-AlwaysBuild(cmd_env.Command("test", ["wvtest/wvtestrun",
-                                     "wvtest/runall",
-                                     ],
-                            """${SOURCES[0]} ${SOURCES[1]} --build-dir=."""))
+imgs = cmd_env.Command("imgs", [],
+                       "ln -sf ../michal/imgs .")
+imgsrepo = cmd_env.Command("imgs/bzImage-js", [],
+                           "cd .. && git submodule init michal/imgs && git submodule update --merge michal/imgs")
+Precious(imgsrepo)
+AlwaysBuild(imgsrepo)
+
+test = cmd_env.Command("test", ["wvtest/wvtestrun", "wvtest/runall"],
+                       """${SOURCES[0]} ${SOURCES[1]} --build-dir=.""")
+Depends(test, DEFAULT_TARGETS + [imgsrepo, imgs])
+AlwaysBuild(test)
 
 # EOF

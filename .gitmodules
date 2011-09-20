@@ -1,0 +1,3 @@
+[submodule "michal/imgs"]
+	path = michal/imgs
+	url = os.inf.tu-dresden.de:/home/sojka/repos/nul-test-imgs.git
