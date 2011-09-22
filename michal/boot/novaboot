@@ -124,7 +124,7 @@ if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
     if ($iprelay eq "on") {
 	usleep(200000);		# Short press
     } else {
-	usleep(5000000);	# Long press to switch off
+	usleep(6000000);	# Long press to switch off
     }
     print $IPRELAY relaycmd(1, 0);
     exit;
