@@ -124,10 +124,10 @@ PARAM_HANDLER(vdisk,
 		  fileinfo.name, fileinfo.size, mb.bus_disk.count());
           
 
-  Device * dev = new VirtualDisk(mb.bus_diskcommit,
-				 mb.bus_disk.count(),
-				 module,
-				 fileinfo.size,
-				 "virtualdisk");
+  VirtualDisk * dev = new VirtualDisk(mb.bus_diskcommit,
+				      mb.bus_disk.count(),
+				      module,
+				      fileinfo.size,
+				      "virtualdisk");
   mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
 }
