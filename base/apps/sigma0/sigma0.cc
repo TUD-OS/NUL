@@ -274,6 +274,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   /**
+   * Convert client's virtual address (physoffset) to a physical
+   * address. Also truncates size if it points behind memory allocated
+   * to the client.
+   *
    * Returns true on error. (Why?!)
    */
   static bool adapt_ptr_map(ModuleInfo *modinfo, unsigned long &physoffset, unsigned long &physsize)

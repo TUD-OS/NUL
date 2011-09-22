@@ -30,7 +30,7 @@ microhypervisor. It contains the virtual device models to give an OS
 the illusion of running on bare hardware. Furthermore it emulates
 realmode and MMIO instructions and provides a virtual BIOS.
 
-* Status of this documentation
+** Status of this documentation
 Very preliminary!
 * Compilation
   :PROPERTIES:
@@ -64,6 +64,23 @@ objdump -S myapp.nul.debug|less -p80000c39
 * Interfaces							       :page:
 ** Semaphores
 Futex-like semaphore is defined in semaphore.h as =class Semaphore=.
+** Memory map
+Memory MAP of NUL programs is currently as follows:
+
+|--------------------------------------+------------|
+| 0x1000 - 0x7fffffff                  | Free       |
+| 0x80000000 - __image_end             | Elf image  |
+| ALIGN(__image_end, 4MB) - 0xbfffdfff | Free       |
+| 0xbfffe000 - 0xbfffefff              | UTCB       |
+| 0xbffff000 - 0xbfffffff              | Client HIP |
+| 0xc0000000 - 0xffffffff?             | Kernel     |
+|--------------------------------------+------------|
+
+The "Elf image" area is backed up by a phycial memory with a copy of
+the program's binary. At the end of this area, there is a heap used in
+simplemalloc.cc. The size of the heap is determined at compile time by
+MEMSIZE value in SConscript.
+
 ** Console							       :page:
 
 Applications can inherit their class from =ProgramConsole= class in
@@ -263,6 +280,34 @@ and ...
 
 ... Services can use =class ClientDataStorage= to store and search for
 client specific data.
+
+** Disk access
+Accessing the disk currently works as follows.
+
+Sigma0 has a table called Sigma0::_disk_data with an entry for each
+possible client. The index to the table is determined from the portal
+capability selector which receives the disk request. Besides other
+things, the entry in this table determines which disks are accessbible
+by the client as defined by sigma0::drive:X command line parameters.
+
+A client that wants to acces a disk creates a semaphore and a
+DiskConsumer object, which is a ring buffer for MessageDiskCommit
+messages. Then it calls Sigma0 via Sigma0Base::request_disks_attach(),
+which delegates the semaphore to Sigma0 and passes it the address of
+the Consumer object. Sigma0 connects the producer in the apropriate
+entry in Sigma0::_disk_data with the consumer in the client.
+
+Reading from the disk is performed by sending MessageDisk::DISK_READ
+message to Sigma0 via Sigma0Base::disk(). The message contains which
+disk to read a /tag/ (unique identifier of the request), starting
+sector, a pointer to the buffer in the client's address space and a
+DMA scatter-gatter list with offsets relative to the buffer.
+
+Sigma0 translates the virtual addresses to physical ones and redirect
+the request to the proper disk driver. When the driver completes the
+request if sends a MessageDiskCommit to Sigma0 which again translates
+the message for the client and uses Producer to notify the client
+about completion of his request.
 
 ** Logging							       :page:
 
