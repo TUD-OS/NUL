@@ -2,10 +2,13 @@
 # -*-sh-*-
 bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     tracebuffer:32768,1 \
-    vdisk:rom://bin/apps/diskbench.nul \
+    vdisk:rom://diskbench.img \
     script_start:1 script_waitchild
 bin/apps/diskbench.nul
 diskbench.nulconfig <<EOF
 namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission sigma0::drive:0 ||
-rom://bin/apps/diskbench.nul wvtest
+rom://bin/apps/diskbench.nul wvtest lorem_ipsum
+EOF
+diskbench.img <<EOF
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum consectetur egestas orci, vel auctor dui iaculis a. Duis quis ligula vel arcu accumsan molestie quis vitae augue. Proin et dolor nisl. Fusce nec purus nec metus bibendum pretium a ut quam. Morbi sit amet tempor dui. Vivamus quis est in metus viverra euismod vitae consequat nisl. Curabitur auctor rhoncus tempus. Sed gravida rutrum tincidunt. Nullam rhoncus vestibulum augue, vel commodo elit fringilla vel. Donec varius volutpat viverra fusce.
 EOF

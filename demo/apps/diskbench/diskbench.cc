@@ -27,6 +27,7 @@ char disk_buffer[4<<20];
 unsigned long blocksize = 512;
 unsigned outstanding=5;
 bool wvtest = false;
+bool lorem_ipsum = false;
 PARAM_HANDLER(blocksize,
 	      "blocksize:value - override the default blocksize", "Example: 'blocksize:65536'")
 {
@@ -49,6 +50,7 @@ PARAM_HANDLER(outstanding,
 }
 
 PARAM_HANDLER(wvtest) {wvtest = true;}
+PARAM_HANDLER(lorem_ipsum) {lorem_ipsum = true;}
 
 class App : public NovaProgram, ProgramConsole
 {
@@ -115,6 +117,12 @@ public:
 	  Math::div64(throughput, now - start);
 	  unsigned request_rate = (requests_done-req_nr)*FREQ/TIMEOUT;
 	  Logging::printf("Speed: %lld kb/s Request: %d/s\n", throughput, request_rate);
+	  if (lorem_ipsum) {
+	    char dataOnDisk[20];
+	    memset(dataOnDisk, 0, sizeof(dataOnDisk));
+	    memcpy(dataOnDisk, disk_buffer, 11);
+	    WVPASSEQ(dataOnDisk, "Lorem ipsum");
+	  }
 	  if (wvtest && ++print == 2) {
 	    WVPERF(throughput); 
 	    WVPERF(request_rate);
