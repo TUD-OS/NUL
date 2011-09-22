@@ -155,7 +155,7 @@ while (<>) {
 	$$variables{$1} = $2;
 	next;
     }
-    if (/^([^ ]*)(.*)<<([^ ]*)$/) { # Heredoc start
+    if (/^([^ ]*)(.*?)[[:space:]]*<<([^ ]*)$/) { # Heredoc start
 	push @$modules, "$1$2";
 	$file = [];
 	$$configs{$1} = $file;
