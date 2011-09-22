@@ -177,6 +177,18 @@ public:
     return nulerr == ENONE;
   }
 
+  bool check_eq(const char *a, const char *b, bool expect_equal)
+    {
+      bool result = !!strcmp(a, b) ^ expect_equal;
+      if (!result) print_failed_cmp("==", a, b);
+      check(result);
+      return result;
+    }
+  bool check_eq(      char *a,       char *b, bool expect_equal) { return check_eq(static_cast<const char*>(a), static_cast<const char*>(b), expect_equal); }
+  bool check_eq(const char *a,       char *b, bool expect_equal) { return check_eq(static_cast<const char*>(a), static_cast<const char*>(b), expect_equal); }
+  bool check_eq(      char *a, const char *b, bool expect_equal) { return check_eq(static_cast<const char*>(a), static_cast<const char*>(b), expect_equal); }
+
+
   template <typename T>
   bool check_eq(T a, T b, bool expect_equal)
     {
