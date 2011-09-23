@@ -136,16 +136,14 @@ created by the parent in =Sigma0::_start_config()=.
 *** Unsorted notes
 
 - Although the parent protocol and the session protocol are logically
-  different, there is some similarity between them. Namely, the
-  parent also provides a service to clients. This service allows them
-  to connect to other services. Because of that the <<CAP_PARENT_ID>>
-  can be treated as the pseudonym of the child, i.e. it is used when
-  the parent is first contacted by the child. Children uses this
-  pseudonym to open sessions (<<TYPE_OPEN>>) with parent. This
-  parent-child session ID is also used as pseudonym for the other
+  different, there is some similarity between them. Namely, the parent
+  also provides a service to clients. This service allows them to
+  connect to other services. Because of that the <<CAP_PARENT_ID>> can
+  be treated as the pseudonym of the child, i.e. it is used when the
+  parent is first contacted by the child. Children use this pseudonym
+  to open sessions (<<TYPE_OPEN>>) with parent. Then, the obtained
+  parent-child session ID is used as a pseudonym for the other
   services contacted by the child.
-
-- 
 
 *** Operations
 Name of the constant (the name of the method, if it differs from the
