@@ -33,13 +33,13 @@ class BridgeService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>  
 
   bool enable_verbose;
 
-  uint8 *ring_buffer[2*MAX_CLIENTS][BridgeProtocol::RING_BUFFER_SIZE];
-
-  struct ClientData : public GenericClientData {
+  ALIGNED(4096) struct ClientData : public GenericClientData {
+    uint8                                            rx_ring[BridgeProtocol::RING_BUFFER_SIZE];
+    PacketProducer<BridgeProtocol::RING_BUFFER_SIZE> rx_prod;
   };
 
-  ALIGNED(8) ClientDataStorage<ClientData, BridgeService> _storage;
   typedef ClientDataStorage<ClientData, BridgeService> CData;
+  ALIGNED(8) CData _storage;
 
   void check_clients(Utcb &utcb) {
     CData::Guard guard_c(&_storage, utcb, this);
@@ -69,10 +69,15 @@ public:
         res = _storage.alloc_client_data(utcb, data, idx, this);
         if (enable_verbose && res) Logging::printf("  alloc_client - res %x\n", res);
         if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
-        else if (res) return res;
+        else if (res != ENONE) return res;
+
+        PacketConsumer<BridgeProtocol::RING_BUFFER_SIZE> *rx_con = reinterpret_cast<PacketConsumer<BridgeProtocol::RING_BUFFER_SIZE> *>(data->rx_ring);
+        data->rx_prod = PacketProducer<BridgeProtocol::RING_BUFFER_SIZE>(rx_con, data->identity);
+
+        data->rx_prod.produce(reinterpret_cast<const unsigned char *>("HELLO"), 6);
 
         free_cap = false;
-        if (enable_verbose) Logging::printf("**** created event client 0x%x 0x%x\n", data->pseudonym, data->identity);
+        if (enable_verbose) Logging::printf("**** created bridge client 0x%x 0x%x\n", data->pseudonym, data->identity);
         utcb << Utcb::TypedMapCap(data->identity);
         return res;
       }
@@ -82,6 +87,20 @@ public:
         CData::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
         return _storage.free_client_data(utcb, data, this);
+      }
+
+    case BridgeProtocol::TYPE_GET_RING:
+      {
+        ClientData *data = 0;
+        CData::Guard guard_c(&_storage, utcb, this);
+        check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
+        if (enable_verbose) Logging::printf("**** mapping ring 0x%x 0x%x\n", data->pseudonym, data->identity);
+
+        unsigned s = BaseProgram::add_mappings(&utcb, reinterpret_cast<mword>(data->rx_ring), BridgeProtocol::RING_BUFFER_SIZE, 0, DESC_MEM_ALL);
+        // Make this a normal error?
+        assert(s == 0);
+
+        return ENONE;
       }
     default:
       Logging::printf("unknown proto\n");
