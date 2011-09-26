@@ -406,6 +406,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     switch (vector) {
     case 1:  return reinterpret_cast<unsigned long>(do_singlestep_wrapper);
     case 3:  return reinterpret_cast<unsigned long>(do_breakpoint_wrapper);
+    case 0x1E: return reinterpret_cast<unsigned long>(do_thread_startup_wrapper);
+    case 0x1F: return reinterpret_cast<unsigned long>(do_recall_wrapper);
     default: return reinterpret_cast<unsigned long>(do_error_wrapper);
     }
   }
@@ -438,17 +440,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _percpu[i].cap_ec_worker = create_ec4pt(this, i, _percpu[i].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
 
-      // Create error handling portals.
-      // XXX All threads that use ec_echo have broken error handling
-      for (unsigned pt = 0; pt <= 0x1D; pt++)
+      // Create error and startup handling portals. Threads that use
+      // ec_echo have broken error handling (because there is no one
+      // to handle them left...)
+      for (unsigned pt = 0; pt <= 0x1F; pt++)
         check1(4, nova_create_pt(_percpu[i].exc_base + pt, _percpu[i].cap_ec_echo,
                                  exception_handler_address(pt),
                                  MTD_ALL));
-
-      // Create GSI boot wrapper.
-      check1(5, nova_create_pt(_percpu[i].exc_base + 0x1E, _percpu[i].cap_ec_echo,
-                               reinterpret_cast<unsigned long>(do_thread_startup_wrapper),
-                               MTD_RSP | MTD_RIP_LEN));
     }
     return 0;
   }
@@ -727,6 +725,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           const uint8 *prefix = reinterpret_cast<const uint8 *>(utcb->eip);
           Logging::printf(">>> Step  EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
           if (consolesem) consolesem->down();
+          )
+
+  PT_FUNC(do_recall,
+          utcb->efl ^= 0x100; // TF
+          Logging::printf("RECALL EFLAGS %08x EIP %08x\n", utcb->efl, utcb->eip);
+          utcb->mtd  = MTD_RFLAGS;
           )
 
   PT_FUNC(do_map,
