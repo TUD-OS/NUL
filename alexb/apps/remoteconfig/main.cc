@@ -67,8 +67,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       remcon->recv_call_back(in, in_len, out, out_len);    
     }
 
-    unsigned  create_ec_helper(void * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, void *func=0, unsigned long cap = ~0UL) {
-      return NovaProgram::create_ec_helper(tls, cpunr, excbase, utcb_out, func, cap);
+    unsigned  create_ec4pt(void * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, unsigned long cap = ~0UL) {
+      return NovaProgram::create_ec4pt(tls, cpunr, excbase, utcb_out, cap);
     }
 
     bool start_services(Utcb *utcb, Hip * hip, EventProducer * producer) {
