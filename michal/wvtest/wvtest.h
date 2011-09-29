@@ -22,6 +22,7 @@
 // Standard WVTEST API
 #define WVPASS(cond)   ({ WvTest __t(__FILE__, __LINE__, #cond);            __t.check(cond); })
 #define WVNUL(nulerr)  ({ WvTest __t(__FILE__, __LINE__, #nulerr);          __t.check_nulerr(nulerr); })
+#define WVNOVA(novaerr)({ WvTest __t(__FILE__, __LINE__, #novaerr);         __t.check_novaerr(novaerr); })
 #define WVPASSEQ(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " == " #b);     __t.check_eq((a), (b), true); })
 #define WVPASSLT(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " < " #b);      __t.check_lt((a), (b)); })
 #define WVPASSGE(a, b) ({ WvTest __t(__FILE__, __LINE__, #a " >= " #b);     __t.check_le((b), (a)); })
@@ -67,6 +68,29 @@ class WvTest
     #undef ER
   };
 
+  struct NovaErr {
+    enum ERROR err;
+    NovaErr(unsigned char _err) : err(static_cast<enum ERROR>(_err)) {};
+
+    const char *tostr() {
+      #define ER(x) case NOVA_##x: return #x
+      switch (err) {
+      case NOVA_ESUCCESS: return "ok";
+	ER(ETIMEOUT);
+	ER(EABORT);
+	ER(ESYS);
+	ER(ECAP);
+	ER(EMEM);
+	ER(EFTR);
+	ER(ECPU);
+      }
+      char *ret = new char[30]; // XXX memory leak
+      Vprintf::snprintf(ret, 30, "ERR:0x%x", err);
+      return ret;
+    }
+    #undef ER
+  };
+
   const char *resultstr(bool result)
     {
 //       if (!result)
@@ -82,6 +106,13 @@ class WvTest
     }
 
   const char *resultstr(NulErr result)
+    {
+//       if (result.err != ENONE)
+// 	tests_failed++;
+      return result.tostr();
+    }
+
+  const char *resultstr(NovaErr result)
     {
 //       if (result.err != ENONE)
 // 	tests_failed++;
@@ -172,9 +203,14 @@ public:
     return cond;
   }
 
-  bool check_nulerr(unsigned nulerr) {
+  unsigned check_nulerr(unsigned nulerr) {
     print_result(NulErr(nulerr));
-    return nulerr == ENONE;
+    return nulerr;
+  }
+
+  unsigned check_novaerr(unsigned novaerr) {
+    print_result(NovaErr(novaerr));
+    return novaerr;
   }
 
   bool check_eq(const char *a, const char *b, bool expect_equal)
