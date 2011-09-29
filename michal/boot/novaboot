@@ -258,7 +258,7 @@ foreach my $script (@scripts) {
 	($config_name = $filename) =~ s#.*/##;
     }
 
-    @$modules = ($CFG::hypervisor . " serial spinner", @$modules);
+    @$modules = ($CFG::hypervisor . " " . ($variables->{HYPERVISOR_PARAMS} || "serial spinner"), @$modules);
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
     if (defined $grub_config) {
@@ -601,6 +601,10 @@ Description of the wvtest-compliant program.
 =item QEMU_FLAGS
 
 Use specific qemu flags (can be overriden by -q).
+
+=item HYPERVISOR_PARAMS
+
+Parameters passed to hypervisor. The default is "serial spinner".
 
 =back
 
