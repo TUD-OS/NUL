@@ -7,8 +7,8 @@ bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga:0x40000,0x40000 tracebuffer:32
 bin/apps/remote_config.nul
 bin/apps/vancouver.nul
 bin/boot/munich
-linux/bzImage
-linux/initramfs
+imgs/passive/bzImage
+imgs/passive/initramfs
 bin/apps/remote_config.nulconfig <<EOF
 namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid ||
 rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig
