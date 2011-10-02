@@ -40,7 +40,6 @@ AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
 
 imgs = cmd_env.Command("imgs", [],
                        "ln -sf ../michal/imgs .")
-Default(imgs)
 imgsrepo = cmd_env.Command("imgs/bzImage-js", [],
                            "cd .. && git submodule init michal/imgs && git submodule update --merge michal/imgs")
 Precious(imgsrepo)
