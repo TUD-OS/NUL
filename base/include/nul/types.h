@@ -26,15 +26,23 @@
 #endif
 
 #ifdef __SSE2__
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <emmintrin.h>
+#ifdef __cplusplus
 }
+#endif
 #endif
 
 #ifdef __SSSE3__
+#ifdef __cplusplus
 extern "C" {
+#endif
 #include <tmmintrin.h>
+#ifdef __cplusplus
 }
+#endif
 #endif
 
 /* Constant-width integer types. */

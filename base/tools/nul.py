@@ -28,7 +28,7 @@ def LibEnv(tenv, libs):
         env.Append(CPPPATH = guess_include(lib))
     return env
 
-def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [], OBJS=[], ROMFS=[],
+def App(tenv, name, SOURCES = [], INCLUDE = [], LIBS = [ "runtime" ], OBJS=[], ROMFS=[],
         LINKSCRIPT = "#service/linker.ld", MEMSIZE = 1<<23):
     env = LibEnv(tenv, INCLUDE)
     env = AppEnv(env,  LIBS, MEMSIZE)

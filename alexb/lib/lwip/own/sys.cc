@@ -373,7 +373,7 @@ bool nul_ip_config(unsigned para, void * arg) {
       ip_addr_t * value = reinterpret_cast<ip_addr_t *>(arg);
       //netif_set_addr(nul_netif, ip_addr_t *ipaddr, ip_addr_t *netmask, ip_addr_t *gw);
       netif_set_addr(&nul_netif, value, value + 1, value + 2);
-      break;
+      return true;
     }
     case 7: /* send tcp packet */
     {
