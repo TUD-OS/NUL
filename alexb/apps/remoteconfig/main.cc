@@ -20,6 +20,7 @@
 #include <nul/service_log.h>
 #include <nul/service_config.h>
 #include <service/endian.h>
+#include <service/cmdline.h>
 
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
@@ -121,8 +122,35 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       TimerProtocol::MessageTimer to(_clock->abstime(arg, 1));
       if (timer_service->timer(*utcb, to)) Logging::panic("failure - programming timer\n");
       if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
-      if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
 
+      // check for static ip - otherwise use dhcp
+      char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+      char *args[16];
+      unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+      unsigned long addr[4] = { 0, 0, 0xf8ffffffUL, 0 };
+      //unsigned long addr[4] = { 0, 0, 0xffffff00UL, 0 };
+      for (unsigned i=1; i < argv && i < 16; i++) {
+        if (!strncmp("ip=", args[i],3)) {
+          char * pos_s = args[i] + 3;
+          for (unsigned j=0; *pos_s != 0 && j < 4; j++) {
+            unsigned long num = strtoul(pos_s, 0, 0);
+            addr[0] = num << 24 | (addr[0] >> 8);
+            char * pos_e = strstr(pos_s, ".");
+            if (pos_e) pos_s = pos_e + 1;
+            else break;
+          }
+
+          Logging::printf("config  - set ip address to %lu.%lu.%lu.%lu\n", addr[0] & 0xff,
+                         (addr[0] >> 8) & 0xff, (addr[0] >> 16) & 0xff, (addr[0] >> 24) & 0xff);
+
+          if (!nul_ip_config(IP_SET_ADDR, addr))
+            Logging::panic("failure - setting ip addr %lu.%lu.%lu.%lu\n",
+                            addr[0] & 0xff, (addr[0] >> 8) & 0xff, (addr[0] >> 16) & 0xff, (addr[0] >> 24) & 0xff);
+          addr[3] = 1;
+          break;
+        }
+      }
+      if (!addr[3] && !nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failure - starting dhcp service\n");
 
       struct {
         unsigned long port;
@@ -134,7 +162,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
       Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);
-      Logging::printf(".......   looking for an IP address via DHCP\n");
+      if (!addr[3])
+        Logging::printf(".......   looking for an IP address via DHCP\n");
 
       while (1) {
         unsigned char *buf;
