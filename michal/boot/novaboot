@@ -48,6 +48,8 @@ my $cfg = $ENV{'NOVABOOT_CONFIG'};
 if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
 if (-s $cfg) { read_config($cfg); }
 
+$CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
+
 # Command line
 my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $qemu, $qemu_flags_cmd, $serial, $server);
 
@@ -104,7 +106,10 @@ if (defined $grub_config) {
 
 my $IPRELAY;
 if (defined $iprelay) {
-    my $paddr   = sockaddr_in(23, inet_aton($CFG::iprelay_addr));
+    $CFG::iprelay_addr =~ /([.0-9]+)(:([0-9]+))?/;
+    my $addr = $1;
+    my $port = $3 || 23;
+    my $paddr   = sockaddr_in($port, inet_aton($addr));
     my $proto   = getprotobyname('tcp');
     socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
     connect($IPRELAY, $paddr)    || die "connect: $!";
@@ -637,5 +642,10 @@ A name of default novaboot configuration file.
 =item NOVABOOT_BENDER
 
 Defining this variable has the same meaning as --bender option.
+
+=item NOVABOOT_IPRELAY
+
+The IP address (and optionaly the port) to connecto to the IP relay.
+This overrides $iprelay_addr from the configuration file.
 
 =back
