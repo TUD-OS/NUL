@@ -44,9 +44,13 @@ public:
                                                 alloc_cap(2),
                                                 mem_region
                                                 );
-
-    // ...
-
+    
+    while (true) {
+      uint8 *packet;
+      unsigned size = bridge->wait_packet(packet);
+      Logging::printf("Got packet %u\n", size);
+      bridge->ack_packet();
+    }
   }
 };
 

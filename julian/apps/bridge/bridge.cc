@@ -31,15 +31,15 @@ class BridgeService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>  
     MAX_CLIENTS      = (1 << Config::MAX_CLIENTS_ORDER),
   };
 
-  bool enable_verbose;
-
   ALIGNED(4096) struct ClientData : public GenericClientData {
     uint8                                            rx_ring[BridgeProtocol::RING_BUFFER_SIZE];
     PacketProducer<BridgeProtocol::RING_BUFFER_SIZE> rx_prod;
   };
 
   typedef ClientDataStorage<ClientData, BridgeService> CData;
-  ALIGNED(8) CData _storage;
+  ALIGNED(4096) CData _storage;
+
+  bool enable_verbose;
 
   void check_clients(Utcb &utcb) {
     CData::Guard guard_c(&_storage, utcb, this);
@@ -94,7 +94,7 @@ public:
         ClientData *data = 0;
         CData::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-        if (enable_verbose) Logging::printf("**** mapping ring 0x%x 0x%x\n", data->pseudonym, data->identity);
+        if (enable_verbose) Logging::printf("**** mapping ring 0x%x 0x%x 0x%x\n", data->pseudonym, data->identity, data->rx_ring);
 
         unsigned s = BaseProgram::add_mappings(&utcb, reinterpret_cast<mword>(data->rx_ring), BridgeProtocol::RING_BUFFER_SIZE, 0, DESC_MEM_ALL);
         // Make this a normal error?
@@ -194,7 +194,7 @@ public:
 
     Logging::printf("booting - bridge ...\n");
 
-    BridgeService *b = new BridgeService();
+    BridgeService *b = new(4096) BridgeService();
     unsigned res = b->start_service(utcb, hip, "/bridge", this);
     switch (res) {
     case ENONE:

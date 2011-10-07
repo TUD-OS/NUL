@@ -120,12 +120,14 @@ private:
   
   void request_resource(unsigned id, Crd d)
   {
+    Logging::printf("Request %u %x\n", id, d.value());
     unsigned res = call_server(init_frame(*BaseProgram::myutcb(), id) << d, true);
     if (res != ENONE) Logging::panic("Could not establish shared memory.");
   }
 
-  unsigned ensure_rings()
+  void ensure_rings()
   {
+    Logging::printf("ENSURE %p %p\n", _tx_ring, _rx_ring);
     if (_tx_ring == NULL) {
       assert( _rings != NULL );
       assert((reinterpret_cast<unsigned long>(_rings) & (MEMORY_SIZE - 1)) == 0);
@@ -139,8 +141,7 @@ private:
 
       _tx_ring = PacketRing<RING_BUFFER_SIZE>::from_void(_rings);
       _rx_ring = PacketRing<RING_BUFFER_SIZE>::from_void(_rings + RING_BUFFER_SIZE);
-    } else
-      return ENONE;
+    }
   }
 
   public:
@@ -161,6 +162,9 @@ private:
   // Returns a pointer to a received packet and its size.
   unsigned wait_packet(uint8 *&packet)
   {
+    ensure_rings();
+
+    Logging::printf("Waiting for packet\n");
     while (not _rx_ring->has_data())
       nova_semdown(_rx_sm);
 
@@ -175,7 +179,8 @@ private:
   BridgeProtocol(unsigned cap_base,
                  unsigned sm_base, // provide 2 cap free indexes
                  char    *mem,
-                 unsigned instance=0) : GenericProtocol("bridge", instance, cap_base, true)
+                 unsigned instance=0) : GenericProtocol("bridge", instance, cap_base, true),
+    _tx_ring(NULL), _rx_ring(NULL)
   {
     _tx_sm = sm_base;
     _tx_sm = sm_base + 1;
