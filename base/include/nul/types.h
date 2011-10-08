@@ -21,29 +21,21 @@
 /* Include stddef to get proper definition of NULL. */
 #include <stddef.h>
 
+#include <nul/compiler.h>
+
 #if !defined(__i386) || !defined(__GNUC__)
 #error Your platform is not supported.
 #endif
 
+BEGIN_EXTERN_C
 #ifdef __SSE2__
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include <emmintrin.h>
-#ifdef __cplusplus
-}
-#endif
 #endif
 
 #ifdef __SSSE3__
-#ifdef __cplusplus
-extern "C" {
-#endif
 #include <tmmintrin.h>
-#ifdef __cplusplus
-}
 #endif
-#endif
+END_EXTERN_C
 
 /* Constant-width integer types. */
 typedef unsigned long long uint64;
