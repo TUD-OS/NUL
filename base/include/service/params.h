@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <nul/compiler.h>
+
 /**
  * Defines strings and functions for a parameter with the given
  * name. The variadic part is used to store a help text.
@@ -29,7 +31,7 @@
 #define PARAM_HANDLER(NAME, ...)						\
   const char * __parameter_##NAME##_strings[] asm ("__parameter_" #NAME "_strings") = { #NAME, ##__VA_ARGS__, 0}; \
   asm volatile (".section .param; .long __parameter_" #NAME "_function, __parameter_" #NAME "_strings; .previous;"); \
-  extern "C" void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len)
+  EXTERN_C void __parameter_##NAME##_function(Motherboard &mb, unsigned long *argv, const char *args, unsigned args_len)
 
 /* Defined in linker script: */
 extern long __param_table_start, __param_table_end;

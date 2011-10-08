@@ -24,7 +24,7 @@
  * Memory functions.
  ************************************************************************/
 
-extern "C" {
+BEGIN_EXTERN_C
 
 void *memcpy(void *dst, const void *src, unsigned long count) {
 
@@ -169,4 +169,4 @@ int strcspn(const char *s, const char *reject) {
   return res;
 }
 
-} //extern "C"
+END_EXTERN_C

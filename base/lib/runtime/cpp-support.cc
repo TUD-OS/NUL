@@ -16,10 +16,12 @@
  * General Public License version 2 for more details.
  */
 
-extern "C" void __cxa_pure_virtual(void) __attribute__((noreturn));
-extern "C" void __cxa_pure_virtual(void) { __builtin_trap(); }
+#include <nul/compiler.h>
 
-extern "C" int
+EXTERN_C void __cxa_pure_virtual(void) __attribute__((noreturn));
+EXTERN_C void __cxa_pure_virtual(void) { __builtin_trap(); }
+
+EXTERN_C int
 __popcountsi2(unsigned int v)
 {
   // I am itching to rewrite this in inline assembler using

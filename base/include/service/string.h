@@ -19,13 +19,13 @@
 
 #pragma once
 
+#include <nul/types.h>
+
 /************************************************************************
  * Memory functions.
  ************************************************************************/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+BEGIN_EXTERN_C
 
 void * memcpy(void *dst, const void *src, unsigned long count);
 void * memmove(void *dst, const void *src, unsigned long count);
@@ -51,6 +51,4 @@ int strncmp(const char *dst, const char *src, unsigned long size);
 int strspn(const char *s, const char *accept);
 int strcspn(const char *s, const char *reject);
 
-#ifdef __cplusplus
-}
-#endif
+END_EXTERN_C
