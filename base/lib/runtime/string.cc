@@ -26,7 +26,7 @@
 
 BEGIN_EXTERN_C
 
-void *memcpy(void *dst, const void *src, unsigned long count) {
+void *memcpy(void *dst, const void *src, size_t count) {
 
   void *res = dst;
   if (count & 1) asm volatile ("movsb" : "+D"(dst), "+S"(src) : : "memory");
@@ -37,7 +37,7 @@ void *memcpy(void *dst, const void *src, unsigned long count) {
 }
 
 
-void * memmove(void *dst, const void *src, unsigned long count) {
+void * memmove(void *dst, const void *src, size_t count) {
 
   char *d = reinterpret_cast<char *>(dst);
   const char *s = reinterpret_cast<const char *>(src);
@@ -50,7 +50,7 @@ void * memmove(void *dst, const void *src, unsigned long count) {
 }
 
 
-void * memset(void *dst, int c, unsigned long count) {
+void * memset(void *dst, int c, size_t count) {
 
   void *res = dst;
   unsigned value = (c & 0xff) * 0x01010101;
@@ -62,7 +62,7 @@ void * memset(void *dst, int c, unsigned long count) {
 }
 
 
-int memcmp(const void *dst, const void *src, unsigned long count) {
+int memcmp(const void *dst, const void *src, size_t count) {
   const char *d = reinterpret_cast<const char *>(dst);
   const char *s = reinterpret_cast<const char *>(src);
   unsigned diff = 0;
@@ -78,14 +78,14 @@ int memcmp(const void *dst, const void *src, unsigned long count) {
  ************************************************************************/
 
 
-unsigned long strnlen(const char *src, unsigned long maxlen) {
-  unsigned i=0;
+size_t strnlen(const char *src, size_t maxlen) {
+  size_t i=0;
   while (src[i] && maxlen--) i++;
   return i;
 }
 
 
-unsigned long strlen(const char *src) { return strnlen(src, ~0ul); }
+size_t strlen(const char *src) { return strnlen(src, ~0ul); }
 
 
 char * strcpy(char *dst, const char *src)  {
@@ -150,7 +150,7 @@ int strcmp(const char *dst, const char *src) {
 }
 
 
-int strncmp(const char *dst, const char *src, unsigned long size) {
+int strncmp(const char *dst, const char *src, size_t size) {
   if (size == 0) return 0;
   while ((*dst != 0) && (*dst == *src) && --size) {dst++; src++;}
   return *dst - *src;

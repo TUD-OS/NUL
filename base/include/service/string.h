@@ -27,17 +27,17 @@
 
 BEGIN_EXTERN_C
 
-void * memcpy(void *dst, const void *src, unsigned long count);
-void * memmove(void *dst, const void *src, unsigned long count);
-void * memset(void *dst, int c, unsigned long count); 
-int memcmp(const void *dst, const void *src, unsigned long count);
+void * memcpy(void *dst, const void *src, size_t count);
+void * memmove(void *dst, const void *src, size_t count);
+void * memset(void *dst, int c, size_t count); 
+int memcmp(const void *dst, const void *src, size_t count);
 
 /************************************************************************
  * String functions.
  ************************************************************************/
 
-unsigned long strnlen(const char *src, unsigned long maxlen);
-unsigned long strlen(const char *src);
+size_t strnlen(const char *src, size_t maxlen);
+size_t strlen(const char *src);
 
 char * strcpy(char *dst, const char *src);
 char * strstr(char const *haystack, char const *needle);
@@ -46,7 +46,7 @@ unsigned long strtoul(const char *nptr, const char **endptr, int base);
 const char * strchr(const char *s, int c);
 
 int strcmp(const char *dst, const char *src);
-int strncmp(const char *dst, const char *src, unsigned long size);
+int strncmp(const char *dst, const char *src, size_t size);
 
 int strspn(const char *s, const char *accept);
 int strcspn(const char *s, const char *reject);
