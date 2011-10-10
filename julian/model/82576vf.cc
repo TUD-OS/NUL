@@ -765,6 +765,8 @@ public:
       //Logging::printf("PCICFG WRITE %02x <- %08x\n", msg.dword, msg.value);
       PCI_write(msg.dword<<2, msg.value);
       break;
+    case MessagePciConfig::TYPE_PTR:
+      break;
     }
     return true;
   }

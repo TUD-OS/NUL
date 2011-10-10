@@ -94,7 +94,7 @@ public:
         ClientData *data = 0;
         CData::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
-        if (enable_verbose) Logging::printf("**** mapping ring 0x%x 0x%x 0x%x\n", data->pseudonym, data->identity, data->rx_ring);
+        if (enable_verbose) Logging::printf("**** mapping ring 0x%x 0x%x %p\n", data->pseudonym, data->identity, data->rx_ring);
 
         unsigned s = BaseProgram::add_mappings(&utcb, reinterpret_cast<mword>(data->rx_ring), BridgeProtocol::RING_BUFFER_SIZE, 0, DESC_MEM_ALL);
         // Make this a normal error?

@@ -31,7 +31,7 @@ public:
 
   virtual void wvrun(Utcb *utcb, Hip *hip) = 0;
 
-  void run(Utcb *utcb, Hip *hip) {
+  void NORETURN run(Utcb *utcb, Hip *hip) {
     test_init(utcb, hip);
     wvrun(utcb, hip);
     test_done();

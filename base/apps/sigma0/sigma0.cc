@@ -722,7 +722,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
   PT_FUNC(do_singlestep,
           if (consolesem) consolesem->up();
-          const uint8 *prefix = reinterpret_cast<const uint8 *>(utcb->eip);
+          //const uint8 *prefix = reinterpret_cast<const uint8 *>(utcb->eip);
           Logging::printf(">>> Step  EIP %08x ESP %08x EFLAGS %08x\n", utcb->eip, utcb->esp, utcb->efl);
           if (consolesem) consolesem->down();
           )

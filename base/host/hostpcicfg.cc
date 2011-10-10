@@ -54,6 +54,7 @@ struct PciConfigAccess : public StaticReceiver<PciConfigAccess>
       msg.value = msg3.value;
       return res;
     }
+    case MessagePciConfig::TYPE_PTR:
     default:
       return false;
     }

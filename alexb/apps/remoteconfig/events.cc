@@ -27,7 +27,7 @@
     }
   }
 
-  void EventService::portal_pf(EventService *tls, Utcb *utcb)
+  void NORETURN EventService::portal_pf(EventService *tls, Utcb *utcb)
   {
     Logging::printf("daemon: worker thread died - pagefault %x/%x for %llx err %llx at %x\n",
        utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);

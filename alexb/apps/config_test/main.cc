@@ -56,7 +56,7 @@ class TestConfig : public NovaProgram, public ProgramConsole
       }
       *_config = 0;
 
-      Logging::printf("cmdline %lx %s\n", strlen(config), config);
+      Logging::printf("cmdline %x %s\n", strlen(config), config);
 
       ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 

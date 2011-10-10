@@ -16,8 +16,6 @@
  * General Public License version 2 for more details.
  */
 
-#pragma once
-
 #include <service/string.h>
 
 /************************************************************************
