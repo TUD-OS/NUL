@@ -207,7 +207,7 @@ public:
             }
         }
 
-        res = session.alloc_client_data(utcb, cdata, input.identity(), this);
+        res = session.alloc_client_data(utcb, cdata, input.identity()/*becomes cdata->pseudonym*/, this);
         if (res) {
           if (res != ERESOURCE) return res;
 
@@ -270,7 +270,7 @@ public:
         QuotaGuard<ServerData> guard1(utcb, input.identity(), "mem", request_len + namespace_len + 1);
         QuotaGuard<ServerData> guard2(utcb, input.identity(), "cap", 1, &guard1);
         check1(res, res = guard2.status());
-        res = _server.alloc_client_data(utcb, sdata, input.identity(), this);
+        res = _server.alloc_client_data(utcb, sdata, input.identity()/*becomes sdata->pseudonym*/, this);
         if (res == ENONE) guard2.commit();
         else {
           if (res != ERESOURCE) return res;

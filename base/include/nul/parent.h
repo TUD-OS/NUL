@@ -111,6 +111,9 @@ struct ParentProtocol {
   }
 
   /**
+   * @param cap_service Capability selector where parent delegates us
+   * the service identifier. It seems that this identifier is not used
+   * for anything.
    * @param revoke_mem Memory page used to substitute the memory that
    * was provided to the service by a client, but was revoked later.
    * Having such memory makes it easier for services to deal with

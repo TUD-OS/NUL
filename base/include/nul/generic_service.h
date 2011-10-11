@@ -130,6 +130,19 @@ public:
     assert(!(reinterpret_cast<unsigned long>(&recyc64) & 0x7));
   }
 
+  /**
+   * Allocates session data for a client.
+   *
+   * Sets data->pseudonym to @a pseudonym and creates a new
+   * data->identity.
+   *
+   * @param utcb UTCB
+   * @param[out] data Allocated client data
+   * @param pseudonym Pseudonym that the client used to identify to us
+   * @param obj CapAllocator
+   *
+   * @return
+   */
   unsigned alloc_client_data(Utcb &utcb, T *&data, unsigned pseudonym, A * obj) {
     unsigned res;
     QuotaGuard<T> guard1(utcb, pseudonym, "mem", sizeof(T));
