@@ -415,10 +415,19 @@ function pointed out by =memalloc= pointer, whose value defaults to
 =memalloc_mempool()=.
 
 Sigma0 uses a more sofisticated memory allocator defined in
-=sigma0_memalloc()=. It allocate physical memory by consulting
+=sigma0_memalloc()=. It allocates physical memory by consulting
 _free_phys region list and then maps the memory to its address space.
 
 Memory freeing (=memfree= pointer) is not currently implemented.
+
+At some places, NUL uses an uncommon =new= syntax, e.g.:
+#+begin_example
+new (0x1000) char[0x1000]
+#+end_example
+The parameters in parentheses after =new= are passed as additional
+parameters to the overloaded =operator new=. In case of NUL, the
+additional parameter specifies the alignment of the memory block.
+
 *** Portals
 
 Portal wrapper functions cannot be greped - they are defined with
