@@ -26,7 +26,7 @@
  * Client part of the disk protocol.
  * Missing: register shared memory producer/consumer.
  */
-struct DiscProtocol : public GenericProtocol {
+struct DiskProtocol : public GenericProtocol {
   enum {
     TYPE_GET_PARAMS = ParentProtocol::TYPE_GENERIC_END,
     TYPE_READ,
@@ -68,5 +68,5 @@ struct DiscProtocol : public GenericProtocol {
     return res;
   }
 
-  DiscProtocol(unsigned cap_base, unsigned disknr) : GenericProtocol("disk", disknr, cap_base, true) {}
+  DiskProtocol(unsigned cap_base, unsigned disknr) : GenericProtocol("disk", disknr, cap_base, true) {}
 };
