@@ -26,7 +26,7 @@
 #include <sigma0/console.h>
 
 #include "service_echo.h"
-#include <nul/sservice.h>
+#include <nul/sserviceprogram.h>
 #include <wvtest.h>
 
 class EchoService : public SServiceProgram
@@ -88,7 +88,7 @@ public:
 
   EchoService() : SServiceProgram("Echo service") {
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + Global::hip.cpu_count()));
-    register_service(this, "/echo");
+    register_service(this, "/echo", Global::hip);
   }
 };
 

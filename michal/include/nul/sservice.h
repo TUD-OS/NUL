@@ -22,8 +22,7 @@
 
 #include <nul/parent.h>
 #include <nul/generic_service.h>
-#include <nul/program.h>
-#include <sigma0/console.h>
+#include <nul/baseprogram.h>
 
 class BaseSService {
 
@@ -51,8 +50,17 @@ public:
   }
 
 
+  /**
+   * Registers the service with parent
+   *
+   * @param service Service class
+   * @param service_name Service name to register
+   * @param hip Specifies on which CPUs to start the service.
+   *
+   * @return
+   */
   template<class T> // We use the template to properly instantiate StaticPortalFunc
-  static bool register_service(T *service, const char *service_name)
+  static bool register_service(T *service, const char *service_name, Hip &hip)
   {
     Logging::printf("Constructing service %s...\n", service_name);
 
@@ -140,36 +148,5 @@ public:
       }
     }
     return EPROTO;
-  }
-};
-
-class SServiceProgram : public BaseSService, public NovaProgram, public ProgramConsole
-{
-public:
-
-  virtual cap_sel alloc_cap(unsigned count = 1)
-  { return NovaProgram::alloc_cap(count); }
-
-  virtual void    dealloc_cap(cap_sel c)
-  { return NovaProgram::dealloc_cap(c); }
-
-  cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out)
-  {
-    return NovaProgram::create_ec4pt(this, cpu, 0, utcb_out);
-  }
-
-  SServiceProgram(const char *console_name = "service")
-  {
-    Hip *hip = &Global::hip;
-    init(hip);
-    init_mem(hip);
-
-    console_init(console_name, new Semaphore(alloc_cap(), true));
-  }
-
-  NORETURN
-  void run(Utcb *utcb, Hip *hip)
-  {
-    block_forever();
   }
 };
