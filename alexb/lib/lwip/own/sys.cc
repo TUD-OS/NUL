@@ -302,7 +302,7 @@ bool nul_ip_config(unsigned para, void * arg) {
   static unsigned long long etharp_timer = ETHARP_TMR_INTERVAL;
   static unsigned long long dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
   static unsigned long long dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
-  static ip_addr last_ip_addr;
+  static ip_addr last_ip, last_mask, last_gw;
 
   switch (para) {
     case 0: /* ask for version of this implementation */
@@ -313,13 +313,26 @@ bool nul_ip_config(unsigned para, void * arg) {
       dhcp_start(&nul_netif);
       return true;
     case 2: /* dump ip addr to screen */
-      if (last_ip_addr.addr != nul_netif.ip_addr.addr) {
-        Logging::printf("update  - got ip address %u.%u.%u.%u\n",
-                        nul_netif.ip_addr.addr & 0xff,
-                        (nul_netif.ip_addr.addr >> 8) & 0xff,
-                        (nul_netif.ip_addr.addr >> 16) & 0xff,
-                        (nul_netif.ip_addr.addr >> 24) & 0xff);
-       last_ip_addr.addr = nul_netif.ip_addr.addr;
+      if (last_ip.addr   != nul_netif.ip_addr.addr ||
+          last_mask.addr != nul_netif.netmask.addr ||
+          last_gw.addr   != nul_netif.gw.addr)
+      {
+        last_ip.addr   = nul_netif.ip_addr.addr;
+        last_mask.addr = nul_netif.netmask.addr;
+        last_gw.addr   = nul_netif.gw.addr;
+        Logging::printf("update  - got ip=%u.%u.%u.%u mask=%u.%u.%u.%u gw=%u.%u.%u.%u\n",
+                        last_ip.addr & 0xff,
+                        (last_ip.addr >> 8) & 0xff,
+                        (last_ip.addr >> 16) & 0xff,
+                        (last_ip.addr >> 24) & 0xff,
+                        last_mask.addr & 0xff,
+                        (last_mask.addr >> 8) & 0xff,
+                        (last_mask.addr >> 16) & 0xff,
+                        (last_mask.addr >> 24) & 0xff,
+                        last_gw.addr & 0xff,
+                        (last_gw.addr >> 8) & 0xff,
+                        (last_gw.addr >> 16) & 0xff,
+                        (last_gw.addr >> 24) & 0xff);
        return true;
       }
       return false;
@@ -372,7 +385,9 @@ bool nul_ip_config(unsigned para, void * arg) {
 
       ip_addr_t * value = reinterpret_cast<ip_addr_t *>(arg);
       //netif_set_addr(nul_netif, ip_addr_t *ipaddr, ip_addr_t *netmask, ip_addr_t *gw);
+      netif_set_down(&nul_netif);
       netif_set_addr(&nul_netif, value, value + 1, value + 2);
+      netif_set_up(&nul_netif);
       return true;
     }
     case 7: /* send tcp packet */
