@@ -8,7 +8,8 @@ nul.Lib(target_env,
         "runtime",
         SOURCES = [
         'cpp-support.cc',
-        'string.cc'
+        'string.cc',
+        'capalloc.cc',
         ])
 
 # EOF
