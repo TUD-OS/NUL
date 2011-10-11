@@ -454,6 +454,7 @@ struct MessageHostOp
       OP_VCPU_RELEASE,
       OP_REGISTER_SERVICE,
       OP_WAIT_CHILD,
+      OP_CREATE_EC4PT,
     } type;
   union {
     unsigned long value;
@@ -511,7 +512,11 @@ struct MessageHostOp
       phy_cpu_no      cpu;
       unsigned       *pt_out;
     } _alloc_service_portal;
-
+    struct {
+      phy_cpu_no cpu;
+      Utcb     **utcb_out;
+      cap_sel   *ec_out;
+    } _create_ec4pt;
   };
 
   static MessageHostOp alloc_service_thread(ServiceThreadFn work, void *arg,
@@ -543,6 +548,15 @@ struct MessageHostOp
   static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked)
   {
     MessageHostOp n(OP_ATTACH_IRQ, irq, ~locked, cpu);
+    return n;
+  }
+
+  static MessageHostOp create_ec4pt(cap_sel *ec_out, void *obj, phy_cpu_no cpu, Utcb **utcb_out) {
+    MessageHostOp n(OP_CREATE_EC4PT, obj);
+    assert(ec_out);
+    n._create_ec4pt.ec_out = ec_out;
+    n._create_ec4pt.cpu = cpu;
+    n._create_ec4pt.utcb_out = utcb_out;
     return n;
   }
 

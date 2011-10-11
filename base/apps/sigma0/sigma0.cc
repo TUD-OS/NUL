@@ -905,6 +905,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_REGISTER_SERVICE:
 			case MessageHostOp::OP_GET_MODULE:
 			case MessageHostOp::OP_WAIT_CHILD:
+			case MessageHostOp::OP_CREATE_EC4PT:
 			default:
 			  // unhandled
 			  Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
@@ -1070,6 +1071,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	assert(nova_semdown(CLIENT_PT_OFFSET + (msg.value << CLIENT_PT_SHIFT) + ParentProtocol::CAP_PARENT_ID) == 0);
 	break;
       }
+      case MessageHostOp::OP_CREATE_EC4PT:
+	*msg._create_ec4pt.ec_out = create_ec4pt(msg.obj, msg._create_ec4pt.cpu,
+						 _percpu[msg._create_ec4pt.cpu].exc_base,
+						 msg._create_ec4pt.utcb_out);
+	return *msg._create_ec4pt.ec_out != 0;
+
       case MessageHostOp::OP_NOTIFY_IRQ:
       case MessageHostOp::OP_GUEST_MEM:
       case MessageHostOp::OP_ALLOC_FROM_GUEST:

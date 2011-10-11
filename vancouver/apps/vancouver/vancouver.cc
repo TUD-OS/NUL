@@ -703,6 +703,7 @@ public:
       case MessageHostOp::OP_REGISTER_SERVICE:
       case MessageHostOp::OP_ALLOC_SERVICE_PORTAL:
       case MessageHostOp::OP_WAIT_CHILD:
+      case MessageHostOp::OP_CREATE_EC4PT:
       default:
         Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
       }
