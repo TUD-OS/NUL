@@ -124,6 +124,9 @@ WARN_UNUSED inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initi
 static inline unsigned char  nova_revoke(Crd crd, bool myself)
 {  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
+static inline unsigned char  nova_revoke_self(Crd crd) { return nova_revoke(crd, true); }
+static inline unsigned char  nova_revoke_children(Crd crd) { return nova_revoke(crd, false); }
+
 inline Crd nova_lookup(Crd crd)
 {
   unsigned res = 0;
