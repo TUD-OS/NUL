@@ -70,7 +70,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
     bool bsp = !vcpu->get_last();
 
     // the APIC
-    state->eax = 0xfee00800 | (bsp ? 0x100 : 0);
+    state->eax = 0xfee00800 | (bsp ? 0x100U : 0U);
     state->edx = 0;
     state->ecx = 0x1b;
     CpuMessage msg1(CpuMessage::TYPE_WRMSR, state, MTD_GPR_ACDB);
@@ -78,7 +78,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
 
     // enable SVR, LINT0, LINT1
-    unsigned m[] = { 0x1ff, bsp ? 0x700 : 0x10700, 0x400};
+    unsigned m[] = { 0x1ff, bsp ? 0x700U : 0x10700U, 0x400};
     MessageMem msg2[] = {
       MessageMem(false, 0xfee000f0, m+0),
       MessageMem(false, 0xfee00350, m+1),
@@ -164,7 +164,7 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
 
   Resource * get_resource(const char *name) {
     for (unsigned i = 0; i < MAX_RESOURCES; i++) {
-      check1(false, !_resources[i].name && !create_resource(i, name), "could not create resource");
+      check1(0, !_resources[i].name && !create_resource(i, name), "could not create resource");
       if (!strcmp(_resources[i].name, name)) return _resources + i;
     }
     return 0;
