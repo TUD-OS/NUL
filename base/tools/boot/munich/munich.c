@@ -26,7 +26,7 @@ const unsigned REALMODE_IMAGE = 0x40000;
  * Starts a linux from multiboot modules. Treats the first module as
  * linux kernel and the optional second module as initrd.
  */
-int
+__attribute__((noreturn)) int
 start_linux(struct mbi *mbi)
 {
   struct module *m  = (struct module *) (mbi->mods_addr);
@@ -90,7 +90,7 @@ start_linux(struct mbi *mbi)
 /**
  * Start a linux from a multiboot structure.
  */
-int
+__attribute__((noreturn)) void
 __main(struct mbi *mbi, unsigned flags)
 {
 #ifndef NDEBUG
@@ -99,5 +99,4 @@ __main(struct mbi *mbi, unsigned flags)
   out_info(VERSION " starts Linux");
   ERROR(10, !mbi || flags != MBI_MAGIC, "Not loaded via multiboot");
   ERROR(11, start_linux(mbi), "start linux failed");
-  return 12;
 }
