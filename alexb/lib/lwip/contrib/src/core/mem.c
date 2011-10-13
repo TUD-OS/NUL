@@ -189,10 +189,10 @@ static struct mem *ram_end;
 /** pointer to the lowest free block, this is used for faster search */
 static struct mem *lfree;
 
+#if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
+
 /** concurrent access protection */
 static sys_mutex_t mem_mutex;
-
-#if LWIP_ALLOW_MEM_FREE_FROM_OTHER_CONTEXT
 
 static volatile u8_t mem_free_count;
 

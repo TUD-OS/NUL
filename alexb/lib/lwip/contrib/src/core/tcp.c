@@ -211,6 +211,11 @@ tcp_close_shutdown(struct tcp_pcb *pcb, u8_t rst_on_unacked_data)
       pcb->state = LAST_ACK;
     }
     break;
+  case FIN_WAIT_1:
+  case FIN_WAIT_2:
+  case CLOSING:
+  case LAST_ACK:
+  case TIME_WAIT:
   default:
     /* Has already been closed, do nothing. */
     err = ERR_OK;
@@ -295,6 +300,14 @@ tcp_shutdown(struct tcp_pcb *pcb, int shut_rx, int shut_tx)
   case ESTABLISHED:
   case CLOSE_WAIT:
     return tcp_close_shutdown(pcb, 0);
+  case CLOSED:
+  case LISTEN:
+  case SYN_SENT:
+  case FIN_WAIT_1:
+  case FIN_WAIT_2:
+  case CLOSING:
+  case LAST_ACK:
+  case TIME_WAIT:
   default:
     /* don't shut down other states */
     break;

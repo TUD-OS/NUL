@@ -782,6 +782,9 @@ tcp_process(struct tcp_pcb *pcb)
       recv_flags |= TF_CLOSED;
     }
     break;
+  case CLOSED:
+  case LISTEN:
+  case TIME_WAIT:
   default:
     break;
   }
