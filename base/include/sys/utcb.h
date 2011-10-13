@@ -191,6 +191,12 @@ struct Utcb
     TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
   };
 
+  /** Used with << operator to set up "translate" typed item in UTCB for memory. */
+  struct TypedTranslateMem : TypedIdentifyCap {
+    TypedTranslateMem(void *base, unsigned order, unsigned perms = DESC_RIGHTS_ALL)
+      : TypedIdentifyCap(0, reinterpret_cast<unsigned>(base) & ~0xfff | (order & 0x1f) << 7 | perms & DESC_RIGHTS_ALL | DESC_TYPE_MEM) {}
+  };
+
   struct String {
     const char * value;
     unsigned long len;
