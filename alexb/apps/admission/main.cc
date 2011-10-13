@@ -173,7 +173,7 @@ public:
       case AdmissionProtocol::TYPE_SC_PUSH:
         {
           AdmissionProtocol::sched sched;
-          unsigned i, cpu, len, idx = input.received_cap();
+          unsigned i, cpu = _divider, len, idx = input.received_cap();
           bool self = false;
 
           check1(EPROTO, !idx);
@@ -421,7 +421,7 @@ public:
 
       {
         ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, *utcb, this);
-        unsigned tcount;
+        unsigned tcount = 0;
 
         if (!timer_service->triggered_timeouts(*utcb, tcount) && tcount) measure_scs(hip);
 
