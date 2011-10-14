@@ -105,6 +105,7 @@ public:
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
         //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
+	// Check whether our pagefault handler signaled us an abort.
         if (utcb.head.crd_translate) {
           utcb.head.crd_translate = tmp_crd;
           return ERESOURCE; //got pf
