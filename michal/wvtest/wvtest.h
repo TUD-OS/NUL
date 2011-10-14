@@ -85,11 +85,11 @@ class WvTest
 	ER(ECPU);
 	ER(EDEV);
       }
+      #undef ER
       char *ret = new char[30]; // XXX memory leak
       Vprintf::snprintf(ret, 30, "ERR:0x%x", err);
       return ret;
     }
-    #undef ER
   };
 
   const char *resultstr(bool result)
@@ -178,14 +178,40 @@ class WvTest
   static void stringify(char *buf, unsigned size, int val)
   {Vprintf::snprintf(buf, size, "%d", val);}
 
+  static void stringify(char *buf, unsigned size, Crd crd) {
+    switch (crd.value() & 0x3) {
+    case 0:
+      Vprintf::snprintf(buf, size, "CRD(0)"); return;
+    case DESC_TYPE_MEM: {
+      char r = crd.value() & 0x04 ? 'r' : '-';
+      char w = crd.value() & 0x08 ? 'w' : '-';
+      char x = crd.value() & 0x10 ? 'x' : '-';
+      Vprintf::snprintf(buf, size, "CRD(mem, 0x%x+0x%x, %c%c%c)", crd.base(), crd.size(), r, w, x);
+      return;
+    }
+    case DESC_TYPE_IO:
+      Vprintf::snprintf(buf, size, "CRD(io, 0x%x, 2^%d)", crd.base(), crd.order());
+      return;
+    case DESC_TYPE_CAP:
+      Vprintf::snprintf(buf, size, "CRD(obj, 0x%x, 2^%d, 0x%x)", crd.cap(), crd.order(), crd.value() >> 2 & 0x1f);
+      return;
+    }
+  }
+
   static void stringifyx(char *buf, unsigned size, unsigned long long val)
   { Vprintf::snprintf(buf, size, "0x%llx", val); }
+
+  static void stringifyx(char *buf, unsigned size, unsigned long val)
+  { Vprintf::snprintf(buf, size, "0x%lx", val); }
 
   static void stringifyx(char *buf, unsigned size, unsigned val)
   {Vprintf::snprintf(buf, size, "0x%x", val);}
 
   static void stringifyx(char *buf, unsigned size, int val)
   {Vprintf::snprintf(buf, size, "0x%x", val);}
+
+  static void stringifyx(char *buf, unsigned size, void *val)
+  {Vprintf::snprintf(buf, size, "%p", val);}
 
 public:
   //static unsigned tests_failed, tests_run;
@@ -271,7 +297,7 @@ public:
   template <typename T>
   T show(T val)
   {
-    char valstr[20];
+    char valstr[40];
     stringify(valstr, sizeof(valstr), val);
     print_result(true, valstr, "= ");
     return val;
@@ -280,7 +306,7 @@ public:
   template <typename T>
   T show_hex(T val)
   {
-    char valstr[20];
+    char valstr[40];
     stringifyx(valstr, sizeof(valstr), val);
     print_result(true, valstr, "= ");
     return val;
