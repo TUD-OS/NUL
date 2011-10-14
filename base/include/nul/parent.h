@@ -254,6 +254,8 @@ public:
     return res;
   }
 
+  unsigned call_server_drop(Utcb &utcb) { return call_server(utcb, true); }
+  unsigned call_server_keep(Utcb &utcb) { return call_server(utcb, false); }
   /**
    * Destroy the object.
    *
