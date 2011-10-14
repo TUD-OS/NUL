@@ -68,8 +68,8 @@ public:
     unsigned res;
     mword portal_func = reinterpret_cast<mword>(StaticPortalFunc<T>::portal_func);
 
-    for (phy_cpu_no i = 0; i < Global::hip.cpu_desc_count(); i++) {
-      Hip_cpu const &cpu = Global::hip.cpus()[i];
+    for (phy_cpu_no i = 0; i < hip.cpu_desc_count(); i++) {
+      Hip_cpu const &cpu = hip.cpus()[i];
       if (not cpu.enabled()) continue;
 
       // Create service EC
