@@ -16,6 +16,7 @@
  * General Public License version 2 for more details.
  */
 
+#pragma once
 /**
  * This template converts from static receive to member functions.
  */
