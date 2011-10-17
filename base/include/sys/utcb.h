@@ -136,6 +136,11 @@ struct Utcb
     unsigned typed()   { return _utcb->head.typed; }
     unsigned get_crd() { return _utcb->head.crd; }
 
+    /**
+     * Copy an arbitrarily sized data item from the Frame and moves an
+     * internal pointer to the next item.
+     * @return true on error, false on success.
+     */
     template <typename T>
     bool get_word(T &value) {
       unsigned words = (sizeof(T) + sizeof(unsigned) - 1) / sizeof(unsigned);
@@ -144,6 +149,8 @@ struct Utcb
       _consumed += words;
       return false;
     }
+    unsigned *get_ptr() {return _utcb->msg+_consumed;}
+    unsigned short unconsumed() { return untyped() - _consumed; }
     char *get_string(unsigned &len) {
       if (_consumed >= _utcb->head.untyped) return 0;
       len = *(_utcb->msg + _consumed);

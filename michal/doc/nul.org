@@ -1170,6 +1170,10 @@ The actual spawning of the program is implemented in
 
 - =sigma0::cpu= specifies the CPU where to create the new program.
 - =sigma0::dma= TODO
+
+*** Interrupt handling
+TODO
+
 ** Vancouver - VMM 						       :page:
 
 So far, this section contains only inteconnection diagram of

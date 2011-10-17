@@ -116,7 +116,7 @@ private:
   /**
    * Check whether a client has the permission to access a service.
    *
-   * Parse the cmdline for "name::" prefixes and check whether the
+   * Parse the client's cmdline for "name::" prefixes and check whether the
    * postfix matches the requested name. In the current
    * implementation, it is only checked whether the trailing part of
    * the postfix (without the namespace) matches the requested name.
