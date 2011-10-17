@@ -95,7 +95,7 @@ public:
   }
 
   template<class S>
-  unsigned handle_sessions(unsigned op, Utcb::Frame &input, S &sessions, bool &free_cap)
+  unsigned handle_sessions(unsigned op, Utcb::Frame &input, S &sessions, bool &free_cap, cap_sel *id = NULL)
   {
     Utcb &utcb = *BaseProgram::myutcb();
     unsigned res;
@@ -137,6 +137,7 @@ public:
         assert(!res);
 
         utcb << Utcb::TypedMapCap(data->identity);
+	if (id) *id = data->identity;
         return ENONE;
       }
     case ParentProtocol::TYPE_CLOSE:
