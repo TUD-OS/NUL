@@ -366,21 +366,26 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 };
 
 PARAM_HANDLER(hostkeyb,
-	      "hostkeyb:hdev,hostiobase,kbirq,auxirq,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
+	      "hostkeyb:hdev=0,hostiobase=0x60,kbirq=1,auxirq=12,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
 	      "Example: 'hostkeyb:0x17,0x60,1,12,2'.",
 	      "A missing auxirq omits the mouse initialisation. ")
 {
-  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (argv[1] << 8) |  0);
-  MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((argv[1] + 4) << 8) |  0);
-  if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
-    Logging::panic("%s failed to allocate ports %lx, %lx\n", __PRETTY_FUNCTION__, argv[1], argv[1]+4);
+  unsigned hdev       = ~argv[0] ? argv[0] : 0;
+  uint16   hostiobase = ~argv[1] ? argv[1] : 0x60;
+  uint8    kbirq      = ~argv[2] ? argv[2] : 1;
+  uint8    auxirq     = ~argv[3] ? argv[3] : 12;
 
-  HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), argv[0], argv[1], argv[2], argv[3], argv[4], ~argv[5] ? argv[5] : 0);
+  MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (hostiobase << 8) |  0);
+  MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((hostiobase + 4) << 8) |  0);
+  if (!mb.bus_hostop.send(msg1) || !mb.bus_hostop.send(msg2))
+    Logging::panic("%s failed to allocate ports %x, %x\n", __PRETTY_FUNCTION__, hostiobase, hostiobase+4);
+
+  HostKeyboard *dev = new HostKeyboard(mb.bus_hwioin, mb.bus_hwioout, mb.bus_input, mb.clock(), hdev, hostiobase, kbirq, auxirq, argv[4], ~argv[5] ? argv[5] : 0);
   mb.bus_hostirq.add(dev, HostKeyboard::receive_static<MessageIrq>);
   mb.bus_legacy.add(dev,  HostKeyboard::receive_static<MessageLegacy>);
 
-  MessageHostOp msg3(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
-  MessageHostOp msg4(MessageHostOp::OP_ATTACH_IRQ, argv[3]);
+  MessageHostOp msg3(MessageHostOp::OP_ATTACH_IRQ, kbirq);
+  MessageHostOp msg4(MessageHostOp::OP_ATTACH_IRQ, auxirq);
   if (!(msg3.value == ~0U || mb.bus_hostop.send(msg3)) || !(msg4.value == ~0U || mb.bus_hostop.send(msg4)))
-    Logging::panic("%s failed to attach hostirq %lx, %lx\n", __PRETTY_FUNCTION__, argv[2], argv[3]);
+    Logging::panic("%s failed to attach hostirq %x, %x\n", __PRETTY_FUNCTION__, kbirq, auxirq);
 }
