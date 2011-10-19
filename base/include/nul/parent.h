@@ -273,8 +273,9 @@ public:
     if (revoke_lock) res = nova_revoke(Crd(_cap_base + CAP_LOCK, 0, DESC_CAP_ALL), true);
     res = nova_revoke(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL), true);
     res = nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
-    for (unsigned i=0; i < portal_num; i++)
-      res = nova_revoke(Crd(_cap_base + CAP_SERVER_PT, 0, DESC_CAP_ALL), true);
+    if (portal_num > CAP_SERVER_PT)
+      for (unsigned i=0; i < portal_num - CAP_SERVER_PT; i++)
+        res = nova_revoke(Crd(_cap_base + CAP_SERVER_PT + i, 0, DESC_CAP_ALL), true);
     (void)res;
   }
 
