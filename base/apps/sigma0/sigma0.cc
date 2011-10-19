@@ -956,8 +956,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
            _gsi |=  1 << gsi;
           unsigned irq_cap = _irq_cap_base + gsi;
           unsigned cpu = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
-          res = nova_assign_gsi(irq_cap, cpu);
-          check1(false, res != NOVA_ESUCCESS);
+          unsigned ret = nova_assign_gsi(irq_cap, cpu);
+          if (ret == NOVA_EDEV)
+            Logging::printf("s0: assign_gsi returned BAD_DEV. If this is a QEMU VM, try \"qemu -no-kvm-irqchip\".\n");
+          check1(false, ret != NOVA_ESUCCESS);
           res = attach_irq(gsi, irq_cap, msg.len, cpu);
         }
         break;
