@@ -58,7 +58,8 @@ enum ERROR
     NOVA_ECAP,
     NOVA_EMEM,
     NOVA_EFTR,
-    NOVA_ECPU
+    NOVA_ECPU,
+    NOVA_EDEV,
   };
 
 
