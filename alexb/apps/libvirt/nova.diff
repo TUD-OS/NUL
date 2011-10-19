@@ -1,5 +1,5 @@
 --- libvirt-0.9.6/configure.ac	2011-09-22 08:42:11.000000000 +0200
-+++ libvirt-0.9.6-own/configure.ac	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/configure.ac	2011-10-17 10:37:38.000000000 +0200
 @@ -309,6 +309,8 @@
    AC_HELP_STRING([--with-remote], [add remote driver support @<:@default=yes@:>@]),[],[with_remote=yes])
  AC_ARG_WITH([libvirtd],
@@ -30,7 +30,7 @@
  AC_MSG_NOTICE([    Test: $with_test])
  AC_MSG_NOTICE([  Remote: $with_remote])
 --- libvirt-0.9.6/src/Makefile.am	2011-09-20 05:18:54.000000000 +0200
-+++ libvirt-0.9.6-own/src/Makefile.am	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/Makefile.am	2011-10-17 10:37:38.000000000 +0200
 @@ -310,6 +310,9 @@
  		lxc/lxc_controller.c				\
  		lxc/veth.c lxc/veth.h
@@ -94,7 +94,7 @@
  	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/uml" ||:
  	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
 --- libvirt-0.9.6/src/driver.h	2011-09-16 15:09:43.000000000 +0200
-+++ libvirt-0.9.6-own/src/driver.h	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/driver.h	2011-10-17 10:37:38.000000000 +0200
 @@ -30,6 +30,7 @@
      VIR_DRV_VMWARE = 13,
      VIR_DRV_LIBXL = 14,
@@ -104,7 +104,7 @@
  
  
 --- libvirt-0.9.6/src/libvirt.c	2011-09-22 05:37:44.000000000 +0200
-+++ libvirt-0.9.6-own/src/libvirt.c	2011-10-12 10:30:52.000000000 +0200
++++ libvirt-0.9.6-own/src/libvirt.c	2011-10-17 10:37:38.000000000 +0200
 @@ -73,6 +73,9 @@
  # ifdef WITH_XENAPI
  #  include "xenapi/xenapi_driver.h"
@@ -146,7 +146,7 @@
      if (remoteRegister () == -1) return -1;
  # endif
 --- libvirt-0.9.6/src/conf/domain_event.c	2011-08-25 11:43:44.000000000 +0200
-+++ libvirt-0.9.6-own/src/conf/domain_event.c	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/conf/domain_event.c	2011-10-17 10:37:38.000000000 +0200
 @@ -366,6 +366,7 @@
      for (i = 0 ; i < cbList->count ; i++) {
          if (cbList->callbacks[i]->cb == VIR_DOMAIN_EVENT_CALLBACK(callback) &&
@@ -156,7 +156,7 @@
              eventReportError(VIR_ERR_INTERNAL_ERROR, "%s",
                               _("event callback already tracked"));
 --- libvirt-0.9.6/src/conf/domain_conf.c	2011-09-22 08:37:59.000000000 +0200
-+++ libvirt-0.9.6-own/src/conf/domain_conf.c	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/conf/domain_conf.c	2011-10-17 10:37:38.000000000 +0200
 @@ -86,7 +86,8 @@
                "hyperv",
                "vbox",
@@ -168,7 +168,7 @@
  VIR_ENUM_IMPL(virDomainBoot, VIR_DOMAIN_BOOT_LAST,
                "fd",
 --- libvirt-0.9.6/src/conf/domain_conf.h	2011-09-06 10:34:44.000000000 +0200
-+++ libvirt-0.9.6-own/src/conf/domain_conf.h	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/conf/domain_conf.h	2011-10-17 10:37:38.000000000 +0200
 @@ -59,6 +59,7 @@
      VIR_DOMAIN_VIRT_VBOX,
      VIR_DOMAIN_VIRT_ONE,
@@ -178,7 +178,7 @@
      VIR_DOMAIN_VIRT_LAST,
  };
 --- libvirt-0.9.6/examples/domain-events/events-c/event-test.c	2011-09-03 02:26:55.000000000 +0200
-+++ libvirt-0.9.6-own/examples/domain-events/events-c/event-test.c	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/examples/domain-events/events-c/event-test.c	2011-10-17 10:37:38.000000000 +0200
 @@ -162,9 +162,9 @@
                                    int detail,
                                    void *opaque ATTRIBUTE_UNUSED)
@@ -202,28 +202,35 @@
          (callback4ret != -1) &&
 diff -urN libvirt-0.9.6/src/nova/nova_conf.h libvirt-0.9.6-own/src/nova/nova_conf.h
 --- libvirt-0.9.6/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.6-own/src/nova/nova_conf.h	2011-10-12 10:12:02.000000000 +0200
-@@ -0,0 +1,16 @@
++++ libvirt-0.9.6-own/src/nova/nova_conf.h	2011-10-18 10:56:52.000000000 +0200
+@@ -0,0 +1,23 @@
 +#ifndef __VIR_NOVA_CONF_H__
 +# define __VIR_NOVA_CONF_H__
 +
-+# include "domain_event.h"
++#include <gnutls/gnutls.h>
++
++#include "domain_event.h"
 +
 +struct nova_conn {
-+  int sockfd;
-+  int eventfd;
++  int socket_cmd;
++  int socket_event;
 +  virDomainEventCallbackListPtr domainEventCallbacks;
 +//  virDomainEventQueuePtr domainEventQueue;
 +  virThreadPtr eventthread;
 +  bool lock_init;
 +  virMutex lock;
++  bool tls;
++  gnutls_session_t session_cmd;
++  gnutls_session_t session_event;
++  gnutls_certificate_credentials_t xcred_cmd;
++  gnutls_certificate_credentials_t xcred_event;
 +};
 +
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_driver.c
 --- libvirt-0.9.6/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.6-own/src/nova/nova_driver.c	2011-10-12 10:21:18.000000000 +0200
-@@ -0,0 +1,505 @@
++++ libvirt-0.9.6-own/src/nova/nova_driver.c	2011-10-19 13:13:32.000000000 +0200
+@@ -0,0 +1,582 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -251,6 +258,8 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +
 +#include <fcntl.h>
 +
++#include <assert.h>
++
 +static void novaReadEvents(void *data) {
 +  virConnectPtr nconn = (virConnectPtr)data;
 +  struct nova_conn * conn = (struct nova_conn *)nconn->privateData;
@@ -261,8 +270,11 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +  while(true) {
 +    unsigned count = 0;
 +    while(count < sizeof(buf)) {
-+      res = read(conn->eventfd, buf + count, sizeof(buf) - count);
-+      if (res == -1) return;
++      if (conn->tls)
++        res = gnutls_record_recv(conn->session_event, buf + count, sizeof(buf) - count);
++      else
++        res = read(conn->socket_event, buf + count, sizeof(buf) - count);
++      if (res < 0) { printf("eventthread - exiting\n"); return; }
 +      count += res;
 +    }
 +
@@ -307,60 +319,114 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +                    virConnectAuthPtr auth ATTRIBUTE_UNUSED,
 +                    unsigned int flags ATTRIBUTE_UNUSED)
 +{
-+    int sockfd = 0, eventfd = 0;
++    int rc, i;
 +    struct nova_conn *nconn = 0;
++    bool btls = false;
++    struct {
++      int socket;
++      int port;
++      gnutls_session_t *session;
++      gnutls_certificate_credentials_t * xcred;
++    } connections [2];
 +
-+    if (!conn->uri)
-+        return VIR_DRV_OPEN_DECLINED;
++    if (!conn || !conn->uri || !conn->uri->scheme) return VIR_DRV_OPEN_DECLINED;
 +
-+    if (!conn->uri->scheme || STRNEQ(conn->uri->scheme, "nova"))
-+        return VIR_DRV_OPEN_DECLINED;
++    if (STREQ(conn->uri->scheme, "nova+tls")) btls = true;
++    if (!btls && STRNEQ(conn->uri->scheme, "nova"))
++      return VIR_DRV_OPEN_DECLINED;
 +
 +    if (!conn->uri->server || !conn->uri->port || conn->privateData)
 +        return VIR_DRV_OPEN_DECLINED;
 +
-+    struct sockaddr_in addr;
-+    addr.sin_family = AF_INET;
-+    addr.sin_port = htons(conn->uri->port);
-+    if (1 != inet_pton(AF_INET, conn->uri->server, &addr.sin_addr))
-+      return VIR_DRV_OPEN_DECLINED;
-+
-+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-+    if (sockfd < 0) goto error;
-+    if (connect(sockfd, (struct sockaddr *)&addr, sizeof(addr))) goto error;
-+
-+    addr.sin_family = AF_INET;
-+    addr.sin_port = htons(conn->uri->port + 1);
-+    if (1 != inet_pton(AF_INET, conn->uri->server, &addr.sin_addr))
-+      return VIR_DRV_OPEN_DECLINED;
-+
-+    eventfd = socket(AF_INET, SOCK_STREAM, 0);
-+    if (eventfd < 0) goto error;
-+    if (connect(eventfd, (struct sockaddr *)&addr, sizeof(addr))) goto error;
-+
-+    if (VIR_ALLOC(nconn) < 0) goto error;
++    if (VIR_ALLOC(nconn) < 0) goto error_socket;
 +    memset(nconn, 0, sizeof(*nconn));
++    nconn->tls = btls;
++
++    connections[0].socket  = 0;
++    connections[0].port    = conn->uri->port;
++    connections[0].session = &nconn->session_cmd;
++    connections[0].xcred   = &nconn->xcred_cmd;
++    connections[1].socket  = 0;
++    connections[1].port    = conn->uri->port + 1;
++    connections[1].session = &nconn->session_event;
++    connections[1].xcred   = &nconn->xcred_event;
++
++    for (i=0; i < 2; i++) {
++      struct sockaddr_in addr;
++      addr.sin_family = AF_INET;
++      addr.sin_port = htons(connections[i].port);
++      if (1 != inet_pton(AF_INET, conn->uri->server, &addr.sin_addr)) goto error_socket;
++
++      connections[i].socket = socket(AF_INET, SOCK_STREAM, 0);
++      if (connections[i].socket < 0) goto error;
++      if (connect(connections[i].socket, (struct sockaddr *)&addr, sizeof(addr))) goto error_socket;
++
++      // TLS with x509 - start
++      if (btls) {
++        if (gnutls_global_init() != GNUTLS_E_SUCCESS) goto error_socket;
++        if (gnutls_init(connections[i].session, GNUTLS_CLIENT) != GNUTLS_E_SUCCESS) goto error_socket;
++
++        /* X509 stuff */
++        if (gnutls_certificate_allocate_credentials(connections[i].xcred) != GNUTLS_E_SUCCESS) goto error_tls_init;
++        /* sets the trusted cas file */
++    //  if (gnutls_certificate_set_x509_trust_file(*connections[i].xcred, NULL, GNUTLS_X509_FMT_PEM) != GNUTLS_E_SUCCESS) goto error_tls_cert;
++        if (gnutls_priority_set_direct(*connections[i].session, "PERFORMANCE", NULL) != GNUTLS_E_SUCCESS) goto error_tls_cert;
++        if (gnutls_credentials_set(*connections[i].session, GNUTLS_CRD_CERTIFICATE, *connections[i].xcred) != GNUTLS_E_SUCCESS) goto error_tls_cert;
++
++        gnutls_transport_set_ptr (*connections[i].session, (gnutls_transport_ptr_t) connections[i].socket);
++
++        if ((rc = gnutls_handshake (*connections[i].session)) < 0) {
++          gnutls_perror (rc);
++          if (rc == GNUTLS_E_FATAL_ALERT_RECEIVED || rc == GNUTLS_E_WARNING_ALERT_RECEIVED) {
++            gnutls_alert_description_t alert = gnutls_alert_get(*connections[i].session);
++            printf("%s alert: (%d) %s\n", rc == GNUTLS_E_WARNING_ALERT_RECEIVED ? "warning" : "fatal", alert, gnutls_alert_get_name(alert));
++          }
++          goto error;
++        }
++      }
++      // TLS - end
++    }
++
 +    if (VIR_ALLOC(nconn->domainEventCallbacks) < 0) goto error;
 +//    if (!(nconn->domainEventQueue = virDomainEventQueueNew())) goto error;
 +
-+    nconn->sockfd  = sockfd;
-+    nconn->eventfd = eventfd;
++    nconn->socket_cmd   = connections[0].socket;
++    nconn->socket_event = connections[1].socket;
 +    conn->privateData = nconn;
 +
 +    if (VIR_ALLOC(nconn->eventthread) < 0) goto error; 
 +    if (virMutexInit(&nconn->lock) < 0) goto error;
 +    else nconn->lock_init = true;
-+    if (virThreadCreate(nconn->eventthread, false, novaReadEvents, conn)) goto error;
++    if (virThreadCreate(nconn->eventthread, true, novaReadEvents, conn)) goto error;
 +
 +    return VIR_DRV_OPEN_SUCCESS;
 +
++    /* error handling */
 +    error:
++    if (btls) {
++      gnutls_bye(nconn->session_cmd, GNUTLS_SHUT_WR);
++      if (i > 0) gnutls_bye(nconn->session_event, GNUTLS_SHUT_WR);
++    }
++
++    error_tls_cert:
++    if (btls) {
++      gnutls_certificate_free_credentials (nconn->xcred_cmd);
++      if (i > 0) gnutls_certificate_free_credentials (nconn->xcred_event);
++    }
++
++    error_tls_init:
++    if (btls) {
++      gnutls_deinit (nconn->session_cmd);
++      if (i > 0) gnutls_deinit (nconn->session_event);
++    }
++
++    error_socket:
 +    if (nconn && nconn->domainEventCallbacks) VIR_FREE(nconn->domainEventCallbacks);
 +    if (nconn && nconn->eventthread) VIR_FREE(nconn->eventthread);
 +    if (nconn && nconn->lock_init) virMutexDestroy(&nconn->lock);
 +    if (nconn) VIR_FREE(nconn);
-+    if (sockfd) close(sockfd);
-+    if (eventfd) close(eventfd);
++    if (connections[0].socket) close(connections[0].socket);
++    if (connections[1].socket) close(connections[1].socket);
 +
 +    return VIR_DRV_OPEN_DECLINED;
 +}
@@ -372,8 +438,14 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +
 +    if (!(nconn = conn->privateData)) return -1;
 +    
-+    res = close(nconn->sockfd);
-+    res = close(nconn->eventfd);
++    if (nconn->tls) {
++      gnutls_bye(nconn->session_cmd, GNUTLS_SHUT_WR);
++      gnutls_bye(nconn->session_event, GNUTLS_SHUT_WR);
++      gnutls_certificate_free_credentials (nconn->xcred_cmd);
++      gnutls_certificate_free_credentials (nconn->xcred_event);
++      gnutls_deinit (nconn->session_cmd);
++      gnutls_deinit (nconn->session_event);
++    }
 +
 +    if (nconn->domainEventCallbacks) VIR_FREE(nconn->domainEventCallbacks);
 +//    if (nconn->domainEventQueue) virDomainEventQueueFree(nconn->domainEventQueue);
@@ -381,22 +453,26 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +      virThreadJoin(nconn->eventthread);
 +      VIR_FREE(nconn->eventthread);
 +    }
++
++    res = close(nconn->socket_cmd);
++    printf("nova - %s - closing mgmt connection ...\n", res ? "failure" : "success");
++    res = close(nconn->socket_event);
++    printf("nova - %s - closing event connection ...\n", res ? "failure" : "success");
++
++
 +    if (nconn->lock_init) virMutexDestroy(&nconn->lock);
 +    memset(nconn, 0, sizeof(*nconn));
 +    VIR_FREE(nconn);
 +    conn->privateData = 0;
 +
-+    printf("nova - %s - close connection to ...\n", res ? "failure" : "success");
 +    return res;
 +}
 +
 +#define create_nova_request(CONN, NOVAOPCODE, ERRORCODE, CODE) \
 +  struct nova_conn *nconn = (CONN)->privateData; \
-+  int sockfd = nconn->sockfd; \
-+\
 +  unsigned char buf[NOVA_PACKET_LEN]; \
 +  struct incoming_packet * _out = (struct incoming_packet *)buf; \
-+  ssize_t _res___; \
++  ssize_t res_nova_request; \
 +\
 +  _out->version = htons(0xafff); \
 +  _out->opcode  = htons(NOVAOPCODE); \
@@ -404,20 +480,28 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +  CODE \
 +\
 +  virMutexLock(&nconn->lock); \
-+  unsigned ___count___ = 0; \
-+  if (sizeof(buf) != write(sockfd, buf, sizeof(buf))) { _res___ = -1; goto request_abort; } \
-+  while(___count___ < sizeof(buf)) { \
-+    _res___ = read(sockfd, buf + ___count___, sizeof(buf) - ___count___); \
-+    if (_res___ == -1) goto request_abort; \
-+    ___count___ += _res___; \
++  unsigned count_nova_request = 0; \
++  if (nconn->tls) { \
++    if (sizeof(buf) != gnutls_record_send(nconn->session_cmd, buf, sizeof(buf))) { res_nova_request = -1; goto request_abort; } \
++  } else { \
++    if (sizeof(buf) != write(nconn->socket_cmd, buf, sizeof(buf))) { res_nova_request = -1; goto request_abort; } \
++  } \
++  while(count_nova_request < sizeof(buf)) { \
++    if (nconn->tls) { \
++      res_nova_request = gnutls_record_recv(nconn->session_cmd, buf + count_nova_request, sizeof(buf) - count_nova_request); \
++    } else { \
++      res_nova_request = read(nconn->socket_cmd, buf + count_nova_request, sizeof(buf) - count_nova_request); \
++    } \
++    if (res_nova_request < 0) goto request_abort; \
++    count_nova_request += res_nova_request; \
 +  } \
 +  request_abort: \
 +  virMutexUnlock(&nconn->lock); \
-+  if (_res___ == -1) return ERRORCODE; \
++  if (res_nova_request < 0) return ERRORCODE; \
 +\
 +  struct outgoing_packet * _in = (struct outgoing_packet *)buf; \
 +\
-+  if (_in->version != ntohs(0xafff)) { printf("version error\n"); return ERRORCODE; } \
++  if (_in->version != ntohs(0xafff)) { printf("version error %x\n", ntohs(_in->version)); return ERRORCODE; } \
 +  if (_in->opcode != ntohs(NOVAOPCODE)) { printf("opcode error\n"); return ERRORCODE; } \
 +  if (_in->result != NOVA_OP_SUCCEEDED) { return ERRORCODE; }
 +
@@ -731,7 +815,7 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +}
 diff -urN libvirt-0.9.6/src/nova/nova_driver.h libvirt-0.9.6-own/src/nova/nova_driver.h
 --- libvirt-0.9.6/src/nova/nova_driver.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.6-own/src/nova/nova_driver.h	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/nova/nova_driver.h	2011-10-17 10:37:38.000000000 +0200
 @@ -0,0 +1,8 @@
 +#ifndef __VIR_NOVA_INTERNAL_H__
 +# define __VIR_NOVA_INTERNAL_H__
@@ -743,7 +827,7 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.h libvirt-0.9.6-own/src/nova/nova_d
 +#endif /* __VIR_NOVA_INTERNAL_H__ */
 diff -urN libvirt-0.9.6/src/nova/nova_types.h libvirt-0.9.6-own/src/nova/nova_types.h
 --- libvirt-0.9.6/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.6-own/src/nova/nova_types.h	2011-10-12 10:12:02.000000000 +0200
++++ libvirt-0.9.6-own/src/nova/nova_types.h	2011-10-17 10:37:38.000000000 +0200
 @@ -0,0 +1,37 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
