@@ -32,10 +32,12 @@ struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
 
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
 
+  out = 0; out_len = 0;
+
   memcpy(buf_in, in_mem, data_received + in_len > sizeof(buf_in) ? sizeof(buf_in) - data_received : in_len);
   data_received += in_len;
 
-  if (data_received < sizeof(buf_in)) return;
+  if (data_received < sizeof(buf_in)) { return; }
 
   data_received = 0;
   memset(buf_out, 0, sizeof(buf_out));

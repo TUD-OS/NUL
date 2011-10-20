@@ -31,6 +31,11 @@
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" bool nul_ip_config(unsigned para, void * arg);
+extern "C" void nul_ssl_init(void);
+extern "C" int32 nul_ssl_session(void *&ssl);
+extern "C" int32 nul_ssl_len(void * ssl, unsigned char * &buf);
+extern "C" int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
+                                void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session);
 
 enum {
   IP_NUL_VERSION  = 0,
@@ -40,7 +45,8 @@ enum {
   IP_UDP_OPEN     = 4,
   IP_TCP_OPEN     = 5,
   IP_SET_ADDR     = 6,
-  IP_TCP_SEND     = 7
+  IP_TCP_SEND     = 7,
+  IP_TCP_CLOSE    = 8
 };
 
 namespace ab {
@@ -49,6 +55,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 {
   private:
     static Remcon * remcon;
+
+    static void * tls_session_cmd, * tls_session_event;
 
   public:
 
@@ -63,9 +71,44 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
                                (res == 0 ? "done   " : "failure"), len, res);
     }
 
+    static void write_out(uint16 localport, void * out, size_t out_len) {
+        if (out && out_len > 0) {
+          struct {
+            unsigned long port;
+            size_t count;
+            void * data;
+          } arg = { localport, out_len, out }; //XXX fix port
+//          Logging::printf("[da ip] - write port=%lu size=%zu\n", arg.port, arg.count);
+          nul_ip_config(IP_TCP_SEND, &arg);
+        }
+    }
+
     static
-    void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len) {
-      remcon->recv_call_back(in, in_len, out, out_len);    
+    void recv_call_back(uint16 localport, void * in, size_t in_len) {
+      void * appdata, * out;
+      size_t appdata_len, out_len;
+      unsigned char * sslbuf;
+      int32 rc;
+
+      assert(localport == 9999 || localport == 10000);
+      int32 len = nul_ssl_len(localport == 9999 ? tls_session_cmd : tls_session_event, sslbuf);
+      if (len < in_len) Logging::panic("Fix me buffer to small! %d %zu\n", len, in_len);
+      //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
+      memcpy(sslbuf, in, in_len);
+
+      rc = nul_ssl_config(in_len, write_out, appdata, appdata_len, false, localport,
+          localport == 9999 ? tls_session_cmd : tls_session_event);
+      if (rc > 0) {
+        loop:
+
+        out = 0; out_len = 0;
+        remcon->recv_call_back(appdata, appdata_len, out, out_len);
+        appdata = out; appdata_len = out_len;
+        rc = nul_ssl_config(0, write_out, appdata, appdata_len, true, localport,
+                            localport == 9999 ? tls_session_cmd : tls_session_event);
+        if (rc > 0) goto loop;
+      }
+      if (rc < 0) nul_ip_config(IP_TCP_CLOSE, &localport);
     }
 
     unsigned  create_ec4pt(void * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, unsigned long cap = ~0UL) {
@@ -91,6 +134,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     {
       bool res;
       unsigned long long arg = 0;
+
+      nul_ssl_init(); ///XXX error code checking
+      if (nul_ssl_session(tls_session_cmd) < 0 || nul_ssl_session(tls_session_event) < 0) return false;
 
       if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
 
@@ -170,11 +216,11 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       struct {
         unsigned long port;
-        void (*fn)(void * in_data, size_t in_len, void * &out_data, size_t & out_len);
+        void (*fn)(uint16 localport, void * in_data, size_t in_len);
       } conn = { 9999, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      conn = { 10000, 0 };
+      conn = { 10000, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
       Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);
@@ -225,6 +271,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
   void run(Utcb *utcb, Hip *hip)
   {
 
+
     init(hip);
     init_mem(hip);
 
@@ -256,5 +303,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 } /* namespace */
 
 Remcon * ab::RemoteConfig::remcon;
+void * ab::RemoteConfig::tls_session_cmd, * ab::RemoteConfig::tls_session_event;
 
 ASMFUNCS(ab::RemoteConfig, NovaProgram)

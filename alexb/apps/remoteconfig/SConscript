@@ -8,7 +8,7 @@ nul.App(target_env, 'remote_config',
         SOURCES = [ 'main.cc', 'server.cc', 'events.cc' ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
-        LIBS    = [ 'ip_lwip', 'runtime' ],
+        LIBS    = [ 'ip_lwip', 'ssl_matrix', 'runtime' ],
         MEMSIZE = 2<<20)
 
 # EOF
