@@ -3,20 +3,13 @@
 import nul
 Import('target_env')
 
-# sources are base on matrixssl-3-2-1-open release from June 2011
+# sources are based on matrixssl-3-2-2-open release from 7th October 2011
 
 target_env.Append(CPPPATH = [ 'own/include',
                               'contrib',
                               'contrib/core',
                               'contrib/crypto',
                               'contrib/matrixssl']);
-#'contrib/src/include/ipv4',
-
-#$(CORE_OBJECTS): core/*.h core/*.c core/*/*.c
-
-#$(CRYPTO_OBJECTS): $(CORE_OBJECTS) crypto/*.h crypto/*/*.h crypto/*/*.c
-
-#$(SSL_OBJECTS): $(CORE_OBJECTS) $(CRYPTO_OBJECTS) matrixssl/*.c matrixssl/*.h
 
 nul.Lib(target_env, 'ssl_matrix',
         SOURCES = [Glob('contrib/core/*.c'),
