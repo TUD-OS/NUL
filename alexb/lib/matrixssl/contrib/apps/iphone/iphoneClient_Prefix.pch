@@ -1,0 +1,7 @@
+// Prefix header for all source files of the 'iphoneClient' target in the
+// 'iphoneClient' project
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+    #import <UIKit/UIKit.h>
+#endif
