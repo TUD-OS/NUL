@@ -56,7 +56,7 @@ struct nul_tcp_struct {
   u16_t port;
   struct tcp_pcb * listening_pcb;
   struct tcp_pcb * openconn_pcb;
-  void (*fn_recv_call)(void * in_data, size_t in_len, void * &out_data, size_t & out_len);
+  void (*fn_recv_call)(uint16 localport, void * in_data, size_t in_len);
 } nul_tcps[2];
 
 /*
@@ -211,22 +211,14 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
                       tpcb->remote_port, tpcb->local_port, p->tot_len, p->len, total);
     }
 
-    if (tcp_struct && tcp_struct->fn_recv_call) {
-      void * data = 0;
-      size_t count = 0;
-      tcp_struct->fn_recv_call(p->payload, p->len, data, count);
-
-      if (data && count) {
-        err_t err = tcp_write(tpcb, data, count, 0);
-        if (err != ERR_OK) Logging::printf("failed sending packet\n");
-      }
-    }
+    if (tcp_struct && tcp_struct->fn_recv_call)
+      tcp_struct->fn_recv_call(tpcb->local_port, p->payload, p->len);
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
   } else {
     total = 0;
-    Logging::printf("[tcp] connection closed - %p err %u (%p)\n", p, err, tcp_struct->openconn_pcb);
+    Logging::printf("[tcp] connection closed - %p err %u (%p) \n", p, err, tcp_struct->openconn_pcb);
 
     assert(tcp_struct->openconn_pcb);
     tcp_struct->openconn_pcb = 0;
@@ -258,7 +250,7 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 }
 
 static
-bool nul_ip_tcp(unsigned _port, void (*fn_call_me)(void * data, unsigned len, void * & out_data, unsigned & out_len)) {
+bool nul_ip_tcp(unsigned _port, void (*fn_call_me)(uint16 localport, void * data, unsigned len)) {
   struct tcp_pcb * tmp_pcb = tcp_new();
   if (!tmp_pcb) Logging::panic("tcp new failed\n");
 
@@ -287,6 +279,14 @@ bool nul_ip_tcp(unsigned _port, void (*fn_call_me)(void * data, unsigned len, vo
     }
 
   return false;
+}
+
+static struct nul_tcp_struct * lookup_internal(u16_t port) {
+  for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++) {
+    if (nul_tcps[i].listening_pcb != 0 && nul_tcps[i].port == port)
+      return &nul_tcps[i];
+  }
+  return 0;
 }
 
 static struct tcp_pcb * lookup(u16_t port) {
@@ -376,7 +376,7 @@ bool nul_ip_config(unsigned para, void * arg) {
 
       assert(sizeof(unsigned long) == sizeof(void *));
       unsigned long * port = reinterpret_cast<unsigned long *>(arg);
-      return nul_ip_tcp(*port, reinterpret_cast<void (*)(void * data, unsigned len, void * & out_data, unsigned & out_len)>(*(port + 1)));
+      return nul_ip_tcp(*port, reinterpret_cast<void (*)(uint16 localport, void * data, unsigned len)>(*(port + 1)));
       break;
     }
     case 6: /* set ip addr */
@@ -403,11 +403,24 @@ bool nul_ip_config(unsigned para, void * arg) {
       arge = reinterpret_cast<struct arge *>(arg);
 
       struct tcp_pcb * tpcb = lookup(arge->port);
-      if (!tpcb) { Logging::printf("[tcp]   - no connection available, sending packet failed\n"); return false; }
-      err_t err = tcp_write(tpcb, arge->data, arge->count, 0); //may not send immediately
+      if (!tpcb) { Logging::printf("[tcp]   - no connection via port %lu, sending packet failed\n", arge->port); return false; }
+      err_t err = tcp_write(tpcb, arge->data, arge->count, 0); //may be not send immediately
       if (err != ERR_OK) Logging::printf("[tcp]   - connection available, sending packet failed\n");
       tcp_output(tpcb); //force to send immediately
       return (err == ERR_OK);
+      break;
+    }
+    case 8: /* close */
+    {
+      if (!arg) return false;
+      uint16 port = *reinterpret_cast<uint16 *>(arg);
+      struct nul_tcp_struct * tcp_struct = lookup_internal(port);
+      Logging::printf("close tpcb %p\n", tcp_struct);
+      if (tcp_struct) {
+        Logging::printf("close result %d\n", tcp_close(tcp_struct->openconn_pcb));
+        tcp_struct->openconn_pcb = 0;
+        tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+      }
       break;
     }
     default:
