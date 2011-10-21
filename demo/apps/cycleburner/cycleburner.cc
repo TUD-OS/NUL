@@ -319,10 +319,9 @@ class Cycleburner : public NovaProgram,
 public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
-    console_init("CYC", new Semaphore(alloc_cap(), true));
-
     init(hip);
-
+    init_mem(hip);
+    console_init("CYC", new Semaphore(alloc_cap(), true));
 
     // attach to timer service 
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
