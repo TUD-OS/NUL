@@ -48,7 +48,8 @@ PARAM_HANDLER(verbose, "verbose - print additional information during runtime") 
 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"
-            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3 service_per_cpu_timer service_romfs service_embeddedromfs script")
+            " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3"
+            " service_tracebuffer service_per_cpu_timer service_romfs service_embeddedromfs script")
 
 #define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/fs/embedded quota::guid"
 
