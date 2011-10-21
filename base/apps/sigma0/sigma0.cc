@@ -1037,7 +1037,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
             if (!ec_cap || !utcb || !pt) return false;
             if (msg.cap)
-              utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_TYPE_CAP;
+              // XXX This is broken. It needs to call alloc_cap() of
+              // the service object, which we don't have here.
+              utcb->head.crd = alloc_cap() << Utcb::MINSHIFT | DESC_CAP_ALL;
             else {
               unsigned long addr;
               {
