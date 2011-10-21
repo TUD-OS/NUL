@@ -816,12 +816,12 @@ public:
   void __attribute__((noreturn)) run(Utcb *utcb, Hip *hip)
   {
     assert(hip);
-    char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
-
+    init_mem(hip);
     console_init("VMM", new Semaphore(alloc_cap(), true));
 
+    char *args = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
