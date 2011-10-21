@@ -201,9 +201,6 @@ public:
 	"Simple things should be simple. Complex things should be possible.",
 	// "If you don't fail at least 90 percent of the time, you're not aiming high enough." // XXX Too long
 	// Kent Pitman
-	"Lisp is a language for doing what you've been told is impossible.",
-	// Paul Graham
-	"Like DNA, such a language [Lisp] does not go out of style.",
       };
       unsigned msg_no = sizeof(msg) / sizeof(*msg);
       const char *cur_msg = msg[cycle % msg_no];
