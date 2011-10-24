@@ -109,5 +109,6 @@ if ($ret != 0) {
 }
 
 printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
 
 exit $ret;
