@@ -145,7 +145,6 @@ PARAM_HANDLER(tracebuffer,
 	      "tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients")
 {
   // If you have updated your config remove your warning. If no warning is left, remove the workaround.
-  #warning Alex has not updated his config.
   #warning Michal has not updated his config.
 
   Logging::printf(">>> tracebuffer is a NOP. It has been renamed to service_tracebuffer and is <<<\n"
