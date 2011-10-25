@@ -29,8 +29,10 @@ novaboot --iprelay=on
 # Reseting the machine just after power on confuses BIOS and causes it to ask some stupid question.
 sleep 20 
 
-/home/sojka/nul/michal/wvtest/runall --server --iprelay
+ret=0
+/home/sojka/nul/michal/wvtest/runall --server --iprelay || ret=1
 
 novaboot --iprelay=off
 
 trap - EXIT
+exit $ret
