@@ -5,7 +5,9 @@ root=$(readlink -f $dir/../..)
 tests=$(find $root -name '*.wv')
 exitcode=0
 for file in $tests; do
-    ( set -x; $dir/wvnulrun $file "$@"; )
+    set -x
+    $dir/wvnulrun $file "$@"
+    set +x
     ret=$?
     if [ "$ret" -ne 0 ]; then
 	echo "! $0: $dir/wvnulrun returned non-zero exit code ($ret)  FAILED";
