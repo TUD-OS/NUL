@@ -83,6 +83,7 @@ class WvTest
 	ER(EMEM);
 	ER(EFTR);
 	ER(ECPU);
+	ER(EDEV);
       }
       char *ret = new char[30]; // XXX memory leak
       Vprintf::snprintf(ret, 30, "ERR:0x%x", err);
