@@ -51,7 +51,7 @@ if (-s $cfg) { read_config($cfg); }
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $qemu, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure("no_ignore_case");
 GetOptions (
@@ -65,6 +65,8 @@ GetOptions (
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
+    "off"	     => \$off_opt,
+    "on"	     => \$on_opt,
     "qemu|Q=s" 	     => \$qemu,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
@@ -103,6 +105,9 @@ if (defined $serial) {
 if (defined $grub_config) {
     $grub_config ||= "menu.lst";
 }
+
+if ($on_opt) { $iprelay="on"; }
+if ($off_opt) { $iprelay="off"; }
 
 my $IPRELAY;
 if (defined $iprelay) {
@@ -523,6 +528,10 @@ Note: This option is expected to work with HWG-ER02a IP relays.
 Generate the ISO image that boots NOVA system via Grub. If no
 filename is given, the image is stored under NAME.iso, where NAME
 is the name of novaboot script (see also --name).
+
+=item --on, --off
+
+Synonym for --iprelay=on/off.
 
 =item --name=<string>
 
