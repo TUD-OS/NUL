@@ -51,7 +51,7 @@ if (-s $cfg) { read_config($cfg); }
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $iprelay, $iso_image, $man, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $I_opt, $iprelay, $iso_image, $man, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure("no_ignore_case");
 GetOptions (
@@ -62,6 +62,7 @@ GetOptions (
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
+    "I"		     => \$I_opt,
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
@@ -78,6 +79,8 @@ pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
+
+if (defined $I_opt) { $server=''; $iprelay=''; }
 
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
@@ -510,6 +513,10 @@ directory.
 =item -h, --help
 
 Print short (-h) or long (--help) help.
+
+=item -I
+
+Shortcut for --server --iprelay.
 
 =item --iprelay[=cmd]
 
