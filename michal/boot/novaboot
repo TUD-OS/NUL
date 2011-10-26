@@ -576,11 +576,11 @@ Lines starting with "#" are ignored.
 Lines that end with "\" are concatenated with the following line after
 removal of the final "\" and leading whitespace of the following line.
 
-Lines matching '[A-Z_]+=' regexp assign values to internal variables.
+Lines matching '^[A-Z_]+=' regexp assign values to internal variables.
 See VARIABLES section.
 
-First word on a line represents the filename of the module to load,
-the remaining words are its command line parameters.
+Otherwise, first word on a line represents the filename of the module
+to load, the remaining words are its command line parameters.
 
 When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
@@ -589,12 +589,12 @@ that line.
 Example:
   #!/usr/bin/env novaboot
   WVDESC=Example program
-  nul/bin/apps/sigma0.nul S0_DEFAULT script_start:1,1 \
+  bin/apps/sigma0.nul S0_DEFAULT script_start:1,1 \
     verbose hostkeyb:0,0x60,1,12,2
-  nul/bin/apps/hello.nul
+  bin/apps/hello.nul
   hello.nulconfig <<EOF
   sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom ||
-  rom://nul/bin/apps/hello.nul
+  rom://bin/apps/hello.nul
   EOF
 
 This example will load three modules: sigma0.nul, hello.nul and
