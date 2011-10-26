@@ -2,7 +2,7 @@ title example nul config
 kernel /nul/hypervisor.new
 modaddr 0x6000000
 module /nul/sigma0.nul.gz S0_DEFAULT \
-  hostvga hostkeyb:0,0x60,1,12 hostserial tracebuffer:32768 vnet script_start:1,64
+  hostvga hostkeyb:0,0x60,1,12 hostserial vnet script_start:1,64
 module /nul/vancouver.nul.gz
 module /tools/munich
 module /linux/bzImage

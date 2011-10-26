@@ -1,6 +1,6 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
-bin/apps/sigma0.nul S0_DEFAULT hostvga:0x40000,0x40000 tracebuffer:32768 hostvesa hostkeyb:0+0x60+1+12 service_config  name::/s0/events host82573:0 
+bin/apps/sigma0.nul S0_DEFAULT hostvga:0x40000,0x40000 hostvesa hostkeyb:0+0x60+1+12 service_config  name::/s0/events host82573:0
 bin/apps/remote_config.nul
 remote_config.nulconfig <<EOF
 namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid ||

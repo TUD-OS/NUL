@@ -1,8 +1,7 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
 QEMU_FLAGS=-cpu coreduo -hda img
-bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
-    tracebuffer:32768,1 \
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     hostide \
     hostahci \
     script \

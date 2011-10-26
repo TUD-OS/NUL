@@ -140,16 +140,9 @@ public:
 #endif
 };
 
-// Print a warning for this legacy option.
-PARAM_HANDLER(tracebuffer,
-	      "tracebuffer:size=32768,verbose=1 - instanciate a tracebuffer for the clients")
-{
-  // If you have updated your config remove your warning. If no warning is left, remove the workaround.
-  #warning Michal has not updated his config.
-
-  Logging::printf(">>> tracebuffer is a NOP. It has been renamed to service_tracebuffer and is <<<\n"
-                  ">>> now the default. UPDATE YOUR CONFIG                                     <<<\n");
-}
+static bool verbose = false;
+PARAM_HANDLER(tracebuffer_verbose, "when given before S0_DEFAULT, it makes the service_tracebuffer verbose")
+{ verbose = true; }
 
 PARAM_HANDLER(service_tracebuffer, "service_tracebuffer:size=32768,verbose=1 - instantiate a tracebuffer for clients")
 {
@@ -157,7 +150,7 @@ PARAM_HANDLER(service_tracebuffer, "service_tracebuffer:size=32768,verbose=1 - i
   unsigned cap_region = alloc_cap_region(1 << 12, 12);
   char * revoke_mem = new (0x1000) char[0x1000];
 
-  Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? false : argv[1] , cap_region, 12, revoke_mem);
+  Tracebuffer *t = new (8) Tracebuffer(size, new char[size], argv[1] == ~0UL ? verbose : argv[1] , cap_region, 12, revoke_mem);
   MessageHostOp msg(t, "/log", reinterpret_cast<unsigned long>(StaticPortalFunc<Tracebuffer>::portal_func), revoke_mem);
   msg.crd_t = Crd(cap_region, 12, DESC_CAP_ALL).value();
   if (!cap_region || !mb.bus_hostop.send(msg))

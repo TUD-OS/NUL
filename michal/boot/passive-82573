@@ -2,7 +2,7 @@
 # -*-sh-*-
 QEMU_FLAGS=-cpu phenom -smp 2
 HYPERVISOR_PARAMS=iommu serial spinner
-bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga:0x40000,0x40000 tracebuffer:32768,1 hostvesa hostkeyb:0+0x60+1+12+1 \
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga:0x40000,0x40000 hostvesa hostkeyb:0+0x60+1+12+1 \
 		    nubus host82573:0 service_config script_start:1 name::/s0/events
 bin/apps/remote_config.nul
 bin/apps/vancouver.nul

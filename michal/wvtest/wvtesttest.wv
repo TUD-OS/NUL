@@ -1,12 +1,11 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
 WVDESC=Tests WvTest framework itself
-bin/apps/sigma0.nul S0_DEFAULT \
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT \
     verbose \
     hostserial \
     hostvga \
     hostkeyb:0,0x60,1,12,2 \
-    tracebuffer:32768,1 \
     script_start:1 \
     script_waitchild
 bin/apps/wvtesttest.nul

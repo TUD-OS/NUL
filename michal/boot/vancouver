@@ -1,7 +1,7 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
 QEMU_FLAGS=-cpu phenom -smp 2
-bin/apps/sigma0.nul S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 tracebuffer:32768 script_start:1,1 service_config
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config
 bin/apps/vancouver.nul
 bin/boot/munich
 linux/bzImage-js

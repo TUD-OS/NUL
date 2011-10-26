@@ -310,12 +310,11 @@ about completion of his request.
 ** Logging							       :page:
 
 Sometimes it is usefull to have central log of multiple applications.
-This can be achieved by using the tracebuffer implemented in Sigma0.
-The tracebuffer is activated by the following command line option to Sigma0
-
-#+begin_example
-tracebuffer:32768,1
-#+end_example
+This can be achieved by using the tracebuffer service implemented in Sigma0.
+The tracebuffer is activated by default but if you want the to see the
+output from other applications than Sigma0, you need to put
+=tracebuffer_verbose= in front of =S0_DEFAULT=. If you do not use
+=S0_DEFAULT= then you may use =service_tracebuffer:32768,1=.
 
 Redirecting the logging output (=Logging::printf()=) of applications
 to the tracebuffer is achieved by running this code in the
