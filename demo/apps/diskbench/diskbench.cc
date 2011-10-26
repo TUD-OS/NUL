@@ -19,11 +19,11 @@
 #include "nul/program.h"
 #include "nul/motherboard.h"
 #include "sigma0/console.h"
-#include "sigma0/sigma0.h"
+#include "nul/service_disk.h"
 #include "host/dma.h"
 #include "wvtest.h"
 
-char disk_buffer[4<<20];
+char disk_buffer[4<<20] ALIGNED(4<<20);
 unsigned long blocksize = 512;
 unsigned outstanding=5;
 bool wvtest = false;
@@ -43,8 +43,8 @@ PARAM_HANDLER(outstanding,
 	      "Example: 'outstanding:4'")
 {
   outstanding = argv[0];
-  if (outstanding > DISKS_SIZE) {
-    outstanding = DISKS_SIZE;
+  if (outstanding > DiskProtocol::MAXDISKREQUESTS) {
+    outstanding = DiskProtocol::MAXDISKREQUESTS;
     Logging::printf("limited the number of outstanding requests to %d\n", outstanding);
   }
 }
@@ -58,39 +58,45 @@ class App : public NovaProgram, ProgramConsole
     FREQ    = 1000,
     TIMEOUT = FREQ,
   };
+  DiskProtocol *disk;
   unsigned requests;
   unsigned requests_done;
+
   void submit_disk() {
     DmaDescriptor dma;
+    unsigned res;
     dma.byteoffset = 0;
     dma.bytecount  = blocksize;
-    MessageDisk msg1(MessageDisk::DISK_READ, /*disknum*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma,
-		     reinterpret_cast<unsigned long>(disk_buffer), sizeof(disk_buffer));
-    unsigned res;
-    if ((res = Sigma0Base::disk(msg1)))
-      Logging::panic("submit(%ld) failed: %x err %x\n", blocksize, res, msg1.error);
+    res = disk->read(*myutcb(), /*disk*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma);
+    if (res) Logging::panic("submit(%ld) failed: %x\n", blocksize, res);
   }
 
 public:
   NORETURN
   int run(Utcb *utcb, Hip *hip)
   {
+    unsigned res;
     init(hip);
     console_init("Disk Benchmark", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     Logging::printf("Benchmark up and running\n");
 
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
+    assert(diskconsumer);
+
+    disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), 0);
+    res = disk->attach(*utcb, disk_buffer, sizeof(disk_buffer), alloc_cap(),
+		       diskconsumer, sem->sm());
+    if (res) Logging::panic("delegate_dma_buffer failed: %d\n", res);
     Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     mb->parse_args(reinterpret_cast<const char *>(hip->get_mod(0)->aux));
 
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
-    DiskConsumer *diskconsumer = new DiskConsumer();
-    assert(diskconsumer);
-    assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()) == 0);
+//     assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()) == 0);
 
     DiskParameter params;
-    MessageDisk msg0(0, &params);
-    if (Sigma0Base::disk(msg0)) Logging::panic("get params failed");
+    res = disk->get_params(*utcb, &params);
+    if (res) Logging::panic("get params failed");
     Logging::printf("DISK flags %x sectors %lld ssize %d maxreq %d name '%s'\n", params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
 
     unsigned  req_nr = requests_done;
