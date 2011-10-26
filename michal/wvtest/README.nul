@@ -33,6 +33,9 @@ Tracebuffer prefixes the output going from the applications with the
 number of the console. Therefor we allow each WvTest line to be
 prefixed with console number in parentheses and followed by a space.
 
+Additionally, vancouver prefixes serial output from VM by '#', so we
+allow this prefix as well.
+
 * ORG settings							   :noexport:
 #+STARTUP: showall hidestars
 
