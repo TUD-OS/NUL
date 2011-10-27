@@ -126,7 +126,7 @@ int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void
       rc  = matrixSslEncodeClosureAlert(ssl);
       if (rc >= 0) {
         if ((len = matrixSslGetOutdata(ssl, &buf)) > 0) {
-          Logging::printf("end of live message\n");
+          //Logging::printf("end of live message\n");
           write_out(port, buf, len);
           matrixSslSentData(ssl, len);
         }
@@ -253,13 +253,11 @@ int32 psGetTime(psTime_t *t)
   if (service_timer->time(*BaseProgram::myutcb(),msg)) return PS_FAILURE;
   if (t) *t = msg.wallclocktime;
   Math::div64(msg.wallclocktime, 1000000U);
-  Logging::printf("        - psGetTime success %llu\n", msg.wallclocktime);
   return msg.wallclocktime;
 }
 
 int32 psCompareTime(psTime_t a, psTime_t b)
 {
-  Logging::printf("        - psCompareTime\n");
 	//Time comparison.  1 if 'a' is less than or equal.  0 if 'a' is greater
   return a <= b;
 }
