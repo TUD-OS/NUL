@@ -105,7 +105,7 @@ struct ParentProtocol {
         res = nova_revoke(Crd(cap_pseudonym, 0, DESC_CAP_ALL), true);
         assert(res == ENONE);
       } else
-	return ERETRY;
+        return ERETRY;
     }
     return res;
   }
