@@ -20,8 +20,8 @@
 #include <nul/service_timer.h>
 
 #include <matrixssl/matrixsslApi.h>
-#include <sampleCerts/privkeySrv.h>
-#include <sampleCerts/certSrv.h>
+//#include <sampleCerts/privkeySrv.h>
+//#include <sampleCerts/certSrv.h>
 
 extern "C"
 {
@@ -30,34 +30,46 @@ static	sslKeys_t		  * keys = NULL;
 static  TimerProtocol * service_timer = NULL;
 static  uint32          cap_base = 0, cap_size;
 
-int32 nul_ssl_session(void *&ssl) {
+int32 nul_tls_session(void *&ssl) {
   return matrixSslNewServerSession(reinterpret_cast<ssl_t **>(&ssl), keys, NULL); //certDB
 }
 
-void nul_ssl_init(void) {
+bool nul_tls_init(unsigned char * server_cert, int32 server_cert_len,
+                  unsigned char * server_key, int32 server_key_len,
+                  unsigned char * ca_cert, int32 ca_cert_len)
+{
   int32 rc;
 
-  if (matrixSslOpen() < 0) Logging::panic("Ohno!\n");
-	if (!keys && matrixSslNewKeys(&keys) < 0) Logging::panic("ohno!\n");
+  if (!server_cert || server_cert_len <= 0 || !server_key || server_key_len <= 0 ||
+      (!ca_cert && ca_cert_len > 0) || (ca_cert && ca_cert_len <= 0) ||
+      matrixSslOpen() < 0 || (!keys && matrixSslNewKeys(&keys) < 0))
+  {
+    Logging::printf("failure - tls - initialization of SSL/TLS lib\n");
+    return false;
+  }
 
-	if ((rc = matrixSslLoadRsaKeysMem(keys, certSrvBuf, sizeof(certSrvBuf),
-				   privkeySrvBuf, sizeof(privkeySrvBuf), NULL, 0)) < 0) {
-		Logging::printf("failure - ssl - loading certificate material\n");
+//	if ((rc = matrixSslLoadRsaKeysMem(keys, certSrvBuf, sizeof(certSrvBuf),
+//				   privkeySrvBuf, sizeof(privkeySrvBuf), NULL, 0)) < 0) {
+	if ((rc = matrixSslLoadRsaKeysMem(keys, server_cert, server_cert_len,
+				   server_key, server_key_len, ca_cert, ca_cert_len)) < 0) {
 		matrixSslDeleteKeys(keys);
 		matrixSslClose();
+		Logging::printf("failure - tls - loading certificate material\n");
+    return false;
 	}
+  return true;
 }
 
-int32 nul_ssl_len(void * ssl, unsigned char * &buf) {
+int32 nul_tls_len(void * ssl, unsigned char * &buf) {
  int32 len;
 
  if ((len = matrixSslGetReadbuf(reinterpret_cast<ssl_t *>(ssl), &buf)) <= 0)
-	Logging::printf("failure - ssl_len receive buffer unavailable\n");
+	Logging::printf("failure - tls - receive buffer unavailable\n");
 
  return len;
 }
 
-int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
+int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                      void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session)
 {
   uint32 ubuflen;
@@ -70,7 +82,7 @@ int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void
 
     if (appdata && appdata_len > 0) {
       if (rc != MATRIXSSL_SUCCESS) {
-        Logging::panic("failure - ssl - processdata error %d\n", rc);
+        Logging::panic("failure - tls - processdata error %d\n", rc);
       }
       len = matrixSslEncodeToOutdata(ssl, reinterpret_cast<unsigned char *>(appdata), appdata_len);
       assert(len > 0);
@@ -84,11 +96,11 @@ int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void
   }
   else
   if ((rc = matrixSslReceivedData(ssl, transferred, &buf, &ubuflen)) < 0)
-  	Logging::printf("failure - ssl receive buffer error %d\n", rc);
+    Logging::printf("failure - tls - receive buffer error %d\n", rc);
 
   loop:
 
-  Logging::printf("        - ssl - next=%d buf=%p buflen=%u len=%d ssl=%p\n", rc, buf, ubuflen, len, ssl);
+  //Logging::printf("        - tls - next=%d buf=%p buflen=%u len=%d ssl=%p\n", rc, buf, ubuflen, len, ssl);
   switch (rc) {
     case MATRIXSSL_SUCCESS:            // 0 nothing to process, application protocol decides upon next step
       return 0;
@@ -120,12 +132,12 @@ int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void
         }
       }
       matrixSslDeleteSession(ssl);
-      rc  = nul_ssl_session(ssl_session);
+      rc  = nul_tls_session(ssl_session);
       ssl = reinterpret_cast<ssl_t *>(ssl_session);
       assert(rc == 0);
       return -1;
     case MATRIXSSL_RECEIVED_ALERT:     // 6  An alert was received 
-      Logging::printf("        - ssl - received alert %s(%x) type=%x \n", 
+      Logging::printf("        - tls - received alert %s(%x) type=%x \n",
         (ubuflen > 1 && buf[0] == SSL_ALERT_LEVEL_WARNING) ? "warning" : (buf[0] == SSL_ALERT_LEVEL_FATAL ? "fatal" : "unknown"),
         (ubuflen > 1 && buf) ? buf[0] : 0, (ubuflen > 1 && buf) ? buf[1] : 0);
       if (buf[1] == SSL_ALERT_CLOSE_NOTIFY) {
@@ -148,7 +160,7 @@ case PS_INTERRUPT_FAIL -14 An interrupt occurred and MAY be an error
 case PS_PENDING      -15  In process. Not necessarily an error
 */
     default:
-      Logging::printf("failure - ssl - unknown value %d\n", rc);
+      Logging::printf("failure - tls - unknown value %d\n", rc);
       rc = MATRIXSSL_REQUEST_CLOSE;
       goto loop;
   }
@@ -185,7 +197,7 @@ void _psTracePtr(char *message, void *value)
 
 int32 psGetEntropy(unsigned char *bytes, uint32 size)
 {
-  Logging::printf("warning - ssl entropy not implemented!\n");
+  Logging::printf("warning - tls - entropy not implemented!\n");
   return size;
 }
 
@@ -216,12 +228,12 @@ void osdepEntropyClose(void) { Logging::printf("warning - osdepentropyclose not 
 
 void *malloc(size_t size) {
   void * ptr = new char[size];
-  if (!ptr) Logging::panic("failure - ssl - malloc call\n");
+  if (!ptr) Logging::panic("failure - tls - malloc call\n");
   return ptr;
 }
 
 void free(void *ptr) {
-  if (!ptr) Logging::panic("failure - ssl - free call\n");
+  if (!ptr) Logging::panic("failure - tls - free call\n");
   delete [] reinterpret_cast<char *>(ptr);
  }
 
@@ -229,7 +241,7 @@ void *realloc(void *ptr, size_t size) {
   assert(ptr);
   assert(size);
   void * newptr = malloc(size);
-  Logging::printf("        - ssl - realloc call ptr=%p size=%zu -> newptr=%p\n", ptr, size, newptr);
+  Logging::printf("        - tls - realloc call ptr=%p size=%zu -> newptr=%p\n", ptr, size, newptr);
   memcpy(newptr, ptr, size); //XXX if ptr size increases, during copying we touch memory we should not XXX
   free(ptr);
   return newptr;
