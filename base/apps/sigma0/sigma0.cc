@@ -382,6 +382,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   static void fancy_output(const char *st, unsigned maxchars)
   {
     unsigned lastchar = 0;
+
+    if (!st) Logging::printf("NULL");
+    else
     for (unsigned x=0; x < maxchars && st[x]; x++)
       {
         unsigned value = st[x];
@@ -845,7 +848,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
                             else goto fail;
                             //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", modinfo->id, msg->value, msg->len, utcb->msg[0]);
 			  } else {
-			    Logging::printf("s0: [%02x] DMA access denied.\n", modinfo->id);
+			    Logging::printf("s0: [%2u] DMA access denied.\n", modinfo->id);
                             goto fail;
 			  }
 			  break;
@@ -855,13 +858,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned gsi_cap = _irq_cap_base + (msg->value & 0xff);
 			    unsigned res = nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    if (res != NOVA_ESUCCESS) goto fail;
-			    Logging::printf("s0: [%02x] gsi %lx granted\n", modinfo->id, msg->value);
+			    Logging::printf("s0: [%2u] gsi %lx granted\n", modinfo->id, msg->value);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = 0;
 			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  else {
-			    Logging::printf("s0: [%02x] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
+			    Logging::printf("s0: [%2u] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
 			    goto fail;
 			  }
 			  break;
@@ -889,7 +892,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    utcb->set_header(1, 0);
 			    utcb->msg[1] = 0;
 			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
-			    Logging::printf("s0: [%02x] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
+			    Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
@@ -908,7 +911,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_CREATE_EC4PT:
 			default:
 			  // unhandled
-			  Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+			  Logging::printf("s0: [%2u] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 			  goto fail;
 			}
 		    }
@@ -922,7 +925,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		    }
 		    break;
 		  default:
-		    Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		    Logging::printf("s0: [%2u] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    goto fail;
 		  }
 	      return;
@@ -1320,7 +1323,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       assert(index <= MAXDISKREQUESTS);
       MessageDiskCommit item(_disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
       if (!_disk_data[client].prod_disk.produce(item))
-        Logging::panic("s0: [%02x] produce disk (%x) failed\n", client, index);
+        Logging::panic("s0: [%2u] produce disk (%x) failed\n", client, index);
       _disk_data[client].tags[index-1].disk = 0;
     }
     return true;
@@ -1480,7 +1483,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case MessageConsole::TYPE_KILL:
       {
         unsigned res = kill_module(get_module(msg.id));
-        if (res) Logging::printf("s0: [%02x] kill module = %u\n", msg.id, res);
+        if (res) Logging::printf("s0: [%2u] kill module = %u\n", msg.id, res);
       }
       return true;
     case MessageConsole::TYPE_DEBUG:
