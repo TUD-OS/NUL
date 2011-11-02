@@ -323,7 +323,7 @@ public:
    */
   static void exit(const char *msg)
   {
-    if (msg)
+    if (msg && strcmp(msg, "run returned"))
       Logging::printf("! %s() - %s FAILED\n", __func__, msg);
 
     // Signal an event to parent
