@@ -97,6 +97,7 @@ if ($dump_config) {
 \$iprelay_addr = '$CFG::iprelay_addr';
 \$qemu = '$CFG::qemu';
 \$script_modifier = '$CFG::script_modifier';
+1;
 ";
     exit;
 }
