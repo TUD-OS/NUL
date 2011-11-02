@@ -242,7 +242,7 @@ sub system_verbose($)
 {
     my $cmd = shift;
     print "Running: $cmd\n";
-    system($cmd);
+    return system($cmd);
 }
 
 
@@ -284,8 +284,9 @@ foreach my $script (@scripts) {
 	my ($hostname, $path) = split(":", $server, 2);
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
-	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
+	my $ret = system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
+				 ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
+	if ($ret >> 8) { die("The above command failed!"); }
     }
     
     if (defined $iso_image) {
