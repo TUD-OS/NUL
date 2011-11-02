@@ -1,0 +1,8 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostvga:0x1000,0x2000 hostkeyb:0,0x60,1 hostserial script_start:1 verbose
+bin/apps/test_ipc.nul
+echo.nulconfig <<EOF
+  sigma0::mem:2 name::/s0/admission name::/s0/log ||
+  rom://bin/apps/test_ipc.nul
+EOF
