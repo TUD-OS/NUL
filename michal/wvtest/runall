@@ -7,8 +7,8 @@ exitcode=0
 for file in $tests; do
     set -x
     $dir/wvnulrun $file "$@"
-    set +x
     ret=$?
+    set +x
     if [ "$ret" -ne 0 ]; then
 	echo "! $0: $dir/wvnulrun returned non-zero exit code ($ret)  FAILED";
 	exitcode=1
