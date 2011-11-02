@@ -177,4 +177,4 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
 } /* namespace */
 
-ASMFUNCS(ab::IPCTest, NovaProgram)
+ASMFUNCS(ab::IPCTest, WvTest)
