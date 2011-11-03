@@ -162,6 +162,11 @@ public:
 
     // we like to have a 24/32bit mode but prefer a 24bit mode
     ConsoleModeInfo m;
+
+    for (MessageConsole msg(0, &m); !Sigma0Base::console(msg); msg.index++)
+      Logging::printf("mode %u: %ux%u bpp %u attr %u\n", msg.index,
+                      m.resolution[0], m.resolution[1], m.bpp, m.attr);
+
     for (MessageConsole msg(0, &m); !Sigma0Base::console(msg); msg.index++)
       if (m.attr & 0x80
 	  && m.bpp >= 24
@@ -178,7 +183,7 @@ public:
     _scratch      = reinterpret_cast<unsigned *>(_free_phys.alloc(3 * _header->width * _header->height, 12));
     _vesa_console = reinterpret_cast<char *>(_free_phys.alloc(size, 12));
     if (!_scratch || !_vesa_console) Logging::panic("not enough memory - %llu MB should be sufficient", ((3 * _header->width * _header->height + size + file_info.size) >> 20) + 2);
-    Logging::printf("RS: use %x %dx%d-%d %p size %x sc %x\n",
+    Logging::printf("RS: use mode %x %dx%d-%d %p size %x bytes per scanline %x\n",
 		    mode, _modeinfo.resolution[0], _modeinfo.resolution[1], _modeinfo.bpp, _vesa_console, size, _modeinfo.bytes_per_scanline);
 
     MessageConsole msg2("RS2", _vesa_console, size, &_vesaregs);
