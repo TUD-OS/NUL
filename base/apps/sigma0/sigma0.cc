@@ -607,6 +607,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!__hip) return 1;
     memcpy(__hip, _hip, _hip->length);
 
+    // Size of all command lines combined. Used later to evacuate them
+    // into high memory (above 1M).
+    size_t cmdlines_length = 0;
+    bool   need_evacuation = false;
+
     for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
       if (hmem->type == -2) {
@@ -616,8 +621,27 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         } else 
           hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
       } 
-      if (hmem->aux)
-        hmem->aux = reinterpret_cast<unsigned>(map_string(utcb, hmem->aux));
+      if (hmem->aux) {
+        need_evacuation = need_evacuation or (hmem->aux < (1U<<20));
+        char *cmdline = map_string(utcb, hmem->aux);
+        cmdlines_length += strlen(cmdline) + 1;
+        hmem->aux = reinterpret_cast<unsigned>(cmdline);
+      }
+    }
+
+    if (need_evacuation) {
+      char *cmdline_buf = new char[cmdlines_length];
+      char *cur = cmdline_buf;
+
+      for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
+        Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
+        if (hmem->aux) {
+          char *orig  = reinterpret_cast<char *>(hmem->aux);
+          hmem->aux = reinterpret_cast<unsigned long>(cur);
+          strcpy(cur, orig);
+          cur += strlen(orig)+1;
+        }
+      }
     }
     __hip->fix_checksum();
 
