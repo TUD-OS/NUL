@@ -97,10 +97,10 @@ class Rocknshine : public NovaProgram, ProgramConsole, GenericKeyboard
 public:
   int run(Utcb *utcb, Hip *hip)
   {
-    console_init("RS", new Semaphore(alloc_cap(), true));
     unsigned res;
     if ((res = init(hip))) Logging::panic("init failed with %x", res);
     init_mem(hip);
+    console_init("RS", new Semaphore(alloc_cap(), true));
     Logging::printf("rocknshine up and running.\n");
 
     char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
