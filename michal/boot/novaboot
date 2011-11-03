@@ -123,16 +123,34 @@ if (defined $iprelay) {
 	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
 	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
     }
+
+    sub relayconf($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
+	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relay($$) {
+	my ($relay, $onoff) = @_;
+	my $confirmation = '';
+	print $IPRELAY relaycmd($relay, $onoff);
+	read($IPRELAY, $confirmation, 7, length($confirmation)) || die("read: $!");
+	if ($confirmation ne relayconf($relay, $onoff)) {
+	    print "Confirmation: $confirmation Expected: ".relayconf($relay, $onoff)."\n";
+	    die("Unexpected relay command confirmation. The code must be enhanced");
+	}
+    }
 }
 
 if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
-    print $IPRELAY relaycmd(1, 1); # Press power button
+     relay(1, 1); # Press power button
     if ($iprelay eq "on") {
-	usleep(200000);		# Short press
+	usleep(100000);		# Short press
     } else {
 	usleep(6000000);	# Long press to switch off
     }
-    print $IPRELAY relaycmd(1, 0);
+    print $IPRELAY relay(1, 0);
     exit;
 }
 
@@ -381,9 +399,9 @@ if (defined $dhcp_tftp)
 if ($serial || defined $iprelay) {
     my $CONN;
     if (defined $iprelay) {
-	print $IPRELAY relaycmd(2, 1); # Reset the machine
-	usleep(200000);
-	print $IPRELAY relaycmd(2, 0);
+	relay(2, 1); # Reset the machine
+	usleep(100000);
+	relay(2, 0);
 
 	$CONN = $IPRELAY;
     } elsif ($serial) {
