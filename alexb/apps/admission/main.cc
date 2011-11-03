@@ -99,7 +99,7 @@ public:
     }
   }
 
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
     {
       unsigned op, res;
       check1(EPROTO, input.get_word(op));
@@ -229,7 +229,6 @@ public:
             }
             data->scs[i].idx = idx_sc;
           }
-//          *reinterpret_cast<unsigned long *>(0xaffe) = 0xaffe;
           if (enable_verbose) Logging::printf("created sc - prio=%u quantum=%u cpu=%u\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu);
           return ENONE;
         }

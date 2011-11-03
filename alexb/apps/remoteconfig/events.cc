@@ -34,7 +34,7 @@
     while(1) {}
   }
 
-  unsigned EventService::portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
+  unsigned EventService::portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
     {
       unsigned op, res;
       check1(EPROTO, input.get_word(op));

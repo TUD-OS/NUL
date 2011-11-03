@@ -705,7 +705,7 @@ public:
 
   unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid) {
     unsigned res = ENONE;
     unsigned op;
 

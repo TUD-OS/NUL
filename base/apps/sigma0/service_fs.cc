@@ -60,7 +60,7 @@ public:
     asmlinkage_protect("g"(tls), "g"(utcb));
   }
 
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid) {
     unsigned op, len;
     check1(EPROTO, input.get_word(op));
 
