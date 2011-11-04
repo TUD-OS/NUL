@@ -106,7 +106,7 @@ graphs = Graphs()
 commits = {}
 
 re_date = re.compile('^Date: (.*)')
-re_testing = re.compile('^(\([0-9]+\) )?\s*Testing "(.*)" in (.*):\s*$')
+re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
 re_commit = re.compile('(\S+) (.*?), commit: (.*)')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
@@ -123,8 +123,8 @@ for line in sys.stdin.readlines():
     
     match = re_testing.match(line)
     if match:
-        what = match.group(2)
-        where = match.group(3)
+        what = match.group(3)
+        where = match.group(4)
 
         match = re_commit.match(what)
         if match:
