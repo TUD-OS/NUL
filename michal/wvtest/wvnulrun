@@ -79,7 +79,7 @@ while (<$fh>)
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif ((/sc: done.$/ && $waits_for_child) ||
 	   /resetting machine via method/ ||
-	   /wvtest: done$/ ||
+	   /wvtest: done\s*$/ ||
 	   / # .*System halted. *$/)
     {
 	kill 15, $pid;		# Kill novaboot or qemu
