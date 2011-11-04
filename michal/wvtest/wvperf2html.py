@@ -7,6 +7,10 @@ import os.path
 import string
 import time
 
+class Column:
+    def __init__(self, name):
+        self.name = name
+        self.units = ""
 
 class Row(dict):
     def __init__(self, graph, date):
@@ -14,7 +18,7 @@ class Row(dict):
         self.date = date
     def __setitem__(self, key, val):
         dict.__setitem__(self, key, val)
-        self.graph.columns[key]=1;
+        self.graph.columns[key]=Column(key);
     def getDate(self):
         d = time.gmtime(time.mktime(self.date))
         return "Date.UTC(%s, %s, %s, %s, %s, %s)" % \
@@ -39,6 +43,9 @@ class Graph:
         except IndexError:
             self.rows[row:row] = [Row(self, date)]
             return self.rows[row]
+
+    def setUnits(self, key, units):
+        self.columns[key].units = units
 
     def jschart(self):
         print """
@@ -77,14 +84,14 @@ class Graph:
 			        maxZoom: 14 * 24 * 3600000 // fourteen days
 			    },
 			    yAxis: ["""
-    	for col in self.columns:
-            print "\t\t\t\t{ title: { text: '%s' } }," % col.upper()
+	for col in self.columns.values():
+            print "\t\t\t\t{ title: { text: '%s [%s]' } }," % (col.name.upper(), col.units)
         print """\t\t\t    ],
 				
 			    series: ["""
         num = 0
 	for col in self.columns.keys():
-            print "\t\t\t\t{ name: '%s', yAxis: %d, data: [" % (col, num)
+            print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col, self.columns[col].units, num)
             num += 1
             for row in self.rows:
                 print "\t\t\t\t\t[%s, %s], " % (row.getDate(), row[col])
@@ -103,6 +110,8 @@ re_testing = re.compile('^(\([0-9]+\) )?\s*Testing "(.*)" in (.*):\s*$')
 re_commit = re.compile('(\S+) (.*?), commit: (.*)')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
+
+date = time.localtime(time.time())
 
 for line in sys.stdin.readlines():
     line = line.rstrip()
@@ -141,11 +150,12 @@ for line in sys.stdin.readlines():
         key = perf[0]
         val = perf[1]
         try:
-            unit = perf[2]
+            units = perf[2]
         except:
-            unit = None        
+            units = None
 
         graph[date][key] = val
+        graph.setUnits(key, units);
 
 graphs = [g for g in graphs.values() if len(g.columns)]
 

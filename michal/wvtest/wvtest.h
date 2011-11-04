@@ -32,7 +32,7 @@
 #define WVFAILNE(a, b) WVPASSEQ(a, b)
 
 // Performance monitoring
-#define WVPERF(value)  ({ WvTest __t(__FILE__, __LINE__, "PERF: " #value);  __t.check_perf(value); })
+#define WVPERF(value, units)  ({ WvTest __t(__FILE__, __LINE__, "PERF: " #value);  __t.check_perf(value, units); })
 
 // Debugging
 #define WV(code)    ({ WvTest __t(__FILE__, __LINE__, #code); __t.check(true); code; })
@@ -284,11 +284,11 @@ public:
     }
 
   template <typename T>
-  T check_perf(T val)
+  T check_perf(T val, const char *units)
   {
-    char valstr[20];
+    char valstr[20+strlen(units)];
     stringify(valstr, sizeof(valstr), val);
-    print_result(true, valstr);
+    print_result(true, " ", valstr, units);
     return val;
   }
 
