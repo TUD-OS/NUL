@@ -928,8 +928,8 @@ VM_FUNC(PT_VMX + 16, vmx_rdtsc, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_STATE
         handle_vcpu(pid, true, CpuMessage::TYPE_RDTSC, tls, utcb);
         )
 
-VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
-	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
+VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN,
+// 	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
 	utcb->eip += utcb->inst_len;
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE | MTD_RFLAGS,
