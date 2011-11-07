@@ -9,7 +9,8 @@ if ! nul-nightly.sh > $log 2>&1; then
     (
 	echo "Pipe this mail to 'nul/michal/wvtest/wvtestrun cat' to get more human readable formating."
 	echo
-	cat $log
+	cat $log | tr -d '\015' | iconv -f ASCII -t ASCII//IGNORE
+	echo
     ) | mail -s 'NUL nighly build/test failed!' sojka@os
 fi
 cat $log  # Mail the log to me (backup)
