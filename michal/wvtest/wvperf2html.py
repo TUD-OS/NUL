@@ -63,9 +63,7 @@ class Graph:
 			    },
                             legend: {
                                 enabled: true,
-                                align: "left",
-                                layout: "vertical",
-                                floating: "true",
+                                floating: false,
                                 verticalAlign: "top",
                                 x: 100,
                                 y: 60,
@@ -85,7 +83,7 @@ class Graph:
 			    },
 			    yAxis: ["""
 	for col in self.columns.values():
-            print "\t\t\t\t{ title: { text: '%s [%s]' } }," % (col.name.upper(), col.units)
+            print "\t\t\t\t{ lineWidth: 1, labels: { align: 'right', x: -3 }, title: { text: '%s [%s]' } }," % (col.name, col.units)
         print """\t\t\t    ],
 				
 			    series: ["""
