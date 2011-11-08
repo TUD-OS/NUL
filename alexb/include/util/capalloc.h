@@ -25,21 +25,15 @@ class CapAllocatorAtomic {
     enum
     {
       BITS_PER_CHAR = 8,
-      BITS_PER_INT  = sizeof(int)*8,
-      BYTES_PER_INT = sizeof(int),
+      BITS_PER_UNSIGNED  = sizeof(unsigned)*8,
+      BYTES_PER_UNSIGNED = sizeof(unsigned),
     };
   
     // _bits[ceiling(BITS / sizeof(int))]
-    unsigned volatile _bits[(BITS + BITS_PER_INT - 1) / BITS_PER_INT];
-    unsigned long _cap_base;
+    unsigned volatile _bits[(BITS + BITS_PER_UNSIGNED - 1) / BITS_PER_UNSIGNED];
+    cap_sel _cap_base;
 
-    /*
-     * Get maximum number of bits represented by this field.
-     */
-    unsigned idx_max()   const { return sizeof(_bits) * BITS_PER_CHAR; }
-    unsigned bytes_max() const { return sizeof(_bits) / BYTES_PER_INT; }
-
-    unsigned internal_alloc_cap(unsigned count = 1, unsigned byte_start = 0) {
+    cap_sel internal_alloc_cap(unsigned count = 1, unsigned byte_start = 0) {
       assert(count == 1);
       assert(_cap_base != ~0UL);
 
@@ -57,28 +51,35 @@ class CapAllocatorAtomic {
       if (~_old == 0U) goto redo;
 
       unsigned pos = Cpu::bsf(~_old);
-      if (pos > BITS_PER_INT) goto redo;
+      if (pos > BITS_PER_UNSIGNED) goto redo;
       _new = _old | (1U << pos);
       if (_old != Cpu::cmpxchg4b(&_bits[i], _old, _new)) goto redo;
 
       //Logging::printf("i=%u 0x%x _old %x, _new %x, pos %u\n", i, i*8*4, _old, _new, pos);
-      return _cap_base + i * BITS_PER_INT + pos;
+      return _cap_base + i * BITS_PER_UNSIGNED + pos;
     }
 
   public:
 
-    CapAllocatorAtomic(unsigned long _cap_start = ~0UL) //~0U means disabled
+    CapAllocatorAtomic(cap_sel _cap_start = ~0UL) //~0U means disabled
       : _bits(), _cap_base(_cap_start)
     { }
 
-    unsigned alloc_cap(unsigned count = 1) { return internal_alloc_cap(count); }
+    /*
+     * Get maximum number of bits represented by this field.
+     */
+    unsigned idx_max()   const { return sizeof(_bits) * BITS_PER_CHAR; }
+    unsigned bytes_max() const { return sizeof(_bits) / BYTES_PER_UNSIGNED; }
+    cap_sel  idx_smallest() { return _cap_base; }
 
-    void dealloc_cap(unsigned cap, unsigned count = 1) {
+    cap_sel alloc_cap(unsigned count = 1) { return internal_alloc_cap(count); }
+
+    void dealloc_cap(cap_sel cap, unsigned count = 1) {
       assert(_cap_base != ~0UL);
       assert (cap >= _cap_base && (cap - _cap_base + (count ? count - 1 : 0)) < idx_max());
       while (count--) {
-        unsigned i   = (cap + count - _cap_base) / BITS_PER_INT;
-        unsigned pos = (cap + count - _cap_base) % BITS_PER_INT;
+        unsigned i   = (cap + count - _cap_base) / BITS_PER_UNSIGNED;
+        unsigned pos = (cap + count - _cap_base) % BITS_PER_UNSIGNED;
 
         redo:
 
