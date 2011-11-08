@@ -190,6 +190,7 @@ public:
 	break;
       case IER:
 	_regs[offset] = msg.value & 0xf;
+        update_irq();
 	break;
       case FCR:
 	if ((_regs[FCR] ^ msg.value) & 1 || ((msg.value & 3) == 3))
