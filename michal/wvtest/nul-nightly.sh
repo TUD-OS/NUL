@@ -23,7 +23,14 @@ echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 cd build
 scons target_cc=/usr/local/gcc/4.6/bin/gcc target_cxx=/usr/local/gcc/4.6/bin/g++
 
-PATH=$HOME/bin:$PATH
+# Setup environment for libvirt tests
+make -C ../alexb/apps/libvirt install DESTDIR=$PWD/libvirt
+cp ../michal/imgs/passive/CAcertSrv.pem cacert.pem
+PATH=$HOME/bin:$PWD/libvirt/usr/local/bin:$PATH
+LD_LIBRARY_PATH=$PWD/libvirt/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH
+
+# Run the tests
 novaboot --iprelay=on
 
 # Reseting the machine just after power on confuses BIOS and causes it to ask some stupid question.

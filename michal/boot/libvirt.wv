@@ -1,0 +1,18 @@
+#!/bin/bash
+
+wvpath=$(readlink -f $(dirname $0)/../wvtest)
+
+. $wvpath/wvtest.sh
+
+WVSTART libvirt
+
+# Boot NOVA up to the point it is receiving libvirt connections
+set -x
+P="NOVA management daemon is up. Waiting for libvirt connection"
+WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $(dirname $0)/passive "$@" | tee passive.log
+nova_ip=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
+set +x
+
+# Tests for libvirt commands
+WVPASS sh -c "virsh -c nova+tls://$nova_ip:9999 nodeinfo | tee nodeinfo.log"
+WVPASS grep "CPU model:" nodeinfo.log
