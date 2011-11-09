@@ -18,8 +18,11 @@ libvirt-0.9.6.tar.gz:
 	 $(MAKE) -C libvirt-0.9.6
 	touch $@
 
-install: .build.stamp
+.install.stamp: .build.stamp
 	$(MAKE) -C libvirt-0.9.6/ install
+	touch $@
+
+install: .install.stamp
 
 clean:
 	rm libvirt-0.9.6/ -rf
