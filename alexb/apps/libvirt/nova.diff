@@ -230,8 +230,8 @@ diff -urN libvirt-0.9.6/src/nova/nova_conf.h libvirt-0.9.6-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_driver.c
 --- libvirt-0.9.6/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.6-own/src/nova/nova_driver.c	2011-11-09 12:51:21.000000000 +0100
-@@ -0,0 +1,707 @@
++++ libvirt-0.9.6-own/src/nova/nova_driver.c	2011-11-09 14:25:27.000000000 +0100
+@@ -0,0 +1,709 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -493,7 +493,9 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +          goto error_tls_cert;
 +        }
 +        gnutls_certificate_set_verify_function(*connections[i].xcred, tls_verify_cert_cb);
++#if LIBGNUTLS_VERSION_NUMBER >= 0x020a00
 +        gnutls_certificate_set_verify_flags(*connections[i].xcred, GNUTLS_VERIFY_DO_NOT_ALLOW_X509_V1_CA_CRT);
++#endif
 +
 +        if (gnutls_priority_set_direct(*connections[i].session, "PERFORMANCE", NULL) != GNUTLS_E_SUCCESS) goto error_tls_cert;
 +        if (gnutls_credentials_set(*connections[i].session, GNUTLS_CRD_CERTIFICATE, *connections[i].xcred) != GNUTLS_E_SUCCESS) goto error_tls_cert;
