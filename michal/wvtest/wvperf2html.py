@@ -6,6 +6,7 @@ import os
 import os.path
 import string
 import time
+import numpy as np
 
 class Column:
     def __init__(self, name):
@@ -47,6 +48,21 @@ class Graph:
     def setUnits(self, key, units):
         self.columns[key].units = units
 
+    def findRanges(self):
+        for col in self.columns.values():
+            values = np.array([row[col.name] for row in self.rows], np.float64)
+            lastmonth = values[-30:]
+            median = np.median(lastmonth);
+            col.low = median * 0.95
+            col.high = median * 1.05
+
+            if (values > col.high).any() or (values < col.low).any():
+                col.yrange_max = None
+                col.yrange_min = None
+            else:
+                col.yrange_max = col.high
+                col.yrange_min = col.low
+
     def jschart(self):
         print """
 			window.chart = new Highcharts.StockChart({
@@ -83,7 +99,14 @@ class Graph:
 			    },
 			    yAxis: ["""
 	for col in self.columns.values():
-            print "\t\t\t\t{ lineWidth: 1, labels: { align: 'right', x: -3 }, title: { text: '%s [%s]' } }," % (col.name, col.units)
+            print "\t\t\t\t{"
+            print "\t\t\t\t\tlineWidth: 1,"
+            print "\t\t\t\t\tlabels: { align: 'right', x: -3 },"
+            print "\t\t\t\t\ttitle: { text: '%s [%s]' }," % (col.name, col.units)
+            #print "\t\t\t\t\tplotBands: { from: %s, to: %s, color: '#eee' }," % (col.low, col.high)
+            if col.yrange_min: print "\t\t\t\t\tmin: %s," % col.yrange_min
+            if col.yrange_max: print "\t\t\t\t\tmax: %s," % col.yrange_max
+            print "\t\t\t\t},"
         print """\t\t\t    ],
 				
 			    series: ["""
@@ -161,6 +184,8 @@ for line in sys.stdin.readlines():
 
 graphs = [g for g in graphs.values() if len(g.columns)]
 
+for g in graphs:
+    g.findRanges()
 
 print """
 <!DOCTYPE HTML>
