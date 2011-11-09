@@ -22,13 +22,8 @@ echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 
 cd build
 scons target_cc=/usr/local/gcc/4.6/bin/gcc target_cxx=/usr/local/gcc/4.6/bin/g++
-
-# Setup environment for libvirt tests
-make -C ../alexb/apps/libvirt install DESTDIR=$PWD/libvirt
-cp ../michal/imgs/passive/CAcertSrv.pem cacert.pem
-PATH=$HOME/bin:$PWD/libvirt/usr/local/bin:$PATH
-LD_LIBRARY_PATH=$PWD/libvirt/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-export LD_LIBRARY_PATH
+make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
+PATH=$HOME/bin:$PATH
 
 # Run the tests
 novaboot --iprelay=on
