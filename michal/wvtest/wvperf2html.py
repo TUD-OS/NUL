@@ -92,7 +92,11 @@ class Graph:
             print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col, self.columns[col].units, num)
             num += 1
             for row in self.rows:
-                print "\t\t\t\t\t[%s, %s], " % (row.getDate(), row[col])
+                try:
+                    val = row[col]
+                except KeyError:
+                    val = "null"
+                print "\t\t\t\t\t[%s, %s], " % (row.getDate(), val)
             print "\t\t\t\t]},"
         print """\t\t\t    ],
 			});"""
