@@ -46,7 +46,7 @@ Precious(imgsrepo)
 AlwaysBuild(imgsrepo)
 
 test = cmd_env.Command("test", ["wvtest/wvtestrun", "wvtest/runall"],
-                       """${SOURCES[0]} ${SOURCES[1]} --build-dir=.""")
+                       """WVTEST_SKIP_LONG=1 ${SOURCES[0]} ${SOURCES[1]} --build-dir=.""")
 Depends(test, DEFAULT_TARGETS + [imgsrepo, imgs])
 AlwaysBuild(test)
 
