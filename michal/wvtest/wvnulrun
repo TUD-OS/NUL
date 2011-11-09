@@ -89,6 +89,7 @@ while (<$fh>)
     elsif ((/sc: done.$/ && $waits_for_child) ||
 	   /resetting machine via method/ ||
 	   /wvtest: done\s*$/ ||
+	   ( $ENV{WVTEST_EXIT_PATTERN} && /$ENV{WVTEST_EXIT_PATTERN}/ ) ||
 	   / # .*System halted. *$/)
     {
 	kill 15, $pid;		# Kill novaboot or qemu
