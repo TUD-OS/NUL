@@ -342,6 +342,10 @@ if ($variables->{WVDESC}) {
     print "Testing \"all\" in $filename:\n";
 }
 
+if ($variables->{WVTEST_TIMEOUT}) {
+    print "wvtest: timeout ", $variables->{WVTEST_TIMEOUT}, "\n";
+}
+
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
     # Qemu
     $qemu_flags = $variables->{QEMU_FLAGS} if $variables->{QEMU_FLAGS};
@@ -645,6 +649,13 @@ The following variables are interpreted in the novaboot script:
 =item WVDESC
 
 Description of the wvtest-compliant program.
+
+=item WVTEST_TIMEOUT
+
+The timeout in seconds for WvTest harness. If no complete line appears
+in the test output within the time specified here, the test fails. It
+is necessary to specify this for long running tests that produce no
+intermediate output.
 
 =item QEMU_FLAGS
 

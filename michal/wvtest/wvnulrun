@@ -65,10 +65,11 @@ my ($start, $stop);
 my $tests_executed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
-alarm(100);
+my $timeout = 100;
+alarm($timeout);
 while (<$fh>)
 {
-    alarm(100);
+    alarm($timeout);
     print;
     chomp;
     s/\r//g;
@@ -76,6 +77,7 @@ while (<$fh>)
     if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
 	$tests_executed++;
     }
+    elsif (/wvtest: timeout (\d+)\s*$/) { $timeout=$1; }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif ((/sc: done.$/ && $waits_for_child) ||
 	   /resetting machine via method/ ||
