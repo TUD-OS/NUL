@@ -52,11 +52,13 @@ sub bigkill($)
     exit(125);
 }
 
+my $timeout = 100;
+
 # parent
 local $SIG{INT} = sub { bigkill($pid); };
 local $SIG{TERM} = sub { bigkill($pid); };
 local $SIG{ALRM} = sub {
-    print STDERR "Alarm timed out!  No test results for too long.\n";
+    print STDERR "! $0: Alarm timed out!  No test output for $timeout seconds.  FAILED\n";
     bigkill($pid);
 };
 
@@ -65,7 +67,6 @@ my ($start, $stop);
 my $tests_executed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
-my $timeout = 100;
 alarm($timeout);
 while (<$fh>)
 {
