@@ -20,6 +20,11 @@ class Row(dict):
     def __setitem__(self, key, val):
         dict.__setitem__(self, key, val)
         self.graph.columns[key]=Column(key);
+    def __getitem__(self, column):
+        try:
+            return dict.__getitem__(self, column)
+        except KeyError:
+            return None
     def getDate(self):
         d = time.gmtime(time.mktime(self.date))
         return "Date.UTC(%s, %s, %s, %s, %s, %s)" % \
@@ -50,7 +55,7 @@ class Graph:
 
     def findRanges(self):
         for col in self.columns.values():
-            values = np.array([row[col.name] for row in self.rows], np.float64)
+            values = np.array([row[col.name] for row in self.rows if row[col.name] != None], np.float64)
             lastmonth = values[-30:]
             median = np.median(lastmonth);
             col.low = median * 0.95
@@ -115,10 +120,8 @@ class Graph:
             print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col, self.columns[col].units, num)
             num += 1
             for row in self.rows:
-                try:
-                    val = row[col]
-                except KeyError:
-                    val = "null"
+                val = row[col]
+                if val == None: val = "null"
                 print "\t\t\t\t\t[%s, %s], " % (row.getDate(), val)
             print "\t\t\t\t]},"
         print """\t\t\t    ],
