@@ -1,5 +1,6 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
+HYPERVISOR_PARAMS=serial
 QEMU_FLAGS=-cpu phenom -smp 2
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config
 bin/apps/vancouver.nul
