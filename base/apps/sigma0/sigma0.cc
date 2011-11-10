@@ -914,9 +914,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned long addr = msg->value & ~0xffful;
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->set_header(1, 0);
-			    utcb->msg[1] = 0;
-			    if (0 != utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL))
-			      goto fail;
+			    utcb->msg[0] = utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL))
+			    if (utcb->msg[0]) goto fail;
 			    Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
 			  }
 			  break;
