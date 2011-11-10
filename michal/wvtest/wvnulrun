@@ -119,7 +119,9 @@ if ($ret != 0) {
     print "! $0: Program '", join(" ", @ARGV), "' returned non-zero exit code ($ret)  FAILED\n";
 }
 
-printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+if (!$ENV{WVTEST_EXIT_PATTERN}) {
+    printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+}
 if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
 
 exit $ret;
