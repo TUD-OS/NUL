@@ -119,6 +119,9 @@ sub endsect()
     if ($start) {
 	my ($time, $timelength) = mstime($stop - $start, 60000, 60000);
 	printf " %s %s\n", $time, colourize($column + 2 + $timelength, "ok");
+    } elsif ($column > 0) {
+	print "\n";
+	$column = 0;
     }
 }
 
