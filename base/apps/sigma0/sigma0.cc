@@ -885,7 +885,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    Logging::printf("s0: [%2u] gsi %lx granted\n", modinfo->id, msg->value);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = utcb->add_mappings(gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
-          if (utcb->msg[0]) goto fail;
+			    if (utcb->msg[0]) goto fail;
 			  }
 			  else {
 			    Logging::printf("s0: [%2u] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
@@ -897,7 +897,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    if (!cap) goto fail;
 			    utcb->msg[0] = utcb->add_mappings(cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
-          if (utcb->msg[0]) goto fail;
+			    if (utcb->msg[0]) goto fail;
 			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
 			  }
 			  break;
@@ -906,7 +906,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
 			  utcb->set_header(1, 0);
 			  utcb->msg[0] = utcb->add_mappings((msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_CAP_ALL);
-        if (utcb->msg[0]) goto fail;
+			  if (utcb->msg[0]) goto fail;
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
 			  {
@@ -916,7 +916,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    utcb->set_header(1, 0);
 			    utcb->msg[1] = 0;
 			    if (0 != utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL))
-            goto fail;
+			      goto fail;
 			    Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
 			  }
 			  break;
