@@ -12,9 +12,9 @@ set -e
 
 cd ~/nul
 
-git reset --hard
+git fetch --quiet
+git reset --hard origin/master
 git clean -f
-git pull --quiet
 git submodule update --init
 
 ver="$(git describe) $(git log -n 1 --format='(%an: %s)')"
