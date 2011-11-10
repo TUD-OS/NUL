@@ -354,6 +354,28 @@ struct Utcb
     HEADER_SIZE = sizeof(struct head),
   };
 
+  /**
+   * Add mappings to a UTCB.
+   * Returns size of memory left which couldn't be put on the utcb becaus no space is left.
+   */
+  WARN_UNUSED
+  unsigned long add_mappings(unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
+  {
+    while (size > 0) {
+      unsigned minshift = Cpu::minshift(addr | (hotspot & ~0xffful) , size);
+      assert(minshift >= Utcb::MINSHIFT);
+      this->head.typed++;
+      unsigned *item = this->item_start();
+      if (item <= this->msg+this->head.untyped) return size;
+      item[1] = hotspot;
+      item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
+      unsigned long mapsize = 1 << minshift;
+      size    -= mapsize;
+      addr    += mapsize;
+      hotspot += mapsize;
+    }
+    return size;
+  }
 
 };
 enum {

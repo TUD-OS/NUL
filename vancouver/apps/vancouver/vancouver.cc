@@ -486,7 +486,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
 
       utcb->mtd = 0;
-      add_mappings(utcb, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
+      utcb->add_mappings(own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
 
       // EPT violation during IDT vectoring?
       if (utcb->inj_info & 0x80000000) {
