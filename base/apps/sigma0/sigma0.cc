@@ -837,9 +837,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
 	    }
 
-	    utcb->mtd = 0;
-	    utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	    utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
+	    utcb->set_header(0,0);
+	    if ((utcb->qual[1] & CLIENT_HIP) == CLIENT_HIP) {
+	      unsigned long rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
+	      assert(!rest); //should ever succeed, one page should ever fit
+	    } else {
+	      unsigned long rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
+	      if (rest) {
+	        utcb->set_header(0,0);
+	        unsigned long offset = (utcb->qual[1] & ~((1UL << Utcb::MINSHIFT) - 1)) - MEM_OFFSET;  //XXX be more clever here, find out which is the biggest junk we can map
+	        rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->mem) + offset, 1UL << Utcb::MINSHIFT, (MEM_OFFSET + offset) | MAP_MAP, DESC_MEM_ALL);
+	        assert(!rest); //should ever succeed, one page should ever fit
+	      }
+	    }
 	    if (verbose & VERBOSE_INFO)
 	      Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
