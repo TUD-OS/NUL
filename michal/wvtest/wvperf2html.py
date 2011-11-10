@@ -226,7 +226,8 @@ print """
 	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
 	<script type="text/javascript">
 		var commitMap = {"""
-for (d, v) in commits.items():
+for d in sorted(commits.iterkeys()):
+    v = commits[d];
     print '\t\t\t%d: { msg: "%s", hash: "%s" },' % (1000*time.mktime(d), v[0].replace('"', '\\"'), str(v[1]).replace('"', '\\"'))
 print """\t\t};
 		$(function() {"""
