@@ -11,6 +11,7 @@ libvirt-0.9.6.tar.gz:
 
 .configure.stamp: .patch.stamp
 	cd libvirt-0.9.6 && \
+	 autoreconf && \
 	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --without-remote --with-nova --without-macvtap
 	touch $@
 
@@ -25,4 +26,7 @@ $(DESTDIR)/.install.stamp: .build.stamp
 install: $(DESTDIR)/.install.stamp
 
 clean:
-	rm libvirt-0.9.6/ -rf
+	rm -rf libvirt-0.9.6
+	rm -f .build.stamp 
+	rm -f .configure.stamp
+	rm -f .patch.stamp
