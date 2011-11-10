@@ -125,6 +125,16 @@ sub endsect()
     }
 }
 
+sub print_and_clear_log()
+{
+    print "\n" if ($column);
+    print "v"x($columns-1) . "\n"; # Top marker
+    print join("\n", @log) . "\n";
+    print "^"x($columns-1) . "\n"; # Bottom marker
+    $column = 0;
+    @log = ();
+}
+
 alarm(120);
 while (<$fh>)
 {
@@ -143,7 +153,7 @@ while (<$fh>)
 	my $msg = sprintf("$prefix! %s  %s: ", $file, $sect);
 	print $msg;
 	$column = length($prefix.$msg);
-	@log = '╭'.('─'x($columns - 2)).'╮';
+	@log = ();
 	$start = $stop;
     }
     elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
@@ -163,12 +173,7 @@ while (<$fh>)
 
 	if (!$pass) {
 	    $gfails++;
-	    if (@log) {
-		print "\n" if ($column);
-		print join("\n", @log) . "\n" . '╰'.('─'x($columns - 2)) . "╯\n";
-		$column = 0;
-		@log = '╭'.('─'x($columns - 2)).'╮';
-	    }
+	    print_and_clear_log() if (@log);
 	} else {
 	    $gpasses++;
 	    print ".";
@@ -196,7 +201,7 @@ my $ret = ($code >> 8);
 if ($code && !$ret) { $ret = $code | 128; }
 
 if ($ret && @log) {
-    print "\n" . join("\n", @log) . "\n";
+    print_and_clear_log();
 }
 
 if ($code != 0) {
