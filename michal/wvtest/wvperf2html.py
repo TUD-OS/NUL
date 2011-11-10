@@ -92,7 +92,7 @@ class Graph:
                             tooltip: {
                                 formatter: function() {
                                     var s = '<b>'+ Highcharts.dateFormat('%a, %d %b %Y %H:%M:%S', this.x) +'</b><br/>';
-                                    s += commitMap[this.x];
+                                    s += commitMap[this.x].msg;
                                     $.each(this.points, function(i, point) {
                                         s += '<br/>'+ point.series.name +': '+point.y;
                                     });
@@ -101,7 +101,27 @@ class Graph:
                             },			    
 			    xAxis: {
 			        maxZoom: 14 * 24 * 3600000 // fourteen days
-			    },
+			    },"""
+	print  """
+		            plotOptions: {
+		                series: {
+		                    events: {
+		                        click: function(event) {
+					    var lastpoint = null;
+					    for (var i in this.data) {
+					      if (event.point == this.data[i]) {
+					        if (i > 0) lastpoint = this.data[i-1];
+					        break;
+					      }
+					    }
+					    if (lastpoint)
+					      window.location = "http://os.inf.tu-dresden.de/~jsteckli/cgi-bin/cgit.cgi/nul/log/?qt=range&q="+commitMap[lastpoint.x].hash+'..'+commitMap[event.point.x].hash;
+					    else
+					      window.location = "http://os.inf.tu-dresden.de/~jsteckli/cgi-bin/cgit.cgi/nul/log/?id="+commitMap[event.point.x].hash;
+					}
+		                    }
+		                }
+		            },
 			    yAxis: ["""
 	for col in self.columns.values():
             print "\t\t\t\t{"
@@ -136,6 +156,7 @@ commits = {}
 re_date = re.compile('^Date: (.*)')
 re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
 re_commit = re.compile('(\S+) (.*?), commit: (.*)')
+re_commithash = re.compile('([0-9a-f]{7}) \(')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
 
@@ -158,7 +179,12 @@ for line in sys.stdin.readlines():
         if match:
             date = time.strptime(match.group(2), "%Y-%m-%d %H:%M:%S")
             commit = match.group(3)
-            commits[date] = commit
+            match = re_commithash.search(commit);
+            if match:
+                commithash = match.group(1)
+            else:
+                commithash = None
+            commits[date] = (commit, commithash)
         
         (basename, ext) = os.path.splitext(os.path.basename(where))
         
@@ -201,7 +227,7 @@ print """
 	<script type="text/javascript">
 		var commitMap = {"""
 for (d, v) in commits.items():
-    print '\t\t\t%d: "%s",' % (1000*time.mktime(d), v.replace('"', '\\"'))
+    print '\t\t\t%d: { msg: "%s", hash: "%s" },' % (1000*time.mktime(d), v[0].replace('"', '\\"'), str(v[1]).replace('"', '\\"'))
 print """\t\t};
 		$(function() {"""
 for graph in graphs:
