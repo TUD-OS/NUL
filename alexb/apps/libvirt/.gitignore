@@ -1,3 +1,4 @@
 libvirt-*.tar.gz
 libvirt-*/
 .*.stamp
+_install/
