@@ -173,9 +173,9 @@ struct FsProtocol : public GenericProtocol {
 //        Logging::printf("typed %x addr %lx order %lx size %lx hotspot %lx msg %p START %x &msg[START]=%p item_start %p\n",
 //          utcb.head.typed, addr, order, size, hotspot, utcb.msg, utcb.msg[Utcb::STACK_START], &utcb.msg[Utcb::STACK_START], utcb.item_start());
 
-          Utcb::TypedMapCap value = Utcb::TypedMapCap(addr >> Utcb::MINSHIFT, ((order - 12) << 7) | DESC_MEM_ALL);
+          Utcb::TypedMapCap value = Utcb::TypedMapCap(Crd(addr >> Utcb::MINSHIFT, order - 12, DESC_MEM_ALL), hotspot, MAP_MAP); //MAP_HBIT);
           utcb.head.typed++;
-          value.fill_words(utcb.item_start(), hotspot | MAP_MAP); //MAP_HBIT);
+          value.fill_words(utcb.item_start());
           addr    += 1 << order;
           size    -= 1 << order;
           hotspot += 1 << order;
