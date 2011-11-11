@@ -1,0 +1,23 @@
+#!/bin/bash
+
+nulroot=$(readlink -f $(dirname $0)/../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART Sizes of binaries
+
+#set -x
+
+print_sizes() {
+    fn=$1
+    bn=$(basename $fn .nul)
+    WVPERF $bn $(stat -c '%s' $fn) bytes
+    set -- $(size $fn|tail -n 1)
+    WVPERF $bn.text $1 bytes
+    WVPERF $bn.data $2 bytes
+}
+
+print_sizes $nulroot/build/bin/apps/sigma0.bare.nul
+print_sizes $nulroot/build/bin/apps/vancouver.nul
+
