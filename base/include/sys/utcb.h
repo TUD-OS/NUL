@@ -377,6 +377,16 @@ struct Utcb
     return size;
   }
 
+  /**
+   * If you mixing code which manipulates the utcb by its own and you use this Utcb/Frame code,
+   * you have to fix up your utcb after the code manipulated the utcb by its own. Otherwise some of the
+   * assertion in the Frame code will trigger because the Utcb/Frame code assumes it's the only
+   * one who manipulates the utcb. In general avoid this mixing, however in sigma0 it's not done everywhere.
+   */
+  void reset() {
+    head.mtr = 0;
+    this->msg[STACK_START] = 0;
+  }
 };
 enum {
   EXCEPTION_WORDS = 72,

@@ -166,7 +166,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
       if (!virt) return 0;
     }
-    unsigned old = utcb->head.crd;
+    unsigned old_crd = utcb->head.crd;
     utcb->head.crd = Crd(0, 20, rights).value();
     char *res = reinterpret_cast<char *>(virt);
     unsigned long offset = 0;
@@ -189,7 +189,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
     }
     //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
-    utcb->head.crd = old;
+    utcb->head.crd = old_crd;
+    //take care that utcb/frame code don't fail if it is using afterwarts map_self
+    utcb->reset();
     if ((rights & 3) == DESC_TYPE_MEM) {
       SemaphoreGuard l(_lock_mem);
       _virt_phys.add(Region(virt, size, physmem));
@@ -525,6 +527,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
 
     check1(8, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
+
+    //reset utcb
+    *utcb << Crd(0,0,0);
+    utcb->reset();
     return 0;
   };
 
