@@ -912,7 +912,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  // XXX check whether we got something mapped and do not map it back but clear the receive buffer instead
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
-	    assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB); // (1)
+	    assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
 
 	    if (verbose & VERBOSE_INFO)
 	      Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
@@ -957,6 +957,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
               nova_revoke(Crd(aligned_begin, order - Utcb::MINSHIFT, DESC_MEM_ALL), false);
             }
 
+            utcb->reset();
 	    utcb->set_header(0, 1);
             unsigned *items = utcb->item_start();
             items[1] = (fault & ~page_mask) | MAP_MAP;
