@@ -834,6 +834,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    if (error)
 	    {
 	      Logging::printf("s0: [%2u] unresolvable pagefault - killing client ...\n", modinfo->id);
+        utcb->reset(); //make sure that utcb/frame will work
 	      kill_module(modinfo);
 	      return;
 	    }
