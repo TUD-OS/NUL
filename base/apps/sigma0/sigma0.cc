@@ -534,7 +534,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // map it to the parent id of module 0
-    Utcb::TypedMapCap(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(ParentProtocol::CAP_PARENT_ID, 0, MAP_MAP).value());
+    Utcb::TypedMapCap(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID, DESC_CAP_ALL, ParentProtocol::CAP_PARENT_ID)
+      .fill_words(utcb->msg);
     *utcb << Crd(0, 31, DESC_CAP_ALL);
     utcb->set_header(2, 0);
 
@@ -542,7 +543,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _irq_cap_base = alloc_cap(hip->cfg_gsi);
 
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      Utcb::TypedMapCap(gsi + hip->cpu_desc_count()).fill_words(utcb->msg + utcb->head.untyped, Crd(_irq_cap_base + gsi, 0, MAP_HBIT).value());
+      Utcb::TypedMapCap(gsi + hip->cpu_desc_count(), DESC_CAP_ALL, _irq_cap_base + gsi, MAP_HBIT)
+        .fill_words(utcb->msg + utcb->head.untyped);
       utcb->head.untyped += 2;
     }
 

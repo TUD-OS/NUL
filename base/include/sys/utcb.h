@@ -187,8 +187,14 @@ struct Utcb
   /** Used with << operator to set up "delegate" typed item in UTCB. */
   struct TypedMapCap {
     unsigned value;
-    void fill_words(unsigned *ptr, unsigned hotspot=MAP_MAP) {   *ptr++ = value;  *ptr = hotspot;  }
-    TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+    unsigned hotspot;
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = hotspot;  }
+    TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
+      : value(cap << MINSHIFT | attr), hotspot(hotspot << MINSHIFT | hbits) {}
+    TypedMapCap(void *mcap, unsigned attr = DESC_MEM_ALL, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
+      : value  (reinterpret_cast<unsigned>(mcap) | attr),
+        hotspot(hotspot | hbits)
+    {}
   };
 
   /** Used with << operator  to set up "translate" typed item in UTCB. */

@@ -290,7 +290,8 @@
       for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
         Hip_cpu const *cpu = &_hip->cpus()[sci];
         if (not cpu->enabled()) continue;
-        Utcb::TypedMapCap(0 + sci).fill_words(utcb->msg + utcb->head.untyped, Crd(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, 0, MAP_HBIT).value());
+        Utcb::TypedMapCap(0 + sci, DESC_CAP_ALL, pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, MAP_HBIT)
+          .fill_words(utcb->msg + utcb->head.untyped);
         utcb->head.untyped += 2;
       }
 
@@ -322,7 +323,8 @@
       //map temporary child id
       utcb->add_frame();
       *utcb << Crd(0, 31, DESC_CAP_ALL);
-      Utcb::TypedMapCap(pt + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, MAP_MAP).value());
+      Utcb::TypedMapCap(pt + ParentProtocol::CAP_PARENT_ID, DESC_CAP_ALL, pt + ParentProtocol::CAP_CHILD_ID)
+        .fill_words(utcb->msg);
       utcb->head.untyped += 2;
       check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
       utcb->drop_frame();
