@@ -91,6 +91,23 @@ class Cpu
     return MIN(basealign, shiftalign);
   }
 
+  /* Computes the maximum amount of natural alignment we can apply to fault. */
+  static unsigned
+  maxalign(unsigned long fault, unsigned long begin, unsigned long size)
+  {
+    unsigned long end = begin + size;
+
+    /* Could be optimized */
+    for (int order = sizeof(unsigned long)*8-1; order >= 0; order--) {
+      unsigned long aligned = fault & ~((1 << order) - 1);
+      if ((aligned >= begin) &&
+          /* aligned + 1<<order <= end (but that would overflow) */
+          ((end - aligned) >= (1UL << order)))
+        return order;
+    }
+    return 0;
+  }
+
   static int popcount(unsigned int  v) { return __builtin_popcount (v); }
   static int popcount(unsigned long v) { return __builtin_popcountl(v); }
 
