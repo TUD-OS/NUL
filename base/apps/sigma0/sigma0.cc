@@ -190,7 +190,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
     //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
     utcb->head.crd = old_crd;
-    //take care that utcb/frame code don't fail if it is using afterwarts map_self
+    //take care that utcb/frame code don't fail if it is used after map_self
     utcb->reset();
     if ((rights & 3) == DESC_TYPE_MEM) {
       SemaphoreGuard l(_lock_mem);
@@ -834,7 +834,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    if (error)
 	    {
 	      Logging::printf("s0: [%2u] unresolvable pagefault - killing client ...\n", modinfo->id);
-        utcb->reset(); //make sure that utcb/frame will work
+	      utcb->reset(); //make sure that utcb/frame will work
 	      kill_module(modinfo);
 	      return;
 	    }
