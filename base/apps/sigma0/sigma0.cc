@@ -952,18 +952,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             assert((1UL << order) <= size);
 
             mword aligned_begin = translated & ~((1UL << order)-1);
-
+            const Crd region = Crd(aligned_begin >> Utcb::MINSHIFT, order - Utcb::MINSHIFT, rights);
 	    // we can not overmap -> thus remove all rights first if the PTE was present
 	    if (utcb->qual[0] & 1) {
               Logging::printf("s0: potential overmap. revoke!\n");
-              nova_revoke(Crd(aligned_begin, order - Utcb::MINSHIFT, DESC_MEM_ALL), false);
+              nova_revoke(region, false);
             }
 
             utcb->reset();
-	    utcb->set_header(0, 1);
-            unsigned *items = utcb->item_start();
-            items[1] = (fault & ~page_mask) | MAP_MAP;
-            items[0] = aligned_begin | (order - Utcb::MINSHIFT) << 7 | rights;
+            *utcb << Utcb::TypedMapCap(region, (fault & ~page_mask));
 
 	    if (verbose & VERBOSE_INFO)
 	      Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
