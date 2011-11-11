@@ -191,8 +191,8 @@ struct Utcb
     void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = hotspot;  }
     TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
       : value(cap << MINSHIFT | attr), hotspot(hotspot << MINSHIFT | hbits) {}
-    TypedMapCap(void *mcap, unsigned attr = DESC_MEM_ALL, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
-      : value  (reinterpret_cast<unsigned>(mcap) | attr),
+    TypedMapCap(Crd crd, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
+      : value  (crd.value()),
         hotspot(hotspot | hbits)
     {}
   };
