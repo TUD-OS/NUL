@@ -132,3 +132,9 @@ WVSTART()
 	_wvfind_caller
 	echo "Testing \"$*\" in $WVCALLER_FILE:" >&2
 }
+
+WVPERF()
+{
+	_wvfind_caller
+	echo "! $WVCALLER_FILE:$WVCALLER_LINE PERF: $@  ok" >&2
+}
