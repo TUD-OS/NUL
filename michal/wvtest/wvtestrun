@@ -44,11 +44,11 @@ sub bigkill($)
 {
     my $pid = shift;
 
-    if (@log) {
-	print "\n" . join("\n", @log) . "\n";
-    }
+    print_and_clear_log();
+    flush STDOUT;
 
     print STDERR "\n! Killed by signal    FAILED\n";
+
 
     ($pid > 0) || die("pid is '$pid'?!\n");
 
