@@ -17,7 +17,7 @@ cat $log  # Mail the log to me (backup)
 
 cat nul_*.log | wvperf2html.py > performance.html && mv performance.html ~/public_html/nul/ || exit 1
 
-git add --quiet $log
+git add $log
 git commit --quiet -m 'New nightly build log'
 git push --quiet backup HEAD
 
