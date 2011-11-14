@@ -12,11 +12,6 @@ set -e
 
 cd ~/nul
 
-git fetch --quiet
-git reset --hard origin/master
-git clean -f
-git submodule update --init
-
 ver="$(git describe) $(git log -n 1 --format='(%an: %s)')"
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 

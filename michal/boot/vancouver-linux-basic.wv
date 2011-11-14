@@ -9,7 +9,7 @@ imgs/bzImage-js
 imgs/initrd-wvtest-boot.lzma
 vancuver.nulconfig <<EOF
 sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
-rom://bin/apps/vancouver.nul PC_PS2 ||
+rom://bin/apps/vancouver.nul PC_PS2 tsc_offset ||
 rom://bin/boot/munich ||
 rom://imgs/bzImage-js clocksource=tsc console=ttyS0 ||
 rom://imgs/initrd-wvtest-boot.lzma

@@ -1,7 +1,7 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
-HYPERVISOR_PARAMS=serial
-WVDESC=Kernel compile inside VM (on ramdisk, EPT + VPID)
+HYPERVISOR_PARAMS=serial novpid
+WVDESC=Kernel compile inside VM (on ramdisk, EPT w/o VPID)
 WVTEST_TIMEOUT=1200
 QEMU_FLAGS=-cpu phenom -smp 2 -m 1536
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config

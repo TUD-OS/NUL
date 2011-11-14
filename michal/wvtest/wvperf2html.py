@@ -202,7 +202,10 @@ for line in sys.stdin.readlines():
         perf = match.group(4)
         perf = perf.split()
         key = perf[0]
-        val = perf[1]
+        try:
+            val = float(perf[1])
+        except ValueError:
+            val = None
         try:
             units = perf[2]
         except:

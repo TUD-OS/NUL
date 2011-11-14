@@ -28,6 +28,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
 
   unsigned long _hostop_id;
   Motherboard &_mb;
+  long long _reset_tsc_off;
 
   volatile unsigned _event;
   volatile unsigned _sipi;
@@ -366,7 +367,7 @@ public:
     // TSC drift compensation
     if (msg.type != CpuMessage::TYPE_CPUID_WRITE && msg.mtr_in & MTD_TSC && ~msg.mtr_out & MTD_TSC) {
       COUNTER_INC("tsc adoption");
-      msg.cpu->tsc_off = -msg.cpu->tsc_off;
+      msg.cpu->tsc_off = _reset_tsc_off - msg.cpu->tsc_off;
       msg.mtr_out |= MTD_TSC;
     }
 
@@ -441,6 +442,7 @@ public:
     MessageHostOp msg(this);
     if (!mb.bus_hostop.send(msg)) Logging::panic("could not create VCpu backend.");
     _hostop_id = msg.value;
+    _reset_tsc_off = -Cpu::rdtsc();
 
     // add to the busses
     executor. add(this, VirtualCpu::receive_static<CpuMessage>);
