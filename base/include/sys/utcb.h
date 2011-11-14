@@ -77,7 +77,7 @@ struct Utcb
       };
       unsigned long long qual[2];
       unsigned     ctrl[2];
-      unsigned long long tsc_off;
+      long long tsc_off;
       unsigned     cr0, cr2, cr3, cr4;
       unsigned     dr7, sysenter_cs, sysenter_esp, sysenter_eip;
       Descriptor   es, cs, ss, ds, fs, gs;
