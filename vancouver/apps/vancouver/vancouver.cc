@@ -28,13 +28,12 @@
 #include "nul/service_log.h"
 #include "nul/service_disk.h"
 
-/****************************************************/
-/* Layout of the capability space                   */
-/****************************************************/
-
+/**
+ * Layout of the capability space. These are not absolute
+ * offsets. Each VCPU gets its own block of caps (obviously).
+ */
 enum Cap_space_layout
   {
-    PT_IRQ       = 0x20,
     PT_VMX       = 0x100,
     PT_SVM       = 0x200
   };
@@ -116,6 +115,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned long  _physmem;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
+  unsigned       _pt_irq;
   static TimerProtocol     * service_timer;
   static AdmissionProtocol * service_admission;
   static EventsProtocol    * service_events;
@@ -345,7 +345,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   {
     //Logging::printf("%s %x\n", __PRETTY_FUNCTION__, hostirq);
     Utcb *utcb;
-    unsigned cap_ec = create_ec_helper(this, myutcb()->head.nul_cpunr, PT_IRQ, &utcb, reinterpret_cast<void *>(func));
+    unsigned cap_ec = create_ec_helper(this, myutcb()->head.nul_cpunr, _pt_irq, &utcb, reinterpret_cast<void *>(func));
     check1(~1u, nova_create_sm(_shared_sem[hostirq & 0xff] = alloc_cap()));
     utcb->head.untyped = 3;
     utcb->head.typed = 0;
@@ -364,14 +364,17 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _lock = Semaphore(alloc_cap());
     check1(1, nova_create_sm(_lock.sm()));
 
+    _pt_irq = alloc_cap(Config::EXC_PORTALS);
+
     // create exception EC
-    unsigned cap_ex = create_ec4pt(this,  myutcb()->head.nul_cpunr, 0);
+    phy_cpu_no cpu = myutcb()->head.nul_cpunr;
+    unsigned cap_ex = create_ec4pt(this, cpu, Config::EXC_PORTALS * cpu );
     // create portals for exceptions
     for (unsigned i=0; i < 32; i++)
       if ((i != 14) && (i != 30)) check1(3, nova_create_pt(i, cap_ex, reinterpret_cast<unsigned long>(got_exception), MTD_ALL));
     // create the gsi boot portal
-    check1(4, nova_create_pt(PT_IRQ + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    MTD_RIP_LEN | MTD_QUAL));
-    check1(5, nova_create_pt(PT_IRQ + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  MTD_RSP | MTD_RIP_LEN));
+    check1(4, nova_create_pt(_pt_irq + 14, cap_ex, reinterpret_cast<unsigned long>(do_gsi_pf),    MTD_RIP_LEN | MTD_QUAL));
+    check1(5, nova_create_pt(_pt_irq + 30, cap_ex, reinterpret_cast<unsigned long>(do_gsi_boot),  MTD_RSP | MTD_RIP_LEN));
     return 0;
   }
 
@@ -492,7 +495,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
 
       utcb->mtd = 0;
-      utcb->add_mappings(own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
+      unsigned long left = utcb->add_mappings(own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
+      assert(left == 0);
 
       // EPT violation during IDT vectoring?
       if (utcb->inj_info & 0x80000000) {
@@ -772,11 +776,12 @@ public:
         break;
       case MessageHostOp::OP_ALLOC_SERVICE_THREAD:
         {
+          phy_cpu_no cpu  = myutcb()->head.nul_cpunr;
           unsigned ec_cap = create_ec_helper(msg._alloc_service_thread.work_arg,
-                                             myutcb()->head.nul_cpunr, PT_IRQ, 0,
+                                             cpu, _pt_irq, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
           AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SPORADIC); //Qpd(2, 10000)
-          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, "service");
+          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, cpu, "service");
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:
