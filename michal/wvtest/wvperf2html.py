@@ -259,5 +259,5 @@ print """
 """
 
 # Local Variables:
-# compile-command: "cat nul-nightly/nul_*.log|./wvperf2html.py > graphs.html"
+# compile-command: "cat nul-nightly/nul_*.log|./wvperfpreprocess.py|./wvperf2html.py > graphs.html"
 # End:

@@ -27,7 +27,7 @@ if ! nul-nightly.sh > $log 2>&1; then
 fi
 cat $log  # Mail the log to me (backup)
 
-cat nul_*.log | wvperf2html.py > performance.html && mv performance.html ~/public_html/nul/ || exit 1
+cat nul_*.log | wvperfpreprocess.py | wvperf2html.py > performance.html && mv performance.html ~/public_html/nul/ || exit 1
 
 git add $log
 git commit --quiet -m 'New nightly build log'
