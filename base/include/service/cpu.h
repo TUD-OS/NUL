@@ -17,7 +17,9 @@
  */
 
 #pragma once
-#include "service/math.h"
+
+#include <nul/compiler.h>
+#include <service/math.h>
 
 class Cpu
 {
@@ -83,12 +85,10 @@ class Cpu
    * @return The calculated order or the minshift parameter is it is
    * smaller then the order.
    */
-  static  unsigned minshift(unsigned long start, unsigned long size, unsigned minshift = 31) {
-    unsigned shift = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
-    if (shift < minshift) minshift = shift;
-    shift = Cpu::bsr(size | 1);
-    if (shift < minshift) return shift;
-    return minshift;
+  static unsigned minshift(unsigned long start, unsigned long size) {
+    unsigned basealign  = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
+    unsigned shiftalign = Cpu::bsr(size | 1);
+    return MIN(basealign, shiftalign);
   }
 
   static int popcount(unsigned int  v) { return __builtin_popcount (v); }
