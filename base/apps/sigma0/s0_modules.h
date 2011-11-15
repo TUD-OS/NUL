@@ -227,8 +227,20 @@ bool map_idle_scs(Utcb *utcb, unsigned pt)
 bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
 {
   unsigned res;
-  check2(fail, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
-  check2(fail, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
+
+  for (unsigned cpu=0; cpu < _hip->cpu_desc_count(); cpu++) {
+    Hip_cpu const *dcpu = &_hip->cpus()[cpu];
+    if (dcpu->enabled()) {
+      check2(fail, nova_create_pt(pt + Config::EXC_PORTALS*cpu + 14,
+                                  _percpu[cpu].cap_ec_worker,
+                                  reinterpret_cast<unsigned long>(do_request_wrapper),
+                                  MTD_RIP_LEN | MTD_QUAL));
+    }
+  }
+
+  check2(fail, nova_create_pt(pt + Config::EXC_PORTALS*modinfo->cpunr + 30,
+                              _percpu[modinfo->cpunr].cap_ec_worker,
+                              reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
   return true;
  fail:
@@ -338,7 +350,8 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
            DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
     check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
-			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
+                                      modinfo->cpunr, Config::EXC_PORTALS * modinfo->cpunr,
+                                      false, pt + NOVA_DEFAULT_PD_CAP));
 
     if (modinfo->type == ModuleInfo::TYPE_ADMISSION) {
       check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, "main", true));

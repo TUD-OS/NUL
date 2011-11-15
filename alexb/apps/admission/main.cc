@@ -376,7 +376,6 @@ public:
 
       const char * service_name = "/admission";
       unsigned res;
-      unsigned exc_base_wo, exc_base_pf, pt_wo;
       unsigned service_cap = alloc_cap();
       Utcb *utcb_wo, *utcb_pf;
       
@@ -395,14 +394,10 @@ public:
         if (NOVA_ESUCCESS != nova_ctl_sc(idle_scs.scs[cpunr].idx, computetime))
           Logging::panic("Couldn't get idle sc cap - cpu %u, idx %#x\n", idle_scs.scs[cpunr].cpu, idle_scs.scs[cpunr].idx);
 
-        exc_base_wo = alloc_cap(16);
-        exc_base_pf = alloc_cap(16);
-        if (!exc_base_wo || !exc_base_pf) return false;
-        pt_wo       = alloc_cap(1, cpunr);
-
-        unsigned cap_ec = create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap(1, cpunr));
+        unsigned s0_exc_base = Config::EXC_PORTALS * cpunr;
+        unsigned cap_ec = create_ec4pt(this, cpunr, s0_exc_base, &utcb_wo, alloc_cap(1, cpunr));
         if (!cap_ec) return false;
-        unsigned cap_pf = create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap(1, cpunr));
+        unsigned cap_pf = create_ec4pt(this, cpunr, s0_exc_base, &utcb_pf, alloc_cap(1, cpunr));
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
@@ -410,6 +405,7 @@ public:
         assert(!(_cap_base & ((1UL << CONST_CAP_RANGE)-1)));
         utcb_pf->head.crd = 0;
 
+        unsigned pt_wo            = alloc_cap();
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
         res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
         if (res) return false;

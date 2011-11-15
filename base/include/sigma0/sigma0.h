@@ -22,6 +22,7 @@
 #include "nul/message.h"
 #include "nul/baseprogram.h"
 #include "nul/error.h"
+#include "nul/config.h"
 
 /**
  * Push interface sizes.
@@ -86,7 +87,7 @@ class Sigma0Base : public BaseProgram
       /* Delegate sem to sigma0 with "up" permission */
       unsigned left = utcb->add_mappings(sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, 0x14 | DESC_TYPE_CAP);
       assert(left == 0); //should ever fit, its only one page
-      check1(1, nova_call(14));
+      check1(1, nova_call(Config::EXC_PORTALS*mycpu() + 14));
       return utcb->msg[0];
     }
 
