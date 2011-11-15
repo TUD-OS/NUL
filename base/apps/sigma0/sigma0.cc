@@ -336,6 +336,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _modinfo[0].cmdline = cmdline;
 
     // init services required or provided by sigma0
+    static_assert((CLIENT_PT_OFFSET & ((1U << (CLIENT_PT_ORDER+1))-1)) == 0, "Capability space misconfiguration");
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
     service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), true, hip->cpu_count() + 16);
   }
