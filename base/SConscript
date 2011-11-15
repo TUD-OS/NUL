@@ -45,7 +45,7 @@ if int(ndebug):
 # Default environment for host machine. Use this to build host tools,
 # that need to run during the build.
 host_env = Environment()
-host_env["CCFLAGS"]  = "-g -Wall "
+host_env["CCFLAGS"]  = "-g -Wall " + debug_opts
 host_env["CXXFLAGS"] = "-std=c++0x -Weffc++ "
 host_env["CFLAGS"]   = "-std=c99 "
 
