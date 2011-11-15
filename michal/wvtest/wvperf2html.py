@@ -245,9 +245,13 @@ print """
     <body>
 	<h1>NUL Performance Plots</h1>
 	<script type="text/javascript" src="js/highstock.js"></script>
+        <ul>
 """
 for graph in graphs:
-    print "	<h2>%s</h2>" % graph.title
+    print "	<li><a href='#%s'>%s</a></li>" % (graph.title, graph.title)
+print "    </ul>"
+for graph in graphs:
+    print "	<h2><a name='%s'>%s</a></h2>" % (graph.title, graph.title)
     print '	<div id="%s" style="height: 400px"></div>' % graph.id
 print """
     </body>
