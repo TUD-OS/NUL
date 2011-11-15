@@ -65,6 +65,7 @@ local $SIG{ALRM} = sub {
 my $allstart = time();
 my ($start, $stop);
 my $tests_executed = 0;
+my $tests_failed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
 alarm($timeout);
@@ -77,6 +78,7 @@ while (<$fh>)
 
     if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
 	$tests_executed++;
+	$tests_failed++ if ($4 ne "ok");
     }
     elsif (/wvtest: timeout (\d+)\s*$/) {
 	$timeout=$1;
@@ -122,6 +124,7 @@ if ($ret != 0) {
 if (!$ENV{WVTEST_EXIT_PATTERN}) {
     printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
 }
+if ($tests_failed > 0) { $ret = 1; }
 if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
 
 exit $ret;
