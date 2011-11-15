@@ -74,6 +74,9 @@ struct ParentProtocol {
     /// Portal capabilities (according to number of CPUs) passed by
     /// parent to child.
     CAP_PT_PERCPU,
+
+    /// Idle SCs. Only created for the admission service.
+    CAP_PT_IDLE_SCS = CAP_PT_PERCPU + Config::MAX_CPUS,
   };
 
   static_assert((CAP_PT_PERCPU + Config::MAX_CPUS) < (1U << Config::CAP_RESERVED_ORDER),
