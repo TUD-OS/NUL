@@ -73,6 +73,8 @@ class Sigma0Base : public BaseProgram
   };
  protected:
 
+  static unsigned request_portal() { return Config::EXC_PORTALS*mycpu() + 14; }
+
   /**
    * Creates a producer in Sigma0 and attaches it to a consumer in the calling PD.
    */
@@ -87,7 +89,7 @@ class Sigma0Base : public BaseProgram
       /* Delegate sem to sigma0 with "up" permission */
       unsigned left = utcb->add_mappings(sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, 0x14 | DESC_TYPE_CAP);
       assert(left == 0); //should ever fit, its only one page
-      check1(1, nova_call(Config::EXC_PORTALS*mycpu() + 14));
+      check1(1, nova_call(request_portal()));
       return utcb->msg[0];
     }
 
@@ -101,7 +103,7 @@ class Sigma0Base : public BaseProgram
     utcb->msg[0] = OP;
     memcpy(utcb->msg + 1, &msg,  words*sizeof(unsigned));
     utcb->set_header(1 + words, 0);
-    if (nova_call(14))
+    if (nova_call(request_portal()) != NOVA_ESUCCESS)
       Logging::printf("sigma0 request failed %x\n", utcb->msg[0]);
     memcpy(&msg,  utcb->msg + 1, words*sizeof(unsigned));
     return utcb->msg[0];
