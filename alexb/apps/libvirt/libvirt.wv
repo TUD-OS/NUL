@@ -1,6 +1,6 @@
 #!/bin/bash
 
-nulroot=$(readlink -f $(dirname $0)/../..)
+nulroot=$(readlink -f $(dirname $0)/../../..)
 wvpath=$nulroot/michal/wvtest
 
 . $wvpath/wvtest.sh
@@ -20,7 +20,7 @@ if [ -z "$NOVA_IP" ]; then
     # Boot NOVA up to the point it is receiving libvirt connections
     set -x
     P="NOVA management daemon is up. Waiting for libvirt connection"
-    WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $(dirname $0)/passive "$@" | tee passive.log
+    WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $nulroot/michal/boot/passive "$@" | tee passive.log
     NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
     set +x
 fi
