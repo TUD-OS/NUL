@@ -29,8 +29,7 @@ Install(tftp_dir + '/nul/', Glob('bin/apps/*.nul'))
 Install(tftp_dir + '/tools/', Glob('bin/boot/*'))
 Alias('install', tftp_dir)
 
-Default('bin/apps')
-Default('bin/boot')
+Default('bin')
 
 cmd_env = Environment(ENV = os.environ)
 AlwaysBuild(cmd_env.Command("qemu", ["bin/apps/hypervisor",
