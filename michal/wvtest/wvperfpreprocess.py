@@ -83,7 +83,8 @@ for line in sys.stdin.readlines():
 
             line='Testing "Kernel compile inside VM (on ramdisk)" in vancouver-kernelbuild:'
         if linetype == 'perf':
-            line = line.replace('kbuild', 'kbuild-'+tag);
+            line = line.replace('kbuild', tag);
+            line = line.replace('ok', 'axis="kbuild" ok');
 
     # Output (possibly modified) line
     print line

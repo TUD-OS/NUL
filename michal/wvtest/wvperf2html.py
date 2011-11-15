@@ -8,18 +8,27 @@ import string
 import time
 import numpy as np
 
-class Column:
+class Axis:
     def __init__(self, name):
         self.name = name
-        self.units = ""
+        self.units = None
+        self.num = None
+    def getLabel(self):
+        if self.units:
+            return "%s [%s]" % (self.name, self.units)
+        else:
+            return self.name
+
+class Column:
+    def __init__(self, name, units, axis):
+        self.name = name
+        self.units = units
+        self.axis = axis
 
 class Row(dict):
     def __init__(self, graph, date):
         self.graph = graph
         self.date = date
-    def __setitem__(self, key, val):
-        dict.__setitem__(self, key, val)
-        self.graph.columns[key]=Column(key);
     def __getitem__(self, column):
         try:
             return dict.__getitem__(self, column)
@@ -37,36 +46,71 @@ class Graph:
         self.title = title
         self.rows = []
         self.date2row = {}
-        
+        self.axes = {}
+
     def __getitem__(self, date):
         try:
-            row = self.date2row[date]
+            rownum = self.date2row[date]
         except KeyError:
-            row = len(self.rows)
-            self.date2row[date] = row
+            rownum = len(self.rows)
+            self.date2row[date] = rownum
         try:
-            return self.rows[row]
+            return self.rows[rownum]
         except IndexError:
-            self.rows[row:row] = [Row(self, date)]
-            return self.rows[row]
+            self.rows[rownum:rownum] = [Row(self, date)]
+            return self.rows[rownum]
 
-    def setUnits(self, key, units):
-        self.columns[key].units = units
+    def addValue(self, date, col, val, units):
+        row = self[date]
+        row[col] = val
+        if not self.columns.has_key(col):
+            axis=self.getAxis(col)
+            self.columns[col]=Column(col, units, axis);
+        self.columns[col].units=units
+        self.columns[col].axis.units=units
+
+    def setAxis(self, col, axis):
+        self.columns[col].axis = self.getAxis(axis)
+
+    def getAxis(self, col):
+        if not self.axes.has_key(col):
+            self.axes[col] = Axis(col)
+        return self.axes[col]
 
     def findRanges(self):
-        for col in self.columns.values():
-            values = np.array([row[col.name] for row in self.rows if row[col.name] != None], np.float64)
-            lastmonth = values[-30:]
-            median = np.median(lastmonth);
-            col.low = median * 0.95
-            col.high = median * 1.05
+        for axis in self.axes.values():
+            cols = [col for col in self.columns.values() if col.axis == axis]
+            low = None
+            high = None
+            all_in_range = True
+            for col in cols:
+                values = np.array([row[col.name] for row in self.rows if row[col.name] != None], np.float64)
+                if low == None and high == None:
+                    lastmonth = values[-30:]
+                    median = np.median(lastmonth)
+                    low  = median * 0.95
+                    high = median * 1.05
 
-            if (values > col.high).any() or (values < col.low).any():
-                col.yrange_max = None
-                col.yrange_min = None
+                if (values > high).any() or (values < low).any():
+                    all_in_range = False
+            if all_in_range:
+                axis.yrange_max = high
+                axis.yrange_min = low
             else:
-                col.yrange_max = col.high
-                col.yrange_min = col.low
+                axis.yrange_max = None
+                axis.yrange_min = None
+
+    def fixupAxisNumbers(self):
+        axix_keys = self.axes.keys()
+        for a in axix_keys:
+            axis = self.axes[a]
+            cols = [col for col in self.columns.values() if col.axis == axis]
+            if len(cols) == 0:
+                del(self.axes[a])
+        num = 0
+        for axis in self.axes.itervalues():
+            axis.num = num
+            num += 1
 
     def jschart(self):
         print """
@@ -74,11 +118,11 @@ class Graph:
 			    chart: {
 			        renderTo: '"""+self.id+"""'
 			    },
-			    
+
 			    rangeSelector: {
 			        selected: 1
 			    },
-			    
+
 			    title: {
 			        text: '"""+self.title+"""'
 			    },
@@ -98,7 +142,7 @@ class Graph:
                                     });
                                     return s;
                                 }
-                            },			    
+                            },
 			    xAxis: {
 			        maxZoom: 14 * 24 * 3600000 // fourteen days
 			    },"""
@@ -123,24 +167,24 @@ class Graph:
 		                }
 		            },
 			    yAxis: ["""
-	for col in self.columns.values():
+	for axis in self.axes.values():
             print "\t\t\t\t{"
             print "\t\t\t\t\tlineWidth: 1,"
             print "\t\t\t\t\tlabels: { align: 'right', x: -3 },"
-            print "\t\t\t\t\ttitle: { text: '%s [%s]' }," % (col.name, col.units)
+            print "\t\t\t\t\ttitle: { text: '%s' }," % axis.getLabel()
             #print "\t\t\t\t\tplotBands: { from: %s, to: %s, color: '#eee' }," % (col.low, col.high)
-            if col.yrange_min: print "\t\t\t\t\tmin: %s," % col.yrange_min
-            if col.yrange_max: print "\t\t\t\t\tmax: %s," % col.yrange_max
+            if axis.yrange_min: print "\t\t\t\t\tmin: %s," % axis.yrange_min
+            if axis.yrange_max: print "\t\t\t\t\tmax: %s," % axis.yrange_max
             print "\t\t\t\t},"
         print """\t\t\t    ],
-				
+
 			    series: ["""
         num = 0
-	for col in self.columns.keys():
-            print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col, self.columns[col].units, num)
+	for col in self.columns.values():
+            print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col.name, col.units, col.axis.num)
             num += 1
             for row in self.rows:
-                val = row[col]
+                val = row[col.name]
                 if val == None: val = "null"
                 print "\t\t\t\t\t[%s, %s], " % (row.getDate(), val)
             print "\t\t\t\t]},"
@@ -148,7 +192,7 @@ class Graph:
 			});"""
 
 class Graphs(dict):
-    pass        
+    pass
 
 graphs = Graphs()
 commits = {}
@@ -159,6 +203,7 @@ re_commit = re.compile('(\S+) (.*?), commit: (.*)')
 re_commithash = re.compile('([0-9a-f]{7}) \(')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
+re_perfaxis = re.compile('axis="([^"]+)"')
 
 date = time.localtime(time.time())
 
@@ -169,7 +214,7 @@ for line in sys.stdin.readlines():
     if (match):
         date = time.strptime(match.group(1), "%a, %d %b %Y %H:%M:%S +0200")
         continue
-    
+
     match = re_testing.match(line)
     if match:
         what = match.group(3)
@@ -185,9 +230,9 @@ for line in sys.stdin.readlines():
             else:
                 commithash = None
             commits[date] = (commit, commithash)
-        
+
         (basename, ext) = os.path.splitext(os.path.basename(where))
-        
+
         if what != "all": title = what
         else: title = basename
         try:
@@ -199,9 +244,9 @@ for line in sys.stdin.readlines():
 
     match = re_perf.match(line)
     if match:
-        perf = match.group(4)
-        perf = perf.split()
-        key = perf[0]
+        perfstr = match.group(4)
+        perf = perfstr.split()
+        col = perf[0]
         try:
             val = float(perf[1])
         except ValueError:
@@ -211,14 +256,18 @@ for line in sys.stdin.readlines():
         except:
             units = None
 
-        graph[date][key] = val
-        graph.setUnits(key, units);
+        graph.addValue(date, col, val, units)
+
+        match = re_perfaxis.search(perfstr)
+        if match:
+            graph.setAxis(col, match.group(1));
 
 graphs = [g for g in graphs.values() if len(g.columns)]
-graphs = sorted(graphs, key=lambda g: g.title)
+graphs = sorted(graphs, key=lambda g: g.title.lower())
 
 for g in graphs:
     g.findRanges()
+    g.fixupAxisNumbers()
 
 print """
 <!DOCTYPE HTML>
@@ -226,7 +275,7 @@ print """
     <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 	<title>NUL Performance Plots</title>
-	
+
 	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.6.1/jquery.min.js"></script>
 	<script type="text/javascript">
 		var commitMap = {"""
