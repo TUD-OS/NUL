@@ -138,7 +138,7 @@ class Graph:
                                     var s = '<b>'+ Highcharts.dateFormat('%a, %d %b %Y %H:%M:%S', this.x) +'</b><br/>';
                                     s += commitMap[this.x].msg;
                                     $.each(this.points, function(i, point) {
-                                        s += '<br/>'+ point.series.name +': '+point.y;
+                                        s += '<br/><span style="color:'+ point.series.color+';">'+ point.series.name +'</span>: '+point.y;
                                     });
                                     return s;
                                 }
