@@ -215,6 +215,7 @@ for line in sys.stdin.readlines():
         graph.setUnits(key, units);
 
 graphs = [g for g in graphs.values() if len(g.columns)]
+graphs = sorted(graphs, key=lambda g: g.title)
 
 for g in graphs:
     g.findRanges()
@@ -252,3 +253,7 @@ print """
     </body>
 </html>
 """
+
+# Local Variables:
+# compile-command: "cat nul-nightly/nul_*.log|./wvperf2html.py > graphs.html"
+# End:
