@@ -988,7 +988,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         {
           bool unlocked = msg.len;
           unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
-          Logging::printf("Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
+          Logging::printf("s0: Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
           assert(cpu < 32);
           unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
