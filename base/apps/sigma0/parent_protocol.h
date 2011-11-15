@@ -403,8 +403,17 @@ public:
 
   unsigned _cap_all_start, _cap_all_order;
 
+  /** The first set of caps is used by ParentProtocol for internal
+   * stuff, the second range is the client capability range, which
+   * includes the first. We need those two to be in a single naturally
+   * aligned block in order to create a translation window that spans
+   * both.
+   */
   s0_ParentProtocol(unsigned cap_start, unsigned cap_order, unsigned cap_all_start, unsigned cap_all_order)
-    : CapAllocator(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order) {}
+    : CapAllocator(cap_start, cap_start, cap_order), _cap_all_start(cap_all_start), _cap_all_order(cap_all_order)
+  {
+    assert((cap_all_start & ((1U << cap_all_order)-1)) == 0);
+  }
 
   unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 

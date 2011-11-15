@@ -336,6 +336,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       _modinfo[0].cmdline = cmdline;
 
     // init services required or provided by sigma0
+    static_assert((CLIENT_PT_OFFSET & ((1U << (CLIENT_PT_ORDER+1))-1)) == 0, "Capability space misconfiguration");
     service_parent    = new (sizeof(void *)*2) s0_ParentProtocol(CLIENT_PT_OFFSET + (1 << CLIENT_PT_ORDER), CLIENT_PT_ORDER, CLIENT_PT_OFFSET, CLIENT_PT_ORDER + 1);
     service_admission = new s0_AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), true, hip->cpu_count() + 16);
   }
@@ -988,7 +989,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         {
           bool unlocked = msg.len;
           unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
-          Logging::printf("Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
+          Logging::printf("s0: Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
           assert(cpu < 32);
           unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
