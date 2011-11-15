@@ -130,8 +130,8 @@ public:
 	    WVPASSEQ(dataOnDisk, "Lorem ipsum");
 	  }
 	  if (wvtest && ++print == 2) {
-	    WVPERF(throughput); 
-	    WVPERF(request_rate);
+	    WVPERF(throughput, "kB/s"); 
+	    WVPERF(request_rate, "1/s");
 	    WvTest::exit(0);
 	    block_forever();
 	  }

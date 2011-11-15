@@ -63,7 +63,7 @@ public:
     }
   }
 
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap)
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
     {
       unsigned op, res;
       check1(EPROTO, input.get_word(op));

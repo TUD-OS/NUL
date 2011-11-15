@@ -1,0 +1,30 @@
+#!/bin/bash
+
+nulroot=$(readlink -f $(dirname $0)/../../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART libvirt
+
+# Setup libvirt environment
+libvirt=$nulroot/alexb/apps/libvirt
+WVPASS make -C $libvirt install DESTDIR=$libvirt/_install
+WVPASS cp $nulroot/michal/imgs/passive/CAcertSrv.pem cacert.pem
+PATH=$libvirt/_install/usr/local/bin:$PATH
+LD_LIBRARY_PATH=$libvirt/_install/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH
+
+
+if [ -z "$NOVA_IP" ]; then
+    # Boot NOVA up to the point it is receiving libvirt connections
+    set -x
+    P="NOVA management daemon is up. Waiting for libvirt connection"
+    WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $nulroot/michal/boot/passive "$@" | tee passive.log
+    NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
+    set +x
+fi
+
+# Tests for libvirt commands
+WVPASS bash -o pipefail -c "virsh -c nova+tls://$NOVA_IP:9999 nodeinfo | tee nodeinfo.log"
+WVPASS grep "CPU model:" nodeinfo.log

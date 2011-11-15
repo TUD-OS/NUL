@@ -473,11 +473,12 @@ public:
 };
 
 PARAM_HANDLER(host82573,
-	      "host82573:instance,vnet - provide driver for Intel 82573L Ethernet controller.",
-	      "Example: 'host82573:0")
+	      "host82573:instance=0,vnet - provide driver for Intel 82573L Ethernet controller.",
+	      "Example: 'host82573")
 {
   HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
   unsigned found = 0;
+  unsigned instance = (~argv[0] == 0) ? 0 : argv[0];
 
   for (unsigned bdf, num = 0; (bdf = pci.search_device(0x2, 0x0, num++));) {
     unsigned cfg0 = pci.conf_read(bdf, 0x0);
@@ -486,7 +487,7 @@ PARAM_HANDLER(host82573,
     // Find specific device
     unsigned i;
     for (i = 0; i < (sizeof(intel_nics)/sizeof(NICInfo)); i++) {
-      if ((cfg0>>16 == intel_nics[i].devid) && (found++ == argv[0])) {
+      if ((cfg0>>16 == intel_nics[i].devid) && (found++ == instance)) {
 	Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
 				       mb.bus_acpi,
 				       mb.clock(), bdf, intel_nics[i]);

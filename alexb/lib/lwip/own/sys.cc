@@ -18,7 +18,7 @@
 #include <service/string.h> //memcpy
 #include <service/helper.h> //assert
 
-extern "C" {
+BEGIN_EXTERN_C
   #include "lwip/sys.h"
   #include "lwip/pbuf.h"
   #include "lwip/ip.h"
@@ -27,11 +27,7 @@ extern "C" {
   #include "lwip/tcp.h"
 
  void lwip_init(void);
-}
 
-void sys_init(void) { }
-
-extern "C"
 void lwip_print(const char *format, ...) {
 
   va_list ap;
@@ -41,7 +37,6 @@ void lwip_print(const char *format, ...) {
 
 }
 
-extern "C"
 __attribute__((noreturn))
 void lwip_assert(const char *format, ...) {
   va_list ap;
@@ -51,6 +46,10 @@ void lwip_assert(const char *format, ...) {
 
   Logging::panic("panic\n");
 }
+
+END_EXTERN_C
+
+void sys_init(void) { }
 
 struct nul_tcp_struct {
   u16_t port;
@@ -117,7 +116,8 @@ nul_lwip_netif_init(struct netif *netif)
   return ERR_OK;
 }
 
-extern "C"
+BEGIN_EXTERN_C
+
 bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac)
 {
   lwip_init();
@@ -139,7 +139,6 @@ bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len),
   return true;
 }
 
-extern "C"
 void nul_ip_input(void * data, unsigned size) {
   struct pbuf *lwip_buf;
 
@@ -159,6 +158,7 @@ void nul_ip_input(void * data, unsigned size) {
   //  if (lwip_buf->ref) 
   //    pbuf_free(lwip_buf);
 }
+END_EXTERN_C
 
 static void nul_udp_recv(void *arg, struct udp_pcb *upcb, struct pbuf *p, struct ip_addr *remoteaddr, u16_t remoteport) {
   static unsigned long total = 0;
@@ -196,7 +196,13 @@ bool nul_ip_udp(unsigned _port) {
 /*
  * TCP stuff
  */
-extern "C" {
+BEGIN_EXTERN_C
+static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
+  Logging::printf("[tcp] connection closed - port %u\n", tcp_struct->port);
+  tcp_struct->openconn_pcb = 0;
+  tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+}
+
 static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
   static unsigned long total = 0;
   struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
@@ -218,23 +224,30 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
     pbuf_free(p);
   } else {
     total = 0;
-    Logging::printf("[tcp] connection closed - %p err %u (%p) \n", p, err, tcp_struct->openconn_pcb);
-
-    assert(tcp_struct->openconn_pcb);
-    tcp_struct->openconn_pcb = 0;
-
-    tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+    if (tcp_struct) nul_tcp_close(tcp_struct);
+    else Logging::printf("warning - tcp - some struct is NULL\n");
   }
 
   return ERR_OK;
 }
+
+static void nul_tcp_error(void *arg, err_t err) {
+  Logging::printf("warning - tcp - arg=%p err=%d\n", arg, err);
+  struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
+  if (tcp_struct) {
+    Logging::printf("warning - tcp - error on port %u openconn=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
+    if (ERR_RST == err && tcp_struct->openconn_pcb)
+      nul_tcp_close(tcp_struct);
+  }
 }
+END_EXTERN_C
 
 static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
 
   tcp_recv(newpcb, nul_tcp_recv); 
   tcp_arg(newpcb, tcp_struct);
+  tcp_err(newpcb, nul_tcp_error);
 
   assert(tcp_struct->openconn_pcb == 0);
   tcp_struct->openconn_pcb = newpcb; //XXX
@@ -297,7 +310,7 @@ static struct tcp_pcb * lookup(u16_t port) {
   return 0;
 }
 
-extern "C"
+EXTERN_C
 bool nul_ip_config(unsigned para, void * arg) {
   static unsigned long long etharp_timer = ETHARP_TMR_INTERVAL;
   static unsigned long long dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
@@ -415,11 +428,10 @@ bool nul_ip_config(unsigned para, void * arg) {
       if (!arg) return false;
       uint16 port = *reinterpret_cast<uint16 *>(arg);
       struct nul_tcp_struct * tcp_struct = lookup_internal(port);
-      Logging::printf("close tpcb %p\n", tcp_struct);
+      //Logging::printf("close tpcb %p\n", tcp_struct);
       if (tcp_struct) {
-        Logging::printf("close result %d\n", tcp_close(tcp_struct->openconn_pcb));
-        tcp_struct->openconn_pcb = 0;
-        tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+        tcp_close(tcp_struct->openconn_pcb);
+        nul_tcp_close(tcp_struct);
       }
       break;
     }

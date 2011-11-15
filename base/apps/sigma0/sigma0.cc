@@ -166,14 +166,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
       if (!virt) return 0;
     }
-    unsigned old = utcb->head.crd;
+    unsigned old_crd = utcb->head.crd;
     utcb->head.crd = Crd(0, 20, rights).value();
     char *res = reinterpret_cast<char *>(virt);
     unsigned long offset = 0;
     while (size > offset)
     {
       utcb->set_header(0, 0);
-      unsigned long s = add_mappings(utcb, physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights);
+      unsigned long s = utcb->add_mappings(physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights);
       if (verbose & VERBOSE_INFO)
         Logging::printf("s0: map self %lx -> %lx size %lx offset %lx s %lx typed %x\n",
                         physmem, virt, size, offset, s, utcb->head.typed);
@@ -189,7 +189,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       }
     }
     //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
-    utcb->head.crd = old;
+    utcb->head.crd = old_crd;
+    //take care that utcb/frame code don't fail if it is used after map_self
+    utcb->reset();
     if ((rights & 3) == DESC_TYPE_MEM) {
       SemaphoreGuard l(_lock_mem);
       _virt_phys.add(Region(virt, size, physmem));
@@ -383,6 +385,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   static void fancy_output(const char *st, unsigned maxchars)
   {
     unsigned lastchar = 0;
+
+    if (!st) Logging::printf("NULL");
+    else
     for (unsigned x=0; x < maxchars && st[x]; x++)
       {
         unsigned value = st[x];
@@ -523,6 +528,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     }
 
     check1(8, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
+
+    //reset utcb
+    *utcb << Crd(0,0,0);
+    utcb->reset();
     return 0;
   };
 
@@ -605,6 +614,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (!__hip) return 1;
     memcpy(__hip, _hip, _hip->length);
 
+    // Size of all command lines combined. Used later to evacuate them
+    // into high memory (above 1M).
+    size_t cmdlines_length = 0;
+    bool   need_evacuation = false;
+
     for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
       Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
       if (hmem->type == -2) {
@@ -614,8 +628,27 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         } else 
           hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
       } 
-      if (hmem->aux)
-        hmem->aux = reinterpret_cast<unsigned>(map_string(utcb, hmem->aux));
+      if (hmem->aux) {
+        need_evacuation = need_evacuation or (hmem->aux < (1U<<20));
+        char *cmdline = map_string(utcb, hmem->aux);
+        cmdlines_length += strlen(cmdline) + 1;
+        hmem->aux = reinterpret_cast<unsigned>(cmdline);
+      }
+    }
+
+    if (need_evacuation) {
+      char *cmdline_buf = new char[cmdlines_length];
+      char *cur = cmdline_buf;
+
+      for (int i = 0; i < (__hip->length - __hip->mem_offs) / __hip->mem_size; i++) {
+        Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(__hip) + __hip->mem_offs) + i;
+        if (hmem->aux) {
+          char *orig  = reinterpret_cast<char *>(hmem->aux);
+          hmem->aux = reinterpret_cast<unsigned long>(cur);
+          strcpy(cur, orig);
+          cur += strlen(orig)+1;
+        }
+      }
     }
     __hip->fix_checksum();
 
@@ -802,6 +835,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    if (error)
 	    {
 	      Logging::printf("s0: [%2u] unresolvable pagefault - killing client ...\n", modinfo->id);
+	      utcb->reset(); //make sure that utcb/frame will work
 	      kill_module(modinfo);
 	      return;
 	    }
@@ -811,9 +845,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	      revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
 	    }
 
-	    utcb->mtd = 0;
-	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
-	    add_mappings(utcb, reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
+	    utcb->set_header(0,0);
+	    if ((utcb->qual[1] & CLIENT_HIP) == CLIENT_HIP) {
+	      unsigned long rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->hip), 0x1000, CLIENT_HIP | MAP_MAP, DESC_MEM_ALL);
+	      assert(!rest); //should ever succeed, one page should ever fit
+	    } else {
+	      unsigned long rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->mem), modinfo->physsize, MEM_OFFSET | MAP_MAP, DESC_MEM_ALL);
+	      if (rest) {
+	        utcb->set_header(0,0);
+	        unsigned long offset = (utcb->qual[1] & ~((1UL << Utcb::MINSHIFT) - 1)) - MEM_OFFSET;  //XXX be more clever here, find out which is the biggest junk we can map
+	        rest = utcb->add_mappings(reinterpret_cast<unsigned long>(modinfo->mem) + offset, 1UL << Utcb::MINSHIFT, (MEM_OFFSET + offset) | MAP_MAP, DESC_MEM_ALL);
+	        assert(!rest); //should ever succeed, one page should ever fit
+	      }
+	    }
 	    if (verbose & VERBOSE_INFO)
 	      Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
@@ -846,7 +890,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
                             else goto fail;
                             //Logging::printf("s0: assign_pci() PD %x bdf %lx vfbdf %lx = %x\n", modinfo->id, msg->value, msg->len, utcb->msg[0]);
 			  } else {
-			    Logging::printf("s0: [%02x] DMA access denied.\n", modinfo->id);
+			    Logging::printf("s0: [%2u] DMA access denied.\n", modinfo->id);
                             goto fail;
 			  }
 			  break;
@@ -856,13 +900,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned gsi_cap = _irq_cap_base + (msg->value & 0xff);
 			    unsigned res = nova_assign_gsi(gsi_cap, modinfo->cpunr);
 			    if (res != NOVA_ESUCCESS) goto fail;
-			    Logging::printf("s0: [%02x] gsi %lx granted\n", modinfo->id, msg->value);
+			    Logging::printf("s0: [%2u] gsi %lx granted\n", modinfo->id, msg->value);
 			    utcb->set_header(1, 0);
-			    utcb->msg[0] = 0;
-			    add_mappings(utcb, gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
+			    utcb->msg[0] = utcb->add_mappings(gsi_cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
+			    if (utcb->msg[0]) goto fail;
 			  }
 			  else {
-			    Logging::printf("s0: [%02x] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
+			    Logging::printf("s0: [%2u] irq request dropped %x nr %x\n", modinfo->id, utcb->msg[2], utcb->msg[2] >> Utcb::MINSHIFT);
 			    goto fail;
 			  }
 			  break;
@@ -870,17 +914,17 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  {
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    if (!cap) goto fail;
-			    utcb->msg[0] = 0;
+			    utcb->msg[0] = utcb->add_mappings(cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
+			    if (utcb->msg[0]) goto fail;
 			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
-			    add_mappings(utcb, cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
 			  // XXX make sure only one gets it
 			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
 			  utcb->set_header(1, 0);
-			  utcb->msg[0] = 0;
-			  add_mappings(utcb, (msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_CAP_ALL);
+			  utcb->msg[0] = utcb->add_mappings((msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_CAP_ALL);
+			  if (utcb->msg[0]) goto fail;
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
 			  {
@@ -888,9 +932,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned long addr = msg->value & ~0xffful;
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->set_header(1, 0);
-			    utcb->msg[1] = 0;
-			    add_mappings(utcb, reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
-			    Logging::printf("s0: [%02x] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
+			    utcb->msg[0] = utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
+			    if (utcb->msg[0]) goto fail;
+			    Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
@@ -909,7 +953,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_CREATE_EC4PT:
 			default:
 			  // unhandled
-			  Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+			  Logging::printf("s0: [%2u] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 			  goto fail;
 			}
 		    }
@@ -923,7 +967,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 		    }
 		    break;
 		  default:
-		    Logging::printf("s0: [%02x] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
+		    Logging::printf("s0: [%2u] unknown request (%x,%x,%x) dropped \n", modinfo->id, utcb->msg[0],  utcb->msg[1],  utcb->msg[2]);
 		    goto fail;
 		  }
 	      return;
@@ -1321,7 +1365,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       assert(index <= MAXDISKREQUESTS);
       MessageDiskCommit item(_disk_data[client].tags[index-1].disk-1, _disk_data[client].tags[index-1].usertag, msg.status);
       if (!_disk_data[client].prod_disk.produce(item))
-        Logging::panic("s0: [%02x] produce disk (%x) failed\n", client, index);
+        Logging::panic("s0: [%2u] produce disk (%x) failed\n", client, index);
       _disk_data[client].tags[index-1].disk = 0;
     }
     return true;
@@ -1481,7 +1525,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     case MessageConsole::TYPE_KILL:
       {
         unsigned res = kill_module(get_module(msg.id));
-        if (res) Logging::printf("s0: [%02x] kill module = %u\n", msg.id, res);
+        if (res) Logging::printf("s0: [%2u] kill module = %u\n", msg.id, res);
       }
       return true;
     case MessageConsole::TYPE_DEBUG:

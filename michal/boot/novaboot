@@ -87,17 +87,10 @@ if ($qemu) { $CFG::qemu = $qemu; }
 if ($builddir) { $CFG::builddir = $builddir; }
 
 if ($dump_config) {
-    print
-"\$builddir = '$CFG::builddir';
-\$hypervisor = '$CFG::hypervisor';
-\$server = '$CFG::server';
-\$server_grub_prefix = '$CFG::server_grub_prefix';
-\$grub_keys = '$CFG::grub_keys';
-\$genisoimage = '$CFG::genisoimage';
-\$iprelay_addr = '$CFG::iprelay_addr';
-\$qemu = '$CFG::qemu';
-\$script_modifier = '$CFG::script_modifier';
-";
+    use Data::Dumper;
+    my @k = sort(keys(%CFG::));
+    print Data::Dumper->Dump([map(${$CFG::{$_}}, @k)], \@k);
+    print "1;\n";
     exit;
 }
 
@@ -130,16 +123,34 @@ if (defined $iprelay) {
 	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
 	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
     }
+
+    sub relayconf($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
+	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relay($$) {
+	my ($relay, $onoff) = @_;
+	my $confirmation = '';
+	print $IPRELAY relaycmd($relay, $onoff);
+	read($IPRELAY, $confirmation, 7, length($confirmation)) || die("read: $!");
+	if ($confirmation ne relayconf($relay, $onoff)) {
+	    print "Confirmation: $confirmation Expected: ".relayconf($relay, $onoff)."\n";
+	    die("Unexpected relay command confirmation. The code must be enhanced");
+	}
+    }
 }
 
 if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
-    print $IPRELAY relaycmd(1, 1); # Press power button
+     relay(1, 1); # Press power button
     if ($iprelay eq "on") {
-	usleep(200000);		# Short press
+	usleep(100000);		# Short press
     } else {
 	usleep(6000000);	# Long press to switch off
     }
-    print $IPRELAY relaycmd(1, 0);
+    print $IPRELAY relay(1, 0);
     exit;
 }
 
@@ -209,7 +220,7 @@ sub generate_configs($$) {
     foreach my $fn(keys %$configs) {
 	my $config = $$configs{$fn};
 	open(my $f, '>', $fn);
-	map { s|^rom://(.*)|rom://$base$1|; print $f "$_"; } @{$config};
+	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
     }
 }
@@ -231,7 +242,7 @@ sub generate_grub_config($$$$;$)
 	    $kcmd = '' if !defined $kcmd;
 	    print $fg "kernel ${base}$kbin $kcmd\n";
 	} else {
-	    s|rom://([^ ]*)|rom://$base$1|; # Translate rom:// files - needed for vdisk parameter of sigma0
+	    s|\brom://([^ ]*)|rom://$base$1|g; # Translate rom:// files - needed for vdisk parameter of sigma0
 	    print $fg "module $base$_\n";
 	}
     }
@@ -249,7 +260,7 @@ sub system_verbose($)
 {
     my $cmd = shift;
     print "Running: $cmd\n";
-    system($cmd);
+    return system($cmd);
 }
 
 
@@ -291,8 +302,10 @@ foreach my $script (@scripts) {
 	my ($hostname, $path) = split(":", $server, 2);
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
-	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
+	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
+	my $ret = system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
+				 ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
+	if ($ret >> 8) { die("The above command failed!"); }
     }
     
     if (defined $iso_image) {
@@ -327,6 +340,10 @@ if ($variables->{WVDESC}) {
     print "Testing \"$variables->{WVDESC}\" in $filename:\n";
 } elsif ($filename =~ /\.wv$/) {
     print "Testing \"all\" in $filename:\n";
+}
+
+if ($variables->{WVTEST_TIMEOUT}) {
+    print "wvtest: timeout ", $variables->{WVTEST_TIMEOUT}, "\n";
 }
 
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
@@ -386,9 +403,9 @@ if (defined $dhcp_tftp)
 if ($serial || defined $iprelay) {
     my $CONN;
     if (defined $iprelay) {
-	print $IPRELAY relaycmd(2, 1); # Reset the machine
-	usleep(200000);
-	print $IPRELAY relaycmd(2, 0);
+	relay(2, 1); # Reset the machine
+	usleep(100000);
+	relay(2, 0);
 
 	$CONN = $IPRELAY;
     } elsif ($serial) {
@@ -430,46 +447,59 @@ novaboot - NOVA boot script interpreter
 
 =head1 SYNOPSIS
 
-B<novaboot> [--help] [--append=...] [--bender] [--config=<file>]
-[--dhcp-tftp] [--dump-config] [--grub] [--iprelay] [--iso]
-[--qemu=...] [--qemu-flags=<flags>] [--serial] [--server] [--] script...
+B<novaboot> [ options ] [--] script...
+
+B<./script> [ options ]
 
 =head1 DESCRIPTION
 
-This program boots the NOVA system either in qemu or on a real
-hardware. Its operation is controlled by a script which determines
-which binaries to load and their parameters. See below for the syntax.
+This program makes it easier to boot NOVA in different environments.
+It reads a so called novaboot script and uses it either to boot NOVA
+(e.g. in qemu) or to generate the configuration for a specific
+bootloader and optionally to copy the necessary files to the proper
+locations. In case the system is actually booted, its serial output is
+redirected to stdout.
 
-If it is possible, the program also redirects the serial output of the
-booted system to stdout.
+With C<novaboot> you can:
 
-Besides that, this program can also create bootable ISO images based
-on one or more scripts.
+=over 3
 
-Typical use cases are:
+=item 1.
 
-=over 8
+Run NOVA in qemu. When I<script> is an executable file containing
+novaboot script and starting with C<#!/usr/bin/env novaboot> then
+running the script without any options (e.g. C<./script>) will run
+NOVA configuration in qemu.
 
-=item ./script
+=item 2.
 
-Boots NOVA system described in I<script> (which is made executable and
-starts with #!/usr/bin/env novaboot) in B<qemu>.
+Create GRUB configuration (GRUB2 is not yet supported) and copy it
+with all the needed files to a remote TFTP server. E.g.
 
-=item ./script --server --iprelay
+ ./script --server --iprelay
 
-Copy files to a PXE server and uses TCP/IP-controlled relay to reset
-the test machine and receive its serial output.
+This command copy files to a TFTP server and uses TCP/IP-controlled
+relay to reset the test machine and receive its serial output.
 
-=item sudo ./script --dhcp-tftp
+=item 3.
 
-Starts local DHCP and TFTP server to boot the configuration described
-in I<script>. The test machine is supposed to be connected via direct
-Ethernet connection to the local machine.
+Run DHCP and TFTP server on your development machine to PXE-boot NOVA
+from it. E.g.
 
-=item novaboot script1 script2 --iso
+ sudo ./script --dhcp-tftp
 
-Creates bootable ISO image with configurations I<script1> and
-I<script2> in GRUB's menu.
+When a PXE-bootable machine is connected via Ethernet to your
+development machine, it will boot the configuration described in
+I<script>.
+
+=item 4.
+
+Create bootable ISO images. E.g.
+
+ novaboot --iso script1 script2
+
+The created ISO image will have GRUB bootloader installed on it and
+the boot menu will show the I<script1> and I<script2> configurations.
 
 =back
 
@@ -483,11 +513,12 @@ Appends a string to the root task's command line.
 
 =item -b, --bender
 
-Boot bender tool to find serial ports.
+Boot bender tool before the kernel to find PCI serial ports.
 
 =item --build-dir=<directory>
 
-Overrides build directory location from the configuration file.
+Overrides build directory location specified in the configuration
+file.
 
 =item -c, --config=<filename>
 
@@ -504,10 +535,10 @@ a plain Ethernet cable to your workstation.
 Dumps current configuration to stdout end exits. Useful as an
 initial template for a config file.
 
-=item -g, --grub[=<filename>]
+=item -g, --grub[=I<filename>]
 
-Generate grub menu file. If the file name is not specified,
-menu.lst is used. The file name is relative to NUL build
+Generates grub menu file. If the I<filename> is not specified,
+menu.lst is used. The I<filename> is relative to NUL build
 directory.
 
 =item -h, --help
@@ -516,15 +547,15 @@ Print short (-h) or long (--help) help.
 
 =item -I
 
-Shortcut for --server --iprelay.
+Shortcut for C<--server --iprelay>.
 
 =item --iprelay[=cmd]
 
-If not I<cmd> is given, use IP relay to reset the machine and to get
+If no I<cmd> is given, use IP relay to reset the machine and to get
 the serial output. The IP address of the relay is determined by
-$iprelay_addr configuration variable.
+$iprelay_addr variable in the configuration file.
 
-If I<cmd> is one of "on" or "off", the IP relay is used press power
+If I<cmd> is one of "on" or "off", the IP relay is used to press power
 button for a short (in case of "on") or long (in case of "off") time.
 The script then exits.
 
@@ -532,48 +563,48 @@ Note: This option is expected to work with HWG-ER02a IP relays.
 
 =item -i, --iso[=filename]
 
-Generate the ISO image that boots NOVA system via Grub. If no
-filename is given, the image is stored under NAME.iso, where NAME
-is the name of novaboot script (see also --name).
+Generates the ISO image that boots NOVA system via GRUB. If no filename
+is given, the image is stored under I<NAME>.iso, where I<NAME> is the name
+of novaboot script (see also --name).
 
 =item --on, --off
 
 Synonym for --iprelay=on/off.
 
-=item --name=<string>
+=item --name=I<string>
 
-Use the name <string> instead of the name of the novaboot script.
+Use the name I<string> instead of the name of the novaboot script.
 This name is used for things like a title of grub menu or for the
 server directory where the boot files are copied to.
 
-=item -Q, --qemu=<qemu-binary>
+=item -Q, --qemu=I<qemu-binary>
 
 Use specific version of qemu binary. The default is 'qemu'.
 
-=item -q, --qemu-flags=<flags>
+=item -q, --qemu-flags=I<flags>
 
-Use other qemu flags than are the default, i.e. "-cpu coreduo -smp 2".
+Use specific qemu flags insted of the default ones (C<-cpu coreduo -smp 2>).
 
 =item --server[=[user@]server:path]
 
-Copy all files needed for booting to a server (implies -g). The
-files will be copied to the directory `path'. If the `path'
-contains string $NAME, it will be replaced with the name of the
-novaboot script (see also --name).
+Copy all files needed for booting to a server (implies C<-g>). The
+files will be copied to the directory I<path>. If the I<path> contains
+string $NAME, it will be replaced with the name of the novaboot script
+(see also --name).
 
-Additionally, if $NAME is the last component of the `path', a file
-named `path'/menu.lst (with $NAME removed from `path') will be
-created on the server by concatenating all `path'/*/menu.lst (with
-$NAME removed from `path') files found on the server.
+Additionally, if $NAME is the last component of the I<path>, a file
+named I<path>/menu.lst (with $NAME removed from the I<path>) will be
+created on the server by concatenating all I<path>/*/menu.lst (with
+$NAME removed from the I<path>) files found on the server.
 
 =item -s, --serial[=device]
 
-Use serial line to control grub bootloader and to get the serial
+Use serial line to control GRUB bootloader and to get the serial
 output of the machine. The default value is /dev/ttyUSB0.
 
 =back
 
-=head1 NOVA BOOT SCRIPT SYNTAX
+=head1 NOVABOOT SCRIPT SYNTAX
 
 The syntax tries to mimic POSIX shell syntax. All file names in the
 script are relative to the NUL build directory (see below).
@@ -619,6 +650,13 @@ The following variables are interpreted in the novaboot script:
 
 Description of the wvtest-compliant program.
 
+=item WVTEST_TIMEOUT
+
+The timeout in seconds for WvTest harness. If no complete line appears
+in the test output within the time specified here, the test fails. It
+is necessary to specify this for long running tests that produce no
+intermediate output.
+
 =item QEMU_FLAGS
 
 Use specific qemu flags (can be overriden by -q).
@@ -661,7 +699,11 @@ Defining this variable has the same meaning as --bender option.
 
 =item NOVABOOT_IPRELAY
 
-The IP address (and optionaly the port) to connecto to the IP relay.
-This overrides $iprelay_addr from the configuration file.
+The IP address (and optionaly the port) of the IP relay. This
+overrides $iprelay_addr variable from the configuration file.
 
 =back
+
+=head1 AUTHORS
+
+Michal Sojka <sojka@os.inf.tu-dresden.de>

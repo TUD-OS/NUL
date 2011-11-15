@@ -705,7 +705,7 @@ public:
 
   unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid) {
     unsigned res = ENONE;
     unsigned op;
 
@@ -939,6 +939,7 @@ public:
       // Create wakeup thread
       start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, mb.hip()->cpu_physical(i));
 
+    // XXX Do we need those when we have enough timers for all CPUs?
     Logging::printf("TIMER: Waiting for XCPU threads to come up.\n");
     for (log_cpu_no i = 0; i < cpus; i++)
       _xcpu_up.down();

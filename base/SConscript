@@ -25,9 +25,11 @@ def chomp(line):
 # Compilation flags
 
 # Compiler override
-target_cc  = ARGUMENTS.get('target_cc')
-target_cxx = ARGUMENTS.get('target_cxx')
-ld_path    = ARGUMENTS.get('ld_path')
+target_cc   = ARGUMENTS.get('target_cc')
+target_cxx  = ARGUMENTS.get('target_cxx')
+default_target_arch = "core2"
+target_arch = ARGUMENTS.get('target_arch')
+ld_path     = ARGUMENTS.get('ld_path')
 # Optimization flags
 
 debug = ARGUMENTS.get('debug', 0)
@@ -43,7 +45,7 @@ if int(ndebug):
 # Default environment for host machine. Use this to build host tools,
 # that need to run during the build.
 host_env = Environment()
-host_env["CCFLAGS"]  = "-g -Wall "
+host_env["CCFLAGS"]  = "-g -Wall " + debug_opts
 host_env["CXXFLAGS"] = "-std=c++0x -Weffc++ "
 host_env["CFLAGS"]   = "-std=c99 "
 
@@ -77,7 +79,12 @@ if ld_path:
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
 target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -mpreferred-stack-boundary=4 -mincoming-stack-boundary=4 -minline-all-stringops -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
-target_env.Append(CCFLAGS = (' -march=core2 -mtune=generic '))
+
+if target_arch:
+    target_env.Append(CCFLAGS = (" -march=%s " % target_arch))
+else:
+    print("No target_arch option given. Defaulting to %s." % default_target_arch)
+    target_env.Append(CCFLAGS = (" -march=%s " % default_target_arch))
 
 target_env['CXXFLAGS'] = "-std=gnu++0x -fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics -Wold-style-cast "
 target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration"

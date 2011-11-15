@@ -180,7 +180,7 @@ private:
   }
 
 public:
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap) {
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid) {
     unsigned res;
     unsigned op;
     if (input.get_word(op)) return EPROTO;
@@ -413,9 +413,9 @@ public:
     for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
       unsigned pcpu = __sigma0->_cpunr[lcpu];
       check1(3, nova_create_pt(base + ParentProtocol::CAP_PT_PERCPU + pcpu,
-               _percpu[pcpu].cap_ec_parent,
-			         reinterpret_cast<unsigned long>(StaticPortalFunc<s0_ParentProtocol>::portal_func),
-			         0));
+                               _percpu[pcpu].cap_ec_parent,
+                               reinterpret_cast<unsigned long>(StaticPortalFunc<s0_ParentProtocol>::portal_func),
+                               0));
     }
     return 0;
   }

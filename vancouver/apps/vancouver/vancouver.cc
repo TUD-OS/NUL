@@ -486,7 +486,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       if (need_unmap) revoke_all_mem(reinterpret_cast<void *>(own.base()), own.size(), DESC_MEM_ALL, false);
 
       utcb->mtd = 0;
-      add_mappings(utcb, own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
+      utcb->add_mappings(own.base(), own.size(), (msg.start_page << 12) + (own.base() - reinterpret_cast<unsigned long>(msg.ptr)) | MAP_EPT | (_dpci ? MAP_DPT : 0), own.attr());
 
       // EPT violation during IDT vectoring?
       if (utcb->inj_info & 0x80000000) {
@@ -928,8 +928,8 @@ VM_FUNC(PT_VMX + 16, vmx_rdtsc, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_TSC | MTD_STATE
         handle_vcpu(pid, true, CpuMessage::TYPE_RDTSC, tls, utcb);
         )
 
-VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN | MTD_GPR_ACDB,
-	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
+VM_FUNC(PT_VMX + 18,  vmx_vmcall, MTD_RIP_LEN,
+// 	Logging::printf("vmcall eip %x eax %x,%x,%x\n", utcb->eip, utcb->eax, utcb->ecx, utcb->edx);
 	utcb->eip += utcb->inst_len;
 	)
 VM_FUNC(PT_VMX + 30,  vmx_ioio, MTD_RIP_LEN | MTD_QUAL | MTD_GPR_ACDB | MTD_STATE | MTD_RFLAGS,

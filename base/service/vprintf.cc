@@ -75,6 +75,11 @@ const char * Vprintf::handle_formatstring(PutcFunction putc, void *data, const c
 	  l = 0;
 	  format++;
 	  break;
+  case '#': // write 0x before numbers
+	  putc(data, '0');
+	  putc(data, 'x');
+    format++;
+    break;
 	case 'l':
 	  l++;
 	  format++;

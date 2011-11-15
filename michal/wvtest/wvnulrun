@@ -52,33 +52,46 @@ sub bigkill($)
     exit(125);
 }
 
+my $timeout = 100;
+
 # parent
 local $SIG{INT} = sub { bigkill($pid); };
 local $SIG{TERM} = sub { bigkill($pid); };
 local $SIG{ALRM} = sub {
-    print STDERR "Alarm timed out!  No test results for too long.\n";
+    print STDERR "! $0: Alarm timed out!  No test output for $timeout seconds.  FAILED\n";
     bigkill($pid);
 };
 
 my $allstart = time();
 my ($start, $stop);
 my $tests_executed = 0;
+my $tests_failed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
-alarm(100);
+alarm($timeout);
 while (<$fh>)
 {
-    alarm(100);
+    alarm($timeout);
     print;
     chomp;
     s/\r//g;
 
     if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
 	$tests_executed++;
+	$tests_failed++ if ($4 ne "ok");
+    }
+    elsif (/wvtest: timeout (\d+)\s*$/) {
+	$timeout=$1;
+	if ($ENV{WVTEST_SKIP_LONG} && $timeout > 100) {
+	    kill 15, $pid;		# Kill novaboot or qemu
+	    exit 0;
+	}
     }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif ((/sc: done.$/ && $waits_for_child) ||
 	   /resetting machine via method/ ||
+	   /wvtest: done\s*$/ ||
+	   ( $ENV{WVTEST_EXIT_PATTERN} && /$ENV{WVTEST_EXIT_PATTERN}/ ) ||
 	   / # .*System halted. *$/)
     {
 	kill 15, $pid;		# Kill novaboot or qemu
@@ -108,7 +121,10 @@ if ($ret != 0) {
     print "! $0: Program '", join(" ", @ARGV), "' returned non-zero exit code ($ret)  FAILED\n";
 }
 
-printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+if (!$ENV{WVTEST_EXIT_PATTERN}) {
+    printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+}
+if ($tests_failed > 0) { $ret = 1; }
 if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
 
 exit $ret;

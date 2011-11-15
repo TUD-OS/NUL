@@ -14,6 +14,7 @@
 
 #include <nul/program.h>
 #include <sigma0/console.h>
+#include <wvtest.h>
 
 namespace ab {
 class IPCTest : public NovaProgram, public ProgramConsole
@@ -30,6 +31,7 @@ class IPCTest : public NovaProgram, public ProgramConsole
       init_mem(hip);
 
       console_init("syscall tests", new Semaphore(alloc_cap(), true));
+      _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
       Logging::printf("Hello\n");
 
@@ -122,14 +124,17 @@ class IPCTest : public NovaProgram, public ProgramConsole
     Logging::printf("A: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_EABORT ? "success" : "failure", NOVA_EABORT, res);
+    WVPASSEQ(res, 0U + NOVA_EABORT);
 
     Logging::printf("B: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ETIMEOUT ? "success" : "failure", NOVA_ETIMEOUT, res);
+    WVPASSEQ(res, 0U + NOVA_ETIMEOUT);
 
     Logging::printf("C: ... ");
     res = nova_call(pt_wo);
     Logging::printf("%s - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ETIMEOUT ? "success" : "failure", NOVA_ETIMEOUT, res);
+    WVPASSEQ(res, 0U + NOVA_ETIMEOUT);
 
     return true;
   }
@@ -141,19 +146,25 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
     res = nova_create_sm(sm);
     Logging::printf("%s - create_sm     - reason: return code 0x%x ?= 0x%x -> sm=0x%x\n", res == NOVA_ESUCCESS ? "success" : "failure", NOVA_ESUCCESS, res, sm);
+    WVPASSEQ(res, 0U + NOVA_ESUCCESS);
     if (res != NOVA_ESUCCESS) return false;
 
     res = nova_syscall(NOVA_LOOKUP,  Crd(sm, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
     Logging::printf("%s - lookup(0x%x) - reason: crd.raw=0x%x should be != 0x0\n",
                     ((res == NOVA_ESUCCESS) && (crdout & DESC_RIGHTS_ALL)) ? "success" : "failure", sm, crdout);
+    WVPASSEQ(res, 0U + NOVA_ESUCCESS);
+    WVPASS(crdout & DESC_RIGHTS_ALL);
 
     res = nova_revoke(Crd(sm, 0, DESC_CAP_ALL), true);
     Logging::printf("%s - revoke(0x%x) - reason: return code 0x%x ?= 0x%x\n", res == NOVA_ESUCCESS ? "success" : "failure", sm, NOVA_ESUCCESS, res);
+    WVPASSEQ(res, 0U + NOVA_ESUCCESS);
     if (res != NOVA_ESUCCESS) return false;
 
     res  = nova_syscall(NOVA_LOOKUP,  Crd(sm, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
     Logging::printf("%s - lookup(0x%x) - reason: crd.raw=0x%x should be == 0x0\n",
                     ((res == NOVA_ESUCCESS) && (crdout == 0U)) ? "success" : "failure", sm, crdout);
+    WVPASSEQ(res, 0U + NOVA_ESUCCESS);
+    WVPASSEQ(crdout, 0U);
     if (res || crdout != 0U) {
       Logging::printf("          lookup(0x%x) -> cap=0x%x order=%u rights=0x%x\n",
                       sm, Crd(crdout).cap(), Crd(crdout).order(), crdout & DESC_RIGHTS_ALL);
@@ -166,4 +177,4 @@ class IPCTest : public NovaProgram, public ProgramConsole
 
 } /* namespace */
 
-ASMFUNCS(ab::IPCTest, NovaProgram)
+ASMFUNCS(ab::IPCTest, WvTest)

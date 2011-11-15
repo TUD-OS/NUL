@@ -131,3 +131,21 @@ PARAM_HANDLER(vdisk,
 				      "virtualdisk");
   mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
 }
+
+PARAM_HANDLER(vdisk_empty,
+	      "vdisk_empty:size - create a virtual disk of a given size",
+	      "Example: vdisk_empty:1048576 creates a virtual disk of 1MiB size")
+{
+  size_t size = argv[0];
+
+  char *buffer = new(4096) char[size];
+
+  Logging::printf("vdisk_empty: Attached as vdisk %u.\n", mb.bus_disk.count());
+
+  VirtualDisk * dev = new VirtualDisk(mb.bus_diskcommit,
+				      mb.bus_disk.count(),
+				      buffer,
+				      size,
+				      "virtualdisk");
+  mb.bus_disk.add(dev, VirtualDisk::receive_static<MessageDisk>);
+}

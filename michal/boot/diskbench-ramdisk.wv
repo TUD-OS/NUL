@@ -1,5 +1,6 @@
 #!/usr/bin/env novaboot
 # -*-sh-*-
+HYPERVISOR_PARAMS=serial
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     service_disk \
     vdisk:rom://diskbench.img \

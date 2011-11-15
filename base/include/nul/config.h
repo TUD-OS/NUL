@@ -23,6 +23,6 @@ struct Config {
     CAP_RESERVED_ORDER = 10, //reserved cap region where the parent can put caps for the client
     MAX_CLIENTS_ORDER  = 6,
     PHYS_ADDR_SIZE     = 40,
-    MAX_CPUS           = 256,
+    MAX_CPUS           = 32,
   };
 };

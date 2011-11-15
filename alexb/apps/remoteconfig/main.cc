@@ -31,10 +31,13 @@
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" bool nul_ip_config(unsigned para, void * arg);
-extern "C" void nul_ssl_init(void);
-extern "C" int32 nul_ssl_session(void *&ssl);
-extern "C" int32 nul_ssl_len(void * ssl, unsigned char * &buf);
-extern "C" int32 nul_ssl_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
+
+extern "C" bool nul_tls_init(unsigned char * server_cert, int32 server_cert_len,
+                             unsigned char * server_key, int32 server_key_len,
+                             unsigned char * ca_cert, int32 ca_cert_len);
+extern "C" int32 nul_tls_session(void *&ssl);
+extern "C" int32 nul_tls_len(void * ssl, unsigned char * &buf);
+extern "C" int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                                 void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session);
 
 enum {
@@ -91,12 +94,12 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       int32 rc;
 
       assert(localport == 9999 || localport == 10000);
-      int32 len = nul_ssl_len(localport == 9999 ? tls_session_cmd : tls_session_event, sslbuf);
-      if (len < in_len) Logging::panic("Fix me buffer to small! %d %zu\n", len, in_len);
+      int32 len = nul_tls_len(localport == 9999 ? tls_session_cmd : tls_session_event, sslbuf);
+      if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
       //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
       memcpy(sslbuf, in, in_len);
 
-      rc = nul_ssl_config(in_len, write_out, appdata, appdata_len, false, localport,
+      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport,
           localport == 9999 ? tls_session_cmd : tls_session_event);
       if (rc > 0) {
         loop:
@@ -104,7 +107,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         out = 0; out_len = 0;
         remcon->recv_call_back(appdata, appdata_len, out, out_len);
         appdata = out; appdata_len = out_len;
-        rc = nul_ssl_config(0, write_out, appdata, appdata_len, true, localport,
+        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport,
                             localport == 9999 ? tls_session_cmd : tls_session_event);
         if (rc > 0) goto loop;
       }
@@ -132,11 +135,47 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     bool use_network(Utcb *utcb, Hip * hip, EventConsumer * sendconsumer,
                      Clock * _clock, KernelSemaphore &sem, TimerProtocol * timer_service)
     {
-      bool res;
       unsigned long long arg = 0;
+      char *args[16];
+      char *pos_s;
+      char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+      unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+      unsigned res;
+      unsigned char *serverkey = 0, *servercert = 0, *cacert = 0, **crypto;
+      int32 serverkey_len = 0, servercert_len = 0, cacert_len = 0, *crypto_len;
 
-      nul_ssl_init(); ///XXX error code checking
-      if (nul_ssl_session(tls_session_cmd) < 0 || nul_ssl_session(tls_session_event) < 0) return false;
+      for (unsigned i=1; i < argv && i < 16; i++) {
+        if (!strncmp("servercert=", args[i],11)) { pos_s = args[i] + 11; crypto=&servercert; crypto_len=&servercert_len; goto tlsparse; }
+        if (!strncmp("serverkey=" , args[i],10)) { pos_s = args[i] + 10; crypto=&serverkey;  crypto_len=&serverkey_len; goto tlsparse; }
+        if (!strncmp("cacert="    , args[i],7))  { pos_s = args[i] +  7; crypto=&cacert;     crypto_len=&cacert_len; goto tlsparse; }
+        continue;
+
+        tlsparse:
+        unsigned portal_num = FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count();
+        unsigned cap_base = alloc_cap(portal_num);
+        int len = strcspn(pos_s, " \t\r\n\f");
+        //Logging::printf("file %d %s\n", len, pos_s);
+
+        char fs_service_name[16] = "fs/";
+        size_t fs_service_name_len = sizeof(fs_service_name);
+        const char * filename = FsProtocol::parse_file_name(pos_s, fs_service_name + 3, fs_service_name_len);
+        if (!filename || (filename > pos_s + len)) Logging::panic("failure - misformed file name %s\n", pos_s);
+
+        FsProtocol::dirent fileinfo;
+        FsProtocol fs_obj(cap_base, fs_service_name);
+        if (res = fs_obj.get_file_info(*utcb, fileinfo, filename, strcspn(filename," \t\r\n\f")))
+          Logging::panic("failure - reading error (%d) of file '%s' from '%s'\n", res, filename, fs_service_name);
+
+        *crypto = new(4096) unsigned char[fileinfo.size];
+        *crypto_len = fileinfo.size;
+        if (!*crypto) Logging::panic("failure - out of memory (%llu) for file\n", fileinfo.size);
+        res = fs_obj.get_file_copy(*utcb, *crypto, fileinfo.size, filename, strcspn(filename," \t\r\n\f"));
+        if (res != ENONE) Logging::panic("failure - reading file %u\n", res);
+
+        fs_obj.destroy(*utcb, portal_num, this);
+      }
+      if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
+          nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
 
       if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
 
@@ -170,12 +209,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
 
       // check for static ip - otherwise use dhcp
-      char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-      char *args[16];
-      unsigned entry, argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+      unsigned entry;
       unsigned long addr[4] = { 0, 0x00ffffffUL, 0, 0 }; //addr, netmask, gw
       bool static_ip = false;
-      char * pos_s;
       for (unsigned i=1; i < argv && i < 16; i++) {
         if (!strncmp("ip="  , args[i],3)) { entry=0; pos_s = args[i] + 3; static_ip = true; goto parse; }
         if (!strncmp("mask=", args[i],5)) { entry=1; pos_s = args[i] + 5; goto parse; }

@@ -1,2 +1,4 @@
-libvirt-0.9.2.tar.gz
-libvirt-0.9.2/
+libvirt-*.tar.gz
+libvirt-*/
+.*.stamp
+_install/

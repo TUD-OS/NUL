@@ -356,7 +356,7 @@ public:
  * Define a static portal function.
  */
 template <class C> struct StaticPortalFunc {
-  static void portal_func(C *tls, Utcb *utcb) __attribute__((regparm(0)))
+  static void portal_func(cap_sel pid, C *tls, Utcb *utcb) __attribute__((regparm(1)))
   {
     bool free_cap;
 
@@ -368,7 +368,7 @@ template <class C> struct StaticPortalFunc {
       utcb->add_frame().head.untyped++;
       Utcb::Frame input = utcb->get_nested_frame();
       free_cap = input.received_cap();
-      utcb->msg[0] = tls->portal_func(*utcb, input, free_cap);
+      utcb->msg[0] = tls->portal_func(*utcb, input, free_cap, pid);
       utcb->skip_frame();
       if (!free_cap && input.received_cap()) utcb->head.crd = tls->alloc_crd();
     }

@@ -27,6 +27,7 @@
  *  * no transmission effect of stopbit+parity+divisor
  *  * no character timeout indication -> need a timer for that
  *  * no MSR setting via client
+ *  * no HW reset support
  * Ignored bits: FCR2-3, LCR2-6, LSR2-4,7
  * Documentation: NSC 16550D - PC16550D.pdf
  */
@@ -138,7 +139,6 @@ public:
 	else
 	  msg.value = _regs[RBR];
 	if (~_regs[FCR] & 1 || !_rfcount) _regs[LSR] &= ~1;
-	update_irq();
 	break;
       case IIR:
 	msg.value = get_iir();
@@ -148,8 +148,6 @@ public:
 	_regs[LSR] &= 0x61;
 	break;
       case IER:
-	update_irq();
-	break;
       case MCR:
       case LCR:
       case MSR ... DLM:
@@ -157,6 +155,7 @@ public:
       default:
 	Logging::panic("SerialDevice::%s() %x", __func__, msg.port);
       }
+    update_irq();
     return true;
   }
 
@@ -184,7 +183,6 @@ public:
 	      // write directly, no write fifo here
 	      msg2.serial++;
 	      _mb.bus_serial.send(msg2);
-	      update_irq();
 	    }
 	}
 	break;
@@ -197,7 +195,6 @@ public:
 	    // clear fifos
 	    _rfcount = 0;
 	    _regs[LSR] = 0x60;
-	    update_irq();
 	  }
 
 	if (msg.value & 1)
@@ -220,7 +217,6 @@ public:
 	  }
 	else
 	  _regs[MSR] = 0xb0;
-	update_irq();
 	break;
       case LSR:
 	if (_regs[FCR] & 1)
@@ -233,6 +229,7 @@ public:
       default:
 	Logging::panic("SerialDevice::%s() %x %x", __func__, msg.port, msg.value);
       }
+    update_irq();
     return true;
   }
 

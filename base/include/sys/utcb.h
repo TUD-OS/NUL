@@ -77,7 +77,7 @@ struct Utcb
       };
       unsigned long long qual[2];
       unsigned     ctrl[2];
-      unsigned long long tsc_off;
+      long long tsc_off;
       unsigned     cr0, cr2, cr3, cr4;
       unsigned     dr7, sysenter_cs, sysenter_esp, sysenter_eip;
       Descriptor   es, cs, ss, ds, fs, gs;
@@ -354,7 +354,39 @@ struct Utcb
     HEADER_SIZE = sizeof(struct head),
   };
 
+  /**
+   * Add mappings to a UTCB.
+   * Returns size of memory left which couldn't be put on the utcb becaus no space is left.
+   */
+  WARN_UNUSED
+  unsigned long add_mappings(unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights)
+  {
+    while (size > 0) {
+      unsigned minshift = Cpu::minshift(addr | (hotspot & ~0xffful) , size);
+      assert(minshift >= Utcb::MINSHIFT);
+      this->head.typed++;
+      unsigned *item = this->item_start();
+      if (item <= this->msg+this->head.untyped) return size;
+      item[1] = hotspot;
+      item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
+      unsigned long mapsize = 1 << minshift;
+      size    -= mapsize;
+      addr    += mapsize;
+      hotspot += mapsize;
+    }
+    return size;
+  }
 
+  /**
+   * If you mixing code which manipulates the utcb by its own and you use this Utcb/Frame code,
+   * you have to fix up your utcb after the code manipulated the utcb by its own. Otherwise some of the
+   * assertion in the Frame code will trigger because the Utcb/Frame code assumes it's the only
+   * one who manipulates the utcb. In general avoid this mixing, however in sigma0 it's not done everywhere.
+   */
+  void reset() {
+    head.mtr = 0;
+    this->msg[STACK_START] = 0;
+  }
 };
 enum {
   EXCEPTION_WORDS = 72,
