@@ -162,8 +162,14 @@ bool if_add_to_bridge (int fd, char const *brdev, int ifidx)
  */
 Buffer *map_buffer (size_t size)
 {
+    int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_LOCKED | MAP_POPULATE;
+
+#ifdef MAP_HUGETLB
+    flags |= MAP_HUGETLB;
+#endif
+
     void *addr;
-    if ((addr = mmap (0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_LOCKED | MAP_POPULATE, -1, 0)) == MAP_FAILED) {
+    if ((addr = mmap (0, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
         perror ("mmap");
         return 0;
     }
