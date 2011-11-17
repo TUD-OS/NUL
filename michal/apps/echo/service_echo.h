@@ -26,11 +26,15 @@ struct EchoProtocol : public GenericProtocol {
   };
 
   unsigned echo(Utcb &utcb, unsigned value) {
-    return call_server(init_frame(utcb, TYPE_ECHO) << value, true);
+    return call_server_drop(init_frame(utcb, TYPE_ECHO) << value);
   }
 
-  unsigned get_last(Utcb &utcb) {
-    return call_server(init_frame(utcb, TYPE_GET_LAST), true);
+  unsigned get_last(Utcb &utcb, unsigned &last_val) {
+    unsigned res = call_server_keep(init_frame(utcb, TYPE_GET_LAST));
+    if (res == ENONE)
+      last_val = utcb.msg[1];
+    utcb.drop_frame();
+    return res;
   }
 
   explicit EchoProtocol(unsigned cap_base, unsigned instance=0, bool blocking = true)

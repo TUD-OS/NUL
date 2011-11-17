@@ -77,8 +77,9 @@ public:
 			  input.identity());
 	  return res;
 	}
-	else
-	  return data->last_val; // Return the remembered value
+	utcb.msg[1] = data->last_val; // Return the remembered value
+	utcb.head.untyped++;	      // Increase the size of the reply
+	return ENONE;		      // The returned value will appear in utcb.msg[0]
       }
       default:
 	Logging::panic("Unknown op!!!!\n");
