@@ -927,8 +927,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    if (!cap) goto fail;
 			    utcb->msg[0] = utcb->add_mappings(cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
-			    if (utcb->msg[0]) goto fail;
-			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
+			    if (utcb->msg[0] == 0)
+                              utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
+                            else
+                              utcb->set_header(1, 0);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
@@ -945,8 +947,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			    char *ptr = map_self(utcb, addr, msg->len);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
-			    if (utcb->msg[0]) goto fail;
-			    Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
+			    if (utcb->msg[0] == 0)
+                              Logging::printf("s0: [%2u] iomem %lx+%lx granted from %p\n", modinfo->id, addr, msg->len, ptr);
+                            else {
+                              Logging::printf("s0: [%2u] iomem mapping failed.\n");
+                              goto fail;
+                            }
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_SEMAPHORE:
