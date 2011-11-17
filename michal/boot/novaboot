@@ -10,6 +10,7 @@ use Time::HiRes("usleep");
 use Socket;
 use FileHandle;
 use IPC::Open2;
+use POSIX qw(:errno_h);
 
 # always flush
 $| = 1;
@@ -135,11 +136,30 @@ if (defined $iprelay) {
 	my ($relay, $onoff) = @_;
 	my $confirmation = '';
 	print $IPRELAY relaycmd($relay, $onoff);
-	read($IPRELAY, $confirmation, 7, length($confirmation)) || die("read: $!");
-	if ($confirmation ne relayconf($relay, $onoff)) {
-	    print "Confirmation: $confirmation Expected: ".relayconf($relay, $onoff)."\n";
-	    die("Unexpected relay command confirmation. The code must be enhanced");
+
+	# We use non-blocking I/O and polling here because for some
+	# reason read() on blocking FD returns only after all
+	# requested data is available. If we get during the first
+	# read() only a part of confirmation, we may get the rest
+	# after the system boots and print someting, which may be too
+	# long.
+	$IPRELAY->blocking(0);
+
+	alarm(20); # Timeout in seconds
+        local $SIG{ALRM} = sub { die "Relay confirmation timeout"; };
+	my $index;
+	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0) {
+	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
+	    if (!defined($read)) {
+		die($!) unless $! == EAGAIN;
+		usleep(10000);
+		next;
+	    }
+	    #use MIME::QuotedPrint;
+	    #print "confirmation = ".encode_qp($confirmation)."\n";
 	}
+	alarm(0);
+	$IPRELAY->blocking(1);
     }
 }
 
