@@ -23,7 +23,7 @@
 #include "host/dma.h"
 #include "wvtest.h"
 
-char disk_buffer[4<<20] ALIGNED(4<<20);
+char disk_buffer[4<<20] ALIGNED(0x1000);
 unsigned long blocksize = 512;
 unsigned outstanding=5;
 bool wvtest = false;

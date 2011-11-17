@@ -78,15 +78,21 @@ private:
     client =_get_client_from_pt(pt);
     if (!client) return EEXISTS;
 
-    Crd dma_mem = input.translated_cap(0);
-    if (dma_mem.value() == 0) return EPROTO;
-
-    client->dma_buffer = reinterpret_cast<char*>(dma_mem.base());
-    client->dma_size   = dma_mem.size();
-
-    Crd consumer_mem = input.translated_cap(1);
+    Crd consumer_mem = input.translated_cap(0);
     DiskProtocol::DiskConsumer *consumer = reinterpret_cast<DiskProtocol::DiskConsumer *>(consumer_mem.base());
     client->prod_disk = DiskProtocol::DiskProducer(consumer, client->sem);
+
+    for (unsigned i = 1; i < input.typed(); i++) {
+      Crd dma_mem = input.translated_cap(i);
+      if (dma_mem.value() == 0) return EPROTO;
+      if (i == 1) {
+	client->dma_buffer = reinterpret_cast<char*>(dma_mem.base());
+	client->dma_size   = dma_mem.size();
+      } else {
+	assert(dma_mem.base() == reinterpret_cast<unsigned long>(client->dma_buffer) + client->dma_size);
+	client->dma_size += dma_mem.size();
+      }
+    }
 
     nova_revoke_self(Crd(pt, 0, DESC_CAP_ALL));
     client->deleg_pt = 0;
@@ -109,8 +115,12 @@ private:
       // Create delegation EC
       Utcb *utcb_service;
       assert(_deleg_ec[i] = create_ec4pt(i, &utcb_service));
-      //utcb_service->head.crd = service->alloc_crd(); //TODO when not in s0
+#ifdef DISK_SERVICE_IN_S0
       utcb_service->head.crd_translate = Crd(0, 31, DESC_MEM_ALL).value();
+#else
+      virt = _free_virt.alloc(TODO);
+      utcb_service->head.crd = TODO virt;
+#endif
     }
     return ENONE;
   }

@@ -23,6 +23,8 @@
 #include "sigma0/consumer.h"
 #include "wvtest.h"
 
+#define DISK_SERVICE_IN_S0
+
 /**
  * Client part of the disk protocol.
  * Missing: register shared memory producer/consumer.
@@ -58,13 +60,7 @@ struct DiskProtocol : public GenericProtocol {
     unsigned backup_crd = utcb.head.crd;
     unsigned res;
 
-    const bool service_in_s0 = true;
-
-    unsigned dma_order = Cpu::bsf(dma_size | (1ul << (8*sizeof(unsigned long)-1)));
-    assert(dma_order >= 12);
-    assert(dma_size == 1ul<<dma_order);
-    assert((reinterpret_cast<unsigned long>(dma_addr) & ((1ul<<dma_order)-1)) == 0);
-
+    assert((reinterpret_cast<unsigned long>(dma_addr) & ((1ul<<12)-1)) == 0);
     assert((reinterpret_cast<unsigned long>(consumer) & ((1<<12)-1)) == 0);
     assert(sizeof(*consumer) < 1<<12);
 
@@ -76,13 +72,16 @@ struct DiskProtocol : public GenericProtocol {
 
     /* Delegate the memory via the received portal */
     utcb.add_frame();
-    if (service_in_s0) {
-      utcb << Utcb::TypedTranslateMem(dma_addr, dma_order-12);
+#ifdef DISK_SERVICE_IN_S0
       utcb << Utcb::TypedTranslateMem(consumer, 0);
-    } else {
-      utcb << Utcb::TypedMapCap(0, Crd(reinterpret_cast<unsigned>(dma_addr), dma_order - 12, DESC_MEM_ALL).value());
-      //TODO: utcb << Utcb::TypedTranslateMem(consumer, 0);
-    }
+      res = utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, reinterpret_cast<mword>(dma_addr), DESC_MEM_ALL);
+      assert(res == 0);
+#else
+#warning TODO
+      utcb << Utcb::TypedDelegateMem(consumer, 0);
+      res = utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL);
+      assert(res == 0);
+#endif
     res = WVNOVA(nova_call(tmp_cap));
     utcb.drop_frame();
   err:
