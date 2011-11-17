@@ -86,7 +86,8 @@ class Sigma0Base : public BaseProgram
       utcb->msg[1] = reinterpret_cast<unsigned long>(consumer);
       utcb->set_header(2, 0);
       /* Delegate sem to sigma0 with "up" permission */
-      utcb->add_mappings(sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, 0x14 | DESC_TYPE_CAP);
+      unsigned left = utcb->add_mappings(sem_nq << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, 0x14 | DESC_TYPE_CAP);
+      assert(left == 0); //should ever fit, its only one page
       check1(1, nova_call(14));
       return utcb->msg[0];
     }

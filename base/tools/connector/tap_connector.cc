@@ -35,13 +35,15 @@ size_t const buf_size = 0x400000;
 
 enum Request
 {
-    NET_INIT = 0x40001000,
-    NET_WAIT = 0x40001001,
+    NET_INIT    = 0x40001000,
+    NET_WAIT    = 0x40001001,
 };
+
+enum Slot_state { EMPTY, FULL };
 
 struct Buffer
 {
-    unsigned short ind;     // 0 = empty, 1 = full
+    unsigned short sst;     // slot state
     unsigned short len;     // payload length
     char data[mtu_size];    // payload data
 };
@@ -160,8 +162,14 @@ bool if_add_to_bridge (int fd, char const *brdev, int ifidx)
  */
 Buffer *map_buffer (size_t size)
 {
+    int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_LOCKED | MAP_POPULATE;
+
+#ifdef MAP_HUGETLB
+    flags |= MAP_HUGETLB;
+#endif
+
     void *addr;
-    if ((addr = mmap (0, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_LOCKED | MAP_POPULATE, -1, 0)) == MAP_FAILED) {
+    if ((addr = mmap (0, size, PROT_READ | PROT_WRITE, flags, -1, 0)) == MAP_FAILED) {
         perror ("mmap");
         return 0;
     }
@@ -206,7 +214,7 @@ int main()
         bool block = true;
 
         // TAP => VMM
-        if (tap_buf[tap_slot].ind == 0) {
+        if (*static_cast<volatile unsigned short *>(&tap_buf[tap_slot].sst) == EMPTY) {
 
             int len = read (tap, tap_buf[tap_slot].data, sizeof (tap_buf[tap_slot].data));
 
@@ -227,7 +235,7 @@ int main()
 
                 barrier();
 
-                tap_buf[tap_slot].ind = 1;
+                tap_buf[tap_slot].sst = FULL;
 
                 tap_slot = (tap_slot + 1) % slots;
 
@@ -240,7 +248,7 @@ int main()
         }
 
         // VMM => TAP
-        if (vmm_buf[vmm_slot].ind == 1) {
+        if (*static_cast<volatile unsigned short *>(&vmm_buf[vmm_slot].sst) == FULL) {
 
             int len = write (tap, vmm_buf[vmm_slot].data, vmm_buf[vmm_slot].len);
 
@@ -259,7 +267,7 @@ int main()
 
                 barrier();
 
-                vmm_buf[vmm_slot].ind = 0;
+                vmm_buf[vmm_slot].sst = EMPTY;
 
                 vmm_slot = (vmm_slot + 1) % slots;
 

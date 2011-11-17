@@ -25,10 +25,12 @@ class EchoTest : public WvProgram
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
+    unsigned last_val = 0;
     EchoProtocol *echo = new EchoProtocol(alloc_cap(EchoProtocol::CAP_SERVER_PT + hip->cpu_count()));
 
     WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
-    WVPASSEQ(echo->get_last(*myutcb()), 42U);
+    WVPASSEQ(echo->get_last(*myutcb(), last_val), 0U);
+    WVPASSEQ(last_val, 42U);
   }
 };
 

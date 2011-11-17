@@ -12,7 +12,7 @@ set -e
 
 cd ~/nul
 
-ver="$(git describe) $(git log -n 1 --format='(%an: %s)')"
+ver="$(git describe --dirty) $(git log -n 1 --format='(%an: %s)')"
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 
 cd build

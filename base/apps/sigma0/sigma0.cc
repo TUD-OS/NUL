@@ -77,10 +77,21 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
     MEM_OFFSET         = 1ul << 31,
     CLIENT_HIP         = 0xBFFFF000U,
     CLIENT_BOOT_UTCB   = CLIENT_HIP - 0x1000,
-    CLIENT_PT_OFFSET   = 0x20000U,
+
     CLIENT_PT_SHIFT    = Config::CAP_RESERVED_ORDER,
     CLIENT_PT_ORDER    = CLIENT_PT_SHIFT + Config::MAX_CLIENTS_ORDER,
+
+    // The offset at which the client capability space starts. This
+    // needs to be naturally aligned to CLIENT_PT_ORDER+1 to make
+    // service_parent happy who puts all its caps after
+    // [CLIENT_PT_OFFSET, CLIENT_PT_OFFSET + (1U << CLIENT_PT_ORDER))
+    // and expects to be able to use a single translation window to
+    // cover both.
+    CLIENT_PT_OFFSET   = 1U << (CLIENT_PT_ORDER+1),
   };
+
+// See comment above.
+static_assert((CLIENT_PT_OFFSET & ((1U << (CLIENT_PT_ORDER+1))-1)) == 0, "Capability space misconfiguration");
 
 #include "parent_protocol.h"
 
@@ -163,7 +174,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
       unsigned long s = _virt_phys.find_phys(physmem, size);
       if (s)  return reinterpret_cast<char *>(s) + ofs;
-      virt = _free_virt.alloc(size, Cpu::minshift(physmem, size, 22));
+      virt = _free_virt.alloc(size, MAX(Cpu::minshift(physmem, size), 22));
       if (!virt) return 0;
     }
     unsigned old_crd = utcb->head.crd;
@@ -468,12 +479,14 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     check1(1, init(hip));
 
     //cap range from 0 - 0x10000 assumed to be reserved by program.h -> assertion
-    //reserve cap range from 0x20000 (CLIENT_PT_OFFSET) to MAX_CLIENTS (CLIENT_ALL_SHIFT) - is used by sigma0 implicitly without a cap allocator !
-    assert(_cap_start == 0 && _cap_order == 16 && CLIENT_PT_OFFSET == 0x20000U);
+    //reserve cap range from CLIENT_PT_OFFSET - is used by sigma0 implicitly without a cap allocator !
+    assert(_cap_start == 0 && _cap_order == 16);
     Region * reserve = _cap_region.find(CLIENT_PT_OFFSET);
-    assert(reserve && reserve->virt <= CLIENT_PT_OFFSET && reserve->size - (reserve->virt - CLIENT_PT_OFFSET) >= (2 << CLIENT_PT_ORDER));
-    //clients range + parent_protocol range
-    _cap_region.del(Region(CLIENT_PT_OFFSET, 2U << CLIENT_PT_ORDER));
+    assert(reserve and reserve->virt <= CLIENT_PT_OFFSET and
+           reserve->size - (reserve->virt - CLIENT_PT_OFFSET) >= (1 << (CLIENT_PT_ORDER+1)));
+
+    // Clients range + parent_protocol range.
+    _cap_region.del(Region(CLIENT_PT_OFFSET, 1U << (CLIENT_PT_ORDER+1)));
 
     //sanity checks
     assert(!_cap_region.find(CLIENT_PT_OFFSET) && !_cap_region.find(CLIENT_PT_OFFSET + (1U << CLIENT_PT_ORDER) - 1U));
@@ -989,7 +1002,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         {
           bool unlocked = msg.len;
           unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
-          Logging::printf("Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
+          Logging::printf("s0: Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
           assert(cpu < 32);
           unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);

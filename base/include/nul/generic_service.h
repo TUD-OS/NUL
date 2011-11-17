@@ -365,7 +365,7 @@ template <class C> struct StaticPortalFunc {
       free_cap = (utcb->head.typed != 0);
       utcb->head.mtr = 1 /* untyped word */;
     } else {
-      utcb->add_frame().head.untyped++;
+      utcb->add_frame().head.untyped++; /* we will reply one word */
       Utcb::Frame input = utcb->get_nested_frame();
       free_cap = input.received_cap();
       utcb->msg[0] = tls->portal_func(*utcb, input, free_cap, pid);

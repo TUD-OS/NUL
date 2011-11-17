@@ -17,7 +17,9 @@
  */
 
 #pragma once
-#include "service/math.h"
+
+#include <nul/compiler.h>
+#include <service/math.h>
 
 class Cpu
 {
@@ -74,12 +76,19 @@ class Cpu
   static  unsigned bsr(unsigned value) { return __builtin_clz(value) ^ 0x1F; }
   static  unsigned bsf(unsigned value) { return __builtin_ctz(value); }
 
-  static  unsigned minshift(unsigned long start, unsigned long size, unsigned minshift = 31) {
-    unsigned shift = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
-    if (shift < minshift) minshift = shift;
-    shift = Cpu::bsr(size | 1);
-    if (shift < minshift) return shift;
-    return minshift;
+  /**
+   * Calculates the order (log2 of the size) of the largest naturally
+   * aligned block that starts at start and is no larger than size.
+   *
+   * @param minshift The largest value returned by this function.
+   *
+   * @return The calculated order or the minshift parameter is it is
+   * smaller then the order.
+   */
+  static unsigned minshift(unsigned long start, unsigned long size) {
+    unsigned basealign  = Cpu::bsf(start | (1ul << (8*sizeof(unsigned long)-1)));
+    unsigned shiftalign = Cpu::bsr(size | 1);
+    return MIN(basealign, shiftalign);
   }
 
   static int popcount(unsigned int  v) { return __builtin_popcount (v); }

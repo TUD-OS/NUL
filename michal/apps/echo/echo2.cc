@@ -143,10 +143,11 @@ public:
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  Logging::printf("echo: Client %d: Cannot get client data to retrieve the value\n",
 			  input.identity());
-	  return 0;
+	  return res;
 	}
-	else
-	  return data->last_val; // Return the remembered value
+	utcb.msg[1] = data->last_val; // Return the remembered value
+	utcb.head.untyped++;	      // Increase the size of the reply
+	return ENONE;		      // The returned value will appear in utcb.msg[0]
       }
       default:
 	Logging::printf("Unknown op!!!!\n");
