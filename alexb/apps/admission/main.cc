@@ -346,8 +346,12 @@ public:
         Hip_cpu const *cpu = &hip->cpus()[cpunr];
         if (not cpu->enabled()) continue;
 
-        idle_scs.scs[cpunr].idx = 512 + cpunr;
+        idle_scs.scs[cpunr].idx = ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS + cpunr;
         idle_scs.scs[cpunr].cpu = cpunr;
+
+        timevalue computetime;
+        if (NOVA_ESUCCESS != nova_ctl_sc(idle_scs.scs[cpunr].idx, computetime))
+          Logging::panic("Couldn't get idle sc cap - cpu %u, idx %#x\n", idle_scs.scs[cpunr].cpu, idle_scs.scs[cpunr].idx);
 
         exc_base_wo = alloc_cap(16);
         exc_base_pf = alloc_cap(16);
