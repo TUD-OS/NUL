@@ -38,6 +38,7 @@
 #define WV(code)    ({ WvTest __t(__FILE__, __LINE__, #code); __t.check(true); code; })
 #define WVSHOW(val) ({ WvTest __t(__FILE__, __LINE__, #val);  __t.show(val); })
 #define WVSHOWHEX(val)  ({ WvTest __t(__FILE__, __LINE__, #val);  __t.show_hex(val); })
+#define WVPRINTF(fmt, ...)  Logging::printf("! %s:%d " fmt " ok\n", WvTest::repo_rel_path(__FILE__), __LINE__, ##__VA_ARGS__)
 
 class WvTest
 {
@@ -120,25 +121,6 @@ class WvTest
       return result.tostr();
     }
 
-  static const char *repo_rel_path(const char *filename)
-  {
-    const char wvtest_h[] = __FILE__;
-    const char name_in_repo[] = "michal/include/wvtest.h";
-    unsigned rel_idx = sizeof(wvtest_h) - sizeof(name_in_repo);
-
-    const char *p1 = wvtest_h + rel_idx;
-    const char *p2 = name_in_repo;
-    while (*p1 && *p2)
-      if (*p1++ != *p2++) // Unexpected location of this file
-	return filename;  // Return absolute path
-
-    for (unsigned i=0; i < rel_idx; i++)
-      if (filename[i] != wvtest_h[i])
-	rel_idx = 0;
-    // Return repo-relative path if the 'filename' is in repo.
-    return filename + rel_idx;
-  }
-
   void save_info(const char *_file, int _line, const char *_condstr)
     { file = repo_rel_path(_file); condstr = _condstr; line = _line; }
 
@@ -219,6 +201,25 @@ class WvTest
 
 public:
   //static unsigned tests_failed, tests_run;
+
+  static const char *repo_rel_path(const char *filename)
+  {
+    const char wvtest_h[] = __FILE__;
+    const char name_in_repo[] = "michal/include/wvtest.h";
+    unsigned rel_idx = sizeof(wvtest_h) - sizeof(name_in_repo);
+
+    const char *p1 = wvtest_h + rel_idx;
+    const char *p2 = name_in_repo;
+    while (*p1 && *p2)
+      if (*p1++ != *p2++) // Unexpected location of this file
+	return filename;  // Return absolute path
+
+    for (unsigned i=0; i < rel_idx; i++)
+      if (filename[i] != wvtest_h[i])
+	rel_idx = 0;
+    // Return repo-relative path if the 'filename' is in repo.
+    return filename + rel_idx;
+  }
 
   WvTest(const char *file, int line, const char *condstr) {
     save_info(file, line, condstr);
