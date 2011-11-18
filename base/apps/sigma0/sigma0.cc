@@ -925,10 +925,15 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			case MessageHostOp::OP_ATTACH_MSI:
 			  {
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
-			    if (!cap) goto fail;
-			    utcb->msg[0] = utcb->add_mappings(cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
-			    if (utcb->msg[0]) goto fail;
-			    utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
+			    if (!cap) {
+                              Logging::printf("s0: [%2u] granting msi to cpu %u failed\n", modinfo->id, modinfo->cpunr);
+                              goto fail;
+                            }
+                            utcb->set_header(1 + sizeof(*msg)/ sizeof(unsigned), 0);
+			    unsigned long res = utcb->add_mappings(cap << Utcb::MINSHIFT, 1 << Utcb::MINSHIFT, MAP_MAP, DESC_CAP_ALL);
+                            assert(res == 0); // Cannot fail
+                            utcb->msg[0] = 0;
+			    Logging::printf("s0: [%2u] msi %lx granted\n", modinfo->id, modinfo->cpunr);
 			  }
 			  break;
 			case MessageHostOp::OP_ALLOC_IOIO_REGION:
