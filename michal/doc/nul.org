@@ -290,14 +290,14 @@ by the client as defined by sigma0::drive:X command line parameters.
 
 A client that wants to acces a disk creates a semaphore and a
 DiskConsumer object, which is a ring buffer for MessageDiskCommit
-messages. Then it calls Sigma0 via Sigma0Base::request_disks_attach(),
+messages. Then, it calls Sigma0 via Sigma0Base::request_disks_attach(),
 which delegates the semaphore to Sigma0 and passes it the address of
 the Consumer object. Sigma0 connects the producer in the apropriate
 entry in Sigma0::_disk_data with the consumer in the client.
 
 Reading from the disk is performed by sending MessageDisk::DISK_READ
 message to Sigma0 via Sigma0Base::disk(). The message contains which
-disk to read a /tag/ (unique identifier of the request), starting
+disk to read, a /tag/ (unique identifier of the request), starting
 sector, a pointer to the buffer in the client's address space and a
 DMA scatter-gatter list with offsets relative to the buffer.
 
