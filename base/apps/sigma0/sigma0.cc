@@ -261,7 +261,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     unsigned irq_cap = _irq_cap_base + msg->msi_gsi;
     void    *mconf   = get_config_space(msg->value);
     if (mconf == NULL) {
-      Logging::printf("s0: could not assign gsi for device %lx. No mmconfig?\n", msg->value);
+      Logging::printf("s0: could not assign gsi for device %lx:%lx:%lx. No mmconfig?\n", msg->value >> 8 & 0xff, msg->value >> 3 & 0x1f, msg->value & 0x7);
       return false;
     }
 
@@ -688,7 +688,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       if (!_pcidirect[i]) {
         MessageHwPciConfig msg_resolve(bdf);
         if (not _mb->bus_hwpcicfg.send(msg_resolve)) {
-          Logging::printf("s0: could not assign device %x. No mmconfig?\n", bdf);
+          Logging::printf("s0: could not assign device %x:%x:%x. No mmconfig?\n", bdf >> 8 & 0xff, bdf >> 3 & 0x1f, bdf & 0x7);
           return false;
         }
         
