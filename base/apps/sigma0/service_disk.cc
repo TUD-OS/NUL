@@ -199,7 +199,11 @@ public:
 	    return res;
 
 	  DiskParameter param;
-	  MessageDisk msg2 = MessageDisk(0, &param);
+	  unsigned disk;
+
+	  if (input.get_word(disk))     return EPROTO;
+
+	  MessageDisk msg2 = MessageDisk(disk, &param);
 	  bool ok = _mb.bus_disk.send(msg2);
 	  if (ok)
 	    utcb << param;
@@ -256,6 +260,21 @@ public:
 
 	return _mb.bus_disk.send(msg) ? ENONE : EABORT;
       }
+      case DiskProtocol::TYPE_FLUSH_CACHE:
+	{
+	  Sessions::Guard guard_c(&_disk_client, utcb, this);
+	  DiskClient *client = 0;
+
+	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
+	    return res;
+
+	  unsigned disk;
+	  if (input.get_word(disk))     return EPROTO;
+
+	  MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disk, 0, 0, 0, 0, 0, 0);
+	  bool ok = _mb.bus_disk.send(msg2);
+	  return ok ? ENONE : ERESOURCE;
+	}
       default:
 	Logging::panic("Unknown disk op!!!!\n");
         return EPROTO;

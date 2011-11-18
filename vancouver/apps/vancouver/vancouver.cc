@@ -720,13 +720,13 @@ public:
   bool  receive(MessageDisk &msg)    {
     switch (msg.type) {
     case MessageDisk::DISK_GET_PARAMS:
-      return service_disk->get_params(*myutcb(), msg.params) == ENONE;
+      return service_disk->get_params(*myutcb(), msg.disknr, msg.params) == ENONE;
     case MessageDisk::DISK_READ:
     case MessageDisk::DISK_WRITE:
       return service_disk->read_write(*myutcb(), msg.type == MessageDisk::DISK_READ,
 				      msg.disknr, msg.usertag, msg.sector, msg.dmacount, msg.dma) == ENONE;
     case MessageDisk::DISK_FLUSH_CACHE:
-      return service_disk->flush_cache(*myutcb()) == ENONE;
+      return service_disk->flush_cache(*myutcb(), msg.disknr) == ENONE;
     }
     Logging::panic("disk operation %d not implemented\n", msg.type);
   }

@@ -48,9 +48,9 @@ struct DiskProtocol : public GenericProtocol {
   DiskConsumer *consumer;
   KernelSemaphore *sem;
 
-  unsigned get_params(Utcb &utcb, DiskParameter *params) {
+  unsigned get_params(Utcb &utcb, unsigned disk, DiskParameter *params) {
     unsigned res;
-    if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_PARAMS))))
+    if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_PARAMS) << disk)))
       if (utcb >> *params)  res = EPROTO;
     utcb >> *params;
     utcb.drop_frame();
@@ -107,8 +107,8 @@ struct DiskProtocol : public GenericProtocol {
   unsigned write(Utcb &utcb, unsigned disk, unsigned long usertag, unsigned long long sector, unsigned dmacount, DmaDescriptor *dma)
   { return read_write(utcb, false, disk, usertag, sector, dmacount, dma); }
 
-  unsigned flush_cache(Utcb &utcb) {
-    return call_server_drop(init_frame(utcb, TYPE_FLUSH_CACHE));
+  unsigned flush_cache(Utcb &utcb, unsigned disk) {
+    return call_server_drop(init_frame(utcb, TYPE_FLUSH_CACHE) << disk);
   }
 
 

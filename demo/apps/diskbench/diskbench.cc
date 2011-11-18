@@ -95,7 +95,7 @@ public:
 //     assert(Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm()) == 0);
 
     DiskParameter params;
-    res = disk->get_params(*utcb, &params);
+    res = disk->get_params(*utcb, 0, &params);
     if (res) Logging::panic("get params failed");
     Logging::printf("DISK flags %x sectors %lld ssize %d maxreq %d name '%s'\n", params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
 
