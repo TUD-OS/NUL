@@ -21,7 +21,6 @@
 #include "parent.h"
 #include "host/dma.h"
 #include "sigma0/consumer.h"
-#include "wvtest.h"
 
 #define DISK_SERVICE_IN_S0
 
@@ -46,6 +45,9 @@ struct DiskProtocol : public GenericProtocol {
   typedef Consumer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskConsumer;
   typedef Producer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskProducer;
 
+  DiskConsumer *consumer;
+  KernelSemaphore *sem;
+
   unsigned get_params(Utcb &utcb, DiskParameter *params) {
     unsigned res;
     if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_PARAMS))))
@@ -56,7 +58,7 @@ struct DiskProtocol : public GenericProtocol {
   }
 
   unsigned attach(Utcb &utcb, void *dma_addr, size_t dma_size, cap_sel tmp_cap,
-		  DiskConsumer *consumer, cap_sel notify_sem) {
+		  DiskConsumer *consumer, KernelSemaphore *notify_sem) {
     unsigned backup_crd = utcb.head.crd;
     unsigned res;
 
@@ -64,25 +66,27 @@ struct DiskProtocol : public GenericProtocol {
     assert((reinterpret_cast<unsigned long>(consumer) & ((1<<12)-1)) == 0);
     assert(sizeof(*consumer) < 1<<12);
 
+    this->consumer = consumer;
+    this->sem = notify_sem;
+
     /* Delegate sempahore and request portal capability for memory delegation */
-    init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem);
+    init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem->sm());
     utcb.head.crd = Crd(tmp_cap, 0, DESC_CAP_ALL).value();
-    res = WVNOVA(call_server_drop(utcb));
+    res = call_server_drop(utcb);
     check2(err, res);
 
     /* Delegate the memory via the received portal */
     utcb.add_frame();
 #ifdef DISK_SERVICE_IN_S0
-      utcb << Utcb::TypedTranslateMem(consumer, 0);
-      res = utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, reinterpret_cast<mword>(dma_addr), DESC_MEM_ALL);
-      assert(res == 0);
+    utcb << dma_size;
+    utcb << Utcb::TypedTranslateMem(consumer, 0);
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, reinterpret_cast<mword>(dma_addr), DESC_MEM_ALL));
 #else
 #warning TODO
-      utcb << Utcb::TypedDelegateMem(consumer, 0);
-      res = utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL);
-      assert(res == 0);
+    utcb << Utcb::TypedDelegateMem(consumer, 0);
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL));
 #endif
-    res = WVNOVA(nova_call(tmp_cap));
+    res = nova_call(tmp_cap);
     utcb.drop_frame();
   err:
     utcb.head.crd = backup_crd;

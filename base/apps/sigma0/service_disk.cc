@@ -21,7 +21,6 @@
 #include <nul/sservice.h>
 #include <nul/capalloc.h>
 #include <nul/program.h>
-#include <wvtest.h>
 
 template <typename T> T min(T a, T b) { return (a < b) ? a : b; }
 template <typename T> T max(T a, T b) { return (a > b) ? a : b; }
@@ -82,16 +81,19 @@ private:
     DiskProtocol::DiskConsumer *consumer = reinterpret_cast<DiskProtocol::DiskConsumer *>(consumer_mem.base());
     client->prod_disk = DiskProtocol::DiskProducer(consumer, client->sem);
 
+    unsigned long last_base = 0, last_size = 0;
+
     for (unsigned i = 1; i < input.typed(); i++) {
       Crd dma_mem = input.translated_cap(i);
       if (dma_mem.value() == 0) return EPROTO;
       if (i == 1) {
 	client->dma_buffer = reinterpret_cast<char*>(dma_mem.base());
-	client->dma_size   = dma_mem.size();
-      } else {
-	assert(dma_mem.base() == reinterpret_cast<unsigned long>(client->dma_buffer) + client->dma_size);
-	client->dma_size += dma_mem.size();
+	input.get_word(client->dma_size);
       }
+      // Check that the memory is contiguous
+      assert(dma_mem.base() >= last_base + last_size && dma_mem.base() < reinterpret_cast<unsigned long>(client->dma_buffer) + client->dma_size);
+      last_base = dma_mem.base();
+      last_size = dma_mem.size();
     }
 
     nova_revoke_self(Crd(pt, 0, DESC_CAP_ALL));

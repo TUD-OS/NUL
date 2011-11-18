@@ -87,7 +87,7 @@ public:
 
     disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), 0);
     res = disk->attach(*utcb, disk_buffer, sizeof(disk_buffer), alloc_cap(),
-		       diskconsumer, sem->sm());
+		       diskconsumer, sem);
     if (res) Logging::panic("delegate_dma_buffer failed: %d\n", res);
     Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     mb->parse_args(reinterpret_cast<const char *>(hip->get_mod(0)->aux));
