@@ -225,7 +225,12 @@
       check1(__LINE__, !pmem);
     }
 
-    check2(_free_pmem, (!((tmem = map_self(utcb, pmem, modinfo->physsize))))); //don't assign modinfo->mem = map_self directly (double free may happen)
+    // Don't assign modinfo->mem directly (potential double free)
+    tmem = map_self(utcb, pmem, modinfo->physsize);
+    if (tmem == NULL) {
+      Logging::printf("s0: [%2u] allocation of %ld MB (%lx) failed\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize);
+      goto _free_pmem;
+    }
     modinfo->mem = tmem;
 
     if (verbose & VERBOSE_INFO)
