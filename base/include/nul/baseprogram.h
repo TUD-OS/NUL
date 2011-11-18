@@ -66,7 +66,7 @@ struct BaseProgram {
     size = (size + 0xfff) >> 12;
     while (size) {
       unsigned order = Cpu::minshift(page, size);
-      check0(nova_revoke(Crd(page, order, rights | 1), myself));
+      check0(nova_revoke(Crd(page, order, rights | DESC_TYPE_MEM), myself));
       size -= 1 << order;
       page += 1 << order;
     }

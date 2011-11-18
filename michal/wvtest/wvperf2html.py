@@ -200,7 +200,7 @@ commits = {}
 re_date = re.compile('^Date: (.*)')
 re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
 re_commit = re.compile('(\S+) (.*?), commit: (.*)')
-re_commithash = re.compile('([0-9a-f]{7}) \(')
+re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
 re_perfaxis = re.compile('axis="([^"]+)"')

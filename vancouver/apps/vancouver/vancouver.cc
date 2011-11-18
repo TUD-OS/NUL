@@ -551,15 +551,15 @@ public:
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
 	{
 	  myutcb()->head.crd = Crd(msg.value >> 8, msg.value & 0xff, DESC_IO_ALL).value();
-	  res = Sigma0Base::hostop(msg);
+	  res = !Sigma0Base::hostop(msg);
 	  Logging::printf("alloc ioio region %lx %s\n", msg.value, res ? "done" :  "failed");
 	}
 	break;
       case MessageHostOp::OP_ALLOC_IOMEM:
 	{
 	  _iomem_start = (_iomem_start + msg.len - 1) & ~(msg.len-1);
-	  myutcb()->head.crd = Crd(_iomem_start >> 12, Cpu::bsr(msg.len) - 12, 1).value();
-	  res = Sigma0Base::hostop(msg);
+	  myutcb()->head.crd = Crd(_iomem_start >> 12, Cpu::bsr(msg.len) - 12, DESC_MEM_ALL).value();
+	  res = !Sigma0Base::hostop(msg);
 	  if (res) {
 	    msg.ptr = reinterpret_cast<char *>(_iomem_start);
 	    _iomem_start += msg.len;
