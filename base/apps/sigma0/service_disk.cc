@@ -21,6 +21,7 @@
 #include <nul/sservice.h>
 #include <nul/capalloc.h>
 #include <nul/program.h>
+#include <wvtest.h>
 
 template <typename T> T min(T a, T b) { return (a < b) ? a : b; }
 template <typename T> T max(T a, T b) { return (a > b) ? a : b; }
@@ -35,6 +36,8 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
 private:
   typedef DiskService Allocator;
   Motherboard &_mb;
+
+  Semaphore _lock;
 
   // per client data
   struct DiskClient : public GenericClientData {
@@ -179,6 +182,7 @@ public:
     {
       unsigned op, res;
       check1(EPROTO, input.get_word(op));
+      SemaphoreGuard l(_lock);
 
       switch (op) {
       case ParentProtocol::TYPE_OPEN:
@@ -313,6 +317,10 @@ public:
   DiskService(Motherboard &mb, unsigned _cap, unsigned _cap_order)
     : CapAllocator(_cap, _cap, _cap_order), _mb(mb)
   {
+    _lock = Semaphore(alloc_cap());
+    assert(nova_create_sm(_lock.sm()) == ENONE);
+    _lock.up();
+
     _create_deleg_ecs(*mb.hip());
     _mb.bus_diskcommit.add(this, receive_static<MessageDiskCommit>);
     register_service(this, "/disk", *mb.hip());
