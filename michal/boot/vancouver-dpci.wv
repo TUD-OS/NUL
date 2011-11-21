@@ -18,7 +18,7 @@ WVPASS got_ip_address $VM1_CONSOLE
 
 VM1_IP=$(sed -ne '/(5).*dhcpcd\[[0-9]\+\]: br0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
 VM2_IP=$(sed -ne '/(6).*dhcpcd\[[0-9]\+\]: int0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
-telnet_works() { nc $1 23 </dev/null >/dev/null; }
+telnet_works() { nc -w 1 -t $1 23 </dev/null; }
 WVPASS telnet_works $VM1_IP
 
 WVPASS got_ip_address $VM2_CONSOLE
