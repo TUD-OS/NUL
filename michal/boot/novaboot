@@ -399,10 +399,17 @@ if (defined $dhcp_tftp)
     system('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
-    print $fh 'subnet 10.23.23.0 netmask 255.255.255.0 {
-		      range 10.23.23.10 10.23.23.10;
-		      filename "bin/boot/grub/pxegrub.pxe";
-		      next-server 10.23.23.1;}';
+    my $mac = `cat /sys/class/net/eth0/address`;
+    chomp $mac;
+    print $fh "subnet 10.23.23.0 netmask 255.255.255.0 {
+		      range 10.23.23.10 10.23.23.100;
+		      filename \"bin/boot/grub/pxegrub.pxe\";
+		      next-server 10.23.23.1;
+}
+host server {
+	hardware ethernet $mac;
+	fixed-address 10.23.23.1;
+}";
     close($fh);
     system("ip a add 10.23.23.1/24 dev eth0;
 	    ip l set dev eth0 up;
