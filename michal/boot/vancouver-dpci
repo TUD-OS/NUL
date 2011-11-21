@@ -1,0 +1,16 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+HYPERVISOR_PARAMS=serial iommu
+QEMU_FLAGS=-cpu phenom -smp 2 -m 512
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT mmconfig hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config
+bin/apps/vancouver.nul
+bin/boot/munich
+imgs/bzImage-3.1-32
+imgs/slackware-32.bz2
+vancuver.nulconfig <<EOF
+sigma0::mem:950 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/vancouver.nul PC_PS2 dpci:2,0,0 82576vf ||
+rom://bin/boot/munich ||
+rom://imgs/bzImage-3.1-32 clocksource=tsc console=ttyS0 root=/dev/ram0 ||
+rom://imgs/slackware-32.bz2
+EOF

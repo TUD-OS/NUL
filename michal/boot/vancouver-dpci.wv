@@ -1,0 +1,18 @@
+#!/bin/bash
+
+nulroot=$(readlink -f $(dirname $0)/../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART Direct PCI device assignment in Vancouver
+
+P="Starting Internet super-server daemon:  /usr/sbin/inetd"
+WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $nulroot/michal/boot/vancouver-dpci "$@" | tee vancouver-dpci.log
+
+got_ip_address() { grep 'dhcpcd\[[0-9]\+\]: br0: leased [0-9.]\+ for [0-9]\+ seconds' vancouver-dpci.log; }
+WVPASS got_ip_address
+
+NOVA_IP=$(sed -ne '/.*dhcpcd\[[0-9]\+\]: br0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
+telnet_works() { nc $NOVA_IP 23 </dev/null >/dev/null; }
+WVPASS telnet_works
