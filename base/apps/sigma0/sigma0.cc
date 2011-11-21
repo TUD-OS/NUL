@@ -679,7 +679,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Check if the device is already allocated.
     for (unsigned i = 0; i < MAXPCIDIRECT; i++)
       if (bdf == _pcidirect[i]) {
-        Logging::printf("s0: PCI device %x is requested again. Denied!\n", bdf);
+        Logging::printf("s0: PCI device %x:%x:%x cannot be directly assigned again!\n", bdf >> 8 & 0xff, bdf >> 3 & 0x1f, bdf & 0x7);
         return false;
       }
 
