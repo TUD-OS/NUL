@@ -396,7 +396,7 @@ my ($dhcpd_pid, $tftpd_pid);
 if (defined $dhcp_tftp)
 {
     generate_configs("(nd)", $configs);
-    system('mkdir -p tftpboot');
+    system_verbose('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
     my $mac = `cat /sys/class/net/eth0/address`;
@@ -411,7 +411,7 @@ host server {
 	fixed-address 10.23.23.1;
 }";
     close($fh);
-    system("ip a add 10.23.23.1/24 dev eth0;
+    system_verbose("ip a add 10.23.23.1/24 dev eth0;
 	    ip l set dev eth0 up;
 	    touch dhcpd.leases");
 
