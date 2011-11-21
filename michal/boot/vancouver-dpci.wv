@@ -7,12 +7,19 @@ wvpath=$nulroot/michal/wvtest
 
 WVSTART Direct PCI device assignment in Vancouver
 
-P="Starting Internet super-server daemon:  /usr/sbin/inetd"
+P="\(6\) #   Starting Internet super-server daemon:  /usr/sbin/inetd" # Wait for the second VM to boot
 WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $nulroot/michal/boot/vancouver-dpci "$@" | tee vancouver-dpci.log
 
-got_ip_address() { grep 'dhcpcd\[[0-9]\+\]: br0: leased [0-9.]\+ for [0-9]\+ seconds' vancouver-dpci.log; }
-WVPASS got_ip_address
+VM1_CONSOLE=5
+VM2_CONSOLE=6
 
-NOVA_IP=$(sed -ne '/.*dhcpcd\[[0-9]\+\]: br0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
-telnet_works() { nc $NOVA_IP 23 </dev/null >/dev/null; }
-WVPASS telnet_works
+got_ip_address() { grep "($1) #   dhcpcd\[[0-9]\+\]: [^:]\+: leased [0-9.]\+ for [0-9]\+ seconds" vancouver-dpci.log; }
+WVPASS got_ip_address $VM1_CONSOLE
+
+VM1_IP=$(sed -ne '/(5).*dhcpcd\[[0-9]\+\]: br0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
+VM2_IP=$(sed -ne '/(6).*dhcpcd\[[0-9]\+\]: int0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
+telnet_works() { nc $1 23 </dev/null >/dev/null; }
+WVPASS telnet_works $VM1_IP
+
+WVPASS got_ip_address $VM2_CONSOLE
+WVPASS telnet_works $VM2_IP
