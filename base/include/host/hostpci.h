@@ -206,7 +206,7 @@ class HostPci
     MessageAcpi msg3(search_bridge(bdf), bdf, pin - 1);
     if (!bus_acpi.send(msg3, true)) {
       msg3.gsi = conf_read(bdf, 0xf) & 0xff;
-      Logging::printf("No glue which GSI %x_%x is triggering - fall back to PIC irq %x\n", bdf, pin, msg3.gsi);
+      Logging::printf("No clue which GSI %x_%x is triggering - fall back to PIC irq 0x%x\n", bdf, pin, msg3.gsi);
     }
 
     // attach to the IRQ
