@@ -87,6 +87,10 @@ for line in sys.stdin.readlines():
             line = line.replace('kbuild', tag);
             line = line.replace('ok', 'axis="kbuild" ok');
 
+    if where.find('/diskbench-vm.wv') != -1 and linetype == 'perf' and commithash == '7459b8c':
+        # Skip results of test with forgotten debugging output
+        continue
+
     # Output (possibly modified) line
     print line
 
