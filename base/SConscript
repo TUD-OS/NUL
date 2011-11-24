@@ -49,6 +49,10 @@ host_env["CCFLAGS"]  = "-g -Wall " + debug_opts
 host_env["CXXFLAGS"] = "-std=c++0x -Weffc++ "
 host_env["CFLAGS"]   = "-std=c99 "
 
+host32_env = host_env.Clone()
+host32_env.Append(CCFLAGS   = " -m32 ",
+                  LINKFLAGS = " -m32 ");
+
 # Freestanding environment for IA-32. Use this to build standalone
 # binaries.
 target_env = Environment()
@@ -131,6 +135,7 @@ target_env.AddMethod(link, "Link")
 
 # Export our environments. Should be cloned before changing them.
 Export('host_env')
+Export('host32_env')
 Export('target_env')
 Export('debug_opts')
 
