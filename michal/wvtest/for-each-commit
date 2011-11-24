@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -e
+
+if [[ $# = 0 ]]; then cat >&2 <<EOF
+Usage: $0 <commit-range> <commands>
+Example: $0 5296754..ff8af37 wvnulrun ./diskbench-vm -I
+EOF
+    exit 1
+fi
+
+range=$1
+shift
+
+toplevel=$(git rev-parse --show-toplevel)
+
+
+for GIT_COMMIT in $(git log --format=%h --date-order --reverse $range); do
+    git checkout --quiet $GIT_COMMIT
+    (cd $toplevel; git submodule --quiet update --init)
+    ver=$(git log -n 1 --date=iso --format="%cd, commit: $(git describe --dirty) (%an: %s)")
+    echo "Testing \"$ver\" in $0:"
+    (cd $toplevel/build && scons -j2)
+    eval "$@"
+done
