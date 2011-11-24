@@ -15,8 +15,16 @@ cd ~/nul
 ver="$(git describe --dirty) $(git log -n 1 --format='(%an: %s)')"
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 
+CC=/usr/local/gcc/4.6/bin/gcc
+CXX=/usr/local/gcc/4.6/bin/g++
+
+echo sha1: $(sha1sum $CC)
+$CC --version
+echo sha1: $(sha1sum $CXX)
+$CXX --version
+
 cd build
-scons target_cc=/usr/local/gcc/4.6/bin/gcc target_cxx=/usr/local/gcc/4.6/bin/g++
+scons target_cc=$CC target_cxx=$CXX
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
 PATH=$HOME/bin:$PATH
 
