@@ -15,8 +15,8 @@ cd ~/nul
 ver="$(git describe --dirty) $(git log -n 1 --format='(%an: %s)')"
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 
-CC=/usr/local/gcc/4.6/bin/gcc
-CXX=/usr/local/gcc/4.6/bin/g++
+CC=/home/sojka/gcc/gcc-4.6/bin/gcc
+CXX=/home/sojka/gcc/gcc-4.6/bin/g++
 
 echo sha1: $(sha1sum $CC)
 $CC --version
