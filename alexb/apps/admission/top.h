@@ -201,6 +201,7 @@
         more += 1;
         cursor_pos = 0;
         Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", more);
+        memset(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH +  cursor_pos * VALUEWIDTH - 1, 0, 1);
       }
     } while (data = _storage.next(data));
     _putc(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - (client_num % (HEIGHT - 2)) * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH, '#');
