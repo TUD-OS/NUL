@@ -20,6 +20,7 @@
 #include <nul/types.h>
 #include <service/string.h>
 #include "parent.h"
+#include <nul/baseprogram.h>
 
 /**
  */

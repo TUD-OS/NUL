@@ -105,11 +105,12 @@ public:
           memcpy(reinterpret_cast<void *>(_addr), reinterpret_cast<void *>(hmem.addr + foffset), _size > 0x1000U ? 0x1000 : _size);
           _addr += 0x1000; foffset += 0x1000; _size -= 0x1000;
         }
-        //Logging::printf("abort %x addr %lx utcb %p _size %llx foffset %llx\n", utcb.head.res, addr, &utcb, _size, foffset);
-	// Check whether our pagefault handler signaled us an abort.
+        // Check whether our pagefault handler signaled us an abort.
         if (utcb.head.crd_translate) {
+          Logging::printf("region %#lx-%#llx \n pf addr %lx utcb %p _size %llx foffset %llx - pfoffset=%#lx\n\n", addr, csize, _addr - 0x1000, &utcb, _size + 0x1000, foffset - 0x1000, ((_addr - (addr & ~0xffful)) - 0x1000UL));
           utcb.head.crd_translate = tmp_crd;
-          return ERESOURCE; //got pf
+          utcb << ((_addr - (addr & ~0xffful)) - 0x1000UL);
+          return FsProtocol::EPAGEFAULT; //got pf
         } else
           utcb.head.crd_translate = tmp_crd;
       }
