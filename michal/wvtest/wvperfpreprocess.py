@@ -18,7 +18,7 @@ re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s
 date = time.localtime(time.time())
 linetype = None
 what = None
-where = None
+where = ""
 commit = None
 commithash = None
 basename = None
@@ -89,6 +89,10 @@ for line in sys.stdin.readlines():
 
     if where.find('/diskbench-vm.wv') != -1 and linetype == 'perf' and commithash == '7459b8c':
         # Skip results of test with forgotten debugging output
+        continue
+
+    if where.find('standalone/basicperf.c') != -1 and linetype == 'perf' and line.find("PERF: warmup_") != -1:
+        # Skip warmup results
         continue
 
     # Output (possibly modified) line
