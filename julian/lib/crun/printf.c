@@ -68,7 +68,7 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
 {
   unsigned l=0;
   int pad = 0;
-  bool alternate = false;
+  // bool alternate = false;
   while (*format) {
     switch (*format) {
     case '0':
@@ -83,7 +83,8 @@ handle_formatstring(putchar_fn put, void *data, const char *format, va_list *ap)
       format++;
       break;
     case '#':
-      alternate = true; format++;
+      // alternate = true;
+      format++;
       break;
     case '.':
       if (*(format+1) == '*')
