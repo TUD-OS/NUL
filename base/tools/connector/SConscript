@@ -1,13 +1,13 @@
 # -*- Mode: Python -*-
 
-Import('host32_works')
-Import('host32_env')
+Import('initrd32_works')
+Import('initrd32_env')
 
-if host32_works:
+if initrd32_works:
     Install("#bin/host",
-            host32_env.Program('tap_connector',
-                               ["tap_connector.cc"]))
+            initrd32_env.Program('tap_connector',
+                                 ["tap_connector.cc"]))
 else:
-    print("Cannot build tap_connector, because your system cannot build 32-bit host binaries.")
+    print("Skip building tap_connector.")
 
 # EOF

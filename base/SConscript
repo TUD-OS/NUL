@@ -22,6 +22,16 @@ def chomp(line):
         line = line[:-1]
     return line
 
+# Custom configure checks
+
+# XXX There must be something builtin to solve this...
+cxx_test_source = """int main() { return 0; }"""
+def CheckCXXLink(context):
+    context.Message('Check if we can link a program...')
+    result = context.TryLink("""int main() { return 0; }""", '.cc')
+    context.Result(result)
+    return result
+
 # Compilation flags
 
 # Compiler override
@@ -49,18 +59,20 @@ host_env["CCFLAGS"]  = "-g -Wall " + debug_opts
 host_env["CXXFLAGS"] = "-std=c++0x -Weffc++ "
 host_env["CFLAGS"]   = "-std=c99 "
 
-host32_works = True
-host32_env = host_env.Clone()
-host32_env.Append(CCFLAGS   = " -m32 ",
-                  LINKFLAGS = " -m32 ");
+# Environment for utilities that are put on custom build Linux
+# initrds.
+initrd32_works = True
+initrd32_env = host_env.Clone()
+initrd32_env.Append(CCFLAGS   = " -m32 ",
+                    LINKFLAGS = " -m32 -static ");
 
-conf = Configure(host32_env)
+conf = Configure(initrd32_env, custom_tests = {'CheckCXXLink' : CheckCXXLink})
 
-if not conf.CheckCXX():
+if not (conf.CheckCXX() and conf.CheckCC() and conf.CheckCXXLink()):
     print("Your compiler cannot build 32-bit host utilities. m(")
-    host32_works = False
+    initrd32_works = False
 
-host32_env = conf.Finish()
+initrd32_env = conf.Finish()
 
 # Freestanding environment for IA-32. Use this to build standalone
 # binaries.
@@ -145,8 +157,8 @@ target_env.AddMethod(link, "Link")
 # Export our environments. Should be cloned before changing them.
 Export('host_env')
 
-Export('host32_env')
-Export('host32_works')
+Export('initrd32_env')
+Export('initrd32_works')
 
 Export('target_env')
 Export('debug_opts')
