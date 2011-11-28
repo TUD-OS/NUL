@@ -82,9 +82,15 @@ for line in sys.stdin.readlines():
             if m: tag = m.group(1)
             else: tag = 'ept-vpid'
 
-            line='Testing "Kernel compile inside VM (on ramdisk)" in vancouver-kernelbuild:'
+            line='Testing "Kernel compile in ramdisk" in kernelbuild-ramdisk:'
         if linetype == 'perf':
-            line = line.replace('kbuild', tag);
+            line = line.replace('kbuild', "vm-"+tag);
+            line = line.replace('ok', 'axis="kbuild" ok');
+    if where.find('/kernelbuild-bare-metal.wv') != -1:
+        if linetype == 'testing':
+            line='Testing "Kernel compile in ramdisk" in kernelbuild-ramdisk:'
+        if linetype == 'perf':
+            line = line.replace('kbuild', 'bare-metal');
             line = line.replace('ok', 'axis="kbuild" ok');
 
     if where.find('/diskbench-vm.wv') != -1 and linetype == 'perf' and commithash == '7459b8c':
