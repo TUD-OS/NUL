@@ -239,7 +239,7 @@ sub generate_configs($$) {
     if ($base) { $base = "$base/"; };
     foreach my $fn(keys %$configs) {
 	my $config = $$configs{$fn};
-	open(my $f, '>', $fn);
+	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
     }
@@ -280,7 +280,10 @@ sub system_verbose($)
 {
     my $cmd = shift;
     print "Running: $cmd\n";
-    return system($cmd);
+    my $ret = system($cmd);
+    if ($ret & 0x007f) { die("Command terminated by a signal"); }
+    if ($ret & 0xff00) {die("Command exit with non-zero exit code"); }
+    if ($ret) { die("Command failure $ret"); }
 }
 
 
@@ -329,9 +332,8 @@ foreach my $script (@scripts) {
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
-	my $ret = system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-				 ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
-	if ($ret >> 8) { die("The above command failed!"); }
+	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
+		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
     }
     
     if (defined $iso_image) {
@@ -349,8 +351,7 @@ if (defined $iso_image) {
     close($fh);
     my $files = "boot/grub/menu.lst=menu-iso.lst " . join(" ", map("$_=$_", keys(%files_iso)));
     $iso_image ||= "$config_name.iso";
-    my $ret = system_verbose("$CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
-    if ($ret >> 8) { die("The above command failed!"); }
+    system_verbose("$CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
     print("ISO image created: $CFG::builddir/$iso_image\n");
 }
 
