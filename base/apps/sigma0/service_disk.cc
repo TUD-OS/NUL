@@ -255,6 +255,8 @@ public:
 	  return res;
 
 	unsigned long internal_tag;
+	if (disk >= client->disk_count)
+	  return ERESOURCE;
 	if (!find_free_tag(client, disk, usertag, internal_tag))
 	  return ERESOURCE;
 
