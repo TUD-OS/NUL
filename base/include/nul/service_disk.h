@@ -120,5 +120,5 @@ struct DiskProtocol : public GenericProtocol {
     return res;
   }
 
-  DiskProtocol(unsigned cap_base, unsigned instance) : GenericProtocol("disk", instance, cap_base, true) {}
+  DiskProtocol(unsigned cap_base, unsigned instance) : GenericProtocol("disk", instance, cap_base, false) {}
 };
