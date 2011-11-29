@@ -1,0 +1,25 @@
+#!/bin/bash
+
+nulroot=$(readlink -f $(dirname $0)/../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART Direct PCI device assignment in Vancouver
+
+P="\(6\) #   Starting Internet super-server daemon:  /usr/sbin/inetd" # Wait for the second VM to boot
+WVTEST_EXIT_PATTERN=$P $wvpath/wvnulrun $nulroot/michal/boot/vancouver-dpci "$@" | tee vancouver-dpci.log
+
+VM1_CONSOLE=5
+VM2_CONSOLE=6
+
+got_ip_address() { grep "($1) #   dhcpcd\[[0-9]\+\]: [^:]\+: leased [0-9.]\+ for [0-9]\+ seconds" vancouver-dpci.log; }
+WVPASS got_ip_address $VM1_CONSOLE
+
+VM1_IP=$(sed -ne '/(5).*dhcpcd\[[0-9]\+\]: br0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
+VM2_IP=$(sed -ne '/(6).*dhcpcd\[[0-9]\+\]: int0: leased \([0-9.]\+\).*/ s//\1/p' vancouver-dpci.log)
+telnet_works() { nc -w 1 -t $1 23 </dev/null; echo; }
+WVPASS telnet_works $VM1_IP
+
+WVPASS got_ip_address $VM2_CONSOLE
+WVPASS telnet_works $VM2_IP

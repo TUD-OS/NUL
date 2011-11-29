@@ -79,7 +79,7 @@ class HostAcpi : public StaticReceiver<HostAcpi>
 
   bool check_table(unsigned address, MessageAcpi &msg, const char *name) {
     char * t = map_self(address, 0x1000);
-    Logging::printf("ac: acpi table at %x %p sig %4s\n", address, t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
+    //Logging::printf("ac: acpi table at %x %p sig %4s\n", address, t, reinterpret_cast<GenericAcpiTable *>(t)->signature);
     if (!memcmp(reinterpret_cast<GenericAcpiTable *>(t)->signature, name, 4))
       {
         unsigned size = reinterpret_cast<GenericAcpiTable *>(t)->size;

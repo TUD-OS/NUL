@@ -120,7 +120,7 @@ class PerCpuTimerService : private BasicHpet,
   Motherboard      &_mb;
   #include "host/simplehwioout.h"
   static const unsigned MAX_TIMERS = 24;
-  HostHpetRegister *_reg;
+  HostHpetRegister *_reg;       // !=NULL in HPET mode only
   uint32            _timer_freq;
   uint64            _nominal_tsc_ticks_per_timer_tick;
   unsigned          _usable_timers;
@@ -630,14 +630,6 @@ class PerCpuTimerService : private BasicHpet,
     phy_cpu_no     cpu = BaseProgram::mycpu();
     PerCpu * const our = _per_cpu[cpu];
 
-    if (_reg) {
-      our->clock_sync.fetch(_reg->counter[0]);
-      if (our->has_timer) {
-        Logging::printf("TIMER: Enable interrupts for CPU%u.\n", cpu);
-        our->timer->_reg->config |= INT_ENB_CNF;
-      }
-    }
-
     _xcpu_up.up();
 
     WorkerMessage m;
@@ -935,13 +927,28 @@ public:
       }
     }
 
-    for (log_cpu_no i = 0; i < cpus; i++)
-      // Create wakeup thread
-      start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, mb.hip()->cpu_physical(i));
+    unsigned xcpu_threads_started = 0;
+    for (log_cpu_no i = 0; i < cpus; i++) {
+      if (_reg) {
+        _per_cpu[i]->clock_sync.fetch(_reg->counter[0]);
+        if (_per_cpu[i]->has_timer) {
+          Logging::printf("TIMER: Enable interrupts for CPU%u.\n", i);
+          _per_cpu[i]->timer->_reg->config |= INT_ENB_CNF;
+        }
+      }
+
+      // Enable XCPU threads for CPUs that either have to serve or
+      // need to query other CPUs.
+      if ((_per_cpu[i]->slot_count > 0) or not _per_cpu[i]->has_timer) {
+        // Create wakeup thread
+        start_thread(PerCpuTimerService::do_xcpu_wakeup_thread, 1, mb.hip()->cpu_physical(i));
+        xcpu_threads_started++;
+      }
+    }
 
     // XXX Do we need those when we have enough timers for all CPUs?
-    Logging::printf("TIMER: Waiting for XCPU threads to come up.\n");
-    for (log_cpu_no i = 0; i < cpus; i++)
+    Logging::printf("TIMER: Waiting for %u XCPU threads to come up.\n", xcpu_threads_started);
+    while (xcpu_threads_started-- > 0)
       _xcpu_up.down();
 
     mb.bus_hostirq.add(this, receive_static<MessageIrq>);

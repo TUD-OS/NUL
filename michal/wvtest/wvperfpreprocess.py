@@ -9,8 +9,8 @@ import time
 
 re_date = re.compile('^Date: (.*)')
 re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
-re_commit = re.compile('(\S+) (.*?), commit: (.*)')
-re_commithash = re.compile('([0-9a-f]{7}) \(')
+re_commit = re.compile('.*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*, commit: (.*)')
+re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
 
@@ -18,7 +18,7 @@ re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s
 date = time.localtime(time.time())
 linetype = None
 what = None
-where = None
+where = ""
 commit = None
 commithash = None
 basename = None
@@ -49,9 +49,10 @@ for line in sys.stdin.readlines():
         match = re_commit.match(what)
         if match:
             linetype='commitid'
-            date = time.strptime(match.group(2), "%Y-%m-%d %H:%M:%S")
-            commit = match.group(3)
-            if matches(re_commithash):
+            date = time.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+            commit = match.group(2)
+            match = re_commithash.search(commit);
+            if match:
                 commithash = match.group(1)
             else:
                 commithash = None
@@ -81,10 +82,24 @@ for line in sys.stdin.readlines():
             if m: tag = m.group(1)
             else: tag = 'ept-vpid'
 
-            line='Testing "Kernel compile inside VM (on ramdisk)" in vancouver-kernelbuild:'
+            line='Testing "Kernel compile in ramdisk" in kernelbuild-ramdisk:'
         if linetype == 'perf':
-            line = line.replace('kbuild', tag);
+            line = line.replace('kbuild', "vm-"+tag);
             line = line.replace('ok', 'axis="kbuild" ok');
+    if where.find('/kernelbuild-bare-metal.wv') != -1:
+        if linetype == 'testing':
+            line='Testing "Kernel compile in ramdisk" in kernelbuild-ramdisk:'
+        if linetype == 'perf':
+            line = line.replace('kbuild', 'bare-metal');
+            line = line.replace('ok', 'axis="kbuild" ok');
+
+    if where.find('/diskbench-vm.wv') != -1 and linetype == 'perf' and commithash == '7459b8c':
+        # Skip results of test with forgotten debugging output
+        continue
+
+    if where.find('standalone/basicperf.c') != -1 and linetype == 'perf' and line.find("PERF: warmup_") != -1:
+        # Skip warmup results
+        continue
 
     # Output (possibly modified) line
     print line

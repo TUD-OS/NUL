@@ -888,8 +888,8 @@ public:
     MessageLegacy msg2(MessageLegacy::RESET, 0);
     _mb->bus_legacy.send_fifo(msg2);
 
-    _lock.up();
     Logging::printf("INIT done\n");
+    _lock.up();
 
     // block ourself since we have finished initialization
     block_forever();

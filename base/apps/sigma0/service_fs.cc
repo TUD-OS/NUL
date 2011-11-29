@@ -56,7 +56,8 @@ public:
     utcb_wo->head.crd_translate = 1; //flag abort
     utcb->head.mtr = 0;
     utcb->mtd = 0;
-    utcb->add_mappings(reinterpret_cast<unsigned long>(backup_page), 0x1000, (utcb->qual[1] & ~0xffful) | MAP_MAP, DESC_MEM_ALL);
+    utcb->msg[0] = utcb->add_mappings(reinterpret_cast<unsigned long>(backup_page), 0x1000, (utcb->qual[1] & ~0xffful) | MAP_MAP, DESC_MEM_ALL);
+    assert(utcb->msg[0] == 0); //never fails, msg[0] not required for anything
     asmlinkage_protect("g"(tls), "g"(utcb));
   }
 

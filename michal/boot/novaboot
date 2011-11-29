@@ -18,6 +18,7 @@ $| = 1;
 # Get configuration
 $CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
+$CFG::hypervisor_params = "serial";
 $CFG::server = "os.inf.tu-dresden.de:boot/novaboot/\$NAME";
 $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/\$NAME";
 $CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
@@ -239,7 +240,7 @@ sub generate_configs($$) {
     if ($base) { $base = "$base/"; };
     foreach my $fn(keys %$configs) {
 	my $config = $$configs{$fn};
-	open(my $f, '>', $fn);
+	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
     }
@@ -280,7 +281,10 @@ sub system_verbose($)
 {
     my $cmd = shift;
     print "Running: $cmd\n";
-    return system($cmd);
+    my $ret = system($cmd);
+    if ($ret & 0x007f) { die("Command terminated by a signal"); }
+    if ($ret & 0xff00) {die("Command exit with non-zero exit code"); }
+    if ($ret) { die("Command failure $ret"); }
 }
 
 
@@ -302,7 +306,13 @@ foreach my $script (@scripts) {
 	($config_name = $filename) =~ s#.*/##;
     }
 
-    @$modules = ($CFG::hypervisor . " " . ($variables->{HYPERVISOR_PARAMS} || "serial spinner"), @$modules);
+    my $kernel;
+    if ($variables->{KERNEL}) {
+	$kernel = $variables->{KERNEL};
+    } else {
+	$kernel = $CFG::hypervisor . " " . ($variables->{HYPERVISOR_PARAMS} || $CFG::hypervisor_params);
+    }
+    @$modules = ($kernel, @$modules);
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
     if (defined $grub_config) {
@@ -323,9 +333,8 @@ foreach my $script (@scripts) {
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
-	my $ret = system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
-				 ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
-	if ($ret >> 8) { die("The above command failed!"); }
+	system_verbose("tar czhf - $files | ssh $hostname 'mkdir -p $path; cd $path; tar xzpf -" .
+		       ($combined_menu_lst ? "; cd ..; cat */menu.lst > menu.lst'" : "'"));
     }
     
     if (defined $iso_image) {
@@ -343,8 +352,7 @@ if (defined $iso_image) {
     close($fh);
     my $files = "boot/grub/menu.lst=menu-iso.lst " . join(" ", map("$_=$_", keys(%files_iso)));
     $iso_image ||= "$config_name.iso";
-    my $ret = system_verbose("$CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
-    if ($ret >> 8) { die("The above command failed!"); }
+    system_verbose("$CFG::genisoimage -R -b stage2_eltorito -no-emul-boot -boot-load-size 4 -boot-info-table -hide-rr-moved -J -joliet-long -o $iso_image -graft-points bin/boot/grub/ $files");
     print("ISO image created: $CFG::builddir/$iso_image\n");
 }
 
@@ -396,15 +404,22 @@ my ($dhcpd_pid, $tftpd_pid);
 if (defined $dhcp_tftp)
 {
     generate_configs("(nd)", $configs);
-    system('mkdir -p tftpboot');
+    system_verbose('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
-    print $fh 'subnet 10.23.23.0 netmask 255.255.255.0 {
-		      range 10.23.23.10 10.23.23.10;
-		      filename "bin/boot/grub/pxegrub.pxe";
-		      next-server 10.23.23.1;}';
+    my $mac = `cat /sys/class/net/eth0/address`;
+    chomp $mac;
+    print $fh "subnet 10.23.23.0 netmask 255.255.255.0 {
+		      range 10.23.23.10 10.23.23.100;
+		      filename \"bin/boot/grub/pxegrub.pxe\";
+		      next-server 10.23.23.1;
+}
+host server {
+	hardware ethernet $mac;
+	fixed-address 10.23.23.1;
+}";
     close($fh);
-    system("ip a add 10.23.23.1/24 dev eth0;
+    system_verbose("ip a add 10.23.23.1/24 dev eth0;
 	    ip l set dev eth0 up;
 	    touch dhcpd.leases");
 
@@ -683,7 +698,15 @@ Use specific qemu flags (can be overriden by -q).
 
 =item HYPERVISOR_PARAMS
 
-Parameters passed to hypervisor. The default is "serial spinner".
+Parameters passed to hypervisor. The default value is "serial", unless
+overriden in configuration file.
+
+=item KERNEL
+
+The kernel to use instead of NOVA hypervisor specified in the
+configuration file. The value should contain the name of the kernel
+image as well as its command line parameters. If this variable is
+defined and non-empty, the variable HYPERVISOR_PARAMS is not used.
 
 =back
 

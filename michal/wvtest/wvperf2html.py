@@ -143,10 +143,6 @@ class Graph:
                                     return s;
                                 }
                             },
-			    xAxis: {
-			        maxZoom: 14 * 24 * 3600000 // fourteen days
-			    },"""
-	print  """
 		            plotOptions: {
 		                series: {
 		                    events: {
@@ -199,7 +195,7 @@ commits = {}
 
 re_date = re.compile('^Date: (.*)')
 re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
-re_commit = re.compile('(\S+) (.*?), commit: (.*)')
+re_commit = re.compile('.*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*, commit: (.*)')
 re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
 re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
 re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
@@ -222,8 +218,8 @@ for line in sys.stdin.readlines():
 
         match = re_commit.match(what)
         if match:
-            date = time.strptime(match.group(2), "%Y-%m-%d %H:%M:%S")
-            commit = match.group(3)
+            date = time.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+            commit = match.group(2)
             match = re_commithash.search(commit);
             if match:
                 commithash = match.group(1)
