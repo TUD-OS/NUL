@@ -56,9 +56,10 @@ void barrier()
 /*
  * Perform a VMexit to the VMM
  */
-void vmm_call (Request eax, unsigned long ebx = 0, unsigned long ecx = 0, unsigned long edx = 0)
+unsigned long vmm_call (Request eax, unsigned long ebx = 0, unsigned long ecx = 0, unsigned long edx = 0)
 {
     asm volatile ("cpuid" : "+a" (eax), "+b" (ebx), "+c" (ecx), "+d" (edx) : : "memory");
+    return edx;
 }
 
 /*
@@ -204,10 +205,14 @@ int main()
     memset (vmm_buf, 0, buf_size);
 
     printf ("Listening on Device:%s TAP:%p VMM:%p\n\n", dev, tap_buf, vmm_buf);
-    vmm_call (NET_INIT, 0, reinterpret_cast<unsigned long>(tap_buf), reinterpret_cast<unsigned long>(vmm_buf));
+    if (!vmm_call (NET_INIT, 0, reinterpret_cast<unsigned long>(tap_buf), reinterpret_cast<unsigned long>(vmm_buf))) {
+      printf ("Registering as donar application failed\n");
+      return -1;
+    }
 
     unsigned const slots = buf_size / sizeof (Buffer);
     unsigned tap_slot = 0, vmm_slot = 0;
+    unsigned long inj_count = 0;
 
     for (;;) {
 
@@ -224,13 +229,13 @@ int main()
 
 #ifdef DEBUG
                 struct ethhdr *e = reinterpret_cast<struct ethhdr *>(tap_buf[tap_slot].data);
-                printf ("TAP %04u: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x P:%04x L:%u\n",
+                printf ("TAP %04u: %02x:%02x:%02x:%02x:%02x:%02x -> %02x:%02x:%02x:%02x:%02x:%02x P:%04x L:%u I:%#lx\n",
                         tap_slot,
                         e->h_source[0], e->h_source[1], e->h_source[2],
                         e->h_source[3], e->h_source[4], e->h_source[5],
                         e->h_dest[0], e->h_dest[1], e->h_dest[2],
                         e->h_dest[3], e->h_dest[4], e->h_dest[5],
-                        e->h_proto, tap_buf[tap_slot].len);
+                        e->h_proto, tap_buf[tap_slot].len, inj_count);
 #endif
 
                 barrier();
@@ -279,10 +284,8 @@ int main()
             }
         }
 
-#if 0
         if (block)
-            vmm_call (NET_WAIT);
-#endif
+            inj_count = vmm_call (NET_WAIT, 0, 0, inj_count);
     }
 
     close (tap);
