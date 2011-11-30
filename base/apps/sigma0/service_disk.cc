@@ -194,6 +194,16 @@ public:
 	  res = attach_drives(utcb, identity);
 	return res;
       }
+      case DiskProtocol::TYPE_GET_DISK_COUNT:
+	{
+	  Sessions::Guard guard_c(&_disk_client, utcb, this);
+	  DiskClient *client = 0;
+
+	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
+	    return res;
+	  utcb << static_cast<mword>(client->disk_count);
+	  return ENONE;
+	}
       case DiskProtocol::TYPE_GET_PARAMS:
 	{
 	  Sessions::Guard guard_c(&_disk_client, utcb, this);

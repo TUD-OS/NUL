@@ -34,6 +34,7 @@ struct DiskProtocol : public GenericProtocol {
   };
   enum {
     TYPE_GET_PARAMS = ParentProtocol::TYPE_GENERIC_END,
+    TYPE_GET_DISK_COUNT,
     TYPE_READ,
     TYPE_WRITE,
     TYPE_FLUSH_CACHE,
@@ -53,6 +54,15 @@ struct DiskProtocol : public GenericProtocol {
     if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_PARAMS) << disk)))
       if (utcb >> *params)  res = EPROTO;
     utcb >> *params;
+    utcb.drop_frame();
+    return res;
+  }
+
+  unsigned get_disk_count(Utcb &utcb, unsigned &count) {
+    unsigned res;
+    res = call_server_keep(init_frame(utcb, TYPE_GET_DISK_COUNT));
+    if (res == ENONE)
+      if (utcb >> count) res = EPROTO;
     utcb.drop_frame();
     return res;
   }
