@@ -848,13 +848,15 @@ public:
       if (_vnet.recv) {
         //Logging::printf("vmm -> donar - slot %u/%u - %s\n", _vnet.recv_slot, _vnet.recv_slots, _vnet.recv[_vnet.recv_slot].ind ? "full" : "empty");
         if (_vnet.recv[_vnet.recv_slot].ind == 0) {
+          unsigned len; //don't overwrite msg.len maybe used by others as well on the bus
           if (msg.len > sizeof(_vnet.recv[_vnet.recv_slot])) {
             Logging::printf("vmm -> donar - packet to large (%u) -> got truncated to %u\n", msg.len, sizeof(_vnet.recv[_vnet.recv_slot]));
-            _vnet.recv[_vnet.recv_slot].len = sizeof(_vnet.recv[_vnet.recv_slot]);
+            len = sizeof(_vnet.recv[_vnet.recv_slot]);
           } else
-            _vnet.recv[_vnet.recv_slot].len = msg.len;
+            len = msg.len;
 
-          memcpy(_vnet.recv[_vnet.recv_slot].data, msg.buffer, _vnet.recv[_vnet.recv_slot].len);
+          memcpy(_vnet.recv[_vnet.recv_slot].data, msg.buffer, len);
+          _vnet.recv[_vnet.recv_slot].len = len;
           MEMORY_BARRIER;
           _vnet.recv[_vnet.recv_slot].ind = 1;
           _vnet.recv_slot = (_vnet.recv_slot + 1) % _vnet.recv_slots;
