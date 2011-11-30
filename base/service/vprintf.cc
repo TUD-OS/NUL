@@ -173,6 +173,14 @@ static void snprintf_putc(void *data, int value)
 
 
 
+void Vprintf::vsnprintf(char *dst, unsigned size, const char *format, va_list &ap)
+{
+  snprintf_data data;
+  data.ptr = dst;
+  data.size = size;
+  vprintf(snprintf_putc, &data, format, ap);
+}
+
 void Vprintf::snprintf(char *dst, unsigned size, const char *format, ...)
 {
   snprintf_data data;
