@@ -114,8 +114,10 @@ public:
     DEASS_INTR   = 1 << 16,
     EVENT_DEBUG  = 1 << 17,
     STATE_BLOCK  = 1 << 18,
-    STATE_WAKEUP = 1 << 19
+    STATE_WAKEUP = 1 << 19,
+    EVENT_HOST   = 1 << 20
   };
 
-  VCpu (VCpu *last) : _last(last) {}
+  unsigned long long inj_count;
+  VCpu (VCpu *last) : _last(last), inj_count(0) {}
 };
