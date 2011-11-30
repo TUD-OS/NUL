@@ -381,7 +381,10 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   unsigned create_vcpu(VCpu *vcpu, bool use_svm, unsigned cpunr)
   {
     // create worker
-    unsigned cap_worker = create_ec4pt(vcpu, cpunr, 0);
+    unsigned cap_worker = create_ec4pt(vcpu, cpunr,
+                                       //Config::EXC_PORTALS*cpunr /* Use s0 exception portals */
+                                       _pt_irq
+                                       );
 
     // create portals for VCPU faults
 #undef VM_FUNC
