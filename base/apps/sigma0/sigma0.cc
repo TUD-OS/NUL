@@ -942,8 +942,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             // naturally aligned flexpage to the client.
             const mword page_mask = ((1UL << Utcb::MINSHIFT)-1);
             assert((size >= 0x1000) and ((begin & page_mask) == 0));
-            unsigned order = Cpu::maxalign(translated, begin, size,
-                                           fault, fault - (translated - begin));
+            unsigned order = Cpu::maxalign(translated - begin, begin, fault - (translated - begin), size);
 
             if (verbose & VERBOSE_INFO)
               Logging::printf("s0: %lx %lx+%lx -> order %u: %lx+%lx\n", translated, begin, size, order,

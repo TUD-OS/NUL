@@ -92,18 +92,18 @@ class Cpu
   }
 
   /* Computes the maximum amount of natural alignment we can apply to fault. */
+
   static unsigned
-  maxalign(unsigned long fault, unsigned long begin, unsigned long size,
-           unsigned long fault2, unsigned long begin2)
+  maxalign(unsigned long offset, unsigned long begin, unsigned long begin2, unsigned long size)
   {
     unsigned long end  = begin + size;
     unsigned long end2 = begin2 + size;
 
     /* Could be optimized */
     for (int order = sizeof(unsigned long)*8-1; order >= 0; order--) {
-      unsigned long aligned  = fault  & ~((1 << order) - 1);
-      unsigned long aligned2 = fault2 & ~((1 << order) - 1);
-      if (((fault - aligned) == (fault2 - aligned2)) and
+      unsigned long aligned  = (begin + offset)  & ~((1 << order) - 1);
+      unsigned long aligned2 = (begin2 + offset) & ~((1 << order) - 1);
+      if (((begin - aligned) == (begin2 - aligned2)) and
           (aligned >= begin) and
           /* aligned + 1<<order <= end (but that would overflow) */
           ((end - aligned) >= (1UL << order)) and
