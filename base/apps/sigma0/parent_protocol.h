@@ -19,6 +19,7 @@
 
 #include "nul/generic_service.h"
 #include "nul/capalloc.h"
+#include "../../../julian/lib/crun/include/ctype.h" /* Grrr */
 
 PARAM_HANDLER(namespace, "namespace - namespace to register service names in (server parameter)") {}
 PARAM_HANDLER(name, "name - allow client to access the given service") {}
@@ -41,10 +42,47 @@ private:
     unsigned        len;
     unsigned        singleton;
 
+    /* TODO: Move this to s0_modules.h */
+    struct Cmdline {
+      const char *cmdline;
+      const size_t len;
+      Cmdline(const char *cmdline, size_t len) : cmdline(cmdline), len(len) {}
+
+      /**
+       * If value is not NULL, checks whether the command line
+       * contains a (space separated) word in the form <prefix><value>
+       * and if yes, a pointer to the value is returned.
+       *
+       * If the value is NULL, only the prefix is checked for precence
+       * and the value is to be processed by the called.
+       */
+      const char *has(const char *prefix, const char *value="") const {
+	const char *pos;
+	size_t plen = strlen(prefix);
+	size_t vlen = value ? strlen(value) : 0;
+	for (pos = strstr(cmdline, prefix);
+	     pos && pos+plen+vlen <= cmdline+len && (pos == cmdline || isspace(pos[-1]));
+	     pos = strstr(pos+1, prefix)) {
+	  pos += plen;
+	  if (value) {
+	    if (strncmp(pos, value, vlen) == 0 && (pos+vlen == cmdline+len || isspace(pos[vlen])))
+	      return pos;
+	  } else {
+	    return pos;
+	  }
+	}
+	return NULL;
+      }
+      const char *get(const char *prefix) const {
+	return has(prefix, NULL);
+      }
+    };
+
     static unsigned get_quota(Utcb &utcb, unsigned parent_cap, const char *quota_name, long value_in, long *value_out=0) {
       Utcb::Frame input = utcb.get_nested_frame();
       //Logging::printf("get quota for '%s' amount %lx from %x for %x by %x\n", quota_name, value_in, parent_cap, input.identity(1), input.identity(0));
       if (!strcmp(quota_name, "mem") || !strcmp(quota_name, "cap")) return ENONE;
+
       if (!strcmp(quota_name, "guid")) {
         unsigned long s0_cmdlen;
         char const *pos, *cmdline = get_client_cmdline(input.identity(0), s0_cmdlen);
@@ -53,7 +91,30 @@ private:
 //        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
           return ENONE;
         }
+	return ERESOURCE;
       }
+
+      unsigned long cmdlen;
+      char const *cmdline = get_client_cmdline(parent_cap, cmdlen);
+      if (!cmdline) return ERESOURCE;
+      Cmdline client_cmdline(cmdline, cmdlen);
+
+      if (!strncmp(quota_name, "disk::", 6)) {
+	const char *disk_name = quota_name + 6;
+	unsigned len = strlen(disk_name);
+	/* TODO: Pattern matching */
+	if (client_cmdline.has("disk::", disk_name))
+	  return ENONE;
+
+	if (len == 1 && isdigit(disk_name[0]) && client_cmdline.has("sigma0::drive:", disk_name)) /* Backward compatibility */
+	  return ENONE;
+
+	return ERESOURCE;
+      }
+
+      if (strcmp(quota_name, "diskadd") == 0)
+	return client_cmdline.has("diskadd") ? ENONE : ERESOURCE;
+
       return ERESOURCE;
     }
     void session_close(Utcb &utcb) {
@@ -72,7 +133,7 @@ private:
     char *          mem_revoke;
   };
 
-  static char const * get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen); 
+  static char const * get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen);
   static char * get_client_memory(unsigned identity, unsigned client_mem_revoke);
 
   typedef typename ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;

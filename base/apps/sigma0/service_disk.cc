@@ -159,6 +159,10 @@ private:
     Disk 	   *disks[MAXDISKS];
     unsigned char   disk_count;
     struct {
+      unsigned add_disk:1;
+    } perms;
+
+    struct {
       unsigned char disk;
       unsigned long usertag;
     } tags [DiskProtocol::MAXDISKREQUESTS];
@@ -273,21 +277,15 @@ private:
     if (res = _disk_client.get_client_data(utcb, client, identity))
       return res;
 
-#if 0
-    for (char *p; p = strstr(cmdline,"sigma0::drive:"); cmdline = p + 1)
-      {
-        if (p > cmdline + cmdlen) break;
-        unsigned long  nr = strtoul(p+14, 0, 0);
-        if (nr < _mb->bus_disk.count() && client->disk_count < MAXDISKS)
-          client->disks[client->disk_count++] = nr;
-        else
-          Logging::printf("s0: ignore drive %lx during attach!\n", nr);
-      }
-#else
-    // TODO: For now, every client has access to all disks, without any restrictions!
-    for (Disk *d = disks.head; d; d = d->next)
-      client->disks[client->disk_count++] = d;
-#endif
+    client->perms.add_disk = ParentProtocol::get_quota(utcb, client->pseudonym, "diskadd", 0) == ENONE;
+
+    for (Disk *d = disks.head; d; d = d->next) {
+      char diskstr[256];
+      Vprintf::snprintf(diskstr, sizeof(diskstr), "disk::%s", d->get_name());
+      if (ParentProtocol::get_quota(utcb, client->pseudonym, diskstr, 0) == ENONE)
+	client->disks[client->disk_count++] = d;
+    }
+
     return ENONE;
   }
 
@@ -412,6 +410,8 @@ public:
 
 	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
 	    return res;
+
+	  if (!client->perms.add_disk) return EPERM;
 
 	  unsigned len;
 	  char *name = input.get_zero_string(len);

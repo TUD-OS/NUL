@@ -2,10 +2,11 @@
 # -*-sh-*-
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     vdisk:rom://imgs/part-table-disk \
+    vdisk:rom://imgs/part-table-disk \
     service_disk script_start:1 script_waitchild
 bin/apps/logdisk.nul
 bin/apps/logdisk.nulconfig <<EOF
-namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk sigma0::drive:0 sigma0::drive:1 ||
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk diskadd disk::0 sigma0::drive:1  ||
 rom://bin/apps/logdisk.nul
 EOF
 imgs/part-table-disk
