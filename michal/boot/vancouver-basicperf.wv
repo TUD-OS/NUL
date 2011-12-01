@@ -2,11 +2,11 @@
 # -*-sh-*-
 HYPERVISOR_PARAMS=serial
 QEMU_FLAGS=-cpu phenom -smp 2
-bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config service_disk
 bin/apps/vancouver.nul
 imgs/basicperf
 vancuver.nulconfig <<EOF
-sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk ||
 rom://bin/apps/vancouver.nul PC_PS2 ||
 rom://imgs/basicperf
 EOF

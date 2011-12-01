@@ -3,13 +3,14 @@
 HYPERVISOR_PARAMS=serial
 QEMU_FLAGS=-cpu phenom -smp 2 -m 256
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config \
-    vdisk:rom://diskbench.img vdisk_empty:104857600
+    vdisk:rom://diskbench.img vdisk_empty:104857600 \
+    service_disk
 bin/apps/vancouver.nul
 bin/boot/munich
 imgs/bzImage-3.0
 imgs/initrd-wvtest-vm-disk.lzma
 vancuver.nulconfig <<EOF
-sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission sigma0::drive:0 sigma0::drive:1 ||
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk sigma0::drive:0 sigma0::drive:1 ||
 rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 drive:0,0,0 drive:1,0,1 ||
 rom://bin/boot/munich ||
 rom://imgs/bzImage-3.0 clocksource=tsc console=ttyS0 ||

@@ -20,7 +20,10 @@
 
 #include "parent.h"
 #include "host/dma.h"
+#include "sigma0/consumer.h"
+#include <stdint.h>
 
+#define DISK_SERVICE_IN_S0
 
 /**
  * Client part of the disk protocol.
@@ -28,45 +31,124 @@
  */
 struct DiskProtocol : public GenericProtocol {
   enum {
+    MAXDISKREQUESTS    = 32  // max number of outstanding disk requests per client
+  };
+  enum {
     TYPE_GET_PARAMS = ParentProtocol::TYPE_GENERIC_END,
+    TYPE_GET_DISK_COUNT,
     TYPE_READ,
     TYPE_WRITE,
     TYPE_FLUSH_CACHE,
     TYPE_GET_COMPLETION,
+    TYPE_GET_MEM_PORTAL,
+    TYPE_DMA_BUFFER,
+    TYPE_ADD_LOGICAL_DISK,
   };
 
-  unsigned get_params(Utcb &utcb, DiskParameter *params) {
+  struct Segment {
+    unsigned disknum;
+    uint64_t start_lba, len_lba;
+    Segment() {}
+    Segment(unsigned disknum, uint64_t start, uint64_t len) : disknum(disknum), start_lba(start), len_lba(len) {}
+  };
+
+  typedef Consumer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskConsumer;
+  typedef Producer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskProducer;
+
+  DiskConsumer *consumer;
+  KernelSemaphore *sem;
+  void *dma_buffer;
+  size_t dma_size;
+
+  unsigned get_params(Utcb &utcb, unsigned disk, DiskParameter *params) {
     unsigned res;
-    if (!(res = call_server(init_frame(utcb, TYPE_GET_PARAMS), false)))
+    if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_PARAMS) << disk)))
       if (utcb >> *params)  res = EPROTO;
+    utcb >> *params;
     utcb.drop_frame();
     return res;
   }
 
-
-  unsigned read_write(Utcb &utcb, bool read, unsigned long usertag, unsigned long long sector,
-		unsigned long physoffset, unsigned long physsize,
-		unsigned dmacount, DmaDescriptor *dma)
-  {
-    init_frame(utcb, read ? TYPE_READ : TYPE_WRITE) << usertag << sector << physoffset << physsize << dmacount;
-    for (unsigned i=0; i < dmacount; i++)  utcb << dma[i];
-    return call_server(init_frame(utcb, TYPE_GET_PARAMS), true);
+  unsigned get_disk_count(Utcb &utcb, unsigned &count) {
+    unsigned res;
+    res = call_server_keep(init_frame(utcb, TYPE_GET_DISK_COUNT));
+    if (res == ENONE)
+      if (utcb >> count) res = EPROTO;
+    utcb.drop_frame();
+    return res;
   }
 
+  unsigned attach(Utcb &utcb, void *dma_buffer, size_t dma_size, cap_sel tmp_cap,
+		  DiskConsumer *consumer, KernelSemaphore *notify_sem) {
+    unsigned backup_crd = utcb.head.crd;
+    unsigned res;
 
+    assert((reinterpret_cast<unsigned long>(dma_buffer) & ((1ul<<12)-1)) == 0);
+    assert((reinterpret_cast<unsigned long>(consumer) & ((1<<12)-1)) == 0);
+    assert(sizeof(*consumer) < 1<<12);
 
-  unsigned flush_cache(Utcb &utcb) {
-    return call_server(init_frame(utcb, TYPE_FLUSH_CACHE), true);
+    this->consumer = consumer;
+    this->sem = notify_sem;
+
+    /* Delegate sempahore and request portal capability for memory delegation */
+    init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem->sm());
+    utcb.head.crd = Crd(tmp_cap, 0, DESC_CAP_ALL).value();
+    res = call_server_drop(utcb);
+    check2(err, res);
+
+    /* Delegate the memory via the received portal */
+    utcb.add_frame();
+#ifdef DISK_SERVICE_IN_S0
+    utcb << dma_size;
+    utcb << Utcb::TypedTranslateMem(consumer, 0);
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL));
+#else
+#warning TODO
+    utcb << Utcb::TypedDelegateMem(consumer, 0);
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL));
+#endif
+    res = nova_call(tmp_cap);
+    utcb.drop_frame();
+    this->dma_buffer = dma_buffer;
+    this->dma_size = dma_size;
+
+  err:
+    utcb.head.crd = backup_crd;
+    return res;
+  }
+
+  unsigned read_write(Utcb &utcb, bool read, unsigned disk, unsigned long usertag, unsigned long long sector,
+		unsigned dmacount, DmaDescriptor *dma)
+  {
+    init_frame(utcb, read ? TYPE_READ : TYPE_WRITE) << disk << usertag << sector << dmacount;
+    for (unsigned i=0; i < dmacount; i++)  utcb << dma[i];
+    return call_server_drop(utcb);
+  }
+
+  unsigned read(Utcb &utcb, unsigned disk, unsigned long usertag, unsigned long long sector, unsigned dmacount, DmaDescriptor *dma)
+  { return read_write(utcb, true, disk, usertag, sector, dmacount, dma); }
+
+  unsigned write(Utcb &utcb, unsigned disk, unsigned long usertag, unsigned long long sector, unsigned dmacount, DmaDescriptor *dma)
+  { return read_write(utcb, false, disk, usertag, sector, dmacount, dma); }
+
+  unsigned flush_cache(Utcb &utcb, unsigned disk) {
+    return call_server_drop(init_frame(utcb, TYPE_FLUSH_CACHE) << disk);
   }
 
 
   unsigned get_completion(Utcb &utcb, unsigned &tag, unsigned &status) {
     unsigned res;
-    if (!(res = call_server(init_frame(utcb, TYPE_GET_COMPLETION), false)))
+    if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_COMPLETION))))
       if (utcb >> tag || utcb >> status)  res = EPROTO;
     utcb.drop_frame();
     return res;
   }
 
-  DiskProtocol(unsigned cap_base, unsigned disknr) : GenericProtocol("disk", disknr, cap_base, true) {}
+  unsigned add_logical_disk(Utcb &utcb, const char* name, unsigned num_segments, Segment *segments) {
+    init_frame(utcb, TYPE_ADD_LOGICAL_DISK) << Utcb::String(name);
+    for (unsigned i=0; i < num_segments; i++) utcb << *segments++;
+    return call_server_drop(utcb);
+  }
+
+  DiskProtocol(unsigned cap_base, unsigned instance) : GenericProtocol("disk", instance, cap_base, false) {}
 };

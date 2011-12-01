@@ -652,7 +652,7 @@ struct MessageDisk
       unsigned long usertag;
       unsigned dmacount;
       DmaDescriptor *dma;
-      unsigned long physoffset;
+      unsigned long physoffset;	// TODO: Is this needed now?
       unsigned long physsize;
     };
   };

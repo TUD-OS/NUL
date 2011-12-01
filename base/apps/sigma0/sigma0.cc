@@ -360,10 +360,11 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     global_mb = _mb;
     _mb->bus_hostop.add(this,  receive_static<MessageHostOp>);
 
-    init_disks();
+    char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    if (strstr(cmdline, "service_disk") == NULL) // Legacy protocol will be used
+      init_disks();
     init_network();
     init_vnet();
-    char * cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     _mb->parse_args(cmdline);
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);

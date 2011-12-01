@@ -26,6 +26,7 @@
 #include "nul/service_events.h"
 #include "nul/service_fs.h"
 #include "nul/service_log.h"
+#include "nul/service_disk.h"
 
 /**
  * Layout of the capability space.
@@ -112,6 +113,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
   static TimerProtocol     * service_timer;
   static AdmissionProtocol * service_admission;
   static EventsProtocol    * service_events;
+  static DiskProtocol      * service_disk;
   FsProtocol *fs_obj;
   char fs_name[32], fs_tmp[32];
   #define VANCOUVER_CONFIG_SEPARATOR "||"
@@ -231,17 +233,13 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
   PT_FUNC(do_disk) __attribute__((noreturn))
   {
-    KernelSemaphore *sem = new KernelSemaphore(tls->alloc_cap(), true);
-    DiskConsumer *diskconsumer = new DiskConsumer();
-    assert(diskconsumer);
-    Sigma0Base::request_disks_attach(utcb, diskconsumer, sem->sm());
     while (1) {
-      sem->downmulti();
-      while (diskconsumer->has_data()) {
-        MessageDiskCommit *msg = diskconsumer->get_buffer();
+      service_disk->sem->downmulti();
+      while (service_disk->consumer->has_data()) {
+        MessageDiskCommit *msg = service_disk->consumer->get_buffer();
         SemaphoreGuard l(_lock);
         _mb->bus_diskcommit.send(*msg);
-        diskconsumer->free_buffer();
+        service_disk->consumer->free_buffer();
       }
     }
   }
@@ -341,6 +339,14 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
+
+    service_disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), 0);
+     KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
+    assert(diskconsumer);
+    cap_sel tmp_portal = alloc_cap();
+    res = service_disk->attach(*utcb, reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem);
+    if (res) Logging::panic("disk->attach failed: %d\n", res);
 
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
@@ -806,11 +812,17 @@ public:
 
 
   bool  receive(MessageDisk &msg)    {
-    if (msg.type == MessageDisk::DISK_READ || msg.type == MessageDisk::DISK_WRITE) {
-      msg.physsize = _physsize;
-      msg.physoffset = _physmem;
+    switch (msg.type) {
+    case MessageDisk::DISK_GET_PARAMS:
+      return service_disk->get_params(*myutcb(), msg.disknr, msg.params) == ENONE;
+    case MessageDisk::DISK_READ:
+    case MessageDisk::DISK_WRITE:
+      return service_disk->read_write(*myutcb(), msg.type == MessageDisk::DISK_READ,
+				      msg.disknr, msg.usertag, msg.sector, msg.dmacount, msg.dma) == ENONE;
+    case MessageDisk::DISK_FLUSH_CACHE:
+      return service_disk->flush_cache(*myutcb(), msg.disknr) == ENONE;
     }
-    return !Sigma0Base::disk(msg);
+    Logging::panic("disk operation %d not implemented\n", msg.type);
   }
 
 
@@ -1016,6 +1028,7 @@ public:
 TimerProtocol     * Vancouver::service_timer;
 AdmissionProtocol * Vancouver::service_admission;
 EventsProtocol    * Vancouver::service_events = 0;
+DiskProtocol      * Vancouver::service_disk = 0;
 
 ASMFUNCS(Vancouver, Vancouver)
 
