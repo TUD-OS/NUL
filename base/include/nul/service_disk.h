@@ -21,6 +21,7 @@
 #include "parent.h"
 #include "host/dma.h"
 #include "sigma0/consumer.h"
+#include <stdint.h>
 
 #define DISK_SERVICE_IN_S0
 
@@ -41,6 +42,14 @@ struct DiskProtocol : public GenericProtocol {
     TYPE_GET_COMPLETION,
     TYPE_GET_MEM_PORTAL,
     TYPE_DMA_BUFFER,
+    TYPE_ADD_LOGICAL_DISK,
+  };
+
+  struct Segment {
+    unsigned disknum;
+    uint64_t start_lba, len_lba;
+    Segment() {}
+    Segment(unsigned disknum, uint64_t start, uint64_t len) : disknum(disknum), start_lba(start), len_lba(len) {}
   };
 
   typedef Consumer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskConsumer;
@@ -48,6 +57,8 @@ struct DiskProtocol : public GenericProtocol {
 
   DiskConsumer *consumer;
   KernelSemaphore *sem;
+  void *dma_buffer;
+  size_t dma_size;
 
   unsigned get_params(Utcb &utcb, unsigned disk, DiskParameter *params) {
     unsigned res;
@@ -67,12 +78,12 @@ struct DiskProtocol : public GenericProtocol {
     return res;
   }
 
-  unsigned attach(Utcb &utcb, void *dma_addr, size_t dma_size, cap_sel tmp_cap,
+  unsigned attach(Utcb &utcb, void *dma_buffer, size_t dma_size, cap_sel tmp_cap,
 		  DiskConsumer *consumer, KernelSemaphore *notify_sem) {
     unsigned backup_crd = utcb.head.crd;
     unsigned res;
 
-    assert((reinterpret_cast<unsigned long>(dma_addr) & ((1ul<<12)-1)) == 0);
+    assert((reinterpret_cast<unsigned long>(dma_buffer) & ((1ul<<12)-1)) == 0);
     assert((reinterpret_cast<unsigned long>(consumer) & ((1<<12)-1)) == 0);
     assert(sizeof(*consumer) < 1<<12);
 
@@ -90,14 +101,17 @@ struct DiskProtocol : public GenericProtocol {
 #ifdef DISK_SERVICE_IN_S0
     utcb << dma_size;
     utcb << Utcb::TypedTranslateMem(consumer, 0);
-    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, reinterpret_cast<mword>(dma_addr), DESC_MEM_ALL));
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL));
 #else
 #warning TODO
     utcb << Utcb::TypedDelegateMem(consumer, 0);
-    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_addr), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL));
+    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL));
 #endif
     res = nova_call(tmp_cap);
     utcb.drop_frame();
+    this->dma_buffer = dma_buffer;
+    this->dma_size = dma_size;
+
   err:
     utcb.head.crd = backup_crd;
     return res;
@@ -128,6 +142,12 @@ struct DiskProtocol : public GenericProtocol {
       if (utcb >> tag || utcb >> status)  res = EPROTO;
     utcb.drop_frame();
     return res;
+  }
+
+  unsigned add_logical_disk(Utcb &utcb, const char* name, unsigned num_segments, Segment *segments) {
+    init_frame(utcb, TYPE_ADD_LOGICAL_DISK) << Utcb::String(name);
+    for (unsigned i=0; i < num_segments; i++) utcb << *segments++;
+    return call_server_drop(utcb);
   }
 
   DiskProtocol(unsigned cap_base, unsigned instance) : GenericProtocol("disk", instance, cap_base, false) {}
