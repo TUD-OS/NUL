@@ -99,6 +99,8 @@ public:
   {
     unsigned count = 0;
     disk->get_disk_count(*BaseProgram::myutcb(), count);
+    if (count == 0)
+      Logging::printf("No disks available\n");
     for (unsigned disknum = 0; disknum < count; disknum++) {
       DmaDescriptor dma;
       unsigned res;
@@ -164,6 +166,7 @@ public:
 
     Partition::find(disk);
 
+    Logging::printf("Done");
     WvTest::exit(0);
     block_forever();
   }
