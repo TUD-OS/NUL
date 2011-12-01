@@ -29,4 +29,5 @@ class Vprintf
   static void vprintf(PutcFunction putc, void *data, const char *format, va_list &ap);
   static void printf(PutcFunction putc, void *data, const char *format, ...) __attribute__ ((format(printf, 3, 4)));
   static void snprintf(char *dst, unsigned size, const char *format, ...) __attribute__ ((format(printf, 3, 4)));
+  static void vsnprintf(char *dst, unsigned size, const char *format, va_list &ap);
 };

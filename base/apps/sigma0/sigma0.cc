@@ -1610,18 +1610,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    ************************************************************/
 
   /**
-   * A very simple hash function.
-   */
-  unsigned hash(unsigned state, unsigned value) {  return ((state << 1) | (state >> 31)) ^ value; }
-
-
-  /**
    * Generate a pseudo-random but persistent hostmac by hashing all
    * PCI device IDs, their BDFs and the serial numbers of devices.
    */
   unsigned generate_hostmac() {
     HostPci pci(_mb->bus_hwpcicfg, _mb->bus_hostop);
-    unsigned state = 0;
+
+    struct {
+      unsigned state;
+      void hash(unsigned value) {  state = ((state << 1) | (state >> 31)) ^ value; }
+    } x = { 0 };
 
     for (unsigned bus = 0; bus < 256; bus++) {
       for (unsigned dev=0; dev < 32; dev++) {
@@ -1632,17 +1630,18 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (devid == ~0UL) continue;
           if (maxfunc == 1 && pci.conf_read(bdf, 3) & 0x800000) maxfunc = 8;
 
-          state = hash(state, bdf);
-          state = hash(state, devid);
+          x.hash(bdf); x.hash(devid);
 
           // find device serial number
           unsigned offset = pci.find_extended_cap(bdf, 0x0003);
-          if (offset)
-            state = hash(hash(state, pci.conf_read(bdf, offset + 1)), pci.conf_read(bdf, offset + 2));
+          if (offset) {
+            x.hash(pci.conf_read(bdf, offset + 1));
+            x.hash(pci.conf_read(bdf, offset + 2));
+          }
         }
       }
     }
-    return state;
+    return x.state;
   }
 
 

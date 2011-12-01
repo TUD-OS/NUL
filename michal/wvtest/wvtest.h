@@ -248,7 +248,7 @@ public:
   bool check_eq(const char *a, const char *b, bool expect_equal)
     {
       bool result = !!strcmp(a, b) ^ expect_equal;
-      if (!result) print_failed_cmp("==", a, b);
+      if (!result) print_failed_cmp(expect_equal ? "==" : "!=", a, b);
       check(result);
       return result;
     }
@@ -261,7 +261,7 @@ public:
   bool check_eq(T a, T b, bool expect_equal)
     {
       bool result = (a == b ^ !expect_equal);
-      if (!result) print_failed_cmp("==", a, b);
+      if (!result) print_failed_cmp(expect_equal ? "==" : "!=", a, b);
       check(result);
       return result;
     }  

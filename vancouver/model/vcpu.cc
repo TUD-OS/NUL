@@ -60,8 +60,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     else {
       reg = msg.cpuid_index << 4;
       if (msg.cpuid_index > CPUID_EAX0) {
-	reg = CPUID_EAX0 << 4;
-	res = false;
+        reg = CPUID_EAX0 << 4;
+        res = false;
       }
     }
     if (!CPUID_read(reg | 0, msg.cpu->eax)) msg.cpu->eax = 0;
@@ -186,9 +186,10 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     msg.mtr_out |= MTD_STATE | MTD_INJ;
 
     if (!old_event)  return;
-    if (old_event & EVENT_DEBUG) {
-      dprintf("state %x event %8x eip %8x eax %x ebx %x edx %x esi %x\n", cpu->actv_state, old_event, cpu->eip, cpu->eax, cpu->ebx, cpu->edx, cpu->esi);
-      Cpu::atomic_and<volatile unsigned>(&_event, ~VCpu::EVENT_DEBUG);
+    if (old_event & (EVENT_DEBUG | EVENT_HOST)) {
+      if (old_event & EVENT_DEBUG)
+        dprintf("state %x event %8x eip %8x eax %x ebx %x edx %x esi %x\n", cpu->actv_state, old_event, cpu->eip, cpu->eax, cpu->ebx, cpu->edx, cpu->esi);
+      Cpu::atomic_and<volatile unsigned>(&_event, ~(old_event & (EVENT_DEBUG | EVENT_HOST)));
       return;
     }
 
@@ -295,7 +296,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     COUNTER_INC("EVENT");
 
     if (value & DEASS_INTR) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_INTR);
-    if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG))) return;
+    if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG | EVENT_HOST))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state
     if ((value & EVENT_MASK) == EVENT_INIT)
@@ -310,7 +311,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
        */
       if (Cpu::cmpxchg4b(&_sipi, 0, value)) return;
 
-    Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG)));
+    Cpu::atomic_or<volatile unsigned>(&_event, STATE_WAKEUP | (value & (EVENT_MASK | EVENT_DEBUG | EVENT_HOST)));
 
 
     MessageHostOp msg(MessageHostOp::OP_VCPU_RELEASE, _hostop_id, _event & STATE_BLOCK);
