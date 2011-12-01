@@ -2,8 +2,9 @@
 # -*-sh-*-
 HYPERVISOR_PARAMS=serial
 QEMU_FLAGS=-cpu phenom -smp 2 -m 256
-bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config service_disk \
-    vdisk:rom://diskbench.img vdisk_empty:104857600
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 service_config \
+    vdisk:rom://diskbench.img vdisk_empty:104857600 \
+    service_disk
 bin/apps/vancouver.nul
 bin/boot/munich
 imgs/bzImage-3.0
