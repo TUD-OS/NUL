@@ -405,7 +405,7 @@ public:
 
 	  while (len--) {
 	    Disk *disk = client->disk(segment->disknum);
-	    if (!disk) return EEXISTS;
+	    if (!disk) return EPERM;
 	    add_disk(new Partition(disk, segment->start_lba, segment->len_lba, name));
 	    len=0;		// TODO
 	  }
