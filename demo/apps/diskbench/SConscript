@@ -9,4 +9,9 @@ nul.App(target_env, 'diskbench',
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<16)
 
+nul.App(target_env, 'diskbench-old',
+        SOURCES = [ 'diskbench-old.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<16)
+
 # EOF
