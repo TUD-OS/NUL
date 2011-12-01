@@ -302,7 +302,6 @@ public:
       case ParentProtocol::TYPE_OPEN:
       case ParentProtocol::TYPE_CLOSE: {
 	cap_sel identity;
-	Logging::printf("DISK %s\n", op == ParentProtocol::TYPE_OPEN ? "OPEN" : "CLOSE");
 	res = handle_sessions(op, input, _disk_client, free_cap, &identity);
 	if (op == ParentProtocol::TYPE_OPEN && res == ENONE)
 	  res = attach_drives(utcb, identity);
