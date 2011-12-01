@@ -54,8 +54,9 @@ unsigned       _ncpu=1;
 bool           _tsc_offset = false;
 bool           _rdtsc_exit;
 bool           _service_events = false;
+unsigned long  _original_physsize;
 
-//#define DONAR_APP_EXPERIMENT
+#define DONAR_APP_EXPERIMENT
 #ifdef DONAR_APP_EXPERIMENT
 struct donar_buffer
 {
@@ -68,9 +69,7 @@ struct {
   struct donar_buffer * recv;
   struct donar_buffer * send;
   unsigned send_slot;
-  unsigned send_slots;
   unsigned recv_slot;
-  unsigned recv_slots;
 } _vnet;
 #endif
 
@@ -108,7 +107,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 {
 
   unsigned long  _physmem;
-  static unsigned long  _original_physsize;
   unsigned long  _physsize;
   unsigned long  _iomem_start;
   static TimerProtocol     * service_timer;
@@ -524,32 +522,31 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
 #ifdef DONAR_APP_EXPERIMENT
   static struct donar_buffer * translate_donar_vmm(unsigned cr3, unsigned ptr) {
-    if (ptr & 0x3fffffU | _original_physsize < cr3) {
-      Logging::printf("invalid pointer of service app ptr=%#x cr3=%#x\n", ptr, cr3);
-      return 0;
-    }
-    unsigned long pde = reinterpret_cast<unsigned long *>(cr3 & ~0xfffU)[ptr >> 22];
-    if (~pde & 1 || ~pde & 0x80) {
-      Logging::printf("not a present superpage pde=%#lx cr3=%#x ptr=%#x utcb->edx=%#x utcb->ecx=%#x\n", pde, cr3, ptr, myutcb()->edx, myutcb()->ecx);
-      return 0;
-    }
+    check1(0, ptr & 0x3fffffU, "invalid pointer from donar %#x", ptr);
+    check1(0, _original_physsize < (cr3|0xfff), "invalid cr3 from donar %#x", cr3);
+
+    unsigned pde = reinterpret_cast<unsigned *>(cr3 & ~0xfffU)[ptr >> 22];
+    check1(0, (pde & 0x87) != 0x87, "not a user writable superpage pde=%#x cr3=%#x ptr=%#x\n", pde, cr3, ptr);
+    pde &= ~0x3fffffU;
+    check1(0, _original_physsize < (pde | 0x3fffffU), "pde points out of RAM");
+
     extern char __freemem;
-    return reinterpret_cast<struct donar_buffer *>((reinterpret_cast<unsigned long>(&__freemem) + (pde & ~0x3fffffUL)));
+    return reinterpret_cast<struct donar_buffer *>(&__freemem + pde);
   }
 
   static bool handle_donar_request(Utcb * utcb, unsigned pid, VCpu * tls) {
     switch (utcb->eax) {
     case 0x40001000: // init of network service app in donor VM
       {
-        if (_vnet.send || _vnet.recv) return false; //security issue!? - overwritting already registered guy is not wanted for now
+        SemaphoreGuard l(_lock);
 
         // cr3
         // ecx address for receiving data from donar app
         // edx address for sending data to donar app
         _vnet.send = translate_donar_vmm(utcb->cr3, utcb->ecx);
-        _vnet.send_slots = 0x400000U / sizeof(*_vnet.send);
+        _vnet.send_slot = 0;
         _vnet.recv = translate_donar_vmm(utcb->cr3, utcb->edx);
-        _vnet.recv_slots = 0x400000U / sizeof(*_vnet.recv);
+        _vnet.recv_slot = 0;
 
         Logging::printf("donar -> vmm - buffer VM=%#x VMM internal=%p\n", utcb->ecx, _vnet.send);
         Logging::printf("vmm -> donar - buffer VM=%#x VMM internal=%p\n", utcb->edx, _vnet.recv);
@@ -559,29 +556,24 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
         utcb->edx = _vnet.send && _vnet.recv; //result of operation for donar app
         utcb->mtd |= MTD_GPR_ACDB;
-        if (!utcb->edx) {
-          Logging::printf("initialization of donar application failed - buffer pointers invalid\n");
-          //reset struct for retry and/or reuse(slot indexes -> 0) and avoid send pointer set and recv pointer not
-          memset(&_vnet, 0, sizeof(_vnet));
-        }
         return true;
       }
     case 0x40001001: // send+wait of network service app in donor VM
-      if (!_vnet.send) return false; //if no donar app is registered than let's handle it the normal way (handle_vcpu)
+      {
+        SemaphoreGuard l(_lock);
+        if (!_vnet.send) return false; //if no donar app is registered than let's handle it the normal way (handle_vcpu)
 
-      //edx - last number of inj. ins
-      while (_vnet.send[_vnet.send_slot].ind == 1) {
-        //Logging::printf("donar -> vmm - slot %u/%u \n", _vnet.send_slot, _vnet.send_slots);
-        //send it
-        MessageNetwork msg(_vnet.send[_vnet.send_slot].data, _vnet.send[_vnet.send_slot].len, 0);
-        {
-          SemaphoreGuard l(_lock);
+        //edx - last number of inj. ins
+        while (_vnet.send[_vnet.send_slot].ind == 1) {
+          //Logging::printf("donar -> vmm - slot %u/%u \n", _vnet.send_slot, _vnet.send_slots);
+          //send it
+          MessageNetwork msg(_vnet.send[_vnet.send_slot].data, _vnet.send[_vnet.send_slot].len, 0);
           _mb->bus_network.send(msg);
-        }
 
-        MEMORY_BARRIER;
-        _vnet.send[_vnet.send_slot].ind = 0;
-        _vnet.send_slot = (_vnet.send_slot + 1) % _vnet.send_slots;
+          MEMORY_BARRIER;
+          _vnet.send[_vnet.send_slot].ind = 0;
+          _vnet.send_slot = (_vnet.send_slot + 1) % (0x400000U / sizeof(*_vnet.send));
+        }
       }
 
       //edx - last number of inj. ins
@@ -604,12 +596,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 #endif
 
 public:
-  Vancouver() { //what about initializing all other variables, assuming 0 inited memory is fragil ?
-    #ifdef DONAR_APP_EXPERIMENT
-    memset(&_vnet, 0, sizeof(_vnet));
-    #endif
-  }
-
   bool receive(CpuMessage &msg) {
     if (msg.type != CpuMessage::TYPE_CPUID) return false;
 
@@ -836,18 +822,13 @@ public:
         //Logging::printf("vmm -> donar - slot %u/%u - %s\n", _vnet.recv_slot, _vnet.recv_slots, _vnet.recv[_vnet.recv_slot].ind ? "full" : "empty");
         if (_vnet.recv[_vnet.recv_slot].ind == 0) {
           unsigned len; //don't overwrite msg.len maybe used by others as well on the bus
-          if (msg.len > sizeof(_vnet.recv[_vnet.recv_slot])) {
-            Logging::printf("vmm -> donar - packet to large (%u) -> got truncated to %u\n", msg.len, sizeof(_vnet.recv[_vnet.recv_slot]));
-            len = sizeof(_vnet.recv[_vnet.recv_slot]);
-          } else
-            len = msg.len;
-
+          len = MIN(msg.len, sizeof(_vnet.recv[_vnet.recv_slot]));
           memcpy(_vnet.recv[_vnet.recv_slot].data, msg.buffer, len);
           MEMORY_BARRIER; //make sure that compiler don't optimize away len and uses instead _vnet.recv[_vnet.recv_slot].len (VM writeable memory!)
           _vnet.recv[_vnet.recv_slot].len = len;
           MEMORY_BARRIER;
           _vnet.recv[_vnet.recv_slot].ind = 1;
-          _vnet.recv_slot = (_vnet.recv_slot + 1) % _vnet.recv_slots;
+          _vnet.recv_slot = (_vnet.recv_slot + 1) % (0x400000U / sizeof(*_vnet.recv));
           CpuEvent msg(VCpu::EVENT_HOST);
           for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last())
             vcpu->bus_event.send(msg);
@@ -1035,7 +1016,6 @@ public:
 TimerProtocol     * Vancouver::service_timer;
 AdmissionProtocol * Vancouver::service_admission;
 EventsProtocol    * Vancouver::service_events = 0;
-unsigned long Vancouver::_original_physsize;
 
 ASMFUNCS(Vancouver, Vancouver)
 
