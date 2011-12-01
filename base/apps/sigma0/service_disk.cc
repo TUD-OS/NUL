@@ -82,6 +82,7 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
 			    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
     virtual bool flush() = 0;
+    virtual bool get_params(DiskParameter &params) = 0;
   };
 
   class S0Disk : public Disk {
@@ -102,6 +103,11 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     virtual bool flush()
     {
       MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disknr, 0, 0, 0, 0, 0, 0);
+      return bus_disk->send(msg2);
+    }
+
+    virtual bool get_params(DiskParameter &params) {
+      MessageDisk msg2 = MessageDisk(disknr, &params);
       return bus_disk->send(msg2);
     }
   };
@@ -127,6 +133,13 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     }
 
     virtual bool flush() { return parent->flush(); }
+
+    virtual bool get_params(DiskParameter &params) {
+      if(!parent->get_params(params)) return false;
+      params.sectors = length;
+      strcpy(params.name, get_name());
+      return true;
+    }
   };
 
 
@@ -317,12 +330,11 @@ public:
 	  unsigned disk;
 
 	  if (input.get_word(disk))     return EPROTO;
+	  Disk *d = client->disk(disk);
+	  if (!d) return EPERM;
 
-	  MessageDisk msg2 = MessageDisk(disk, &param);
-	  bool ok = _mb.bus_disk.send(msg2);
-	  if (ok)
-	    utcb << param;
-
+	  bool ok = d->get_params(param);
+	  if (ok) utcb << param;
 	  return ok ? ENONE : ERESOURCE;
 	}
       case DiskProtocol::TYPE_GET_MEM_PORTAL: {
