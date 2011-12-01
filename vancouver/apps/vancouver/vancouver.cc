@@ -56,7 +56,7 @@ bool           _rdtsc_exit;
 bool           _service_events = false;
 unsigned long  _original_physsize;
 
-#define DONAR_APP_EXPERIMENT
+//#define DONAR_APP_EXPERIMENT
 #ifdef DONAR_APP_EXPERIMENT
 struct donar_buffer
 {
