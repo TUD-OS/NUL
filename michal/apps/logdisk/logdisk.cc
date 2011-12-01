@@ -82,7 +82,7 @@ public:
       default: {
 	if (p->start_lba && p->num_sectors) {
 	  char name[20];
-	  Vprintf::snprintf(name, sizeof(name), "%d", num++);
+	  Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, num++);
 	  DiskProtocol::Segment seg(disknum, start + p->start_lba, p->num_sectors);
 	  check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
 	} else
@@ -121,7 +121,7 @@ public:
 	if (p->type) {
 	  if (p->start_lba && p->num_sectors) {
 	    char name[20];
-	    Vprintf::snprintf(name, sizeof(name), "%d", i+1);
+	    Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, i+1);
 	    DiskProtocol::Segment seg(disknum, p->start_lba, p->num_sectors);
 	    check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
 

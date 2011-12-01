@@ -88,7 +88,7 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     unsigned disknr;
   public:
     S0Disk(DBus<MessageDisk> *bus_disk, unsigned disknr) :
-      Disk("s0::drive:%d", disknr), bus_disk(bus_disk), disknr(disknr) {}
+      Disk("%d", disknr), bus_disk(bus_disk), disknr(disknr) {}
 
     virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
 		    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
@@ -106,7 +106,7 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     uint64_t start, length;
   public:
     Partition(Disk *parent, uint64_t start, uint64_t length, const char *name) :
-      Disk("%spart%s", parent->get_name(), name), parent(parent), start(start), length(length) {}
+      Disk(name), parent(parent), start(start), length(length) {}
 
     virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
 		    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
