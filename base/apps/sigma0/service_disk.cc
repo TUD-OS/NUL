@@ -81,6 +81,7 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     char *get_name() { return name; }
     virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
 			    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
+    virtual bool flush() = 0;
   };
 
   class S0Disk : public Disk {
@@ -96,6 +97,12 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
       MessageDisk msg(op == READ ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE,
 		      disknr, usertag, sector, dmacount, dma, physoffset, physsize);
       return bus_disk->send(msg);
+    }
+
+    virtual bool flush()
+    {
+      MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disknr, 0, 0, 0, 0, 0, 0);
+      return bus_disk->send(msg2);
     }
   };
 
@@ -118,6 +125,8 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
       if (sector+(size+511)/512 >= length) return false;
       return parent->read_write(op, usertag, start+sector, dmacount, dma, physsize, physsize);
     }
+
+    virtual bool flush() { return parent->flush(); }
   };
 
 
@@ -380,10 +389,10 @@ public:
 
 	  unsigned disk;
 	  if (input.get_word(disk))     return EPROTO;
+	  Disk *d = client->disk(disk);
+	  if (!d) return EPERM;
 
-	  MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disk, 0, 0, 0, 0, 0, 0);
-	  bool ok = _mb.bus_disk.send(msg2);
-	  return ok ? ENONE : ERESOURCE;
+	  return d->flush() ? ENONE : ERESOURCE;
 	}
       case DiskProtocol::TYPE_ADD_LOGICAL_DISK:
 	{
