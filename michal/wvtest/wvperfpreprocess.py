@@ -73,6 +73,7 @@ for line in sys.stdin.readlines():
             units = None
     else:
         linetype='other'
+        continue
 
     # Rewriting rules
     if where.find('/vancouver-kernelbuild') != -1:
