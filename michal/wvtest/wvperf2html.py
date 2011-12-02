@@ -48,6 +48,7 @@ class Graph:
         self.rows = []
         self.date2row = {}
         self.axes = {}
+        self.axes_ordered = []
 
     def __getitem__(self, date):
         try:
@@ -108,14 +109,16 @@ class Graph:
                 axis.yrange_min = None
 
     def fixupAxisNumbers(self):
-        axix_keys = self.axes.keys()
-        for a in axix_keys:
-            axis = self.axes[a]
-            cols = [col for col in self.columns.values() if col.axis == axis]
-            if len(cols) == 0:
-                del(self.axes[a])
+        # Sort axes according to the columns and number them
         num = 0
-        for axis in self.axes.itervalues():
+        for column in self.columns_ordered:
+            axis = column.axis
+            if axis not in self.axes_ordered:
+                self.axes_ordered.insert(0, axis)
+                axis.num = num
+                num += 1
+        num = 0
+        for axis in self.axes_ordered:
             axis.num = num
             num += 1
 
@@ -170,7 +173,7 @@ class Graph:
 		                }
 		            },
 			    yAxis: ["""
-	for axis in self.axes.values():
+	for axis in self.axes_ordered:
             print "\t\t\t\t{"
             print "\t\t\t\t\tlineWidth: 1,"
             print "\t\t\t\t\tlabels: { align: 'right', x: -3 },"
