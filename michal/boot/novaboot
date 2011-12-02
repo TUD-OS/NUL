@@ -287,6 +287,11 @@ sub system_verbose($)
     if ($ret) { die("Command failure $ret"); }
 }
 
+if ($variables->{WVDESC}) {
+    print "Testing \"$variables->{WVDESC}\" in $last_fn:\n";
+} elsif ($last_fn =~ /\.wv$/) {
+    print "Testing \"all\" in $last_fn:\n";
+}
 
 chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
 print "novaboot: Entering directory `$CFG::builddir'\n";
@@ -362,12 +367,6 @@ if (defined $iso_image) {
 
 if (scalar(@scripts) > 1 && ( defined $dhcp_tftp || defined $serial || defined $iprelay)) {
     die "You cannot do this with multiple scripts simultaneously";
-}
-
-if ($variables->{WVDESC}) {
-    print "Testing \"$variables->{WVDESC}\" in $filename:\n";
-} elsif ($filename =~ /\.wv$/) {
-    print "Testing \"all\" in $filename:\n";
 }
 
 if ($variables->{WVTEST_TIMEOUT}) {
