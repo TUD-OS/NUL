@@ -42,6 +42,7 @@ class Row(dict):
 class Graph:
     def __init__(self, id, title):
         self.columns = {}
+        self.columns_ordered = []
         self.id = id
         self.title = title
         self.rows = []
@@ -65,7 +66,13 @@ class Graph:
         row[col] = val
         if not self.columns.has_key(col):
             axis=self.getAxis(col)
-            self.columns[col]=Column(col, units, axis);
+            column = Column(col, units, axis)
+            self.columns[col] = column
+            self.columns_ordered.append(column)
+        else:
+            column = self.columns[col]
+            self.columns_ordered.remove(column)
+            self.columns_ordered.append(column)
         self.columns[col].units=units
         self.columns[col].axis.units=units
 
@@ -176,7 +183,7 @@ class Graph:
 
 			    series: ["""
         num = 0
-	for col in self.columns.values():
+	for col in self.columns_ordered:
             print "\t\t\t\t{ name: '%s [%s]', yAxis: %d, data: [" % (col.name, col.units, col.axis.num)
             num += 1
             for row in self.rows:
