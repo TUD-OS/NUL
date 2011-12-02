@@ -102,6 +102,9 @@ for line in sys.stdin.readlines():
         # Skip warmup results
         continue
 
+    if where.find('vancouver-linux-basic') != -1:
+        continue                # Ignore the old test
+
     if where.find('diskbench-ramdisk.wv') != -1 or where.find('diskbench-ramdisk-old.wv') != -1:
         # Merge graphs for old and new disk protocol
         if linetype == 'testing' and where.find('diskbench-ramdisk-old.wv') != -1:
