@@ -102,6 +102,17 @@ for line in sys.stdin.readlines():
         # Skip warmup results
         continue
 
+    if where.find('diskbench-ramdisk.wv') != -1 or where.find('diskbench-ramdisk-old.wv') != -1:
+        # Merge graphs for old and new disk protocol
+        if linetype == 'testing' and where.find('diskbench-ramdisk-old.wv') != -1:
+            line = line.replace('diskbench-ramdisk-old.wv', 'diskbench-ramdisk.wv');
+        if linetype == 'perf' and key == 'request_rate':
+            continue # Do not plot request rate
+        if linetype == 'perf' and key == 'throughput' and units:
+            line = line.replace('ok', 'axis="throughput" ok');
+            if where.find('diskbench-ramdisk-old.wv') != -1:
+                line = line.replace('throughput', 'old-protocol', 1)
+
     # Output (possibly modified) line
     print line
 
