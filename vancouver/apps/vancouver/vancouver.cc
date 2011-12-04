@@ -812,6 +812,7 @@ public:
 
 
   bool  receive(MessageDisk &msg)    {
+    msg.error = MessageDisk::DISK_OK;
     switch (msg.type) {
     case MessageDisk::DISK_GET_PARAMS:
       return service_disk->get_params(*myutcb(), msg.disknr, msg.params) == ENONE;
