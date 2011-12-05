@@ -27,7 +27,7 @@ $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
 
-my $qemu_flags = "-cpu coreduo -smp 2";
+my @qemu_flags = qw(-cpu coreduo -smp 2);
 
 sub read_config($) {
     my ($cfg) = @_;
@@ -270,11 +270,10 @@ sub generate_grub_config($$$$;$)
     close($fg);
 }
 
-sub exec_verbose($)
+sub exec_verbose(@)
 {
-    my $cmd = shift;
-    print "Running: $cmd\n";
-    exec($cmd);
+    print "Running: ".join(' ', map("'$_'", @_))."\n";
+    exec(@_);
 }
 
 sub system_verbose($)
@@ -375,12 +374,12 @@ if ($variables->{WVTEST_TIMEOUT}) {
 
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
     # Qemu
-    $qemu_flags = $variables->{QEMU_FLAGS} if $variables->{QEMU_FLAGS};
-    $qemu_flags = $qemu_flags_cmd if $qemu_flags_cmd;
+    @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if $variables->{QEMU_FLAGS};
+    @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
 
     if (defined $iso_image) {
 	# Boot NOVA with grub (and test the iso image)
-	$qemu_flags .= " -cdrom $config_name.iso";
+	push(@qemu_flags, ('-cdrom', "$config_name.iso"));
     } else {
 	# Boot NOVA without GRUB
 
@@ -392,10 +391,10 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 	$kcmd = '' if !defined $kcmd;
 	my $initrd = join ",", @$modules;
 
-	$qemu_flags .= " -kernel $kbin -append '$kcmd' -initrd \"$initrd\""
+	push(@qemu_flags, ('-kernel', $kbin, '-append', $kcmd, '-initrd', $initrd));
     }
-    $qemu_flags .= " -serial stdio"; # Redirect serial output (for collecting test restuls)
-    exec_verbose("$CFG::qemu -name '$config_name' $qemu_flags");
+    push(@qemu_flags,  qw(-serial stdio)); # Redirect serial output (for collecting test restuls)
+    exec_verbose(($CFG::qemu,  '-name', $config_name, @qemu_flags));
 }
 
 my ($dhcpd_pid, $tftpd_pid);
