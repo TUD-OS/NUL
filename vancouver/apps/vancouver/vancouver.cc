@@ -340,14 +340,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
 
-    service_disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), 0);
-     KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
-    DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
-    assert(diskconsumer);
-    cap_sel tmp_portal = alloc_cap();
-    res = service_disk->attach(*utcb, reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem);
-    if (res) Logging::panic("disk->attach failed: %d\n", res);
-
     _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
 
     if (_service_events)
@@ -812,6 +804,18 @@ public:
 
 
   bool  receive(MessageDisk &msg)    {
+    if (!service_disk) {
+      if (_mb->bus_ahcicontroller.count() == 0) return false;
+
+      service_disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), 0);
+      KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+      DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
+      assert(diskconsumer);
+      cap_sel tmp_portal = alloc_cap();
+      unsigned res = service_disk->attach(*myutcb(), reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem);
+      if (res) Logging::panic("disk->attach failed: %d\n", res);
+    }
+
     msg.error = MessageDisk::DISK_OK;
     switch (msg.type) {
     case MessageDisk::DISK_GET_PARAMS:
@@ -975,11 +979,11 @@ public:
     create_devices(utcb, hip, args);
 
     // create backend connections
-    create_irq_thread(~0u, 0, do_stdin,   "stdin");
-    create_irq_thread(~0u, 0, do_disk,    "disk");
     create_irq_thread(~0u, 0, do_timer,   "timer");
-    create_irq_thread(~0u, 0, do_network, "net");
-    create_irq_thread(~0u, 0, do_vnet,    "vnet");
+    if (_mb->bus_input.count()) create_irq_thread(~0u, 0, do_stdin, "stdin");
+    if (_mb->bus_vnet.count() > 1) create_irq_thread(~0u, 0, do_vnet, "vnet");
+    if (_mb->bus_network.count() > 1) create_irq_thread(~0u, 0, do_network, "net");
+    if (_mb->bus_ahcicontroller.count()) create_irq_thread(~0u, 0, do_disk, "disk");
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
