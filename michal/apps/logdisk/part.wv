@@ -1,13 +1,31 @@
-#!/usr/bin/env novaboot
-# -*-sh-*-
-bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
-    vdisk:rom://imgs/part-table-disk \
-    vdisk:rom://imgs/part-table-disk \
-    service_disk script_start:1 script_waitchild
-bin/apps/logdisk.nul
-bin/apps/logdisk.nulconfig <<EOF
-namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk diskadd disk::0 sigma0::drive:1  ||
-rom://bin/apps/logdisk.nul
-EOF
-imgs/part-table-disk
+#!/bin/bash
 
+thisscriptdir=$(dirname $0)
+nulroot=$(readlink -f $thisscriptdir/../../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART Partition table parsing
+
+WVTEST_EXIT_PATTERN='^sc: done' $wvpath/wvnulrun $thisscriptdir/part "$@" | fromdos | tee part.log
+WVPASS grep '^disk: Added' part.log > disks.log
+WVPASS cat > expected.log <<EOF
+disk: Added '0'
+disk: Added '1'
+disk: Added '0p1'
+disk: Added '0p2'
+disk: Added '0p3'
+disk: Added '0p5'
+disk: Added '0p6'
+disk: Added '0p7'
+disk: Added '0p8'
+disk: Added '1p1'
+disk: Added '1p2'
+disk: Added '1p3'
+disk: Added '1p5'
+disk: Added '1p6'
+disk: Added '1p7'
+disk: Added '1p8'
+EOF
+WVPASS diff -u expected.log disks.log
