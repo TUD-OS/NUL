@@ -7,6 +7,7 @@ wvpath=$nulroot/michal/wvtest
 . $wvpath/wvtest.sh
 
 WVSTART Partition table parsing
+echo "wvtest: ignore exit patterns"
 
 WVTEST_EXIT_PATTERN='^sc: done' $wvpath/wvnulrun $thisscriptdir/part "$@" | fromdos | tee part.log
 WVPASS grep '^disk: Added' part.log > disks.log
