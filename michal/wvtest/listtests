@@ -4,6 +4,11 @@
 # automated testing. It finds all tests (files that match *.wv) and
 # sorts them according to the two lists below. Tests that are not
 # found in any list are sorted to the middle in alphabetical order.
+#
+# The list produced by this script can by filtered to not contain
+# certain tests. This is done by specifying tags of tests to be
+# omitted in WVTEST_SKIP_TAGS environment variable. Tests are tagged
+# by putting the tag after the name of the test in the lists below.
 
 
 test_begin = """\
@@ -15,34 +20,50 @@ michal/apps/echo/echo2sstest.wv
 michal/apps/echo/echo2test.wv
 michal/apps/echo/echotest.wv
 michal/apps/logdisk/part.wv
-michal/apps/tests/timer.wv
+michal/apps/tests/timer.wv broken_in_qemu
 michal/boot/diskbench-ramdisk.wv
 michal/boot/diskbench-ramdisk-old.wv
-michal/boot/vancouver-basicperf.wv
+michal/boot/vancouver-basicperf.wv broken_in_qemu
 michal/boot/vancouver-linux-basic.wv
 michal/boot/vancouver-linux-boot-time.wv
 michal/boot/diskbench-vm.wv
-michal/boot/vancouver-dpci.wv
-alexb/apps/libvirt/libvirt.wv
+michal/boot/vancouver-dpci.wv needs_net
+alexb/apps/libvirt/libvirt.wv needs_net
 """
 
 test_end="""\
-michal/boot/kernelbuild-bare-metal.wv
-michal/boot/vancouver-kernelbuild.wv
-michal/boot/vancouver-kernelbuild-ept-no-vpid.wv
-michal/boot/vancouver-kernelbuild-vtlb-vpid.wv
-michal/boot/vancouver-kernelbuild-vtlb-no-vpid.wv
+michal/boot/kernelbuild-bare-metal.wv slow
+michal/boot/vancouver-kernelbuild.wv slow
+michal/boot/vancouver-kernelbuild-ept-no-vpid.wv slow
+michal/boot/vancouver-kernelbuild-vtlb-vpid.wv slow
+michal/boot/vancouver-kernelbuild-vtlb-no-vpid.wv slow
 """
 
 import sys
-from os.path import *
+import os.path
 import os
 import fnmatch
+import string 
+
+class Test(object):
+    def __init__(self, line):
+        words = string.split(line)
+        self.name = words[0]
+        self.tags = words[1:]
+    def __cmp__(self, other):
+        return cmp(self.name, other.name)
+    def __str__(self):
+        return self.name
+    def has_any_of(self, tags):
+        for tag in tags:
+            if tag in self.tags:
+                return True
+        return False
 
 class Order(object):
     def __init__(self, order):
         self.order = order
-    def cmp_order(self, other):
+    def __cmp__(self, other):
         return cmp(self.order, other.order)
     def cmp_tests(self, a, b):
         return cmp(a, b)
@@ -50,41 +71,56 @@ class Order(object):
 class TestOrder(Order):
     def __init__(self, tests, order):
         super(TestOrder,self).__init__(order)
-        self.testlist = tests.splitlines()
+        self.testlist = [Test(line) for line in tests.splitlines()]
         self.testdict = {}
-        def putIntoDict(t): self.testdict[t] = len(self.testdict)
-        map(putIntoDict, self.testlist)
+        i=0
+        for t in self.testlist:
+            self.testdict[t.name] = t
+            t.num = i
+            i += 1
     def __contains__(self, t):
         return t in self.testdict
+    def __getitem__(self, t):
+        return self.testdict[t]
     def cmp_tests(self, a, b):
-        return cmp(self.testdict[a], self.testdict[b])
+        return cmp(a.num, b.num)
 
 def cmp_tests(a, b):
-    if a in begin_order: a_order = begin_order
-    elif a in end_order: a_order = end_order
-    else:                a_order = middle_order
-    if b in begin_order: b_order = begin_order
-    elif b in end_order: b_order = end_order
-    else:                b_order = middle_order
+    if a.name in begin_order: a_order = begin_order
+    elif a.name in end_order: a_order = end_order
+    else:                     a_order = middle_order
+    if b.name in begin_order: b_order = begin_order
+    elif b.name in end_order: b_order = end_order
+    else:                     b_order = middle_order
 
     if a_order == b_order: return a_order.cmp_tests(a, b)
-    else: return a_order.cmp_order(b_order)
+    else: return cmp(a_order, b_order)
 
 
 begin_order = TestOrder(test_begin, 1)
 middle_order = Order(2)
 end_order   = TestOrder(test_end, 3)
 
-thisdir=dirname(sys.argv[0])
-nulroot=abspath(thisdir+"/../..")
+thisdir=os.path.dirname(sys.argv[0])
+nulroot=os.path.abspath(thisdir+"/../..")
 
 tests = []
 for root, dirs, files in os.walk(nulroot+"/"):
     if root.startswith(nulroot): root=root[len(nulroot)+1:]
     if root.startswith(".git"): continue
-    tests.extend([join(root, t) for t in fnmatch.filter(files, "*.wv")])
+    for t in fnmatch.filter(files, "*.wv"):
+        t = os.path.join(root, t)
+        if t in begin_order: tt=begin_order[t]
+        elif t in end_order: tt=end_order[t]
+        else: tt = Test(t)
+        tests.append(tt)
 
 tests.sort(cmp_tests)
 
+try:
+    skiptags = string.split(os.environ["WVTEST_SKIP_TAGS"])
+except KeyError:
+    skiptags = []
 for t in tests:
-    print join(nulroot, t)
+    if not t.has_any_of(skiptags):
+        print os.path.join(nulroot, t.name)
