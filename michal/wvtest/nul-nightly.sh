@@ -14,6 +14,7 @@ cd ~/nul
 
 ver="$(git describe --dirty) $(git log -n 1 --format='(%an: %s)')"
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
+echo "Testing \"Compilation etc.\" in $0:"
 
 CC=/home/sojka/gcc/gcc-4.6/bin/gcc
 CXX=/home/sojka/gcc/gcc-4.6/bin/g++
@@ -32,12 +33,14 @@ PATH=$HOME/bin:$PATH
 novaboot --iprelay=on
 
 # Reseting the machine just after power on confuses BIOS and causes it to ask some stupid question.
-sleep 20 
+sleep 20
+
+echo "! $0 compilation finished  ok"
 
 ret=0
 /home/sojka/nul/michal/wvtest/runall --server --iprelay || ret=1
 
 novaboot --iprelay=off
-
+date
 trap - EXIT
 exit $ret
