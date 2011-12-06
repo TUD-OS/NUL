@@ -261,6 +261,8 @@ for line in sys.stdin.readlines():
             units = perf[2]
         except:
             units = None
+        if match.group(5) != "ok":
+            val=None
 
         graph.addValue(date, col, val, units)
 
