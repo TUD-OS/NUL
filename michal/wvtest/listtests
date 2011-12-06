@@ -1,0 +1,90 @@
+#!/usr/bin/python
+
+# This script outputs the list of all tests to be executed during
+# automated testing. It finds all tests (files that match *.wv) and
+# sorts them according to the two lists below. Tests that are not
+# found in any list are sorted to the middle in alphabetical order.
+
+
+test_begin = """\
+michal/wvtest/sizes.wv
+michal/wvtest/wvtesttest.wv
+alexb/apps/ipc_test/ipctest.wv
+julian/apps/per-cpu-service/per-cpu-service.wv
+michal/apps/echo/echo2sstest.wv
+michal/apps/echo/echo2test.wv
+michal/apps/echo/echotest.wv
+michal/apps/logdisk/part.wv
+michal/apps/tests/timer.wv
+michal/boot/diskbench-ramdisk.wv
+michal/boot/diskbench-ramdisk-old.wv
+michal/boot/vancouver-basicperf.wv
+michal/boot/vancouver-linux-basic.wv
+michal/boot/vancouver-linux-boot-time.wv
+michal/boot/diskbench-vm.wv
+michal/boot/vancouver-dpci.wv
+alexb/apps/libvirt/libvirt.wv
+"""
+
+test_end="""\
+michal/boot/kernelbuild-bare-metal.wv
+michal/boot/vancouver-kernelbuild.wv
+michal/boot/vancouver-kernelbuild-ept-no-vpid.wv
+michal/boot/vancouver-kernelbuild-vtlb-vpid.wv
+michal/boot/vancouver-kernelbuild-vtlb-no-vpid.wv
+"""
+
+import sys
+from os.path import *
+import os
+import fnmatch
+
+class Order(object):
+    def __init__(self, order):
+        self.order = order
+    def cmp_order(self, other):
+        return cmp(self.order, other.order)
+    def cmp_tests(self, a, b):
+        return cmp(a, b)
+
+class TestOrder(Order):
+    def __init__(self, tests, order):
+        super(TestOrder,self).__init__(order)
+        self.testlist = tests.splitlines()
+        self.testdict = {}
+        def putIntoDict(t): self.testdict[t] = len(self.testdict)
+        map(putIntoDict, self.testlist)
+    def __contains__(self, t):
+        return t in self.testdict
+    def cmp_tests(self, a, b):
+        return cmp(self.testdict[a], self.testdict[b])
+
+def cmp_tests(a, b):
+    if a in begin_order: a_order = begin_order
+    elif a in end_order: a_order = end_order
+    else:                a_order = middle_order
+    if b in begin_order: b_order = begin_order
+    elif b in end_order: b_order = end_order
+    else:                b_order = middle_order
+
+    if a_order == b_order: return a_order.cmp_tests(a, b)
+    else: return a_order.cmp_order(b_order)
+
+
+begin_order = TestOrder(test_begin, 1)
+middle_order = Order(2)
+end_order   = TestOrder(test_end, 3)
+
+thisdir=dirname(sys.argv[0])
+nulroot=abspath(thisdir+"/../..")
+
+tests = []
+for root, dirs, files in os.walk(nulroot+"/"):
+    if root.startswith(nulroot): root=root[len(nulroot)+1:]
+    if root.startswith(".git"): continue
+    tests.extend([join(root, t) for t in fnmatch.filter(files, "*.wv")])
+
+tests.sort(cmp_tests)
+
+for t in tests:
+    print join(nulroot, t)

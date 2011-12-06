@@ -1,8 +1,7 @@
 #!/bin/sh
 
 dir=$(dirname $0)
-root=$(readlink -f $dir/../..)
-tests=$(find $root -name '*.wv')
+tests=$($dir/listtests)
 exitcode=0
 for file in $tests; do
     set -x
