@@ -555,7 +555,7 @@ diff -urN libvirt-0.9.6/src/nova/nova_driver.c libvirt-0.9.6-own/src/nova/nova_d
 +    if (*connections[1].socket) close(*connections[1].socket);
 +    if (nconn) VIR_FREE(nconn);
 +
-+    return VIR_DRV_OPEN_DECLINED;
++    return VIR_DRV_OPEN_ERROR;
 +}
 +
 +static int novaClose(virConnectPtr conn)
