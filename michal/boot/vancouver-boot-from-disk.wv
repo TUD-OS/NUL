@@ -1,0 +1,14 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+HYPERVISOR_PARAMS=serial
+QEMU_FLAGS=-cpu phenom -smp 2 -m 512
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT mmconfig hostserial hostvga hostkeyb:0,0x60,1,12 service_config \
+    vdisk:rom://imgs/bootable-hdd.img \
+    service_disk \
+    script_start:1
+bin/apps/vancouver.nul
+imgs/bootable-hdd.img
+vancuver.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk sigma0::drive:0 ||
+rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 drive:0,0,0 ||
+EOF
