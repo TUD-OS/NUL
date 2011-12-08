@@ -61,6 +61,11 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     static void * tls_session_cmd, * tls_session_event;
 
+    enum {
+      LIBVIRT_CMD_PORT=9999,
+      LIBVIRT_EVT_PORT=10000
+    };
+
   public:
 
     static void send_network(char unsigned const * data, unsigned len) {
@@ -93,14 +98,14 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned char * sslbuf;
       int32 rc;
 
-      assert(localport == 9999 || localport == 10000);
-      int32 len = nul_tls_len(localport == 9999 ? tls_session_cmd : tls_session_event, sslbuf);
+      assert(localport == LIBVIRT_CMD_PORT || localport == LIBVIRT_EVT_PORT);
+      int32 len = nul_tls_len(localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event, sslbuf);
       if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
       //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
       memcpy(sslbuf, in, in_len);
 
       rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport,
-          localport == 9999 ? tls_session_cmd : tls_session_event);
+          localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
       if (rc > 0) {
         loop:
 
@@ -108,7 +113,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         remcon->recv_call_back(appdata, appdata_len, out, out_len);
         appdata = out; appdata_len = out_len;
         rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport,
-                            localport == 9999 ? tls_session_cmd : tls_session_event);
+                            localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
         if (rc > 0) goto loop;
       }
       if (rc < 0) nul_ip_config(IP_TCP_CLOSE, &localport);
@@ -253,10 +258,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       struct {
         unsigned long port;
         void (*fn)(uint16 localport, void * in_data, size_t in_len);
-      } conn = { 9999, recv_call_back };
+      } conn = { LIBVIRT_CMD_PORT, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      conn = { 10000, recv_call_back };
+      conn = { LIBVIRT_EVT_PORT, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
       Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);
