@@ -67,10 +67,12 @@
 
     FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), "fs/embedded");
     FsProtocol::dirent fileinfo;
-    if (res = fs_obj.get_file_info(*utcb, fileinfo, file_name)) goto cleanup;
+    FsProtocol::File file_obj(fs_obj, alloc_cap());
+    if ((res = fs_obj.get(*utcb, file_obj, file_name)) ||
+        (res = file_obj.get_info(*utcb, fileinfo))) goto cleanup;
 
     if (!(config = new (0x1000U) char[fileinfo.size+1])) goto cleanup;
-    res = fs_obj.get_file_copy(*utcb, config, fileinfo.size, file_name);
+    res = file_obj.copy(*utcb, config, fileinfo.size);
     config[fileinfo.size] = 0;
 
     if (res != ENONE) goto cleanup;
@@ -150,7 +152,9 @@
 
     FsProtocol fs_obj = FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count()), fs_name);
     FsProtocol::dirent fileinfo;
-    if (fs_obj.get_file_info(*utcb, fileinfo, file_name, namelen)) { Logging::printf("s0: File not found '%s'\n", file_name); res = __LINE__; goto fs_out; }
+    FsProtocol::File file_obj(fs_obj, alloc_cap());
+    if ((ENONE != fs_obj.get(*utcb, file_obj, file_name, namelen)) ||
+        (ENONE != file_obj.get_info(*utcb, fileinfo))) { Logging::printf("s0: File not found '%s'\n", file_name); res = __LINE__; goto fs_out; }
 
     msize = (fileinfo.size + 0xfff) & ~0xffful;
     {
@@ -161,7 +165,7 @@
 
     addr = map_self(utcb, physaddr, msize);
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
-    if (fs_obj.get_file_copy(*utcb, addr, fileinfo.size, file_name, namelen)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
+    if (file_obj.copy(*utcb, addr, fileinfo.size)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
     modinfo = alloc_module(mconfig, sigma0_cmdlen, part_of_s0);
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }

@@ -722,11 +722,14 @@ public:
             if (!fs_obj) goto failure;
           }
 
-          if (fs_obj->get_file_info(*myutcb(), fileinfo, file_name, file_namelen) || msg.size < fileinfo.size) {
-            Logging::printf("FAILED: loading file ...%10s\n", file_namelen >= 10 ? file_name + file_namelen - 10 : "");
-            goto failure;
+          {
+            FsProtocol::File file_obj(*fs_obj, alloc_cap());
+            if ((ENONE != fs_obj->get(*BaseProgram::myutcb(), file_obj, file_name, file_namelen)) ||
+                (ENONE != file_obj.get_info(*myutcb(), fileinfo)) || (msg.size < fileinfo.size)) {
+              Logging::printf("FAILED: loading file ...%10s\n", file_namelen >= 10 ? file_name + file_namelen - 10 : "");
+            } else
+              res = file_obj.copy(*myutcb(), msg.start, fileinfo.size);
           }
-          res = fs_obj->get_file_copy(*myutcb(), msg.start, fileinfo.size, file_name, file_namelen);
           if (res) goto failure;
 
           //align the end of the module to get the cmdline on a new page.

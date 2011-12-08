@@ -117,12 +117,16 @@ class DummyFS : public NovaProgram, public ProgramConsole
       FsProtocol * fs = new FsProtocol(alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), "fs/dummy");
 
       FsProtocol::dirent fileinfo;
-      res = fs->get_file_info(*utcb, fileinfo, "myfile");
+      FsProtocol::File file_obj(*fs, alloc_cap());
+      res = fs->get(*utcb, file_obj, "myfile");
+      if (res) return false;
+      
+      res = file_obj.get_info(*utcb, fileinfo);
       Logging::printf("fs size %llx err=%x\n", fileinfo.size, res);
       if (res) return false;
 
       char * text = new (0x1000) char [0x1000];
-      res = fs->get_file_copy(*utcb, text, fileinfo.size, "myfile");
+      res = file_obj.copy(*utcb, text, fileinfo.size);
       revoke_all_mem(text, 0x1000, DESC_MEM_ALL, false);
       if (res) return false;
       Logging::printf("received '%s'\n", text);

@@ -124,8 +124,9 @@ public:
       // Get the file
       unsigned cap_base = alloc_cap(FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count());
       FsProtocol fs(cap_base, proto);
-
-      if (ENONE != fs.get_file_info(*myutcb(), file_info, name))
+      FsProtocol::File file(fs, alloc_cap());
+      if (ENONE != fs.get(*myutcb(), file, name) ||
+          ENONE != file.get_info(*myutcb(), file_info))
         Logging::panic("No such file?\n");
 
       Logging::printf("Presentation is %llu bytes large.\n", file_info.size);
@@ -135,7 +136,7 @@ public:
       if (pmem == NULL)
         Logging::panic("Not enough memory to load presentation.\n");
 
-      if (ENONE != fs.get_file_copy(*myutcb(), pmem, size, name))
+      if (ENONE != file.copy(*myutcb(), pmem, size))
         Logging::panic("Failed to read file.");
 
       fs.destroy(*myutcb(), FsProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), this);

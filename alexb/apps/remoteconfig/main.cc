@@ -168,13 +168,15 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
         FsProtocol::dirent fileinfo;
         FsProtocol fs_obj(cap_base, fs_service_name);
-        if (res = fs_obj.get_file_info(*utcb, fileinfo, filename, strcspn(filename," \t\r\n\f")))
+        FsProtocol::File file_obj(fs_obj, alloc_cap());
+        if ((res = fs_obj.get(*myutcb(), file_obj, filename, strcspn(filename," \t\r\n\f"))) ||
+            (res = file_obj.get_info(*utcb, fileinfo)))
           Logging::panic("failure - reading error (%d) of file '%s' from '%s'\n", res, filename, fs_service_name);
 
         *crypto = new(4096) unsigned char[fileinfo.size];
         *crypto_len = fileinfo.size;
         if (!*crypto) Logging::panic("failure - out of memory (%llu) for file\n", fileinfo.size);
-        res = fs_obj.get_file_copy(*utcb, *crypto, fileinfo.size, filename, strcspn(filename," \t\r\n\f"));
+        res = file_obj.copy(*utcb, *crypto, fileinfo.size);
         if (res != ENONE) Logging::panic("failure - reading file %u\n", res);
 
         fs_obj.destroy(*utcb, portal_num, this);

@@ -240,8 +240,9 @@ void Remcon::handle_packet(void) {
 
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
-              if (res = fs_obj.get_file_info(*BaseProgram::myutcb(), fileinfo,
-                                             server_data[j].filename, server_data[j].filename_len))
+              FsProtocol::File file_obj(fs_obj, alloc_cap());
+              if ((res = fs_obj.get(*BaseProgram::myutcb(), file_obj, server_data[j].filename, server_data[j].filename_len)) || 
+                  (res = file_obj.get_info(*BaseProgram::myutcb(), fileinfo)))
               {
                 Logging::printf("failure - err=0x%x, config %30s could not load file '%s'\n", res, server_data[j].showname, server_data[j].filename);
                 goto cleanup;
@@ -250,8 +251,7 @@ void Remcon::handle_packet(void) {
               module = new(4096) char[fileinfo.size];
               if (!module) goto cleanup;
 
-              res = fs_obj.get_file_copy(*BaseProgram::myutcb(), module, fileinfo.size,
-                                         server_data[j].filename, server_data[j].filename_len);
+              res = file_obj.copy(*BaseProgram::myutcb(), module, fileinfo.size);
               if (res != ENONE) goto cleanup;
 
               {
