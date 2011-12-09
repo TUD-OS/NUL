@@ -10,6 +10,7 @@ git fetch --quiet
 git reset --hard origin/master
 git clean -f
 git submodule update --init
+git submodule foreach --recursive 'git reset --hard && git clean -f'
 
 if ! cmp $0 michal/wvtest/nul-nightly-cron.sh; then
     cp michal/wvtest/nul-nightly-cron.sh $0 && exec $0
