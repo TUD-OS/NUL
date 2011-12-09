@@ -49,7 +49,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
       const char rawfile[]= "TestTest!!!";
 
       switch (op) {
-      case FsProtocol::TYPE_GET_FILE_INFO:
+      case FsProtocol::TYPE_INFO:
         {
           const char * name = input.get_zero_string(len);
           if (!name || !len) return EPROTO;
@@ -58,7 +58,7 @@ class DummyFS : public NovaProgram, public ProgramConsole
           utcb << size;
         }
         return ENONE;
-      case FsProtocol::TYPE_GET_FILE_COPIED:
+      case FsProtocol::TYPE_COPY:
         {
           const char * name = input.get_zero_string(len);
           if (!name || !len) return EPROTO;

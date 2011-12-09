@@ -66,7 +66,7 @@ public:
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
-    case FsProtocol::TYPE_GET_FILE_INFO:
+    case FsProtocol::TYPE_INFO:
       {
         Hip_mem hmem;
         if (get_file(input.get_zero_string(len), hmem)) {
@@ -76,7 +76,7 @@ public:
         }
       }
       return ENONE;
-    case FsProtocol::TYPE_GET_FILE_COPIED:
+    case FsProtocol::TYPE_COPY:
       {
         Hip_mem hmem;
         if (not get_file(input.get_zero_string(len), hmem))

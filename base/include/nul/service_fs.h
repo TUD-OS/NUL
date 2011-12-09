@@ -26,9 +26,9 @@
 struct FsProtocol : public GenericProtocol {
 
   enum opcode {
-    TYPE_GET_FILE_INFO = ParentProtocol::TYPE_GENERIC_END,
-    TYPE_GET_FILE_COPIED,
-    TYPE_FILE_MAP,
+    TYPE_INFO = ParentProtocol::TYPE_GENERIC_END,
+    TYPE_COPY,
+    TYPE_MAP,
     TYPE_CREATE,
     TYPE_WRITE,
   };
@@ -65,7 +65,7 @@ struct FsProtocol : public GenericProtocol {
   }
 
   /*
-   * Create a new file. file_cap will contains the communication cap of the file valid only for cpu the calling thread is from - to be fixed.
+   * Create a new file. Communication cap will be mapped to cap provided in File object - cap valid only for cpu of calling thread is from - to be fixed XXX.
    */
   unsigned create(Utcb &utcb, File &file, const char * name, unsigned long name_len = ~0UL) {
     unsigned res = call_server_keep(init_frame(utcb, TYPE_CREATE) << Utcb::String(name, name_len) << Crd(file.file_cap, 0, DESC_CAP_ALL));
@@ -94,7 +94,7 @@ struct FsProtocol : public GenericProtocol {
     File(FsProtocol &fs_o, cap_sel file) : fs_obj(fs_o), file_cap(file) {}
 
     unsigned get_info(Utcb &utcb, dirent & dirent) {
-      unsigned res = fs_obj.call_server(fs_obj.init_frame(utcb, TYPE_GET_FILE_INFO) << Utcb::String(name, name_len), false);
+      unsigned res = fs_obj.call_server(init_frame_noid(utcb, TYPE_INFO) << Utcb::String(name, name_len), false);
       dirent.size = 0; utcb >> dirent.size;
       dirent.name = name;
       utcb.drop_frame();
@@ -119,7 +119,7 @@ struct FsProtocol : public GenericProtocol {
         assert (order >= 12);
         if (order > 22) order = 22;
 
-        res = fs_obj.call_server(fs_obj.init_frame(utcb, TYPE_GET_FILE_COPIED) << Utcb::String(name, name_len) << file_offset
+        res = fs_obj.call_server(init_frame_noid(utcb, TYPE_COPY) << Utcb::String(name, name_len) << file_offset
               << Utcb::TypedMapCap((addr_int + local_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), true);
         file_offset += 1ULL << order; local_offset += 1UL << order;
         addr_size   -= (1ULL << order) > addr_size ? addr_size : (1ULL << order);
@@ -135,8 +135,7 @@ struct FsProtocol : public GenericProtocol {
       assert (!(order >= (1 << 5)));
 
       Logging::printf("crd %#x\n", Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL).value());
-      fs_obj.init_frame(utcb, TYPE_FILE_MAP) << offset << order << Crd(addr >> Utcb::MINSHIFT, order - 12, DESC_MEM_ALL);
-//    unsigned res = call_server(init_frame(utcb, TYPE_GET_FILE_MAP) << Crd(addr >> Utcb::MINSHIFT, order, DESC_MEM_ALL), false);
+      init_frame_noid(utcb, TYPE_MAP) << offset << order << Crd(addr >> Utcb::MINSHIFT, order - 12, DESC_MEM_ALL);
       unsigned res = call(utcb, file_cap, false, false); //don't drop frame (false), and use variable file as portal (false)
       utcb >> size;
       utcb.drop_frame();
@@ -157,18 +156,15 @@ struct FsProtocol : public GenericProtocol {
       while (size) {
         map_size = 1 << (Cpu::bsr(size | 1) == Cpu::bsf(size | 1 << (8 * sizeof(unsigned) - 1)) ? Cpu::bsr(size | 1) : Cpu::bsr(size | 1) + 1);
 
-        if ((addr & ~(map_size - 1)) + map_size > addr + size || map_size == size) {
+        if ((addr & ~(map_size - 1)) + map_size > addr + size || map_size == size)
           hotspot = addr & (map_size - 1);
-    //      utcb << hotspot;
-        } else {
+        else
           hotspot = addr & ((1 << Cpu::bsr(map_size - size | 1)) - 1);
-    //      utcb << hotspot;
-        }
 
 //      Logging::printf("map_size=%#lx(%lu) ('hotspot'=%lx !<= restsize=%lx) addr %#lx+%#lx(%p+%#lx) \n", map_size, map_size, hotspot, map_size - size, addr, size, addr_void, region_size);
 
         //start utcb frame
-        fs_obj.init_frame(utcb, TYPE_WRITE);
+        init_frame_noid(utcb, TYPE_WRITE);
         while (size) {
           unsigned long order = Cpu::minshift(addr | hotspot, size);
    
@@ -185,7 +181,7 @@ struct FsProtocol : public GenericProtocol {
           hotspot += 1 << order;
 
         }
-        res = fs_obj.call(utcb, file_cap, true, false); //drop frame (true), and use variable file as portal (false)
+        res = call(utcb, file_cap, true, false); //drop frame (true), and use variable file as portal (false)
         //end utcb frame
       }
 

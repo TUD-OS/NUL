@@ -287,6 +287,7 @@ public:
 
   unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }
 
+  static Utcb & init_frame_noid(Utcb &utcb, unsigned op) { return utcb.add_frame() << op; }
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
 
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
