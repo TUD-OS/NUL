@@ -901,18 +901,6 @@ public:
     }
     // request a new timeout upstream
     timeout_request();
-
-/*
-    unsigned res = service_admission->get_statistics(*myutcb());
-    if (!res) {
-      unsigned i = 1;
-      while (i < sizeof(myutcb()->msg) / sizeof(myutcb()->msg[0]) && myutcb()->msg[i] != ~0UL) {
-        Logging::printf("cpu %u: %u%%\n", myutcb()->msg[i], myutcb()->msg[i+1]);
-        i += 2;
-      }
-    }
-    myutcb()->drop_frame();
-*/
   }
 
 
