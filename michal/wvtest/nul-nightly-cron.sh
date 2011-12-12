@@ -20,11 +20,17 @@ cd ~/nul-nightly
 if ! nul-nightly.sh > $log 2>&1; then
     ret=1
     (
-	echo "Pipe this mail to 'nul/michal/wvtest/wvtestrun cat' to get more human readable formating."
+	cat <<EOF
+Subject: NUL nighly build/test failed!
+To: sojka@os
+
+Pipe this mail to 'nul/michal/wvtest/wvtestrun cat' to easily find out
+what failed.
+
+EOF
+	cat $log | tr -d '\015' #| iconv -f ASCII -t ASCII//IGNORE
 	echo
-	cat $log | tr -d '\015' | iconv -f ASCII -t ASCII//IGNORE
-	echo
-    ) | mail -s 'NUL nighly build/test failed!' sojka@os
+    ) | /usr/sbin/sendmail -ti
 fi
 cat $log  # Mail the log to me (backup)
 
