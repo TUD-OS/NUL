@@ -12,6 +12,6 @@ nul.App(target_env, 'sigma0',
 
 # Sigma0 binary is bloated. Install a gzipped version by default.
 target_env.Command("#bin/apps/sigma0.nul.gz", "#bin/apps/sigma0.nul",
-                   "gzip -c $SOURCE > $TARGET")
+                   "gzip -n -c $SOURCE > $TARGET")
 
 # EOF
