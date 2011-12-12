@@ -25,8 +25,13 @@ echo sha1: $(sha1sum $CXX)
 $CXX --version
 
 cd build
+git clean --quiet -fxd
 scons target_cc=$CC target_cxx=$CXX
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
+
+find \( -name src -o -name .git -o -path ./contrib/nova -o -path ./.sconf_temp \) -prune -o \
+     -type f ! -name '*.[oa]' ! -name '*.debug' ! -name .sconsign.dblite -print0 | xargs -0 sha1sum
+
 PATH=$HOME/bin:$PATH
 
 # Run the tests
