@@ -26,7 +26,24 @@ $CXX --version
 
 cd build
 git clean --quiet -fxd
-scons target_cc=$CC target_cxx=$CXX
+
+cat <<EOF > ../kernel/contrib/nova-patches/remove-timestamp.patch
+diff --git a/src/init.cpp b/src/init.cpp
+index 36c0d95..c66feaf 100644
+--- a/src/init.cpp
++++ b/src/init.cpp
+@@ -63,7 +63,7 @@ void init (mword mbi)
+     screen.init();
+ 
+      // Now we're ready to talk to the world
+-    printf ("\f%s: %s %s [%s]\n\n", version, __DATE__, __TIME__, COMPILER_STRING);
++    printf ("\f%s: %s %s [%s]\n\n", version, "??? ?? ????", "??:??:??", COMPILER_STRING);
+ 
+     Idt::build();
+     Gsi::setup();
+EOF
+
+scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
 
 find \( -name src -o -name .git -o -path ./contrib/nova -o -path ./.sconf_temp \) -prune -o \
