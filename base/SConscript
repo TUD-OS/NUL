@@ -104,6 +104,8 @@ if ld_path:
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
 target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -mpreferred-stack-boundary=4 -mincoming-stack-boundary=4 -minline-all-stringops -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
+if ARGUMENTS.get('NO_TIMESTAMP', 0):
+    target_env.Append(CPPFLAGS = '-DNO_TIMESTAMP')
 
 if target_arch:
     target_env.Append(CCFLAGS = (" -march=%s " % target_arch))

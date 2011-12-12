@@ -37,5 +37,7 @@ PARAM_HANDLER(help, "help:nr - prints a list of valid parameters and give detail
     }
   else
     Logging::printf("No valid parameter number. Use 'help:0' to give detailed help for the first parameter in the list.\n");
+#ifndef NO_TIMESTAMP
   Logging::printf("Binary build at '%s %s'\n", __DATE__, __TIME__);
+#endif
 }
