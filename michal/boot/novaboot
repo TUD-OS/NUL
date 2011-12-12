@@ -334,13 +334,18 @@ foreach my $script (@scripts) {
 	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules,
 			     $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
 	my ($hostname, $path) = split(":", $server, 2);
+	if (! defined $path) {
+	    $path = $hostname;
+	    $hostname = "";
+	}
 	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
 	my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
 	my $progress = $istty ? "--progress" : "";
-	system_verbose("rsync $progress -RLp $files $hostname:$path");
-	if ($combined_menu_lst) { system_verbose("ssh $hostname 'cd $path/.. && cat */menu.lst > menu.lst'"); }
+	system_verbose("rsync $progress -RLp $files $server");
+	my $cmd = "cd $path/.. && cat */menu.lst > menu.lst";
+	if ($combined_menu_lst) { system_verbose($hostname ? "ssh $hostname '$cmd'" : $cmd); }
     }
     
     if (defined $iso_image) {
