@@ -28,9 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DEBUG
+//#define DEBUG
 
-size_t const mtu_size = 1500;
+size_t const mtu_size = 1514;
 size_t const buf_size = 0x400000;
 
 enum Request
