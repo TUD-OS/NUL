@@ -185,8 +185,8 @@ method =call_server()= takes care of setting up everything as well as
 of sending the message. Typically, service specific protocols are
 derived from this class.
 
-The protocol operates on a continuous range of capability selectors as
-shown in the table below:
+The protocol operates on a contiguous range of capability selectors
+whose layout is shown in the table below:
 
 #+CAPTION: Capability selectors used by the service protocol
 |---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
@@ -206,10 +206,8 @@ The protocol is defined by the following rules:
 - A service is called by using a per-CPU portal and the client uses
   [[CAP_SERVER_SESSION]] capability to identify itself to the service.
 
-- If the identity supplied by the client is not known to the callee it
-  should return =EEXISTS= error.
-
-- 
+- If the identity supplied by the client is not known to the service
+  it should return =EEXISTS= error.
 
 A typical communication sequence between a client and a service (and
 also a parent) looks like this:
@@ -227,11 +225,12 @@ also a parent) looks like this:
    the client is allowed to use the service, the parent delegates
    [[CAP_PSEUDONYM]] to the client.
 4. Now, the client retries from step 1, but it still gets =ECAP=.
-5. However, the it succeeds in getting the portal.
+5. However, then it succeeds in getting the portal in step 2. The
+   portal is installed as one of [[CAP_SERVER_PT]] portals.
 6. Then it again goes to 1 to call the service. If the service is
    designed to use sessions ([[CAP_SERVER_SESSION]]), =EEXIST= is returned
    (6a) and the client continues by step 7, otherwise the call is finished (6b).
-7. The client sends [[TYPE_OPEN]] to the service delegates him a
+7. The client sends [[TYPE_OPEN]] to the service which delegates him a
    [[CAP_SERVER_SESSION]].
 8. Finally, the client calls the service with the original operation
    and a valid [[CAP_SERVER_SESSION]] and hopefully it succeeds.
