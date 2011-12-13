@@ -32,7 +32,6 @@ EOF
 	echo
     ) | /usr/sbin/sendmail -ti
 fi
-cat $log  # Mail the log to me (backup)
 
 git add $log
 git commit --quiet -m 'New nightly build log'
