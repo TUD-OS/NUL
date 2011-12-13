@@ -834,8 +834,7 @@ public:
   bool receive(MessageNetwork &msg)
   {
     if (_forward_pkt == msg.buffer) {
-      //donor scenario - start
-      if (_vnet.recv) {
+      if (_donor_net && _vnet.recv) {
         //Logging::printf("vmm -> donor - slot %u/%u - %s\n", _vnet.recv_slot, _vnet.recv_slots, _vnet.recv[_vnet.recv_slot].ind ? "full" : "empty");
         if (_vnet.recv[_vnet.recv_slot].ind == 0) {
           unsigned len; //don't overwrite msg.len maybe used by others as well on the bus
@@ -852,7 +851,6 @@ public:
           return true;
         }
       }
-      //donor scenario - end
       return false;
     }
     Sigma0Base::network(msg);
@@ -1039,7 +1037,7 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE | MTD_CR | MTD_IRQ,
   COUNTER_INC("cpuid");
-  bool res = true;
+  bool res = false;
 
   if (_donor_net) res = handle_donor_request(utcb, pid, tls);
   if (!res) handle_vcpu(pid, true, CpuMessage::TYPE_CPUID, tls, utcb);
