@@ -7,6 +7,7 @@ import os.path
 import string
 import time
 import numpy as np
+import cgi
 
 re_date = re.compile('^Date: (.*)')
 re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
@@ -46,8 +47,8 @@ class Test:
         if self.status == "ok": status_class="ok"
         else: status_class = "failed"
         id = self.where.replace("/", "-").replace(".", "-").lstrip('-')
-        print "<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='#%s'>%s</a></td>" % (status_class, self.num, id, title),
-        print "<td>%s</td></tr>" % (self.status)
+        print "<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='#%s'>%s</a></td>" % (status_class, self.num, id, cgi.escape(title)),
+        print "<td>%s</td></tr>" % (cgi.escape(self.status))
         print "<tr class='outputrow' id='%s'><td></td><td colspan='2'><table class='output'>" % id
         for line in self.output:
             match = re_check.match(line)
@@ -65,7 +66,7 @@ class Test:
                 result = ''
 
             print "<tr><td></td><td class='outputline%s'>%s</td><td%s>%s</td></tr>" % \
-                (linestatus, line, resultstatus, result)
+                (linestatus, cgi.escape(line), resultstatus, cgi.escape(result))
         print "</table></td></tr>"
 
 tests = []
