@@ -189,6 +189,8 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     if (old_event & (EVENT_DEBUG | EVENT_HOST)) {
       if (old_event & EVENT_DEBUG)
         dprintf("state %x event %8x eip %8x eax %x ebx %x edx %x esi %x\n", cpu->actv_state, old_event, cpu->eip, cpu->eax, cpu->ebx, cpu->edx, cpu->esi);
+      else
+        if (cpu->actv_state == 1) cpu->actv_state = 0; //if cpu is in hlt wake it up
       Cpu::atomic_and<volatile unsigned>(&_event, ~(old_event & (EVENT_DEBUG | EVENT_HOST)));
       return;
     }
@@ -296,7 +298,7 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     COUNTER_INC("EVENT");
 
     if (value & DEASS_INTR) Cpu::atomic_and<volatile unsigned>(&_event, ~EVENT_INTR);
-    if (!((_event ^ value) & (EVENT_MASK | EVENT_DEBUG | EVENT_HOST))) return;
+    if (!((~_event & value) & (EVENT_MASK | EVENT_DEBUG | EVENT_HOST))) return;
 
     // INIT or AP RESET - go to the wait-for-sipi state
     if ((value & EVENT_MASK) == EVENT_INIT)

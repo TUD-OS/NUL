@@ -28,9 +28,9 @@
 #include <string.h>
 #include <unistd.h>
 
-#define DEBUG
+//#define DEBUG
 
-size_t const mtu_size = 1500;
+size_t const mtu_size = 1514;
 size_t const buf_size = 0x400000;
 
 enum Request
@@ -54,7 +54,7 @@ void barrier()
 }
 
 /*
- * Perform a VMexit to the VMM
+ * Perform a VM Exit to the VMM
  */
 unsigned long vmm_call (Request eax, unsigned long ebx = 0, unsigned long ecx = 0, unsigned long edx = 0)
 {
@@ -90,7 +90,8 @@ int if_add_tap (char **name)
         return -1;
     }
 
-    *name = strdup (i.ifr_name);
+    if (name)
+        *name = strdup (i.ifr_name);
 
     return fd;
 }
@@ -178,10 +179,14 @@ Buffer *map_buffer (size_t size)
     return static_cast<Buffer *>(addr);
 }
 
-int main()
+int main (int argc, char *argv[])
 {
     char *dev;
     int fd, idx, tap;
+    bool enable_br = false;
+
+    while (--argc)
+        enable_br |= !strcmp ("-bridge", argv[argc]);
 
     if ((tap = if_add_tap (&dev)) < 0)
         return -1;
@@ -189,10 +194,10 @@ int main()
     if ((fd = socket (PF_INET, SOCK_DGRAM, 0)) < 0)
         return -1;
 
-    if ((idx = if_get_idx (fd, dev)) < 0 ||
-        !if_add_to_bridge (fd, "br0", idx) ||
-        !if_set_up (fd, dev) ||
-        !if_set_up (fd, "br0"))
+    if ((idx = if_get_idx (fd, dev)) < 0 || !if_set_up (fd, dev))
+        return -1;
+
+    if (enable_br && (!if_add_to_bridge (fd, "br0", idx) || !if_set_up (fd, "br0")))
         return -1;
 
     close (fd);
@@ -205,8 +210,9 @@ int main()
     memset (vmm_buf, 0, buf_size);
 
     printf ("Listening on Device:%s TAP:%p VMM:%p\n\n", dev, tap_buf, vmm_buf);
+
     if (!vmm_call (NET_INIT, 0, reinterpret_cast<unsigned long>(tap_buf), reinterpret_cast<unsigned long>(vmm_buf))) {
-      printf ("Registering as donar application failed\n");
+      puts ("Registering as donor application failed");
       return -1;
     }
 

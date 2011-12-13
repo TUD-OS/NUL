@@ -55,24 +55,22 @@ unsigned       _ncpu=1;
 bool           _tsc_offset = false;
 bool           _rdtsc_exit;
 bool           _service_events = false;
+bool           _donor_net = false;
 unsigned long  _original_physsize;
 
-//#define DONAR_APP_EXPERIMENT
-#ifdef DONAR_APP_EXPERIMENT
-struct donar_buffer
+struct donor_buffer
 {
  unsigned short ind; // 0 = empty, 1 = full
  unsigned short len; // payload length
- unsigned char data[1500];    // payload data [mtu_size]
+ unsigned char data[1514];    // payload data [mtu_size]
 };
 
 struct {
-  struct donar_buffer * recv;
-  struct donar_buffer * send;
+  struct donor_buffer * recv;
+  struct donor_buffer * send;
   unsigned send_slot;
   unsigned recv_slot;
 } _vnet;
-#endif
 
 PARAM_HANDLER(kbmodifier,
 	      "kbmodifier:value - change the kbmodifier. Default: RWIN.",
@@ -98,6 +96,7 @@ PARAM_HANDLER(vcpus,
 PARAM_HANDLER(tsc_offset, "Enable TSC offsetting.")        { _tsc_offset = true; }
 PARAM_HANDLER(rdtsc_exit, "Enable RDTSC exits.")           { _rdtsc_exit = true; }
 PARAM_HANDLER(service_events, "Enable generating events.") { _service_events = true; }
+PARAM_HANDLER(donor_net, "Enable network service to VM via cpuid/vmcall") {_donor_net = true; }
 
 /****************************************************/
 /* Vancouver class                                  */
@@ -478,9 +477,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
      * If the IRQ injection is performed, recalc the IRQ window.
      */
     if (msg.mtr_out & MTD_INJ) {
-#ifdef DONAR_APP_EXPERIMENT
       vcpu->inj_count ++;
-#endif
+
       msg.type = CpuMessage::TYPE_CALC_IRQWINDOW;
       if (!vcpu->executor.send(msg, true))
         Logging::panic("nobody to execute %s at %x:%x pid %d\n", __func__, msg.cpu->cs.sel, msg.cpu->eip, pid);
@@ -518,10 +516,9 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     return false;
   }
 
-#ifdef DONAR_APP_EXPERIMENT
-  static struct donar_buffer * translate_donar_vmm(unsigned cr3, unsigned ptr) {
-    check1(0, ptr & 0x3fffffU, "invalid pointer from donar %#x", ptr);
-    check1(0, _original_physsize < (cr3|0xfff), "invalid cr3 from donar %#x", cr3);
+  static struct donor_buffer * translate_donor_vmm(unsigned cr3, unsigned ptr) {
+    check1(0, ptr & 0x3fffffU, "invalid pointer from donor %#x", ptr);
+    check1(0, _original_physsize < (cr3|0xfff), "invalid cr3 from donor %#x", cr3);
 
     unsigned pde = reinterpret_cast<unsigned *>(cr3 & ~0xfffU)[ptr >> 22];
     check1(0, (pde & 0x87) != 0x87, "not a user writable superpage pde=%#x cr3=%#x ptr=%#x\n", pde, cr3, ptr);
@@ -529,41 +526,41 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     check1(0, _original_physsize < (pde | 0x3fffffU), "pde points out of RAM");
 
     extern char __freemem;
-    return reinterpret_cast<struct donar_buffer *>(&__freemem + pde);
+    return reinterpret_cast<struct donor_buffer *>(&__freemem + pde);
   }
 
-  static bool handle_donar_request(Utcb * utcb, unsigned pid, VCpu * tls) {
+  static bool handle_donor_request(Utcb * utcb, unsigned pid, VCpu * tls) {
     switch (utcb->eax) {
     case 0x40001000: // init of network service app in donor VM
       {
         SemaphoreGuard l(_lock);
 
         // cr3
-        // ecx address for receiving data from donar app
-        // edx address for sending data to donar app
-        _vnet.send = translate_donar_vmm(utcb->cr3, utcb->ecx);
+        // ecx address for receiving data from donor app
+        // edx address for sending data to donor app
+        _vnet.send = translate_donor_vmm(utcb->cr3, utcb->ecx);
         _vnet.send_slot = 0;
-        _vnet.recv = translate_donar_vmm(utcb->cr3, utcb->edx);
+        _vnet.recv = translate_donor_vmm(utcb->cr3, utcb->edx);
         _vnet.recv_slot = 0;
 
-        Logging::printf("donar -> vmm - buffer VM=%#x VMM internal=%p\n", utcb->ecx, _vnet.send);
-        Logging::printf("vmm -> donar - buffer VM=%#x VMM internal=%p\n", utcb->edx, _vnet.recv);
+        Logging::printf("donor -> vmm - buffer VM=%#x VMM internal=%p\n", utcb->ecx, _vnet.send);
+        Logging::printf("vmm -> donor - buffer VM=%#x VMM internal=%p\n", utcb->edx, _vnet.recv);
 
         CpuMessage msg(CpuMessage::TYPE_CPUID, static_cast<CpuState *>(utcb), utcb->mtd);
         skip_instruction(msg);
 
-        utcb->edx = _vnet.send && _vnet.recv; //result of operation for donar app
+        utcb->edx = _vnet.send && _vnet.recv; //result of operation for donor app
         utcb->mtd |= MTD_GPR_ACDB;
         return true;
       }
     case 0x40001001: // send+wait of network service app in donor VM
       {
         SemaphoreGuard l(_lock);
-        if (!_vnet.send) return false; //if no donar app is registered than let's handle it the normal way (handle_vcpu)
+        if (!_vnet.send) return false; //if no donor app is registered than let's handle it the normal way (handle_vcpu)
 
         //edx - last number of inj. ins
         while (_vnet.send[_vnet.send_slot].ind == 1) {
-          //Logging::printf("donar -> vmm - slot %u/%u \n", _vnet.send_slot, _vnet.send_slots);
+          //Logging::printf("donor -> vmm - slot %u/%u \n", _vnet.send_slot, _vnet.send_slots);
           //send it
           MessageNetwork msg(_vnet.send[_vnet.send_slot].data, _vnet.send[_vnet.send_slot].len, 0);
           _mb->bus_network.send(msg);
@@ -576,7 +573,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 
       //edx - last number of inj. ins
       if (utcb->edx == tls->inj_count) {
-        //Logging::printf("donar -> vmm - go to sleep %#x == %#llx\n", utcb->edx, tls->inj_count);
+        //Logging::printf("donor -> vmm - go to sleep %#x == %#llx\n", utcb->edx, tls->inj_count);
         //hlt handler checks for concurrent wakeup attempts so that races are avoided
         handle_vcpu(pid, true, CpuMessage::TYPE_HLT, tls, utcb);
       } else {
@@ -591,7 +588,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
       return false;
     }
   }
-#endif
 
 public:
   bool receive(CpuMessage &msg) {
@@ -838,9 +834,8 @@ public:
   bool receive(MessageNetwork &msg)
   {
     if (_forward_pkt == msg.buffer) {
-#ifdef DONAR_APP_EXPERIMENT
-      if (_vnet.recv) {
-        //Logging::printf("vmm -> donar - slot %u/%u - %s\n", _vnet.recv_slot, _vnet.recv_slots, _vnet.recv[_vnet.recv_slot].ind ? "full" : "empty");
+      if (_donor_net && _vnet.recv) {
+        //Logging::printf("vmm -> donor - slot %u/%u - %s\n", _vnet.recv_slot, _vnet.recv_slots, _vnet.recv[_vnet.recv_slot].ind ? "full" : "empty");
         if (_vnet.recv[_vnet.recv_slot].ind == 0) {
           unsigned len; //don't overwrite msg.len maybe used by others as well on the bus
           len = MIN(msg.len, sizeof(_vnet.recv[_vnet.recv_slot]));
@@ -854,10 +849,8 @@ public:
           for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last())
             vcpu->bus_event.send(msg);
           return true;
-        } else
-          Logging::printf("vmm -> donar - drop packet - no empty slot available - packet size %u > %u\n", msg.len, sizeof(_vnet.recv[_vnet.recv_slot].data));
+        }
       }
-#endif
       return false;
     }
     Sigma0Base::network(msg);
@@ -974,7 +967,7 @@ public:
     create_irq_thread(~0u, 0, do_timer,   "timer");
     if (_mb->bus_input.count()) create_irq_thread(~0u, 0, do_stdin, "stdin");
     if (_mb->bus_vnet.count() > 1) create_irq_thread(~0u, 0, do_vnet, "vnet");
-    if (_mb->bus_network.count() > 1) create_irq_thread(~0u, 0, do_network, "net");
+    if (_mb->bus_network.count() > (_donor_net ? 0 : 1)) create_irq_thread(~0u, 0, do_network, "net");
     if (_mb->bus_diskcommit.count()) create_irq_thread(~0u, 0, do_disk, "disk");
 
     // init VCPUs
@@ -1044,10 +1037,10 @@ VM_FUNC(PT_VMX +  7,  vmx_irqwin, MTD_IRQ,
 	)
 VM_FUNC(PT_VMX + 10,  vmx_cpuid, MTD_RIP_LEN | MTD_GPR_ACDB | MTD_STATE | MTD_CR | MTD_IRQ,
   COUNTER_INC("cpuid");
-#ifdef DONAR_APP_EXPERIMENT
-  if (!handle_donar_request(utcb, pid, tls))
-#endif
-  handle_vcpu(pid, true, CpuMessage::TYPE_CPUID, tls, utcb);
+  bool res = false;
+
+  if (_donor_net) res = handle_donor_request(utcb, pid, tls);
+  if (!res) handle_vcpu(pid, true, CpuMessage::TYPE_CPUID, tls, utcb);
   )
 VM_FUNC(PT_VMX + 12,  vmx_hlt, MTD_RIP_LEN | MTD_IRQ,
 	handle_vcpu(pid, true, CpuMessage::TYPE_HLT, tls, utcb);
