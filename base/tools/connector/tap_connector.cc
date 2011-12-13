@@ -178,10 +178,13 @@ Buffer *map_buffer (size_t size)
     return static_cast<Buffer *>(addr);
 }
 
-int main()
+int main(int argc, char *argv[])
 {
     char *dev;
     int fd, idx, tap;
+    bool enable_br = false;
+
+    while (--argc && !enable_br) enable_br = !strcmp("-bridge", argv[argc]);
 
     if ((tap = if_add_tap (&dev)) < 0)
         return -1;
@@ -190,9 +193,9 @@ int main()
         return -1;
 
     if ((idx = if_get_idx (fd, dev)) < 0 ||
-        !if_add_to_bridge (fd, "br0", idx) ||
+        (enable_br ? !if_add_to_bridge (fd, "br0", idx) : 0 ) ||
         !if_set_up (fd, dev) ||
-        !if_set_up (fd, "br0"))
+        (enable_br ? !if_set_up (fd, "br0") : 0 ))
         return -1;
 
     close (fd);
