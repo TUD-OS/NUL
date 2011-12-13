@@ -46,10 +46,9 @@ class Test:
             title = '%s (%s)' % (self.what, self.where)
         if self.status == "ok": status_class="ok"
         else: status_class = "failed"
-        id = self.where.replace("/", "-").replace(".", "-").lstrip('-')
-        print "<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='#%s'>%s</a></td>" % (status_class, self.num, id, cgi.escape(title)),
+        print "<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='#test%d'>%s</a></td>" % (status_class, self.num, self.num, cgi.escape(title)),
         print "<td>%s</td></tr>" % (cgi.escape(self.status))
-        print "<tr class='outputrow' id='%s'><td></td><td colspan='2'><table class='output'>" % id
+        print "<tr class='outputrow' id='test%d'><td></td><td colspan='2'><table class='output'>" % self.num
         for line in self.output:
             match = re_check.match(line)
             if match:
