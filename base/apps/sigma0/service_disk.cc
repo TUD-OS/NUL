@@ -238,7 +238,8 @@ private:
 
       // Create delegation EC
       Utcb *utcb_service;
-      assert(_deleg_ec[i] = create_ec4pt(i, &utcb_service));
+      _deleg_ec[i] = create_ec4pt(i, &utcb_service);
+      assert(_deleg_ec[i]);
 #ifdef DISK_SERVICE_IN_S0
       utcb_service->head.crd_translate = Crd(0, 31, DESC_MEM_ALL).value();
 #else
@@ -476,7 +477,8 @@ public:
     : CapAllocator(_cap, _cap, _cap_order), disks(alloc_cap()), _mb(mb)
   {
     _lock = Semaphore(alloc_cap());
-    assert(nova_create_sm(_lock.sm()) == ENONE);
+    unsigned res = nova_create_sm(_lock.sm());
+    assert(res == ENONE);
     _lock.up();
 
     _create_deleg_ecs(*mb.hip());

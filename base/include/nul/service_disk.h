@@ -101,11 +101,13 @@ struct DiskProtocol : public GenericProtocol {
 #ifdef DISK_SERVICE_IN_S0
     utcb << dma_size;
     utcb << Utcb::TypedTranslateMem(consumer, 0);
-    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL));
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL);
+    assert(res == ENONE);
 #else
 #warning TODO
     utcb << Utcb::TypedDelegateMem(consumer, 0);
-    assert(!utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL));
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL);
+    assert(res = ENONE);
 #endif
     res = nova_call(tmp_cap);
     utcb.drop_frame();
