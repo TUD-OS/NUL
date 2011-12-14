@@ -30,7 +30,7 @@
 
 //#define DEBUG
 
-size_t const mtu_size = 1514;
+size_t const mtu_size = 16380;
 size_t const buf_size = 0x400000;
 
 enum Request
@@ -183,10 +183,6 @@ int main (int argc, char *argv[])
 {
     char *dev;
     int fd, idx, tap;
-    bool enable_br = false;
-
-    while (--argc)
-        enable_br |= !strcmp ("-bridge", argv[argc]);
 
     if ((tap = if_add_tap (&dev)) < 0)
         return -1;
@@ -197,7 +193,7 @@ int main (int argc, char *argv[])
     if ((idx = if_get_idx (fd, dev)) < 0 || !if_set_up (fd, dev))
         return -1;
 
-    if (enable_br && (!if_add_to_bridge (fd, "br0", idx) || !if_set_up (fd, "br0")))
+    if (argc > 1 && (!if_add_to_bridge (fd, argv[1], idx) || !if_set_up (fd, argv[1])))
         return -1;
 
     close (fd);
