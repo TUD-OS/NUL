@@ -62,7 +62,7 @@ struct donor_buffer
 {
  unsigned short ind; // 0 = empty, 1 = full
  unsigned short len; // payload length
- unsigned char data[1514];    // payload data [mtu_size]
+ unsigned char data[16380];    // payload data [mtu_size]
 };
 
 struct {
