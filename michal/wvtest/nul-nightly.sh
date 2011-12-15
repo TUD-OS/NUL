@@ -13,6 +13,7 @@ set -e
 cd ~/nul
 
 ver="$(git describe --dirty) $(git log -n 1 --format='(%an: %s)')"
+date=$(date "+%F_%T")
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 echo "Testing \"Compilation etc.\" in $0:"
 
@@ -60,6 +61,7 @@ sleep 20
 echo "! $0 compilation finished  ok"
 
 ret=0
+WVTEST_BACKUP_FAILED=/home/sojka/nul-nightly/failed/$date \
 /home/sojka/nul/michal/wvtest/runall --server --iprelay || ret=1
 
 novaboot --iprelay=off

@@ -12,6 +12,14 @@ for file in $tests; do
     if [ "$ret" -ne 0 ]; then
 	echo "! $0: '$cmd' returned non-zero exit code ($ret)  FAILED";
 	exitcode=1
+	if test "$WVTEST_BACKUP_FAILED" && file $file|grep -q "novaboot script"; then
+	    backup="$WVTEST_BACKUP_FAILED/$(basename $file)"
+	    mkdir -p $backup
+	    $file --server=$backup
+	    cp $file $backup
+	    echo "exec \$(dirname \$0)/$(basename $file) --build-dir=\$(dirname \$0) \"\$@\"" > $backup/run
+	    chmod +x $backup/run
+	fi
     fi
 done
 exit $exitcode
