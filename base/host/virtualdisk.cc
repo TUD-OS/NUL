@@ -45,6 +45,7 @@ public:
     switch (msg.type)
       {
       case MessageDisk::DISK_READ:
+      case MessageDisk::DISK_WRITE:
 	for (unsigned i=0; i < msg.dmacount; i++) {
 	  char *start = _data + offset;
 	  char *end   = start + msg.dma[i].bytecount;
@@ -53,12 +54,12 @@ public:
 	      status = MessageDisk::Status(MessageDisk::DISK_STATUS_DEVICE | (i << MessageDisk::DISK_STATUS_SHIFT));
 	      break;
 	    }
-	  memcpy(reinterpret_cast<void *>(msg.dma[i].byteoffset + msg.physoffset), start, end - start);
+	  if (msg.type == MessageDisk::DISK_READ)
+	    memcpy(reinterpret_cast<void *>(msg.dma[i].byteoffset + msg.physoffset), start, end - start);
+	  else
+	    memcpy(start, reinterpret_cast<void *>(msg.dma[i].byteoffset + msg.physoffset), end - start);
 	  offset += end - start;
 	}
-	break;
-      case MessageDisk::DISK_WRITE:
-	status = MessageDisk::DISK_STATUS_DEVICE;
 	break;
       case MessageDisk::DISK_GET_PARAMS:
 	{
