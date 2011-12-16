@@ -1,0 +1,19 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+HYPERVISOR_PARAMS=serial
+WVDESC=Kernel compile inside VM (on virtual disk, EPT + VPID)
+WVTEST_TIMEOUT=1200
+QEMU_FLAGS=-cpu phenom -m 2048
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1 \
+    service_config vdisk_empty:736870912 service_disk
+bin/apps/vancouver.nul
+bin/boot/munich
+imgs/bzImage-3.1.0-32
+imgs/kernelbuild-e2fs.bz2
+vancuver.nulconfig <<EOF
+sigma0::mem:950 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk disk::0 ||
+rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 drive:0,0,0 ||
+rom://bin/boot/munich ||
+rom://imgs/bzImage-3.1.0-32 clocksource=tsc console=ttyS0 quiet prepare_cmd='set -x; mke2fs -F -j /dev/sda && mount /dev/sda /mnt && mv /usr/src/* /mnt && umount /mnt && mount /dev/sda /usr/src && echo 3 >/proc/sys/vm/drop_caches && set +x' ||
+rom://imgs/kernelbuild-e2fs.bz2
+EOF
