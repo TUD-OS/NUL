@@ -158,6 +158,9 @@ class WvTest
   static void stringify(char *buf, unsigned size, unsigned long long val)
   { Vprintf::snprintf(buf, size, "%llu", val); }
 
+  static void stringify(char *buf, unsigned size, unsigned long val)
+  { Vprintf::snprintf(buf, size, "%lu", val); }
+
   static void stringify(char *buf, unsigned size, unsigned val)
   {Vprintf::snprintf(buf, size, "%u", val);}
 
