@@ -3,4 +3,4 @@
 KERNEL=imgs/bzImage-3.1.0-32 maxcpus=1 mem=950M console=uart,mmio,0xd0e01000,115200n8 quiet
 WVDESC=Kernel compile on ramdisk (bare matal)
 WVTEST_TIMEOUT=1200
-imgs/initramfs-kernelbuild.lzma
+imgs/kernelbuild-e2fs.bz2

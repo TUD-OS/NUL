@@ -8,11 +8,11 @@ bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0
 bin/apps/vancouver.nul
 bin/boot/munich
 imgs/bzImage-3.1.0-32
-imgs/initramfs-kernelbuild.lzma
+imgs/kernelbuild-e2fs.bz2
 vancuver.nulconfig <<EOF
 sigma0::mem:950 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk ||
 rom://bin/apps/vancouver.nul PC_PS2 ||
 rom://bin/boot/munich ||
 rom://imgs/bzImage-3.1.0-32 clocksource=tsc console=ttyS0 quiet ||
-rom://imgs/initramfs-kernelbuild.lzma
+rom://imgs/kernelbuild-e2fs.bz2
 EOF
