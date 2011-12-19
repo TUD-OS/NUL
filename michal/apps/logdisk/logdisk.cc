@@ -26,6 +26,45 @@
 #include "wvtest.h"
 #include <stdint.h>
 
+#include "crc32.cc"
+
+class DiskHelper : public DiskProtocol {
+  static char disk_buffer[4<<20];
+public:
+  DiskHelper(unsigned cap_base, unsigned cap_num, unsigned instance) : DiskProtocol(cap_base, instance) {
+    unsigned res;
+    cap_sel sem_cap = cap_base + cap_num;
+    cap_sel tmp_cap = cap_base + cap_num + 1;
+
+    KernelSemaphore *sem = new KernelSemaphore(sem_cap, true);
+    DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
+    assert(diskconsumer);
+
+    res = attach(*BaseProgram::myutcb(), disk_buffer, sizeof(disk_buffer), tmp_cap,
+		 diskconsumer, sem);
+    if (res) Logging::panic("DiskProtocol::attach failed: %d\n", res);
+  }
+
+  unsigned read_synch(unsigned disknum, uint64_t start_secotr, size_t size) {
+    DmaDescriptor dma;
+    unsigned res;
+
+    dma.byteoffset = 0;
+    dma.bytecount  = size;
+    assert(size <= sizeof(disk_buffer));
+    res = read(*BaseProgram::myutcb(), disknum, /*usertag*/0, start_secotr, /*dmacount*/1, &dma);
+    if (res)
+      return res;
+
+    sem->downmulti();
+    assert(consumer->has_data());
+    MessageDiskCommit *msg = consumer->get_buffer();
+    assert(msg->usertag == 0);
+    consumer->free_buffer();
+    return ENONE;
+  }
+};
+
 class Partition {
   enum {
     SECTOR_SHIFT = 9L,
@@ -35,7 +74,7 @@ class Partition {
   struct partition {
     char status;
     char start_chs[3];
-    char type;
+    unsigned char type;
     char end_chs[3];
     uint32_t start_lba;
     uint32_t num_sectors;
@@ -52,27 +91,16 @@ class Partition {
   static_assert(sizeof(mbr) == SECTOR_SIZE, "Wrong size of MBR");
 
 public:
-  static unsigned add_extended_partitions(DiskProtocol *disk, unsigned disknum, struct partition *e)
+  static unsigned add_extended_partitions(DiskHelper *disk, unsigned disknum, struct partition *e)
   {
-    DmaDescriptor dma;
     unsigned res;
     unsigned num = 5;
     struct mbr ebr;
     struct partition *p = NULL;
     assert(e->start_lba);
     do {
-      dma.byteoffset = 0;
-      dma.bytecount  = SECTOR_SIZE;
       uint64_t start = e->start_lba + (p ? p->start_lba : 0);
-      res = disk->read(*BaseProgram::myutcb(), disknum, /*usertag*/0, /*sector*/start, /*dmacount*/1, &dma);
-      if (res) return res;
-      
-      disk->sem->downmulti();
-      assert(disk->consumer->has_data());
-      MessageDiskCommit *msg = disk->consumer->get_buffer();
-      assert(msg->usertag == 0);
-      disk->consumer->free_buffer();
-
+      disk->read_synch(disknum, start, SECTOR_SIZE);
       ebr = *reinterpret_cast<struct mbr*>(disk->dma_buffer);
       if (ebr.mbr_signature != 0xaa55)
 	return EPROTO;
@@ -95,25 +123,15 @@ public:
   }
 
 
-  static unsigned find(DiskProtocol *disk)
+  static unsigned find(DiskHelper *disk)
   {
     unsigned count = 0;
     disk->get_disk_count(*BaseProgram::myutcb(), count);
     if (count == 0)
       Logging::printf("No disks available\n");
     for (unsigned disknum = 0; disknum < count; disknum++) {
-      DmaDescriptor dma;
       unsigned res;
-      dma.byteoffset = 0;
-      dma.bytecount  = SECTOR_SIZE;
-      res = disk->read(*BaseProgram::myutcb(), disknum, /*usertag*/0, /*sector*/0, /*dmacount*/1, &dma);
-      if (res) return res;
-      
-      disk->sem->downmulti();
-      assert(disk->consumer->has_data());
-      MessageDiskCommit *msg = disk->consumer->get_buffer();
-      assert(msg->usertag == 0);
-      disk->consumer->free_buffer();
+      disk->read_synch(disknum, 0, SECTOR_SIZE);
 
       struct mbr mbr = *reinterpret_cast<struct mbr*>(disk->dma_buffer);
       if (mbr.mbr_signature != 0xaa55)
@@ -125,7 +143,11 @@ public:
 	    char name[20];
 	    Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, i+1);
 	    DiskProtocol::Segment seg(disknum, p->start_lba, p->num_sectors);
-	    check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
+
+	    switch (p->type) {
+	    case 0xee: break;// Do not add GUID partition table
+	    default: check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
+	    }
 
 	    switch (p->type) {
 	    case 0x5: 		// Extended CHS
@@ -141,30 +163,132 @@ public:
   }
 };
 
+class GPT {
+  typedef struct guid {
+    unsigned char id[16];
+    void as_text(char *dest);
+  } guid_t;
+
+  struct header {
+    char     signature[8];
+    uint32_t revision;
+    uint32_t hsize;
+    uint32_t crc;
+    uint32_t reserved;
+    uint64_t current_lba;
+    uint64_t backup_lba;
+    uint64_t first_lba;
+    uint64_t last_lba;
+    guid_t   disk_guid;
+    uint64_t pent_lba;
+    uint32_t pent_num;
+    uint32_t pent_size;
+    uint32_t crc_part;
+
+    bool check_crc();
+  } __attribute__((packed));
+
+  typedef uint16_t utf16le;
+
+  struct pent { // Partition entry
+    enum { // attributes
+      SYSTEM = 1ull<<0,
+      BIOS_BOOTABLE = 1ull<<2,
+      READ_ONLY = 1ull<<60,
+      HIDDEN = 1ull<<62,
+      NO_AUTOMOUNT = 1ull<<63,
+    };
+    guid_t   type;
+    guid_t   id;
+    uint64_t first_lba;
+    uint64_t last_lba;
+    uint64_t attr;
+    utf16le  name[36];
+  } __attribute__((packed));
+
+public:
+
+  static unsigned find(DiskHelper *disk)
+  {
+    unsigned count = 0;
+    disk->get_disk_count(*BaseProgram::myutcb(), count);
+    if (count == 0)
+      Logging::printf("No disks available\n");
+#define skip_if(cond, msg, ...) if (cond) { Logging::printf(msg " on disk %d - skiping\n", ##__VA_ARGS__, disknum); }
+    for (unsigned disknum = 0; disknum < count; disknum++) {
+      unsigned res;
+
+      disk->read_synch(disknum, 1, 512);
+      struct header gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
+
+      if (strncmp(gpt.signature, "EFI PART", sizeof(gpt.signature)) != 0)
+	continue;
+      skip_if(gpt.revision < 0x00000100, "Incompatible GPT revision");
+      skip_if(gpt.hsize < sizeof(gpt), "GPT too small");
+      skip_if(gpt.current_lba != 1, "GPT LBA mismatch");
+      skip_if(!gpt.check_crc(), "GPT CRC mismatch");
+
+      res = disk->read_synch(disknum, gpt.backup_lba, 512);
+      skip_if(res != ENONE, "Cannot read backup GPT");
+      struct header backup_gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
+
+      skip_if(!backup_gpt.check_crc(), "Backup GPT CRC mismatch");
+      skip_if(backup_gpt.current_lba != gpt.backup_lba, "Backup GPT LBA mismatch");
+
+      disk->read_synch(disknum, 2, gpt.pent_num*gpt.pent_size);
+
+      skip_if(gpt.crc_part != (calc_crc(~0L, reinterpret_cast<const uint8_t*>(disk->dma_buffer), gpt.pent_num*gpt.pent_size) ^ ~0L),
+	      "GPT partition entries CRC mismatch");
+
+      for (unsigned p = 0; p < gpt.pent_num; p++) {
+	struct pent pent = *reinterpret_cast<struct pent*>(reinterpret_cast<char*>(disk->dma_buffer) + p*gpt.pent_size);
+	if (pent.first_lba >= pent.last_lba)
+	  continue;
+
+	char name[20];
+	Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, p+1);
+
+	char part_name[5+36+1];
+	memset(part_name, 0, sizeof(part_name));
+	Vprintf::snprintf(&part_name[0], sizeof(part_name), "name:");
+	for (unsigned i=0; i<36; i++)
+	  part_name[i] = (pent.name[i] < 0x80) ? pent.name[i] : '?';
+
+	char part_uuid[5+32+4+1];
+	memset(part_uuid, 0, sizeof(part_uuid));
+	Vprintf::snprintf(&part_uuid[0], sizeof(part_uuid), "uuid:");
+	pent.id.as_text(&part_uuid[5]);
+
+	char part_type[5+32+4+1];
+	memset(part_type, 0, sizeof(part_type));
+	Vprintf::snprintf(&part_type[0], sizeof(part_type), "type:");
+	pent.id.as_text(&part_type[5]);
+
+	DiskProtocol::Segment seg(disknum, pent.first_lba, pent.last_lba - pent.first_lba);
+	check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
+      }
+    }
+    return ENONE;
+  }
+};
+
 class LogDiskMan : public NovaProgram, ProgramConsole
 {
-  static char disk_buffer[4<<20];
-  DiskProtocol *disk;
+  DiskHelper *disk;
 
 public:
   NORETURN
   int run(Utcb *utcb, Hip *hip)
   {
-    unsigned res;
     init(hip);
     console_init("LogDisk", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
-    DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
-    assert(diskconsumer);
-
-    disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), 0);
-    res = disk->attach(*utcb, disk_buffer, sizeof(disk_buffer), alloc_cap(),
-		       diskconsumer, sem);
-    if (res) Logging::panic("disk->attach failed: %d\n", res);
+    disk = new DiskHelper(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count() + 2),
+			  DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0);
 
     Partition::find(disk);
+    GPT::find(disk);
 
     Logging::printf("Done");
     WvTest::exit(0);
@@ -172,6 +296,34 @@ public:
   }
 };
 
-char LogDiskMan::disk_buffer[4<<20] ALIGNED(0x1000);
+char DiskHelper::disk_buffer[4<<20] ALIGNED(0x1000);
+
+bool GPT::header::check_crc()
+{
+  uint32_t orig_crc = crc, curr_crc;
+  crc = 0;
+  curr_crc = calc_crc(~0L, reinterpret_cast<const uint8_t*>(this), sizeof(*this)) ^ ~0L;
+  crc = orig_crc;
+  return curr_crc == orig_crc;
+}
+
+void GPT::guid::as_text(char *dest)
+{
+  const int chunks[] = { -4, -2, -2, 2, 6 };
+  const int *chunk = chunks;
+  unsigned start = 0, len = 4;
+  for (unsigned i = 0; i < 16; i++) {
+    if (i == start + len) {
+      *dest++ = '-';
+      chunk++;
+      start = i;
+      len = (*chunk > 0) ? *chunk : -*chunk;
+    }
+    unsigned char ch = (*chunk > 0) ? id[i] : id[start+len - (i - start) - 1];
+    Vprintf::snprintf(dest, 3, "%02x", ch);
+    dest += 2;
+  }
+  *dest = '\0';
+}
 
 ASMFUNCS(LogDiskMan, WvTest)

@@ -1,0 +1,24 @@
+#!/bin/bash
+
+thisscriptdir=$(dirname $0)
+nulroot=$(readlink -f $thisscriptdir/../../..)
+wvpath=$nulroot/michal/wvtest
+
+. $wvpath/wvtest.sh
+
+WVSTART GUID partition table parsing
+echo "wvtest: ignore exit patterns"
+
+WVTEST_EXIT_PATTERN='^sc: done' $wvpath/wvnulrun $thisscriptdir/gpt "$@" | fromdos | tee gpt.log
+WVPASS grep '^disk: Added' gpt.log > disks.log
+WVPASS cat > expected.log <<EOF
+disk: Added '0'
+disk: Added '1'
+disk: Added '0p1'
+disk: Added '0p2'
+disk: Added '0p3'
+disk: Added '1p1'
+disk: Added '1p2'
+disk: Added '1p3'
+EOF
+WVPASS diff -u expected.log disks.log
