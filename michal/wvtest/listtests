@@ -20,6 +20,7 @@ michal/apps/echo/echo2sstest.wv
 michal/apps/echo/echo2test.wv
 michal/apps/echo/echotest.wv
 michal/apps/logdisk/part.wv
+michal/apps/logdisk/gpt.wv
 michal/apps/tests/timer.wv broken_in_qemu
 michal/boot/diskbench-ramdisk.wv
 michal/boot/diskbench-ramdisk-old.wv
@@ -29,11 +30,13 @@ michal/boot/vancouver-linux-boot-time.wv
 michal/boot/diskbench-vm.wv
 michal/boot/vancouver-dpci.wv needs_net
 alexb/apps/libvirt/libvirt.wv needs_net
+michal/boot/vancouver-boot-from-disk.wv
 """
 
 test_end="""\
 michal/boot/kernelbuild-bare-metal.wv slow
 michal/boot/vancouver-kernelbuild.wv slow
+michal/boot/vancouver-kbuild-vdisk.wv
 michal/boot/vancouver-kernelbuild-ept-no-vpid.wv slow
 michal/boot/vancouver-kernelbuild-vtlb-vpid.wv slow
 michal/boot/vancouver-kernelbuild-vtlb-no-vpid.wv slow
