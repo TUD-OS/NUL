@@ -147,7 +147,17 @@ struct DiskProtocol : public GenericProtocol {
   }
 
   unsigned add_logical_disk(Utcb &utcb, const char* name, unsigned num_segments, Segment *segments) {
-    init_frame(utcb, TYPE_ADD_LOGICAL_DISK) << Utcb::String(name);
+    init_frame(utcb, TYPE_ADD_LOGICAL_DISK) << 1u << Utcb::String(name);
+    for (unsigned i=0; i < num_segments; i++) utcb << *segments++;
+    return call_server_drop(utcb);
+  }
+
+  unsigned add_logical_disk(Utcb &utcb, const char* names[], unsigned num_segments, Segment *segments) {
+    unsigned i = 0;
+    while (names[i]) i++;
+    init_frame(utcb, TYPE_ADD_LOGICAL_DISK) << i;
+    for (i=0; names[i]; i++)
+      utcb << Utcb::String(names[i]);
     for (unsigned i=0; i < num_segments; i++) utcb << *segments++;
     return call_server_drop(utcb);
   }

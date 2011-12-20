@@ -35,19 +35,15 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
 
   template <class T>
   class List {
-    Semaphore lock;
     T *tail;
   public:
     T *head;
 
-    List(cap_sel sm) : lock(sm, true), tail(NULL), head(NULL)
-    {
-      lock.up();
-    }
+    List() : tail(NULL), head(NULL) {}
 
     void add(T *elem)
     {
-      SemaphoreGuard l(lock);
+      assert(elem);
       elem->next = NULL;
       if (tail)
 	tail->next = elem;
@@ -60,12 +56,42 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     }
   };
 
-  class Disk {
-    char *name;
+  template <class T>
+  class LockedList : public List<T> {
+    Semaphore lock;
   public:
+    LockedList(cap_sel sm) : List<T>(), lock(sm, true)
+    {
+      lock.up();
+    }
+
+    void add(T *elem)
+    {
+      SemaphoreGuard l(lock);
+      List<T>::add(elem);
+    }
+  };
+
+  class Disk {
+  public:
+    struct Name {
+      char *name;
+      struct Name *next;
+
+      Name(const char* str) : next(0) {
+	name = new char[strlen(str)+1];
+	assert(name);
+	strcpy(name, str);
+      }
+    };
+    List<Name> names;
     enum op { READ, WRITE };
     Disk *next;
-    Disk(char *name) : name(name) {};
+    Disk(const char *anames[]) : names() {
+      for (unsigned i=0; anames[i]; i++)
+	names.add(new Name(anames[i]));
+    }
+
     Disk(const char *format, ...) __attribute__ ((format(printf, 2, 3)))
     {
       va_list ap;
@@ -74,11 +100,9 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
       Vprintf::vsnprintf(str, sizeof(str), format, ap);
       va_end(ap);
 
-      name = new(char[strlen(str)+1]);
-      assert(name);
-      strcpy(name, str);
+      names.add(new Name(str));
     }
-    char *get_name() { return name; }
+    char *get_name() { assert(names.head); return names.head->name; }
     virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
 			    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
     virtual bool flush() = 0;
@@ -118,8 +142,8 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
     Disk *parent;
     uint64_t start, length;
   public:
-    Partition(Disk *parent, uint64_t start, uint64_t length, const char *name) :
-      Disk(name), parent(parent), start(start), length(length) {}
+    Partition(Disk *parent, uint64_t start, uint64_t length, const char *names[]) :
+      Disk(names), parent(parent), start(start), length(length) {}
 
     virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
 		    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
@@ -145,7 +169,7 @@ class DiskService : public BaseSService, CapAllocator, public StaticReceiver<Dis
 
 private:
 
-  List<Disk> disks;
+  LockedList<Disk> disks;
 
   typedef DiskService Allocator;
   Motherboard &_mb;
@@ -282,9 +306,13 @@ private:
 
     for (Disk *d = disks.head; d; d = d->next) {
       char diskstr[256];
-      Vprintf::snprintf(diskstr, sizeof(diskstr), "disk::%s", d->get_name());
-      if (ParentProtocol::get_quota(utcb, client->pseudonym, diskstr, 0) == ENONE)
-	client->disks[client->disk_count++] = d;
+      for (Disk::Name *name = d->names.head; name; name = name->next) {
+	Vprintf::snprintf(diskstr, sizeof(diskstr), "disk::%s", name->name);
+	if (ParentProtocol::get_quota(utcb, client->pseudonym, diskstr, 0) == ENONE) {
+	  client->disks[client->disk_count++] = d;
+	  break;
+	}
+      }
     }
 
     return ENONE;
@@ -415,8 +443,14 @@ public:
 	  if (!client->perms.add_disk) return EPERM;
 
 	  unsigned len;
-	  char *name = input.get_zero_string(len);
-	  if (!len) return EPROTO;
+	  const char *names[5];
+	  unsigned name_cnt;
+	  input.get_word(name_cnt);
+	  for (unsigned i=0; i<name_cnt && i < (sizeof(names)/sizeof(names[0])-1); i++) {
+	    len = 0;
+	    names[i] = input.get_zero_string(len);
+	    if (!len) return EPROTO;
+	  }
 
 	  Segment *segment = reinterpret_cast<Segment*>(input.get_ptr());
 	  static_assert(sizeof(Segment)%sizeof(unsigned) == 0, "Bad size of segment data");
@@ -427,7 +461,7 @@ public:
 	  while (len--) {
 	    Disk *disk = client->disk(segment->disknum);
 	    if (!disk) return EPERM;
-	    add_disk(new Partition(disk, segment->start_lba, segment->len_lba, name));
+	    add_disk(new Partition(disk, segment->start_lba, segment->len_lba, names));
 	    len=0;		// TODO
 	  }
 	  return ENONE;
@@ -470,7 +504,14 @@ public:
   void add_disk(Disk *disk)
   {
     disks.add(disk);
-    Logging::printf("disk: Added '%s'\n", disk->get_name());
+    char message[200], *end = message+sizeof(message), *start = message;
+    Vprintf::snprintf(start, end-start, "disk: Added");
+    start += 11;
+    for (Disk::Name *name = disk->names.head; name && start < end; name = name->next) {
+      Vprintf::snprintf(start, end-start, " '%s'", name->name);
+      start += strlen(name->name) + 3;
+    }
+    Logging::printf("%s\n", message);
   }
 
   DiskService(Motherboard &mb, unsigned _cap, unsigned _cap_order)

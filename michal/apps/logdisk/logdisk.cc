@@ -243,7 +243,7 @@ public:
       memset(part_name, 0, sizeof(part_name));
       Vprintf::snprintf(&part_name[0], sizeof(part_name), "name:");
       for (unsigned i=0; i<36; i++)
-	part_name[i] = (pent.name[i] < 0x80) ? pent.name[i] : '?';
+	part_name[5+i] = (pent.name[i] < 0x80) ? pent.name[i] : '?';
 
       char part_uuid[5+32+4+1];
       memset(part_uuid, 0, sizeof(part_uuid));
@@ -253,10 +253,11 @@ public:
       char part_type[5+32+4+1];
       memset(part_type, 0, sizeof(part_type));
       Vprintf::snprintf(&part_type[0], sizeof(part_type), "type:");
-      pent.id.as_text(&part_type[5]);
+      pent.type.as_text(&part_type[5]);
 
       DiskProtocol::Segment seg(disknum, pent.first_lba, pent.last_lba - pent.first_lba);
-      check1(false, disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
+      const char *names[] = { name, part_uuid, part_type, part_name, 0 };
+      check1(false, disk->add_logical_disk(*BaseProgram::myutcb(), names, 1, &seg));
     }
     return true;
   }
