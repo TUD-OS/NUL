@@ -123,43 +123,39 @@ public:
   }
 
 
-  static unsigned find(DiskHelper *disk)
+  static bool find(DiskHelper *disk, unsigned disknum)
   {
-    unsigned count = 0;
-    disk->get_disk_count(*BaseProgram::myutcb(), count);
-    if (count == 0)
-      Logging::printf("No disks available\n");
-    for (unsigned disknum = 0; disknum < count; disknum++) {
-      unsigned res;
-      disk->read_synch(disknum, 0, SECTOR_SIZE);
+    bool found = false;
+    disk->read_synch(disknum, 0, SECTOR_SIZE);
 
-      struct mbr mbr = *reinterpret_cast<struct mbr*>(disk->dma_buffer);
-      if (mbr.mbr_signature != 0xaa55)
-	continue;
-      for (unsigned i=0; i<4; i++) {
-	struct partition *p = &mbr.part[i];
-	if (p->type) {
-	  if (p->start_lba && p->num_sectors) {
-	    char name[20];
-	    Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, i+1);
-	    DiskProtocol::Segment seg(disknum, p->start_lba, p->num_sectors);
+    struct mbr mbr = *reinterpret_cast<struct mbr*>(disk->dma_buffer);
+    if (mbr.mbr_signature != 0xaa55)
+      return false;
+    for (unsigned i=0; i<4; i++) {
+      struct partition *p = &mbr.part[i];
+      if (p->type) {
+	if (p->start_lba && p->num_sectors) {
+	  char name[20];
+	  Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, i+1);
+	  DiskProtocol::Segment seg(disknum, p->start_lba, p->num_sectors);
 
-	    switch (p->type) {
-	    case 0xee: break;// Do not add GUID partition table
-	    default: check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
-	    }
+	  switch (p->type) {
+	  case 0xee: break;// Do not add GUID partition table
+	  default:
+	    check1(false, disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
+	    found = true;
+	  }
 
-	    switch (p->type) {
-	    case 0x5: 		// Extended CHS
-	    case 0xE:		// Extended LBA
-	      check1(res, res = add_extended_partitions(disk, disknum, p));
-	    }
-	  } else
-	    Logging::printf("Non-LBA partition %d on disk %d? Skipping.\n", i, disknum);
-	}
+	  switch (p->type) {
+	  case 0x5: 		// Extended CHS
+	  case 0xE:		// Extended LBA
+	    check1(false, add_extended_partitions(disk, disknum, p));
+	  }
+	} else
+	  Logging::printf("Non-LBA partition %d on disk %d? Skipping.\n", i, disknum);
       }
     }
-    return ENONE;
+    return found;
   }
 };
 
@@ -208,67 +204,61 @@ class GPT {
 
 public:
 
-  static unsigned find(DiskHelper *disk)
+  static bool find(DiskHelper *disk, unsigned disknum)
   {
-    unsigned count = 0;
-    disk->get_disk_count(*BaseProgram::myutcb(), count);
-    if (count == 0)
-      Logging::printf("No disks available\n");
-#define skip_if(cond, msg, ...) if (cond) { Logging::printf(msg " on disk %d - skiping\n", ##__VA_ARGS__, disknum); }
-    for (unsigned disknum = 0; disknum < count; disknum++) {
-      unsigned res;
+#define skip_if(cond, msg, ...) if (cond) { Logging::printf(msg " on disk %d - skiping\n", ##__VA_ARGS__, disknum); return false; }
+    unsigned res;
 
-      disk->read_synch(disknum, 1, 512);
-      struct header gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
+    disk->read_synch(disknum, 1, 512);
+    struct header gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
 
-      if (strncmp(gpt.signature, "EFI PART", sizeof(gpt.signature)) != 0)
+    if (strncmp(gpt.signature, "EFI PART", sizeof(gpt.signature)) != 0)
+      return false;
+    skip_if(gpt.revision < 0x00000100, "Incompatible GPT revision");
+    skip_if(gpt.hsize < sizeof(gpt), "GPT too small");
+    skip_if(gpt.current_lba != 1, "GPT LBA mismatch");
+    skip_if(!gpt.check_crc(), "GPT CRC mismatch");
+
+    res = disk->read_synch(disknum, gpt.backup_lba, 512);
+    skip_if(res != ENONE, "Cannot read backup GPT");
+    struct header backup_gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
+
+    skip_if(!backup_gpt.check_crc(), "Backup GPT CRC mismatch");
+    skip_if(backup_gpt.current_lba != gpt.backup_lba, "Backup GPT LBA mismatch");
+
+    disk->read_synch(disknum, 2, gpt.pent_num*gpt.pent_size);
+
+    skip_if(gpt.crc_part != (calc_crc(~0L, reinterpret_cast<const uint8_t*>(disk->dma_buffer), gpt.pent_num*gpt.pent_size) ^ ~0L),
+	    "GPT partition entries CRC mismatch");
+
+    for (unsigned p = 0; p < gpt.pent_num; p++) {
+      struct pent pent = *reinterpret_cast<struct pent*>(reinterpret_cast<char*>(disk->dma_buffer) + p*gpt.pent_size);
+      if (pent.first_lba >= pent.last_lba)
 	continue;
-      skip_if(gpt.revision < 0x00000100, "Incompatible GPT revision");
-      skip_if(gpt.hsize < sizeof(gpt), "GPT too small");
-      skip_if(gpt.current_lba != 1, "GPT LBA mismatch");
-      skip_if(!gpt.check_crc(), "GPT CRC mismatch");
 
-      res = disk->read_synch(disknum, gpt.backup_lba, 512);
-      skip_if(res != ENONE, "Cannot read backup GPT");
-      struct header backup_gpt = *reinterpret_cast<struct header*>(disk->dma_buffer);
+      char name[20];
+      Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, p+1);
 
-      skip_if(!backup_gpt.check_crc(), "Backup GPT CRC mismatch");
-      skip_if(backup_gpt.current_lba != gpt.backup_lba, "Backup GPT LBA mismatch");
+      char part_name[5+36+1];
+      memset(part_name, 0, sizeof(part_name));
+      Vprintf::snprintf(&part_name[0], sizeof(part_name), "name:");
+      for (unsigned i=0; i<36; i++)
+	part_name[i] = (pent.name[i] < 0x80) ? pent.name[i] : '?';
 
-      disk->read_synch(disknum, 2, gpt.pent_num*gpt.pent_size);
+      char part_uuid[5+32+4+1];
+      memset(part_uuid, 0, sizeof(part_uuid));
+      Vprintf::snprintf(&part_uuid[0], sizeof(part_uuid), "uuid:");
+      pent.id.as_text(&part_uuid[5]);
 
-      skip_if(gpt.crc_part != (calc_crc(~0L, reinterpret_cast<const uint8_t*>(disk->dma_buffer), gpt.pent_num*gpt.pent_size) ^ ~0L),
-	      "GPT partition entries CRC mismatch");
+      char part_type[5+32+4+1];
+      memset(part_type, 0, sizeof(part_type));
+      Vprintf::snprintf(&part_type[0], sizeof(part_type), "type:");
+      pent.id.as_text(&part_type[5]);
 
-      for (unsigned p = 0; p < gpt.pent_num; p++) {
-	struct pent pent = *reinterpret_cast<struct pent*>(reinterpret_cast<char*>(disk->dma_buffer) + p*gpt.pent_size);
-	if (pent.first_lba >= pent.last_lba)
-	  continue;
-
-	char name[20];
-	Vprintf::snprintf(name, sizeof(name), "%dp%d", disknum, p+1);
-
-	char part_name[5+36+1];
-	memset(part_name, 0, sizeof(part_name));
-	Vprintf::snprintf(&part_name[0], sizeof(part_name), "name:");
-	for (unsigned i=0; i<36; i++)
-	  part_name[i] = (pent.name[i] < 0x80) ? pent.name[i] : '?';
-
-	char part_uuid[5+32+4+1];
-	memset(part_uuid, 0, sizeof(part_uuid));
-	Vprintf::snprintf(&part_uuid[0], sizeof(part_uuid), "uuid:");
-	pent.id.as_text(&part_uuid[5]);
-
-	char part_type[5+32+4+1];
-	memset(part_type, 0, sizeof(part_type));
-	Vprintf::snprintf(&part_type[0], sizeof(part_type), "type:");
-	pent.id.as_text(&part_type[5]);
-
-	DiskProtocol::Segment seg(disknum, pent.first_lba, pent.last_lba - pent.first_lba);
-	check1(res, res = disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
-      }
+      DiskProtocol::Segment seg(disknum, pent.first_lba, pent.last_lba - pent.first_lba);
+      check1(false, disk->add_logical_disk(*BaseProgram::myutcb(), name, 1, &seg));
     }
-    return ENONE;
+    return true;
   }
 };
 
@@ -287,8 +277,15 @@ public:
     disk = new DiskHelper(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count() + 2),
 			  DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0);
 
-    Partition::find(disk);
-    GPT::find(disk);
+    unsigned count = 0;
+    disk->get_disk_count(*BaseProgram::myutcb(), count);
+    if (count == 0)
+      Logging::printf("No disks available\n");
+
+    for (unsigned disknum = 0; disknum < count; disknum++) {
+      if (Partition::find(disk, disknum)) continue;
+      if (GPT::find(disk, disknum)) continue;
+    }
 
     Logging::printf("Done");
     WvTest::exit(0);
