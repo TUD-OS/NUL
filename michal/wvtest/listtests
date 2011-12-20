@@ -123,4 +123,10 @@ except KeyError:
     skiptags = []
 for t in tests:
     if not t.has_any_of(skiptags):
-        print os.path.join(nulroot, t.name)
+        s = os.path.join(nulroot, t.name)
+        if t.name not in begin_order and \
+           t.name not in end_order and \
+           sys.stdout.isatty():
+            print "\x1b[1m%s\x1b[0m" % s # Highlight unknown tests
+        else:
+            print s
