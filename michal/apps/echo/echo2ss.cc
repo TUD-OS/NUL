@@ -29,63 +29,36 @@
 #include <nul/sserviceprogram.h>
 #include <wvtest.h>
 
-class EchoService : public SServiceProgram
-{
-private:
-  // This construct can be used to store per-client data
-  struct SessionData : public GenericClientData {
-    unsigned last_val;		// Last value sent by client
-  };
+// This construct can be used to store per-client data
+struct EchoClient : public GenericClientData {
+  unsigned last_val;		// Last value sent by client
+};
 
-  typedef ClientDataStorage<SessionData, EchoService> Sessions;
-  Sessions _sessions;
+class EchoService : public SServiceProgram<EchoClient>
+{
+  virtual unsigned new_session(EchoClient *client) {return ENONE;}
+
+  virtual unsigned handle_request(EchoClient *client, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap)
+  {
+    switch (op) {
+    case EchoProtocol::TYPE_ECHO: {
+      unsigned value;
+      check1(EPROTO, input.get_word(value));
+      // Get the value sent by a client
+      Logging::printf("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+      client->last_val = value; // Remember the received value
+      return value; // "Echo" the received value back
+    }
+    case EchoProtocol::TYPE_GET_LAST:
+      utcb << client->last_val; // Reply with the remembered value (it will appear in utcb.msg[1])
+      return ENONE; 		// The returned value will appear in utcb.msg[0]
+    default:
+      Logging::panic("Unknown op!!!!\n");
+      return EPROTO;
+    }
+  }
 
 public:
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
-    {
-      unsigned op, res;
-      check1(EPROTO, input.get_word(op));
-
-      switch (op) {
-      case ParentProtocol::TYPE_OPEN:
-      case ParentProtocol::TYPE_CLOSE:
-	return handle_sessions(op, input, _sessions, free_cap);
-
-      case EchoProtocol::TYPE_ECHO:
-      {
-	Sessions::Guard guard_c(&_sessions, utcb, this);
-	SessionData *data = 0;
-	if (res = _sessions.get_client_data(utcb, data, input.identity())) {
-	  // Return EEXISTS to ask the client for opening the session
-	  Logging::printf("Cannot get client (id=0x%x) data: 0x%x\n", input.identity(), res);
-	  return res;
-	}
-
-	unsigned value;
-	check1(EPROTO, input.get_word(value));
-	// Get the value sent by a client
-	Logging::printf("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
-	data->last_val = value; // Remember the received value
-	return value; // "Echo" the received value back
-      }
-      case EchoProtocol::TYPE_GET_LAST:
-      {
-	SessionData *data = 0;
-	Sessions::Guard guard_c(&_sessions, utcb, this);
-	if (res = _sessions.get_client_data(utcb, data, input.identity())) {
-	  Logging::printf("echo: Client %d: Cannot get client data to retrieve the value\n",
-			  input.identity());
-	  return res;
-	}
-	utcb << data->last_val; // Reply with the remembered value (it will appear in utcb.msg[1])
-	return ENONE; 		// The returned value will appear in utcb.msg[0]
-      }
-      default:
-	Logging::panic("Unknown op!!!!\n");
-        return EPROTO;
-      }
-    }
-
   EchoService() : SServiceProgram("Echo service") {
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + Global::hip.cpu_count()));
     register_service(this, "/echo", Global::hip);

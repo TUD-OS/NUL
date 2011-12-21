@@ -21,7 +21,8 @@
 #include <nul/program.h>
 #include <sigma0/console.h>
 
-class SServiceProgram : public BaseSService, public NovaProgram, public ProgramConsole
+template<class Session>
+class SServiceProgram : public BaseSService<Session>, public NovaProgram, public ProgramConsole
 {
 public:
 

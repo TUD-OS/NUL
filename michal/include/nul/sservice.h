@@ -24,26 +24,33 @@
 #include <nul/generic_service.h>
 #include <nul/baseprogram.h>
 
+template<class Session, bool free_pseudonym = true, bool __DEBUG__ = false, unsigned ALIGN = 0>
 class BaseSService {
 
 protected:
-  virtual cap_sel alloc_cap(unsigned count = 1) = 0;
-  virtual void  dealloc_cap(cap_sel c) = 0;
+  typedef ClientDataStorage<Session, BaseSService, free_pseudonym, __DEBUG__, ALIGN> Sessions;
+  Sessions _sessions;
+
   virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out) = 0;
 
-  template<class S>
-  void check_clients(Utcb &utcb, S &sessions) {
-    typename S::CapAllocator* cap_allocator = static_cast<typename S::CapAllocator*>(this);
-    typename S::Guard guard_c(&sessions, utcb, cap_allocator);
-    typename S::ClientData volatile * data = sessions.get_invalid_client(utcb, cap_allocator);
-    while (data) {
+  void cleanup_clients(Utcb &utcb) {
+    typename Sessions::Guard guard_c(&_sessions, utcb, this);
+    Session volatile * session = _sessions.get_invalid_client(utcb, this);
+    while (session) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
-      sessions.free_client_data(utcb, data, cap_allocator);
-      data = sessions.get_invalid_client(utcb, cap_allocator, data);
+      _sessions.free_client_data(utcb, session, this);
+      session = _sessions.get_invalid_client(utcb, this, session);
     }
   }
 
+  virtual unsigned new_session(Session *session) = 0;
+  virtual unsigned handle_request(Session *session, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap) = 0;
+
 public:
+  // We act as a cap allocator
+  virtual cap_sel alloc_cap(unsigned count = 1) = 0;
+  virtual void  dealloc_cap(cap_sel c) = 0;
+
   unsigned alloc_crd()
   {
     return Crd(alloc_cap(), 0, DESC_CAP_ALL).value();
@@ -94,12 +101,10 @@ public:
     return true;
   }
 
-  template<class S>
-  unsigned handle_sessions(unsigned op, Utcb::Frame &input, S &sessions, bool &free_cap, cap_sel *id = NULL)
+  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
   {
-    Utcb &utcb = *BaseProgram::myutcb();
-    unsigned res;
-    typename S::CapAllocator* cap_allocator = static_cast<typename S::CapAllocator*>(this);
+    unsigned op, res;
+    check1(EPROTO, input.get_word(op));
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
@@ -113,41 +118,49 @@ public:
         res = ParentProtocol::check_singleton(utcb, pseudonym, cap_session);
         if (!res && cap_session)
 	  {
-	    typename S::ClientData volatile *data = 0;
-	    typename S::Guard guard_c(&sessions, utcb, cap_allocator);
-	    while (data = sessions.next(data)) {
-	      if (data->identity == cap_session) {
-		dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
-		data->pseudonym = pseudonym;
-		utcb << Utcb::TypedMapCap(data->identity);
+	    Session volatile *session = 0;
+	    typename Sessions::Guard guard_c(&_sessions, utcb, this);
+	    while (session = _sessions.next(session)) {
+	      if (session->identity == cap_session) {
+		dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
+		session->pseudonym = pseudonym;
+		utcb << Utcb::TypedMapCap(session->identity);
 		free_cap = false;
-		check_clients(utcb, sessions);
+		cleanup_clients(utcb);
 		return ENONE;
 	      }
 	    }
 	  }
 
-	typename S::ClientData *data = 0;
-        res = sessions.alloc_client_data(utcb, data, pseudonym,
-					cap_allocator);
-        if (res == ERESOURCE) { check_clients(utcb, sessions); return ERETRY; } //force garbage collection run
+	Session *session = 0;
+        res = _sessions.alloc_client_data(utcb, session, pseudonym, this);
+        if (res == ERESOURCE) { cleanup_clients(utcb); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
-        res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->identity);
+        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->identity);
         assert(!res);
 
-        utcb << Utcb::TypedMapCap(data->identity);
-	if (id) *id = data->identity;
-        return ENONE;
+        utcb << Utcb::TypedMapCap(session->identity);
+        return new_session(session);
       }
-    case ParentProtocol::TYPE_CLOSE:
+    case ParentProtocol::TYPE_CLOSE: {
+      Session *session = 0;
+      typename Sessions::Guard guard_c(&_sessions, utcb, this);
+      check1(res, res = _sessions.get_client_data(utcb, session, input.identity()));
+      return _sessions.free_client_data(utcb, session, this);
+    }
+    default:
       {
-        typename S::ClientData *data = 0;
-        typename S::Guard guard_c(&sessions, utcb, cap_allocator);
-        check1(res, res = sessions.get_client_data(utcb, data, input.identity()));
-        return sessions.free_client_data(utcb, data, cap_allocator);
+	typename Sessions::Guard guard_c(&_sessions, utcb, this);
+	Session *session = 0;
+	if (res = _sessions.get_client_data(utcb, session, input.identity())) {
+	  // Return EEXISTS to ask the client for opening the session
+	  Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", input.identity(), res);
+	  return res;
+	}
+	return handle_request(session, op, input, utcb, free_cap);
       }
     }
-    return EPROTO;
   }
+
 };

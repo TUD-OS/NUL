@@ -27,189 +27,182 @@ template <typename T> T min(T a, T b) { return (a < b) ? a : b; }
 template <typename T> T max(T a, T b) { return (a > b) ? a : b; }
 
 
-class DiskService : public BaseSService, CapAllocator, public StaticReceiver<DiskService>
-{
+template <class T>
+class List {
+  T *tail;
+public:
+  T *head;
+
+  List() : tail(NULL), head(NULL) {}
+
+  void add(T *elem)
+  {
+    assert(elem);
+    elem->next = NULL;
+    if (tail)
+      tail->next = elem;
+    else {
+      MEMORY_BARRIER;
+      head = elem;
+    }
+    MEMORY_BARRIER;
+    tail = elem;
+  }
+};
+
+template <class T>
+class LockedList : public List<T> {
+  Semaphore lock;
+public:
+  LockedList(cap_sel sm) : List<T>(), lock(sm, true)
+  {
+    lock.up();
+  }
+
+  void add(T *elem)
+  {
+    SemaphoreGuard l(lock);
+    List<T>::add(elem);
+  }
+};
+
+class Disk {
+public:
+  struct Name {
+    char *name;
+    struct Name *next;
+
+    Name(const char* str) : next(0) {
+      name = new char[strlen(str)+1];
+      assert(name);
+      strcpy(name, str);
+    }
+  };
+  List<Name> names;
+  enum op { READ, WRITE };
+  Disk *next;
+  Disk(const char *anames[]) : names() {
+    for (unsigned i=0; anames[i]; i++)
+      names.add(new Name(anames[i]));
+  }
+
+  Disk(const char *format, ...) __attribute__ ((format(printf, 2, 3)))
+  {
+    va_list ap;
+    va_start(ap, format);
+    char str[30];
+    Vprintf::vsnprintf(str, sizeof(str), format, ap);
+    va_end(ap);
+
+    names.add(new Name(str));
+  }
+  char *get_name() { assert(names.head); return names.head->name; }
+  virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
+			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
+  virtual bool flush() = 0;
+  virtual bool get_params(DiskParameter &params) = 0;
+};
+
+class S0Disk : public Disk {
+  DBus<MessageDisk> *bus_disk;
+  unsigned disknr;
+public:
+  S0Disk(DBus<MessageDisk> *bus_disk, unsigned disknr) :
+    Disk("%d", disknr), bus_disk(bus_disk), disknr(disknr) {}
+
+  virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
+			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
+  {
+    MessageDisk msg(op == READ ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE,
+		    disknr, usertag, sector, dmacount, dma, physoffset, physsize);
+    return bus_disk->send(msg);
+  }
+
+  virtual bool flush()
+  {
+    MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disknr, 0, 0, 0, 0, 0, 0);
+    return bus_disk->send(msg2);
+  }
+
+  virtual bool get_params(DiskParameter &params) {
+    MessageDisk msg2 = MessageDisk(disknr, &params);
+    return bus_disk->send(msg2);
+  }
+};
+
+typedef DiskProtocol::Segment Segment;
+
+class Partition : public Disk {
+  Disk *parent;
+  uint64_t start, length;
+public:
+  Partition(Disk *parent, uint64_t start, uint64_t length, const char *names[]) :
+    Disk(names), parent(parent), start(start), length(length) {}
+
+  virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
+			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
+  {
+    uint64_t size = 0;
+    if (sector >= length) return false;
+    for (unsigned i = 0; i < dmacount; i++)
+      size += dma[i].bytecount;
+    if (sector+(size+511)/512 >= length) return false;
+    return parent->read_write(op, usertag, start+sector, dmacount, dma, physsize, physsize);
+  }
+
+  virtual bool flush() { return parent->flush(); }
+
+  virtual bool get_params(DiskParameter &params) {
+    if(!parent->get_params(params)) return false;
+    params.sectors = length;
+    strcpy(params.name, get_name());
+    return true;
+  }
+};
+
+// per client data
+struct DiskClient : public GenericClientData {
   enum {
     MAXDISKS           = 32,	// Maximum number of disks per client
   };
+  DiskProtocol::DiskProducer prod_disk;
+  cap_sel 	    sem;
+  Disk 	   *disks[MAXDISKS];
+  unsigned char   disk_count;
+  struct {
+    unsigned add_disk:1;
+  } perms;
 
-  template <class T>
-  class List {
-    T *tail;
-  public:
-    T *head;
+  struct {
+    unsigned char disk;
+    unsigned long usertag;
+  } tags [DiskProtocol::MAXDISKREQUESTS];
 
-    List() : tail(NULL), head(NULL) {}
+  cap_sel deleg_pt;
+  char  *dma_buffer;
+  size_t dma_size;
 
-    void add(T *elem)
-    {
-      assert(elem);
-      elem->next = NULL;
-      if (tail)
-	tail->next = elem;
-      else {
-	MEMORY_BARRIER;
-	head = elem;
-      }
-      MEMORY_BARRIER;
-      tail = elem;
-    }
-  };
+  Disk *disk(unsigned num) { return num < disk_count ? disks[num] : NULL; }
+};
 
-  template <class T>
-  class LockedList : public List<T> {
-    Semaphore lock;
-  public:
-    LockedList(cap_sel sm) : List<T>(), lock(sm, true)
-    {
-      lock.up();
-    }
-
-    void add(T *elem)
-    {
-      SemaphoreGuard l(lock);
-      List<T>::add(elem);
-    }
-  };
-
-  class Disk {
-  public:
-    struct Name {
-      char *name;
-      struct Name *next;
-
-      Name(const char* str) : next(0) {
-	name = new char[strlen(str)+1];
-	assert(name);
-	strcpy(name, str);
-      }
-    };
-    List<Name> names;
-    enum op { READ, WRITE };
-    Disk *next;
-    Disk(const char *anames[]) : names() {
-      for (unsigned i=0; anames[i]; i++)
-	names.add(new Name(anames[i]));
-    }
-
-    Disk(const char *format, ...) __attribute__ ((format(printf, 2, 3)))
-    {
-      va_list ap;
-      va_start(ap, format);
-      char str[30];
-      Vprintf::vsnprintf(str, sizeof(str), format, ap);
-      va_end(ap);
-
-      names.add(new Name(str));
-    }
-    char *get_name() { assert(names.head); return names.head->name; }
-    virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
-			    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
-    virtual bool flush() = 0;
-    virtual bool get_params(DiskParameter &params) = 0;
-  };
-
-  class S0Disk : public Disk {
-    DBus<MessageDisk> *bus_disk;
-    unsigned disknr;
-  public:
-    S0Disk(DBus<MessageDisk> *bus_disk, unsigned disknr) :
-      Disk("%d", disknr), bus_disk(bus_disk), disknr(disknr) {}
-
-    virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
-		    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
-    {
-      MessageDisk msg(op == READ ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE,
-		      disknr, usertag, sector, dmacount, dma, physoffset, physsize);
-      return bus_disk->send(msg);
-    }
-
-    virtual bool flush()
-    {
-      MessageDisk msg2(MessageDisk::DISK_FLUSH_CACHE, disknr, 0, 0, 0, 0, 0, 0);
-      return bus_disk->send(msg2);
-    }
-
-    virtual bool get_params(DiskParameter &params) {
-      MessageDisk msg2 = MessageDisk(disknr, &params);
-      return bus_disk->send(msg2);
-    }
-  };
-
-  typedef DiskProtocol::Segment Segment;
-
-  class Partition : public Disk {
-    Disk *parent;
-    uint64_t start, length;
-  public:
-    Partition(Disk *parent, uint64_t start, uint64_t length, const char *names[]) :
-      Disk(names), parent(parent), start(start), length(length) {}
-
-    virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
-		    unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
-    {
-      uint64_t size = 0;
-      if (sector >= length) return false;
-      for (unsigned i = 0; i < dmacount; i++)
-	size += dma[i].bytecount;
-      if (sector+(size+511)/512 >= length) return false;
-      return parent->read_write(op, usertag, start+sector, dmacount, dma, physsize, physsize);
-    }
-
-    virtual bool flush() { return parent->flush(); }
-
-    virtual bool get_params(DiskParameter &params) {
-      if(!parent->get_params(params)) return false;
-      params.sectors = length;
-      strcpy(params.name, get_name());
-      return true;
-    }
-  };
-
-
+class DiskService :
+  // We allocate clients aligned so that we can reuse the lower bits of the address for tags
+  public BaseSService<DiskClient, true, false, DiskProtocol::MAXDISKREQUESTS>,
+  public CapAllocator, public StaticReceiver<DiskService>
+{
 private:
-
   LockedList<Disk> disks;
-
-  typedef DiskService Allocator;
   Motherboard &_mb;
-
   Semaphore _lock;
-
-  // per client data
-  struct DiskClient : public GenericClientData {
-    DiskProtocol::DiskProducer prod_disk;
-    cap_sel 	    sem;
-    Disk 	   *disks[MAXDISKS];
-    unsigned char   disk_count;
-    struct {
-      unsigned add_disk:1;
-    } perms;
-
-    struct {
-      unsigned char disk;
-      unsigned long usertag;
-    } tags [DiskProtocol::MAXDISKREQUESTS];
-
-    cap_sel deleg_pt;
-    char  *dma_buffer;
-    size_t dma_size;
-
-    Disk *disk(unsigned num) { return num < disk_count ? disks[num] : NULL; }
-  };
 
   static_assert((DiskProtocol::MAXDISKREQUESTS & (DiskProtocol::MAXDISKREQUESTS-1)) == 0,
 		"MAXDISKREQUESTS should be a power of two");
-
-  // Allocate clients aligned so that we can reuse the lower bits of the address for tags
-  typedef ClientDataStorage<DiskClient, Allocator, true, false, DiskProtocol::MAXDISKREQUESTS> Sessions;
-  Sessions  _disk_client;
 
   cap_sel _deleg_ec[Config::MAX_CPUS];
 
   DiskClient *_get_client_from_pt(cap_sel pt) {
     DiskClient volatile *client = 0;
-    for (client = _disk_client.next(client); client && pt; client = _disk_client.next(client))
+    for (client = _sessions.next(client); client && pt; client = _sessions.next(client))
       if (client->deleg_pt == pt) {
         return reinterpret_cast<DiskClient *>(reinterpret_cast<unsigned long>(client));
       }
@@ -219,7 +212,7 @@ private:
   unsigned portal_func_delegate(cap_sel pt, Utcb &utcb, Utcb::Frame &input) {
     DiskClient *client = 0;
     //unsigned res;
-    Sessions::Guard guard_c(&_disk_client, utcb, this);
+    Sessions::Guard guard_c(&_sessions, utcb, this);
     client =_get_client_from_pt(pt);
     if (!client) return EEXISTS;
 
@@ -296,10 +289,10 @@ private:
   unsigned attach_drives(Utcb &utcb, cap_sel identity)
   {
     unsigned res;
-    Sessions::Guard guard_c(&_disk_client, utcb, this);
+    Sessions::Guard guard_c(&_sessions, utcb, this);
     DiskClient *client = 0;
 
-    if (res = _disk_client.get_client_data(utcb, client, identity))
+    if (res = _sessions.get_client_data(utcb, client, identity))
       return res;
 
     client->perms.add_disk = ParentProtocol::get_quota(utcb, client->pseudonym, "diskadd", 0) == ENONE;
@@ -318,40 +311,23 @@ private:
     return ENONE;
   }
 
+  virtual unsigned new_session(DiskClient *client) {
+    return attach_drives(*BaseProgram::myutcb(), client->identity);
+  }
+
+
 public:
-  unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
+  virtual unsigned handle_request(DiskClient *client, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap)
     {
-      unsigned op, res;
-      check1(EPROTO, input.get_word(op));
       SemaphoreGuard l(_lock);
+      unsigned res;
 
       switch (op) {
-      case ParentProtocol::TYPE_OPEN:
-      case ParentProtocol::TYPE_CLOSE: {
-	cap_sel identity;
-	res = handle_sessions(op, input, _disk_client, free_cap, &identity);
-	if (op == ParentProtocol::TYPE_OPEN && res == ENONE)
-	  res = attach_drives(utcb, identity);
-	return res;
-      }
       case DiskProtocol::TYPE_GET_DISK_COUNT:
-	{
-	  Sessions::Guard guard_c(&_disk_client, utcb, this);
-	  DiskClient *client = 0;
-
-	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	    return res;
 	  utcb << static_cast<mword>(client->disk_count);
 	  return ENONE;
-	}
       case DiskProtocol::TYPE_GET_PARAMS:
 	{
-	  Sessions::Guard guard_c(&_disk_client, utcb, this);
-	  DiskClient *client = 0;
-
-	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	    return res;
-
 	  DiskParameter param;
 	  unsigned disk;
 
@@ -364,12 +340,6 @@ public:
 	  return ok ? ENONE : ERESOURCE;
 	}
       case DiskProtocol::TYPE_GET_MEM_PORTAL: {
-	Sessions::Guard guard_c(&_disk_client, utcb, this);
-	DiskClient *client = 0;
-
-	if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	  return res;
-
 	Crd sem(input.received_item(0));
 	client->sem = sem.cap();
 	free_cap = false;
@@ -397,12 +367,6 @@ public:
 	if (input.unconsumed() * sizeof(unsigned) != dmacount*sizeof(*dma))
 	  return EPROTO;
 
-	Sessions::Guard guard_c(&_disk_client, utcb, this);
-	DiskClient *client = 0;
-
-	if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	  return res;
-
 	unsigned long internal_tag;
 	if (disk >= client->disk_count)
 	  return ERESOURCE;
@@ -419,12 +383,6 @@ public:
       }
       case DiskProtocol::TYPE_FLUSH_CACHE:
 	{
-	  Sessions::Guard guard_c(&_disk_client, utcb, this);
-	  DiskClient *client = 0;
-
-	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	    return res;
-
 	  unsigned disk;
 	  if (input.get_word(disk))     return EPROTO;
 	  Disk *d = client->disk(disk);
@@ -434,12 +392,6 @@ public:
 	}
       case DiskProtocol::TYPE_ADD_LOGICAL_DISK:
 	{
-	  Sessions::Guard guard_c(&_disk_client, utcb, this);
-	  DiskClient *client = 0;
-
-	  if (res = _disk_client.get_client_data(utcb, client, input.identity()))
-	    return res;
-
 	  if (!client->perms.add_disk) return EPERM;
 
 	  unsigned len;
@@ -451,6 +403,7 @@ public:
 	    names[i] = input.get_zero_string(len);
 	    if (!len) return EPROTO;
 	  }
+	  names[name_cnt] = NULL;
 
 	  Segment *segment = reinterpret_cast<Segment*>(input.get_ptr());
 	  static_assert(sizeof(Segment)%sizeof(unsigned) == 0, "Bad size of segment data");
@@ -476,7 +429,7 @@ public:
   {
     // user provided write?
     if (msg.usertag) {
-      DiskClient *client = reinterpret_cast<DiskService::DiskClient*>(msg.usertag & ~(DiskProtocol::MAXDISKREQUESTS-1));
+      DiskClient *client = reinterpret_cast<DiskClient*>(msg.usertag & ~(DiskProtocol::MAXDISKREQUESTS-1));
       unsigned short index = msg.usertag & (DiskProtocol::MAXDISKREQUESTS-1);
       MessageDiskCommit item(client->tags[index].disk-1, client->tags[index].usertag, msg.status);
       if (!client->prod_disk.produce(item))
