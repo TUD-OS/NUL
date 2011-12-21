@@ -36,7 +36,7 @@ michal/boot/vancouver-boot-from-disk.wv
 test_end="""\
 michal/boot/kernelbuild-bare-metal.wv slow
 michal/boot/vancouver-kernelbuild.wv slow
-michal/boot/vancouver-kbuild-vdisk.wv
+michal/boot/vancouver-kbuild-vdisk.wv slow
 michal/boot/vancouver-kernelbuild-ept-no-vpid.wv slow
 michal/boot/vancouver-kernelbuild-vtlb-vpid.wv slow
 michal/boot/vancouver-kernelbuild-vtlb-no-vpid.wv slow
