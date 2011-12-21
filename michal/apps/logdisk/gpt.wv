@@ -9,7 +9,7 @@ wvpath=$nulroot/michal/wvtest
 WVSTART GUID partition table parsing
 echo "wvtest: ignore exit patterns"
 
-WVTEST_EXIT_PATTERN='^sc: done' $wvpath/wvnulrun $thisscriptdir/gpt "$@" | fromdos | tee gpt.log
+WVTEST_EXIT_PATTERN='^sc: done' $wvpath/wvnulrun $thisscriptdir/gpt "$@" | dos2unix | tee gpt.log
 WVPASS grep '^disk: Added' gpt.log > disks.log
 WVPASS cat > expected.log <<EOF
 disk: Added '0'
