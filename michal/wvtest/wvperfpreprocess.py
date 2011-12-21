@@ -102,6 +102,9 @@ for line in sys.stdin.readlines():
         # Skip warmup results
         continue
 
+    if where.find('standalone/basicperf.c') != -1 and linetype == 'perf':
+        line = line.replace('ok', 'axis="duration" ok');
+
     if where.find('vancouver-linux-basic') != -1:
         continue                # Ignore the old test
 
