@@ -3,10 +3,6 @@
  * A simple service for educational purposes that does nothing useful;
  * this implementation is based on generic class SServiceProgram.
  *
- * This is probably the simplest possible service. It does not
- * maintain any per-client state and as such it does not require the
- * client to open sessions.
- *
  * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
