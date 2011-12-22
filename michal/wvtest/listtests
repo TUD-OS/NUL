@@ -8,8 +8,11 @@
 # The list produced by this script can by filtered to not contain
 # certain tests. This is done by specifying tags of tests to be
 # omitted in WVTEST_SKIP_TAGS environment variable. Tests are tagged
-# by putting the tag after the name of the test in the lists below.
-
+# by putting the tag after the name of the test in the lists below or
+# by using gitattributes(5).
+#
+# If some test is broken in your version of qemu, just run:
+# echo "path/to/test.wv broken_in_qemu" > .git/info/attributes
 
 test_begin = """\
 michal/wvtest/sizes.wv
@@ -47,12 +50,21 @@ import os.path
 import os
 import fnmatch
 import string 
+import subprocess
 
 class Test(object):
     def __init__(self, line):
         words = string.split(line)
         self.name = words[0]
         self.tags = words[1:]
+        try:
+            p = subprocess.Popen("cd $(git rev-parse --show-cdup) && git check-attr -a " + self.name, shell=True, stdout=subprocess.PIPE);
+            for line in  p.stdout:
+                words = string.split(line)
+                if len(words) >= 3 and words[2] == "set":
+                    self.tags.append(words[1].rstrip(':'))
+        except OSError:
+            pass
     def __cmp__(self, other):
         return cmp(self.name, other.name)
     def __str__(self):
