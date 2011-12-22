@@ -18,6 +18,10 @@ if (@ARGV < 1) {
 
 print STDERR "Testing \"all\" in @ARGV:\n";
 
+# use POSIX;
+# setpgrp();
+# POSIX::tcsetpgrp(1, $$) || die("tcsetpgrp($$) failed: $!\n");
+
 my $pid = open(my $fh, "-|");
 if (!$pid) {
     # child
@@ -40,37 +44,44 @@ my @log = ();
 my ($gpasses, $gfails) = (0,0);
 my $column = 0;
 my $timeout = 120;
+my $died = 0;
 
-sub bigkill($)
+sub bigkill($$)
 {
-    my $pid = shift;
-
-    print_and_clear_log();
-    flush STDOUT;
-
-    print STDERR "\n! Killed by signal    FAILED\n";
-
-
+    my($sig, $pid) = @_;
     ($pid > 0) || die("pid is '$pid'?!\n");
 
-    local $SIG{CHLD} = sub { }; # this will wake us from sleep() faster
-    kill 15, $pid;
+#     print "bigkill $pid\n";
+#     my $cmd = 'pstree -p '.getpgrp(0).'|grep -o "[0-9]\+"';
+#     my @pids = `$cmd`;
+#     chomp(@pids);
+#     system("ps --pid ".join(',',@pids)." --forest -o pid,pgid,stat,cmd");
+    $SIG{TERM} = 'IGNORE';
+    local $SIG{CHLD} = sub { $died = 1; }; # this will wake us from sleep() faster
+    # Send TERM to our process group (this includes us, hopefully all children and maybe some of our parents)
+    kill 15, -getpgrp(0);
     sleep(2);
 
-    if ($pid > 1) {
-	kill 9, -$pid;
+    if (!$died) {
+	if ($pid > 1) { kill 9, -$pid; }
+	kill 9, $pid;
     }
-    kill 9, $pid;
-
-    exit(125);
+    if (@log) {
+        print_and_clear_log();
+    }
+    print "\n";
+    print STDERR resultline('', "Killed by signal $sig", "FAILED")."\n";
 }
 
+my $timedout = 0;
 # parent
-local $SIG{INT} = sub { bigkill($pid); };
-local $SIG{TERM} = sub { bigkill($pid); };
+local $SIG{INT} = sub { bigkill(shift, $pid); exit(125); };
+local $SIG{TERM} = sub { bigkill(shift, $pid); exit(125); };
 local $SIG{ALRM} = sub {
-    print STDERR "Alarm timed out!  No test results for $timeout seconds.\n";
-    bigkill($pid);
+    $timedout = 1;
+    bigkill(shift, $pid);
+    print STDERR resultline('', "Alarm timed out!  No test results for $timeout seconds.", 'FAILED')."\n";
+    exit(125);
 };
 
 sub colourize($$)
@@ -122,8 +133,8 @@ sub endsect()
 	printf " %s %s\n", $time, colourize($column + 2 + $timelength, "ok");
     } elsif ($column > 0) {
 	print "\n";
-	$column = 0;
     }
+    $column = 0;
 }
 
 sub print_and_clear_log()
@@ -203,17 +214,19 @@ if ($newpid != $pid) {
 my $code = $?;
 my $ret = ($code >> 8);
 
-# return death-from-signal exits as >128.  This is what bash does if you ran
-# the program directly.
-if ($code && !$ret) { $ret = $code | 128; }
-
-if ($ret && @log) {
+if ($code && @log) {
     print_and_clear_log();
 }
 
-if ($code != 0) {
-    print resultline("", "Program returned non-zero exit code ($ret)", "FAILED");
+if ($ret != 0) { print STDERR resultline('', "Program returned non-zero exit code ($ret)", "FAILED")."\n"; }
+
+# return death-from-signal exits as >128.  This is what bash does if you ran
+# the program directly.
+if ($code && !$ret) {
+    print STDERR resultline('', "Killed by signal $code", "FAILED")."\n";
+    $ret = $code | 128;
 }
+if ($timedout) {print STDERR resultline('', "Alarm timed out!  No test results for $timeout seconds.", 'FAILED')."\n";}
 
 my $gtotal = $gpasses+$gfails;
 printf("\nWvTest: %d test%s, %d failure%s, total time %s.\n",
