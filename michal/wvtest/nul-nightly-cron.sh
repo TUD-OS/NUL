@@ -7,10 +7,10 @@ log=$(date '+nul_%F_%T.log')
 cd ~/nul
 
 git fetch --quiet
-git reset --hard origin/master
-git clean -f
-git submodule update --init
-git submodule foreach --recursive 'git reset --hard && git clean -f'
+git reset --quiet --hard origin/master
+git clean --quiet -f
+git submodule --quiet update --init
+git submodule --quiet foreach --recursive 'git reset --quiet --hard && git clean --quiet -f'
 
 if ! cmp $0 michal/wvtest/nul-nightly-cron.sh; then
     cp michal/wvtest/nul-nightly-cron.sh $0 && exec $0
