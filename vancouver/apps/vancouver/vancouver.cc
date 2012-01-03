@@ -804,15 +804,25 @@ public:
 
   bool  receive(MessageDisk &msg)    {
     if (!service_disk) {
-      service_disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), 0);
+      unsigned portals = DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count();
+      service_disk = new DiskProtocol(alloc_cap(portals), 0);
       KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
       DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
       assert(diskconsumer);
       cap_sel tmp_portal = alloc_cap();
       unsigned res = service_disk->attach(*myutcb(), reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem);
       if (res) {
-	Logging::printf("disk->attach failed: %d\n", res);
-	return false;
+        Logging::printf("disk->attach failed: %d\n", res);
+
+        service_disk->destroy(*myutcb(), portals, this);
+        dealloc_cap(sem->sm());
+        dealloc_cap(tmp_portal);
+        delete sem;
+        delete diskconsumer;
+        delete service_disk;
+        service_disk = 0; //serves as indicator to start or not to start the do_disk handler thread
+
+        return false;
       }
     }
 
@@ -968,7 +978,7 @@ public:
     if (_mb->bus_input.count()) create_irq_thread(~0u, 0, do_stdin, "stdin");
     if (_mb->bus_vnet.count() > 1) create_irq_thread(~0u, 0, do_vnet, "vnet");
     if (_mb->bus_network.count() > (_donor_net ? 0 : 1)) create_irq_thread(~0u, 0, do_network, "net");
-    if (_mb->bus_diskcommit.count()) create_irq_thread(~0u, 0, do_disk, "disk");
+    if (service_disk) create_irq_thread(~0u, 0, do_disk, "disk");
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
