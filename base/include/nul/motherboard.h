@@ -79,8 +79,6 @@ class Motherboard : public StaticReceiver<Motherboard>
   DBus<MessageTimeout>      bus_timeout;    ///< Timer expiration notifications 
   DBus<MessageTimer>        bus_timer;      ///< Request for timers
   DBus<MessageVesa>         bus_vesa;
-  DBus<MessageVirtualNet>   bus_vnet;
-  DBus<MessageVirtualNetPing> bus_vnetping;
 
   VCpu *last_vcpu;
   Clock *clock() { return _clock; }

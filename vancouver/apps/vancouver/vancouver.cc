@@ -281,24 +281,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     }
   }
 
-  PT_FUNC(do_vnet) __attribute__((noreturn))
-  {
-    unsigned sm = tls->alloc_cap();
-    if (nova_create_sm(sm)) Logging::panic("VNET semaphore creation failed.\n");
-    Sigma0Base::request_vnet_attach(utcb, sm);
-
-    while (1) {
-      if (nova_semdownmulti(sm)) Logging::panic("VNET b0rken?\n");
-      {
-        SemaphoreGuard l(_lock);
-
-        MessageVirtualNetPing p(0);
-        _mb->bus_vnetping.send(p);
-      }
-    }
-  }
-
-
   static void force_invalid_gueststate_amd(Utcb *utcb)
   {
     utcb->ctrl[1] = 0;
@@ -325,7 +307,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_timer.add   (this, receive_static<MessageTimer>);
     _mb->bus_time.add    (this, receive_static<MessageTime>);
     _mb->bus_network.add (this, receive_static<MessageNetwork>);
-    _mb->bus_vnet.add    (this, receive_static<MessageVirtualNet>);
     _mb->bus_hwpcicfg.add(this, receive_static<MessageHwPciConfig>);
     _mb->bus_acpi.add    (this, receive_static<MessageAcpi>);
     _mb->bus_legacy.add  (this, receive_static<MessageLegacy>);
@@ -867,15 +848,6 @@ public:
     return true;
   }
 
-  bool receive(MessageVirtualNet &msg)
-  {
-    // We need access to memory allocated via ALLOC_FROM_GUEST. That's
-    // why we use _original_physsize here.
-    msg.physsize   = _original_physsize;
-    msg.physoffset = _physmem;
-    return Sigma0Base::vnetop(msg);
-  }
-
   bool receive(MessageConsole &msg)    { return !Sigma0Base::console(msg); }
   bool receive(MessagePciConfig &msg)  { return !Sigma0Base::pcicfg(msg);  }
   bool receive(MessageAcpi      &msg)  { return !Sigma0Base::acpi(msg);    }
@@ -976,7 +948,6 @@ public:
     // create backend connections
     create_irq_thread(~0u, 0, do_timer,   "timer");
     if (_mb->bus_input.count()) create_irq_thread(~0u, 0, do_stdin, "stdin");
-    if (_mb->bus_vnet.count() > 1) create_irq_thread(~0u, 0, do_vnet, "vnet");
     if (_mb->bus_network.count() > (_donor_net ? 0 : 1)) create_irq_thread(~0u, 0, do_network, "net");
     if (service_disk) create_irq_thread(~0u, 0, do_disk, "disk");
 

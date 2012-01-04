@@ -785,36 +785,4 @@ struct MessageNetwork
   MessageNetwork(unsigned type, unsigned client) : type(type), mac(0), client(client) { }
 };
 
-struct MessageVirtualNet
-{
-  enum ops {
-    ANNOUNCE,
-  };
-
-  unsigned op;
-  unsigned vnet;	 	// Virtual Net
-  unsigned client;
-
-  uint32  *registers;
-
-  // Filled in by forwarder
-  mword    physsize;
-  mword    physoffset;
-
-  MessageVirtualNet(unsigned vnet, uint32 *registers) :
-    op(ANNOUNCE), vnet(vnet), client(0), registers(registers),
-    physsize(~0UL), physoffset(0)
-  {}
-
-};
-
-struct MessageVirtualNetPing
-{
-  unsigned client;
-
-  MessageVirtualNetPing(unsigned client)
-    : client(client)
-  { }
-};
-
 /* EOF */

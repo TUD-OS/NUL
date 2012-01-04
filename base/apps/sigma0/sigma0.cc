@@ -367,7 +367,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (strstr(cmdline, "service_disk") == NULL) // Legacy protocol will be used
       init_disks();
     init_network();
-    init_vnet();
     _mb->parse_args(cmdline);
     init_console();
     MessageLegacy msg3(MessageLegacy::RESET, 0);
@@ -884,7 +883,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 	  SemaphoreGuard l(_lock_gsi);
 
-	  if (!request_vnet(modinfo, utcb) && !request_disks(modinfo, utcb) &&
+	  if (!request_disks(modinfo, utcb) &&
 	      !request_console(modinfo, utcb) && !request_network(modinfo, utcb))
 		switch (utcb->msg[0])
 		  {
@@ -1217,54 +1216,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     // Don't pass along MAC queries.
     return false;
   }
-
-  // Virtual Network
-
-  unsigned vnet_sm[MAXMODULES];
-
-  void init_vnet()
-  {
-    _mb->bus_vnetping.add(this, receive_static<MessageVirtualNetPing>);
-  }
-
-  bool receive(MessageVirtualNetPing &msg)
-  {
-    // Client 0 is us. Don't wake up.
-    return (msg.client == 0) ? false : (nova_semup(vnet_sm[msg.client]) == 0);
-  }
-
-
-  bool request_vnet(ModuleInfo * modinfo, Utcb *utcb)
-  {
-    switch (utcb->msg[0]) {
-    case REQUEST_VNET_ATTACH: {
-      assert(modinfo->id != 0);
-      vnet_sm[modinfo->id] = utcb->head.crd >> Utcb::MINSHIFT;
-      if (verbose & VERBOSE_INFO)
-        Logging::printf("s0: [%2u] - provided VNET wakeup semaphore: %u.\n", modinfo->id, vnet_sm[modinfo->id]);
-      utcb->msg[0] = 0;
-      utcb->head.crd = alloc_crd();
-      utcb->set_header(1, 0);
-      return true;
-    }
-    case REQUEST_VNET: {
-      MessageVirtualNet *msg = reinterpret_cast<MessageVirtualNet *>(utcb->msg+1);
-
-      if (utcb->head.untyped*sizeof(unsigned) < sizeof(unsigned) + sizeof(*msg)) {
-        return false;
-      } else {
-        if (convert_client_ptr(modinfo, msg->registers, 0x4000))  return false;
-        if (adapt_ptr_map(modinfo, msg->physoffset, msg->physsize)) return false;
-        msg->client = modinfo->id;
-        utcb->msg[0] = _mb->bus_vnet.send(*msg, true);
-      }
-      return true;
-    }
-    }
-    
-    return false;
-  }
-
 
   /************************************************************
    *   DISK support                                           *

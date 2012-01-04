@@ -63,14 +63,12 @@ class Sigma0Base : public BaseProgram
     REQUEST_STDIN_ATTACH = 0x1001,
     REQUEST_DISKS_ATTACH,
     REQUEST_NETWORK_ATTACH,
-    REQUEST_VNET_ATTACH,
     REQUEST_DISK,
     REQUEST_CONSOLE,
     REQUEST_HOSTOP,
     REQUEST_NETWORK,
     REQUEST_PCICFG,
     REQUEST_ACPI,
-    REQUEST_VNET,
   };
  protected:
 
@@ -116,12 +114,10 @@ class Sigma0Base : public BaseProgram
   static unsigned  request_stdin         (Utcb *utcb, StdinConsumer   *consumer, unsigned sem_nq) { return request_attach<REQUEST_STDIN_ATTACH>(utcb, consumer, sem_nq); }
   static unsigned  request_disks_attach  (Utcb *utcb, DiskConsumer    *consumer, unsigned sem_nq) { return request_attach<REQUEST_DISKS_ATTACH>(utcb, consumer, sem_nq); }
   static unsigned  request_network_attach(Utcb *utcb, NetworkConsumer *consumer, unsigned sem_nq) { return request_attach<REQUEST_NETWORK_ATTACH>(utcb, consumer, sem_nq); }
-  static unsigned  request_vnet_attach   (Utcb *utcb, unsigned sem_nq) { return request_attach<REQUEST_VNET_ATTACH>(utcb, NULL, sem_nq); }
   static unsigned disk(MessageDisk &msg)     { return sigma0_message<MessageDisk,      REQUEST_DISK>(msg); }
   static unsigned console(MessageConsole &msg)  { return sigma0_message<MessageConsole,   REQUEST_CONSOLE>(msg); }
   static unsigned hostop (MessageHostOp &msg)   { return sigma0_message<MessageHostOp,    REQUEST_HOSTOP>(msg); }
   static unsigned network(MessageNetwork &msg)  { return sigma0_message<MessageNetwork,   REQUEST_NETWORK>(msg); }
   static unsigned pcicfg (MessagePciConfig &msg){ return sigma0_message<MessagePciConfig, REQUEST_PCICFG>(msg); }
   static unsigned acpi   (MessageAcpi &msg)     { return sigma0_message<MessageAcpi,      REQUEST_ACPI>(msg); }
-  static unsigned vnetop (MessageVirtualNet &msg){ return sigma0_message<MessageVirtualNet,REQUEST_VNET>(msg); }
 };
