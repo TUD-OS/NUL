@@ -145,7 +145,7 @@ class HostPci
     unsigned msi_offset = find_cap(bdf, CAP_MSI);
     if (!(msix_offset || msi_offset)) Logging::panic("No MSI support in %x for %x", bdf, nr);
 
-    MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, bdf);
+    MessageHostOp msg1 = msg1.attach_msi(~0UL, true, bdf, "gsi msi");
     if (!bus_hostop.send(msg1)) Logging::panic("could not attach to msi for bdf %x\n", bdf);
     if (!msg1.msi_address)  Logging::printf("Attach to MSI %x failed for bdf %x with (%llx,%x) - IRQs may be broken!\n", nr, bdf, msg1.msi_address, msg1.msi_value);
 
@@ -210,7 +210,7 @@ class HostPci
     }
 
     // attach to the IRQ
-    MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, msg3.gsi | (level ? 0x100 : 0));
+    MessageHostOp msg = MessageHostOp::attach_irq(msg3.gsi | (level ? 0x100 : 0), ~0U, true, "pci");
     if (!bus_hostop.send(msg)) return ~0ul;
     return msg3.gsi;
   }

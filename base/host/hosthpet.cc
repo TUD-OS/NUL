@@ -95,7 +95,7 @@ public:
       }
       else {
 	// MSI?
-	MessageHostOp msg1(MessageHostOp::OP_ATTACH_MSI, 0UL, 1);
+	MessageHostOp msg1 = MessageHostOp::attach_msi(~0U, false, 0UL, "hhpet msi");
 	if ((_timerreg->config & (1<<15)) &&  bus_hostop.send(msg1)) {
 	  _irq = msg1.msi_gsi;
 	  _timerreg->msi[0] = msg1.msi_value;
@@ -127,7 +127,7 @@ public:
 
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
 
-    MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, _irq, 1);
+    MessageHostOp msg2 = MessageHostOp::attach_irq(_irq, ~0U, false, "hpet");
     if (!bus_hostop.send(msg2))
       Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
 

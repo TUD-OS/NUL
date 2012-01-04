@@ -132,8 +132,8 @@ PARAM_HANDLER(hostserial,
   mb.bus_hostirq.add(dev, HostSerial::receive_static<MessageIrq>);
   mb.bus_serial.add(dev,  HostSerial::receive_static<MessageSerial>);
 
-  MessageHostOp msg2(MessageHostOp::OP_ATTACH_IRQ, argv[2]);
-  if (!(msg2.value == ~0U || mb.bus_hostop.send(msg2)))
+  MessageHostOp msg2 = MessageHostOp::attach_irq(argv[2], ~0U, true, "serial");
+  if (!(argv[2] == ~0UL || mb.bus_hostop.send(msg2)))
     Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, argv[2]);
 
 }

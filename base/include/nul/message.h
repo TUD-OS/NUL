@@ -479,6 +479,7 @@ struct MessageHostOp
       char *ptr;
       unsigned long len;
       phy_cpu_no cpu;
+      char const * desc;
     };
     struct {
       unsigned module;
@@ -539,15 +540,17 @@ struct MessageHostOp
     return n;
   }
 
-  static MessageHostOp attach_msi(phy_cpu_no cpu, bool locked, uint16 rid)
+  static MessageHostOp attach_msi(phy_cpu_no cpu, bool locked, uint16 rid, char const * name)
   {
     MessageHostOp n(OP_ATTACH_MSI, rid, ~locked, cpu);
+    n.desc = name;
     return n;
   }
 
-  static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked)
+  static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked, char const * name)
   {
     MessageHostOp n(OP_ATTACH_IRQ, irq, ~locked, cpu);
+    n.desc = name;
     return n;
   }
 

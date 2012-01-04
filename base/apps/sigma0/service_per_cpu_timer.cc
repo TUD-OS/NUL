@@ -193,7 +193,7 @@ class PerCpuTimerService : private BasicHpet,
       uint16 hpet_rid = get_hpet_rid(_mb.bus_acpi, 0, timer->_no);
       Logging::printf("HPET comparator %u RID %x\n", timer->_no, hpet_rid);
 
-      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, hpet_rid);
+      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, hpet_rid, "hpet msi");
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
       Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
@@ -220,7 +220,7 @@ class PerCpuTimerService : private BasicHpet,
       unsigned irq = Cpu::bsr(possible_irqs);
       assigned_irqs |= (1U << irq);
 
-      MessageHostOp msg = MessageHostOp::attach_irq(irq, cpu, false);
+      MessageHostOp msg = MessageHostOp::attach_irq(irq, cpu, false, "hpet");
       if (not bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
 
       _per_cpu[cpu]->irq = irq;
@@ -896,7 +896,7 @@ public:
         attach_timer_irq(mb.bus_hostop, &_timer[i], cpu);
       else {
         // Attach to PIT instead.
-        MessageHostOp msg(MessageHostOp::OP_ATTACH_IRQ, PIT_IRQ, 1, cpu);
+        MessageHostOp msg = MessageHostOp::attach_irq(PIT_IRQ, cpu, false, "pit");
         if (not mb.bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
         _per_cpu[cpu]->irq = PIT_IRQ;
       }

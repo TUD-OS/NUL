@@ -227,10 +227,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return res;
   }
 
-  bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, phy_cpu_no cpunr)
+  bool attach_irq(unsigned gsi, unsigned cap_sm, bool unlocked, phy_cpu_no cpunr, char const * _name = 0)
   {
-    char name[16];
-    Vprintf::snprintf(name, sizeof(name), "irq %u", gsi);
+    char name[32];
+    Vprintf::snprintf(name, sizeof(name), "irq %3u - ", gsi);
+    if (_name)
+      memcpy(name + strlen(name), _name, MIN((sizeof(name) - strlen(name)), (strlen(_name) + 1)));
+    name[sizeof(name) - 1] = 0;
 
     Utcb *u = 0;
     unsigned cap_ec = create_ec_helper(this, cpunr, _percpu[cpunr].exc_base,  &u,
@@ -1010,12 +1013,13 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       case MessageHostOp::OP_ATTACH_MSI:
         {
           bool unlocked = msg.len;
+          const char * desc = msg.desc;
           unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
           Logging::printf("s0: Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
           assert(cpu < 32);
           unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
-          res = attach_irq(msg.msi_gsi, cap, unlocked, cpu);
+          res = attach_irq(msg.msi_gsi, cap, unlocked, cpu, desc);
         }
         break;
       case MessageHostOp::OP_ATTACH_IRQ:
@@ -1029,7 +1033,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           if (ret == NOVA_EDEV)
             Logging::printf("s0: assign_gsi returned BAD_DEV. If this is a QEMU VM, try \"qemu -no-kvm-irqchip\".\n");
           check1(false, ret != NOVA_ESUCCESS);
-          res = attach_irq(gsi, irq_cap, msg.len, cpu);
+          res = attach_irq(gsi, irq_cap, msg.len, cpu, msg.desc);
         }
         break;
       case MessageHostOp::OP_ALLOC_IOIO_REGION:
