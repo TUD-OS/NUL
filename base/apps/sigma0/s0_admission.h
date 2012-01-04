@@ -34,33 +34,22 @@ private:
   unsigned counter;
   //end
 
-  template<class T>
-  class Tmp_a : public InternalCapAllocator {
-    public:
-    T * obj;
-    unsigned cap;
-    Tmp_a(T * _obj) : obj(_obj), cap(0) {}
-    unsigned alloc_cap(unsigned n = 1) {
-      assert(n == 1);
-      assert(cap == 0);
-      cap = obj->alloc_cap();
-      assert(cap != 0);
-      return cap;
-    }
-  };
-
 public:
   template<class T>
   unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p, unsigned cpu, T * _obj, char const * name, bool a_sc = false) {
     unsigned res;
 
     if (_blocking)
-      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, _obj, name);
+      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, name);
     else {
-      Tmp_a<T> obj(_obj);
-      res = AdmissionProtocol::alloc_sc(utcb, idx_ec, p, cpu, &obj, name);
+      unsigned idx_sc = _obj->alloc_cap();
+      if (!idx_sc) return ERESOURCE;
+
+      Qpd q(p.type, 10000); //EARLY SIGMA0 BOOT (no admission service running)
+      res = nova_create_sc (idx_sc, idx_ec, q);
+
       assert(!res && counter < tmp_size);
-      tmp[counter].para = p; tmp[counter].cpu = cpu; tmp[counter].idx = obj.cap; tmp[counter].admission_sc = a_sc;
+      tmp[counter].para = p; tmp[counter].cpu = cpu; tmp[counter].idx = idx_sc; tmp[counter].admission_sc = a_sc;
       memcpy(tmp[counter++].name, name, strlen(name) + 1);
       //Logging::printf("   cpu=%u cap=0x%x prio=%u quantum=%u tmp_size=%u\n", cpu, idx_sc, p.type, 10000, tmp_size);
     }

@@ -363,7 +363,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     utcb->msg[2] = _shared_sem[hostirq & 0xff];
 
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SPORADIC); //Qpd(2, 10000)
-    check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, this, name));
+    check1(~3u, service_admission->alloc_sc(*myutcb(), cap_ec, sched, myutcb()->head.nul_cpunr, name));
     return cap_ec;
   }
 
@@ -412,7 +412,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     if (nova_create_ec(cap_block + 1, 0, 0, cpunr, cap_start, false))
       Logging::panic("creating a VCPU failed - does your CPU support VMX/SVM?");
     AdmissionProtocol::sched sched; //Qpd(1, 10000)
-    if (service_admission->alloc_sc(*myutcb(), cap_block + 1, sched, cpunr, this, "vcpu"))
+    if (service_admission->alloc_sc(*myutcb(), cap_block + 1, sched, cpunr, "vcpu"))
       Logging::panic("creating a VCPU failed - admission test issue");
     return cap_block;
   }
@@ -787,7 +787,7 @@ public:
                                              myutcb()->head.nul_cpunr, PT_IRQ, 0,
                                              reinterpret_cast<void *>(msg._alloc_service_thread.work));
           AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_SPORADIC); //Qpd(2, 10000)
-          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, this, "service");
+          return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, myutcb()->head.nul_cpunr, "service");
         }
         break;
       case MessageHostOp::OP_VIRT_TO_PHYS:

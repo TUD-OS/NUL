@@ -39,30 +39,11 @@ struct AdmissionProtocol : public GenericProtocol {
     TYPE_SC_PUSH,
   };
 
-  template<class T>
   unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para p,
-                    unsigned cpu, T * obj, char const * name) //obj is legacy
+                    unsigned cpu, char const * name)
   {
-    unsigned res = call_server(init_frame(utcb, TYPE_SC_ALLOC)
+    return call_server(init_frame(utcb, TYPE_SC_ALLOC)
       << Utcb::TypedMapCap(idx_ec, DESC_TYPE_CAP | DESC_RIGHT_SC) << p << cpu << Utcb::String(name), true);
-    if (res != ENONE && obj) {
-      unsigned idx_sc = obj->alloc_cap();
-      if (!idx_sc) return ERESOURCE;
-
-      //LEGACY support, guessing that it could be vancouver and adjust prios
-      if (p.type != sched::TYPE_APERIODIC) p.type = sched::TYPE_PERIODIC; //fix max prio to 2
-
-      Qpd q(p.type, 10000); //EARLY SIGMA0 BOOT AND LEGACY SUPPORT (no admission service running), legacy support will vanish
-      res = nova_create_sc (idx_sc, idx_ec, q);
-      //Logging::printf("   cpu=%u cap=0x%x prio=%u quantum=%u\n", cpu, idx_sc, p.type, 10000);
-    }
-    return res;
-  }
-
-
-  unsigned alloc_sc(Utcb &utcb, unsigned idx_ec, struct para q, unsigned cpu, char const * name) {
-    CapAllocator * obj = 0;
-    return alloc_sc(utcb, idx_ec, q, cpu, obj, name);
   }
 
   unsigned get_statistics(Utcb &utcb, cap_sel client, uint64 &con_time) {
