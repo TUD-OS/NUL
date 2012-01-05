@@ -165,7 +165,11 @@ PCIDevice::PCIDevice(PCIBus &bus, uint8 df, PCIDevice *pf)
       unsigned bar_addr = bar_i + HostPci::BAR0;
       if ((conf_read(bar_addr) & 1) == 1) continue; // I/O BAR
       uint64 base = _bus.manager().pci().bar_base(bdf(), bar_addr);
+
+      uint32 stscmd = conf_read(1);
+      conf_write(1, (stscmd & ~3) | (1<<10)); // Disable IO/MEM/IRQ
       uint64 bar_size = _bus.manager().pci().bar_size(bdf(), bar_addr, &is64bit);
+      conf_write(1, stscmd);
 
       if (bar_size != 0) _bus.add_used_region(base, bar_size);
 
