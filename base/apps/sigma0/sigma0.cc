@@ -1138,7 +1138,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         }
         break;
       case MessageHostOp::OP_WAIT_CHILD: {
-	assert(nova_semdown(CLIENT_PT_OFFSET + (msg.value << CLIENT_PT_SHIFT) + ParentProtocol::CAP_PARENT_ID) == 0);
+	unsigned res = nova_semdown(CLIENT_PT_OFFSET + (msg.value << CLIENT_PT_SHIFT) + ParentProtocol::CAP_PARENT_ID);
+	assert(res == 0);
 	break;
       }
       case MessageHostOp::OP_CREATE_EC4PT:
