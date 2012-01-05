@@ -542,7 +542,7 @@ struct MessageHostOp
 
   static MessageHostOp attach_msi(phy_cpu_no cpu, bool locked, uint16 rid, char const * name)
   {
-    MessageHostOp n(OP_ATTACH_MSI, rid, ~locked, cpu);
+    MessageHostOp n(OP_ATTACH_MSI, rid, !locked, cpu);
     n.desc = name;
     return n;
   }
