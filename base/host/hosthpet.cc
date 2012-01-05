@@ -127,7 +127,7 @@ public:
 
     Logging::printf("HostHpet: using counter %x GSI 0x%02x (%s%s)\n", timer, _irq, level ? "level" : "edge", legacy ? ", legacy" : "");
 
-    MessageHostOp msg2 = MessageHostOp::attach_irq(_irq, ~0U, false, "hpet");
+    MessageHostOp msg2 = MessageHostOp::attach_irq(_irq, ~0U, false, "hhpet");
     if (!bus_hostop.send(msg2))
       Logging::panic("%s failed to attach hostirq %lx\n", __PRETTY_FUNCTION__, msg2.value);
 
