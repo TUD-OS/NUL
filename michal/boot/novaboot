@@ -286,7 +286,7 @@ sub system_verbose($)
     if ($ret) { die("Command failure $ret"); }
 }
 
-if ($variables->{WVDESC}) {
+if (exists $variables->{WVDESC}) {
     print "Testing \"$variables->{WVDESC}\" in $last_fn:\n";
 } elsif ($last_fn =~ /\.wv$/) {
     print "Testing \"all\" in $last_fn:\n";
@@ -311,10 +311,15 @@ foreach my $script (@scripts) {
     }
 
     my $kernel;
-    if ($variables->{KERNEL}) {
+    if (exists $variables->{KERNEL}) {
 	$kernel = $variables->{KERNEL};
     } else {
-	$kernel = $CFG::hypervisor . " " . ($variables->{HYPERVISOR_PARAMS} || $CFG::hypervisor_params);
+	$kernel = $CFG::hypervisor . " ";
+	if (exists $variables->{HYPERVISOR_PARAMS}) {
+	    $kernel .= $variables->{HYPERVISOR_PARAMS};
+	} else {
+	    $kernel .= $CFG::hypervisor_params;
+	}
     }
     @$modules = ($kernel, @$modules);
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
@@ -381,7 +386,7 @@ if ($variables->{WVTEST_TIMEOUT}) {
 
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
     # Qemu
-    @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if $variables->{QEMU_FLAGS};
+    @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if exists $variables->{QEMU_FLAGS};
     @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
 
     if (defined $iso_image) {
