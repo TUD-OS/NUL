@@ -8,7 +8,7 @@ cd ~/nul
 
 git fetch --quiet
 git reset --quiet --hard origin/master
-git clean --quiet -f
+git clean --quiet -f > /dev/null
 git submodule --quiet update --init
 git submodule --quiet foreach --recursive 'git reset --quiet --hard && git clean --quiet -f'
 
