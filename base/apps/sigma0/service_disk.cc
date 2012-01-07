@@ -134,15 +134,15 @@ typedef DiskProtocol::Segment Segment;
 
 class Partition : public Disk {
   Disk *parent;
-  uint64_t start, length;
+  uint64 start, length;
 public:
-  Partition(Disk *parent, uint64_t start, uint64_t length, const char *names[]) :
+  Partition(Disk *parent, uint64 start, uint64 length, const char *names[]) :
     Disk(names), parent(parent), start(start), length(length) {}
 
   virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
 			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
   {
-    uint64_t size = 0;
+    uint64   size = 0;
     if (sector >= length) return false;
     for (unsigned i = 0; i < dmacount; i++)
       size += dma[i].bytecount;

@@ -136,8 +136,8 @@ private:
   static char const * get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen);
   static char * get_client_memory(unsigned identity, unsigned client_mem_revoke);
 
-  typedef typename ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;
-  typedef typename ClientDataStorage<ServerData, s0_ParentProtocol, false>::Guard GuardS;
+  typedef ClientDataStorage<ClientData, s0_ParentProtocol, false>::Guard GuardC;
+  typedef ClientDataStorage<ServerData, s0_ParentProtocol, false>::Guard GuardS;
 
   ALIGNED(8) ClientDataStorage<ClientData, s0_ParentProtocol, false> session; /// client "registry" of sessions to services
   ALIGNED(8) ClientDataStorage<ServerData, s0_ParentProtocol, false> _server; /// Service "registry"

@@ -31,7 +31,7 @@
  * SUCH DAMAGE.
  */
 
-#include <stdint.h>
+#include <nul/types.h>
 
 /*
  * Multiprecision divide.  This algorithm is from Knuth vol. 2 (2nd ed),
@@ -40,8 +40,8 @@
 
 #ifdef __i386
 #define CHAR_BIT 8
-typedef int64_t quad_t;
-typedef uint64_t u_quad_t;
+typedef int64 quad_t;
+typedef uint64 u_quad_t;
 #define _QUAD_HIGHWORD 1
 #define _QUAD_LOWWORD 0
 #else

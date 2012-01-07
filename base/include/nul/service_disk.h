@@ -21,7 +21,7 @@
 #include "parent.h"
 #include "host/dma.h"
 #include "sigma0/consumer.h"
-#include <stdint.h>
+#include <nul/types.h>
 
 #define DISK_SERVICE_IN_S0
 
@@ -47,9 +47,9 @@ struct DiskProtocol : public GenericProtocol {
 
   struct Segment {
     unsigned disknum;
-    uint64_t start_lba, len_lba;
+    uint64 start_lba, len_lba;
     Segment() {}
-    Segment(unsigned disknum, uint64_t start, uint64_t len) : disknum(disknum), start_lba(start), len_lba(len) {}
+    Segment(unsigned disknum, uint64 start, uint64 len) : disknum(disknum), start_lba(start), len_lba(len) {}
   };
 
   typedef Consumer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskConsumer;

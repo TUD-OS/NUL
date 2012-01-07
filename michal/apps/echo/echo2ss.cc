@@ -55,7 +55,7 @@ class EchoService : public SServiceProgram<EchoClient>
   }
 
 public:
-  EchoService() : SServiceProgram("Echo service") {
+  EchoService() : SServiceProgram<EchoClient>("Echo service") {
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + Global::hip.cpu_count()));
     register_service(this, "/echo", Global::hip);
   }

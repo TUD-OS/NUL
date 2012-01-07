@@ -79,10 +79,10 @@ public:
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
     if (num > 1) return CapAllocator::alloc_cap(num);
-    else return CapAllocatorAtomicPartition::alloc_cap(num, cpu);
+    else return CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(num, cpu);
   }
   inline void dealloc_cap(unsigned cap, unsigned count = 1) {
-    assert(count == 1); CapAllocatorAtomicPartition::dealloc_cap(cap, count);
+    assert(count == 1); CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::dealloc_cap(cap, count);
   }
 
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }

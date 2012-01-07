@@ -112,12 +112,12 @@ public:
   unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) {
     unsigned cap, cap_last, first_cap;
 
-    first_cap = CapAllocatorAtomicPartition::alloc_cap(1, cpu);
+    first_cap = CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(1, cpu);
     if (!first_cap) return 0;
     cap_last = first_cap;
 
     while (--num) { //XXX fix me 
-      cap = CapAllocatorAtomicPartition::alloc_cap(1, cpu);
+      cap = CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(1, cpu);
       assert(cap);
       assert(cap_last + 1 == cap);
       cap_last = cap;

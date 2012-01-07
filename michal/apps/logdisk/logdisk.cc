@@ -24,7 +24,7 @@
 #include "nul/service_disk.h"
 #include "host/dma.h"
 #include "wvtest.h"
-#include <stdint.h>
+#include <nul/types.h>
 
 #include "crc32.cc"
 
@@ -45,7 +45,7 @@ public:
     if (res) Logging::panic("DiskProtocol::attach failed: %d\n", res);
   }
 
-  unsigned read_synch(unsigned disknum, uint64_t start_secotr, size_t size) {
+  unsigned read_synch(unsigned disknum, uint64 start_secotr, size_t size) {
     DmaDescriptor dma;
     unsigned res;
 
@@ -76,16 +76,16 @@ class Partition {
     char start_chs[3];
     unsigned char type;
     char end_chs[3];
-    uint32_t start_lba;
-    uint32_t num_sectors;
+    uint32 start_lba;
+    uint32 num_sectors;
   } __attribute__ ((packed));
 
   struct mbr {
     char code[440];
-    uint32_t disk_signature;
-    uint16_t zero;
+    uint32 disk_signature;
+    uint16 zero;
     struct partition part[4];
-    uint16_t mbr_signature;
+    uint16 mbr_signature;
   } __attribute__ ((packed));
 
   static_assert(sizeof(mbr) == SECTOR_SIZE, "Wrong size of MBR");
@@ -99,7 +99,7 @@ public:
     struct partition *p = NULL;
     assert(e->start_lba);
     do {
-      uint64_t start = e->start_lba + (p ? p->start_lba : 0);
+      uint64 start = e->start_lba + (p ? p->start_lba : 0);
       disk->read_synch(disknum, start, SECTOR_SIZE);
       ebr = *reinterpret_cast<struct mbr*>(disk->dma_buffer);
       if (ebr.mbr_signature != 0xaa55)
@@ -167,24 +167,24 @@ class GPT {
 
   struct header {
     char     signature[8];
-    uint32_t revision;
-    uint32_t hsize;
-    uint32_t crc;
-    uint32_t reserved;
-    uint64_t current_lba;
-    uint64_t backup_lba;
-    uint64_t first_lba;
-    uint64_t last_lba;
+    uint32   revision;
+    uint32   hsize;
+    uint32   crc;
+    uint32   reserved;
+    uint64   current_lba;
+    uint64   backup_lba;
+    uint64   first_lba;
+    uint64   last_lba;
     guid_t   disk_guid;
-    uint64_t pent_lba;
-    uint32_t pent_num;
-    uint32_t pent_size;
-    uint32_t crc_part;
+    uint64   pent_lba;
+    uint32   pent_num;
+    uint32   pent_size;
+    uint32   crc_part;
 
     bool check_crc();
   } __attribute__((packed));
 
-  typedef uint16_t utf16le;
+  typedef uint16 utf16le;
 
   struct pent { // Partition entry
     enum { // attributes
@@ -196,9 +196,9 @@ class GPT {
     };
     guid_t   type;
     guid_t   id;
-    uint64_t first_lba;
-    uint64_t last_lba;
-    uint64_t attr;
+    uint64   first_lba;
+    uint64   last_lba;
+    uint64   attr;
     utf16le  name[36];
   } __attribute__((packed));
 
@@ -228,7 +228,7 @@ public:
 
     disk->read_synch(disknum, 2, gpt.pent_num*gpt.pent_size);
 
-    skip_if(gpt.crc_part != (calc_crc(~0L, reinterpret_cast<const uint8_t*>(disk->dma_buffer), gpt.pent_num*gpt.pent_size) ^ ~0L),
+    skip_if(gpt.crc_part != (calc_crc(~0L, reinterpret_cast<const uint8*>(disk->dma_buffer), gpt.pent_num*gpt.pent_size) ^ ~0L),
 	    "GPT partition entries CRC mismatch");
 
     for (unsigned p = 0; p < gpt.pent_num; p++) {
@@ -298,9 +298,9 @@ char DiskHelper::disk_buffer[4<<20] ALIGNED(0x1000);
 
 bool GPT::header::check_crc()
 {
-  uint32_t orig_crc = crc, curr_crc;
+  uint32 orig_crc = crc, curr_crc;
   crc = 0;
-  curr_crc = calc_crc(~0L, reinterpret_cast<const uint8_t*>(this), sizeof(*this)) ^ ~0L;
+  curr_crc = calc_crc(~0L, reinterpret_cast<const uint8*>(this), sizeof(*this)) ^ ~0L;
   crc = orig_crc;
   return curr_crc == orig_crc;
 }
