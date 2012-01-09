@@ -65,6 +65,8 @@ private:
   bool enable_log;
   bool enable_verbose;
 
+  unsigned interval;
+
 public:
 
   AdmissionService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), NovaProgram(), ProgramConsole() {}
@@ -229,7 +231,7 @@ public:
             }
             data->scs[i].idx = idx_sc;
           }
-          if (enable_verbose) Logging::printf("created sc - prio=%u quantum=%u cpu=%u\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu);
+          if (enable_verbose) Logging::printf("created sc - prio=%u quantum=%u cpu=%u %s.%s\n", data->scs[i].prio, data->scs[i].quantum, data->scs[i].cpu, data->name, data->scs[i].name);
           return ENONE;
         }
         break;
@@ -402,7 +404,6 @@ public:
 
     unsigned update = true;
     unsigned show = 0, client_num = 0;
-    unsigned timeout = 2000; //2s
 
     while (true) {
       if (enable_top) {
@@ -432,13 +433,13 @@ public:
           if (show == 0)
             top_dump_scs(*utcb, hip, client_num);
           else if (show == 1)
-            top_dump_client(client_num);
+            top_dump_client(client_num, interval, hip);
           else
             top_dump_prio(hip);
         }
       }
 
-      TimerProtocol::MessageTimer to(_clock->abstime(timeout, 1));
+      TimerProtocol::MessageTimer to(_clock->abstime(interval, 1));
       if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
 
       sem.downmulti();
@@ -456,6 +457,8 @@ public:
 
     console_init("admission service", new Semaphore(alloc_cap(), true));
 
+    interval = 2000; //2s
+
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");
 
@@ -468,7 +471,6 @@ public:
       if (!strcmp("log", args[i])) enable_log = true;
       if (!strcmp("verbose", args[i])) enable_verbose = true;
     }
-
     enable_measure = enable_measure || enable_top;
 
     Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",

@@ -19,6 +19,7 @@
     VALUEWIDTH = 2U,
     WIDTH  = 80U,
     HEIGHT = 25U,
+    REFILL_PRIO = 255U,
   };
 
   void get_idle(Hip * hip) {
@@ -208,7 +209,7 @@
     get_idle(hip);
   }
 
-  void top_dump_client(unsigned client_num) {
+  void top_dump_client(unsigned client_num, unsigned interval, Hip * hip) {
     unsigned i = 0;
     ClientData volatile * data = &own_scs;
     data->next = _storage.next();
@@ -221,15 +222,20 @@
     _vga_regs.offset = 0;
 
     Logging::printf("application: %s\n", data->name);
-    Logging::printf("\ncpu prio    quantum  util name\n");
+    Logging::printf("\ncpu prio  util(  max)      t(us)   q(us) thread name\n");
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
       if (!data->scs[i].idx) continue;
 
       timevalue rest, val = data->scs[i].m_last1 - data->scs[i].m_last2;
       splitfloat(val, rest, data->scs[i].cpu);
-      Logging::printf("%3u %4u %10u %3llu.%1llu %s\n", data->scs[i].cpu, data->scs[i].prio,
-		      data->scs[i].quantum, val, rest, data->scs[i].name);
+
+      Logging::printf("%3u %4u %3llu.%1llu(%3u.%1u) %10llu %7u %s\n", data->scs[i].cpu, data->scs[i].prio,
+		      val, rest, data->scs[i].prio > REFILL_PRIO ? data->scs[i].quantum * 100 / (interval * 1000) : 100,
+		      data->scs[i].prio > REFILL_PRIO ? (data->scs[i].quantum * 100 / (interval * 100)) % 10 : 0,
+          data->scs[i].m_last1 - data->scs[i].m_last2, data->scs[i].quantum, data->scs[i].name);
     }
+    Logging::printf("\nmint=%ums, tsc f=%ukHz, bus f=%ukHz\n", interval, hip->freq_tsc, hip->freq_bus);
+    Logging::printf("legend: q - quantum, mint - measure interval, t - execution time per mint\n");
   }
 
   void splitfloat(timevalue &val, timevalue &rest, phy_cpu_no pcpu) {
