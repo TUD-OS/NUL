@@ -58,12 +58,12 @@ public:
     if (!first_cap) return 0;
     cap_last = first_cap;
 
-    while (--num) { //XXX fix me 
+    while (num--) { //XXX fix me
       cap = CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(1, cpu);
       assert(cap);
       assert(cap_last + 1 == cap);
       cap_last = cap;
-    } while (--num);
+    }
 
     return first_cap;
   }

@@ -263,7 +263,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       } conn = { LIBVIRT_CMD_PORT, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
-      conn = { LIBVIRT_EVT_PORT, recv_call_back };
+      conn.port = LIBVIRT_EVT_PORT;
+      conn.fn = recv_call_back;
+
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
 
       Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);

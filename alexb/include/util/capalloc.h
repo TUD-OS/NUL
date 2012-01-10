@@ -40,7 +40,7 @@ class CapAllocatorAtomic {
       redo:
 
       unsigned wrap = 0, i;
-      for (i = byte_start; (!wrap || i != byte_start) && _bits[i] == ~0U; wrap += (i + 1) / bytes_max(), i = (i+1) % bytes_max());
+      for (i = byte_start; (!wrap || i != byte_start) && _bits[i] == ~0U; wrap += (i + 1) / bytes_max(), i = (i+1) % bytes_max()) {}
       if (wrap && i == byte_start) return 0;
 
       unsigned _new,_old = _bits[i];

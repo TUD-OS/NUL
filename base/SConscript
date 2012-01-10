@@ -126,7 +126,7 @@ else:
     target_env.Append(CCFLAGS = (" -march=%s " % default_target_arch))
 
 target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -Wold-style-cast "
-target_env['CFLAGS'] = " -Wimplicit-function-declaration"
+target_env['CFLAGS'] = " -Wimplicit-function-declaration "
 target_env['ASFLAGS'] = "-m32 -pipe -g"
 target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections", "-N", "--whole-archive", "--warn-common"]
