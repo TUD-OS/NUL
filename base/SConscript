@@ -32,6 +32,18 @@ def CheckCXXLink(context):
     context.Result(result)
     return result
 
+# Add flag to env[key] if the compiler is able to build an object file
+# with this. extension can be '.c' or '.cc'.
+def AddOptionalFlag(context, extension, key, flag):
+    context.Message('Check if compiler supports "%s"... ' % flag)
+    old_var = context.env[key];
+    context.env[key] += flag + ' '
+    result = context.TryCompile('', extension)
+    context.Result(result)
+    if not result:
+        context.env[key] = old_var
+    return result
+
 # Compilation flags
 
 # Compiler override
@@ -66,7 +78,8 @@ initrd32_env = host_env.Clone()
 initrd32_env.Append(CCFLAGS   = " -m32 ",
                     LINKFLAGS = " -m32 -static ");
 
-conf = Configure(initrd32_env, custom_tests = {'CheckCXXLink' : CheckCXXLink})
+conf = Configure(initrd32_env, custom_tests = {'CheckCXXLink' : CheckCXXLink,
+                                               'AddOptionalFlag' : AddOptionalFlag})
 
 if not (conf.CheckCXX() and conf.CheckCC() and conf.CheckCXXLink()):
     print("Your compiler cannot build 32-bit host utilities. m(")
@@ -77,7 +90,6 @@ initrd32_env = conf.Finish()
 # Freestanding environment for IA-32. Use this to build standalone
 # binaries.
 target_env = Environment()
-
 
 if ARGUMENTS.get('VERBOSE') != "1":
     target_env.Append(CCCOMSTR  = "\tCC  $TARGET", CXXCOMSTR  = "\tCXX $TARGET", LINKCOMSTR = "\tLNK $TARGET",
@@ -103,7 +115,7 @@ if ld_path:
 
 target_env['CCFLAGS'] = '-m32'
 target_env.Append(CCFLAGS = debug_opts)
-target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffunction-sections -ffreestanding -fshort-enums -fno-strict-aliasing -fno-exceptions -mpreferred-stack-boundary=4 -mincoming-stack-boundary=4 -minline-all-stringops -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
+target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffreestanding -ffunction-sections -fshort-enums -fno-strict-aliasing -fno-exceptions  -minline-all-stringops -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
 if ARGUMENTS.get('NO_TIMESTAMP', 0):
     target_env.Append(CPPFLAGS = '-DNO_TIMESTAMP')
 
@@ -113,8 +125,8 @@ else:
     print("No target_arch option given. Defaulting to %s." % default_target_arch)
     target_env.Append(CCFLAGS = (" -march=%s " % default_target_arch))
 
-target_env['CXXFLAGS'] = "-std=gnu++0x -fno-exceptions -fno-rtti -fcheck-new -fno-threadsafe-statics -Wold-style-cast "
-target_env['CFLAGS'] = " -std=gnu99 -Wimplicit-function-declaration"
+target_env['CXXFLAGS'] = "-fno-exceptions -fno-rtti -fcheck-new -Wold-style-cast "
+target_env['CFLAGS'] = " -Wimplicit-function-declaration"
 target_env['ASFLAGS'] = "-m32 -pipe -g"
 target_env['LINK'] = "ld"
 target_env['LINKFLAGS'] = ["-m",  "elf_i386", "-gc-sections", "-N", "--whole-archive", "--warn-common"]
@@ -126,6 +138,18 @@ target_env['CPPPATH'] = [chomp(collect_output([target_env['CXX'], "-print-file-n
                          "#include"]
 
 target_env['LIBPATH'] = ['#bin/lib']
+
+conf = Configure(target_env, custom_tests = { 'AddOptionalFlag' : AddOptionalFlag })
+
+if (not conf.AddOptionalFlag('.cc', 'CXXFLAGS', '-std=gnu++0x')) or \
+   (not conf.AddOptionalFlag('.cc', 'CFLAGS', '-std=gnu99')):
+    print("Your compiler is too old.")
+    Exit(1)
+
+conf.AddOptionalFlag('.cc', 'CCFLAGS', '-mpreferred-stack-boundary=4 -mincoming-stack-boundary=4')
+conf.AddOptionalFlag('.cc', 'CXXFLAGS', '-fno-threadsafe-statics')
+
+target_env = conf.Finish()
 
 # We want to be able to use linker scripts without doing a manual
 # Depends().
