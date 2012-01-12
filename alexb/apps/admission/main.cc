@@ -72,8 +72,8 @@ public:
   AdmissionService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), NovaProgram(), ProgramConsole() {}
 
   void init_service(Hip * hip) {
-    unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
-    assert(base && !(base & 0xFFFULL));
+    unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, CONST_CAP_RANGE);
+    assert(base && !(base & 0xFFFFULL));
     _divider  = hip->cpu_desc_count();
     _cap_base = base;
     enable_verbose = enable_top = enable_measure = enable_log = false;
@@ -367,6 +367,7 @@ public:
 
         utcb_wo->head.crd = alloc_crd();
         utcb_wo->head.crd_translate = Crd(_cap_base, CONST_CAP_RANGE, DESC_CAP_ALL).value();
+        assert(!(_cap_base & ((1UL << CONST_CAP_RANGE)-1)));
         utcb_pf->head.crd = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
