@@ -119,8 +119,10 @@ private:
     }
     void session_close(Utcb &utcb) {
       if (singleton) {
+        //dealloc_cap(singleton);
         unsigned char res = nova_revoke(Crd(singleton, 0, DESC_CAP_ALL), true);
         assert(!res);
+        singleton = 0;
       }
       name = 0;
       len = 0;
@@ -413,7 +415,8 @@ public:
           cdata->singleton = cap;
           free_cap = false;
         } else if (op == 2U) //get
-          utcb << Utcb::TypedIdentifyCap(cdata->singleton);
+          if (cdata->singleton)
+            utcb << Utcb::TypedIdentifyCap(cdata->singleton);
         else return EPROTO;
 
         return ENONE;
@@ -454,8 +457,10 @@ public:
       {
         unsigned value;
         if (input.get_word(value)) return EPROTO;
-	/* The child cannot call semup, because it has insufficient permissions. */
-	return nova_semup(input.identity());
+
+        Logging::printf("input.identity() = %u %u\n", input.identity(), get_client_number(input.identity(0)));
+        /* The child cannot call semup, because it has insufficient permissions. */
+        return nova_semup(input.identity());
       }
     default:
       return EPROTO;
