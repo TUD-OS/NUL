@@ -457,8 +457,6 @@ public:
       {
         unsigned value;
         if (input.get_word(value)) return EPROTO;
-
-        Logging::printf("input.identity() = %u %u\n", input.identity(), get_client_number(input.identity(0)));
         /* The child cannot call semup, because it has insufficient permissions. */
         return nova_semup(input.identity());
       }
