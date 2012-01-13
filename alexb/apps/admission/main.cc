@@ -32,7 +32,19 @@
 #define CONST_CAP_RANGE 16U
 
 namespace ab {
-class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>, public NovaProgram, public ProgramConsole
+class StartAdmissionService : public NovaProgram
+{
+  public:
+
+  template <class C>
+  unsigned  create_ec4pt(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, unsigned long cap = ~0UL) {
+    return NovaProgram::create_ec4pt(tls, cpunr, excbase, utcb_out, cap);
+  }
+
+  NORETURN void run(Utcb *utcb, Hip *hip);
+};
+
+class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>, public ProgramConsole
 {
   static char * flag_revoke;
 
@@ -67,27 +79,29 @@ private:
 
   unsigned interval;
 
+  StartAdmissionService &prg;
+
 public:
 
-  AdmissionService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), NovaProgram(), ProgramConsole() {}
+  AdmissionService(StartAdmissionService& _prg) : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), prg(_prg) {}
 
   void init_service(Hip * hip) {
     unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, CONST_CAP_RANGE);
     assert(base && !(base & 0xFFFFULL));
-    _divider  = hip->cpu_desc_count();
+    _divider  = hip->cpu_count();
     _cap_base = base;
     enable_verbose = enable_top = enable_measure = enable_log = false;
   }
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
-    if (num > 1) return CapAllocator::alloc_cap(num);
+    if (num > 1) return prg.alloc_cap(num);
     else return CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(num, cpu);
   }
   inline void dealloc_cap(unsigned cap, unsigned count = 1) {
     assert(count == 1); CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::dealloc_cap(cap, count);
   }
 
-  inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(1, BaseProgram::mycpu()), 0, DESC_CAP_ALL).value(); }
 
   #include "top.h"
 
@@ -112,7 +126,7 @@ public:
         unsigned idx = input.received_cap();
         unsigned cap_session = 0;
 
-        if (enable_verbose && !idx) Logging::printf("  open - invalid cap recevied\n");
+        if (enable_verbose && !idx) Logging::printf("  open - invalid cap received\n");
         if (!idx) return EPROTO;
 
         //check whether we have already a session with this client
@@ -124,7 +138,7 @@ public:
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
             if (data->identity == cap_session) {
-              dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
+              dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudonym we got via parent and gets obsolete as soon as client becomes running
               if (enable_verbose) Logging::printf("  open - session rebind pseudo=%x->%x\n", data->pseudonym, idx);
               data->pseudonym = idx;
               utcb << Utcb::TypedMapCap(data->identity);
@@ -241,7 +255,7 @@ public:
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, client, input.identity())) return res;
 
-          if (!(client->statistics = alloc_cap())) return ERESOURCE;
+          if (!(client->statistics = alloc_cap(1, BaseProgram::mycpu()))) return ERESOURCE;
           if (NOVA_ESUCCESS != nova_create_sm(client->statistics)) {
             dealloc_cap(client->statistics); client->statistics = 0; return ERESOURCE;
           }
@@ -358,11 +372,11 @@ public:
         exc_base_wo = alloc_cap(16);
         exc_base_pf = alloc_cap(16);
         if (!exc_base_wo || !exc_base_pf) return false;
-        pt_wo       = alloc_cap();
+        pt_wo       = alloc_cap(1, cpunr);
 
-        unsigned cap_ec = create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap());
+        unsigned cap_ec = prg.create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap(1, cpunr));
         if (!cap_ec) return false;
-        unsigned cap_pf = create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap());
+        unsigned cap_pf = prg.create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap(1, cpunr));
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
@@ -447,21 +461,15 @@ public:
       update = false;
     }
   }
- 
-  NORETURN
+
   void run(Utcb *utcb, Hip *hip)
   {
 
-    init(hip);
-    init_mem(hip);
     init_service(hip);
 
     console_init("admission service", new Semaphore(alloc_cap(), true));
 
     interval = 2000; //2s
-
-    if (!start_service(utcb, hip))
-      Logging::printf("failure - starting admission service\n");
 
     char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
     char *args[16];
@@ -474,20 +482,36 @@ public:
     }
     enable_measure = enable_measure || enable_top;
 
+    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+
     Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",
                     enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
                     enable_top ? "yes" : "no", enable_verbose ? "yes" : "no");
-    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+
+    if (!start_service(utcb, hip))
+      Logging::printf("failure - starting admission service\n");
+
     if (enable_measure && !run_statistics(utcb, hip))
       Logging::printf("failure - running statistic loop\n");
-
-    block_forever();
   }
 };
 
   char *   AdmissionService::flag_revoke;
   unsigned AdmissionService::cursor_pos;
+
+
+  void StartAdmissionService::run(Utcb *utcb, Hip *hip)
+  {
+
+    init(hip);
+    init_mem(hip);
+
+    AdmissionService * run = new AdmissionService(*this);
+    run->run(utcb, hip);
+
+    block_forever();
+  }
 } /* namespace */
 
-ASMFUNCS(ab::AdmissionService, NovaProgram)
+ASMFUNCS(ab::StartAdmissionService, NovaProgram)
 

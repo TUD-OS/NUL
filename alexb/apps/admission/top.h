@@ -182,7 +182,7 @@
           if (pcpu_from <= utcb.msg[i] && utcb.msg[i] < pcpu_to) {
             cursor_pos = 0;
             for (unsigned j=pcpu_from; j < pcpu_to; j++) { //physical -> logical cpu mapping
-              Hip_cpu const *cpu = &_hip->cpus()[j];
+              Hip_cpu const *cpu = &hip->cpus()[j];
               if (utcb.msg[i] == j) break;
               if (not cpu->enabled()) continue;
               cursor_pos += 5;
