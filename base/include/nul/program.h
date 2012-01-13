@@ -180,7 +180,6 @@ public:
   {									\
     utcb->head.nul_cpunr = cpu;                                         \
     static X x;								\
-    static_assert(sizeof(x) > 0x800U, "Object allocates more than half of the stack!"); \
     x.run(utcb, &Global::hip);                                          \
     do_exit("run returned");						\
   }									\
