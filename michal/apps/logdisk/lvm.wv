@@ -1,0 +1,14 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
+    vdisk:rom://imgs/lvm-disk1 \
+    vdisk:rom://imgs/lvm-disk2 \
+    service_disk \
+    script_start:1 script_waitchild
+bin/apps/logdisk.nul
+bin/apps/logdisk.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk diskadd disk::0 disk::1 ||
+rom://bin/apps/logdisk.nul
+EOF
+imgs/lvm-disk1
+imgs/lvm-disk2

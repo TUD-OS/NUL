@@ -57,7 +57,7 @@ struct DiskProtocol : public GenericProtocol {
 
   DiskConsumer *consumer;
   KernelSemaphore *sem;
-  void *dma_buffer;
+  char *dma_buffer;
   size_t dma_size;
 
   unsigned get_params(Utcb &utcb, unsigned disk, DiskParameter *params) {
@@ -111,7 +111,7 @@ struct DiskProtocol : public GenericProtocol {
 #endif
     res = nova_call(tmp_cap);
     utcb.drop_frame();
-    this->dma_buffer = dma_buffer;
+    this->dma_buffer = reinterpret_cast<char*>(dma_buffer);
     this->dma_size = dma_size;
 
   err:

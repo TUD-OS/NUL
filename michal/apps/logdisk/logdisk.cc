@@ -4,7 +4,7 @@
  * Scans supported logical disks (e.g. partitions) and makes them
  * available to other programs as ordinary disks.
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  *
  * This file is part of Vancouver.nova.
  *
@@ -25,8 +25,8 @@
 #include "host/dma.h"
 #include "wvtest.h"
 #include <nul/types.h>
-
 #include "crc32.cc"
+
 
 class DiskHelper : public DiskProtocol {
   static char disk_buffer[4<<20];
@@ -261,7 +261,10 @@ public:
     }
     return true;
   }
+#undef skip_if
 };
+
+#include "lvm.cc"
 
 class LogDiskMan : public NovaProgram, ProgramConsole
 {
@@ -287,6 +290,13 @@ public:
       if (Partition::find(disk, disknum)) continue;
       if (GPT::find(disk, disknum)) continue;
     }
+
+#if 0
+    disk->get_disk_count(*BaseProgram::myutcb(), count);
+    for (unsigned disknum = 0; disknum < count; disknum++) {
+      Lvm::find(disk, disknum);
+    }
+#endif
 
     Logging::printf("Done");
     WvTest::exit(0);

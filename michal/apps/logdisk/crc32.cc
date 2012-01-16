@@ -13,8 +13,6 @@
  * Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#define xlate(x) x		// Little endian
-
 /* Calculate an endian-independent CRC of supplied buffer */
 uint32 calc_crc(uint32 initial, const uint8 *buf, uint32 size)
 {
@@ -59,7 +57,7 @@ uint32 calc_crc(uint32 initial, const uint8 *buf, uint32 size)
 
 	/* Process 4 bytes per iteration */
 	while (start < end) {
-		crc = crc ^ xlate(*start++);
+		crc = crc ^ *start++;
 		crc = crctab[crc & 0xff] ^ crc >> 8;
 		crc = crctab[crc & 0xff] ^ crc >> 8;
 		crc = crctab[crc & 0xff] ^ crc >> 8;
