@@ -1,0 +1,63 @@
+From f7e473f075e386d6c6168e2f68b5ead2f40522a7 Mon Sep 17 00:00:00 2001
+From: Michal Sojka <sojka@os.inf.tu-dresden.de>
+Date: Tue, 10 Jan 2012 11:24:05 +0100
+Subject: [PATCH] Chanage serial console to work with mmio-based card in my
+ test box
+
+---
+ include/console_serial.h |    4 ++--
+ src/console_serial.cpp   |   13 +++++++------
+ 2 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/include/console_serial.h b/include/console_serial.h
+index 7d1df02..a2b174d 100644
+--- a/include/console_serial.h
++++ b/include/console_serial.h
+@@ -44,10 +44,10 @@ class Console_serial : public Console
+         unsigned base;
+ 
+         ALWAYS_INLINE
+-        inline unsigned in (Reg reg) { return Io::in<uint8>(base + reg); }
++        inline unsigned in (Reg reg) { return *reinterpret_cast<volatile uint8*>(base + reg); }
+ 
+         ALWAYS_INLINE
+-        inline void out (Reg reg, unsigned val) { Io::out (base + reg, static_cast<uint8>(val)); }
++        inline void out (Reg reg, unsigned val) { *reinterpret_cast<volatile uint8*>(base + reg) = static_cast<uint8>(val); }
+ 
+         void putc (int c);
+ 
+diff --git a/src/console_serial.cpp b/src/console_serial.cpp
+index 5e3ecb3..0bb696f 100644
+--- a/src/console_serial.cpp
++++ b/src/console_serial.cpp
+@@ -20,20 +20,21 @@
+ #include "console_serial.h"
+ #include "hpt.h"
+ #include "x86.h"
++#include "pd.h"
+ 
+ void Console_serial::init()
+ {
+     if (!Cmdline::serial)
+         return;
+ 
+-    char *mem = static_cast<char *>(Hpt::remap (0));
+-    if (!(base = *reinterpret_cast<uint16 *>(mem + 0x400)) &&
+-        !(base = *reinterpret_cast<uint16 *>(mem + 0x402)))
+-        return;
++    Paddr phys = 0xd0e01000;	// Michal's serial card
++    base = (hwdev_addr -= PAGE_SIZE) | (phys & PAGE_MASK);
++    Pd::kern.Space_mem::insert (base & ~PAGE_MASK, 0, Hpt::HPT_NX | Hpt::HPT_G | Hpt::HPT_UC | Hpt::HPT_W | Hpt::HPT_P, phys & ~PAGE_MASK);
+ 
+     out (LCR, 0x80);
+-    out (DLR_LO, 1);
+-    out (DLR_HI, 0);
++    unsigned clk = 4000000/115200;
++    out (DLR_LO, clk&0xff);
++    out (DLR_HI, clk>>8);
+     out (LCR, 3);
+     out (IER, 0);
+     out (FCR, 7);
+-- 
+1.7.7.3
+
