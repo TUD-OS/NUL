@@ -1,6 +1,6 @@
 /* -*- Mode: C++ -*-
  * WvTest:
- *   Copyright (C) 2011 Michal Sojka <sojka@os.inf.tu-dresden.de>
+ *   Copyright (C) 2011, 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
  *   Copyright (C) 1997-2009 Net Integration Technologies, Inc.
  *       Licensed under the GNU Library General Public License, version 2.
  *       See the included file named LICENSE for license information.
@@ -102,7 +102,7 @@ class WvTest
 
   const char *resultstr(char *result)
     {
-//       if (!strcmp(result, "ok")) 
+//       if (!strcmp(result, "ok"))
 // 	tests_failed++;
       return result;
     }
@@ -124,7 +124,7 @@ class WvTest
   void save_info(const char *_file, int _line, const char *_condstr)
     { file = repo_rel_path(_file); condstr = _condstr; line = _line; }
 
-#if WVTEST_PRINT_INFO_BEFORE  
+#if WVTEST_PRINT_INFO_BEFORE
   void print_info()
     { Logging::printf("! %s:%d %s ", file, line, condstr); }
 
@@ -226,7 +226,7 @@ public:
 
   WvTest(const char *file, int line, const char *condstr) {
     save_info(file, line, condstr);
-#if WVTEST_PRINT_INFO_BEFORE    
+#if WVTEST_PRINT_INFO_BEFORE
     // If we are sure that nothing is printed during the "check", we can
     // print the info here, and the result after the "check" finishes.
     print_info(true, file, line, condstr, 0);
@@ -267,7 +267,7 @@ public:
       if (!result) print_failed_cmp(expect_equal ? "==" : "!=", a, b);
       check(result);
       return result;
-    }  
+    }
 
   template <typename T>
   bool check_lt(T a, T b)
