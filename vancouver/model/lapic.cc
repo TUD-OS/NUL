@@ -174,7 +174,7 @@ private:
   }
 
   /**
-   * Reprogramm a new host timer.
+   * Reprogram a new host timer.
    */
   void update_timer(timevalue now) {
     unsigned value = get_ccr(now);
