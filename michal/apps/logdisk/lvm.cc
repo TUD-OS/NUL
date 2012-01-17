@@ -38,7 +38,9 @@ class Lvm
 
   template<typename T>
   static T xlate(const T v) {
+#ifdef __BYTE_ORDER__
     static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__, "Big endian is not supported");
+#endif
     return v;
   }
 
