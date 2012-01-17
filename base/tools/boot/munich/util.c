@@ -192,3 +192,75 @@ out_info(const char *msg)
   out_string(msg);
   out_char('\n');
 }
+
+int
+strcmp (char const *s1, char const *s2)
+{
+    while (*s1 && *s1 == *s2) 
+        s1++, s2++;
+ 
+    return *s1 - *s2;
+}
+
+int
+isspace (int c)
+{
+    return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v';
+}
+
+unsigned long
+strtoul (char const *ptr, char const **end, int base)
+{  
+    while (isspace (*ptr))
+        ptr++;
+
+    if (!base) {   
+        if (*ptr != '0')
+            base = 10;
+        else if (*(ptr + 1) == 'x')
+            ptr += 2, base = 16;
+        else
+            ptr += 1, base = 8;
+    }
+
+    unsigned long val = 0;
+    unsigned char c;
+
+    while (c = *ptr) {
+
+        int x = (c >= 'a') ? c - 'a' + 10 :
+                (c >= 'A') ? c - 'A' + 10 :
+                (c >= '0') ? c - '0' : 0xff;
+ 
+        if (x >= base)
+            break;
+
+        val = val * base + x;
+
+        ptr++;
+    }
+
+    if (end)
+        *end = ptr;
+
+    return val;
+}
+
+char *
+get_arg (char **line, char delim)
+{
+    for (; isspace (**line); ++*line) ;
+
+    if (!**line)
+        return 0;
+
+    char *arg = *line;
+
+    for (; delim == ' ' ? !isspace (**line) : **line != delim; ++*line)
+        if (!**line)
+            return arg;
+
+    *(*line)++ = 0;
+
+    return arg;
+}

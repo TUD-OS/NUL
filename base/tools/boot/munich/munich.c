@@ -56,10 +56,23 @@ start_linux(struct mbi *mbi)
       out_info((char *)(m->mod_start + hdr->kernel_version + 0x200));
     }
 
-  //fix cmdline
-  char *cmdline = (char *) m->string;
-  while (*cmdline && *cmdline++ !=' ')
-    ;
+  char *cmdline = (char *) m->string, *cmd, *tok;
+
+  // remove kernel image name from cmdline
+  get_arg(&cmdline, ' ');
+
+  // parse remaining cmdline into whitespace-separated tokens
+  for (cmd = cmdline; (tok = get_arg(&cmd, ' ')); *--tok = '=', *--cmd = ' ')
+    {
+      // parse tokens into "arg=val" pairs
+      char *arg = get_arg(&tok, '=');
+      if (!strcmp(arg, "vga"))
+        {
+          hdr->vid_mode = strtoul(tok, 0, 0);
+          out_description("video mode", hdr->vid_mode);
+        }
+    }
+
   out_info(cmdline);
 
   // handle initrd

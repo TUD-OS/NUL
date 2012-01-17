@@ -95,6 +95,9 @@ extern const char const * message_label;
 void out_description(const char *prefix, unsigned int value);
 void out_info(const char *msg);
 
+char *get_arg (char **, char);
+int strcmp (char const *, char const *);
+unsigned long strtoul (char const *, char const **, int);
 
 /**
  * Helper functions.
