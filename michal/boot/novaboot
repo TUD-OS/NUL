@@ -15,8 +15,10 @@ use POSIX qw(:errno_h);
 # always flush
 $| = 1;
 
-# Get configuration
-$CFG::builddir = $ENV{'HOME'}."/devel/nul/build";
+chomp(my $gittop = `git rev-parse --show-toplevel 2>/dev/null`);
+
+# Default configuration
+$CFG::builddir = ( $gittop || $ENV{'HOME'}."/nul" ) . "/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::hypervisor_params = "serial";
 $CFG::server = "erwin.inf.tu-dresden.de:boot/novaboot/\$NAME";
