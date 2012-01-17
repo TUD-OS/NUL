@@ -443,6 +443,7 @@ class PerCpuTimerService : private BasicHpet,
       
       if (next_to == ~0ULL) return;
       //Logging::printf("CPU%u: Cross core wakeup at %llx!\n", cpu, next_to);
+      // XXX Needs to be written atomically!
       per_cpu->remote_slot->data.abstimeout = next_to;
       MEMORY_BARRIER;
       per_cpu->remote_sm.up();
