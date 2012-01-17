@@ -31,10 +31,10 @@
 class DiskHelper : public DiskProtocol {
   static char disk_buffer[4<<20];
 public:
-  DiskHelper(unsigned cap_base, unsigned cap_num, unsigned instance) : DiskProtocol(cap_base, instance) {
+  DiskHelper(CapAllocator* a, unsigned instance) : DiskProtocol(a, instance) {
     unsigned res;
-    cap_sel sem_cap = cap_base + cap_num;
-    cap_sel tmp_cap = cap_base + cap_num + 1;
+    cap_sel sem_cap = a->alloc_cap();
+    cap_sel tmp_cap = a->alloc_cap();
 
     KernelSemaphore *sem = new KernelSemaphore(sem_cap, true);
     DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
@@ -278,8 +278,7 @@ public:
     console_init("LogDisk", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    disk = new DiskHelper(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count() + 2),
-			  DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0);
+    disk = new DiskHelper(this, 0);
 
     unsigned count = 0;
     disk->get_disk_count(*BaseProgram::myutcb(), count);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -37,6 +37,8 @@ struct EchoProtocol : public GenericProtocol {
     return res;
   }
 
-  explicit EchoProtocol(unsigned cap_base, unsigned instance=0, bool blocking = true)
-    : GenericProtocol("echo", instance, cap_base, blocking) {}
+  explicit EchoProtocol(CapAllocator *a, unsigned instance=0, bool blocking = true)
+    : GenericProtocol("echo", instance,
+                      a->alloc_cap(EchoProtocol::CAP_SERVER_PT + Global::hip.cpu_count()),
+                      blocking) {}
 };

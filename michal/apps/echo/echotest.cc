@@ -2,7 +2,7 @@
  * @file
  * Test application for echo service.
  *
- * Copyright (C) 2011 Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.nova.
@@ -25,7 +25,7 @@ class EchoTest : public WvProgram
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
-    EchoProtocol *echo = new EchoProtocol(alloc_cap(EchoProtocol::CAP_SERVER_PT + hip->cpu_count()));
+    EchoProtocol *echo = new EchoProtocol(this);
 
     WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
   }

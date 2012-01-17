@@ -785,8 +785,7 @@ public:
 
   bool  receive(MessageDisk &msg)    {
     if (!service_disk) {
-      unsigned portals = DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count();
-      service_disk = new DiskProtocol(alloc_cap(portals), 0);
+      service_disk = new DiskProtocol(this, 0);
       KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
       DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
       assert(diskconsumer);
@@ -795,7 +794,7 @@ public:
       if (res) {
         Logging::printf("disk->attach failed: %d\n", res);
 
-        service_disk->destroy(*myutcb(), portals, this);
+        service_disk->destroy(*myutcb(), this);
         dealloc_cap(sem->sm());
         dealloc_cap(tmp_portal);
         delete sem;

@@ -85,7 +85,7 @@ public:
     DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
     assert(diskconsumer);
 
-    disk = new DiskProtocol(alloc_cap(DiskProtocol::CAP_SERVER_PT + hip->cpu_desc_count()), 0);
+    disk = new DiskProtocol(this, 0);
     res = disk->attach(*utcb, disk_buffer, sizeof(disk_buffer), alloc_cap(),
 		       diskconsumer, sem);
     if (res) Logging::panic("delegate_dma_buffer failed: %d\n", res);

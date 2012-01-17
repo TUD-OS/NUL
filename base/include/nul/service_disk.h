@@ -22,6 +22,7 @@
 #include "host/dma.h"
 #include "sigma0/consumer.h"
 #include <nul/types.h>
+#include <nul/program.h>
 
 #define DISK_SERVICE_IN_S0
 
@@ -162,5 +163,10 @@ struct DiskProtocol : public GenericProtocol {
     return call_server_drop(utcb);
   }
 
-  DiskProtocol(unsigned cap_base, unsigned instance) : GenericProtocol("disk", instance, cap_base, false) {}
+  DiskProtocol(CapAllocator *a, unsigned instance)
+    : GenericProtocol("disk", instance, a->alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), false) {}
+
+  void destroy(Utcb &utcb, CapAllocator *a) {
+    GenericProtocol::destroy(utcb, DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count(), a);
+  }
 };
