@@ -333,6 +333,18 @@ public:
     // Signal an event to parent
     if (ParentProtocol::signal(*BaseProgram::myutcb(), 0))
       Logging::printf("! wvtest.h:%d ParentProtocol::signal(0)) FAILED\n", __LINE__);
+
+    // We want to block forever, but we do not have cap allocator to
+    // allocate a semaphore. Therefore, we revoke our EC and use this
+    // cap for the semaphore. The EC will (unfortnately) still exist
+    // after the revocation because there is an SC managed by
+    // admission service that refers to it.
+    unsigned res;
+    nova_revoke_self(Crd(ParentProtocol::CAP_CHILD_EC, 0, DESC_CAP_ALL));
+    unsigned block = ParentProtocol::CAP_CHILD_EC;
+    res = nova_create_sm(block);
+    assert(res == 0);
+    while (1) { res = nova_semdown(block); assert(res == 0); }
   }
 };
 
