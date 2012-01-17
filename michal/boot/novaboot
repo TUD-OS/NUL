@@ -46,11 +46,7 @@ sub read_config($) {
     }
 }
 
-my $cfg = $ENV{'NOVABOOT_CONFIG'};
-if (! $cfg or ! -s $cfg) { $cfg = $ENV{'HOME'}."/.novaboot"; }
-if (-s $cfg) { read_config($cfg); }
-
-$CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
+my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
 
 # Command line
 my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $I_opt, $iprelay, $iso_image, $man, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
@@ -60,7 +56,7 @@ GetOptions (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
     "build-dir=s"    => \$builddir,
-    "config|c=s"     => sub { read_config($_[1]); },
+    "config|c=s"     => \$cfg,
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
@@ -79,6 +75,10 @@ GetOptions (
     ) or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
+
+if (-s $cfg) { read_config($cfg); }
+
+$CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
 
