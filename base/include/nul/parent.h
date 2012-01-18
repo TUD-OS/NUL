@@ -224,12 +224,23 @@ public:
       goto do_out;
 
     do_open_session:
+      //if we have already a server session revoke it to be able to receive an new mapping (overmapping not supported!)
+      //- possible reason: server is gone and a new one is now in place
+      if (nova_lookup(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP)
+        nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
+
       utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM)
 		       << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
-      if (res == ENONE)     goto do_call;
-      if (res == EEXISTS)   goto do_get_pseudonym;
-      if (res == NOVA_ECAP) goto do_get_portal;
+
+      if (res == NOVA_ECAP)  goto do_get_portal;
+      if (res == EEXISTS)    goto do_get_pseudonym;
+      if (res == ENONE) {
+        _disabled = !(nova_lookup(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP);
+        //stop here if server try to cheat us and avoid so looping potentially endless
+        if (_disabled) res = EPERM;
+        else goto do_call;
+      }
       goto do_out;
     do_get_portal:
       {
@@ -244,8 +255,13 @@ public:
       goto do_out;
 
     do_get_pseudonym:
+      //if we have already a pseudonym revoke it to be able to receive an new mapping (overmapping not supported!)
+      //- possible reason: server is gone and a new one is now in place
+      if (nova_lookup(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP)
+        nova_revoke(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL), true);
+
       res = ParentProtocol::get_pseudonym(utcb, _service, _instance, _cap_base + CAP_PSEUDONYM);
-      if (res == ENONE)     goto do_call;
+      if (res == ENONE) goto do_call;
       _disabled = true;
       goto do_out;
     }
