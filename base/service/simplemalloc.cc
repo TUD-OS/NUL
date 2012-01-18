@@ -19,7 +19,7 @@
 #include "service/helper.h"
 #include "service/string.h"
 #include "service/logging.h"
-
+#include "service/cpu.h"
 
 /**
  * Alloc memory from a mempool defined in the linker script.
@@ -34,10 +34,15 @@ void *memalloc_mempool(unsigned long size, unsigned long align)
 
   extern char __mempoolstart, __mempoolend;
   static char *s = &__mempoolend;
-  s = reinterpret_cast<char *>((reinterpret_cast<unsigned long>(s) - size) & ~(align - 1));
-  if (s < &__mempoolstart)  Logging::panic("%s(%lx) EOM - increase __memsize!\n", __func__, size);
-  assert(!(reinterpret_cast<unsigned long>(s) & (align - 1)));
-  return s;
+  unsigned old, _new;
+  do {
+    old = reinterpret_cast<unsigned>(s);
+    _new = static_cast<unsigned>((old - size) & ~(align - 1));
+  } while (old != Cpu::cmpxchg4b(reinterpret_cast<unsigned*>(&s), old, _new));
+
+  if (reinterpret_cast<char*>(_new) < &__mempoolstart)  Logging::panic("%s(%lx) EOM - increase __memsize!\n", __func__, size);
+  assert(!(_new & (align - 1)));
+  return reinterpret_cast<char*>(_new);
 }
 
 
