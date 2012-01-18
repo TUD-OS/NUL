@@ -1656,14 +1656,38 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 };
 
 PARAM_HANDLER(boot_s0_services, "Start embedded services running as separate task which are essential to sigma0, e.g. admission service.") {
-  char * pos, * cmdline = reinterpret_cast<char *>(mb.hip()->get_mod(0)->aux);
-  if ((pos = strstr(cmdline, "hostvga"))) { //take care that hostvga and init_consoles starts before boot_s0_services so that allocation of consoles can succeed and we don't miss output
-    if (pos > strstr(cmdline, "boot_s0_services")) {
-      mb.parse_args("hostvga");
-      memset(pos,' ', 7);  //remove original hostvga from cmdline so that is not called twice XXX don't like this
+  const char * cmdline = reinterpret_cast<char *>(mb.hip()->get_mod(0)->aux);
+
+  // Take care that hostvga and init_consoles start before
+  // boot_s0_services so that allocation of consoles can succeed and
+  // we don't miss output.
+  // XXX This should work on the expanded command line...
+
+  const char *hostvga = NULL; size_t hvlength = 0;
+  const char *s0_serv = NULL;
+  const char *current;
+  size_t length;
+  while ((current = mb.next_arg(cmdline, length))) {
+    if (strstr(current, "boot_s0_services") == current)
+      s0_serv = current;
+
+    if (strstr(current, "hostvga") == current) {
+      hostvga = current; hvlength = length;
     }
-    sigma0->init_console();
   }
+
+  if ((not s0_serv and hostvga) or (s0_serv < hostvga)) {
+    Logging::printf("Start hostvga now to avoid dependency problems.\n");
+    // hostvga is configured to start after boot_s0_services. Do
+    // that now instead and don't start it twice.
+    mb.parse_args(hostvga, hvlength);
+    // XXX This is evil...
+    memset(const_cast<char *>(hostvga), ' ', hvlength);
+  }
+
+  if (hostvga)
+    sigma0->init_console();
+
   if (sigma0->boot_s0_services(BaseProgram::myutcb())) Logging::panic("s0: could not start embedded s0 services\n");
   sigma0->initialized_s0_tasks = true;
 }
