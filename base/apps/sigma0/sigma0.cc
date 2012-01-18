@@ -49,7 +49,7 @@ PARAM_HANDLER(verbose, "verbose - print additional information during runtime") 
 PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
             " ioio hostacpi pcicfg mmconfig atare"
             " hostreboot:0 hostreboot:1 hostreboot:2 hostreboot:3"
-            " service_tracebuffer service_per_cpu_timer service_romfs service_embeddedromfs script")
+            " service_tracebuffer service_per_cpu_timer service_romfs service_embeddedromfs boot_s0_services script")
 
 #define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/fs/embedded quota::guid"
 
@@ -137,6 +137,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   // module data
   ModuleInfo _modinfo[MAXMODULES];
   unsigned _mac;
+
+  //initialization tracking
+  bool initialized_console;
+  bool initialized_s0_tasks;
 
   // Hip containing virtual address for aux, use _hip if physical addresses are needed
   Hip * __hip;
@@ -1365,6 +1369,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * Init the console subsystem
    */
   void init_console() {
+    if (initialized_console) return;
 
     _mb->bus_console.add(this, receive_static<MessageConsole>);
 
@@ -1385,6 +1390,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     msg2.ptr += 0x1000;
     _mb->bus_console.send(msg2);
     switch_view(_mb, 0, _console_data[0].console);
+
+    initialized_console = true;
   }
 
 
@@ -1630,7 +1637,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _lock_gsi.up();
 
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
-    if ((res = boot_s0_services(utcb)))            Logging::printf("s0: could not start embedded s0 services\n");
+    if (!initialized_s0_tasks)                     Logging::panic("s0: embedded s0 services not running - you forget the boot_s0_services option\n");
 
     if (!mac_host) mac_host = generate_hostmac();
 
@@ -1647,6 +1654,19 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   static void start(phy_cpu_no cpu, Utcb *utcb) asm ("start") REGPARM(3) NORETURN;
   Sigma0() :  _numcpus(0), _modinfo(), _gsi(0), _pcidirect()  {}
 };
+
+PARAM_HANDLER(boot_s0_services, "Start embedded services running as separate task which are essential to sigma0, e.g. admission service.") {
+  char * pos, * cmdline = reinterpret_cast<char *>(mb.hip()->get_mod(0)->aux);
+  if ((pos = strstr(cmdline, "hostvga"))) { //take care that hostvga and init_consoles starts before boot_s0_services so that allocation of consoles can succeed and we don't miss output
+    if (pos > strstr(cmdline, "boot_s0_services")) {
+      mb.parse_args("hostvga");
+      memset(pos,' ', 7);  //remove original hostvga from cmdline so that is not called twice XXX don't like this
+    }
+    sigma0->init_console();
+  }
+  if (sigma0->boot_s0_services(BaseProgram::myutcb())) Logging::panic("s0: could not start embedded s0 services\n");
+  sigma0->initialized_s0_tasks = true;
+}
 
 char const * s0_ParentProtocol::get_client_cmdline(unsigned identity, unsigned long &s0_cmdlen) {
   unsigned clientnr = get_client_number(identity);
@@ -1689,6 +1709,4 @@ void  do_exit(const char *msg)
 }
 
 Semaphore Sigma0::_lock_mem;
-
-
 //  LocalWords:  utcb
