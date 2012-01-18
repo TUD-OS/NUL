@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011 - 2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -22,11 +22,12 @@
     REFILL_PRIO = 255U,
   };
 
-  void get_idle(Hip * hip) {
-    cursor_pos = 0;
+  void get_idle(Hip * hip, unsigned num_cpu_shift) {
+    cursor_pos = 1;
 
-    log_cpu_no lcpu_from = 0;
-    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = num_cpu_shift;
+    log_cpu_no lcpu_to   = (2 + 5U * (hip->cpu_count() - num_cpu_shift)) >= (WIDTH - 32U) ? (num_cpu_shift + (WIDTH - 32U) / 5U) : hip->cpu_count();
+    lcpu_to = MIN(lcpu_to, hip->cpu_count());
 
     for (log_cpu_no lcpu = lcpu_from; lcpu < lcpu_to; lcpu++) {
       timevalue time_con = 0;
@@ -34,7 +35,7 @@
       phy_cpu_no pcpu = hip->cpu_physical(lcpu);
       for (unsigned i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
         if (!data->scs[i].idx || data->scs[i].cpu != pcpu) continue;
-        time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
+        time_con += data->scs[i].last[0] - data->scs[i].last[1];
       }
 
       timevalue rest;
@@ -63,21 +64,24 @@
       unsigned res = nova_ctl_sc(data->scs[i].idx, computetime);
       if (res != NOVA_ESUCCESS) return EPERM;
 
-      timevalue diff        = computetime - data->scs[i].m_last1; //XXX handle wraparounds ...
+      timevalue diff        = computetime - data->scs[i].last[0]; //XXX handle wraparounds ...
       global_sum[pcpu]      += diff;
-      global_sum[pcpu]      -= data->scs[i].m_last1 - data->scs[i].m_last2;
+      global_sum[pcpu]      -= data->scs[i].last[0] - data->scs[i].last[1];
       global_prio[pcpu][data->scs[i].prio] += diff;
-      global_prio[pcpu][data->scs[i].prio] -= data->scs[i].m_last1 - data->scs[i].m_last2;
-      data->scs[i].m_last2  = data->scs[i].m_last1;
-      data->scs[i].m_last1  = computetime;
+      global_prio[pcpu][data->scs[i].prio] -= data->scs[i].last[0] - data->scs[i].last[1];
+      for (unsigned j=9; 0 < j; j--) {
+        data->scs[i].last[j]  = data->scs[i].last[j - 1];
+      }
+      data->scs[i].last[0]  = computetime;
     }
     return res;
   }
 
-  void top_dump_prio(Hip * hip) {
+  void top_dump_prio(Hip * hip, unsigned num_cpu_shift) {
     unsigned row = 1;
-    log_cpu_no lcpu_from = 0;
-    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 5) ? (WIDTH - 5) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = num_cpu_shift;
+    log_cpu_no lcpu_to   = 5U * (hip->cpu_count() - num_cpu_shift) >= (WIDTH - 5) ? (num_cpu_shift + (WIDTH - 5) / 5U) : hip->cpu_count();
+    lcpu_to = MIN(lcpu_to, hip->cpu_count());
 
     memset(_vga_console, 0, HEIGHT * WIDTH * VALUEWIDTH);
     _vga_regs.cursor_pos = 0;
@@ -134,41 +138,41 @@
     } while (data = _storage.next(data));
   }
 
-  void top_dump_scs(Utcb &utcb, Hip * hip, unsigned client_num) {
+  void top_dump_scs(Utcb &utcb, Hip * hip, unsigned client_num, unsigned num_cpu_shift) {
 
     memset(_vga_console, 0, HEIGHT * WIDTH * VALUEWIDTH);
     _vga_regs.cursor_pos = 0;
     _vga_regs.offset = 0;
 
-    log_cpu_no lcpu_from = 0;
-    log_cpu_no lcpu_to   = 5U * hip->cpu_count() >= (WIDTH - 32U) ? (WIDTH - 32U) / 5U : hip->cpu_count();
+    log_cpu_no lcpu_from = num_cpu_shift;
+    log_cpu_no lcpu_to   = (2 + 5U * (hip->cpu_count() - num_cpu_shift)) >= (WIDTH - 32U) ? (num_cpu_shift + (WIDTH - 32U) / 5U) : hip->cpu_count();
+    lcpu_to = MIN(lcpu_to, hip->cpu_count());
     phy_cpu_no pcpu_from = hip->cpu_physical(lcpu_from);
     phy_cpu_no pcpu_to   = hip->cpu_physical(lcpu_to - 1) + 1;
 
-    cursor_pos = 0;
+    cursor_pos = 1;
     for (unsigned i=lcpu_from; i < lcpu_to; i++) {
       Vprintf::printf(&_putc, _vga_console, "%4u", hip->cpu_physical(i));
       cursor_pos -= 1;
     }
     memset(_vga_console + cursor_pos * 2, 0, 1);
-    cursor_pos = 5 * (1 + lcpu_to - lcpu_from);
+    cursor_pos = 1 + 5 * (1 + lcpu_to - lcpu_from);
     Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH, "idle");
     memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
     cursor_pos = 0;
 
     ClientData volatile * data = &own_scs;
     ClientData * client;
-    unsigned client_count = HEIGHT - 1, res, more = 0;
+    unsigned client_count = HEIGHT - 1, res, more = 0, client_select = client_count - (client_num % (HEIGHT - 2));
     data->next = _storage.next();
 
     do {
       utcb.head.mtr = 1; //manage utcb by hand (alternative using add_frame, drop_frame which copies unnessary here)
-      cursor_pos = 0;
       client = reinterpret_cast<ClientData *>(reinterpret_cast<unsigned long>(data));
 
       res = get_usage(utcb, client);
       if (client_count > 1) {
-        cursor_pos = 5 * (1 + lcpu_to - lcpu_from);
+        cursor_pos = 1 + 5 * (1 + lcpu_to - lcpu_from);
         Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
         memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
         if (res != ENONE) {
@@ -177,10 +181,16 @@
         }
 
         unsigned i = 1;
+        cursor_pos = 0;
+        if (client_count == client_select)
+          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"%c ", 175);
+        else
+          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"  ");
+        memset(_vga_console + client_count * VALUEWIDTH * WIDTH + (cursor_pos - 2) * VALUEWIDTH, 0, 1);
         while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
           //Logging::printf("pcpu_from %u <= utcb.msg[i] %u < pcu_to %u (logical %u - %u)\n", pcpu_from, utcb.msg[i], pcpu_to, lcpu_from, lcpu_to);
           if (pcpu_from <= utcb.msg[i] && utcb.msg[i] < pcpu_to) {
-            cursor_pos = 0;
+            cursor_pos = 1;
             for (unsigned j=pcpu_from; j < pcpu_to; j++) { //physical -> logical cpu mapping
               Hip_cpu const *cpu = &hip->cpus()[j];
               if (utcb.msg[i] == j) break;
@@ -196,7 +206,6 @@
           }
           i += 3;
         }
-        cursor_pos = 0;
         client_count --;
       } else {
         more += 1;
@@ -205,12 +214,79 @@
         memset(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH +  cursor_pos * VALUEWIDTH - 1, 0, 1);
       }
     } while (data = _storage.next(data));
-    _putc(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - (client_num % (HEIGHT - 2)) * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH, '#');
-    get_idle(hip);
+    get_idle(hip, num_cpu_shift);
   }
 
-  void top_dump_client(unsigned client_num, unsigned interval, Hip * hip) {
-    unsigned i = 0;
+  void sort(timevalue * ptr, unsigned * pos, unsigned n) {
+    bool exchange;
+    unsigned i, tmp_pos;
+    timevalue tmp;
+
+    assert(n > 0);
+    do {
+      exchange = false;
+      for (i=0; i < n - 1; i++) {
+        if (ptr[i] < ptr[i + 1]) {
+          tmp = ptr[i]; ptr[i] = ptr[i + 1], ptr[i + 1] = tmp;
+          tmp_pos = pos[i]; pos[i] = pos[i + 1]; pos[i + 1] = tmp_pos;
+          exchange = true;
+        }
+      }
+      n -= 1;
+    } while (exchange && n > 1);
+  }
+
+  void top_dump_thread(ClientData volatile * data, unsigned num_sc) {
+    unsigned sort_len = sizeof(data->scs[num_sc].last) / sizeof(data->scs[num_sc].last[0]) - 1;
+    timevalue tmp_sort[sort_len];
+    timevalue tmp_list[sort_len];
+    unsigned i, pos[sort_len];
+    for (i=0; i < sort_len; i++) {
+      tmp_sort[i] = tmp_list[i] = data->scs[num_sc].last[i] - data->scs[num_sc].last[i + 1];
+      pos[i] = i;
+    }
+
+    sort(tmp_sort, pos, sort_len);
+
+    unsigned row = HEIGHT - sort_len - 1;
+    cursor_pos = 0;
+    Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "Aggegrated runtime per interval (us/mint) - '%s':\n", data->scs[num_sc].name);
+    row++;
+    cursor_pos = 0;
+    Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "   us/mint");
+    cursor_pos = 11;
+    for (i=sort_len; i > 0; i--) {
+      Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "%si%d", i ? "": " ", 1 - i);
+      cursor_pos -= 1;
+    }
+    memset(_vga_console + row * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH, 0, 1);
+
+    char const * msg;
+    for (i=0; i < sort_len; i++) {
+      cursor_pos = 0; row +=1;
+      Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "%10llu", tmp_sort[i]);
+      cursor_pos -= 1;
+      memset(_vga_console + row * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH, 0, 1);
+
+      if (pos[i] > 0)
+        if (tmp_list[pos[i]] <= tmp_list[pos[i]-1])
+          if ((pos[i]+1 >= sort_len) || tmp_list[pos[i]] >= tmp_list[pos[i]+1])
+            msg = "__/"; else msg = "\\_/";
+        else
+          if ((pos[i]+1 >= sort_len) || tmp_list[pos[i]] >= tmp_list[pos[i]+1])
+            msg = "___"; else msg = "\\__";
+      else
+        if (tmp_list[pos[i]] < tmp_list[pos[i]+1])
+          msg = "\\__"; else msg = "___";
+      Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH + (sort_len - 1 - pos[i]) * 4 * VALUEWIDTH, "%s", msg);
+      cursor_pos -= 1;
+      memset(_vga_console + row * VALUEWIDTH * WIDTH + (sort_len - 1 - pos[i]) * 4 * VALUEWIDTH + cursor_pos * VALUEWIDTH, 0, 1);
+    }
+    cursor_pos = 0;
+  }
+
+  void top_dump_client(unsigned client_num, unsigned interval, Hip * hip, unsigned num_sc) {
+    unsigned i = 0, show_max, show_start;
     ClientData volatile * data = &own_scs;
     data->next = _storage.next();
 
@@ -221,21 +297,32 @@
     _vga_regs.cursor_pos = 0;
     _vga_regs.offset = 0;
 
-    Logging::printf("application: %s\n", data->name);
-    Logging::printf("\ncpu prio  util(  max)      t(us)   q(us) thread name\n");
-    for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-      if (!data->scs[i].idx) continue;
+    show_max = HEIGHT - 11 - 3 - 3;
+    show_start = (num_sc >= show_max) ? num_sc - show_max + 1 : 0;
 
-      timevalue rest, val = data->scs[i].m_last1 - data->scs[i].m_last2;
+    Logging::printf("application: %s\n", data->name);
+    Logging::printf("\n  cpu prio  util(  max)      t(us)   q(us) thread name\n");
+
+    for (i = show_start; i < MIN(show_start + show_max, sizeof(data->scs) / sizeof(data->scs[0])); i++) {
+      if (!data->scs[i].idx) {
+        Logging::printf("%c --- ---- ---.-(---.-) ---------- ------- unused slot %u %c\n", num_sc == i ? 175 : ' ', i, num_sc == i ? 174 : ' ');
+        continue;
+      }
+
+      timevalue rest, val = data->scs[i].last[0] - data->scs[i].last[1];
       splitfloat(val, rest, data->scs[i].cpu);
 
-      Logging::printf("%3u %4u %3llu.%1llu(%3u.%1u) %10llu %7u %s\n", data->scs[i].cpu, data->scs[i].prio,
+      Logging::printf("%c %3u %4u %3llu.%1llu(%3u.%1u) %10llu %7u %s %c\n", num_sc == i ? 175 : ' ',
+          data->scs[i].cpu, data->scs[i].prio,
 		      val, rest, data->scs[i].prio > REFILL_PRIO ? data->scs[i].quantum * 100 / (interval * 1000) : 100,
 		      data->scs[i].prio > REFILL_PRIO ? (data->scs[i].quantum * 100 / (interval * 100)) % 10 : 0,
-          data->scs[i].m_last1 - data->scs[i].m_last2, data->scs[i].quantum, data->scs[i].name);
+          data->scs[i].last[0] - data->scs[i].last[1], data->scs[i].quantum, data->scs[i].name, num_sc == i ? 174 : ' ');
     }
     Logging::printf("\nmint=%ums, tsc f=%ukHz, bus f=%ukHz\n", interval, hip->freq_tsc, hip->freq_bus);
     Logging::printf("legend: q - quantum, mint - measure interval, t - execution time per mint\n");
+
+    if (data->scs[num_sc % (sizeof(data->scs)/sizeof(data->scs[0]))].idx)
+      top_dump_thread(data, num_sc % (sizeof(data->scs)/sizeof(data->scs[0])));
   }
 
   void splitfloat(timevalue &val, timevalue &rest, phy_cpu_no pcpu) {

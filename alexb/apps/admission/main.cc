@@ -58,8 +58,7 @@ private:
       unsigned cpu;
       unsigned prio;
       unsigned quantum;
-      timevalue m_last1;
-      timevalue m_last2;
+      PACKED timevalue last[10];
       char name[32];
     } scs[64];
   };
@@ -225,7 +224,7 @@ public:
           data->scs[i].prio    = (op == AdmissionProtocol::TYPE_SC_PUSH) ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
           data->scs[i].quantum = 10000U;
           data->scs[i].cpu = cpu;
-          data->scs[i].m_last1 = data->scs[i].m_last2 = 0;
+          memset(data->scs[i].last, 0, sizeof(data->scs[i].last));
           memcpy(data->scs[i].name, name, len > sizeof(data->scs[i].name) - 1 ? sizeof(data->scs[i].name) - 1 : len);
           data->scs[i].name[sizeof(data->scs[i].name) - 1] = 0;
 
@@ -305,7 +304,7 @@ public:
     timevalue time_con = 0;
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
       if (!data->scs[i].idx) continue;
-      time_con += data->scs[i].m_last1;
+      time_con += data->scs[i].last[0];
     }
     return time_con;
   }
@@ -326,7 +325,7 @@ public:
 
       for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
         if (!data->scs[i].idx || data->scs[i].cpu != cpunr) continue;
-        time_con += data->scs[i].m_last1 - data->scs[i].m_last2;
+        time_con += data->scs[i].last[0] - data->scs[i].last[1];
         avail = true;
       }
       if (!avail) continue;
@@ -418,7 +417,7 @@ public:
     }
 
     unsigned update = true;
-    unsigned show = 0, client_num = 0;
+    unsigned show = 0, client_num = 0, sc_num = 0, num_cpu_shift = 0;
 
     while (true) {
       if (enable_top) {
@@ -428,9 +427,29 @@ public:
             bool _update = true;
             if ((kmsg->data & 0x7f) == 77) { show = show == 2 ? 0 : 2; } //"p"
             else if ((kmsg->data & 0x7f) == 44) show = 0; //"t"
-            else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) { if (show == 0 && client_num) client_num--; show = 0; }
-            else if ((kmsg->data & 0x3ff) == KBCODE_UP)   { if (show == 0 && client_num < HEIGHT - 3) client_num++; show = 0; }
-            else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; }
+            else if ((kmsg->data & 0x3ff) == KBCODE_DOWN) {
+              if (show == 1) {
+                if (sc_num < (sizeof(own_scs.scs) / sizeof(own_scs.scs[0]) - 1)) sc_num ++;
+              } else {
+                if (show == 0 && client_num) client_num--;
+                show = 0;
+              }
+            }
+            else if ((kmsg->data & 0x3ff) == KBCODE_UP) {
+              if (show == 1) {
+                if (sc_num) sc_num--;
+              } else {
+                if (show == 0 && client_num < HEIGHT - 3) client_num++;
+                show = 0;
+              }
+            }
+            else if ((kmsg->data & 0x3ff) == KBCODE_LEFT) {
+              if ((show == 0 || show == 2) && num_cpu_shift) num_cpu_shift--;
+            }
+            else if ((kmsg->data & 0x3ff) == KBCODE_RIGHT) {
+              if ((show == 0 || show == 2) && (num_cpu_shift < hip->cpu_count() - 1)) num_cpu_shift++;
+            }
+            else if ((kmsg->data & 0x7f) == KBCODE_ENTER) { show = show == 1 ? 0 : 1; if (show == 0) sc_num = 0;}
             else _update = false;
             update = update ? update : _update;
           }
@@ -446,11 +465,11 @@ public:
 
         if (enable_top && (update || tcount)) {
           if (show == 0)
-            top_dump_scs(*utcb, hip, client_num);
+            top_dump_scs(*utcb, hip, client_num, num_cpu_shift);
           else if (show == 1)
-            top_dump_client(client_num, interval, hip);
+            top_dump_client(client_num, interval, hip, sc_num);
           else
-            top_dump_prio(hip);
+            top_dump_prio(hip, num_cpu_shift);
         }
       }
 
