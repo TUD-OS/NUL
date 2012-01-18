@@ -84,16 +84,18 @@ class Motherboard : public StaticReceiver<Motherboard>
   Clock *clock() { return _clock; }
   Hip   *hip() { return _hip; }
 
+  static const char *word_separator()      { return " \t\r\n\f"; }
+  static const char *param_separator()     { return ",+"; }
+  static const char *wordparam_separator() { return ":"; }
+
   /**
    * Parse the cmdline and create devices.
    */
   void parse_args(const char *args, const char * stop = 0)
   {
-#define WORD_SEPARATOR " \t\r\n\f"
-#define PARAM_SEPARATOR ",+"
     while (args[0]) {
       if (stop && !strncmp(stop, args, strlen(stop))) return;
-      unsigned arglen = strcspn(args, WORD_SEPARATOR);
+      unsigned arglen = strcspn(args, word_separator());
       if (!arglen) {
         args++;
         continue;
@@ -106,22 +108,24 @@ class Motherboard : public StaticReceiver<Motherboard>
         CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
         char **strings = reinterpret_cast<char **>(*p++);
 
-        unsigned prefixlen = strcspn(args, ":" WORD_SEPARATOR);
+        unsigned prefixlen = MIN(strcspn(args, word_separator()),
+                                 strcspn(args, wordparam_separator()));
         if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
           Logging::printf("\t=> %.*s <=\n", arglen, args);
 
           const char *s = args + prefixlen;
-          if (args[prefixlen] == ':') s++;
+          if (strcspn(args + prefixlen, wordparam_separator()) == 0) s++;
           const char *start = s;
           unsigned long argv[16];
           for (unsigned j=0; j < 16; j++) {
-            unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
+            unsigned alen = MIN(strcspn(s, param_separator()),
+                                strcspn(s, word_separator()));
             if (alen)
               argv[j] = strtoul(s, 0, 0);
             else
               argv[j] = ~0UL;
             s+= alen;
-            if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
+            if (s[0] && strchr(param_separator(), s[0])) s++;
           }
           func(this, argv, start, s - start);
           handled = true;
