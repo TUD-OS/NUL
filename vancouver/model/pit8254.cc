@@ -119,7 +119,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     timevalue to= _start;
     if (feature(FPERIODIC))
       to = t + Math::mod64(_initial + _start - t, _initial);
-    MessageTimer msg(_timer, _clock.abstime(to - t, FREQ));
+    MessageTimer msg(_timer, _clock.abstime((to < t) ? 0 : (to - t), FREQ));
     _bus_timer->send(msg);
   }
 
