@@ -326,7 +326,7 @@
 
       //allocate sc
       unsigned cap_base = alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count());
-      AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, false); //don't block sigma0 when admission service is not available
+      AdmissionProtocol * s_ad = new AdmissionProtocol(cap_base, 0, false); //don't block sigma0 when admission service is not available
       res = s_ad->get_pseudonym(*utcb, pt + ParentProtocol::CAP_CHILD_ID);
       if (!res) res = s_ad->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, "main");
       if (!res) {
