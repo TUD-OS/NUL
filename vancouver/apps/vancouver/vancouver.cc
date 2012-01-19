@@ -320,7 +320,11 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     service_admission->set_name(*utcb, "vancouver");
 
-    _mb->parse_args(args, VANCOUVER_CONFIG_SEPARATOR);
+    const char *vancouver_cfg_end = strstr(args, VANCOUVER_CONFIG_SEPARATOR);
+    if (vancouver_cfg_end)
+      _mb->parse_args(args, vancouver_cfg_end - args);
+    else
+      _mb->parse_args(args);
 
     if (_service_events)
       service_events = new EventsProtocol(alloc_cap(EventsProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));

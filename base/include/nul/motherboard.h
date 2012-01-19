@@ -84,20 +84,50 @@ class Motherboard : public StaticReceiver<Motherboard>
   Clock *clock() { return _clock; }
   Hip   *hip() { return _hip; }
 
+  /* Argument parsing */
+
+  static const char *word_separator()      { return " \t\r\n\f"; }
+  static const char *param_separator()     { return ",+"; }
+  static const char *wordparam_separator() { return ":"; }
+
+  /**
+   * Return a pointer to the next token in args and advance
+   * args. Returns the length of the token in len.
+   */
+  static const char *next_arg(const char *&args, size_t &len)
+  {
+    len = 0;
+    if (args[0] == 0) return 0;
+
+    len = strcspn(args, word_separator());
+    if (len == 0) {
+      args += 1;
+      return next_arg(args, len);
+    } else {
+      args += len;
+      return args - len;
+    }
+  }
+
+  void parse_args(const char *args, size_t length)
+  {
+    char buf[length+1];
+    buf[length] = 0;
+    memcpy(buf, args, length);
+    parse_args(buf);
+  }
+
   /**
    * Parse the cmdline and create devices.
    */
-  void parse_args(const char *args, const char * stop = 0)
+  void parse_args(const char *args)
   {
-#define WORD_SEPARATOR " \t\r\n\f"
-#define PARAM_SEPARATOR ",+"
-    while (args[0]) {
-      if (stop && !strncmp(stop, args, strlen(stop))) return;
-      unsigned arglen = strcspn(args, WORD_SEPARATOR);
-      if (!arglen) {
-        args++;
-        continue;
-      }
+    const char *current;
+    size_t      arglen;
+
+    while ((current = next_arg(args, arglen))) {
+      assert(arglen > 0);
+
       long *p = &__param_table_start;
       bool handled = false;
       while (!handled && p < &__param_table_end) {
@@ -106,29 +136,30 @@ class Motherboard : public StaticReceiver<Motherboard>
         CreateFunction func = reinterpret_cast<CreateFunction>(*p++);
         char **strings = reinterpret_cast<char **>(*p++);
 
-        unsigned prefixlen = strcspn(args, ":" WORD_SEPARATOR);
-        if (strlen(strings[0]) == prefixlen && !memcmp(args, strings[0], prefixlen)) {
-          Logging::printf("\t=> %.*s <=\n", arglen, args);
+        unsigned prefixlen = MIN(strcspn(current, word_separator()),
+                                 strcspn(current, wordparam_separator()));
+        if (strlen(strings[0]) == prefixlen && !memcmp(current, strings[0], prefixlen)) {
+          Logging::printf("\t=> %.*s <=\n", arglen, current);
 
-          const char *s = args + prefixlen;
-          if (args[prefixlen] == ':') s++;
+          const char *s = current + prefixlen;
+          if (strcspn(current + prefixlen, wordparam_separator()) == 0) s++;
           const char *start = s;
           unsigned long argv[16];
           for (unsigned j=0; j < 16; j++) {
-            unsigned alen = strcspn(s, PARAM_SEPARATOR WORD_SEPARATOR);
+            unsigned alen = MIN(strcspn(s, param_separator()),
+                                strcspn(s, word_separator()));
             if (alen)
               argv[j] = strtoul(s, 0, 0);
             else
               argv[j] = ~0UL;
             s+= alen;
-            if (s[0] && strchr(PARAM_SEPARATOR, s[0])) s++;
+            if (s[0] && strchr(param_separator(), s[0])) s++;
           }
           func(this, argv, start, s - start);
           handled = true;
         }
       }
-      if (!handled) Logging::printf("Ignored parameter: '%.*s'\n", arglen, args);
-      args += arglen;
+      if (!handled) Logging::printf("Ignored parameter: '%.*s'\n", arglen, current);
     }
   }
 

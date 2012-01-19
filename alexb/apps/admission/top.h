@@ -248,7 +248,7 @@
 
     sort(tmp_sort, pos, sort_len);
 
-    unsigned row = HEIGHT - sort_len - 1;
+    unsigned row = HEIGHT - sort_len - 2;
     cursor_pos = 0;
     Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "Aggegrated runtime per interval (us/mint) - '%s':\n", data->scs[num_sc].name);
     row++;
@@ -297,7 +297,7 @@
     _vga_regs.cursor_pos = 0;
     _vga_regs.offset = 0;
 
-    show_max = HEIGHT - 11 - 3 - 3;
+    show_max = HEIGHT - 12 - 3 - 3;
     show_start = (num_sc >= show_max) ? num_sc - show_max + 1 : 0;
 
     Logging::printf("application: %s\n", data->name);
