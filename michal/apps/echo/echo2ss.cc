@@ -3,7 +3,7 @@
  * A simple service for educational purposes that does nothing useful;
  * this implementation is based on generic class SServiceProgram.
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -57,7 +57,7 @@ class EchoService : public SServiceProgram<EchoClient>
 public:
   EchoService() : SServiceProgram<EchoClient>("Echo service") {
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + Global::hip.cpu_count()));
-    register_service(this, "/echo", Global::hip);
+    register_service(this, "/echo");
   }
 };
 

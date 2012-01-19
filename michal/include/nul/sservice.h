@@ -3,7 +3,7 @@
  * @file
  * Simple service base class - provides code common to most services.
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
  * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
@@ -67,7 +67,7 @@ public:
    * @return
    */
   template<class T> // We use the template to properly instantiate StaticPortalFunc
-  static bool register_service(T *service, const char *service_name, Hip &hip)
+  static bool register_service(T *service, const char *service_name, Hip &hip = Global::hip)
   {
     Logging::printf("Constructing service %s...\n", service_name);
 
