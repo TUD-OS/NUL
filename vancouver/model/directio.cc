@@ -56,7 +56,7 @@ PARAM_HANDLER(dio,
   // request the io ports
   MessageHostOp msg(MessageHostOp::OP_ALLOC_IOIO_REGION, (base << 8) |  order);
   if (!mb.bus_hostop.send(msg))
-    Logging::panic("%s() failed to allocate port 0xcf8\n", __PRETTY_FUNCTION__);
+    Logging::panic("%s: failed to allocate ports %x/%u\n", __PRETTY_FUNCTION__, base, order);
 
   DirectIODevice *dev = new DirectIODevice(mb.bus_hwioin, mb.bus_hwioout, base, 1 << order);
   mb.bus_ioin.add(dev,  DirectIODevice::receive_static<MessageIOIn>);
