@@ -24,12 +24,11 @@ if ! nul-nightly.sh > $log 2>&1; then
 Subject: NUL nighly build/test failed!
 To: sojka@os
 
-Pipe this mail to 'nul/michal/wvtest/wvtestrun cat' to easily find out
-what failed.
+Full log can be found at erwin:$PWD/$log
 
 EOF
-	cat $log | tr -d '\015' #| iconv -f ASCII -t ASCII//IGNORE
-	echo
+	export COLUMNS=100
+	cat $log | tr -d '\015' | wvformat | fold -w $COLUMNS #| iconv -f ASCII -t ASCII//IGNORE
     ) | /usr/sbin/sendmail -ti
 fi
 

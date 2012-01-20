@@ -1,0 +1,122 @@
+#!/usr/bin/perl -w
+#
+# WvTest:
+#   Copyright (C)2007-2009 Versabanq Innovations Inc. and contributors.
+#       Licensed under the GNU Library General Public License, version 2.
+#       See the included file named LICENSE for license information.
+#
+use strict;
+
+if (@ARGV > 0) {
+    print STDERR "Usage: $0 < wvtest.log\n";
+    exit 127;
+}
+
+my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
+my $columns;
+if ($istty) {
+    $columns = `tput cols`;
+} else {
+    $columns = $ENV{'COLUMNS'} || 80;
+}
+
+my @log = ();
+my ($file, $sect);
+my ($gpasses, $gfails) = (0,0);
+my ($lpasses, $lfails) = (0,0);
+my ($tpasses, $tfails) = (0,0);
+
+sub colourize($$)
+{
+    my ($column, $result) = @_;
+    my $pass = ($result eq "ok");
+
+    my $begcolour = $istty ? ($pass ? "\e[32;1m" : "\e[31;1m") : "";
+    my $endcolour = $istty ? "\e[0m" : "";
+
+    my $dots = $columns - 15 - $column%$columns;
+    $dots += $columns if ($dots < 0);
+    my $leader = "."x$dots;
+    return "$begcolour$leader $result$endcolour";
+}
+
+sub resultline($$$)
+{
+    my ($prefix, $name, $result) = @_;
+    if (!defined $prefix) { $prefix = ''; }
+    return sprintf("$prefix! %s %s", $name, colourize(length($prefix)+2+length($name)+1, $result));
+}
+
+sub print_and_clear_log()
+{
+    print "v"x($columns-1) . "\n"; # Top marker
+    print join("\n", @log) . "\n";
+    print "^"x($columns-1) . "\n"; # Bottom marker
+    @log = ();
+}
+
+sub print_test_summary()
+{
+    print(resultline("", sprintf("%s %s [%d/%d]", $file, $sect, $lpasses, $lpasses+$lfails),
+		     $lfails ? "FAILED" : "ok") . "\n");
+    print_and_clear_log() if ($lfails);
+    if ($lfails) { $tfails++; }
+    else 	 { $tpasses++; }
+    ($lpasses, $lfails) = (0,0);
+}
+
+my $startup = 1;
+
+while (<>)
+{
+    chomp;
+    s/\r//g;
+
+    if (/^(\([0-9]+\) )?\s*Testing "(.*)" in (.*):\s*$/)
+    {
+	print_test_summary() unless $startup;
+	$startup = 0;
+	(undef, $sect, $file) = ($1, $2, $3);
+	@log = ();
+    }
+    elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
+    {
+	my ($prefix, $name, $result) = ($1, $3, $4);
+
+	if ($startup) {
+	    $file = "";
+	    $sect = "Startup";
+	    $startup = 0;
+	}
+
+	push @log, resultline($prefix, $name, $result);
+
+	if ($result eq "ok") {
+	    $gpasses++;
+	    $lpasses++;
+	} else {
+	    $gfails++;
+	    $lfails++;
+	}
+    }
+    else
+    {
+	push @log, $_;
+    }
+}
+
+if (!$startup) {
+    print_test_summary();
+} else {
+    print_and_clear_log();
+}
+
+my $gtotal = $gpasses+$gfails;
+my $ttotal = $tpasses+$tfails;
+printf("\nSummary: %d test%s, %d failure%s".
+       "\n         %d check%s, %d failure%s\n",
+    $ttotal, $ttotal==1 ? "" : "s",
+    $tfails, $tfails==1 ? "" : "s",
+    $gtotal, $gtotal==1 ? "" : "s",
+    $gfails, $gfails==1 ? "" : "s");
+exit(0);
