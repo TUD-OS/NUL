@@ -119,7 +119,8 @@ public:
 	// check for a timeout
 	timevalue now = mb->clock()->clock(FREQ);
 	if (now - start > TIMEOUT) {
-	  unsigned long long throughput = (requests_done-req_nr) * blocksize;
+	  unsigned long long throughput = (requests_done-req_nr);
+          throughput *= blocksize;
 	  Math::div64(throughput, now - start);
 	  unsigned request_rate = (requests_done-req_nr)*FREQ/TIMEOUT;
 	  Logging::printf("Speed: %lld kb/s Request: %d/s\n", throughput, request_rate);
@@ -132,6 +133,8 @@ public:
 	  if (wvtest && ++print == 2) {
 	    WVPERF(throughput, "kB/s"); 
 	    WVPERF(request_rate, "1/s");
+            unsigned request_duration = Math::muldiv128(mb->clock()->freq(), 1, request_rate);
+	    WVPERF(request_duration, "cycles");
 	    WvTest::exit(0);
 	    block_forever();
 	  }
