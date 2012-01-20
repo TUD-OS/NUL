@@ -142,7 +142,7 @@ class Motherboard : public StaticReceiver<Motherboard>
           Logging::printf("\t=> %.*s <=\n", arglen, current);
 
           const char *s = current + prefixlen;
-          if (strcspn(current + prefixlen, wordparam_separator()) == 0) s++;
+          if (s[0] && strcspn(current + prefixlen, wordparam_separator()) == 0) s++;
           const char *start = s;
           unsigned long argv[16];
           for (unsigned j=0; j < 16; j++) {
