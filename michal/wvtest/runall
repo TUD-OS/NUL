@@ -4,11 +4,9 @@ dir=$(dirname $0)
 tests=$($dir/listtests)
 exitcode=0
 for file in $tests; do
-    set -x
     cmd="$dir/wvnulrun $file $@"
     $cmd
     ret=$?
-    set +x
     if [ "$ret" -ne 0 ]; then
 	echo "! $0: '$cmd' returned non-zero exit code ($ret)  FAILED";
 	exitcode=1
