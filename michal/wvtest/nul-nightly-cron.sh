@@ -17,7 +17,9 @@ if ! cmp $0 michal/wvtest/nul-nightly-cron.sh; then
 fi
 
 cd ~/nul-nightly
-if ! nul-nightly.sh > $log 2>&1; then
+if nul-nightly.sh > $log 2>&1; then
+    ( cd ~/nul; git push -f origin HEAD:tested )
+else
     ret=1
     (
 	cat <<EOF
