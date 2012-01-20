@@ -11,8 +11,10 @@ WVSTART libvirt
 libvirt=$nulroot/alexb/apps/libvirt
 WVPASS make -C $libvirt install DESTDIR=$libvirt/_install
 WVPASS cp $nulroot/michal/imgs/passive/CAcertSrv.pem cacert.pem
+set -x
 PATH=$libvirt/_install/usr/local/bin:$PATH
 LD_LIBRARY_PATH=$libvirt/_install/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+set +x
 export LD_LIBRARY_PATH
 
 
