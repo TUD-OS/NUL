@@ -184,14 +184,16 @@ struct DiskClient : public GenericClientData {
 
   Disk *disk(unsigned num) { return num < disk_count ? disks[num] : NULL; }
 
-  // Align disk clients to use the sum of their address and the
-  // request number as tag.
+  // Align disk clients to allow using the sum of their address and
+  // the request number as tag.
   static inline void *operator new (size_t s)
   { return ::new (DiskProtocol::MAXDISKREQUESTS) char[s]; }
+
+  static_assert((DiskProtocol::MAXDISKREQUESTS & (DiskProtocol::MAXDISKREQUESTS-1)) == 0,
+		"MAXDISKREQUESTS should be a power of two");
 };
 
 class DiskService :
-  // We allocate clients aligned so that we can reuse the lower bits of the address for tags
   public BaseSService<DiskClient>,
   public CapAllocator, public StaticReceiver<DiskService>
 {
@@ -199,9 +201,6 @@ private:
   LockedList<Disk> disks;
   Motherboard &_mb;
   Semaphore _lock;
-
-  static_assert((DiskProtocol::MAXDISKREQUESTS & (DiskProtocol::MAXDISKREQUESTS-1)) == 0,
-		"MAXDISKREQUESTS should be a power of two");
 
   cap_sel _deleg_ec[Config::MAX_CPUS];
 
