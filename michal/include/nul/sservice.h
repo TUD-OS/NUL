@@ -24,11 +24,11 @@
 #include <nul/generic_service.h>
 #include <nul/baseprogram.h>
 
-template<class Session, bool free_pseudonym = true, bool __DEBUG__ = false, unsigned ALIGN = 0>
+template<class Session, bool free_pseudonym = true, bool __DEBUG__ = false>
 class BaseSService {
 
 protected:
-  typedef ClientDataStorage<Session, BaseSService, free_pseudonym, __DEBUG__, ALIGN> Sessions;
+  typedef ClientDataStorage<Session, BaseSService, free_pseudonym, __DEBUG__> Sessions;
   Sessions _sessions;
 
   virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out) = 0;

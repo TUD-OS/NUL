@@ -71,7 +71,7 @@ struct GenericClientData {
  * A generic container that stores per-client data.
  * Missing: iterator
  */
-template <class T, class A, bool free_pseudonym = true, bool __DEBUG__ = false, unsigned ALIGN = 0>
+template <class T, class A, bool free_pseudonym = true, bool __DEBUG__ = false>
 class ClientDataStorage {
   struct recycl {
     T volatile * volatile head;
@@ -103,7 +103,7 @@ public:
       /*
        * This guard triggers cleanup run on creation and deletion of this object
        */
-      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__, ALIGN> * _storage, Utcb &_utcb, A * _obj) :
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) :
         storage(_storage), obj(_obj), utcb(&_utcb)
       {
         if (obj) storage->cleanup(*utcb, obj);
@@ -113,7 +113,7 @@ public:
       /*
        * This guard don't trigger cleanup runs - use this for short running operation 
        */
-      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__, ALIGN> * _storage) :
+      Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage) :
         storage(_storage), obj(0), utcb(0)
       {
         Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
@@ -152,10 +152,7 @@ public:
 
     unsigned identity = obj->alloc_cap();
     if (!identity) return ERESOURCE;
-    if (ALIGN == 0)
-      data = new T;
-    else
-      data = new (ALIGN) T;
+    data = new T;
     if (!data) return ERESOURCE;
 
     memset(data, 0, sizeof(T));

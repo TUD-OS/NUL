@@ -183,11 +183,16 @@ struct DiskClient : public GenericClientData {
   size_t dma_size;
 
   Disk *disk(unsigned num) { return num < disk_count ? disks[num] : NULL; }
+
+  // Align disk clients to use the sum of their address and the
+  // request number as tag.
+  static inline void *operator new (size_t s)
+  { return ::new (DiskProtocol::MAXDISKREQUESTS) char[s]; }
 };
 
 class DiskService :
   // We allocate clients aligned so that we can reuse the lower bits of the address for tags
-  public BaseSService<DiskClient, true, false, DiskProtocol::MAXDISKREQUESTS>,
+  public BaseSService<DiskClient>,
   public CapAllocator, public StaticReceiver<DiskService>
 {
 private:
