@@ -178,7 +178,6 @@ struct ParentProtocol {
   }
 };
 
-
 /**
  * Generic protocol handling, hides the parent protocol
  * handling. Specific protocols will be inherited from it.
@@ -192,6 +191,7 @@ protected:
   const char *_service;
   unsigned    _instance;
   unsigned    _cap_base;	///< Base of the capability range. This cap refers to CAP_PSEUDONYM.
+  unsigned    _session_base;    ///< Base of the session portals.
   Semaphore   _lock;
   bool        _blocking;
   bool        _disabled;
@@ -214,29 +214,39 @@ public:
     unsigned w0  = utcb.msg[0];
     while (!_disabled) {
     do_call:
-      res = call(utcb, _cap_base + CAP_SERVER_PT, false);
-      if (res == EEXISTS) {
-        utcb.head.mtr = mtr;
-        utcb.msg[0]   = w0;
-        goto do_open_session;
+      res = call(utcb, _session_base, false);
+      if (_session_base == _cap_base + CAP_SERVER_PT) {
+        if (res == EEXISTS) {
+          utcb.head.mtr = mtr;
+          utcb.msg[0]   = w0;
+          goto do_open_session;
+        }
+        if (res == NOVA_ECAP) goto do_get_portal;
+      } else { // Per session portals
+        if (res == NOVA_ECAP) goto do_open_session;
       }
-      if (res == NOVA_ECAP) goto do_get_portal;
       goto do_out;
 
     do_open_session:
+      cap_sel sess;
+      if (_session_base == _cap_base + CAP_SERVER_PT)
+        sess = _cap_base + CAP_SERVER_SESSION; // Clients are identified by a translated semaphore
+      else
+        sess = _session_base + utcb.head.nul_cpunr; // Clients are identified by session portals
+
       //if we have already a server session revoke it to be able to receive an new mapping (overmapping not supported!)
       //- possible reason: server is gone and a new one is now in place
-      if (nova_lookup(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP)
-        nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
+      if (nova_lookup(Crd(sess, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP)
+        nova_revoke(Crd(sess, 0, DESC_CAP_ALL), true);
 
       utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM)
-		       << Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL);
+                       << Crd(sess, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
 
       if (res == NOVA_ECAP)  goto do_get_portal;
       if (res == EEXISTS)    goto do_get_pseudonym;
       if (res == ENONE) {
-        _disabled = !(nova_lookup(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP);
+        _disabled = !(nova_lookup(Crd(sess, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP);
         //stop here if server try to cheat us and avoid so looping potentially endless
         if (_disabled) res = EPERM;
         else goto do_call;
@@ -306,8 +316,8 @@ public:
   static Utcb & init_frame_noid(Utcb &utcb, unsigned op) { return utcb.add_frame() << op; }
   Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
 
-  GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking)
-    : _service(service), _instance(instance), _cap_base(cap_base), _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
+  GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
+    : _service(service), _instance(instance), _cap_base(cap_base), _session_base(session_base == ~0u ? _cap_base + CAP_SERVER_PT : session_base),  _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
   {
     unsigned res;
     res = nova_create_sm(cap_base + CAP_LOCK);
@@ -317,3 +327,11 @@ public:
   }
 };
 
+/// Helper class that replaces calls to init_frame() with calls to init_frame_noid().
+class GenericPtSessProtocol : public GenericProtocol {
+public:
+  GenericPtSessProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
+    : GenericProtocol(service, instance, cap_base, blocking, session_base) {}
+
+  Utcb & init_frame(Utcb &utcb, unsigned op) { return init_frame_noid(utcb, op); }
+};
