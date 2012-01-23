@@ -325,6 +325,7 @@ public:
    * typically called via assert() or panic(). Use this as
    * ASMFUNCS(..., WvTest).
    */
+  __attribute__ ((noreturn))
   static void exit(const char *msg)
   {
     if (msg && strcmp(msg, "run returned"))
