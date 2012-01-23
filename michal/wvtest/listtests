@@ -32,7 +32,7 @@ michal/boot/vancouver-linux-basic.wv
 michal/boot/vancouver-linux-boot-time.wv
 michal/boot/diskbench-vm.wv
 michal/boot/vancouver-dpci.wv needs_net
-alexb/apps/libvirt/libvirt.wv needs_net
+alexb/apps/libvirt/libvirt.wv
 michal/boot/vancouver-boot-from-disk.wv
 """
 
