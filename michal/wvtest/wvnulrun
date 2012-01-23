@@ -6,7 +6,7 @@
 # It takes care of killing test (qemu or serial reader) when the test
 # finishes or hangs.
 #
-# Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+# Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
 # Economic rights: Technische Universitaet Dresden (Germany)
 #
 # This file is part of NUL (NOVA user land).
@@ -98,8 +98,14 @@ while (<$fh>)
 		/ # .*System halted. *$/
 	   ))
     {
-	kill 15, $pid;		# Kill novaboot or qemu
-	$kill_ok = 1;
+	if (!$ENV{WVTEST_NOKILL}) {
+	    kill 15, $pid;	# Kill novaboot or qemu
+	    $kill_ok = 1;
+	} else {
+	    print "Keeping PID $pid alive\n";
+	    use POSIX;
+	    POSIX:_exit(0);
+	}
     }
 }
 my $newpid = waitpid($pid, 0);
