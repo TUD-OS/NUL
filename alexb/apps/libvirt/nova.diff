@@ -252,7 +252,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_driver.c
 --- libvirt-0.9.9/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-01-24 07:05:44.000000000 +0100
++++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-01-24 07:17:45.000000000 +0100
 @@ -0,0 +1,744 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
@@ -678,7 +678,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +  uint32_t res = ntohl(*num);
 +  return res;
 +}
-+
++/*
 +static virDomainPtr domainCreateXML(virConnectPtr conn ATTRIBUTE_UNUSED,
 +                                    const char *xml ATTRIBUTE_UNUSED,
 +                                    unsigned int flags ATTRIBUTE_UNUSED)
@@ -692,7 +692,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +                                  def, false)))
 +  return 0;
 +}
-+
++*/
 +static char *getCapabilities(virConnectPtr conn ATTRIBUTE_UNUSED) {
 +  const char cap[] = \
 +  "<host>" \
@@ -969,7 +969,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +    .getCapabilities = getCapabilities, /* 0.9.2 */
 +    .listDomains = listDomains, /* 0.8.8 */
 +    .numOfDomains = numOfDomains, /* 0.8.8 */
-+    .domainCreateXML = domainCreateXML, /* 0.9.2 */
++//    .domainCreateXML = domainCreateXML, /* 0.9.9 */
 +    .domainLookupByID = domainLookupByID, /* 0.8.8 */
 +    .domainLookupByUUID = domainLookupByUUID, /* 0.8.8 */
 +    .domainLookupByName = domainLookupByName, /* 0.8.8 */
