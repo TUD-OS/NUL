@@ -40,7 +40,7 @@ void *memalloc_mempool(unsigned long size, unsigned long align)
     _new = static_cast<unsigned>((old - size) & ~(align - 1));
   } while (old != Cpu::cmpxchg4b(reinterpret_cast<unsigned*>(&s), old, _new));
 
-  if (reinterpret_cast<char*>(_new) < &__mempoolstart)  Logging::panic("%s(%lx) EOM - increase __memsize!\n", __func__, size);
+  if (reinterpret_cast<char*>(_new) < &__mempoolstart)  Logging::panic("%s(size=%#lx heap region=%p-%p) EOM - increase __memsize!\n", __func__, size, &__mempoolstart, &__mempoolend);
   assert(!(_new & (align - 1)));
   return reinterpret_cast<char*>(_new);
 }
