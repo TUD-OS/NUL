@@ -35,23 +35,21 @@ if [ -z "$NOVA_IP" ]; then
 fi
 
 # Tests for libvirt commands
-WVPASS bash -o pipefail -c "virsh -c nova+tls://$NOVA_IP:9999 nodeinfo | tee log"
+WVPASS "virsh -c nova+tls://$NOVA_IP:9999 nodeinfo | tee log"
 WVPASS grep "CPU model:" log
 
-WVPASS bash -o pipefail -c "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
+WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
 WVPASS grep "linux.*no state" log
 
 WVPASS virsh -c nova+tls://$NOVA_IP:9999 start linux
-WVPASS bash -o pipefail -c "virsh -c nova+tls://$NOVA_IP:9999 list | tee log"
+WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list | tee log"
 WVPASS grep "linux.*running" log
-WVPASS sleep 2
 WVPASS grep "linux.*running" log
 WVPASS virsh -c nova+tls://$NOVA_IP:9999 destroy 2
 
 # Start two VMs simulataneously
 WVPASS virsh -c nova+tls://$NOVA_IP:9999 'start linux; start linux'
-WVPASS bash -o pipefail -c "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
-WVPASS sleep 2
+WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
 WVPASS test "$(grep "linux.*running" log|wc -l)" -eq 2
 WVPASS virsh -c nova+tls://$NOVA_IP:9999 'destroy 2; destroy 3'
 

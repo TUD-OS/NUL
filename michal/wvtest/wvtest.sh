@@ -46,13 +46,19 @@ _wvcheck()
 	fi
 }
 
-
 WVPASS()
 {
-	TEXT="$*"
-
 	_wvfind_caller
-	if "$@"; then
+
+	if [[ $# -gt 1 ]]; then
+		TEXT="$*"
+		WRAPPER=
+	else
+		TEXT=$1
+		WRAPPER="bash -o pipefail -c"
+	fi
+
+	if $WRAPPER "$@"; then
 		_wvcheck 0 "$TEXT"
 		return 0
 	else
@@ -62,6 +68,20 @@ WVPASS()
 	fi
 }
 
+WVSHPASS() # runs the test in a subshell (to support pipes and I/O redirections)
+{
+	TEXT="$*"
+
+	_wvfind_caller
+	if bash -o pipefail -c "$*"; then
+		_wvcheck 0 "$TEXT"
+		return 0
+	else
+		_wvcheck 1 "$TEXT"
+		# NOTREACHED
+		return 1
+	fi
+}
 
 WVFAIL()
 {
