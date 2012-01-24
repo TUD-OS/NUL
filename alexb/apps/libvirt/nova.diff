@@ -1,5 +1,5 @@
 --- libvirt-0.9.9/configure.ac	2012-01-07 04:53:02.000000000 +0100
-+++ libvirt-0.9.9-own/configure.ac	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/configure.ac	2012-01-23 20:24:30.000000000 +0100
 @@ -327,6 +327,8 @@
    AC_HELP_STRING([--with-remote], [add remote driver support @<:@default=yes@:>@]),[],[with_remote=yes])
  AC_ARG_WITH([libvirtd],
@@ -30,7 +30,7 @@
  AC_MSG_NOTICE([    Test: $with_test])
  AC_MSG_NOTICE([  Remote: $with_remote])
 --- libvirt-0.9.9/src/Makefile.am	2012-01-07 05:02:54.000000000 +0100
-+++ libvirt-0.9.9-own/src/Makefile.am	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/Makefile.am	2012-01-23 20:24:30.000000000 +0100
 @@ -333,6 +333,9 @@
  		lxc/lxc_container.c lxc/lxc_container.h		\
  		lxc/lxc_controller.c
@@ -94,7 +94,7 @@
  	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/uml" ||:
  	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
 --- libvirt-0.9.9/src/driver.h	2011-12-29 15:01:56.000000000 +0100
-+++ libvirt-0.9.9-own/src/driver.h	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/driver.h	2012-01-23 20:24:30.000000000 +0100
 @@ -30,6 +30,7 @@
      VIR_DRV_VMWARE = 13,
      VIR_DRV_LIBXL = 14,
@@ -104,7 +104,7 @@
  
  
 --- libvirt-0.9.9/src/libvirt.c	2012-01-05 10:04:31.000000000 +0100
-+++ libvirt-0.9.9-own/src/libvirt.c	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/libvirt.c	2012-01-23 20:24:30.000000000 +0100
 @@ -76,6 +76,9 @@
  # ifdef WITH_XENAPI
  #  include "xenapi/xenapi_driver.h"
@@ -146,7 +146,7 @@
      if (remoteRegister () == -1) return -1;
  # endif
 --- libvirt-0.9.9/src/conf/domain_event.c	2011-12-29 08:26:45.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_event.c	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_event.c	2012-01-23 20:24:30.000000000 +0100
 @@ -398,6 +398,7 @@
      for (i = 0 ; i < cbList->count ; i++) {
          if (cbList->callbacks[i]->cb == VIR_DOMAIN_EVENT_CALLBACK(callback) &&
@@ -156,7 +156,7 @@
              eventReportError(VIR_ERR_INTERNAL_ERROR, "%s",
                               _("event callback already tracked"));
 --- libvirt-0.9.9/src/conf/domain_conf.c	2012-01-05 10:16:31.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_conf.c	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_conf.c	2012-01-23 20:24:30.000000000 +0100
 @@ -89,7 +89,8 @@
                "vmware",
                "hyperv",
@@ -168,7 +168,7 @@
  VIR_ENUM_IMPL(virDomainBoot, VIR_DOMAIN_BOOT_LAST,
                "fd",
 --- libvirt-0.9.9/src/conf/domain_conf.h	2011-12-30 04:03:54.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_conf.h	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_conf.h	2012-01-23 20:24:30.000000000 +0100
 @@ -58,6 +58,7 @@
      VIR_DOMAIN_VIRT_HYPERV,
      VIR_DOMAIN_VIRT_VBOX,
@@ -178,7 +178,7 @@
      VIR_DOMAIN_VIRT_LAST,
  };
 --- libvirt-0.9.9/examples/domain-events/events-c/event-test.c	2011-12-06 09:38:51.000000000 +0100
-+++ libvirt-0.9.9-own/examples/domain-events/events-c/event-test.c	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/examples/domain-events/events-c/event-test.c	2012-01-23 20:24:30.000000000 +0100
 @@ -172,9 +172,9 @@
                                    int detail,
                                    void *opaque ATTRIBUTE_UNUSED)
@@ -200,10 +200,32 @@
          (callback2ret != -1) &&
          (callback3ret != -1) &&
          (callback4ret != -1) &&
+--- libvirt-0.9.9/include/libvirt/virterror.h	2011-12-29 08:26:45.000000000 +0100
++++ libvirt-0.9.9-own/include/libvirt/virterror.h	2012-01-23 20:24:30.000000000 +0100
+@@ -85,6 +85,7 @@
+     VIR_FROM_LOCKING = 42,	/* Error from lock manager */
+     VIR_FROM_HYPERV = 43,	/* Error from Hyper-V driver */
+     VIR_FROM_CAPABILITIES = 44, /* Error from capabilities */
++    VIR_FROM_NOVA = 45, /* Error from NOVA driver */
+ } virErrorDomain;
+ 
+ 
+--- libvirt-0.9.9/src/util/virterror.c	2011-12-29 08:26:45.000000000 +0100
++++ libvirt-0.9.9-own/src/util/virterror.c	2012-01-23 20:24:30.000000000 +0100
+@@ -178,6 +178,9 @@
+         case VIR_FROM_CAPABILITIES:
+             dom = "Capabilities ";
+             break;
++        case VIR_FROM_NOVA:
++            dom = "NOVA ";
++            break;
+     }
+     return(dom);
+ }
 diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_conf.h
 --- libvirt-0.9.9/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_conf.h	2012-01-18 21:03:37.000000000 +0100
-@@ -0,0 +1,23 @@
++++ libvirt-0.9.9-own/src/nova/nova_conf.h	2012-01-23 20:24:30.000000000 +0100
+@@ -0,0 +1,24 @@
 +#ifndef __VIR_NOVA_CONF_H__
 +# define __VIR_NOVA_CONF_H__
 +
@@ -216,6 +238,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_con
 +  int socket_cmd;
 +  int socket_event;
 +  virDomainEventStatePtr domainEventState;
++  virDomainObjList domains;
 +  virThreadPtr eventthread;
 +  bool lock_init;
 +  virMutex lock;
@@ -229,8 +252,8 @@ diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_driver.c
 --- libvirt-0.9.9/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-01-18 21:27:09.000000000 +0100
-@@ -0,0 +1,705 @@
++++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-01-24 07:05:44.000000000 +0100
+@@ -0,0 +1,744 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -263,6 +286,8 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +#if LIBGNUTLS_VERSION_NUMBER < 0x020a00
 +  #define gnutls_certificate_set_verify_function(x, y) while(0){}
 +#endif
++
++#define VIR_FROM_THIS VIR_FROM_NOVA
 +
 +static void novaReadEvents(void *data) {
 +  virConnectPtr nconn = (virConnectPtr)data;
@@ -512,6 +537,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +    }
 +
 +    if (!(nconn->domainEventState = virDomainEventStateNew())) goto error;
++    if (virDomainObjListInit(&nconn->domains)) goto out_of_memory;
 +
 +    conn->privateData = nconn;
 +
@@ -523,6 +549,9 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +    return VIR_DRV_OPEN_SUCCESS;
 +
 +    /* error handling */
++    out_of_memory:
++    virReportOOMError();
++
 +    error:
 +    if (btls) {
 +      gnutls_bye(nconn->session_cmd, GNUTLS_SHUT_WR);
@@ -542,6 +571,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +    }
 +
 +    error_socket:
++    if (nconn) virDomainObjListDeinit(&nconn->domains);
 +    if (nconn && nconn->domainEventState) virDomainEventStateFree(nconn->domainEventState);
 +    if (nconn && nconn->eventthread) VIR_FREE(nconn->eventthread);
 +    if (nconn && nconn->lock_init) virMutexDestroy(&nconn->lock);
@@ -653,6 +683,13 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +                                    const char *xml ATTRIBUTE_UNUSED,
 +                                    unsigned int flags ATTRIBUTE_UNUSED)
 +{
++    if (!(def = virDomainDefParseString(driver->caps, xml,
++                                        QEMU_EXPECTED_VIRT_TYPES,
++                                        VIR_DOMAIN_XML_INACTIVE)))
++        goto cleanup;
++    if (!(vm = virDomainAssignDef(driver->caps,
++                                  &driver->domains,
++                                  def, false)))
 +  return 0;
 +}
 +
@@ -807,6 +844,17 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +  return virDomainEventStateDeregisterID(conn, nconn->domainEventState, callbackID);
 +}
 +
++static char *domainGetXMLDesc(virDomainPtr domain, unsigned int flags)
++{
++  if (!domain || domain->id == -1 || !domain->conn || !domain->conn->privateData) return 0;
++
++  struct nova_conn *nconn = domain->conn->privateData;
++  //virDomainDefPtr def = dom->vm;
++  virDomainObjPtr vm = virDomainFindByUUID(&nconn->domains, domain->uuid);
++  if (!vm) return 0;
++  return virDomainDefFormat(vm->def, flags);
++}
++
 +static int listDefinedDomains(virConnectPtr conn, char ** const names, int maxnames)
 +{
 +  unsigned i;
@@ -901,6 +949,17 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +  return 0;
 +}
 +
++static int isAlive(virConnectPtr conn ATTRIBUTE_UNUSED)
++{
++  return 1; //alive
++}
++
++static int
++setKeepAlive(virConnectPtr conn ATTRIBUTE_UNUSED, int interval ATTRIBUTE_UNUSED, unsigned int count ATTRIBUTE_UNUSED)
++{
++  return 1; //means unsupported
++}
++
 +static virDriver novaDriver = {
 +    .no = VIR_DRV_NOVA,
 +    .name = "NOVA",
@@ -917,12 +976,15 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +    .domainDestroy = domainDestroy, /* 0.8.8 */
 +    .domainGetInfo = domainGetInfo, /* 0.8.8 */
 +    .domainGetState = domainGetState, /* 0.9.2 */
++    .domainGetXMLDesc = domainGetXMLDesc, /* 0.9.9 */
 +    .listDefinedDomains = listDefinedDomains, /* 0.8.8 */
 +    .numOfDefinedDomains = numOfDefinedDomains, /* 0.8.8 */
 +    .domainCreate = domainCreate, /* 0.8.8 */
 +    .domainIsPersistent = domainIsPersistent, /* 0.8.8 */
 +    .domainEventRegisterAny = domainEventRegisterAny, /* 0.8.8 */
 +    .domainEventDeregisterAny = domainEventDeregisterAny, /* 0.8.8 */
++    .setKeepAlive = setKeepAlive, /* 0.9.9 */
++    .isAlive = isAlive, /* 0.9.9 */
 +};
 +
 +/**
@@ -938,7 +1000,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +}
 diff -urN libvirt-0.9.9/src/nova/nova_driver.h libvirt-0.9.9-own/src/nova/nova_driver.h
 --- libvirt-0.9.9/src/nova/nova_driver.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_driver.h	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/nova/nova_driver.h	2012-01-23 20:24:30.000000000 +0100
 @@ -0,0 +1,8 @@
 +#ifndef __VIR_NOVA_INTERNAL_H__
 +# define __VIR_NOVA_INTERNAL_H__
@@ -950,7 +1012,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.h libvirt-0.9.9-own/src/nova/nova_d
 +#endif /* __VIR_NOVA_INTERNAL_H__ */
 diff -urN libvirt-0.9.9/src/nova/nova_types.h libvirt-0.9.9-own/src/nova/nova_types.h
 --- libvirt-0.9.9/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_types.h	2012-01-18 20:48:04.000000000 +0100
++++ libvirt-0.9.9-own/src/nova/nova_types.h	2012-01-23 20:24:30.000000000 +0100
 @@ -0,0 +1,37 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
