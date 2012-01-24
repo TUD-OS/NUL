@@ -410,7 +410,7 @@
     Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
     assert(r);
     assert(r->size >= modinfo->physsize);
-    _free_phys.add(Region(r->phys, modinfo->physsize));
+    _free_phys.add(Region(r->phys, modinfo->physsize, r->phys));
     modinfo->physsize = 0;
 
     // XXX legacy - should be a service - freeing producer/consumer stuff
