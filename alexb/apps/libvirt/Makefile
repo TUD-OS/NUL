@@ -1,6 +1,6 @@
 all: .build.stamp
 
-VERSION=0.9.6
+VERSION=0.9.9
 libvirt-$(VERSION).tar.gz:
 	wget ftp://libvirt.org/libvirt/$@
 
