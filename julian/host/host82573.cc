@@ -219,8 +219,8 @@ class Host82573 : public PciDriver,
       //rx_packet_process(_rx_buf[_rx_last], rx_desc_size(_rx_ring[_rx_last]));
       
       uint16 plen = _rx_ring[_rx_last].hi >> 32;
-      Logging::printf("RX %016llx %016llx\n", _rx_ring[_rx_last].lo, _rx_ring[_rx_last].hi);
-      Logging::printf("   plen %u\n", plen);
+      //Logging::printf("RX %016llx %016llx\n", _rx_ring[_rx_last].lo, _rx_ring[_rx_last].hi);
+      //Logging::printf("   plen %u\n", plen);
       assert(plen <= 2048);
 
       MessageNetwork nmsg(_rx_buf[_rx_last], plen, 0);
@@ -240,8 +240,8 @@ class Host82573 : public PciDriver,
       _hwreg[RDT] = (rdt+1) % desc_ring_len;
     }
 
-    if (processed != 0)
-      msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
+//     if (processed != 0)
+//       msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
 
   }
 
@@ -311,8 +311,8 @@ class Host82573 : public PciDriver,
   {
     DmaDesc *cur;
     while (((cur = &_tx_ring[_tx_last])->hi >> 32) & 1 /* done? */) {
-      uint16 plen = cur->hi >> 32;
-      msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", _tx_last, cur->lo, cur->hi, plen);
+      //uint16 plen = cur->hi >> 32;
+      //msg(INFO, "TX %02x! %016llx %016llx (len %04x)\n", _tx_last, cur->lo, cur->hi, plen);
 
       cur->hi = cur->lo = 0;
       _tx_last = (_tx_last+1) % desc_ring_len;
@@ -327,8 +327,8 @@ public:
     
     uint32 icr = _hwreg[ICR];
 
-    msg(IRQ, "%08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
-     	_hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
+//     msg(IRQ, "%08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
+//      	_hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
 
     // If the interrupt is not asserted, ICR has not autocleared and
     // we need to clear it manually.
@@ -366,7 +366,7 @@ public:
         // Protect against our own packets. WTF?
         if ((nmsg.buffer >= static_cast<void *>(_rx_buf[0])) &&
             (nmsg.buffer < static_cast<void *>(_rx_buf[desc_ring_len]))) return false;
-        msg(INFO, "Send packet (size %u)\n", nmsg.len);
+        //msg(INFO, "Send packet (size %u)\n", nmsg.len);
 
         {
           unsigned tail = _hwreg[TDT];
@@ -384,7 +384,7 @@ public:
             | (1U<<25 /* Append MAC FCS */)
             | (1U<<27 /* Report Status = IRQ */);
 
-          msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT], _hwreg[TDH]);
+          //msg(INFO, "TX[%02x] %016llx TDT %04x TDH %04x\n", tail, _tx_ring[tail].hi, _hwreg[TDT], _hwreg[TDH]);
 
           MEMORY_BARRIER;
           _hwreg[TDT] = (tail+1) % desc_ring_len;
