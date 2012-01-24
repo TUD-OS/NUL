@@ -250,7 +250,7 @@
 
     unsigned row = HEIGHT - sort_len - 2;
     cursor_pos = 0;
-    Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "Aggegrated runtime per interval (us/mint) - '%s':\n", data->scs[num_sc].name);
+    Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "Aggregated runtime per interval (us/mint) - '%s':\n", data->scs[num_sc].name);
     row++;
     cursor_pos = 0;
     Vprintf::printf(&_putc, _vga_console + row * VALUEWIDTH * WIDTH, "   us/mint");
