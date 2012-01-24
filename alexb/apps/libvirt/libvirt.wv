@@ -30,6 +30,7 @@ if [ -z "$NOVA_IP" ]; then
     set -x
     $wvpath/wvnulrun $passive "$@" | tee passive.log
     test "$NOVA_IP" || NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
+    pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
     set +x
 fi
 
@@ -54,5 +55,4 @@ WVPASS sleep 2
 WVPASS test "$(grep "linux.*running" log|wc -l)" -eq 2
 WVPASS virsh -c nova+tls://$NOVA_IP:9999 'destroy 2; destroy 3'
 
-pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
 if [ "$pid" ]; then kill $pid; fi
