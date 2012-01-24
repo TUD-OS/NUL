@@ -182,7 +182,7 @@ class Host82573 : public PciDriver,
 
     // Add descriptors
     for (unsigned i = 0; i < desc_ring_len - 1; i++) {
-      _rx_ring[i].lo = reinterpret_cast<mword>(_rx_buf[i]);
+      _rx_ring[i].lo = addr2phys(_rx_buf[i]);
       _rx_ring[i].hi = 0;
 
       // Tell NIC about receive descriptor.
@@ -235,7 +235,7 @@ class Host82573 : public PciDriver,
 
       // XXX Use shadow RDT
       unsigned rdt = _hwreg[RDT];
-      _rx_ring[rdt].lo = reinterpret_cast<mword>(_rx_buf[rdt]);
+      _rx_ring[rdt].lo = addr2phys(_rx_buf[rdt]);
       _rx_ring[rdt].hi = 0;
       _hwreg[RDT] = (rdt+1) % desc_ring_len;
     }
@@ -378,7 +378,7 @@ public:
             return false;
           }
 
-          _tx_ring[tail].lo = reinterpret_cast<uint32>(_tx_buf[tail]);
+          _tx_ring[tail].lo = addr2phys(_tx_buf[tail]);
           _tx_ring[tail].hi = static_cast<uint64>(nmsg.len)
             | (1U<<24 /* EOP */)
             | (1U<<25 /* Append MAC FCS */)
