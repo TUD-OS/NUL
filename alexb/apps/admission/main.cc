@@ -32,19 +32,8 @@
 #define CONST_CAP_RANGE 16U
 
 namespace ab {
-class StartAdmissionService : public NovaProgram
-{
-  public:
 
-  template <class C>
-  unsigned  create_ec4pt(C * tls, phy_cpu_no cpunr, unsigned excbase, Utcb **utcb_out=0, unsigned long cap = ~0UL) {
-    return NovaProgram::create_ec4pt(tls, cpunr, excbase, utcb_out, cap);
-  }
-
-  NORETURN void run(Utcb *utcb, Hip *hip);
-};
-
-class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>, public ProgramConsole
+class AdmissionService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>, public ProgramConsole, public NovaProgram
 {
   static char * flag_revoke;
 
@@ -78,11 +67,9 @@ private:
 
   unsigned interval;
 
-  StartAdmissionService &prg;
-
 public:
 
-  AdmissionService(StartAdmissionService& _prg) : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), prg(_prg) {}
+  AdmissionService() : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1) {}
 
   void init_service(Hip * hip) {
     unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, CONST_CAP_RANGE);
@@ -93,7 +80,7 @@ public:
   }
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
-    if (num > 1) return prg.alloc_cap(num);
+    if (num > 1) return CapAllocator::alloc_cap(num);
     else return CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::alloc_cap(num, cpu);
   }
   inline void dealloc_cap(unsigned cap, unsigned count = 1) {
@@ -373,9 +360,9 @@ public:
         if (!exc_base_wo || !exc_base_pf) return false;
         pt_wo       = alloc_cap(1, cpunr);
 
-        unsigned cap_ec = prg.create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap(1, cpunr));
+        unsigned cap_ec = create_ec4pt(this, cpunr, exc_base_wo, &utcb_wo, alloc_cap(1, cpunr));
         if (!cap_ec) return false;
-        unsigned cap_pf = prg.create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap(1, cpunr));
+        unsigned cap_pf = create_ec4pt(this, cpunr, exc_base_pf, &utcb_pf, alloc_cap(1, cpunr));
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
@@ -481,9 +468,12 @@ public:
     }
   }
 
+  NORETURN
   void run(Utcb *utcb, Hip *hip)
   {
 
+    init(hip);
+    init_mem(hip);
     init_service(hip);
 
     console_init("admission service", new Semaphore(alloc_cap(), true));
@@ -512,25 +502,15 @@ public:
 
     if (enable_measure && !run_statistics(utcb, hip))
       Logging::printf("failure - running statistic loop\n");
+
+    block_forever();
   }
 };
 
   char *   AdmissionService::flag_revoke;
   unsigned AdmissionService::cursor_pos;
 
-
-  void StartAdmissionService::run(Utcb *utcb, Hip *hip)
-  {
-
-    init(hip);
-    init_mem(hip);
-
-    AdmissionService * run = new AdmissionService(*this);
-    run->run(utcb, hip);
-
-    block_forever();
-  }
 } /* namespace */
 
-ASMFUNCS(ab::StartAdmissionService, NovaProgram)
+ASMFUNCS(ab::AdmissionService, NovaProgram)
 
