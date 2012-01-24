@@ -6,11 +6,20 @@
 #       See the included file named LICENSE for license information.
 #
 use strict;
+use Getopt::Long;
 
-if (@ARGV > 0) {
-    print STDERR "Usage: $0 < wvtest.log\n";
+sub usage() {
+    print STDERR "Usage: $0 [-v] < wvtest.log\n";
     exit 127;
 }
+
+my $verbose;
+
+GetOptions (
+    "verbose|v" 	     => \$verbose,
+    ) or usage();
+
+usage() if (@ARGV > 0);
 
 my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
 my $columns;
@@ -89,7 +98,11 @@ while (<>)
 	    $startup = 0;
 	}
 
-	push @log, resultline($prefix, $name, $result);
+	if ($verbose) {
+	    print resultline($prefix, $name, $result) . "\n";
+	} else {
+	    push @log, resultline($prefix, $name, $result);
+	}
 
 	if ($result eq "ok") {
 	    $gpasses++;
@@ -101,14 +114,19 @@ while (<>)
     }
     else
     {
-	push @log, $_;
+	if ($verbose) {
+	    print "$_\n";
+	} else {
+	    push @log, $_;
+	}
     }
 }
-
-if (!$startup) {
-    print_test_summary();
-} else {
-    print_and_clear_log();
+if (!$verbose) {
+    if (!$startup) {
+	print_test_summary();
+    } else {
+	print_and_clear_log();
+    }
 }
 
 my $gtotal = $gpasses+$gfails;
