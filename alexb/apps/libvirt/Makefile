@@ -31,3 +31,14 @@ clean:
 	rm -f .build.stamp 
 	rm -f .configure.stamp
 	rm -f .patch.stamp
+
+FORCE:
+
+libvirt-$(VERSION)-nova: libvirt-$(VERSION) FORCE
+	rm -rf $@
+	git --git-dir=$</.git checkout-index --prefix=$@/ -a -f
+	cd $@ && autoreconf
+
+
+dist: libvirt-$(VERSION)-nova
+	tar cf - $< | gzip > $<.tar.gz
