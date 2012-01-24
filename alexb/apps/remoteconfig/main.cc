@@ -107,6 +107,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport,
           localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
       if (rc > 0) {
+        if (localport == LIBVIRT_EVT_PORT) return; //don't allow to send via event port messages to the daemon
+
         loop:
 
         out = 0; out_len = 0;
@@ -299,13 +301,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
         while (sendconsumer->has_data()) {
           unsigned size = sendconsumer->get_buffer(buf);
-
-          struct {
-            unsigned long port;
-            size_t count;
-            void * data;
-          } arg = { conn.port, size, buf };
-          nul_ip_config(IP_TCP_SEND, &arg);
+          void * data   = buf;
+          nul_tls_config(0, write_out, data, size, true, LIBVIRT_EVT_PORT, tls_session_event); //XXX check here
           sendconsumer->free_buffer();
         }
       }
