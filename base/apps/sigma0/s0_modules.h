@@ -357,6 +357,8 @@
     if (res) {
       SemaphoreGuard l(_lock_mem);
       _free_phys.add(Region(pmem, modinfo->physsize));
+      Logging::printf("Admission service error %d detected\n", res);
+      res = __LINE__;
     }
 
     return res;
