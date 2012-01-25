@@ -22,7 +22,7 @@ if [ -z "$NOVA_IP" ]; then
     # Boot NOVA up to the point it is receiving libvirt connections
     export WVTEST_EXIT_PATTERN="NOVA management daemon is up. Waiting for libvirt connection"
     passive=$nulroot/michal/boot/passive
-    if ! echo "$*"|grep -q '(--server|-I)'; then # It seems that the test will run in qemu
+    if ! echo " $*"|grep -Eq '(--server|-I)'; then # It seems that the test will run in qemu
 	passive=${passive}-ne2k
 	export WVTEST_NOKILL=1
 	NOVA_IP=127.0.0.1
