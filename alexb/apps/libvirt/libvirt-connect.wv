@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+. $(dirname $0)/libvirt.wv.inc\
+
+WVSTART Connecting multiple times to NOVA libvirt daemon
+
+init
+
+for i in $(seq 100); do
+    echo Attempt $i
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 nodeinfo > /dev/null"
+done
+
+finish

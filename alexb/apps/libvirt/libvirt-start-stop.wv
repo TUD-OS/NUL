@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+. $(dirname $0)/libvirt.wv.inc\
+
+WVSTART Start and stop two VMs multiple times using libvirt
+
+init
+
+for i in $(seq 100); do
+    echo Attempt $i
+    WVPASS virsh -c nova+tls://$NOVA_IP:9999 'start linux; start linux'
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
+    WVPASS test "$(grep "linux.*running" log|wc -l)" -eq 2
+    WVPASS virsh -c nova+tls://$NOVA_IP:9999 'destroy 2; destroy 3'
+done
+
+finish
