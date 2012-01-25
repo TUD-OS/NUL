@@ -88,7 +88,7 @@ public:
 	  }
 
 	// we finished the current command
-	if (~fis[0] & 0x80000 && fis[4])  {
+	if (~fis[0] & 0x80000 && fis[4])  { // !DRQ && dsf[6]
 	  unsigned mask = 1 << (fis[4] - 1);
 	  if (mask & ~_inprogress)
 	    Logging::panic("XXX broken %x,%x inprogress %x\n", fis[0], fis[4], _inprogress);

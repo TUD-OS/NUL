@@ -90,7 +90,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   {
     unsigned dsf[7];
     memset(dsf, 0, sizeof(dsf));
-    dsf[0] = 0x800 | (direction ? 0x200 : 0)| 0x41;
+    dsf[0] = 0x800 /* interrupt */ | (direction ? 0x200 : 0)| 0x41;
     _peer->receive_fis(7, dsf);
   };
 
