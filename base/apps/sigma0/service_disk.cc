@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -147,7 +147,7 @@ public:
     for (unsigned i = 0; i < dmacount; i++)
       size += dma[i].bytecount;
     if (sector+(size+511)/512 >= length) return false;
-    return parent->read_write(op, usertag, start+sector, dmacount, dma, physsize, physsize);
+    return parent->read_write(op, usertag, start+sector, dmacount, dma, physoffset, physsize);
   }
 
   virtual bool flush() { return parent->flush(); }
