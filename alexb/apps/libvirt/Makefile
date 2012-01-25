@@ -37,7 +37,7 @@ FORCE:
 libvirt-$(VERSION)-nova: libvirt-$(VERSION) FORCE
 	rm -rf $@
 	git --git-dir=$</.git checkout-index --prefix=$@/ -a -f
-	cd $@ && autoreconf
+	cd $@ && autoreconf -v -f
 
 
 dist: libvirt-$(VERSION)-nova
