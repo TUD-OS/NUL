@@ -143,10 +143,18 @@ public:
 			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
   {
     uint64   size = 0;
-    if (sector >= length) return false;
+    if (sector >= length) {
+      Logging::printf("disk: %s: attempt to %s behind the partition len:0x%llx sector:0x%llx\n",
+                      get_name(), op == READ ? "read" : "write", length, sector);
+      return false;
+    }
     for (unsigned i = 0; i < dmacount; i++)
       size += dma[i].bytecount;
-    if (sector+(size+511)/512 >= length) return false;
+    if (sector+(size+511)/512 > length) {
+      Logging::printf("disk: %s: attempt to %s behind the partition len:0x%llx sector:0x%llx+0x%llx\n",
+                      get_name(), op == READ ? "read" : "write", length, sector, (size+511)/512);
+      return false;
+    }
     return parent->read_write(op, usertag, start+sector, dmacount, dma, physoffset, physsize);
   }
 
