@@ -5,6 +5,8 @@ wvpath=$nulroot/michal/wvtest
 
 . $wvpath/wvtest.sh
 
+_args="$*"
+
 init() {
     # Setup libvirt environment
     libvirt=$nulroot/alexb/apps/libvirt
@@ -21,16 +23,17 @@ init() {
         # Boot NOVA up to the point it is receiving libvirt connections
 	export WVTEST_EXIT_PATTERN="NOVA management daemon is up. Waiting for libvirt connection"
 	passive=$nulroot/michal/boot/passive
-	if ! echo " $*"|grep -Eq '(--server|-I)'; then # It seems that the test will run in qemu
+	if ! echo " $_args"|grep -Eq '(--server|-I)'; then # It seems that the test will run in qemu
 	    passive=${passive}-ne2k
 	    export WVTEST_NOKILL=1
 	    NOVA_IP=127.0.0.1
 	fi
 	set -x
-	$wvpath/wvnulrun $passive $@ | tee passive.log
+	$wvpath/wvnulrun $passive $_args | tee passive.log
 	test "$NOVA_IP" || NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
 	pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
 	set +x
+	WVPASS test $NOVA_IP
     fi
 }
 
