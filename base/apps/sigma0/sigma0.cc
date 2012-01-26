@@ -1019,7 +1019,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           const char * desc = msg.desc;
           unsigned cpu  = (msg.cpu == ~0U) ? _cpunr[CPUGSI % _numcpus] : msg.cpu;
           Logging::printf("s0: Attaching to CPU %x (%x %x)\n", cpu, msg.cpu, _cpunr[CPUGSI % _numcpus]);
-          assert(cpu < 32);
+          assert(cpu < Config::MAX_CPUS);
           unsigned cap = attach_msi(&msg, cpu);
           check1(false, !cap);
           res = attach_irq(msg.msi_gsi, cap, unlocked, cpu, desc);
