@@ -363,11 +363,6 @@ public:
 
   bool receive(MessageIrq &irq_msg)
   {
-
-    if (irq_msg.line > 32)
-      Logging::printf("IRQ %x (%x %x %x) %s\n", irq_msg.line, _hostirq, _hostirq_rx, _hostirq_tx,
-                      _multi_irq_mode ? "MSI-X" : "Legacy");
-
     if (_multi_irq_mode) {
       if (irq_msg.line != _hostirq    and
           irq_msg.line != _hostirq_rx and
@@ -389,8 +384,6 @@ public:
         _hwreg[IMS] = (1U << 20 /* RX0 */);
         rx_handle();
       } else Logging::panic("?");
-
-      Logging::printf("ICR %08x IMS %08x\n", _hwreg[ICR], _hwreg[IMS]);
     } else {
       // Legacy/MSI mode
       if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
