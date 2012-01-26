@@ -3,7 +3,7 @@
 QEMU_FLAGS=-cpu phenom -smp 2 -m 1024 -net nic,model=ne2k_pci -net user,hostfwd=tcp:127.0.0.1:9999-:9999,hostfwd=tcp:127.0.0.1:10000-:10000
 HYPERVISOR_PARAMS=iommu serial spinner
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga:0x40000,0x40000 hostvesa hostkeyb:0+0x60+1+12+1 \
-		    nubus host82573:0 hostahci service_config service_disk script_start:1 name::/s0/events
+		    nubus hostne2k hostide service_config service_disk script_start:1 name::/s0/events
 bin/apps/remote_config.nul
 bin/apps/vancouver.nul
 bin/boot/munich
