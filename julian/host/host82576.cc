@@ -233,6 +233,12 @@ public:
     return true;
   };
 
+  void enable_irqs()
+  {
+    _hwreg[EIMS] = 1;
+    _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
+  }
+
   Host82576(HostPci pci, DBus<MessageHostOp> &bus_hostop, Clock *clock, unsigned bdf)
     : PciDriver("82576PF", bus_hostop, clock, ALL & ~IRQ, bdf)
   {
@@ -370,10 +376,7 @@ public:
     // Wait for Link Up and VM mailbox events.
     msg(INFO, "Enabling interrupts...\n");
     _hwreg[EIAC] = 1;		// Autoclear EICR on IRQ.
-    _hwreg[EIMS] = 1;
     _hwreg[EIAM] = 1;
-    _hwreg[IMS] = IRQ_VMMB | IRQ_LSC | IRQ_TIMER;
-
     //_hwreg[EICS] = 1;
     // Starting timer (every 0.256s)
     //_hwreg[TCPTIMER] = 0xFF | TCPTIMER_ENABLE | TCPTIMER_LOOP | TCPTIMER_KICKSTART | TCPTIMER_FINISH;
@@ -393,6 +396,7 @@ PARAM_HANDLER(host82576,
       if (found++ == argv[0]) {
 	Host82576 *dev = new Host82576(pci, mb.bus_hostop, mb.clock(), bdf);
 	mb.bus_hostirq.add(dev, &Host82576::receive_static<MessageIrq>);
+        dev->enable_irqs();
       }
     }
   }

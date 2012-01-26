@@ -213,6 +213,11 @@ public:
     }
   }
 
+  void enable_irqs()
+  {
+    _hwreg[VTEIMS] = 1;
+  }
+
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
               DBus<MessageNetwork> &bus_network, Clock *clock,
 	      unsigned bdf, unsigned irqs[2], void *reg, uint32 itr_us, bool promisc)
@@ -292,8 +297,6 @@ public:
       // Tell NIC about receive descriptor.
       _hwreg[RDT0] = i+1;
     }
-
-    _hwreg[VTEIMS] = 1;
 
     // Send RESET message
     _hwreg[VMB] = VFU;
@@ -386,6 +389,8 @@ PARAM_HANDLER(host82576vf,
 
   mb.bus_hostirq.add(dev, &Host82576VF::receive_static<MessageIrq>);
   mb.bus_network.add(dev, &Host82576VF::receive_static<MessageNetwork>);
+
+  dev->enable_irqs();
 }
 
 // EOF
