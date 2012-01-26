@@ -1,0 +1,23 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+HYPERVISOR_PARAMS=
+QEMU_FLAGS=-cpu phenom -smp 2 -m 512
+bin/apps/sigma0.nul S0_DEFAULT mmconfig hostserial hostvga  hostkeyb:0,0x60,1,12 service_config hostahci verbose \
+    service_disk \
+    script_start:1 \
+    script_waitchild \
+    script_start:2
+bin/apps/logdisk.nul
+bin/apps/logdisk.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk diskadd disk::0 ||
+rom://bin/apps/logdisk.nul
+EOF
+bin/apps/vancouver.nul
+peig.nulconfig <<EOF
+sigma0::mem:256 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk disk::0p3 ||
+rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 drive:0,0,0 ||
+rom://bin/boot/munich ||
+rom://imgs/passive/bzImage clocksource=tsc root=/dev/sda1 ||
+EOF
+bin/boot/munich
+imgs/passive/bzImage
