@@ -22,14 +22,16 @@ init() {
     if [ -z "$NOVA_IP" ]; then
         # Boot NOVA up to the point it is receiving libvirt connections
 	export WVTEST_EXIT_PATTERN="NOVA management daemon is up. Waiting for libvirt connection"
-	passive=$nulroot/michal/boot/passive
 	if ! echo " $_args"|grep -Eq '(--server|-I)'; then # It seems that the test will run in qemu
-	    passive=${passive}-ne2k
+	    nic=ne2k
 	    export WVTEST_NOKILL=1
 	    NOVA_IP=127.0.0.1
+	else
+	    nic=82576
 	fi
+	nova=$nulroot/michal/boot/passive/nova-$nic
 	set -x
-	$wvpath/wvnulrun $passive $_args | tee passive.log
+	$wvpath/wvnulrun $nova $_args | tee passive.log
 	test "$NOVA_IP" || NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
 	pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
 	set +x
