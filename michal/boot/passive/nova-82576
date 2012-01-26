@@ -18,8 +18,8 @@ rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://im
 EOF
 linux.nulconfig <<EOF
 name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 sigma0::dma ||
-rom://bin/apps/vancouver.nul vga_fbsize:4096 kbmodifier:0x40000 PC_PS2 82576vf service_events ||
+rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 82576vf service_events ||
 rom://bin/boot/munich ||
-rom://imgs/passive/bzImage ||
+rom://imgs/passive/bzImage vga=0 ||
 rom://imgs/passive/initramfs
 EOF

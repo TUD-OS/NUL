@@ -16,7 +16,7 @@ nova-qemu: nova
 	sed -e 's/@SIGMA0_ARGS@/hostne2k hostide/' < $< > $@
 	chmod +x $@
 
+.PHONY: vmware-image
 vmware-image:
-	../novaboot --iso=passive-vmware.iso -- passive-82573 ../gdisk
-	ovftool --powerOffTarget --overwrite  ~/vmware/Passive/Passive.vmx /tmp/passive-nova-vm
-	ovftool vmware/passive.vmx
+	../novaboot --iso -- nova-vmware #../gdisk
+	ovftool -tt=vmx --powerOffTarget --overwrite  vmware/NOVA.vmx .
