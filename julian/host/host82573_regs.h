@@ -15,7 +15,9 @@ enum Registers {
   ICS       = 0x00C8U/4,
   IMS       = 0x00D0U/4,
   IMC       = 0x00D8U/4,
+  EIAC      = 0x00DCU/4,
   IAM       = 0x00E0U/4,
+  IVAR      = 0x00E4U/4,
 
   RXDCTL    = 0x2828U/4,
   RADV      = 0x282CU/4,

@@ -40,6 +40,7 @@ enum NICType {
   INTEL_82540EM,
   INTEL_82567,
   INTEL_82573L,
+  INTEL_82574,
   INTEL_82577,
   INTEL_82578,
   INTEL_82579,
@@ -51,6 +52,7 @@ enum Features {
   MASTER_DISABLE = 1U<<3,
   PHY_RESET      = 1U<<4,
   HAS_EERD       = 1U<<5,
+  IVAR_4BIT      = 1U<<6,
 };
 
 struct NICInfo {
@@ -75,6 +77,10 @@ static const NICInfo intel_nics[] = {
   { "82579LM",           INTEL_82579,   0x1502, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
 
   { "82573L",            INTEL_82573L,  0x109A, ADVANCED_QUEUE },
+
+  // XXX Largely untested. Check spec!
+  { "82574",             INTEL_82574,  0x10D3, ADVANCED_QUEUE | MASTER_DISABLE | PHY_RESET | IVAR_4BIT},
+
   { "82540EM",           INTEL_82540EM, 0x100E, HAS_EERD },
   { "82567LM-2",         INTEL_82567,   0x10CC, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
   { "82567LM-3",         INTEL_82567,   0x10DE, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
@@ -92,7 +98,18 @@ class Host82573 : public PciDriver,
   DBus<MessageNetwork>     &_bus_network;
 
   volatile uint32 *_hwreg;
-  unsigned         _hostirq;
+
+  bool             _multi_irq_mode; // True for MSI-X
+  unsigned         _hostirq;        // In multi_irq_mode used only for stuff not RX/TX related.
+
+  enum {
+    IRQ_MISC = 0,
+    IRQ_RX   = 1,
+    IRQ_TX   = 2,
+  };
+
+  unsigned         _hostirq_rx;
+  unsigned         _hostirq_tx;
 
   uint16        _rx_last;
   DmaDesc      *_rx_ring;
@@ -319,38 +336,80 @@ class Host82573 : public PciDriver,
     }
   }
 
+  void log_irq_status(unsigned irq) { log_irq_status(irq, _hwreg[ICR]); }
+  void log_irq_status(unsigned irq, uint32 icr)
+  {
+    msg(IRQ, "IRQ %02x%s: %08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
+        irq, _multi_irq_mode ? " X" : "",
+        _hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
+  }
+
 public:
 
-  bool receive(MessageIrq &irq_msg)
-  {
-    if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
-    
-    uint32 icr = _hwreg[ICR];
-
-//     msg(IRQ, "%08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
-//      	_hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
-
-    // If the interrupt is not asserted, ICR has not autocleared and
-    // we need to clear it manually.
-    if ((icr & ICR_INTA) == 0) _hwreg[ICR] = icr;
-
+  void misc_handle(uint32 icr) {
     if (icr & ICR_LSC)
       msg(INFO, "Link is %s.\n", ((_hwreg[STATUS] & STATUS_LU) != 0) ? "UP" : "DOWN");
-   
+
     if (icr & ICR_RXO) {
       msg(WARN, "Receiver overrun. Report this.\n");
       // Mask this, so we don't spam the console.
       _hwreg[IMC] = ICR_RXO;
     }
+  }
 
-    if (icr & ICR_TXDW) {
-      // TX descriptor writeback 
-      tx_handle();
-    }
+  bool receive(MessageIrq &irq_msg)
+  {
 
-    if (icr & ICR_RXT) {
-      // RX timer expired
-      rx_handle();
+    if (irq_msg.line > 32)
+      Logging::printf("IRQ %x (%x %x %x) %s\n", irq_msg.line, _hostirq, _hostirq_rx, _hostirq_tx,
+                      _multi_irq_mode ? "MSI-X" : "Legacy");
+
+    if (_multi_irq_mode) {
+      if (irq_msg.line != _hostirq    and
+          irq_msg.line != _hostirq_rx and
+          irq_msg.line != _hostirq_tx) return false;
+
+      // Don't believe this to much. Reading ICR might be racy.
+      //log_irq_status(irq_msg.line);
+
+      // MSI-X mode, autoclear
+      if (irq_msg.line == _hostirq) {
+        _hwreg[IMS] = (1U << 24 /* Other */);
+        uint32 icr = _hwreg[ICR];
+        log_irq_status(irq_msg.line, icr);
+        misc_handle(icr);
+      } else if (irq_msg.line == _hostirq_tx) {
+        _hwreg[IMS] = (1U << 22 /* TX0 */);
+        tx_handle();
+      } else if (irq_msg.line == _hostirq_rx) {
+        _hwreg[IMS] = (1U << 20 /* RX0 */);
+        rx_handle();
+      } else Logging::panic("?");
+
+      Logging::printf("ICR %08x IMS %08x\n", _hwreg[ICR], _hwreg[IMS]);
+    } else {
+      // Legacy/MSI mode
+      if (irq_msg.line != _hostirq || irq_msg.type != MessageIrq::ASSERT_IRQ)  return false;
+
+      uint32 icr = _hwreg[ICR];
+
+      log_irq_status(irq_msg.line, icr);
+
+      // If the interrupt is not asserted, ICR has not autocleared and
+      // we need to clear it manually.
+      if ((icr & ICR_INTA) == 0) _hwreg[ICR] = icr;
+
+      misc_handle(icr);
+
+      if (icr & ICR_TXDW) {
+        // TX descriptor writeback
+        tx_handle();
+      }
+
+      if (icr & ICR_RXT) {
+        // RX timer expired
+        rx_handle();
+      }
     }
 
     return true;
@@ -396,6 +455,22 @@ public:
     }
   }
 
+  void enable_irqs()
+  {
+    if (_multi_irq_mode) {
+      if (feature(IVAR_4BIT)) {
+        _hwreg[IMS] =
+          ICR_LSC |
+          (1U << 20 /* RX0 */) | (1U << 22 /* TX0 */) | (1U << 24 /* Other */);
+        _hwreg[ICS] = ICR_LSC | (1U << 24); // Force LSC IRQ. (For logging purposes only.)
+      } else Logging::panic("?");
+    } else {
+      // Legacy/MSI
+      _hwreg[IMS] = ICR_LSC | ICR_TXDW | ICR_RXT | ICR_RXO;
+      _hwreg[ICS] = ICR_LSC; // Force LSC IRQ. (For logging purposes only.)
+    }
+  }
+
   Host82573(unsigned vnet, HostPci pci, DBus<MessageHostOp> &bus_hostop,
 	    DBus<MessageNetwork> &bus_network, DBus<MessageAcpi> &bus_acpi,
 	    Clock *clock, unsigned bdf, const NICInfo &info)
@@ -406,6 +481,7 @@ public:
   {
     msg(INFO, "Type: %s\n", info.name);
     if (info.type == INTEL_82540EM) msg(WARN, "This NIC has only been tested in QEMU.\n");
+    if (info.type == INTEL_82574)   msg(WARN, "This NIC has only been tested in VMWare.\n");
 
     // Try to map the device into our address space (IO-MMU)
     assign_pci();
@@ -445,6 +521,9 @@ public:
     _hwreg[IMC] = ~0UL;
 
     mac_reset();
+    msg(INFO, "Set Bus Master Enable, Mem/IO Enable.\n");
+    pci.conf_write(bdf, 1 /* CMD */,
+                   pci.conf_read(bdf, 1) | 0x7);
 
     _mac = mac_get_ethernet_addr();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
@@ -454,7 +533,7 @@ public:
     // _hwreg[RAH0] = 1ULL<<31 | _mac.raw >> 32;
     // XXX Disable all address filtering. We use promiscuous mode.
     _hwreg[RAH0] = 0;
-    
+
     tx_configure();
     rx_configure();
 
@@ -463,13 +542,48 @@ public:
       _hwreg[MTA + i] = 0U;
 
     // Configure IRQ logic.
-    _hostirq = pci.get_gsi(bus_hostop, bus_acpi, bdf, 0);
-    _hwreg[CTRL_EXT] |= (1<<29 /* Clear timers on IRQ */) | (1<<28 /* Driver loaded */);
-    _hwreg[IMS] = ICR_LSC | ICR_TXDW | ICR_RXT | ICR_RXO;
-    _hwreg[ICS] = ICR_LSC;	// Force LSC IRQ. (For logging purposes only.)
+    if (pci.find_cap(bdf, HostPci::CAP_MSIX)) {
+      _multi_irq_mode = true;
+
+      static_assert((IRQ_MISC | IRQ_RX | IRQ_TX) < 4, "Misconfiguration");
+      _hwreg[CTRL_EXT] |= (1U << 31 /* PBA enable */) | (1U << 24 /* EIAME */) | (1U << 27 /* IAME */) | (1U << 22 /* ?? */);
+      _hwreg[CTRL]     |= (1U << 30 /* VME */);
+
+      _hostirq    = pci.get_gsi_msi(bus_hostop, bdf, IRQ_MISC);
+      _hostirq_rx = pci.get_gsi_msi(bus_hostop, bdf, IRQ_RX);
+      _hostirq_tx = pci.get_gsi_msi(bus_hostop, bdf, IRQ_TX);
+      msg(INFO, "MSI-X mode: MISC=%x RX=%x TX=%x\n",
+          _hostirq, _hostirq_rx, _hostirq_tx);
+
+      // Program IRQs and set ICR to autoclear for all
+      if (feature(IVAR_4BIT)) {
+        _hwreg[IVAR] =
+          1U<<31 |              // Always send IRQ on writeback
+          ((8 | IRQ_RX) << 0) |
+          ((8 | IRQ_TX) << 8) |
+          ((8 | IRQ_MISC) << 16);
+
+
+        _hwreg[EIAC] =
+          (1U << 20 /* RX0 */) | (1U << 22 /* TX0 */) | (1U << 24 /* Other */);
+
+        _hwreg[IAM] = 0xFFFFFFFFU;
+        //_hwreg[ICS] = (1U << 24);
+      } else {
+        Logging::panic("We want to use MSI-X, but cannot figure out how to program IRQ allocation.");
+      }
+
+
+    } else {
+      // MSI or legacy interrupts
+
+      _hostirq = pci.get_gsi(bus_hostop, bus_acpi, bdf, 0);
+      msg(INFO, "Our IRQ is 0x%x. Legacy/MSI mode.\n", _hostirq);
+    }
+
+    _hwreg[CTRL_EXT] |= (1<<28 /* Driver loaded */);
 
     mac_set_link_up();
-
   }
 };
 
@@ -494,6 +608,7 @@ PARAM_HANDLER(host82573,
 				       mb.clock(), bdf, intel_nics[i]);
 	mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
 	mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
+        dev->enable_irqs();
       }
     }
   }
