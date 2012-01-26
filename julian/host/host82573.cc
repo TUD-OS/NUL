@@ -91,7 +91,7 @@ static const NICInfo intel_nics[] = {
 };
 
 class Host82573 : public PciDriver,
-		  public StaticReceiver<Host82573>
+                  public StaticReceiver<Host82573>
 {
   static const unsigned desc_ring_len = 32;
 
@@ -134,7 +134,7 @@ class Host82573 : public PciDriver,
     if (feature(MASTER_DISABLE)) {
       _hwreg[CTRL] |= CTRL_MASTER_DISABLE;
       if (!wait(_hwreg[STATUS], STATUS_MASTER_ENABLE_STATUS, 0))
-	Logging::panic("Device hang?");
+        Logging::panic("Device hang?");
     }
 
     uint32 rst = CTRL_SWRST;
@@ -160,7 +160,7 @@ class Host82573 : public PciDriver,
     _tx_ring = new(256) DmaDesc[desc_ring_len];
 
     _hwreg[TCTL] &= ~(1<<1 /* Enable */);
-    _hwreg[TIDV] = 8;	     // Need to set this to something non-zero.
+    _hwreg[TIDV] = 8;        // Need to set this to something non-zero.
     mword phys_tx_ring = addr2phys(_tx_ring);
     _hwreg[TDBAL] = static_cast<uint64>(phys_tx_ring) & 0xFFFFFFFFU;
     _hwreg[TDBAH] = static_cast<uint64>(phys_tx_ring) >> 32;
@@ -178,8 +178,8 @@ class Host82573 : public PciDriver,
     _rx_ring = new(256) DmaDesc[desc_ring_len];
 
     _hwreg[RCTL]  &= ~(1<<1 /* Enable */);
-    _hwreg[RXDCTL] = 0;	      // The spec says so: 11.2.1.3.13. Only
-			      // descriptors with RS are written back!
+    _hwreg[RXDCTL] = 0;       // The spec says so: 11.2.1.3.13. Only
+                              // descriptors with RS are written back!
     _hwreg[RADV]  = 8;	// RX IRQ delay 8ms (µs?!)
     mword phys_rx_ring = addr2phys(_rx_ring);
     _hwreg[RDBAL] = static_cast<uint64>(phys_rx_ring) & 0xFFFFFFFFU;
@@ -187,12 +187,12 @@ class Host82573 : public PciDriver,
     _hwreg[RDLEN] = sizeof(DmaDesc)*desc_ring_len;
     _hwreg[RDT]   = 0;
     _hwreg[RDH]   = 0;
-    _hwreg[RDTR]  = 0;	     // Linux source warns that Rx will likely
-			     // hang, if this is not zero.
+    _hwreg[RDTR]  = 0;       // Linux source warns that Rx will likely
+                             // hang, if this is not zero.
     if (feature(ADVANCED_QUEUE)) {
       _hwreg[RXCSUM] = (1<<8 /* IP Checksum */) | (1<<9 /* TCP/UDP Checksum */);
       _hwreg[RFCTL] = (1<<15 /* Extended Status (advanced descriptors) */)
-	| (1<<14 /* IP Fragment Split Disable */);
+        | (1<<14 /* IP Fragment Split Disable */);
     }
 
     _hwreg[RCTL]  = (1<<1 /* Enable */) | (1<<15 /* Broadcast accept */) | (1<<26 /* Strip FCS */)
@@ -238,10 +238,10 @@ class Host82573 : public PciDriver,
            and rx_desc_done(_rx_ring[_rx_last])) {
       // Propagate packet
       //rx_packet_process(_rx_buf[_rx_last], rx_desc_size(_rx_ring[_rx_last]));
-      
+
       uint16 plen = _rx_ring[_rx_last].hi >> 32;
-      //Logging::printf("RX %016llx %016llx\n", _rx_ring[_rx_last].lo, _rx_ring[_rx_last].hi);
-      //Logging::printf("   plen %u\n", plen);
+      // Logging::printf("RX %016llx %016llx\n", _rx_ring[_rx_last].lo, _rx_ring[_rx_last].hi);
+      // Logging::printf("   plen %u\n", plen);
       assert(plen <= 2048);
 
       MessageNetwork nmsg(_rx_buf[_rx_last], plen, 0);
@@ -270,15 +270,15 @@ class Host82573 : public PciDriver,
   // unsigned tx_send(SimpleTxDesc &desc, mword offset)
   // {
   //   DmaDesc      &hw_desc = _tx_ring[_tx_tail];
-    
+
   //   hw_desc.lo = addr2phys(desc.buf + offset);
-    
+
   //   // Legacy descriptor
   //   hw_desc.hi = desc.len
   //     | (1U << (24+0) /* EOP */)
   //     | (1U << (24+1) /* FICS */)
   //     | (1U << (24+3) /* RS */);
-    
+
   //   unsigned old_tail = _tx_tail;
   //   _tx_tail   = (_tx_tail+1)%desc_ring_len;
   //   return old_tail;
@@ -287,7 +287,7 @@ class Host82573 : public PciDriver,
   uint16 mac_eeprom_read(uint16 addr)
   {
     assert(feature(HAS_EERD));
-    
+
     uint32 start, mask;
 
     if (_info.type == INTEL_82540EM) {
@@ -295,7 +295,7 @@ class Host82573 : public PciDriver,
       start = addr<<8 | 1; mask = 0x10;
     } else
       Logging::panic("No idea how to drive EEPROM on this NIC.\n");
-    
+
     _hwreg[EERD] = start;
     if (!wait(_hwreg[EERD], mask, mask))
       Logging::panic("EEPROM read timed out.\n");
@@ -316,12 +316,12 @@ class Host82573 : public PciDriver,
     } else if (feature(HAS_EERD)) {
       msg(INFO, "Querying EEPROM for MAC.\n");
       uint16 word[] = { mac_eeprom_read(0),
-			mac_eeprom_read(1),
-			mac_eeprom_read(2) };
+                        mac_eeprom_read(1),
+                        mac_eeprom_read(2) };
 
       return EthernetAddr(word[0] & 0xFF, word[0] >> 8,
-			  word[1] & 0xFF, word[1] >> 8,
-			  word[2] & 0xFF, word[2] >> 8);
+                          word[1] & 0xFF, word[1] >> 8,
+                          word[2] & 0xFF, word[2] >> 8);
     } else {
       msg(WARN,"Warning: Don't know how to figure out MAC address.\n");
       return EthernetAddr(0);
@@ -476,9 +476,9 @@ public:
   }
 
   Host82573(unsigned vnet, HostPci pci, DBus<MessageHostOp> &bus_hostop,
-	    DBus<MessageNetwork> &bus_network, DBus<MessageAcpi> &bus_acpi,
-	    Clock *clock, unsigned bdf, const NICInfo &info)
-    : PciDriver("82573", bus_hostop, clock, ALL, bdf), 
+            DBus<MessageNetwork> &bus_network, DBus<MessageAcpi> &bus_acpi,
+            Clock *clock, unsigned bdf, const NICInfo &info)
+    : PciDriver("82573", bus_hostop, clock, ALL, bdf),
       _info(info),
       _bus_hostop(bus_hostop), _bus_network(bus_network),
       _rx_last(0), _tx_last(0), _tx_tail(0)
@@ -498,20 +498,20 @@ public:
 
       switch (type) {
       case HostPci::BAR_IO:
-	break;
+        break;
       case HostPci::BAR_TYPE_32B:
       case HostPci::BAR_TYPE_64B: {
-	MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
-	if (!_hwreg) {
-	  if (!bus_hostop.send(reg_msg))
-	    Logging::panic("Could not map register window.");
-	  _hwreg = reinterpret_cast<volatile uint32 *>(reg_msg.ptr);
-	  goto hwreg_done;
-	}
+        MessageHostOp reg_msg(MessageHostOp::OP_ALLOC_IOMEM, base, size);
+        if (!_hwreg) {
+          if (!bus_hostop.send(reg_msg))
+            Logging::panic("Could not map register window.");
+          _hwreg = reinterpret_cast<volatile uint32 *>(reg_msg.ptr);
+          goto hwreg_done;
+        }
       }
-	break;
+        break;
       default:
-	msg(WARN, "WARNING: Unknown BAR.\n");
+        msg(WARN, "WARNING: Unknown BAR.\n");
       }
 
       i += is64bit ? 1 : 0;
@@ -592,8 +592,8 @@ public:
 };
 
 PARAM_HANDLER(host82573,
-	      "host82573:instance=0,vnet - provide driver for Intel 82573L Ethernet controller.",
-	      "Example: 'host82573")
+              "host82573:instance=0,vnet - provide driver for Intel 82573L Ethernet controller.",
+              "Example: 'host82573")
 {
   HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
   unsigned found = 0;
@@ -607,11 +607,11 @@ PARAM_HANDLER(host82573,
     unsigned i;
     for (i = 0; i < (sizeof(intel_nics)/sizeof(NICInfo)); i++) {
       if ((cfg0>>16 == intel_nics[i].devid) && (found++ == instance)) {
-	Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
-				       mb.bus_acpi,
-				       mb.clock(), bdf, intel_nics[i]);
-	mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
-	mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
+        Host82573 *dev = new Host82573(argv[1], pci, mb.bus_hostop, mb.bus_network,
+                                       mb.bus_acpi,
+                                       mb.clock(), bdf, intel_nics[i]);
+        mb.bus_hostirq.add(dev, &Host82573::receive_static<MessageIrq>);
+        mb.bus_network.add(dev, &Host82573::receive_static<MessageNetwork>);
         dev->enable_irqs();
       }
     }
