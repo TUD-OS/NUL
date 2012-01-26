@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+#
+# WvTest:
+#   Copyright (C) 2007-2009 Versabanq Innovations Inc. and contributors.
+#   Copyright (C) 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
+#       Licensed under the GNU Library General Public License, version 2.
+#       See the included file named LICENSE for license information.
+#
+use strict;
+use Getopt::Long;
+
+sub usage() {
+    print STDERR "Usage: $0 < wvtest.log\n";
+    exit 127;
+}
+
+usage() if (@ARGV > 0);
+
+my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
+my $columns;
+if ($istty) {
+    $columns = `tput cols`;
+} else {
+    $columns = $ENV{'COLUMNS'} || 80;
+}
+
+$| = 1;
+
+while (<>)
+{
+    chomp;
+    s/\r//g;
+
+    if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
+	my $line = $_;
+	do {
+	    print substr($line, 0, $columns) . "\n";
+	    $line = length($line) > $columns ? substr($line, $columns) : '';
+	} while (length($line));
+    } else {
+	print "$_\n";
+    }
+}
