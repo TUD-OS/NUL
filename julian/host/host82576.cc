@@ -44,15 +44,6 @@ private:
 
   EthernetAddr _mac;
 
-  // MSI-X
-  unsigned _msix_table_size;
-
-  struct msix_table {
-    volatile uint64 msg_addr;
-    volatile uint32 msg_data;
-    volatile uint32 vector_control;
-  } *_msix_table;
-
   const char *debug_getname() { return "Host82576"; }
 
   void log_device_status()
