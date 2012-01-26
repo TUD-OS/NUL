@@ -543,7 +543,7 @@ I<script>.
 
 Create bootable ISO images. E.g.
 
- novaboot --iso script1 script2
+ novaboot --iso -- script1 script2
 
 The created ISO image will have GRUB bootloader installed on it and
 the boot menu will show the I<script1> and I<script2> configurations.
