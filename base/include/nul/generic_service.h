@@ -346,6 +346,19 @@ public:
     }
     return 0;
   }
+
+  /**
+   * Find all dead clients and mark them for removal by gc()
+   */
+  void cleanup_clients(Utcb &utcb, A * obj) {
+    Guard guard_c(this, utcb, obj);
+    T volatile * client = get_invalid_client(utcb, obj);
+    while (client) {
+      Logging::printf("ad: found dead client - freeing datastructure\n");
+      free_client_data(utcb, client, obj);
+      client = get_invalid_client(utcb, obj, client);
+    }
+  }
 };
 
 

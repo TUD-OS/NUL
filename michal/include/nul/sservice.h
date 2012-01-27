@@ -35,16 +35,6 @@ public:
 protected:
   virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out) = 0;
 
-  void cleanup_clients(Utcb &utcb) {
-    typename Sessions::Guard guard_c(&_sessions, utcb, this);
-    Session volatile * session = _sessions.get_invalid_client(utcb, this);
-    while (session) {
-      Logging::printf("ad: found dead client - freeing datastructure\n");
-      _sessions.free_client_data(utcb, session, this);
-      session = _sessions.get_invalid_client(utcb, this, session);
-    }
-  }
-
   virtual unsigned new_session(Session *session) = 0;
   virtual unsigned handle_request(Session *session, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap) = 0;
 
@@ -128,7 +118,7 @@ public:
 		session->pseudonym = pseudonym;
 		utcb << Utcb::TypedMapCap(session->identity);
 		free_cap = false;
-		cleanup_clients(utcb);
+		_sessions.cleanup_clients(utcb, this);
 		return ENONE;
 	      }
 	    }
@@ -136,7 +126,7 @@ public:
 
 	Session *session = 0;
         res = _sessions.alloc_client_data(utcb, session, pseudonym, this);
-        if (res == ERESOURCE) { cleanup_clients(utcb); return ERETRY; } //force garbage collection run
+        if (res == ERESOURCE) { _sessions.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
         res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->identity);
