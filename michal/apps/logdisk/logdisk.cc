@@ -26,7 +26,7 @@
 #include "wvtest.h"
 #include <nul/types.h>
 #include "crc32.cc"
-
+#include "nul/uuid.h"
 
 class DiskHelper : public DiskProtocol {
   static char disk_buffer[4<<20];
@@ -160,11 +160,6 @@ public:
 };
 
 class GPT {
-  typedef struct guid {
-    unsigned char id[16];
-    void as_text(char *dest);
-  } guid_t;
-
   struct header {
     char     signature[8];
     uint32   revision;
@@ -175,7 +170,7 @@ class GPT {
     uint64   backup_lba;
     uint64   first_lba;
     uint64   last_lba;
-    guid_t   disk_guid;
+    uuid_t   disk_guid;
     uint64   pent_lba;
     uint32   pent_num;
     uint32   pent_size;
@@ -194,8 +189,8 @@ class GPT {
       HIDDEN = 1ull<<62,
       NO_AUTOMOUNT = 1ull<<63,
     };
-    guid_t   type;
-    guid_t   id;
+    uuid_t   type;
+    uuid_t   id;
     uint64   first_lba;
     uint64   last_lba;
     uint64   attr;
@@ -248,12 +243,12 @@ public:
       char part_uuid[5+32+4+1];
       memset(part_uuid, 0, sizeof(part_uuid));
       Vprintf::snprintf(&part_uuid[0], sizeof(part_uuid), "uuid:");
-      pent.id.as_text(&part_uuid[5]);
+      static_cast<Uuid>(pent.id).as_text(&part_uuid[5]);
 
       char part_type[5+32+4+1];
       memset(part_type, 0, sizeof(part_type));
       Vprintf::snprintf(&part_type[0], sizeof(part_type), "type:");
-      pent.type.as_text(&part_type[5]);
+      static_cast<Uuid>(pent.type).as_text(&part_type[5]);
 
       DiskProtocol::Segment seg(disknum, pent.first_lba, pent.last_lba - pent.first_lba);
       const char *names[] = { name, part_uuid, part_type, part_name, 0 };
@@ -312,25 +307,6 @@ bool GPT::header::check_crc()
   curr_crc = calc_crc(~0L, reinterpret_cast<const uint8*>(this), sizeof(*this)) ^ ~0L;
   crc = orig_crc;
   return curr_crc == orig_crc;
-}
-
-void GPT::guid::as_text(char *dest)
-{
-  const int chunks[] = { -4, -2, -2, 2, 6 };
-  const int *chunk = chunks;
-  unsigned start = 0, len = 4;
-  for (unsigned i = 0; i < 16; i++) {
-    if (i == start + len) {
-      *dest++ = '-';
-      chunk++;
-      start = i;
-      len = (*chunk > 0) ? *chunk : -*chunk;
-    }
-    unsigned char ch = (*chunk > 0) ? id[i] : id[start+len - (i - start) - 1];
-    Vprintf::snprintf(dest, 3, "%02x", ch);
-    dest += 2;
-  }
-  *dest = '\0';
 }
 
 ASMFUNCS(LogDiskMan, WvTest)
