@@ -88,6 +88,47 @@ class ClientDataStorage {
     ALIGNED(8) unsigned long long volatile recyc64;
   };
 
+  /**
+   * Garbage collect - remove clients which are marked for removal
+   */
+  void gc(Utcb &utcb, A * obj) {
+    unsigned long long tmp = recyc64;
+    struct recycl tmp_expect = *reinterpret_cast<struct recycl *>(&tmp);
+    if (tmp_expect.head && tmp_expect.t_in == 0) {
+      unsigned long long tmp_read;
+      tmp_read = Cpu::cmpxchg8b(&recyc64, *reinterpret_cast<unsigned long long *>(&tmp_expect), 0);
+      if (!memcmp(&tmp_read, &tmp_expect, sizeof(tmp_read))) {
+        unsigned err, crdout;
+        unsigned long counter = 0;
+        T * data, * tmp;
+        struct recycl_nv nv_tmp;
+
+        memcpy(&nv_tmp, &tmp_expect, sizeof(nv_tmp));
+        data = nv_tmp.head;
+        while(data) {
+          err = nova_syscall(NOVA_LOOKUP,  Crd(data->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
+          // XXX Can this fail?
+          (void)err;
+          if (crdout) {
+            T::get_quota(utcb, data->pseudonym,"cap", -2);
+            T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
+            data->session_close(utcb);
+          }
+          obj->dealloc_cap(data->identity);
+          if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
+          //tmp = data->del;
+          unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
+          tmp = *reinterpret_cast<T **>(nv_del);
+          delete data;
+          if (__DEBUG__) Logging::printf("gs: delete %p\n", data);
+          data = tmp;
+          counter ++;
+        }
+        if (__DEBUG__) Logging::printf("gs: cleaned objects 0x%lx\n", counter);
+      } else
+        if (__DEBUG__) Logging::printf("gs: did not get cleaning list\n");
+    }
+  }
 
 public:
   typedef T ClientData;
@@ -279,48 +320,6 @@ public:
     assert(recycling.t_in);
     if (!prev) return reinterpret_cast<T volatile *>(_head);
     return reinterpret_cast<T volatile *>(prev->next);
-  }
-
-  /**
-   * Garbage collect - remove items which are marked for removal
-   */
-  void gc(Utcb &utcb, A * obj) {
-    unsigned long long tmp = recyc64;
-    struct recycl tmp_expect = *reinterpret_cast<struct recycl *>(&tmp);
-    if (tmp_expect.head && tmp_expect.t_in == 0) {
-      unsigned long long tmp_read;
-      tmp_read = Cpu::cmpxchg8b(&recyc64, *reinterpret_cast<unsigned long long *>(&tmp_expect), 0);
-      if (!memcmp(&tmp_read, &tmp_expect, sizeof(tmp_read))) {
-        unsigned err, crdout;
-        unsigned long counter = 0;
-        T * data, * tmp;
-        struct recycl_nv nv_tmp;
-
-        memcpy(&nv_tmp, &tmp_expect, sizeof(nv_tmp));
-        data = nv_tmp.head;
-        while(data) {
-          err = nova_syscall(NOVA_LOOKUP,  Crd(data->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
-          // XXX Can this fail?
-          (void)err;
-          if (crdout) {
-            T::get_quota(utcb, data->pseudonym,"cap", -2);
-            T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
-            data->session_close(utcb);
-          }
-          obj->dealloc_cap(data->identity);
-          if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
-          //tmp = data->del;
-          unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
-          tmp = *reinterpret_cast<T **>(nv_del);
-          delete data;
-          if (__DEBUG__) Logging::printf("gs: delete %p\n", data);
-          data = tmp;
-          counter ++;
-        }
-        if (__DEBUG__) Logging::printf("gs: cleaned objects 0x%lx\n", counter);
-      } else
-        if (__DEBUG__) Logging::printf("gs: did not get cleaning list\n");
-    }
   }
 
   unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
