@@ -106,7 +106,7 @@ public:
       Guard(ClientDataStorage<T, A, free_pseudonym, __DEBUG__> * _storage, Utcb &_utcb, A * _obj) :
         storage(_storage), obj(_obj), utcb(&_utcb)
       {
-        if (obj) storage->cleanup(*utcb, obj);
+        if (obj) storage->gc(*utcb, obj);
         Cpu::atomic_xadd(&storage->recycling.t_in, 1U);
       }
 
@@ -121,7 +121,7 @@ public:
 
       ~Guard() {
         Cpu::atomic_xadd(&storage->recycling.t_in, -1U);
-        if (obj) storage->cleanup(*utcb, obj);
+        if (obj) storage->gc(*utcb, obj);
       }
   };
 
@@ -282,9 +282,9 @@ public:
   }
 
   /**
-   * Remove items which are unused 
+   * Garbage collect - remove items which are marked for removal
    */
-  void cleanup(Utcb &utcb, A * obj) {
+  void gc(Utcb &utcb, A * obj) {
     unsigned long long tmp = recyc64;
     struct recycl tmp_expect = *reinterpret_cast<struct recycl *>(&tmp);
     if (tmp_expect.head && tmp_expect.t_in == 0) {
