@@ -426,7 +426,7 @@ public:
               if (show == 1) {
                 if (sc_num) sc_num--;
               } else {
-                if (show == 0 && client_num < HEIGHT - 3) client_num++;
+                if (show == 0) client_num++;
                 show = 0;
               }
             }

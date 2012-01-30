@@ -138,7 +138,7 @@
     } while (data = _storage.next(data));
   }
 
-  void top_dump_scs(Utcb &utcb, Hip * hip, unsigned client_num, unsigned num_cpu_shift) {
+  void top_dump_scs(Utcb &utcb, Hip * hip, unsigned &client_num, unsigned num_cpu_shift) {
 
     memset(_vga_console, 0, HEIGHT * WIDTH * VALUEWIDTH);
     _vga_regs.cursor_pos = 0;
@@ -163,55 +163,66 @@
 
     ClientData volatile * data = &own_scs;
     ClientData * client;
-    unsigned client_count = HEIGHT - 1, res, more = 0, client_select = client_count - (client_num % (HEIGHT - 2));
+    unsigned client_count = HEIGHT - 1, res, more = 0;
+    unsigned client_select = client_num < (HEIGHT - 2) ? client_count - client_num : 2; //client_count - (client_num % (HEIGHT - 2));
+    unsigned client_offset = client_num < client_count - 2 ? 0 : client_num - client_count + 2;
     data->next = _storage.next();
 
+    if (client_offset) {
+      Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", client_offset);
+      memset(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH +  cursor_pos * VALUEWIDTH - 1, 0, 1);
+      cursor_pos = 0;
+    }
+
     do {
-      utcb.head.mtr = 1; //manage utcb by hand (alternative using add_frame, drop_frame which copies unnessary here)
-      client = reinterpret_cast<ClientData *>(reinterpret_cast<unsigned long>(data));
+      if (client_offset) client_offset--;
+      else {
+        utcb.head.mtr = 1; //manage utcb by hand (alternative using add_frame, drop_frame which copies unnessary here)
+        client = reinterpret_cast<ClientData *>(reinterpret_cast<unsigned long>(data));
 
-      res = get_usage(utcb, client);
-      if (client_count > 1) {
-        cursor_pos = 1 + 5 * (1 + lcpu_to - lcpu_from);
-        Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
-        memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
-        if (res != ENONE) {
-          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", "error");
-          continue;
-        }
-
-        unsigned i = 1;
-        cursor_pos = 0;
-        if (client_count == client_select)
-          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"%c ", 175);
-        else
-          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"  ");
-        memset(_vga_console + client_count * VALUEWIDTH * WIDTH + (cursor_pos - 2) * VALUEWIDTH, 0, 1);
-        while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
-          //Logging::printf("pcpu_from %u <= utcb.msg[i] %u < pcu_to %u (logical %u - %u)\n", pcpu_from, utcb.msg[i], pcpu_to, lcpu_from, lcpu_to);
-          if (pcpu_from <= utcb.msg[i] && utcb.msg[i] < pcpu_to) {
-            cursor_pos = 1;
-            for (unsigned j=pcpu_from; j < pcpu_to; j++) { //physical -> logical cpu mapping
-              Hip_cpu const *cpu = &hip->cpus()[j];
-              if (utcb.msg[i] == j) break;
-              if (not cpu->enabled()) continue;
-              cursor_pos += 5;
-            }
-            //cursor_pos = utcb.msg[i] * 5;
-            if (utcb.msg[i+1] >= 100)
-              Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, " 100 ");
-            else
-              Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%2u.%1u ", utcb.msg[i+1], utcb.msg[i+2]);
-            memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
+        res = get_usage(utcb, client);
+        if (client_count > 1) {
+          cursor_pos = 1 + 5 * (1 + lcpu_to - lcpu_from);
+          Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", client->name);
+          memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
+          if (res != ENONE) {
+            Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%s", "error");
+            continue;
           }
-          i += 3;
+
+          unsigned i = 1;
+          cursor_pos = 0;
+          if (client_count == client_select)
+            Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"%c ", 175);
+          else
+            Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH - 1 * VALUEWIDTH,"  ");
+          memset(_vga_console + client_count * VALUEWIDTH * WIDTH + (cursor_pos - 2) * VALUEWIDTH, 0, 1);
+          while (i < sizeof(utcb.msg) / sizeof(utcb.msg[0]) && utcb.msg[i] != ~0UL) {
+            //Logging::printf("pcpu_from %u <= utcb.msg[i] %u < pcu_to %u (logical %u - %u)\n", pcpu_from, utcb.msg[i], pcpu_to, lcpu_from, lcpu_to);
+            if (pcpu_from <= utcb.msg[i] && utcb.msg[i] < pcpu_to) {
+              cursor_pos = 1;
+              for (unsigned j=pcpu_from; j < pcpu_to; j++) { //physical -> logical cpu mapping
+                Hip_cpu const *cpu = &hip->cpus()[j];
+                if (utcb.msg[i] == j) break;
+                if (not cpu->enabled()) continue;
+                cursor_pos += 5;
+              }
+              //cursor_pos = utcb.msg[i] * 5;
+              if (utcb.msg[i+1] >= 100)
+                Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, " 100 ");
+              else
+                Vprintf::printf(&_putc, _vga_console + client_count * VALUEWIDTH * WIDTH, "%2u.%1u ", utcb.msg[i+1], utcb.msg[i+2]);
+              memset(_vga_console + client_count * VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
+            }
+            i += 3;
+          }
+          client_count --;
+        } else {
+          more += 1;
+          cursor_pos = 0;
+          Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * 2 - 12 * VALUEWIDTH, "...%u", more);
+          memset(_vga_console + VALUEWIDTH * WIDTH * 2 - 12 * VALUEWIDTH +  cursor_pos * VALUEWIDTH - 1, 0, 1);
         }
-        client_count --;
-      } else {
-        more += 1;
-        cursor_pos = 0;
-        Vprintf::printf(&_putc, _vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH, "...%u", more);
-        memset(_vga_console + VALUEWIDTH * WIDTH * HEIGHT - 12 * VALUEWIDTH +  cursor_pos * VALUEWIDTH - 1, 0, 1);
       }
     } while (data = _storage.next(data));
     get_idle(hip, num_cpu_shift);
