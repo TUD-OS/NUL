@@ -1,0 +1,6 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-net nic,model=ne2k_pci -net user,hostfwd=tcp:127.0.0.1:2222-:22 -hda disk.img
+KERNEL=imgs/bzImage-js ip=dhcp
+# console=uart,mmio,0xd0e01000,115200n8 
+imgs/initramfs-gdisk.bz2
