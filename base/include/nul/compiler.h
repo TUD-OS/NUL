@@ -30,6 +30,7 @@
 #define PACKED     __attribute__((packed))
 #define MEMORY_BARRIER __asm__ __volatile__ ("" ::: "memory")
 #define RESTRICT   __restrict__
+#define UNUSED     __attribute__((unused))
 
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4)
 # define WARN_UNUSED __attribute__((warn_unused_result))
