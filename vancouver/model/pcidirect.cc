@@ -382,7 +382,7 @@ private:
     _guestbdf = (guestbdf == 0) ? _hostbdf : PciHelper::find_free_bdf(mb.bus_pcicfg, guestbdf);
     for (unsigned i=0; i < PCI_CFG_SPACE_DWORDS; i++) _cfgspace[i] = conf_read(_hostbdf, i);
 
-    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, parent_bdf ? parent_bdf : _hostbdf, parent_bdf ? _hostbdf : 0);
+    MessageHostOp msg4(MessageHostOp::OP_ASSIGN_PCI, _hostbdf, parent_bdf);
     check0(assign && !mb.bus_hostop.send(msg4), "DPCI: could not directly assign %x via iommu", _hostbdf);
 
     unsigned long bases[HostPci::MAX_BAR];
