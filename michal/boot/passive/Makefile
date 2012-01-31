@@ -18,5 +18,5 @@ nova-qemu: nova
 
 .PHONY: vmware-image
 vmware-image:
-	../novaboot --iso -- nova-vmware #../gdisk
+	../novaboot --iso -- nova-vmware ../gdisk
 	ovftool -tt=vmx --powerOffTarget --overwrite  vmware/NOVA.vmx .
