@@ -43,7 +43,7 @@ EXTERN_C void *sbrk(size_t size);
 # define assert(x) do {if (!(x)) abort(); } while (0) /* XXX */
 #endif
 
-EXTERN_C void semaphore_init(cap_sel *lk, int initial);
+EXTERN_C void semaphore_init(cap_sel *lk, unsigned initial);
 EXTERN_C void semaphore_destroy(cap_sel *lk);
 EXTERN_C void semaphore_down(cap_sel *lk);
 EXTERN_C void semaphore_up(cap_sel *lk);

@@ -24,7 +24,7 @@
 
 #include "math.h"
 
-EXTERN_C void dlmalloc_init();
+EXTERN_C void dlmalloc_init(cap_sel pool);
 
 #define SIN_LUTSIZE   (1<<8)
 #define SQRT_LUTSIZE  (1<<16)
@@ -321,7 +321,7 @@ public:
     init(hip);
     init_mem(hip);
     console_init("CYC", new Semaphore(alloc_cap(), true));
-    dlmalloc_init();
+    dlmalloc_init(alloc_cap(0x1000));
 
     // attach to timer service 
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
