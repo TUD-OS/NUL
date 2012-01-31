@@ -24,7 +24,7 @@
 #define LACKS_ERRNO_H
 #define LACKS_SCHED_H
 #define LACKS_TIME_H
-#define DEFAULT_GRANULARITY     (4 * 1024 * 1024) /* 4MB */
+#define DEFAULT_GRANULARITY     (128 * 1024)      /* 128K */
 #define MALLOC_ALIGNMENT        16                /* important for SSE */
 
 /* C compatibility */
