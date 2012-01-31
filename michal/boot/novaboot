@@ -386,7 +386,7 @@ if ($variables->{WVTEST_TIMEOUT}) {
     print "wvtest: timeout ", $variables->{WVTEST_TIMEOUT}, "\n";
 }
 
-if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server)) {
+if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server || defined $iso_image)) {
     # Qemu
     @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if exists $variables->{QEMU_FLAGS};
     @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
