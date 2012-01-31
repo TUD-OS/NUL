@@ -185,7 +185,7 @@
   phys_out:
     {
       SemaphoreGuard l(_lock_mem);
-      _free_phys.add(Region(physaddr, msize));
+      _free_phys.add(Region(physaddr, msize, physaddr));
     }
   fs_out:
     fs_obj.destroy(*utcb, FsProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), this);
@@ -356,7 +356,7 @@
     _free_pmem:
     if (res) {
       SemaphoreGuard l(_lock_mem);
-      _free_phys.add(Region(pmem, modinfo->physsize));
+      _free_phys.add(Region(pmem, modinfo->physsize, pmem));
       Logging::printf("Admission service error %d detected\n", res);
       res = __LINE__;
     }
