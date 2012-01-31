@@ -24,6 +24,8 @@
 
 #include "math.h"
 
+EXTERN_C void dlmalloc_init();
+
 #define SIN_LUTSIZE   (1<<8)
 #define SQRT_LUTSIZE  (1<<16)
 #define SQRT_PRESHIFT (2)
@@ -319,6 +321,7 @@ public:
     init(hip);
     init_mem(hip);
     console_init("CYC", new Semaphore(alloc_cap(), true));
+    dlmalloc_init();
 
     // attach to timer service 
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
