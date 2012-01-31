@@ -24,7 +24,7 @@ else
     (
 	cat <<EOF
 Subject: NUL nighly build/test failed!
-To: sojka@os
+To: commits-nul@os
 
 Full log can be found at erwin:$PWD/$log
 
