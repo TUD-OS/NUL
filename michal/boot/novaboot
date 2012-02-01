@@ -231,6 +231,12 @@ while (<>) {
 	eval $CFG::script_modifier;
 	$line = $_;
     }
+    if ($line =~ /^([^ ]*)(.*?)[[:space:]]*< ?(.*)$/) { # Command substitution
+	push @$modules, "$1$2";
+	push @$generated, {filename => $1, command => $3};
+	$line = '';
+	next;
+    }
     push @$modules, $line;
     $line = '';
 }
@@ -241,12 +247,15 @@ sub generate_configs($$) {
     my ($base, $generated) = @_;
     if ($base) { $base = "$base/"; };
     foreach my $g(@$generated) {
-	next if ! exists $$g{content};
+      if (exists $$g{content}) {
 	my $config = $$g{content};
 	my $fn = $$g{filename};
 	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
+      } elsif (exists $$g{command}) {
+	system_verbose("( $$g{command} ) > $$g{filename}");
+      }
     }
 }
 
@@ -672,6 +681,9 @@ to load, the remaining words are its command line parameters.
 When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
 that line.
+
+Lines in the form "FILE < CMD" causes the command CMD to be executed
+and its standard output to be stored in the FILE.
 
 Example:
   #!/usr/bin/env novaboot
