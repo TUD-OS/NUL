@@ -343,9 +343,9 @@ class Host82573 : public PciDriver,
   void log_irq_status(unsigned irq) { log_irq_status(irq, _hwreg[ICR]); }
   void log_irq_status(unsigned irq, uint32 icr)
   {
-    msg(IRQ, "IRQ %02x%s: %08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
-        irq, _multi_irq_mode ? " X" : "",
-        _hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
+    // msg(IRQ, "IRQ %02x%s: %08x %08x %08x | RDT %04x | RDH %04x | TDT %04x | TDH %04x\n",
+    //     irq, _multi_irq_mode ? " X" : "",
+    //     _hwreg[STATUS], icr, _hwreg[IMS], _hwreg[RDT], _hwreg[RDH], _hwreg[TDT], _hwreg[TDH]);
   }
 
 public:
