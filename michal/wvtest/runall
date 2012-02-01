@@ -13,9 +13,9 @@ for file in $tests; do
 	if test "$WVTEST_BACKUP_FAILED" && file $file|grep -q "novaboot script"; then
 	    backup="$WVTEST_BACKUP_FAILED/$(basename $file)"
 	    mkdir -p $backup
-	    $file --server=$backup | grep -v '^Testing ".*" in .*:$'
+	    $file --server=$backup --no-file-gen | grep -v '^Testing ".*" in .*:$'
 	    cp $file $backup
-	    echo "exec \$(dirname \$0)/$(basename $file) --build-dir=\$(dirname \$0) \"\$@\"" > $backup/run
+	    echo "exec \$(dirname \$0)/$(basename $file) --no-file-gen --build-dir=\$(dirname \$0) \"\$@\"" > $backup/run
 	    chmod +x $backup/run
 
 	    echo

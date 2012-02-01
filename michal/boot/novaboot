@@ -51,7 +51,7 @@ sub read_config($) {
 my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $I_opt, $iprelay, $iso_image, $man, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure("no_ignore_case");
 GetOptions (
@@ -66,6 +66,7 @@ GetOptions (
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
+    "no-file-gen"    => \$no_file_gen,
     "off"	     => \$off_opt,
     "on"	     => \$on_opt,
     "qemu|Q=s" 	     => \$qemu,
@@ -253,7 +254,7 @@ sub generate_configs($$) {
 	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
-      } elsif (exists $$g{command}) {
+      } elsif (exists $$g{command} && ! $no_file_gen) {
 	system_verbose("( $$g{command} ) > $$g{filename}");
       }
     }
@@ -634,6 +635,11 @@ Synonym for --iprelay=on/off.
 Use the name I<string> instead of the name of the novaboot script.
 This name is used for things like a title of grub menu or for the
 server directory where the boot files are copied to.
+
+=item --no-file-gen
+
+Do not generate files on the fly except for the files generated via
+"<<WORD" syntax.
 
 =item -Q, --qemu=I<qemu-binary>
 
