@@ -45,9 +45,17 @@ void semaphore_up(cap_sel *lk)
   assert(res == NOVA_ESUCCESS);
 }
 
-void *sbrk(size_t size)
+// Backend allocator
+
+void *mmap_simple(void *start, size_t size)
 {
   return memalloc_mempool(size, 4096);
+}
+
+int munmap(void *start, size_t size)
+{
+  Logging::printf("Leaking memory at %p+%zx\n", start, size);
+  return 0;
 }
 
 // External interface

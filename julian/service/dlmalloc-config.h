@@ -12,8 +12,8 @@
 
 #define MALLOC_FAILURE_ACTION   /* empty */
 #define USE_LOCKS               2
-#define HAVE_MORECORE           1
-#define HAVE_MMAP               0
+#define HAVE_MORECORE           0
+#define HAVE_MMAP               1
 #define HAVE_MREMAP             0
 
 #define LACKS_UNISTD_H
@@ -27,6 +27,12 @@
 #define DEFAULT_GRANULARITY     (128 * 1024)      /* 128K */
 #define MALLOC_ALIGNMENT        16                /* important for SSE */
 
+/* MMAP dummy */
+#define MAP_ANONYMOUS           0
+#define MAP_PRIVATE             0
+#define PROT_READ               0
+#define PROT_WRITE              0
+
 /* C compatibility */
 
 #include <nul/compiler.h>
@@ -37,7 +43,9 @@ EXTERN_C int printf(const char *msg, ...);
 #define fprintf(f, ...) printf(__VA_ARGS__)
 EXTERN_C void abort() NORETURN;
 
-EXTERN_C void *sbrk(size_t size);
+#define mmap(start, length, prot, flags, fd, offset) mmap_simple(start, length)
+EXTERN_C void *mmap_simple(void *start, size_t size);
+EXTERN_C int   munmap(void *start, size_t size);
 
 #ifndef assert
 # define assert(x) do {if (!(x)) abort(); } while (0) /* XXX */
