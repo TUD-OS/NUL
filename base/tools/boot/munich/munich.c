@@ -62,7 +62,7 @@ start_linux(struct mbi *mbi)
   get_arg(&cmdline, ' ');
 
   // parse remaining cmdline into whitespace-separated tokens
-  for (cmd = cmdline; (tok = get_arg(&cmd, ' ')); *tok ? *--tok = '=' : 0, *--cmd = ' ')
+  for (cmd = cmdline; (tok = get_arg(&cmd, ' ')); *tok ? *--tok = '=' : 0, *cmd ? *--cmd = ' ' : 0)
     {
       // parse tokens into "arg=val" pairs
       char *arg = get_arg(&tok, '=');
