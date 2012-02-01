@@ -184,7 +184,7 @@ my $file;
 my $line;
 my $EOF;
 my $last_fn = '';
-my ($modules, $variables, $configs, $continuation);
+my ($modules, $variables, $generated, $continuation);
 while (<>) {
     if ($ARGV ne $last_fn) { # New script
 	die "Missing EOF in $last_fn" if $file;
@@ -193,7 +193,7 @@ while (<>) {
 	push @scripts, { 'filename' => $ARGV,
 			 'modules' => $modules = [],
 			 'variables' => $variables = {},
-			 'configs' => $configs = {}};
+			 'generated' => $generated = []};
 
     }
     chomp();
@@ -205,7 +205,7 @@ while (<>) {
     if (/^([^ ]*)(.*?)[[:space:]]*<<([^ ]*)$/) { # Heredoc start
 	push @$modules, "$1$2";
 	$file = [];
-	$$configs{$1} = $file;
+	push @$generated, {filename => $1, content => $file};
 	$EOF = $3;
 	next;
     }
@@ -238,10 +238,12 @@ while (<>) {
 #print Dumper(\@scripts);
 
 sub generate_configs($$) {
-    my ($base, $configs) = @_;
+    my ($base, $generated) = @_;
     if ($base) { $base = "$base/"; };
-    foreach my $fn(keys %$configs) {
-	my $config = $$configs{$fn};
+    foreach my $g(@$generated) {
+	next if ! exists $$g{content};
+	my $config = $$g{content};
+	my $fn = $$g{filename};
 	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
@@ -302,7 +304,7 @@ my (%files_iso, $menu_iso, $config_name, $filename);
 foreach my $script (@scripts) {
     $filename = $$script{filename};
     $modules = $$script{modules};
-    $configs = $$script{configs};
+    $generated = $$script{generated};
     $variables = $$script{variables};
     my ($server_grub_prefix);
     
@@ -327,7 +329,7 @@ foreach my $script (@scripts) {
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
     if (defined $grub_config) {
-	generate_configs("", $configs);
+	generate_configs("", $generated);
 	generate_grub_config($grub_config, $config_name, "", $modules);
 	print("GRUB menu created: $CFG::builddir/$grub_config\n");
 	exit;
@@ -336,7 +338,7 @@ foreach my $script (@scripts) {
     if (defined $server) {
 	($server_grub_prefix = $CFG::server_grub_prefix) =~ s/\$NAME/$config_name/;
 	($server = $CFG::server)			 =~ s/\$NAME/$config_name/;
-	generate_configs($server_grub_prefix, $configs);
+	generate_configs($server_grub_prefix, $generated);
 	my $grub_config ||= "menu.lst";
 	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules,
 			     $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
@@ -356,7 +358,7 @@ foreach my $script (@scripts) {
     }
     
     if (defined $iso_image) {
-	generate_configs("(cd)", $configs);
+	generate_configs("(cd)", $generated);
 	my $menu;
 	generate_grub_config(\$menu, $config_name, "(cd)", $modules);
 	$menu_iso .= "$menu\n";
@@ -399,7 +401,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 
 	# Non-patched qemu doesn't like commas, but NUL can live with pluses instead of commans
 	foreach (@$modules) {s/,/+/g;}
-	generate_configs("", $configs);
+	generate_configs("", $generated);
 
 	my ($kbin, $kcmd) = split(' ', shift(@$modules), 2);
 	$kcmd = '' if !defined $kcmd;
@@ -415,7 +417,7 @@ my ($dhcpd_pid, $tftpd_pid);
 
 if (defined $dhcp_tftp)
 {
-    generate_configs("(nd)", $configs);
+    generate_configs("(nd)", $generated);
     system_verbose('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
