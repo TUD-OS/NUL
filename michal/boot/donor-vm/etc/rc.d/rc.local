@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# /etc/rc.d/rc.local:  Local system initialization script.
+#
+# Put any local startup commands in here.  Also, if you have
+# anything that needs to be run at shutdown time you can
+# make an /etc/rc.d/rc.local_shutdown script and put those
+# commands in there.
+
+if [ -f /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts ]; then
+  echo 0 > /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
+fi
+
+# if [ -x /usr/local/sbin/fp ]; then
+#   /usr/local/sbin/fp
+# fi
+
+# Initialize tap connector
+if [ -x /etc/rc.d/rc.tapconn ]; then
+  . /etc/rc.d/rc.tapconn
+fi

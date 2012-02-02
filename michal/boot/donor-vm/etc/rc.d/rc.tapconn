@@ -1,0 +1,69 @@
+#!/bin/bash
+
+cd /dev/shm
+echo 40 >/proc/sys/vm/nr_hugepages
+
+if [ -d /sys/class/net/ext0 ]; then
+  echo "run tap_connector ..."
+  tap_connector br0 &
+fi
+
+if [ ! -d /sys/class/net/ext0 ]; then
+  echo "test 1 - start - copy 128M to 141.76.49.7"
+  time dd bs=1M if=/dev/zero count=128 | nc 141.76.49.7 14141 -w 30
+  echo "test 1 - finished"
+
+  echo "run tap_connector ..."
+  tap_connector &
+  echo "waiting for tap0 ..."
+  while [ ! -d /sys/class/net/tap0 ]; do echo "." && sleep 5; done
+  /sbin/ip link set int0 down
+  /sbin/ip addr add 10.0.0.2/24 dev tap0
+
+  echo "test 2 - start - copy 128M to 10.0.0.1 via tap0 mtu default"
+  time dd bs=1M if=/dev/zero count=128 | nc 10.0.0.1 14141 -w 30
+  echo "test 2 - finished"
+
+  /sbin/ip link set tap0 down
+  /sbin/ip link set tap0 mtu 15000
+  /sbin/ip link set tap0 up
+
+  echo "test 3 - start - copy 8192M to 10.0.0.1 via tap0 mtu 15000"
+  time dd bs=1M if=/dev/zero count=8192 | nc 10.0.0.1 14141 -w 30
+  echo "test 3 - finished"
+else
+  echo "waiting for tap0 ..."
+  while [ ! -d /sys/class/net/tap0 ]; do echo "." && sleep 5; done
+  /sbin/ip addr add 10.0.0.1/24 dev tap0
+
+  echo "test 1 - start - receiving data"
+  time nc -l -p 14141 >/dev/null
+  echo "test 1 - finished - receiving data"
+
+  /sbin/ip link set ext0 down
+  /sbin/ip link set tap0 down
+  /sbin/ip link set br0  down
+  brctl delif br0 ext0
+  brctl delif br0 tap0
+  brctl delbr br0
+
+  /sbin/ip link set tap0 up
+
+  echo "test 2 - start - receiving data via tap0 default mtu"
+  time nc -l -p 14141 >/dev/null
+  echo "test 2 - finished - receiving data"
+
+  /sbin/ip link set tap0 down
+  /sbin/ip link set tap0 mtu 15000
+  /sbin/ip link set tap0 up
+
+  echo "test 3 - start - receiving data via tap0 mtu 15000"
+  time nc -l -p 14141 >/dev/null
+  echo "test 3 - finished - receiving data"
+fi
+#if [ ! -d /sys/class/net/ext0 ]; then
+# /sbin/ip addr add 10.0.0.2/24 dev tap0
+#else
+# /sbin/ip addr add 10.0.0.1/24 dev tap0
+#fi
+
