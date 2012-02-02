@@ -7,7 +7,8 @@ Import('target_env')
 nul.App(target_env, 'remote_config',
         SOURCES = [ 'main.cc', 'server.cc', 'events.cc' ],
         INCLUDE = [ 'sigma0' ],
-        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        OBJS    = [ '#service/dlmalloc.o', '#service/dlmalloc-support.o', '#service/simplemalloc.o',
+                    '#service/logging.o', '#service/vprintf.o'],
         LIBS    = [ 'ip_lwip', 'ssl_matrix', 'runtime' ],
         MEMSIZE = 2<<20)
 

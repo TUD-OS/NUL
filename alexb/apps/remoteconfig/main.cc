@@ -28,6 +28,8 @@
 #include "server.h"
 #include "events.h"
 
+EXTERN_C void dlmalloc_init(cap_sel pool);
+
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" bool nul_ip_config(unsigned para, void * arg);
@@ -319,6 +321,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     console_init("NOVA daemon", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+
+    dlmalloc_init(alloc_cap(0x10));
 
     Logging::printf("booting - NOVA daemon ...\n");
 
