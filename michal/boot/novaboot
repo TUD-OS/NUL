@@ -5,15 +5,19 @@ use warnings;
 use Getopt::Long;
 use Pod::Usage;
 use File::Basename;
+use File::Spec;
 use IO::Handle;
 use Time::HiRes("usleep");
 use Socket;
 use FileHandle;
 use IPC::Open2;
 use POSIX qw(:errno_h);
+use Cwd;
 
 # always flush
 $| = 1;
+
+my $invocation_dir = getcwd();
 
 chomp(my $gittop = `git rev-parse --show-toplevel 2>/dev/null`);
 
@@ -244,8 +248,8 @@ while (<>) {
 #use Data::Dumper;
 #print Dumper(\@scripts);
 
-sub generate_configs($$) {
-    my ($base, $generated) = @_;
+sub generate_configs($$$) {
+    my ($base, $generated, $filename) = @_;
     if ($base) { $base = "$base/"; };
     foreach my $g(@$generated) {
       if (exists $$g{content}) {
@@ -255,6 +259,7 @@ sub generate_configs($$) {
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
       } elsif (exists $$g{command} && ! $no_file_gen) {
+	$ENV{SRCDIR} = dirname(File::Spec->rel2abs( $filename, $invocation_dir ));
 	system_verbose("( $$g{command} ) > $$g{filename}");
       }
     }
@@ -339,7 +344,7 @@ foreach my $script (@scripts) {
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
     if (defined $grub_config) {
-	generate_configs("", $generated);
+	generate_configs("", $generated, $filename);
 	generate_grub_config($grub_config, $config_name, "", $modules);
 	print("GRUB menu created: $CFG::builddir/$grub_config\n");
 	exit;
@@ -348,7 +353,7 @@ foreach my $script (@scripts) {
     if (defined $server) {
 	($server_grub_prefix = $CFG::server_grub_prefix) =~ s/\$NAME/$config_name/;
 	($server = $CFG::server)			 =~ s/\$NAME/$config_name/;
-	generate_configs($server_grub_prefix, $generated);
+	generate_configs($server_grub_prefix, $generated, $filename);
 	my $grub_config ||= "menu.lst";
 	generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules,
 			     $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
@@ -368,7 +373,7 @@ foreach my $script (@scripts) {
     }
     
     if (defined $iso_image) {
-	generate_configs("(cd)", $generated);
+	generate_configs("(cd)", $generated, $filename);
 	my $menu;
 	generate_grub_config(\$menu, $config_name, "(cd)", $modules);
 	$menu_iso .= "$menu\n";
@@ -411,7 +416,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 
 	# Non-patched qemu doesn't like commas, but NUL can live with pluses instead of commans
 	foreach (@$modules) {s/,/+/g;}
-	generate_configs("", $generated);
+	generate_configs("", $generated, $filename);
 
 	my ($kbin, $kcmd) = split(' ', shift(@$modules), 2);
 	$kcmd = '' if !defined $kcmd;
@@ -427,7 +432,7 @@ my ($dhcpd_pid, $tftpd_pid);
 
 if (defined $dhcp_tftp)
 {
-    generate_configs("(nd)", $generated);
+    generate_configs("(nd)", $generated, $filename);
     system_verbose('mkdir -p tftpboot');
     generate_grub_config("tftpboot/os-menu.lst", $config_name, "(nd)", \@$modules, "timeout 0");
     open(my $fh, '>', 'dhcpd.conf');
@@ -689,7 +694,9 @@ line containing only WORD are copied literally to the file named on
 that line.
 
 Lines in the form "FILE < CMD" causes the command CMD to be executed
-and its standard output to be stored in the FILE.
+and its standard output to be stored in the FILE. The SRCDIR variable
+in CMD's environemnt is set to the absolute path of the directory
+containing the interpreted novaboot script.
 
 Example:
   #!/usr/bin/env novaboot
