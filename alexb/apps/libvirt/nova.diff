@@ -1,5 +1,5 @@
 --- libvirt-0.9.9/configure.ac	2012-01-07 04:53:02.000000000 +0100
-+++ libvirt-0.9.9-own/configure.ac	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/configure.ac	2012-02-01 09:37:40.000000000 +0100
 @@ -327,6 +327,8 @@
    AC_HELP_STRING([--with-remote], [add remote driver support @<:@default=yes@:>@]),[],[with_remote=yes])
  AC_ARG_WITH([libvirtd],
@@ -30,7 +30,7 @@
  AC_MSG_NOTICE([    Test: $with_test])
  AC_MSG_NOTICE([  Remote: $with_remote])
 --- libvirt-0.9.9/src/Makefile.am	2012-01-07 05:02:54.000000000 +0100
-+++ libvirt-0.9.9-own/src/Makefile.am	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/Makefile.am	2012-02-01 09:37:40.000000000 +0100
 @@ -333,6 +333,9 @@
  		lxc/lxc_container.c lxc/lxc_container.h		\
  		lxc/lxc_controller.c
@@ -94,7 +94,7 @@
  	rmdir "$(DESTDIR)$(localstatedir)/lib/libvirt/uml" ||:
  	rmdir "$(DESTDIR)$(localstatedir)/run/libvirt/uml" ||:
 --- libvirt-0.9.9/src/driver.h	2011-12-29 15:01:56.000000000 +0100
-+++ libvirt-0.9.9-own/src/driver.h	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/driver.h	2012-02-01 09:37:40.000000000 +0100
 @@ -30,6 +30,7 @@
      VIR_DRV_VMWARE = 13,
      VIR_DRV_LIBXL = 14,
@@ -104,7 +104,7 @@
  
  
 --- libvirt-0.9.9/src/libvirt.c	2012-01-05 10:04:31.000000000 +0100
-+++ libvirt-0.9.9-own/src/libvirt.c	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/libvirt.c	2012-02-01 09:37:40.000000000 +0100
 @@ -76,6 +76,9 @@
  # ifdef WITH_XENAPI
  #  include "xenapi/xenapi_driver.h"
@@ -146,7 +146,7 @@
      if (remoteRegister () == -1) return -1;
  # endif
 --- libvirt-0.9.9/src/conf/domain_event.c	2011-12-29 08:26:45.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_event.c	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_event.c	2012-02-01 09:37:40.000000000 +0100
 @@ -398,6 +398,7 @@
      for (i = 0 ; i < cbList->count ; i++) {
          if (cbList->callbacks[i]->cb == VIR_DOMAIN_EVENT_CALLBACK(callback) &&
@@ -156,7 +156,7 @@
              eventReportError(VIR_ERR_INTERNAL_ERROR, "%s",
                               _("event callback already tracked"));
 --- libvirt-0.9.9/src/conf/domain_conf.c	2012-01-05 10:16:31.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_conf.c	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_conf.c	2012-02-01 09:37:40.000000000 +0100
 @@ -89,7 +89,8 @@
                "vmware",
                "hyperv",
@@ -168,7 +168,7 @@
  VIR_ENUM_IMPL(virDomainBoot, VIR_DOMAIN_BOOT_LAST,
                "fd",
 --- libvirt-0.9.9/src/conf/domain_conf.h	2011-12-30 04:03:54.000000000 +0100
-+++ libvirt-0.9.9-own/src/conf/domain_conf.h	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/conf/domain_conf.h	2012-02-01 09:37:40.000000000 +0100
 @@ -58,6 +58,7 @@
      VIR_DOMAIN_VIRT_HYPERV,
      VIR_DOMAIN_VIRT_VBOX,
@@ -178,7 +178,7 @@
      VIR_DOMAIN_VIRT_LAST,
  };
 --- libvirt-0.9.9/examples/domain-events/events-c/event-test.c	2011-12-06 09:38:51.000000000 +0100
-+++ libvirt-0.9.9-own/examples/domain-events/events-c/event-test.c	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/examples/domain-events/events-c/event-test.c	2012-02-01 09:37:40.000000000 +0100
 @@ -172,9 +172,9 @@
                                    int detail,
                                    void *opaque ATTRIBUTE_UNUSED)
@@ -201,7 +201,7 @@
          (callback3ret != -1) &&
          (callback4ret != -1) &&
 --- libvirt-0.9.9/include/libvirt/virterror.h	2011-12-29 08:26:45.000000000 +0100
-+++ libvirt-0.9.9-own/include/libvirt/virterror.h	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/include/libvirt/virterror.h	2012-02-01 09:37:40.000000000 +0100
 @@ -85,6 +85,7 @@
      VIR_FROM_LOCKING = 42,	/* Error from lock manager */
      VIR_FROM_HYPERV = 43,	/* Error from Hyper-V driver */
@@ -211,7 +211,7 @@
  
  
 --- libvirt-0.9.9/src/util/virterror.c	2011-12-29 08:26:45.000000000 +0100
-+++ libvirt-0.9.9-own/src/util/virterror.c	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/util/virterror.c	2012-02-01 09:37:40.000000000 +0100
 @@ -178,6 +178,9 @@
          case VIR_FROM_CAPABILITIES:
              dom = "Capabilities ";
@@ -224,7 +224,7 @@
  }
 diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_conf.h
 --- libvirt-0.9.9/src/nova/nova_conf.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_conf.h	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/nova/nova_conf.h	2012-02-01 09:37:40.000000000 +0100
 @@ -0,0 +1,24 @@
 +#ifndef __VIR_NOVA_CONF_H__
 +# define __VIR_NOVA_CONF_H__
@@ -252,8 +252,8 @@ diff -urN libvirt-0.9.9/src/nova/nova_conf.h libvirt-0.9.9-own/src/nova/nova_con
 +#endif /* __VIR_NOVA_CONF_H__ */
 diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_driver.c
 --- libvirt-0.9.9/src/nova/nova_driver.c	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-01-24 07:17:45.000000000 +0100
-@@ -0,0 +1,744 @@
++++ libvirt-0.9.9-own/src/nova/nova_driver.c	2012-02-03 11:38:30.000000000 +0100
+@@ -0,0 +1,749 @@
 +#include <sys/socket.h> //socket
 +#include <arpa/inet.h> //inet_pton
 +
@@ -309,7 +309,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +
 +    struct outgoing_packet * in = (struct outgoing_packet *)buf;
 +
-+    if (in->version != ntohs(0xafff)) { fprintf(stderr, "eventthread - version error %x != %x\n", ntohs(in->version), 0xafff); continue;}
++    if (in->version != ntohs(0xb000)) { fprintf(stderr, "eventthread - version error %x != %x\n", ntohs(in->version), 0xb000); continue;}
 +    if (in->opcode != ntohs(NOVA_EVENT)) { fprintf(stderr, "eventthread - opcode error %x != %x\n", ntohs(in->opcode), NOVA_EVENT ); continue;}
 +
 +    uint32_t eventid      = *((uint32_t *)(&in->opspecific + 16));
@@ -627,7 +627,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +  struct incoming_packet * _out = (struct incoming_packet *)buf; \
 +  ssize_t res_nova_request; \
 +\
-+  _out->version = htons(0xafff); \
++  _out->version = htons(0xb000); \
 +  _out->opcode  = htons(NOVAOPCODE); \
 +\
 +  CODE \
@@ -654,9 +654,14 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +\
 +  struct outgoing_packet * _in = (struct outgoing_packet *)buf; \
 +\
-+  if (_in->version != ntohs(0xafff)) { fprintf(stderr, "version error %x\n", ntohs(_in->version)); return ERRORCODE; } \
++  if (_in->version != ntohs(0xb000)) { fprintf(stderr, "version error %x\n", ntohs(_in->version)); return ERRORCODE; } \
 +  if (_in->opcode != ntohs(NOVAOPCODE)) { fprintf(stderr, "opcode error\n"); return ERRORCODE; } \
-+  if (_in->result != NOVA_OP_SUCCEEDED) { return ERRORCODE; }
++  if (_in->result != NOVA_OP_SUCCEEDED) { \
++    if (_in->result == NOVA_OP_FAILED_OUT_OF_MEMORY) \
++      virReportErrorHelper(VIR_FROM_NOVA, VIR_ERR_OPERATION_FAILED, __FILE__, \
++                           __FUNCTION__, __LINE__, "out of memory on NOVA host"); \
++    return ERRORCODE; \
++  }
 +
 +static int nodeGetInfo(virConnectPtr conn, virNodeInfoPtr info) {
 +  create_nova_request(conn, NOVA_HW_INFO, -1, {});
@@ -1000,7 +1005,7 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.c libvirt-0.9.9-own/src/nova/nova_d
 +}
 diff -urN libvirt-0.9.9/src/nova/nova_driver.h libvirt-0.9.9-own/src/nova/nova_driver.h
 --- libvirt-0.9.9/src/nova/nova_driver.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_driver.h	2012-01-23 20:24:30.000000000 +0100
++++ libvirt-0.9.9-own/src/nova/nova_driver.h	2012-02-01 09:37:40.000000000 +0100
 @@ -0,0 +1,8 @@
 +#ifndef __VIR_NOVA_INTERNAL_H__
 +# define __VIR_NOVA_INTERNAL_H__
@@ -1012,11 +1017,12 @@ diff -urN libvirt-0.9.9/src/nova/nova_driver.h libvirt-0.9.9-own/src/nova/nova_d
 +#endif /* __VIR_NOVA_INTERNAL_H__ */
 diff -urN libvirt-0.9.9/src/nova/nova_types.h libvirt-0.9.9-own/src/nova/nova_types.h
 --- libvirt-0.9.9/src/nova/nova_types.h	1970-01-01 01:00:00.000000000 +0100
-+++ libvirt-0.9.9-own/src/nova/nova_types.h	2012-01-23 20:24:30.000000000 +0100
-@@ -0,0 +1,37 @@
++++ libvirt-0.9.9-own/src/nova/nova_types.h	2012-02-03 11:25:28.000000000 +0100
+@@ -0,0 +1,38 @@
 +enum LIBVIRT_NOVA_OPCODE {
 +  NOVA_OP_FAILED   = 0x8,
 +  NOVA_OP_SUCCEEDED = 0x9,
++  NOVA_OP_FAILED_OUT_OF_MEMORY = 0xa,
 +  NOVA_PACKET_LEN  = 0x40,
 +  NOVA_NUM_OF_ACTIVE_DOMAINS = 0x20,
 +  NOVA_NUM_OF_DEFINED_DOMAINS,
