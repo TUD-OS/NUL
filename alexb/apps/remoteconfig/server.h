@@ -32,6 +32,7 @@ typedef uint64 uint64_t;
 
 #include "nova_types.h"
 #define UUID_LEN 16
+#define DAEMON_VERSION 0xb000U
 
 class ConfigProtocol;
 
@@ -178,7 +179,7 @@ class Remcon : public CapAllocator {
       if (&out->opspecific - buf + UUID_LEN + 2 * sizeof(uint32_t) + extra_len > NOVA_PACKET_LEN) return false;
       if (extra_len) memcpy(&out->opspecific + UUID_LEN + 2 * sizeof(uint32_t), extra, extra_len);
 
-      out->version = Math::htons(0xafff);
+      out->version = Math::htons(DAEMON_VERSION);
       out->opcode  = Math::htons(NOVA_EVENT);
       out->result  = NOVA_OP_SUCCEEDED;
 

@@ -72,8 +72,8 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 void Remcon::handle_packet(void) {
 
   //version check
-  if (_in->version != Math::htons(0xafff)) {
-    _out->version = Math::htons(0xafff);
+  if (_in->version != Math::htons(DAEMON_VERSION)) {
+    _out->version = Math::htons(DAEMON_VERSION);
     _out->result  = NOVA_UNSUPPORTED_VERSION;
     if (sizeof(buf_out) != send(buf_out, sizeof(buf_out)))
       Logging::printf("failure - sending reply\n");
@@ -85,7 +85,7 @@ void Remcon::handle_packet(void) {
 
   //set default values 
   unsigned op = Math::ntohs(_in->opcode);
-  _out->version = Math::htons(0xafff);
+  _out->version = Math::htons(DAEMON_VERSION);
   _out->opcode  = Math::htons(op);
   _out->result  = NOVA_OP_FAILED;
   
@@ -269,7 +269,10 @@ void Remcon::handle_packet(void) {
                   _out->result  = NOVA_OP_SUCCEEDED;
                 } else if (res == ConfigProtocol::ECONFIGTOOBIG)
                   Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
-                else if (res == ERESOURCE) Logging::printf("failure - out of memory\n");
+                else if (res == ERESOURCE) {
+                  _out->result  = NOVA_OP_FAILED_OUT_OF_MEMORY;
+                  Logging::printf("failure - out of memory\n");
+                }
               }
               cleanup:
 
