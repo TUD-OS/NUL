@@ -212,11 +212,11 @@
     // Round up to page size
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
-    check1(__LINE__, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
+    check1(ERESOURCE, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
            "s0: [%2u] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
            CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
 
-    check1(__LINE__, ((psize_needed > modinfo->physsize) || !elf),
+    check1(ERESOURCE, ((psize_needed > modinfo->physsize) || !elf),
            "s0: [%2u] Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
 
     {
@@ -226,7 +226,7 @@
         _virt_phys.debug_dump("virt phys");
         _free_virt.debug_dump("free virt");
       }
-      check1(__LINE__, !pmem);
+      check1(ERESOURCE, !pmem);
     }
 
     // Don't assign modinfo->mem directly (potential double free)
