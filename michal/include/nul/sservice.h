@@ -225,7 +225,7 @@ public:
 		session->pseudonym = pseudonym;
 		utcb << Utcb::TypedMapCap(session->identity);
 		free_cap = false;
-		this->cleanup_clients(utcb);
+                Base::_sessions.cleanup_clients(utcb, this);
 		return ENONE;
 	      }
 	    }
@@ -233,7 +233,7 @@ public:
 
 	Session *session = 0;
         res = Base::_sessions.alloc_client_data(utcb, session, pseudonym, this);
-        if (res == ERESOURCE) { Base::cleanup_clients(utcb); return ERETRY; } //force garbage collection run
+        if (res == ERESOURCE) { Base::_sessions.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
 	// Throw away the semaphore and use a portal instead
