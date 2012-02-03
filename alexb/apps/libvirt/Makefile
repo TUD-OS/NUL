@@ -10,24 +10,27 @@ libvirt-$(VERSION).tar.gz:
 	cd libvirt-$(VERSION) && patch -p1 <../nova.diff
 	touch $@
 
-.configure.stamp: .patch.stamp
-	cd libvirt-$(VERSION) && \
+libvirt-repo/configure.ac:
+	cd $(shell git rev-parse --show-toplevel) && git submodule update --init $(shell git rev-parse --show-prefix)libvirt-repo
+
+.configure.stamp: libvirt-repo/configure.ac
+	cd libvirt-repo && \
 	 autoreconf && \
 	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --with-nova --without-macvtap
 	touch $@
 
 .build.stamp: .configure.stamp
-	 $(MAKE) -C libvirt-$(VERSION)
+	 $(MAKE) -C libvirt-repo
 	touch $@
 
 $(DESTDIR)/.install.stamp: .build.stamp
-	$(MAKE) -C libvirt-$(VERSION)/ install
+	$(MAKE) -C libvirt-repo/ install
 	touch $@
 
 install: $(DESTDIR)/.install.stamp
 
 clean:
-	rm -rf libvirt-$(VERSION)
+	rm -rf libvirt-$(VERSION)-nova
 	rm -f .build.stamp 
 	rm -f .configure.stamp
 	rm -f .patch.stamp
