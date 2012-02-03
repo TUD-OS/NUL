@@ -63,7 +63,7 @@ public:
         //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
         utcb.head.untyped = 1;
         delete [] config;
-        return EPROTO;
+        return msg.res;
       }
     case ConfigProtocol::TYPE_KILL:
       {
@@ -73,7 +73,7 @@ public:
         MessageConsole msg(MessageConsole::TYPE_KILL, id);
         if (_bus_console.send(msg)) return ENONE;
 
-        return EPROTO; 
+        return msg.res;
       }
     default:
       return EPROTO;

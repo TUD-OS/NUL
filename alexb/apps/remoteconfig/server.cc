@@ -269,6 +269,7 @@ void Remcon::handle_packet(void) {
                   _out->result  = NOVA_OP_SUCCEEDED;
                 } else if (res == ConfigProtocol::ECONFIGTOOBIG)
                   Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
+                else if (res == ERESOURCE) Logging::printf("failure - out of memory\n");
               }
               cleanup:
 
@@ -277,6 +278,7 @@ void Remcon::handle_packet(void) {
 
               if (res == ENONE) server_data[j].active = true;
               else {
+                Logging::printf("failure - starting VM - reason : %#x\n", res);
                 dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
                 server_data[j].id = 0;
               }
