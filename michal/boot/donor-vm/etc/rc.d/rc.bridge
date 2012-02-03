@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ -x /sbin/brctl -a -x /sbin/ip ]; then
+#  if [ -d /sys/class/net/ext0 -a -d /sys/class/net/int0 ]; then
+#   if [ -d /sys/class/net/ext0 ]; then
+#     echo "Bridging between ext0 and int0"
+#     /sbin/brctl addbr br0
+#     /sbin/brctl setfd br0 0
+#     /sbin/brctl addif br0 ext0
+#     #/sbin/brctl addif br0 int0
+#     /sbin/ip link set ext0 up
+#   fi
+# fi
