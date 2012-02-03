@@ -1491,26 +1491,25 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       break;
     case MessageConsole::TYPE_START:
       {
-        unsigned res;
         unsigned internal_id;
         if (msg.id == (~0U & ((1 << (sizeof(msg.id) * 8)) - 1) )) {
-          res = start_config(myutcb(), msg.cmdline, internal_id, msg.cap_sc_usage, msg.mem);
-          if (res) {
-            Logging::printf("s0: start of config failed, error line = %d, config :\n'", res);
+          msg.res = start_config(myutcb(), msg.cmdline, internal_id, msg.cap_sc_usage, msg.mem);
+          if (msg.res) {
+            Logging::printf("s0: start of config failed, res = %d, config :\n'", msg.res);
             fancy_output(msg.cmdline, 4096);
           } else msg.id = internal_id;
         } else {
-          res = start_config(myutcb(), msg.id, internal_id);
-          if (res)
-            Logging::printf("s0: start of config failed, error line = %d, config id=%d\n", res, msg.id);
+          msg.res = start_config(myutcb(), msg.id, internal_id);
+          if (msg.res)
+            Logging::printf("s0: start of config failed, res = %d, config id=%d\n", msg.res, msg.id);
           else msg.id = internal_id;
         }
-        return !res;
+        return !msg.res;
       }
     case MessageConsole::TYPE_KILL:
       {
-        unsigned res = kill_module(get_module(msg.id));
-        if (res) Logging::printf("s0: [%2u] kill module = %u\n", msg.id, res);
+        msg.res = kill_module(get_module(msg.id));
+        if (msg.res) Logging::printf("s0: [%2u] killing module failed = %#x\n", msg.id, msg.res);
       }
       return true;
     case MessageConsole::TYPE_DEBUG:

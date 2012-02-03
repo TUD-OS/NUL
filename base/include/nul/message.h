@@ -386,6 +386,7 @@ struct MessageConsole
       unsigned input_data;
     };
     struct {
+      unsigned res;
       char const * cmdline;
     };
     struct {
