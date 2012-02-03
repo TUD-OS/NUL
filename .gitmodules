@@ -1,3 +1,6 @@
 [submodule "build/imgs"]
 	path = build/imgs
 	url = os.inf.tu-dresden.de:/home/sojka/repos/nul-test-imgs.git
+[submodule "alexb/apps/libvirt/libvirt-repo"]
+	path = alexb/apps/libvirt/libvirt-repo
+	url = os.inf.tu-dresden.de:/home/sojka/repos/libvirt.git

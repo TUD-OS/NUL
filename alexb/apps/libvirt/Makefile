@@ -34,7 +34,7 @@ clean:
 
 FORCE:
 
-libvirt-$(VERSION)-nova: libvirt-$(VERSION) FORCE
+libvirt-$(VERSION)-nova: libvirt-repo FORCE
 	rm -rf $@
 	git --git-dir=$</.git checkout-index --prefix=$@/ -a -f
 	cd $@ && autoreconf -v -f
@@ -42,3 +42,6 @@ libvirt-$(VERSION)-nova: libvirt-$(VERSION) FORCE
 
 dist: libvirt-$(VERSION)-nova
 	tar cf - $< | gzip > $<.tar.gz
+
+nova.diff: FORCE
+	git --git-dir=libvirt-repo/.git diff upstream master > $@
