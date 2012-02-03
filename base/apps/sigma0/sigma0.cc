@@ -561,7 +561,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    */
   static void *sigma0_memalloc(unsigned long size, unsigned long align) {
     if (!size) return 0;
-    if (align < 0xF) align = 0xF;
+    if (align < 0x10) align = 0x10;
 
     size = (size + 0xF) & ~0xF;
 
