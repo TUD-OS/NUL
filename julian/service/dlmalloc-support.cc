@@ -49,7 +49,12 @@ void semaphore_up(cap_sel *lk)
 
 void *mmap_simple(void *start, size_t size)
 {
-  return memalloc_mempool(size, 4096);
+  void *res = memalloc_mempool(size, 4096);
+
+  // Zero memory like the real mmap.
+  memset(res, 0, size);
+
+  return res;
 }
 
 int munmap(void *start, size_t size)
