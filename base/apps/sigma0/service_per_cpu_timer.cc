@@ -320,7 +320,7 @@ class PerCpuTimerService : private BasicHpet,
   // Returns the next timeout.
   uint64 handle_expired_timers(PerCpu *per_cpu, uint64 now)
   {
-    ClientData volatile *data;
+    ClientData *data;
     unsigned nr;
     while ((nr = per_cpu->abstimeouts.trigger(now, &data))) {
       per_cpu->abstimeouts.cancel(nr);

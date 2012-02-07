@@ -100,7 +100,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator {
       now = _mymb.clock()->time();
       {
         ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage);
-        ClientData volatile * data;
+        ClientData * data;
         while ((nr = _abs_timeouts.trigger(now, &data))) {
           _abs_timeouts.cancel(nr);
  
