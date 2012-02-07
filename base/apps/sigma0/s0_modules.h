@@ -438,7 +438,7 @@
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
     if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - destruction done\n", modinfo->id);
-    //free_module(modinfo);
+    free_module(modinfo);
     return 0;
   }
 
