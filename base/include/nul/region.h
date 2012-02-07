@@ -164,5 +164,26 @@ public:
       Logging::printf("\t%4d virt %8llx end %8llx size %8llx phys %8llx\n", r - _list, r->virt, r->end(), r->size, r->phys);
   }
 
+  /*
+   * Alloc the largest aligned contiguous region from the list.
+   */
+  Region alloc_max(unsigned align_order) {
+    unsigned long long size_max = 0, virt_max = 0;
+
+    assert(_count < SIZE);
+    assert(align_order < 8*sizeof(unsigned long long));
+    for (Region *r = _list; r < _list + _count; r++)
+      {
+        unsigned long long virt = (r->virt + (1ULL << align_order) - 1) & ~((1ULL << align_order) - 1);
+        if (r->size <= (virt - r->virt)) continue;
+        if ((r->size - (virt - r->virt)) > size_max) {
+          size_max = r->size - (virt - r->virt);
+          virt_max = virt;
+        }
+      }
+    if (virt_max && size_max) del(Region(virt_max, size_max));
+    return Region(virt_max, size_max);
+  }
+
  RegionList() : _count(0) {}
 };
