@@ -1,2 +1,2 @@
-namespace::/s0 name::/s0/admission name::/s0/timer || 
+namespace::/s0 name::/s0/admission name::/s0/timer sigma0::mem:2 ||
 embedded://admission.nul top
