@@ -57,7 +57,7 @@ class Tracebuffer: public CapAllocator {
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, Tracebuffer>::Guard guard_c(&_storage, utcb, this);
-    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    ClientData * data = _storage.get_invalid_client(utcb, this);
     while (data) {
       if (_verbose) Logging::printf("tb: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);

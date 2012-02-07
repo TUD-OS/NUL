@@ -125,7 +125,7 @@
   }
 
   void measure_scs(Hip * hip) {
-    ClientData volatile * data = &own_scs;
+    ClientData * data = &own_scs;
     data->next = &idle_scs;
     idle_scs.next = _storage.next();
 
@@ -161,7 +161,7 @@
     memset(_vga_console + VALUEWIDTH * WIDTH + cursor_pos * VALUEWIDTH - 1, 0, 1);
     cursor_pos = 0;
 
-    ClientData volatile * data = &own_scs;
+    ClientData * data = &own_scs;
     ClientData * client;
     unsigned client_count = HEIGHT - 1, res, more = 0;
     unsigned client_select = client_num < (HEIGHT - 2) ? client_count - client_num : 2; //client_count - (client_num % (HEIGHT - 2));
@@ -298,7 +298,7 @@
 
   void top_dump_client(unsigned client_num, unsigned interval, Hip * hip, unsigned num_sc) {
     unsigned i = 0, show_max, show_start;
-    ClientData volatile * data = &own_scs;
+    ClientData * data = &own_scs;
     data->next = _storage.next();
 
     while (client_num != i && (data = _storage.next(data))) { i++; }

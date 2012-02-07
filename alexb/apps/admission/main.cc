@@ -93,7 +93,7 @@ public:
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
-    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    ClientData * data = _storage.get_invalid_client(utcb, this);
     while (data) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);
@@ -120,7 +120,7 @@ public:
         if (!res && cap_session)
         {
          //XXX check whether pseudo is really invalid otherwise unnecessary to do that
-          ClientData volatile *data = 0;
+          ClientData *data = 0;
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
             if (data->identity == cap_session) {
@@ -262,7 +262,7 @@ public:
 
           //input.dump_typed_items();
           //check whether provided stat cap match to one of our client
-          ClientData volatile *client = 0;
+          ClientData *client = 0;
           for (client = _storage.next(client); client; client = _storage.next(client))
             if (client->statistics == stats) break;
           if (!client) return EPERM;

@@ -213,7 +213,7 @@ private:
   cap_sel _deleg_ec[Config::MAX_CPUS];
 
   DiskClient *_get_client_from_pt(cap_sel pt) {
-    DiskClient volatile *client = 0;
+    DiskClient *client = 0;
     for (client = _sessions.next(client); client && pt; client = _sessions.next(client))
       if (client->deleg_pt == pt) {
         return reinterpret_cast<DiskClient *>(reinterpret_cast<unsigned long>(client));

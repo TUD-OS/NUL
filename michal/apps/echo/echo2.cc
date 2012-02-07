@@ -55,7 +55,7 @@ public:
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, EchoService>::Guard guard_c(&_storage, utcb, this);
-    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    ClientData * data = _storage.get_invalid_client(utcb, this);
     while (data) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);
@@ -81,7 +81,7 @@ public:
         res = ParentProtocol::check_singleton(utcb, pseudonym, cap_session);
         if (!res && cap_session)
         {
-          ClientData volatile *data = 0;
+          ClientData *data = 0;
           EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
             if (data->identity == cap_session) {

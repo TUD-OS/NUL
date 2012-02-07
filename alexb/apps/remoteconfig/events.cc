@@ -19,7 +19,7 @@
 
   void EventService::check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, EventService>::Guard guard_c(&_storage, utcb, this);
-    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    ClientData * data = _storage.get_invalid_client(utcb, this);
     while (data) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);

@@ -124,7 +124,7 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator {
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, TimerService>::Guard guard_c(&_storage, utcb, this);
-    ClientData volatile * data = _storage.get_invalid_client(utcb, this);
+    ClientData * data = _storage.get_invalid_client(utcb, this);
     while (data) {
       {
         //XXX more fine granular synchronization

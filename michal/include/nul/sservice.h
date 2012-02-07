@@ -110,7 +110,7 @@ public:
         res = ParentProtocol::check_singleton(utcb, pseudonym, cap_session);
         if (!res && cap_session)
 	  {
-	    Session volatile *session = 0;
+	    Session *session = 0;
 	    typename Sessions::Guard guard_c(&_sessions, utcb, this);
 	    while (session = _sessions.next(session)) {
 	      if (session->identity == cap_session) {

@@ -152,7 +152,7 @@ private:
 
   unsigned get_portal(Utcb &utcb, unsigned cap_client, unsigned &portal) {
     ClientData *cdata;
-    ServerData volatile *sdata;
+    ServerData *sdata;
     unsigned res;
 
     GuardC guard_c(&session);
@@ -219,7 +219,7 @@ private:
     return EPERM;
   }
 
-  unsigned free_service(Utcb &utcb, ServerData volatile *sdata) {
+  unsigned free_service(Utcb &utcb, ServerData *sdata) {
     dealloc_cap(sdata->pt);
     delete sdata->name;
     ServerData::get_quota(utcb, sdata->pseudonym, "cap", -1);
@@ -227,7 +227,7 @@ private:
     return _server.free_client_data(utcb, sdata, this);
   }
 
-  void notify_service(Utcb &utcb, ClientData volatile *c) {
+  void notify_service(Utcb &utcb, ClientData *c) {
 
     //revoke identity cap so that services can detect that client is gone
     unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
@@ -235,7 +235,7 @@ private:
 
     {
       GuardS guard_s(&_server);
-      for (ServerData volatile * sdata = _server.next(); sdata; sdata = _server.next(sdata))
+      for (ServerData * sdata = _server.next(); sdata; sdata = _server.next(sdata))
         if (sdata->cpu == utcb.head.nul_cpunr && c->len == sdata->len-1 &&
             !memcmp(c->name, sdata->name, c->len) && sdata->mem_revoke)
               *sdata->mem_revoke = 1; //flag revoke
@@ -262,7 +262,7 @@ public:
         // check whether such a session is already known from our client
         {
           GuardC guard_c(&session);
-          for (ClientData volatile * c = session.next(); c; c = session.next(c))
+          for (ClientData * c = session.next(); c; c = session.next(c))
             if (c->name == service_name && c->pseudonym == input.identity()) {
               utcb << Utcb::TypedMapCap(c->identity);
             //Logging::printf("has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->identity, c->pseudonym, service_name);
@@ -276,7 +276,7 @@ public:
 
           unsigned count = 0;
           GuardC guard_c(&session, utcb, this);
-          ClientData volatile * data = session.get_invalid_client(utcb, this);
+          ClientData * data = session.get_invalid_client(utcb, this);
           while (data) {
             Logging::printf("s0: found dead client - freeing datastructure\n");
             count++;
@@ -340,7 +340,7 @@ public:
 
           unsigned count = 0;
           GuardS guard_s(&_server, utcb, this);
-          ServerData volatile * sdata = _server.get_invalid_client(utcb, this);
+          ServerData * sdata = _server.get_invalid_client(utcb, this);
           while (sdata) {
             Logging::printf("s0: found dead server - freeing datastructure\n");
             count++;
@@ -366,7 +366,7 @@ public:
 
         {
           GuardS guard_s(&_server);
-          for (ServerData volatile * s2 = _server.next(); s2; s2 = _server.next(s2))
+          for (ServerData * s2 = _server.next(); s2; s2 = _server.next(s2))
             if (s2->len == sdata->len && !memcmp(sdata->name, s2->name, sdata->len) && sdata->cpu == s2->cpu && sdata->pt != s2->pt) {
               free_service(utcb, sdata);
               return EEXISTS;
@@ -376,7 +376,7 @@ public:
         // wakeup clients that wait for us
         {
           GuardC guard_c(&session);
-          for (ClientData volatile * c = session.next(); c; c = session.next(c))
+          for (ClientData * c = session.next(); c; c = session.next(c))
           if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
             //Logging::printf("\tnotify client %x\n", c->pseudonym);
             unsigned res = nova_semup(c->identity);
@@ -442,7 +442,7 @@ public:
         GuardC guard_c(&session, utcb, this);
 
         // find all sessions for a given client
-        for (ClientData volatile * c = session.next(); c; c = session.next(c)) {
+        for (ClientData * c = session.next(); c; c = session.next(c)) {
           if (c->pseudonym != input.identity(1)) continue;
 
           notify_service(utcb, c);

@@ -44,8 +44,8 @@ template <class T> class QuotaGuard {
  * Data that is stored by a service for every client.
  */
 struct GenericClientData {
-  void volatile * volatile next;
-  void volatile * volatile del;
+  void * next;
+  void * del;
   unsigned           pseudonym; ///< A capability identifying the client. This is also known to the parent.
   unsigned           identity;  ///< A capability created by the service to identify the session.
   /**
@@ -74,18 +74,18 @@ struct GenericClientData {
 template <class T, class A, bool free_pseudonym = true, bool __DEBUG__ = false>
 class ClientDataStorage {
   struct recycl {
-    T volatile * volatile head;
-    unsigned long volatile t_in;
+    T * head;
+    unsigned long t_in;
   };
   struct recycl_nv {
     T * head;
-    unsigned long volatile t_in;
+    unsigned long t_in;
   };
 
-  T volatile * volatile _head;
+  T * _head;
   union {
     ALIGNED(8) struct recycl recycling;
-    ALIGNED(8) unsigned long long volatile recyc64;
+    ALIGNED(8) unsigned long long recyc64;
   };
 
   /**
@@ -208,7 +208,7 @@ public:
     }
 
     // enqueue it
-    T volatile * __head;
+    T * __head;
     do {
       __head = _head;
       data->next = __head;
@@ -217,21 +217,21 @@ public:
     return ENONE;
   }
 
-  unsigned free_client_data(Utcb &utcb, T volatile *data, A * obj) {
+  unsigned free_client_data(Utcb &utcb, T *data, A * obj) {
     Guard count(this, utcb, obj);
 
-    for (T volatile * volatile * prev = &_head; T volatile * volatile current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+    for (T **prev = &_head; T *current = *prev; prev = reinterpret_cast<T**>(&current->next))
       if (current == data) {
 
         again:
 
-        void volatile * volatile data_next = data->next;
+        void * data_next = reinterpret_cast<volatile T*>(data)->next;
         if (reinterpret_cast<unsigned long>(data) != Cpu::cmpxchg4b(prev, reinterpret_cast<unsigned long>(data), reinterpret_cast<unsigned long>(data_next))) {
           if (__DEBUG__) Logging::printf("gs: another thread concurrently removed same data item - nothing todo\n");
           return 0;
         }
 
-        if (data->next != data_next) {
+        if (reinterpret_cast<volatile T*>(data)->next != data_next) {
           // somebody dequeued our direct next in between ...
           //
           // Example: A and B dequeued in parallel
@@ -248,7 +248,7 @@ public:
           // AAA start
           retry:
 
-          void volatile * tmp2_next = data->next;
+          void * tmp2_next = reinterpret_cast<volatile T*>(data)->next;
           void * got_next = reinterpret_cast<void *>(Cpu::cmpxchg4b(prev, reinterpret_cast<unsigned long>(data_next), reinterpret_cast<unsigned long>(tmp2_next)));
           if (got_next == data_next) {
             //ok - we managed to update the bogus pointer
@@ -262,7 +262,7 @@ public:
             //             A ------> C -> D
             //                  B -> C -> D
             //   X -> Y -----------> C -> D
-            if (data->next != tmp2_next) {
+            if (reinterpret_cast<volatile T*>(data)->next != tmp2_next) {
               // Is update still valid or we updated the bogus pointer by a pointer which became bogus ?
               //             A -----------> D
               //   X -> Y -----------> C -> D
@@ -288,14 +288,14 @@ public:
 
         //check that we are not in list anymore
         //BBB start
-        for (prev = &_head; current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+        for (prev = &_head; current = *prev; prev = reinterpret_cast<T**>(&current->next))
           if (current == data) {
             if (__DEBUG__) Logging::printf("gs: still in list - again loop %p\n", data);
             goto again;
           }
         //BBB end
 
-        T volatile * tmp;
+        T * tmp;
         do {
           tmp = recycling.head;
           data->del = tmp;
@@ -307,7 +307,7 @@ public:
     if (__DEBUG__) {
       Logging::printf("didn't find item %p\n list:", data);
     
-      for (T volatile * volatile * prev = &_head; T volatile * current = *prev; prev = reinterpret_cast<T volatile * volatile *>(&current->next))
+      for (T ** prev = &_head; T *current = *prev; prev = reinterpret_cast<T **>(&current->next))
         Logging::printf(" %p ->", current);
     }
     assert(0);
@@ -316,14 +316,14 @@ public:
   /**
    * Iterator.
    */
-  T volatile * next(T volatile *prev = 0) {
+  T * next(T *prev = 0) {
     assert(recycling.t_in);
-    if (!prev) return reinterpret_cast<T volatile *>(_head);
-    return reinterpret_cast<T volatile *>(prev->next);
+    if (!prev) return _head;
+    return static_cast<T*>(prev->next);
   }
 
   unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
-    T volatile * client = 0;
+    T * client = 0;
     for (client = next(client); client && identity; client = next(client))
       if (client->identity == identity) {
         data = reinterpret_cast<T *>(reinterpret_cast<unsigned long>(client));
@@ -337,7 +337,7 @@ public:
   /**
    * Returns a client which pseudonym does not exist anymore
    */
-  T volatile * get_invalid_client(Utcb &utcb, A * obj, T volatile * client = 0) {
+  T * get_invalid_client(Utcb &utcb, A * obj, T * client = 0) {
     unsigned err, crdout;
     for (client = next(client); client; client = next(client)) {
       err  = nova_syscall(NOVA_LOOKUP,  Crd(client->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
@@ -351,7 +351,7 @@ public:
    */
   void cleanup_clients(Utcb &utcb, A * obj) {
     Guard guard_c(this, utcb, obj);
-    T volatile * client = get_invalid_client(utcb, obj);
+    T * client = get_invalid_client(utcb, obj);
     while (client) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
       free_client_data(utcb, client, obj);
