@@ -8,6 +8,6 @@ nul.App(target_env, 'admission',
         SOURCES = [ 'main.cc' ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
-        MEMSIZE = 1<<20)
+        MEMSIZE = 130<<12) # enough for 64 CPUs --> 0x1000 + 0x1000 + 2 * 0x1000 * number of cpus --> (notify page + small stuff + 2 * stacks for ECs on every cpu)
 
 # EOF
