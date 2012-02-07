@@ -75,8 +75,8 @@
         if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
 
         free_cap = false;
-        if (enable_verbose) Logging::printf("**** created event client 0x%x 0x%x\n", data->pseudonym, data->identity);
-        utcb << Utcb::TypedMapCap(data->identity);
+        if (enable_verbose) Logging::printf("**** created event client 0x%x 0x%x\n", data->pseudonym, data->get_identity());
+        utcb << Utcb::TypedMapCap(data->get_identity());
         return res;
       }
       case ParentProtocol::TYPE_CLOSE:

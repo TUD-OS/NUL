@@ -123,11 +123,11 @@ public:
           ClientData *data = 0;
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
-            if (data->identity == cap_session) {
+            if (data->get_identity() == cap_session) {
               dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudonym we got via parent and gets obsolete as soon as client becomes running
               if (enable_verbose) Logging::printf("  open - session rebind pseudo=%x->%x\n", data->pseudonym, idx);
               data->pseudonym = idx;
-              utcb << Utcb::TypedMapCap(data->identity);
+              utcb << Utcb::TypedMapCap(data->get_identity());
               free_cap = false;
               return ENONE;
             }
@@ -141,12 +141,12 @@ public:
         else if (res) return res;
         if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
 
-        res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->identity);
+        res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
 
         free_cap = false;
-        if (enable_verbose) Logging::printf("**** created admission client 0x%x 0x%x\n", data->pseudonym, data->identity);
-        utcb << Utcb::TypedMapCap(data->identity);
+        if (enable_verbose) Logging::printf("**** created admission client 0x%x 0x%x\n", data->pseudonym, data->get_identity());
+        utcb << Utcb::TypedMapCap(data->get_identity());
         return res;
       }
       case ParentProtocol::TYPE_CLOSE:

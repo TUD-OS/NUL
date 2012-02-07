@@ -106,9 +106,9 @@ class TimerService : public StaticReceiver<TimerService>, public CapAllocator {
  
           if (data) { 
             data->count ++;
-            unsigned res = nova_semup(data->identity);
+            unsigned res = nova_semup(data->get_identity());
             //should not happen, cap ->identity is allocated by service timer
-            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->identity);
+            if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared res %x sm=0x%x\n", res, data->get_identity());
           }
         }
       }
@@ -169,7 +169,7 @@ public:
         }
         if (!data->nr) return EABORT;
 
-        utcb << Utcb::TypedMapCap(data->identity);
+        utcb << Utcb::TypedMapCap(data->get_identity());
         //Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
         return res;
       }
@@ -183,7 +183,7 @@ public:
           SemaphoreGuard l(_clients);
           _abs_timeouts.dealloc(data->nr);
         }
-        Logging::printf("ts:: close session for %x\n", data->identity);
+        Logging::printf("ts:: close session for %x\n", data->get_identity());
         return _storage.free_client_data(utcb, data, this);
       }
     case TimerProtocol::TYPE_REQUEST_TIMER:

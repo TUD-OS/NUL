@@ -324,7 +324,7 @@ private:
   }
 
   virtual unsigned new_session(DiskClient *client) {
-    return attach_drives(*BaseProgram::myutcb(), client->identity);
+    return attach_drives(*BaseProgram::myutcb(), client->get_identity());
   }
 
 

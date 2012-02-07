@@ -5,7 +5,7 @@
  * This file demonstrates how to start service on all CPUs, and how to
  * maintain data for every client.
  * 
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -84,10 +84,10 @@ public:
           ClientData *data = 0;
           EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
           while (data = _storage.next(data)) {
-            if (data->identity == cap_session) {
+            if (data->get_identity() == cap_session) {
               dealloc_cap(data->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
               data->pseudonym = pseudonym;
-              utcb << Utcb::TypedMapCap(data->identity);
+              utcb << Utcb::TypedMapCap(data->get_identity());
               free_cap = false;
 	      check_clients(utcb);
               return ENONE;
@@ -100,12 +100,12 @@ public:
         if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
-        res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->identity);
+        res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
 
         free_cap = false;
-        Logging::printf("----- created echo client pseudonym=0x%x identity=0x%x\n", data->pseudonym, data->identity);
-        utcb << Utcb::TypedMapCap(data->identity);
+        Logging::printf("----- created echo client pseudonym=0x%x identity=0x%x\n", data->pseudonym, data->get_identity());
+        utcb << Utcb::TypedMapCap(data->get_identity());
         return res;
       }
       case ParentProtocol::TYPE_CLOSE:

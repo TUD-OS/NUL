@@ -113,10 +113,10 @@ public:
 	    Session *session = 0;
 	    typename Sessions::Guard guard_c(&_sessions, utcb, this);
 	    while (session = _sessions.next(session)) {
-	      if (session->identity == cap_session) {
+	      if (session->get_identity() == cap_session) {
 		dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
 		session->pseudonym = pseudonym;
-		utcb << Utcb::TypedMapCap(session->identity);
+		utcb << Utcb::TypedMapCap(session->get_identity());
 		free_cap = false;
 		_sessions.cleanup_clients(utcb, this);
 		return ENONE;
@@ -129,11 +129,11 @@ public:
         if (res == ERESOURCE) { _sessions.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
-        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->identity);
+        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_identity());
         assert(!res);
 
         free_cap = false;
-        utcb << Utcb::TypedMapCap(session->identity);
+        utcb << Utcb::TypedMapCap(session->get_identity());
         return new_session(session);
       }
     case ParentProtocol::TYPE_CLOSE: {
@@ -220,10 +220,10 @@ public:
 	    Session volatile *session = 0;
 	    typename Base::Sessions::Guard guard_c(&this->_sessions, utcb, this);
 	    while (session = Base::_sessions.next(session)) {
-	      if (session->identity == cap_session) {
+	      if (session->get_identity() == cap_session) {
 		dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
 		session->pseudonym = pseudonym;
-		utcb << Utcb::TypedMapCap(session->identity);
+		utcb << Utcb::TypedMapCap(session->get_identity());
 		free_cap = false;
                 Base::_sessions.cleanup_clients(utcb, this);
 		return ENONE;
@@ -237,18 +237,18 @@ public:
         else if (res) return res;
 
 	// Throw away the semaphore and use a portal instead
-	res = nova_revoke_self(Crd(session->identity, 0, DESC_CAP_ALL));
+	res = nova_revoke_self(Crd(session->get_identity(), 0, DESC_CAP_ALL));
 	assert(!res);
 	cap_sel session_pt = this->alloc_cap();
 	res = nova_create_pt(session_pt, worker_ec[utcb.head.nul_cpunr], portal_func_addr, 0);
 	// TODO: We need per-CPU identity! For now let's hope that we are called only from one CPU.
-	session->identity = session_pt;
+	session->set_identity(session_pt);
 
-        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->identity);
+        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_identity());
         assert(!res);
 
         free_cap = false;
-        utcb << Utcb::TypedMapCap(session->identity);
+        utcb << Utcb::TypedMapCap(session->get_identity());
         return new_session(session);
       }
     case ParentProtocol::TYPE_CLOSE: {

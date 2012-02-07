@@ -230,7 +230,7 @@ private:
   void notify_service(Utcb &utcb, ClientData *c) {
 
     //revoke identity cap so that services can detect that client is gone
-    unsigned res = nova_revoke(Crd(c->identity, 0, DESC_CAP_ALL), false);
+    unsigned res = nova_revoke(Crd(c->get_identity(), 0, DESC_CAP_ALL), false);
     assert(res == ENONE);
 
     {
@@ -264,7 +264,7 @@ public:
           GuardC guard_c(&session);
           for (ClientData * c = session.next(); c; c = session.next(c))
             if (c->name == service_name && c->pseudonym == input.identity()) {
-              utcb << Utcb::TypedMapCap(c->identity);
+              utcb << Utcb::TypedMapCap(c->get_identity());
             //Logging::printf("has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->identity, c->pseudonym, service_name);
               return ENONE;
             }
@@ -293,7 +293,7 @@ public:
 
         cdata->name = service_name;
         cdata->len  = service_name_len;
-        utcb << Utcb::TypedMapCap(cdata->identity);
+        utcb << Utcb::TypedMapCap(cdata->get_identity());
         return ENONE;
       }
 
@@ -379,12 +379,12 @@ public:
           for (ClientData * c = session.next(); c; c = session.next(c))
           if (c->len == sdata->len-1 && !memcmp(c->name, sdata->name, c->len)) {
             //Logging::printf("\tnotify client %x\n", c->pseudonym);
-            unsigned res = nova_semup(c->identity);
+            unsigned res = nova_semup(c->get_identity());
             assert(res == ENONE); //c->identity is allocated by us
           }
         }
 
-        utcb << Utcb::TypedMapCap(sdata->identity);
+        utcb << Utcb::TypedMapCap(sdata->get_identity());
         free_cap = false;
         return ENONE;
       }

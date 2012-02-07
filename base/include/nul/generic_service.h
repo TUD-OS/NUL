@@ -43,11 +43,10 @@ template <class T> class QuotaGuard {
 /**
  * Data that is stored by a service for every client.
  */
-struct GenericClientData {
+struct BaseClientData {
   void * next;
   void * del;
   unsigned           pseudonym; ///< A capability identifying the client. This is also known to the parent.
-  unsigned           identity;  ///< A capability created by the service to identify the session.
   /**
    * We implement a get_quota here, so that derived classes can
    * overwrite it.  Useful for example in sigma0 that has a different
@@ -64,6 +63,13 @@ struct GenericClientData {
   void session_close(Utcb &utcb) {
     ParentProtocol::release_pseudonym(utcb, pseudonym);
   }
+};
+
+class GenericClientData : public BaseClientData {
+  cap_sel identity;  ///< A capability created by the service to identify the session.
+public:
+  void set_identity(cap_sel id) { identity = id; }
+  cap_sel get_identity() { return identity; }
 };
 
 
@@ -114,7 +120,7 @@ class ClientDataStorage {
             T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
             data->session_close(utcb);
           }
-          obj->dealloc_cap(data->identity);
+          obj->dealloc_cap(data->get_identity());
           if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
           //tmp = data->del;
           unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
@@ -198,8 +204,8 @@ public:
 
     memset(data, 0, sizeof(T));
     data->pseudonym = pseudonym;
-    data->identity  = identity;
-    res = nova_create_sm(data->identity);
+    data->set_identity(identity);
+    res = nova_create_sm(data->get_identity());
     if (res != ENONE) {
       obj->dealloc_cap(identity);
       delete data;
@@ -325,7 +331,7 @@ public:
   unsigned get_client_data(Utcb &utcb, T *&data, unsigned identity) {
     T * client = 0;
     for (client = next(client); client && identity; client = next(client))
-      if (client->identity == identity) {
+      if (client->get_identity() == identity) {
         data = reinterpret_cast<T *>(reinterpret_cast<unsigned long>(client));
         return ENONE;
       }

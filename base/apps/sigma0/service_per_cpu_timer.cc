@@ -302,7 +302,7 @@ class PerCpuTimerService : private BasicHpet,
     // XXX Set abstimeout to zero here?
     if (t == 0 /* timer in the past */) {
       COUNTER_INC("TO early");
-      unsigned res = nova_semup(data->identity);
+      unsigned res = nova_semup(data->get_identity());
       (void)res;                // avoid compiler warning. nothing to
                                 // be done in error case.
       return false;
@@ -327,7 +327,7 @@ class PerCpuTimerService : private BasicHpet,
       assert(data);
       Cpu::atomic_xadd(&data->count, 1U);
       //Logging::printf("CPU%u semup\n", BaseProgram::mycpu());
-      unsigned res = nova_semup(data->identity);
+      unsigned res = nova_semup(data->get_identity());
       if (res != NOVA_ESUCCESS) Logging::panic("ts: sem cap disappeared\n");
     }
 
@@ -718,7 +718,7 @@ public:
         data->cpu = cpu;
         if (!data->nr) return EABORT;
 
-        utcb << Utcb::TypedMapCap(data->identity);
+        utcb << Utcb::TypedMapCap(data->get_identity());
         //Logging::printf("ts:: new client data %x parent %x\n", data->identity, data->pseudonym);
         return res;
       }
@@ -728,7 +728,7 @@ public:
         ClientDataStorage<ClientData, PerCpuTimerService>::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
 
-        Logging::printf("ts:: close session for %x\n", data->identity);
+        Logging::printf("ts:: close session for %x\n", data->get_identity());
         // XXX We are leaking an abstimeout slot!! XXX
         return _storage.free_client_data(utcb, data, this);
       }
@@ -917,7 +917,7 @@ public:
         _per_cpu[cpu]->remote_slot = &remote.slots[remote.slot_count];
 
         // Fake a ClientData for this CPU.
-        _per_cpu[cpu]->remote_slot->data.identity   = _per_cpu[cpu]->xcpu_sm.sm();
+        _per_cpu[cpu]->remote_slot->data.set_identity(_per_cpu[cpu]->xcpu_sm.sm());
         _per_cpu[cpu]->remote_slot->data.abstimeout = 0;
         _per_cpu[cpu]->remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[cpu]->remote_slot->data);
 

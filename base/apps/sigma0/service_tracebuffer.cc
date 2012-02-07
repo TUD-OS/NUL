@@ -90,8 +90,8 @@ public:
         free_cap = false;
         if (ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &data->guid))
           data->guid = --_anon_sessions;
-        utcb << Utcb::TypedMapCap(data->identity);
-        if (_verbose) Logging::printf("tb: client data %x guid %lx parent %x\n", data->identity, data->guid, data->pseudonym);
+        utcb << Utcb::TypedMapCap(data->get_identity());
+        if (_verbose) Logging::printf("tb: client data %x guid %lx parent %x\n", data->get_identity(), data->guid, data->pseudonym);
         return res;
       }
     case ParentProtocol::TYPE_CLOSE:
