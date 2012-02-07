@@ -50,9 +50,40 @@ private:
       PACKED timevalue last[10];
       char name[32];
     } scs[64];
+
+    void* operator new(size_t size) {
+      assert(size == sizeof(struct ClientData));
+      for (unsigned j=0; j < 4; j++) { //XXX
+        for (unsigned long i=0; i < MemoryClientData::max; i++) {
+          if (!reinterpret_cast<volatile struct MemoryClientData *>(&MemoryClientData::items[i])->used) {
+            assert(sizeof(MemoryClientData::items[i].used) == 4);
+            if (0 != Cpu::cmpxchg4b(&MemoryClientData::items[i].used, 0, 1)) continue;
+//            Logging::printf("memalloc - %lu - %p\n", i, &MemoryClientData::items[i].client);
+            return &MemoryClientData::items[i].client;
+          }
+        }
+      }
+      return 0;
+    }
+
+    void operator delete(void* ptr) {
+      unsigned long i = (reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) / sizeof(struct MemoryClientData);
+//      Logging::printf("memfree - %lu < %lu - %p < %p\n", i, MemoryClientData::max, MemoryClientData::items, ptr);
+      assert( ptr >= MemoryClientData::items);
+      assert(i < MemoryClientData::max);
+      assert((reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) % sizeof(struct MemoryClientData) == 0);
+      MemoryClientData::items[i].used = 0;
+    }
   };
 
-  struct ClientData idle_scs; 
+  struct MemoryClientData {
+    static struct MemoryClientData * items;
+    static unsigned long max;
+    struct ClientData client;
+    unsigned long used;
+  };
+
+  struct ClientData idle_scs;
   struct ClientData own_scs;
 
   timevalue global_sum[Config::MAX_CPUS];
@@ -471,12 +502,14 @@ public:
   NORETURN
   void run(Utcb *utcb, Hip *hip)
   {
-
     init(hip);
     init_mem(hip);
     init_service(hip);
 
-    console_init("admission service", new Semaphore(alloc_cap(), true));
+    Semaphore sem(alloc_cap(), true);
+    LogProtocol log(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+
+    console_init("admission service", &sem);
 
     interval = 2000; //2s
 
@@ -491,11 +524,19 @@ public:
     }
     enable_measure = enable_measure || enable_top;
 
-    if (enable_log) _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+    if (enable_log) _console_data.log = &log;
 
-    Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s\n",
+    Region r = _free_phys.alloc_max(12);
+    if (!r.virt || !r.size) Logging::panic("no memory for client data available\n");
+
+    assert(r.virt < (1ULL << 32) && r.size < (1ULL << 32));
+    MemoryClientData::items = reinterpret_cast<struct MemoryClientData *>(r.virt);
+    MemoryClientData::max   = r.size;
+    MemoryClientData::max   = MemoryClientData::max / (sizeof(struct MemoryClientData));
+
+    Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s max clients=%lu\n",
                     enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
-                    enable_top ? "yes" : "no", enable_verbose ? "yes" : "no");
+                    enable_top ? "yes" : "no", enable_verbose ? "yes" : "no", MemoryClientData::max);
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");
@@ -509,6 +550,8 @@ public:
 
   char *   AdmissionService::flag_revoke;
   unsigned AdmissionService::cursor_pos;
+  unsigned long AdmissionService::MemoryClientData::max;
+  struct AdmissionService::MemoryClientData * AdmissionService::MemoryClientData::items;
 
 } /* namespace */
 
