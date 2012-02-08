@@ -72,15 +72,15 @@ private:
       assert( ptr >= MemoryClientData::items);
       assert(i < MemoryClientData::max);
       assert((reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) % sizeof(struct MemoryClientData) == 0);
-
+/*
       //free kernel resources (SCs) of client
       struct ClientData * data = &MemoryClientData::items[i].client;
       for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-        if (data->scs[i].idx) continue;
+        if (!data->scs[i].idx) continue;
 
         nova_revoke(Crd(data->scs[i].idx, 0, DESC_CAP_ALL), true); //revoke SC
       }
-
+*/
       //free data structure of client
       MemoryClientData::items[i].used = 0;
     }
