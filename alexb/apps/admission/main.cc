@@ -72,6 +72,16 @@ private:
       assert( ptr >= MemoryClientData::items);
       assert(i < MemoryClientData::max);
       assert((reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) % sizeof(struct MemoryClientData) == 0);
+
+      //free kernel resources (SCs) of client
+      struct ClientData * data = &MemoryClientData::items[i].client;
+      for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
+        if (data->scs[i].idx) continue;
+
+        nova_revoke(Crd(data->scs[i].idx, 0, DESC_CAP_ALL), true); //revoke SC
+      }
+
+      //free data structure of client
       MemoryClientData::items[i].used = 0;
     }
   };
@@ -124,11 +134,10 @@ public:
 
   void check_clients(Utcb &utcb) {
     ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
-    ClientData * data = _storage.get_invalid_client(utcb, this);
-    while (data) {
+    ClientData * data = 0;
+    while (data = _storage.get_invalid_client(utcb, this, data)) {
       Logging::printf("ad: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);
-      data = _storage.get_invalid_client(utcb, this, data);
     }
   }
 
