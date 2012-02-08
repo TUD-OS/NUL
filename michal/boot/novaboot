@@ -33,6 +33,7 @@ $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
+@CFG::chainloaders = ('bin/boot/bender');
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
 
@@ -99,8 +100,12 @@ if ($builddir) { $CFG::builddir = $builddir; }
 
 if ($dump_config) {
     use Data::Dumper;
-    my @k = sort(keys(%CFG::));
-    print Data::Dumper->Dump([map(${$CFG::{$_}}, @k)], \@k);
+    $Data::Dumper::Indent=0;
+    foreach my $key(sort(keys(%CFG::))) { # See "Symbol Tables" in perlmod(1)
+	if (defined ${$CFG::{$key}}) { print Data::Dumper->Dump([${$CFG::{$key}}], ["*$key"]); }
+	if (defined @{$CFG::{$key}}) { print Data::Dumper->Dump([\@{$CFG::{$key}}], ["*$key"]); }
+	print "\n";
+    }
     print "1;\n";
     exit;
 }
@@ -376,6 +381,7 @@ foreach my $script (@scripts) {
 	}
     }
     @$modules = ($kernel, @$modules);
+    @$modules = (@CFG::chainloaders, @$modules);
     @$modules = ("bin/boot/bender", @$modules) if ($bender || defined $ENV{'NOVABOOT_BENDER'});
 
     if (defined $grub_config) {
