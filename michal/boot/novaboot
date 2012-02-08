@@ -33,7 +33,7 @@ $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
-@CFG::chainloaders = ('bin/boot/bender');
+@CFG::chainloaders = ();
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
 
