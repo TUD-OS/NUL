@@ -41,4 +41,7 @@ struct EchoProtocol : public GenericProtocol {
     : GenericProtocol("echo", instance,
                       a->alloc_cap(EchoProtocol::CAP_SERVER_PT + Global::hip.cpu_count()),
                       blocking) {}
+  void close() {
+    GenericProtocol::close(*BaseProgram::myutcb(), EchoProtocol::CAP_SERVER_PT + Global::hip.cpu_count());
+  }
 };

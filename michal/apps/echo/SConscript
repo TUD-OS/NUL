@@ -4,7 +4,16 @@ import nul
 
 Import('target_env')
 
+quiet_target_env = target_env.Clone()
+quiet_target_env.Append(CPPDEFINES = '-DQUIET')
+quiet_target_env['OBJSUFFIX'] = '-quiet.o'
+
 nul.App(target_env, 'echo',
+        SOURCES = [ 'echo.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(quiet_target_env, 'echo-quiet',
         SOURCES = [ 'echo.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<22)
@@ -19,7 +28,18 @@ nul.App(target_env, 'echo2',
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<22)
 
+nul.App(quiet_target_env, 'echo2-quiet',
+        SOURCES = [ 'echo2.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
 nul.App(target_env, 'echo2ss',
+        SOURCES = [ 'echo2ss.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        LIBS    = [ 'runtime' ],
+        MEMSIZE = 1<<22)
+
+nul.App(quiet_target_env, 'echo2ss-quiet',
         SOURCES = [ 'echo2ss.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         LIBS    = [ 'runtime' ],
@@ -27,6 +47,11 @@ nul.App(target_env, 'echo2ss',
 
 nul.App(target_env, 'echo2test',
         SOURCES = [ 'echo2test.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(target_env, 'parentperf',
+        SOURCES = [ 'parentperf.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<22)
 

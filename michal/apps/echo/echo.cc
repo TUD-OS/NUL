@@ -6,7 +6,7 @@
  * maintain any per-client state and as such it does not require the
  * client to open sessions.
  * 
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
@@ -35,6 +35,12 @@
 #include <host/keyboard.h>
 #include <wvtest.h>
 
+#ifdef QUIET
+#define verbose(...)
+#else
+#define verbose(...) Logging::printf(__VA_ARGS__)
+#endif
+
 class EchoService : public NovaProgram, public ProgramConsole
 {
 public:
@@ -54,7 +60,7 @@ public:
 	unsigned value;
 
 	check1(EPROTO, input.get_word(value)); // Get the value sent by a client
-	Logging::printf("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+	verbose("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
 	// "Echo" the received value back. Beware that this might
 	// clash with error codes defined in error.h
 	return value;

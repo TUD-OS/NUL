@@ -34,6 +34,12 @@
 #include <host/keyboard.h>
 #include <wvtest.h>
 
+#ifdef QUIET
+#define verbose(...)
+#else
+#define verbose(...) Logging::printf(__VA_ARGS__)
+#endif
+
 class EchoService : public NovaProgram, public ProgramConsole
 {
 private:
@@ -53,16 +59,6 @@ public:
 
   inline unsigned alloc_crd() { return Crd(alloc_cap(), 0, DESC_CAP_ALL).value(); }
 
-  void check_clients(Utcb &utcb) {
-    ClientDataStorage<ClientData, EchoService>::Guard guard_c(&_storage, utcb, this);
-    ClientData * data = _storage.get_invalid_client(utcb, this);
-    while (data) {
-      Logging::printf("ad: found dead client - freeing datastructure\n");
-      _storage.free_client_data(utcb, data, this);
-      data = _storage.get_invalid_client(utcb, this, data);
-    }
-  }
-
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
     {
       unsigned op, res;
@@ -71,7 +67,7 @@ public:
       switch (op) {
       case ParentProtocol::TYPE_OPEN:
       {
-	Logging::printf("ParentProtocol::TYPE_OPEN\n");
+	verbose("ParentProtocol::TYPE_OPEN\n");
         unsigned pseudonym = input.received_cap();
         unsigned cap_session = 0;
 
@@ -89,7 +85,7 @@ public:
               data->pseudonym = pseudonym;
               utcb << Utcb::TypedMapCap(data->get_identity());
               free_cap = false;
-	      check_clients(utcb);
+	      _storage.cleanup_clients(utcb, this);
               return ENONE;
             }
           }
@@ -97,20 +93,20 @@ public:
 
         ClientData *data = 0;
         res = _storage.alloc_client_data(utcb, data, pseudonym, this);
-        if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
+        if (res == ERESOURCE) { _storage.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
         res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
 
         free_cap = false;
-        Logging::printf("----- created echo client pseudonym=0x%x identity=0x%x\n", data->pseudonym, data->get_identity());
+        verbose("----- created echo client pseudonym=0x%x identity=0x%x\n", data->pseudonym, data->get_identity());
         utcb << Utcb::TypedMapCap(data->get_identity());
         return res;
       }
       case ParentProtocol::TYPE_CLOSE:
       {
-	Logging::printf("ParentProtocol::TYPE_CLOSE\n");
+	verbose("ParentProtocol::TYPE_CLOSE\n");
         ClientData *data = 0;
         EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
@@ -118,26 +114,26 @@ public:
       }
       case EchoProtocol::TYPE_ECHO:
       {
-	Logging::printf("EchoProtocol::TYPE_ECHO\n");
+	verbose("EchoProtocol::TYPE_ECHO\n");
 
 	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
 	ClientData *data = 0;
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  // Return EEXISTS to ask the client for opening the session
-	  Logging::printf("Cannot get client (id=0x%x) data: 0x%x\n", input.identity(), res);
+	  verbose("Cannot get client (id=0x%x) data: 0x%x\n", input.identity(), res);
 	  return res;
 	}
 
 	unsigned value;
 	check1(EPROTO, input.get_word(value));
 	// Get the value sent by a client
-	Logging::printf("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+	verbose("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
 	data->last_val = value; // Remember the received value
 	return value; // "Echo" the received value back
       }
       case EchoProtocol::TYPE_GET_LAST:
       {
-	Logging::printf("EchoProtocol::TYPE_GET_LAST\n");
+	verbose("EchoProtocol::TYPE_GET_LAST\n");
 	ClientData *data = 0;
 	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
@@ -195,10 +191,12 @@ public:
     init(hip);
     init_mem(hip);
 
-    console_init("Echo2 Server", new Semaphore(alloc_cap(), true));
+    console_init("Echo2 Service", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_count()));
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting echo2 service\n");
+
+    Logging::printf("Echo2 service successfully started\n");
 
     block_forever();
   }

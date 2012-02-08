@@ -30,9 +30,18 @@ struct EchoClient : public GenericClientData {
   unsigned last_val;		// Last value sent by client
 };
 
+#ifdef QUIET
+#define verbose(...)
+#else
+#define verbose(...) Logging::printf(__VA_ARGS__)
+#endif
+
 class EchoService : public SServiceProgram<EchoClient>
 {
-  virtual unsigned new_session(EchoClient *client) {return ENONE;}
+  virtual unsigned new_session(EchoClient *client) {
+    verbose("Opened a new session\n");
+    return ENONE;
+  }
 
   virtual unsigned handle_request(EchoClient *client, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap)
   {
@@ -41,7 +50,7 @@ class EchoService : public SServiceProgram<EchoClient>
       unsigned value;
       check1(EPROTO, input.get_word(value));
       // Get the value sent by a client
-      Logging::printf("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+      verbose("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
       client->last_val = value; // Remember the received value
       return value; // "Echo" the received value back
     }

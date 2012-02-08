@@ -148,7 +148,7 @@ public:
 	Session *session = 0;
 	if (res = _sessions.get_client_data(utcb, session, input.identity())) {
 	  // Return EEXISTS to ask the client for opening the session
-	  Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", input.identity(), res);
+	  //Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", input.identity(), res);
 	  return res;
 	}
 	return handle_request(session, op, input, utcb, free_cap);
@@ -263,7 +263,7 @@ public:
 	Session *session = 0;
 	if (res = Base::_sessions.get_client_data(utcb, session, pid)) {
 	  // Return EEXISTS to ask the client for opening the session
-	  Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", pid, res);
+	  //Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", pid, res);
 	  return res;
 	}
 	return handle_request(session, op, input, utcb, free_cap);
