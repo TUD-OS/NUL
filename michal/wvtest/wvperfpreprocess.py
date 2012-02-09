@@ -27,6 +27,7 @@ perf = None
 key = None
 val = None
 units = None
+tag = None
 
 def matches(re):
     global match, line
@@ -77,7 +78,6 @@ for line in sys.stdin.readlines():
 
     # Rewriting rules
     if '/vancouver-kernelbuild' in where:
-        global tag
         if linetype == 'testing':
             m = re.compile('vancouver-kernelbuild-(.*).wv').search(where)
             if m: tag = m.group(1)
@@ -118,6 +118,24 @@ for line in sys.stdin.readlines():
             line = line.replace('ok', 'axis="throughput" ok');
             if 'diskbench-ramdisk-old.wv' in where:
                 line = line.replace('throughput', 'old-protocol', 1)
+
+    if 'parentperf.' in where:
+        if linetype == 'testing':
+            if what == 'Service without sessions': tag = 'nosess'
+            elif what == 'Service with sessions':  tag = 'sess'
+            elif what == 'Service with sessions (implemented as a subclass of SService)': tag = 'sserv'
+            else: tag = None
+        elif linetype == 'perf':
+            if key == 'min' or key == 'max': continue
+            if key == 'open_session':
+                print 'Testing "Parent protocol open_session performance" in parentperf_open:'
+            else:
+                print 'Testing "Parent protocol call performance" in parentperf_call:'
+            line = line.replace('cycles ok', 'cycles axis="duration [cycles]" ok');
+            line = line.replace(key, tag+'_'+key);
+            print line
+            print >>sys.stderr, line
+        continue
 
     # Output (possibly modified) line
     print line
