@@ -134,8 +134,11 @@ for line in sys.stdin.readlines():
             line = line.replace('cycles ok', 'cycles axis="duration [cycles]" ok');
             line = line.replace(key, tag+'_'+key);
             print line
-            print >>sys.stderr, line
         continue
+
+    if 'loc' in where and linetype == 'perf' and key != 'files':
+        line = line.replace('ok', 'axis="lines" ok');
+        #print >>sys.stderr, line
 
     # Output (possibly modified) line
     print line
