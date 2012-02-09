@@ -204,17 +204,17 @@ private:
       cmdline += 6;
       namelen = strcspn(cmdline, " \t\r\n\f");
       if ((request_len > namelen) || (0 != memcmp(cmdline + namelen - request_len, request, request_len)) ||
-	  (*(cmdline + namelen - request_len - 1) != '/')) {
+          (*(cmdline + namelen - request_len - 1) != '/')) {
         cmdline = strstr(cmdline + namelen, "name::");
         continue;
       }
       if (instance--) {
-	cmdline = strstr(cmdline + namelen, "name::");
-	continue;
+        cmdline = strstr(cmdline + namelen, "name::");
+        continue;
       }
       return ENONE;
     }
-    Logging::printf("s0: client has no permission to access service '%s'\n", request);
+    //Logging::printf("s0: client has no permission to access service '%s'\n", request);
     // we do not have the permissions
     return EPERM;
   }
@@ -278,7 +278,7 @@ public:
           GuardC guard_c(&session, utcb, this);
           ClientData * data = session.get_invalid_client(utcb, this);
           while (data) {
-            Logging::printf("s0: found dead client - freeing datastructure\n");
+            //Logging::printf("s0: found dead client - freeing datastructure\n");
             count++;
 
             notify_service(utcb, data);
@@ -447,7 +447,7 @@ public:
 
           notify_service(utcb, c);
 
-          Logging::printf("s0: freeing session to service on behalf of a dying client\n");
+          //Logging::printf("s0: freeing session to service on behalf of a dying client\n");
           res = session.free_client_data(utcb, c, this);
           assert(res == ENONE);
         }
