@@ -199,6 +199,7 @@
     AdmissionProtocol::sched sched; //Qpd(1, 100000)
     unsigned res = 0, slen, pt = 0;
     unsigned long pmem = 0, maxptr = 0;
+    unsigned long long phip = 0;
     Hip * modhip = 0;
     char * tmem;
 
@@ -231,11 +232,9 @@
 
     // Don't assign modinfo->mem directly (potential double free)
     tmem = map_self(utcb, pmem, modinfo->physsize);
-    if (tmem == NULL) {
-      Logging::printf("s0: [%2u] allocation of %ld MB (%lx) failed\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize);
-      res = ERESOURCE;
-      goto _free_pmem;
-    }
+    check2(_free_pmem, (tmem ? 0 : ERESOURCE), "s0: [%2u] mapping of %ld MB (%#lx) failed (phys=%#lx)",
+           modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
+    MEMORY_BARRIER;
     modinfo->mem = tmem;
 
     if (verbose & VERBOSE_INFO)
@@ -251,7 +250,14 @@
     // decode ELF
     check2(_free_pmem, (Elf::decode_elf(elf, mod_size, modinfo->mem, modinfo->rip, maxptr, modinfo->physsize, MEM_OFFSET, Config::NUL_VERSION)));
 
-    modinfo->hip = new (0x1000) char[0x1000];
+    // alloc memory for client hip
+    {
+      SemaphoreGuard l(_lock_mem);
+      phip = _free_phys.alloc(0x1000U, 12);
+      check2(_free_pmem, (phip ? 0 : ERESOURCE), "s0: out of memory - hip(0x1000U)");
+    }
+    modinfo->hip = map_self(utcb, phip, 0x1000U);
+    check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "s0: hip(0x1000U) could not be mapped");
 
     // allocate a console for it
     alloc_console(modinfo, modinfo->cmdline);
@@ -259,7 +265,7 @@
 
     // create a HIP for the client
     slen = strlen(client_cmdline) + 1;
-    check2(_free_caps, (slen + _hip->length + 2*sizeof(Hip_mem) > 0x1000), "s0: configuration to large\n");
+    check2(_free_pmem, (slen + _hip->length + 2*sizeof(Hip_mem) > 0x1000), "s0: configuration to large");
 
     modhip = reinterpret_cast<Hip *>(modinfo->hip);
     memcpy(reinterpret_cast<char *>(modhip) + 0x1000 - slen, client_cmdline, slen);
@@ -274,7 +280,7 @@
     // create special portal for every module
     pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
-    check2(_free_caps, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
+    check2(_free_pmem, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
     check2(_free_caps, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
 
     // create parent portals
@@ -337,6 +343,8 @@
       }
       if (!res) s_ad->set_name(*utcb, "x"); 
 
+      if (res) Logging::printf("Admission service error %#x detected\n", res);
+
       s_ad->close(*utcb, AdmissionProtocol::CAP_SERVER_PT + _hip->cpu_desc_count(), true, false);
       delete s_ad;
 
@@ -347,8 +355,6 @@
 
     _free_caps:
     if (res) {
-      delete [] reinterpret_cast<char *>(modhip);
-
       // unmap all caps
       if (NOVA_ESUCCESS != nova_revoke(Crd(pt, CLIENT_PT_SHIFT, DESC_CAP_ALL), true))
         Logging::printf("s0: curiosity - nova_revoke failed\n");
@@ -358,8 +364,7 @@
     if (res) {
       SemaphoreGuard l(_lock_mem);
       _free_phys.add(Region(pmem, modinfo->physsize, pmem));
-      Logging::printf("Admission service error %d detected\n", res);
-      res = __LINE__;
+      if (phip) _free_phys.add(Region(phip, 0x1000U, phip));
     }
 
     return res;
@@ -399,9 +404,10 @@
     unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
-    // and the memory
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory %p\n", modinfo->id, modinfo->mem);
+    // and the memory + hip
+    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory %p + hip %p\n", modinfo->id, modinfo->mem, modinfo->hip);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
+    revoke_all_mem(modinfo->hip, 0x1000U, DESC_MEM_ALL, false);
 
     // change the tag
     Vprintf::snprintf(_console_data[modinfo->id].tag, sizeof(_console_data[modinfo->id].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
@@ -409,12 +415,26 @@
     switch_view(global_mb, 0, _console_data[modinfo->id].console);
 
     // free resources
-    SemaphoreGuard l(_lock_mem);
-    Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
-    assert(r);
-    assert(r->size >= modinfo->physsize);
-    _free_phys.add(Region(r->phys, modinfo->physsize, r->phys));
-    modinfo->physsize = 0;
+    {
+      SemaphoreGuard l(_lock_mem);
+      Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
+      assert(r);
+      assert(r->virt <= reinterpret_cast<unsigned long>(modinfo->mem));
+      assert(reinterpret_cast<unsigned long>(modinfo->mem) - r->virt + modinfo->physsize <= r->size);
+
+      unsigned long long phys = r->phys + (reinterpret_cast<unsigned long>(modinfo->mem) - r->virt);
+      _free_phys.add(Region(phys , modinfo->physsize, phys));
+      modinfo->physsize = 0;
+
+      r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->hip));
+      assert(r);
+      assert(r->virt <= reinterpret_cast<unsigned long>(modinfo->hip));
+      assert(reinterpret_cast<unsigned long>(modinfo->hip) - r->virt + 0x1000U <= r->size);
+
+      phys = r->phys + (reinterpret_cast<unsigned long>(modinfo->hip) - r->virt);
+      _free_phys.add(Region(phys, 0x1000U, phys));
+      modinfo->hip = 0;
+    }
 
     // XXX legacy - should be a service - freeing producer/consumer stuff
     unsigned cap;
