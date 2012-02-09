@@ -20,7 +20,7 @@
 #define WVTEST_PRINT_INFO_BEFORE 0
 
 // Standard WVTEST API
-#define WVSTART(title) Logging::printf("Testing \"%s\" in %s:%d\n", title, WvTest::repo_rel_path(__FILE__), __LINE__);
+#define WVSTART(title) Logging::printf("Testing \"%s\" in %s:%d:\n", title, WvTest::repo_rel_path(__FILE__), __LINE__);
 #define WVPASS(cond)   ({ WvTest __t(__FILE__, __LINE__, #cond);            __t.check(cond); })
 #define WVNUL(nulerr)  ({ WvTest __t(__FILE__, __LINE__, #nulerr);          __t.check_nulerr(nulerr); })
 #define WVNOVA(novaerr)({ WvTest __t(__FILE__, __LINE__, #novaerr);         __t.check_novaerr(novaerr); })
