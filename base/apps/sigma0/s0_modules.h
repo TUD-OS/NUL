@@ -233,6 +233,7 @@
     tmem = map_self(utcb, pmem, modinfo->physsize);
     if (tmem == NULL) {
       Logging::printf("s0: [%2u] allocation of %ld MB (%lx) failed\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize);
+      res = ERESOURCE;
       goto _free_pmem;
     }
     modinfo->mem = tmem;
@@ -399,7 +400,7 @@
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory\n", modinfo->id);
+    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory %p\n", modinfo->id, modinfo->mem);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
 
     // change the tag
