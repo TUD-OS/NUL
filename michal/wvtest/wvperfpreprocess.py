@@ -76,7 +76,7 @@ for line in sys.stdin.readlines():
         continue
 
     # Rewriting rules
-    if where.find('/vancouver-kernelbuild') != -1:
+    if '/vancouver-kernelbuild' in where:
         global tag
         if linetype == 'testing':
             m = re.compile('vancouver-kernelbuild-(.*).wv').search(where)
@@ -87,36 +87,36 @@ for line in sys.stdin.readlines():
         if linetype == 'perf':
             line = line.replace('kbuild', "vm-"+tag);
             line = line.replace('ok', 'axis="kbuild" ok');
-    if where.find('/kernelbuild-bare-metal.wv') != -1:
+    if '/kernelbuild-bare-metal.wv' in where:
         if linetype == 'testing':
             line='Testing "Kernel compile in ramdisk" in kernelbuild-ramdisk:'
         if linetype == 'perf':
             line = line.replace('kbuild', 'bare-metal');
             line = line.replace('ok', 'axis="kbuild" ok');
 
-    if where.find('/diskbench-vm.wv') != -1 and linetype == 'perf' and commithash == '7459b8c':
+    if '/diskbench-vm.wv' in where and linetype == 'perf' and commithash == '7459b8c':
         # Skip results of test with forgotten debugging output
         continue
 
-    if where.find('standalone/basicperf.c') != -1 and linetype == 'perf' and line.find("PERF: warmup_") != -1:
+    if 'standalone/basicperf.c' in where and linetype == 'perf' and "PERF: warmup_" in line:
         # Skip warmup results
         continue
 
-    if where.find('standalone/basicperf.c') != -1 and linetype == 'perf':
+    if 'standalone/basicperf.c' in where and linetype == 'perf':
         line = line.replace('ok', 'axis="duration" ok');
 
-    if where.find('vancouver-linux-basic') != -1:
+    if 'vancouver-linux-basic' in where:
         continue                # Ignore the old test
 
-    if where.find('diskbench-ramdisk.wv') != -1 or where.find('diskbench-ramdisk-old.wv') != -1:
+    if 'diskbench-ramdisk.wv' in where or 'diskbench-ramdisk-old.wv' in where:
         # Merge graphs for old and new disk protocol
-        if linetype == 'testing' and where.find('diskbench-ramdisk-old.wv') != -1:
+        if linetype == 'testing' and 'diskbench-ramdisk-old.wv' in where:
             line = line.replace('diskbench-ramdisk-old.wv', 'diskbench-ramdisk.wv');
         if linetype == 'perf' and key == 'request_rate':
             continue # Do not plot request rate
         if linetype == 'perf' and key == 'throughput' and units:
             line = line.replace('ok', 'axis="throughput" ok');
-            if where.find('diskbench-ramdisk-old.wv') != -1:
+            if 'diskbench-ramdisk-old.wv' in where:
                 line = line.replace('throughput', 'old-protocol', 1)
 
     # Output (possibly modified) line
