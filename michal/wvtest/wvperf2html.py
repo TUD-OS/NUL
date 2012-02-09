@@ -259,6 +259,7 @@ for line in sys.stdin.readlines():
             val = None
         try:
             units = perf[2]
+            if '=' in units: units = None
         except:
             units = None
         if match.group(5) != "ok":
