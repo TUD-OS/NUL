@@ -144,15 +144,22 @@ public:
   {
     assert(_count < SIZE);
     assert(align_order < 8*sizeof(unsigned long long));
+
+    Region *min = 0;
+
     for (Region *r = _list; r < _list + _count; r++)
       {
-	unsigned long long virt = (r->end() - size) & ~((1ULL << align_order) - 1);
-	if (size <= r->size && virt >= r->virt)
-	  {
-	    del(Region(virt, size));
-	    return virt;
-	  }
-	}
+        unsigned long long virt = (r->end() - size) & ~((1ULL << align_order) - 1);
+        if (size <= r->size && virt >= r->virt
+            && (!min || min->size > r->size)) min = r;
+      }
+
+    if (min) {
+      unsigned long long virt = (min->end() - size) & ~((1ULL << align_order) - 1);
+      del(Region(virt, size));
+      return virt;
+    }
+
     return 0;
   }
 
