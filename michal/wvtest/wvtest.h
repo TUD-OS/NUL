@@ -303,6 +303,12 @@ public:
     return val;
   }
 
+  char *show(char *val)
+  {
+    print_result(true, val, "= \"", "\"");
+    return val;
+  }
+
   template <typename T>
   T show(T val)
   {
