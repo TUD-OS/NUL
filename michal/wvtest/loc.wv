@@ -8,28 +8,34 @@ wvpath=$top/michal/wvtest
 
 . $wvpath/wvtest.sh
 
-WVSTART Lines of Code
+calc_lines() {
+    # Find all source files needed to create sigma0 and vancouver
+    files=$(scons --tree=all "$@" |sed -ne '/[ |]*+-/ s///p'|grep -E "(^$top|^[^/])"|grep -vE '\.(o|a|py|nulconfig|nul|debug|ld)$'|sort -u)
+
+    # Convert relative path to absolute ones
+    abs=''
+    for f in $files; do
+	[[ ${f#$top} = $f ]] && f=$(echo $top/*/$f)
+	abs="$abs $f"
+    done
+
+    # Print all files taken into account
+    echo $abs|xargs -n 1 echo|sort -u|sed -e "s,^$top/,,"
+
+    # Count the lines
+    output=$(cloc $abs)
+    echo "$output"
+
+    WVPERF files   $(echo "$output"|awk '/^SUM:/ { print $2 }')
+    WVPERF blank   $(echo "$output"|awk '/^SUM:/ { print $3 }')
+    WVPERF comment $(echo "$output"|awk '/^SUM:/ { print $4 }')
+    WVPERF code    $(echo "$output"|awk '/^SUM:/ { print $5 }')
+}
 
 cd $top/build
 
-# Find all source files needed to create sigma0 and vancouver
-files=$(scons --tree=all bin/apps/sigma0.nul bin/apps/vancouver.nul|sed -ne '/[ |]*+-/ s///p'|grep -E "(^$top|^[^/])"|grep -vE '\.(o|a|py|nulconfig|nul|debug|ld)$'|sort -u)
+WVSTART "Lines of Code (sigma0 + vancouver)"
+calc_lines bin/apps/sigma0.nul bin/apps/vancouver.nul
 
-# Convert relative path to absolute ones
-abs=''
-for f in $files; do
-    [[ ${f#$top} = $f ]] && f=$(echo $top/*/$f)
-    abs="$abs $f"
-done
-
-# Print all files taken into account
-echo $abs|xargs -n 1 echo|sort -u|sed -e "s,^$top/,,"
-
-# Count the lines
-output=$(cloc $abs)
-echo "$output"
-
-WVPERF files   $(echo "$output"|awk '/^SUM:/ { print $2 }')
-WVPERF blank   $(echo "$output"|awk '/^SUM:/ { print $3 }')
-WVPERF comment $(echo "$output"|awk '/^SUM:/ { print $4 }')
-WVPERF code    $(echo "$output"|awk '/^SUM:/ { print $5 }')
+WVSTART "Lines of Code (PASSIVE setup)"
+calc_lines bin/apps/sigma0.nul bin/apps/vancouver.nul bin/apps/remote_config.nul bin/apps/logdisk.nul

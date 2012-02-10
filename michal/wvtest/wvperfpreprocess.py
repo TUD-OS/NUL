@@ -136,8 +136,10 @@ for line in sys.stdin.readlines():
             print line
         continue
 
-    if 'loc' in where and linetype == 'perf' and key != 'files':
-        line = line.replace('ok', 'axis="lines" ok');
+    if 'loc.wv' in where:
+        if linetype == 'testing' and 'PASSIVE' in what: line = line.replace('loc.wv', 'loc-passive.wv');
+        if linetype == 'perf' and key != 'files':
+            line = line.replace('ok', 'axis="lines" ok');
         #print >>sys.stderr, line
 
     # Output (possibly modified) line
