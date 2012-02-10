@@ -1,0 +1,374 @@
+From 7eb7cfb9acc4df83172eb1ba2953b47ca952032e Mon Sep 17 00:00:00 2001
+From: Michal Sojka <sojka@os.inf.tu-dresden.de>
+Date: Wed, 8 Feb 2012 19:01:01 +0100
+Subject: [PATCH] Maintain memory usage statistics and print them on panic
+
+---
+ include/pte.h  |    7 ++++++-
+ include/slab.h |    9 ++++++++-
+ include/utcb.h |    8 +++++---
+ src/cpu.cpp    |    1 +
+ src/dmar.cpp   |    2 +-
+ src/ec.cpp     |    2 +-
+ src/fpu.cpp    |    2 +-
+ src/ioapic.cpp |    2 +-
+ src/mdb.cpp    |    2 +-
+ src/mtrr.cpp   |    2 +-
+ src/pci.cpp    |    2 +-
+ src/pd.cpp     |    2 +-
+ src/pt.cpp     |    2 +-
+ src/pte.cpp    |    2 ++
+ src/sc.cpp     |    2 +-
+ src/slab.cpp   |   23 ++++++++++++++++++++++-
+ src/sm.cpp     |    2 +-
+ src/stdio.cpp  |    8 ++++++++
+ src/utcb.cpp   |    2 ++
+ 19 files changed, 65 insertions(+), 17 deletions(-)
+
+diff --git a/include/pte.h b/include/pte.h
+index 7ed658c..0e66207 100644
+--- a/include/pte.h
++++ b/include/pte.h
+@@ -23,9 +23,13 @@
+ #include "compiler.h"
+ #include "x86.h"
+ 
++extern int Pte_allocated;
++
++
+ template <typename P, typename E, unsigned L, unsigned B, bool F>
+ class Pte
+ {
++        friend void panic (char const *format, ...);
+     protected:
+         E val;
+ 
+@@ -68,11 +72,12 @@ class Pte
+             if (F)
+                 flush (p, PAGE_SIZE);
+ 
++            Atomic::add(Pte_allocated, 1);
+             return p;
+         }
+ 
+         ALWAYS_INLINE
+-        static inline void operator delete (void *ptr) { Buddy::allocator.free (reinterpret_cast<mword>(ptr)); }
++        static inline void operator delete (void *ptr) { Atomic::add(Pte_allocated, -1); Buddy::allocator.free (reinterpret_cast<mword>(ptr)); }
+ 
+     public:
+         ALWAYS_INLINE
+diff --git a/include/slab.h b/include/slab.h
+index 8de62a9..759445c 100644
+--- a/include/slab.h
++++ b/include/slab.h
+@@ -31,6 +31,10 @@ class Slab_cache
+         Slab *      curr;
+         Slab *      head;
+ 
++        const char* const name;
++        Slab_cache *next;
++        static Slab_cache *first;
++
+         /*
+          * Back end allocator
+          */
+@@ -41,7 +45,7 @@ class Slab_cache
+         unsigned long buff; // Size of an element buffer (includes link field)
+         unsigned long elem; // Number of elements
+ 
+-        Slab_cache (unsigned long elem_size, unsigned elem_align);
++        Slab_cache (const char *name, unsigned long elem_size, unsigned elem_align);
+ 
+         /*
+          * Front end allocator
+@@ -52,6 +56,9 @@ class Slab_cache
+          * Front end deallocator
+          */
+         void free (void *ptr);
++
++        void print_stats();
++        static void print_all_stats();
+ };
+ 
+ class Slab
+diff --git a/include/utcb.h b/include/utcb.h
+index ce6265a..49a9882 100644
+--- a/include/utcb.h
++++ b/include/utcb.h
+@@ -22,6 +22,7 @@
+ #include "compiler.h"
+ #include "crd.h"
+ #include "util.h"
++#include "atomic.h"
+ 
+ class Cpu_regs;
+ 
+@@ -87,7 +88,8 @@ class Utcb : public Utcb_head, private Utcb_data
+ {
+     private:
+         static mword const words = (PAGE_SIZE - sizeof (Utcb_head)) / sizeof (mword);
+-
++        static int allocated;
++        friend void panic (char const *format, ...);
+     public:
+         void load_exc (Cpu_regs *);
+         void load_vmx (Cpu_regs *);
+@@ -121,8 +123,8 @@ class Utcb : public Utcb_head, private Utcb_data
+         inline Xfer *xfer() { return reinterpret_cast<Xfer *>(this) + PAGE_SIZE / sizeof (Xfer) - 1; }
+ 
+         ALWAYS_INLINE
+-        static inline void *operator new (size_t) { return Buddy::allocator.alloc (0, Buddy::FILL_0); }
++        static inline void *operator new (size_t) { Atomic::add(allocated, 1); return Buddy::allocator.alloc (0, Buddy::FILL_0); }
+ 
+         ALWAYS_INLINE
+-        static inline void operator delete (void *ptr) { Buddy::allocator.free (reinterpret_cast<mword>(ptr)); }
++        static inline void operator delete (void *ptr) { Atomic::add(allocated, -1); Buddy::allocator.free (reinterpret_cast<mword>(ptr)); }
+ };
+diff --git a/src/cpu.cpp b/src/cpu.cpp
+index 4b23bb1..de5b0c2 100644
+--- a/src/cpu.cpp
++++ b/src/cpu.cpp
+@@ -28,6 +28,7 @@
+ #include "tss.h"
+ #include "vmx.h"
+ 
++
+ char const * const Cpu::vendor_string[] =
+ {
+     "Unknown",
+diff --git a/src/dmar.cpp b/src/dmar.cpp
+index 9c7e187..1e3d68a 100644
+--- a/src/dmar.cpp
++++ b/src/dmar.cpp
+@@ -22,7 +22,7 @@
+ #include "pd.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache  Dmar::cache (sizeof (Dmar), 8);
++Slab_cache  Dmar::cache ("Dmar", sizeof (Dmar), 8);
+ 
+ Dmar *      Dmar::list;
+ Dmar_ctx *  Dmar::ctx = new Dmar_ctx;
+diff --git a/src/ec.cpp b/src/ec.cpp
+index 157ad3b..7955728 100644
+--- a/src/ec.cpp
++++ b/src/ec.cpp
+@@ -26,7 +26,7 @@
+ #include "vtlb.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Ec::cache (sizeof (Ec), 32);
++Slab_cache Ec::cache ("Ec", sizeof (Ec), 32);
+ 
+ Ec *Ec::current, *Ec::fpowner;
+ 
+diff --git a/src/fpu.cpp b/src/fpu.cpp
+index e0f8eab..b1ed52d 100644
+--- a/src/fpu.cpp
++++ b/src/fpu.cpp
+@@ -19,4 +19,4 @@
+ #include "fpu.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Fpu::cache (sizeof (Fpu), 16);
++Slab_cache Fpu::cache ("Fpu", sizeof (Fpu), 16);
+diff --git a/src/ioapic.cpp b/src/ioapic.cpp
+index d7f7e94..67a74f0 100644
+--- a/src/ioapic.cpp
++++ b/src/ioapic.cpp
+@@ -20,7 +20,7 @@
+ #include "pd.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Ioapic::cache (sizeof (Ioapic), 8);
++Slab_cache Ioapic::cache ("Ioapic", sizeof (Ioapic), 8);
+ 
+ Ioapic *Ioapic::list;
+ 
+diff --git a/src/mdb.cpp b/src/mdb.cpp
+index 0f60e1f..b16e0e3 100644
+--- a/src/mdb.cpp
++++ b/src/mdb.cpp
+@@ -21,7 +21,7 @@
+ #include "mdb.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Mdb::cache (sizeof (Mdb), 16);
++Slab_cache Mdb::cache ("Mdb", sizeof (Mdb), 16);
+ 
+ Spinlock Mdb::lock;
+ 
+diff --git a/src/mtrr.cpp b/src/mtrr.cpp
+index 3a90f9d..d1db613 100644
+--- a/src/mtrr.cpp
++++ b/src/mtrr.cpp
+@@ -24,7 +24,7 @@ unsigned Mtrr::dtype;
+ Mtrr *   Mtrr::list;
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Mtrr::cache (sizeof (Mtrr), 8);
++Slab_cache Mtrr::cache ("Mtrr", sizeof (Mtrr), 8);
+ 
+ Mtrr::Mtrr (uint64 b, uint64 m) : base (b), mask (m)
+ {
+diff --git a/src/pci.cpp b/src/pci.cpp
+index d044292..510f691 100644
+--- a/src/pci.cpp
++++ b/src/pci.cpp
+@@ -20,7 +20,7 @@
+ #include "pd.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Pci::cache (sizeof (Pci), 8);
++Slab_cache Pci::cache ("Pci", sizeof (Pci), 8);
+ 
+ unsigned    Pci::bus_base;
+ Paddr       Pci::cfg_base;
+diff --git a/src/pd.cpp b/src/pd.cpp
+index 8fefdb9..0470a51 100644
+--- a/src/pd.cpp
++++ b/src/pd.cpp
+@@ -20,7 +20,7 @@
+ #include "pd.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Pd::cache (sizeof (Pd), 32);
++Slab_cache Pd::cache ("Pd", sizeof (Pd), 32);
+ 
+ Pd *Pd::current;
+ 
+diff --git a/src/pt.cpp b/src/pt.cpp
+index 1259428..185bf41 100644
+--- a/src/pt.cpp
++++ b/src/pt.cpp
+@@ -20,7 +20,7 @@
+ #include "pt.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Pt::cache (sizeof (Pt), 32);
++Slab_cache Pt::cache ("Pt", sizeof (Pt), 32);
+ 
+ Pt::Pt (Pd *own, mword sel, Ec *e, Mtd m, mword addr) : Kobject (PT, own, sel), ec (e), mtd (m), ip (addr)
+ {
+diff --git a/src/pte.cpp b/src/pte.cpp
+index fed1fbd..149c043 100644
+--- a/src/pte.cpp
++++ b/src/pte.cpp
+@@ -98,3 +98,5 @@ bool Pte<P,E,L,B,F>::update (E v, mword o, E p, mword a, bool r)
+ template class Pte<Dpt, uint64, 4, 9, true>;
+ template class Pte<Ept, uint64, 4, 9, false>;
+ template class Pte<Hpt, mword, 2, 10, false>;
++
++int Pte_allocated = 0;
+diff --git a/src/sc.cpp b/src/sc.cpp
+index ff7ad1d..8f871f2 100644
+--- a/src/sc.cpp
++++ b/src/sc.cpp
+@@ -20,7 +20,7 @@
+ #include "lapic.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Sc::cache (sizeof (Sc), 32);
++Slab_cache Sc::cache ("Sc", sizeof (Sc), 32);
+ 
+ INIT_PRIORITY (PRIO_LOCAL)
+ Sc::Rq Sc::rq;
+diff --git a/src/slab.cpp b/src/slab.cpp
+index 7d38780..455fb69 100644
+--- a/src/slab.cpp
++++ b/src/slab.cpp
+@@ -54,9 +54,10 @@ void Slab::free (void *ptr)
+     head = link;
+ }
+ 
+-Slab_cache::Slab_cache (unsigned long elem_size, unsigned elem_align)
++Slab_cache::Slab_cache (const char *aname, unsigned long elem_size, unsigned elem_align)
+           : curr (nullptr),
+             head (nullptr),
++            name (aname),
+             size (align_up (elem_size, sizeof (mword))),
+             buff (align_up (size + sizeof (mword), elem_align)),
+             elem ((PAGE_SIZE - sizeof (Slab)) / buff)
+@@ -65,6 +66,8 @@ Slab_cache::Slab_cache (unsigned long elem_size, unsigned elem_align)
+            this,
+            elem_size,
+            elem_align);
++    next = first;
++    first = this;
+ }
+ 
+ void Slab_cache::grow()
+@@ -155,3 +158,21 @@ void Slab_cache::free (void *ptr)
+         }
+     }
+ }
++
++void Slab_cache::print_stats()
++{
++        unsigned slabs = 0, objs = 0;
++        for (Slab *s = head; s; s = s->next) {
++                slabs++;
++                objs += elem - s->avail;
++        }
++        printf("%6s: %5u objs of %3lu B in %3u slabs (%3u KiB)\n", name, objs, buff, slabs, slabs*4u /*buff*objs/1024*/);
++}
++
++void Slab_cache::print_all_stats()
++{
++        for (Slab_cache *c = first; c; c = c->next)
++                c->print_stats();
++}
++
++Slab_cache *Slab_cache::first = nullptr;
+diff --git a/src/sm.cpp b/src/sm.cpp
+index 87a3583..14d8b60 100644
+--- a/src/sm.cpp
++++ b/src/sm.cpp
+@@ -19,7 +19,7 @@
+ #include "sm.h"
+ 
+ INIT_PRIORITY (PRIO_SLAB)
+-Slab_cache Sm::cache (sizeof (Sm), 32);
++Slab_cache Sm::cache ("Sm", sizeof (Sm), 32);
+ 
+ Sm::Sm (Pd *own, mword sel, mword cnt) : Kobject (SM, own, sel), counter (cnt)
+ {
+diff --git a/src/stdio.cpp b/src/stdio.cpp
+index 8bc3e6c..fd2c057 100644
+--- a/src/stdio.cpp
++++ b/src/stdio.cpp
+@@ -20,6 +20,9 @@
+ #include "lock_guard.h"
+ #include "spinlock.h"
+ #include "stdio.h"
++#include "slab.h"
++#include "utcb.h"
++#include "pte.h"
+ 
+ INIT_PRIORITY (PRIO_CONSOLE)
+ Console_serial serial;
+@@ -38,6 +41,11 @@ void panic (char const *format, ...)
+     screen.vprintf (format, args);      // Do not grab lock
+     va_end (args);
+ 
++    printf("\nSlab_cache statistics:\n");
++    Slab_cache::print_all_stats();
++    printf("Allocated UTCBs: %d KiB\n", Utcb::allocated*4);
++    printf("Allocated pagetables: %d KiB\n", Pte_allocated*4);
++
+     Cpu::shutdown();
+ }
+ 
+diff --git a/src/utcb.cpp b/src/utcb.cpp
+index ff80025..20bf20d 100644
+--- a/src/utcb.cpp
++++ b/src/utcb.cpp
+@@ -508,3 +508,5 @@ void Utcb::save_svm (Cpu_regs *regs)
+     if (mtd & Mtd::TSC)
+         regs->add_tsc_offset (tsc);
+ }
++
++int Utcb::allocated = 0;
+-- 
+1.7.7.3
+
