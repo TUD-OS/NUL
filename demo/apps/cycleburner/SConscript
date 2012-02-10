@@ -7,13 +7,11 @@ Import('target_env')
 nul.App(target_env, 'cycleburner',
         SOURCES = [ 'cycleburner.cc'],
         INCLUDE = [ 'sigma0' ],
-        OBJS    = [ '#service/dlmalloc.o',
-                    '#service/dlmalloc-support.o',
-                    '#service/simplemalloc.o',
+        OBJS    = [ '#service/simplemalloc.o',
                     '#service/logging.o',
                     '#service/vprintf.o',
                     ],
-        LIBS    = [ 'runtime' ],
+        LIBS    = [ 'dlmalloc', 'runtime' ],
         MEMSIZE = 1<<20)
 
 # EOF

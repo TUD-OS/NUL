@@ -225,28 +225,6 @@ void osdepTimeClose(void) {
 int osdepEntropyOpen(void) { Logging::printf("warning - osdepentropyopen not implemented!\n"); return PS_SUCCESS;}
 void osdepEntropyClose(void) { Logging::printf("warning - osdepentropyclose not implemented!\n");}
 
-
-void *malloc(size_t size) {
-  void * ptr = new char[size];
-  if (!ptr) Logging::panic("failure - tls - malloc call\n");
-  return ptr;
-}
-
-void free(void *ptr) {
-  if (!ptr) Logging::panic("failure - tls - free call\n");
-  delete [] reinterpret_cast<char *>(ptr);
- }
-
-void *realloc(void *ptr, size_t size) {
-  assert(ptr);
-  assert(size);
-  void * newptr = malloc(size);
-  Logging::printf("        - tls - realloc call ptr=%p size=%zu -> newptr=%p\n", ptr, size, newptr);
-  memcpy(newptr, ptr, size); //XXX if ptr size increases, during copying we touch memory we should not XXX
-  free(ptr);
-  return newptr;
-}
-
 int32 psGetTime(psTime_t *t)
 {
   TimerProtocol::MessageTime msg;
