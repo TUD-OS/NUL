@@ -43,7 +43,7 @@ private:
     cap_sel statistics;
     char name[32];
     struct {
-      unsigned idx;
+      cap_sel  idx;
       unsigned cpu;
       unsigned prio;
       unsigned quantum;
@@ -55,43 +55,43 @@ private:
       assert(size == sizeof(struct ClientData));
       for (unsigned j=0; j < 4; j++) { //XXX
         for (unsigned long i=0; i < MemoryClientData::max; i++) {
-          if (!reinterpret_cast<volatile struct MemoryClientData *>(&MemoryClientData::items[i])->used) {
-            assert(sizeof(MemoryClientData::items[i].used) == 4);
-            if (0 != Cpu::cmpxchg4b(&MemoryClientData::items[i].used, 0, 1)) continue;
-//            Logging::printf("memalloc - %lu - %p\n", i, &MemoryClientData::items[i].client);
-            return &MemoryClientData::items[i].client;
-          }
+          assert(sizeof(MemoryClientData::items[i].used) == 4);
+          if (MemoryClientData::items[i].used) continue;
+          if (0 != Cpu::cmpxchg4b(&MemoryClientData::items[i].used, 0, 1)) continue;
+          //Logging::printf("memalloc - %lu - %p - used %p\n", i, &MemoryClientData::items[i].client, &MemoryClientData::items[i].used);
+          return &MemoryClientData::items[i].client;
         }
       }
       return 0;
     }
 
     void operator delete(void* ptr) {
-      unsigned long i = (reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) / sizeof(struct MemoryClientData);
-//      Logging::printf("memfree - %lu < %lu - %p < %p\n", i, MemoryClientData::max, MemoryClientData::items, ptr);
+      unsigned long item = (reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) / sizeof(struct MemoryClientData);
       assert( ptr >= MemoryClientData::items);
-      assert(i < MemoryClientData::max);
+      assert(item < MemoryClientData::max);
       assert((reinterpret_cast<unsigned long>(ptr) - reinterpret_cast<unsigned long>(MemoryClientData::items)) % sizeof(struct MemoryClientData) == 0);
-/*
+
       //free kernel resources (SCs) of client
-      struct ClientData * data = &MemoryClientData::items[i].client;
-      for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
+      struct ClientData * data = &MemoryClientData::items[item].client;
+      for (unsigned i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
         if (!data->scs[i].idx) continue;
 
         nova_revoke(Crd(data->scs[i].idx, 0, DESC_CAP_ALL), true); //revoke SC
       }
-*/
+      nova_revoke(Crd(data->statistics, 0, DESC_CAP_ALL), true); //revoke statistic cap
+
       //free data structure of client
-      MemoryClientData::items[i].used = 0;
+      MemoryClientData::items[item].used = 0;
+      //Logging::printf("memfree - %lu < %lu - %p - used %p\n", item, MemoryClientData::max, &MemoryClientData::items[item].client, &MemoryClientData::items[item].used);
     }
-  };
+  } PACKED;
 
   struct MemoryClientData {
     static struct MemoryClientData * items;
     static unsigned long max;
     struct ClientData client;
     unsigned long used;
-  };
+  } PACKED;
 
   struct ClientData idle_scs;
   struct ClientData own_scs;
@@ -136,7 +136,7 @@ public:
     ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
     ClientData * data = 0;
     while (data = _storage.get_invalid_client(utcb, this, data)) {
-      Logging::printf("ad: found dead client - freeing datastructure\n");
+      if (enable_verbose) Logging::printf("ad: found dead client - freeing datastructure\n");
       _storage.free_client_data(utcb, data, this);
     }
   }
@@ -177,7 +177,7 @@ public:
         ClientData *data = 0;
         res = _storage.alloc_client_data(utcb, data, idx, this);
         if (enable_verbose && res) Logging::printf("  alloc_client - res %x\n", res);
-        if (res == ERESOURCE) { check_clients(utcb); return ERETRY; } //force garbage collection run
+        if (res == ERESOURCE) { check_clients(utcb); Logging::printf("oh oh - got out of oom - retry\n"); return ERETRY; } //force garbage collection run
         else if (res) return res;
         if (*flag_revoke) { check_clients(utcb); *flag_revoke = 0; }
 
