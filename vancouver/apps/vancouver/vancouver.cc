@@ -1005,7 +1005,7 @@ public:
 TimerProtocol     * Vancouver::service_timer;
 AdmissionProtocol * Vancouver::service_admission;
 EventsProtocol    * Vancouver::service_events = 0;
-DiskProtocol      * Vancouver::service_disk = 0;
+DiskProtocol      * Vancouver::service_disk   = 0;
 
 ASMFUNCS(Vancouver, Vancouver)
 
