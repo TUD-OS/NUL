@@ -220,7 +220,7 @@ private:
 	_active_client = 0;
 	break;
       default:
-	return false;
+        return false;
       }
     return switch_client();
   }
@@ -351,16 +351,18 @@ public:
     switch (msg.type)
       {
       case MessageConsole::TYPE_ALLOC_CLIENT:
-	// do we have a new client?
-	if (_count >=  MAXCLIENTS) return false;
-	msg.id = _count++;
-	_clients[msg.id].num_views = 0;
-	_clients[msg.id].clientname = msg.clientname;
+        // do we have a new client?
+        if (_count >=  MAXCLIENTS) return false;
+        msg.id = _count++;
+        _clients[msg.id].num_views = 0;
+        _clients[msg.id].clientname = msg.clientname;
 
-	// switch in the case of a new client
-	_active_client = msg.id;
-	switch_client();
-	return true;
+        // switch in the case of a new client and if wanted (msg.view set)
+        if (msg.view) {
+          _active_client = msg.id;
+          switch_client();
+        }
+        return true;
       case MessageConsole::TYPE_ALLOC_VIEW:
 	{
 	  if (msg.id >=  _count) return false;

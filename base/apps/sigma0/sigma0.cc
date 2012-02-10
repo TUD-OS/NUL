@@ -1395,7 +1395,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
 
-  void alloc_console(ModuleInfo const * modinfo, const char *cmdline) {
+  void alloc_console(ModuleInfo const * modinfo, const char *cmdline, bool bswitch) {
     unsigned client = modinfo->id;
 
     // format the tag
@@ -1404,6 +1404,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (modinfo->type == ModuleInfo::TYPE_ADMISSION) _console_data[client].console = _console_data[0].console;
     else {
       MessageConsole msg1;
+      msg1.view = bswitch; //switch view when creating client (!0) ?
       msg1.clientname = _console_data[client].tag;
       if (_mb->bus_console.send(msg1))  _console_data[client].console = msg1.id;
     }
@@ -1493,7 +1494,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       {
         unsigned internal_id;
         if (msg.id == (~0U & ((1 << (sizeof(msg.id) * 8)) - 1) )) {
-          msg.res = start_config(myutcb(), msg.cmdline, internal_id, msg.cap_sc_usage, msg.mem);
+          msg.res = start_config(myutcb(), msg.cmdline, internal_id, msg.cap_sc_usage, msg.mem, false);
           if (msg.res) {
             Logging::printf("s0: start of config failed, res = %d, config :\n'", msg.res);
             fancy_output(msg.cmdline, 4096);

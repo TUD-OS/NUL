@@ -76,7 +76,7 @@
     config[fileinfo.size] = 0;
 
     if (res != ENONE) goto cleanup;
-    res = start_config(utcb, config, id, sc_usage_cap, mem, true);
+    res = start_config(utcb, config, id, sc_usage_cap, mem, false, true);
 
     cleanup:
     if (res != ENONE) {
@@ -122,14 +122,14 @@
         *(reinterpret_cast<char *>(mod->addr) + mod->size - 1) = 0;
       }
     }
-    return start_config(utcb, cmdline, internal_id, sc_usage_cap, mem); //, true) - setting this enables you to run sigma0.bare.nul + admission.nul separately
+    return start_config(utcb, cmdline, internal_id, sc_usage_cap, mem, true); //, true) - setting this enables you to run sigma0.bare.nul + admission.nul separately
   }
 
   /**
    * Start a configuration from a stable memory region (mconfig). Region has to be zero terminated.
    */
   unsigned start_config(Utcb *utcb, char const * mconfig, unsigned &internal_id,
-                        unsigned &sc_usage_cap, unsigned long &usage_mem, bool part_of_s0 = false)
+                        unsigned &sc_usage_cap, unsigned long &usage_mem, bool bswitch, bool part_of_s0 = false)
   {
     char const * file_name, * client_cmdline;
 
@@ -171,7 +171,7 @@
     if (!modinfo) { Logging::printf("s0: to many modules to start -- increase MAXMODULES in %s\n", __FILE__); res = __LINE__; goto map_out; }
     if ( modinfo->id == 1) modinfo->type = ModuleInfo::TYPE_ADMISSION; //XXX
 
-    res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo, sc_usage_cap);
+    res = _start_config(utcb, addr, fileinfo.size, client_cmdline, modinfo, sc_usage_cap, bswitch);
 
     if (!res) internal_id = modinfo->id;
     if (!res) usage_mem   = modinfo->physsize;
@@ -194,7 +194,7 @@
   }
 
   unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size,
-                         char const * client_cmdline, ModuleInfo * modinfo, unsigned &sc_usage_cap)
+                         char const * client_cmdline, ModuleInfo * modinfo, unsigned &sc_usage_cap, bool bswitch)
   {
     AdmissionProtocol::sched sched; //Qpd(1, 100000)
     unsigned res = 0, slen, pt = 0;
@@ -260,7 +260,7 @@
     check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "s0: hip(0x1000U) could not be mapped");
 
     // allocate a console for it
-    alloc_console(modinfo, modinfo->cmdline);
+    alloc_console(modinfo, modinfo->cmdline, bswitch);
     attach_drives(modinfo->cmdline, modinfo->sigma0_cmdlen, modinfo->id);
 
     // create a HIP for the client
