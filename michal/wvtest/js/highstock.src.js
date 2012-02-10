@@ -2,7 +2,7 @@
 // @compilation_level SIMPLE_OPTIMIZATIONS
 
 /**
- * @license Highstock JS v1.0.1 (2011-10-25)
+ * @license Highstock JS v1.1.3 (2012-02-03)
  *
  * (c) 2009-2011 Torstein Hønsi
  *
@@ -14,7 +14,8 @@
 
 (function () {
 // encapsulated variables
-var doc = document,
+var UNDEFINED,
+	doc = document,
 	win = window,
 	math = Math,
 	mathRound = math.round,
@@ -37,8 +38,9 @@ var doc = document,
 	isFirefox = /Firefox/.test(userAgent),
 	SVG_NS = 'http://www.w3.org/2000/svg',
 	hasSVG = !!doc.createElementNS && !!doc.createElementNS(SVG_NS, 'svg').createSVGRect,
+	hasRtlBug = isFirefox && parseInt(userAgent.split('Firefox/')[1], 10) < 4, // issue #38
 	Renderer,
-	hasTouch = doc.documentElement.ontouchstart !== undefined,
+	hasTouch = doc.documentElement.ontouchstart !== UNDEFINED,
 	symbolSizes = {},
 	idCounter = 0,
 	garbageBin,
@@ -49,7 +51,6 @@ var doc = document,
 	timeUnits,
 
 	// some constants for frequently used strings
-	UNDEFINED,
 	DIV = 'div',
 	ABSOLUTE = 'absolute',
 	RELATIVE = 'relative',
@@ -115,6 +116,7 @@ var doc = document,
 	// default adapters below.
 	each = adapter.each,
 	grep = adapter.grep,
+	offset = adapter.offset,
 	map = adapter.map,
 	merge = adapter.merge,
 	addEvent = adapter.addEvent,
@@ -184,6 +186,14 @@ function isString(s) {
  */
 function isObject(obj) {
 	return typeof obj === 'object';
+}
+
+/**
+ * Check for array
+ * @param {Object} obj
+ */
+function isArray(obj) {
+	return Object.prototype.toString.call(obj) === '[object Array]';
 }
 
 /**
@@ -263,12 +273,8 @@ function attr(elem, prop, value) {
  * MooTools' $.splat.
  */
 function splat(obj) {
-	if (!obj || obj.constructor !== Array) {
-		obj = [obj];
-	}
-	return obj;
+	return isArray(obj) ? obj : [obj];
 }
-
 
 
 /**
@@ -300,23 +306,6 @@ function css(el, styles) {
 	}
 	extend(el.style, styles);
 }
-
-/* *
- * Get CSS value on a given element
- * @param {Object} el DOM object
- * @param {String} styleProp Camel cased CSS propery
- * /
-function getStyle (el, styleProp) {
-	var ret,
-		CURRENT_STYLE = 'currentStyle',
-		GET_COMPUTED_STYLE = 'getComputedStyle';
-	if (el[CURRENT_STYLE]) {
-		ret = el[CURRENT_STYLE][styleProp];
-	} else if (win[GET_COMPUTED_STYLE]) {
-		ret = win[GET_COMPUTED_STYLE](el, null).getPropertyValue(hyphenate(styleProp));
-	}
-	return ret;
-}*/
 
 /**
  * Utility function to create element with attributes and styles
@@ -409,7 +398,6 @@ dateFormat = function (format, timestamp, capitalize) {
 		fullYear = date[getFullYear](),
 		lang = defaultOptions.lang,
 		langWeekdays = lang.weekdays,
-		langMonths = lang.months,
 		/* // uncomment this and the 'W' format key below to enable week numbers
 		weekNumber = function () {
 			var clone = new Date(date.valueOf()),
@@ -434,8 +422,8 @@ dateFormat = function (format, timestamp, capitalize) {
 			//'W': weekNumber(),
 
 			// Month
-			'b': langMonths[month].substr(0, 3), // Short month, like 'Jan'
-			'B': langMonths[month], // Long month, like 'January'
+			'b': lang.shortMonths[month], // Short month, like 'Jan'
+			'B': lang.months[month], // Long month, like 'January'
 			'm': pad(month + 1), // Two digit month number, 01 through 12
 
 			// Year
@@ -464,29 +452,6 @@ dateFormat = function (format, timestamp, capitalize) {
 };
 
 /**
- * Loop up the node tree and add offsetWidth and offsetHeight to get the
- * total page offset for a given element. Used by Opera and iOS on hover and
- * all browsers on point click.
- *
- * @param {Object} el
- *
- */
-function getPosition(el) {
-	var p = { left: el.offsetLeft, top: el.offsetTop };
-	el = el.offsetParent;
-	while (el) {
-		p.left += el.offsetLeft;
-		p.top += el.offsetTop;
-		if (el !== doc.body && el !== doc.documentElement) {
-			p.left -= el.scrollLeft;
-			p.top -= el.scrollTop;
-		}
-		el = el.offsetParent;
-	}
-	return p;
-}
-
-/**
  * Take an interval and normalize it to multiples of 1, 2, 2.5 and 5
  * @param {Number} interval
  * @param {Array} multiples
@@ -507,7 +472,7 @@ function normalizeTickInterval(interval, multiples, magnitude, options) {
 		//multiples = [1, 2, 2.5, 4, 5, 7.5, 10];
 
 		// the allowDecimals option
-		if (options && options.allowDecimals === false) {
+		if (options && (options.allowDecimals === false || options.type === 'logarithmic')) {
 			if (magnitude === 1) {
 				multiples = [1, 2, 5, 10];
 			} else if (magnitude <= 0.1) {
@@ -531,51 +496,45 @@ function normalizeTickInterval(interval, multiples, magnitude, options) {
 }
 
 /**
- * Set the tick positions to a time unit that makes sense, for example
- * on the first of each month or on every Monday. Return an array
- * with the time positions. Used in datetime axes as well as for grouping
- * data on a datetime axis.
- *
- * @param {Number} tickInterval The approximate interval in axis values (ms)
- * @param {Number} min The minimum in axis values
- * @param {Number} max The maximum in axis values
- * @param {Number} startOfWeek
- * @param {Array} unitsOption
+ * Get a normalized tick interval for dates. Returns a configuration object with
+ * unit range (interval), count and name. Used to prepare data for getTimeTicks. 
+ * Previously this logic was part of getTimeTicks, but as getTimeTicks now runs
+ * of segments in stock charts, the normalizing logic was extracted in order to 
+ * prevent it for running over again for each segment having the same interval. 
+ * #662, #697.
  */
-function getTimeTicks(tickInterval, min, max, startOfWeek, unitsOption) {
-	var tickPositions = [],
-		i,
-		useUTC = defaultOptions.global.useUTC,
-		units = unitsOption || [[
-			MILLISECOND, // unit name
-			[1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
-		], [
-			SECOND,
-			[1, 2, 5, 10, 15, 30]
-		], [
-			MINUTE,
-			[1, 2, 5, 10, 15, 30]
-		], [
-			HOUR,
-			[1, 2, 3, 4, 6, 8, 12]
-		], [
-			DAY,
-			[1, 2]
-		], [
-			WEEK,
-			[1, 2]
-		], [
-			MONTH,
-			[1, 2, 3, 4, 6]
-		], [
-			YEAR,
-			null
-		]],
-
+function normalizeTimeTickInterval(tickInterval, unitsOption) {
+	var units = unitsOption || [[
+				MILLISECOND, // unit name
+				[1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
+			], [
+				SECOND,
+				[1, 2, 5, 10, 15, 30]
+			], [
+				MINUTE,
+				[1, 2, 5, 10, 15, 30]
+			], [
+				HOUR,
+				[1, 2, 3, 4, 6, 8, 12]
+			], [
+				DAY,
+				[1, 2]
+			], [
+				WEEK,
+				[1, 2]
+			], [
+				MONTH,
+				[1, 2, 3, 4, 6]
+			], [
+				YEAR,
+				null
+			]],
 		unit = units[units.length - 1], // default unit is years
 		interval = timeUnits[unit[0]],
-		multiples = unit[1];
-
+		multiples = unit[1],
+		count,
+		i;
+		
 	// loop through the units to find the one that best fits the tickInterval
 	for (i = 0; i < units.length; i++) {
 		unit = units[i];
@@ -599,48 +558,79 @@ function getTimeTicks(tickInterval, min, max, startOfWeek, unitsOption) {
 	if (interval === timeUnits[YEAR] && tickInterval < 5 * interval) {
 		multiples = [1, 2, 5];
 	}
+	
+	// prevent 2.5 years intervals, though 25, 250 etc. are allowed
+	if (interval === timeUnits[YEAR] && tickInterval < 5 * interval) {
+		multiples = [1, 2, 5];
+	}
 
-	// get the minimum value by flooring the date
-	var multitude = normalizeTickInterval(tickInterval / interval, multiples),
+	// get the count
+	count = normalizeTickInterval(tickInterval / interval, multiples);
+	
+	return {
+		unitRange: interval,
+		count: count,
+		unitName: unit[0]
+	};
+}
+
+/**
+ * Set the tick positions to a time unit that makes sense, for example
+ * on the first of each month or on every Monday. Return an array
+ * with the time positions. Used in datetime axes as well as for grouping
+ * data on a datetime axis.
+ *
+ * @param {Object} normalizedInterval The interval in axis values (ms) and the count
+ * @param {Number} min The minimum in axis values
+ * @param {Number} max The maximum in axis values
+ * @param {Number} startOfWeek
+ */
+function getTimeTicks(normalizedInterval, min, max, startOfWeek) {
+	var tickPositions = [],
+		i,
+		higherRanks = {},
+		useUTC = defaultOptions.global.useUTC,
 		minYear, // used in months and years as a basis for Date.UTC()
-		minDate = new Date(min);
+		minDate = new Date(min),
+		interval = normalizedInterval.unitRange,
+		count = normalizedInterval.count;
 
 	minDate.setMilliseconds(0);
 
 	if (interval >= timeUnits[SECOND]) { // second
 		minDate.setSeconds(interval >= timeUnits[MINUTE] ? 0 :
-			multitude * mathFloor(minDate.getSeconds() / multitude));
+			count * mathFloor(minDate.getSeconds() / count));
 	}
 
 	if (interval >= timeUnits[MINUTE]) { // minute
 		minDate[setMinutes](interval >= timeUnits[HOUR] ? 0 :
-			multitude * mathFloor(minDate[getMinutes]() / multitude));
+			count * mathFloor(minDate[getMinutes]() / count));
 	}
 
 	if (interval >= timeUnits[HOUR]) { // hour
 		minDate[setHours](interval >= timeUnits[DAY] ? 0 :
-			multitude * mathFloor(minDate[getHours]() / multitude));
+			count * mathFloor(minDate[getHours]() / count));
 	}
 
 	if (interval >= timeUnits[DAY]) { // day
 		minDate[setDate](interval >= timeUnits[MONTH] ? 1 :
-			multitude * mathFloor(minDate[getDate]() / multitude));
+			count * mathFloor(minDate[getDate]() / count));
 	}
 
 	if (interval >= timeUnits[MONTH]) { // month
 		minDate[setMonth](interval >= timeUnits[YEAR] ? 0 :
-			multitude * mathFloor(minDate[getMonth]() / multitude));
+			count * mathFloor(minDate[getMonth]() / count));
 		minYear = minDate[getFullYear]();
 	}
 
 	if (interval >= timeUnits[YEAR]) { // year
-		minYear -= minYear % multitude;
+		minYear -= minYear % count;
 		minDate[setFullYear](minYear);
 	}
 
 	// week is a special case that runs outside the hierarchy
 	if (interval === timeUnits[WEEK]) {
-		// get start of current week, independent of multitude
+		// get start of current week, independent of count
 		minDate[setDate](minDate[getDate]() - minDate[getDay]() +
 			pick(startOfWeek, 1));
 	}
@@ -659,36 +649,39 @@ function getTimeTicks(tickInterval, min, max, startOfWeek, unitsOption) {
 
 		// if the interval is years, use Date.UTC to increase years
 		if (interval === timeUnits[YEAR]) {
-			time = makeTime(minYear + i * multitude, 0);
+			time = makeTime(minYear + i * count, 0);
 
 		// if the interval is months, use Date.UTC to increase months
 		} else if (interval === timeUnits[MONTH]) {
-			time = makeTime(minYear, minMonth + i * multitude);
+			time = makeTime(minYear, minMonth + i * count);
 
 		// if we're using global time, the interval is not fixed as it jumps
 		// one hour at the DST crossover
 		} else if (!useUTC && (interval === timeUnits[DAY] || interval === timeUnits[WEEK])) {
 			time = makeTime(minYear, minMonth, minDateDate +
-				i * multitude * (interval === timeUnits[DAY] ? 1 : 7));
+				i * count * (interval === timeUnits[DAY] ? 1 : 7));
 
 		// else, the interval is fixed and we use simple addition
 		} else {
-			time += interval * multitude;
+			time += interval * count;
+			
+			// mark new days if the time is dividable by day
+			if (interval <= timeUnits[HOUR] && time % timeUnits[DAY] === 0) {
+				higherRanks[time] = DAY;
+			}
 		}
 
 		i++;
 	}
+	
 	// push the last time
 	tickPositions.push(time);
 
-
 	// record information on the chosen unit - for dynamic label formatter
-	tickPositions.info = {
-		unitName: unit[0],
-		unitRange: interval,
-		count: multitude,
-		totalRange: interval * multitude
-	};
+	tickPositions.info = extend(normalizedInterval, {
+		higherRanks: higherRanks,
+		totalRange: interval * count
+	});
 
 	return tickPositions;
 }
@@ -725,11 +718,12 @@ ChartCounters.prototype =  {
  * Utility method extracted from Tooltip code that places a tooltip in a chart without spilling over
  * and not covering the point it self.
  */
-function placeBox(boxWidth, boxHeight, outerLeft, outerTop, outerWidth, outerHeight, point, distance) {
+function placeBox(boxWidth, boxHeight, outerLeft, outerTop, outerWidth, outerHeight, point, distance, preferRight) {
+	
 	// keep the box within the chart area
 	var pointX = point.x,
 		pointY = point.y,
-		x = pointX - boxWidth + outerLeft - distance,
+		x = pointX + outerLeft + (preferRight ? distance : -boxWidth - distance),
 		y = pointY - boxHeight + outerTop + 15, // 15 means the point is 15 pixels up from the bottom of the tooltip
 		alignedRight;
 
@@ -738,20 +732,21 @@ function placeBox(boxWidth, boxHeight, outerLeft, outerTop, outerWidth, outerHei
 		x = outerLeft + pointX + distance;
 	}
 
-	// Test to see if the tooltip is to far to the right,
+	// Test to see if the tooltip is too far to the right,
 	// if it is, move it back to be inside and then up to not cover the point.
 	if ((x + boxWidth) > (outerLeft + outerWidth)) {
 		x -= (x + boxWidth) - (outerLeft + outerWidth);
-		y -= boxHeight;
+		y = pointY - boxHeight + outerTop - distance;
 		alignedRight = true;
 	}
 
+	// if it is now above the plot area, align it to the top of the plot area
 	if (y < outerTop + 5) {
-		y = outerTop + 5; // above
+		y = outerTop + 5;
 
 		// If the tooltip is still covering the point, move it below instead
 		if (alignedRight && pointY >= y && pointY <= (y + boxHeight)) {
-			y = pointY + boxHeight - distance; // below
+			y = pointY + outerTop + distance; // below
 		}
 	} else if (y + boxHeight > outerTop + outerHeight) {
 		y = outerTop + outerHeight - boxHeight - distance; // below
@@ -766,6 +761,7 @@ function placeBox(boxWidth, boxHeight, outerLeft, outerTop, outerWidth, outerHei
  */
 function stableSort(arr, sortFunction) {
 	var length = arr.length,
+		sortValue,
 		i;
 
 	// Add index to each item
@@ -774,7 +770,7 @@ function stableSort(arr, sortFunction) {
 	}
 
 	arr.sort(function (a, b) {
-		var sortValue = sortFunction(a, b);
+		sortValue = sortFunction(a, b);
 		return sortValue === 0 ? a.ss_i - b.ss_i : sortValue;
 	});
 
@@ -782,6 +778,77 @@ function stableSort(arr, sortFunction) {
 	for (i = 0; i < length; i++) {
 		delete arr[i].ss_i; // stable sort index
 	}
+}
+
+/**
+ * Non-recursive method to find the lowest member of an array. Math.min raises a maximum
+ * call stack size exceeded error in Chrome when trying to apply more than 150.000 points. This
+ * method is slightly slower, but safe.
+ */
+function arrayMin(data) {
+	var i = data.length,
+		min = data[0];
+
+	while (i--) {
+		if (data[i] < min) {
+			min = data[i];
+		}
+	}
+	return min;
+}
+
+/**
+ * Non-recursive method to find the lowest member of an array. Math.min raises a maximum
+ * call stack size exceeded error in Chrome when trying to apply more than 150.000 points. This
+ * method is slightly slower, but safe.
+ */
+function arrayMax(data) {
+	var i = data.length,
+		max = data[0];
+
+	while (i--) {
+		if (data[i] > max) {
+			max = data[i];
+		}
+	}
+	return max;
+}
+
+/**
+ * Utility method that destroys any SVGElement or VMLElement that are properties on the given object.
+ * It loops all properties and invokes destroy if there is a destroy method. The property is
+ * then delete'ed.
+ */
+function destroyObjectProperties(obj) {
+	var n;
+	for (n in obj) {
+		// If the object is non-null and destroy is defined
+		if (obj[n] && obj[n].destroy) {
+			// Invoke the destroy
+			obj[n].destroy();
+		}
+
+		// Delete the property from the object.
+		delete obj[n];
+	}
+}
+
+
+/**
+ * Discard an element by moving it to the bin and delete
+ * @param {Object} The HTML node to discard
+ */
+function discardElement(element) {
+	// create a garbage bin element, not part of the DOM
+	if (!garbageBin) {
+		garbageBin = createElement(DIV);
+	}
+
+	// move the node and empty bin
+	if (element) {
+		garbageBin.appendChild(element);
+	}
+	garbageBin.innerHTML = '';
 }
 
 /**
@@ -963,6 +1030,13 @@ if (!globalAdapter && win.jQuery) {
 	};
 
 	/**
+	 * Get the position of an element relative to the top left of the page
+	 */
+	offset = function (el) {
+		return jQ(el).offset();
+	};
+
+	/**
 	 * Add an event listener
 	 * @param {Object} el A HTML element or custom object
 	 * @param {String} event The event type
@@ -998,7 +1072,9 @@ if (!globalAdapter && win.jQuery) {
 	 */
 	fireEvent = function (el, type, eventArguments, defaultFunction) {
 		var event = jQ.Event(type),
-			detachedType = 'detached' + type;
+			detachedType = 'detached' + type,
+			defaultPrevented;
+			
 		extend(event, eventArguments);
 
 		// Prevent jQuery from triggering the object method that is named the
@@ -1008,6 +1084,22 @@ if (!globalAdapter && win.jQuery) {
 			el[detachedType] = el[type];
 			el[type] = null;
 		}
+		
+		// Wrap preventDefault and stopPropagation in try/catch blocks in
+		// order to prevent JS errors when cancelling events on non-DOM
+		// objects. #615.
+		each(['preventDefault', 'stopPropagation'], function (fn) {
+			var base = event[fn];
+			event[fn] = function () {
+				try {
+					base.call(event);
+				} catch (e) {
+					if (fn === 'preventDefault') {
+						defaultPrevented = true;
+					}
+				}
+			};
+		});
 
 		// trigger it
 		jQ(el).trigger(event);
@@ -1018,7 +1110,7 @@ if (!globalAdapter && win.jQuery) {
 			el[detachedType] = null;
 		}
 
-		if (defaultFunction && !event.isDefaultPrevented()) {
+		if (defaultFunction && !event.isDefaultPrevented() && !defaultPrevented) {
 			defaultFunction(event);
 		}
 	};
@@ -1048,7 +1140,8 @@ if (!globalAdapter && win.jQuery) {
 	};
 
 
-	// extend jQuery
+	//=== Extend jQuery on init
+	
 	/*jslint unparam: true*//* allow unused param x in this function */
 	jQ.extend(jQ.easing, {
 		easeOutQuad: function (x, t, b, c, d) {
@@ -1058,20 +1151,37 @@ if (!globalAdapter && win.jQuery) {
 	/*jslint unparam: false*/
 
 	// extend the animate function to allow SVG animations
-	var oldStepDefault = jQuery.fx.step._default,
-		oldCur = jQuery.fx.prototype.cur;
-
-	// do the step
-	jQ.fx.step._default = function (fx) {
-		var elem = fx.elem;
-		if (elem.attr) { // is SVG element wrapper
-			elem.attr(fx.prop, fx.now);
-		} else {
-			oldStepDefault.apply(this, arguments);
+	var jFx = jQuery.fx,
+		jStep = jFx.step;
+		
+	// extend some methods to check for elem.attr, which means it is a Highcharts SVG object
+	each(['cur', '_default', 'width', 'height'], function (fn, i) {
+		var obj = i ? jStep : jFx.prototype, // 'cur', the getter' relates to jFx.prototype
+			base = obj[fn],
+			elem;
+		
+		if (base) { // step.width and step.height don't exist in jQuery < 1.7
+		
+			// create the extended function replacement
+			obj[fn] = function (fx) {
+				
+				// jFx.prototype.cur does not use fx argument
+				fx = i ? fx : this;
+				
+				// shortcut
+				elem = fx.elem;
+				
+				// jFX.prototype.cur returns the current value. The other ones are setters 
+				// and returning a value has no effect.
+				return elem.attr ? // is SVG element wrapper
+					elem.attr(fx.prop, fx.now) : // apply the SVG wrapper's method
+					base.apply(this, arguments); // use jQuery's built-in method
+			};
 		}
-	};
+	});
+	
 	// animate paths
-	jQ.fx.step.d = function (fx) {
+	jStep.d = function (fx) {
 		var elem = fx.elem;
 
 
@@ -1090,86 +1200,6 @@ if (!globalAdapter && win.jQuery) {
 		elem.attr('d', pathAnim.step(fx.start, fx.end, fx.pos, elem.toD));
 
 	};
-	// get the current value
-	jQ.fx.prototype.cur = function () {
-		var elem = this.elem,
-			r;
-		if (elem.attr) { // is SVG element wrapper
-			r = elem.attr(this.prop);
-		} else {
-			r = oldCur.apply(this, arguments);
-		}
-		return r;
-	};
-}
-
-/**
- * Set the time methods globally based on the useUTC option. Time method can be either
- * local time or UTC (default).
- */
-function setTimeMethods() {
-	var useUTC = defaultOptions.global.useUTC;
-
-	makeTime = useUTC ? Date.UTC : function (year, month, date, hours, minutes, seconds) {
-		return new Date(
-			year,
-			month,
-			pick(date, 1),
-			pick(hours, 0),
-			pick(minutes, 0),
-			pick(seconds, 0)
-		).getTime();
-	};
-	getMinutes = useUTC ? 'getUTCMinutes' : 'getMinutes';
-	getHours = useUTC ? 'getUTCHours' : 'getHours';
-	getDay = useUTC ? 'getUTCDay' : 'getDay';
-	getDate = useUTC ? 'getUTCDate' : 'getDate';
-	getMonth = useUTC ? 'getUTCMonth' : 'getMonth';
-	getFullYear = useUTC ? 'getUTCFullYear' : 'getFullYear';
-	setMinutes = useUTC ? 'setUTCMinutes' : 'setMinutes';
-	setHours = useUTC ? 'setUTCHours' : 'setHours';
-	setDate = useUTC ? 'setUTCDate' : 'setDate';
-	setMonth = useUTC ? 'setUTCMonth' : 'setMonth';
-	setFullYear = useUTC ? 'setUTCFullYear' : 'setFullYear';
-
-}
-
-/**
- * Merge the default options with custom options and return the new options structure
- * @param {Object} options The new custom options
- */
-function setOptions(options) {
-	defaultOptions = merge(defaultOptions, options);
-
-	// apply UTC
-	setTimeMethods();
-
-	return defaultOptions;
-}
-
-/**
- * Get the updated default options. Merely exposing defaultOptions for outside modules
- * isn't enough because the setOptions method creates a new object.
- */
-function getOptions() {
-	return defaultOptions;
-}
-
-/**
- * Discard an element by moving it to the bin and delete
- * @param {Object} The HTML node to discard
- */
-function discardElement(element) {
-	// create a garbage bin element, not part of the DOM
-	if (!garbageBin) {
-		garbageBin = createElement(DIV);
-	}
-
-	// move the node and empty bin
-	if (element) {
-		garbageBin.appendChild(element);
-	}
-	garbageBin.innerHTML = '';
 }
 
 /* ****************************************************************************
@@ -1201,6 +1231,7 @@ defaultOptions = {
 		loading: 'Loading...',
 		months: ['January', 'February', 'March', 'April', 'May', 'June', 'July',
 				'August', 'September', 'October', 'November', 'December'],
+		shortMonths: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 		weekdays: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
 		decimalPoint: '.',
 		resetZoom: 'Reset zoom',
@@ -1238,10 +1269,22 @@ defaultOptions = {
 		},
 		backgroundColor: '#FFFFFF',
 		//plotBackgroundColor: null,
-		plotBorderColor: '#C0C0C0'
+		plotBorderColor: '#C0C0C0',
 		//plotBorderWidth: 0,
 		//plotShadow: false,
 		//zoomType: ''
+		resetZoomButton: { // docs
+			theme: {
+				zIndex: 20
+			},
+			position: {
+				align: 'right',
+				x: -10,
+				//verticalAlign: 'top',
+				y: 10
+			},
+			relativeTo: 'plot'
+		}
 	},
 	title: {
 		text: 'Chart title',
@@ -1360,7 +1403,6 @@ defaultOptions = {
 		labelFormatter: function () {
 			return this.name;
 		},
-		// lineHeight: 16,
 		borderWidth: 1,
 		borderColor: '#909090',
 		borderRadius: 5,
@@ -1376,7 +1418,7 @@ defaultOptions = {
 			color: '#3E576F'
 		},
 		itemHoverStyle: {
-			cursor: 'pointer',
+			//cursor: 'pointer', removed as of #601
 			color: '#000000'
 		},
 		itemHiddenStyle: {
@@ -1436,13 +1478,6 @@ defaultOptions = {
 		//ySuffix: ''
 	},
 
-	toolbar: {
-		itemStyle: {
-			color: '#4572A7',
-			cursor: 'pointer'
-		}
-	},
-
 	credits: {
 		enabled: true,
 		text: 'Highcharts.com',
@@ -1492,7 +1527,7 @@ var defaultXAxisOptions = {
 	min: null,
 	minPadding: 0.01,
 	maxPadding: 0.01,
-	//maxZoom: null,
+	//minRange: null,
 	minorGridLineColor: '#E0E0E0',
 	// minorGridLineDashStyle: null,
 	minorGridLineWidth: 1,
@@ -1717,6 +1752,70 @@ defaultPlotOptions.pie = merge(defaultSeriesOptions, {
 setTimeMethods();
 
 
+
+/**
+ * Set the time methods globally based on the useUTC option. Time method can be either
+ * local time or UTC (default).
+ */
+function setTimeMethods() {
+	var useUTC = defaultOptions.global.useUTC,
+		GET = useUTC ? 'getUTC' : 'get',
+		SET = useUTC ? 'setUTC' : 'set';
+
+	makeTime = useUTC ? Date.UTC : function (year, month, date, hours, minutes, seconds) {
+		return new Date(
+			year,
+			month,
+			pick(date, 1),
+			pick(hours, 0),
+			pick(minutes, 0),
+			pick(seconds, 0)
+		).getTime();
+	};
+	getMinutes =  GET + 'Minutes';
+	getHours =    GET + 'Hours';
+	getDay =      GET + 'Day';
+	getDate =     GET + 'Date';
+	getMonth =    GET + 'Month';
+	getFullYear = GET + 'FullYear';
+	setMinutes =  SET + 'Minutes';
+	setHours =    SET + 'Hours';
+	setDate =     SET + 'Date';
+	setMonth =    SET + 'Month';
+	setFullYear = SET + 'FullYear';
+
+}
+
+/**
+ * Merge the default options with custom options and return the new options structure
+ * @param {Object} options The new custom options
+ */
+function setOptions(options) {
+	
+	// Pull out axis options and apply them to the respective default axis options 
+	defaultXAxisOptions = merge(defaultXAxisOptions, options.xAxis);
+	defaultYAxisOptions = merge(defaultYAxisOptions, options.yAxis);
+	options.xAxis = options.yAxis = UNDEFINED;
+	
+	// Merge in the default options
+	defaultOptions = merge(defaultOptions, options);
+	
+	// Apply UTC
+	setTimeMethods();
+
+	return defaultOptions;
+}
+
+/**
+ * Get the updated default options. Merely exposing defaultOptions for outside modules
+ * isn't enough because the setOptions method creates a new object.
+ */
+function getOptions() {
+	return defaultOptions;
+}
+
+
+
 /**
  * Handle color operations. The object methods are chainable.
  * @param {String} input The input color in either rbga or hex format
@@ -1823,8 +1922,8 @@ SVGElement.prototype = {
 		wrapper.renderer = renderer;
 		/**
 		 * A collection of attribute setters. These methods, if defined, are called right before a certain
-		 * attribute is set on an element wrapper. Returning false prevents the default attribute 
-		 * setter to run. Returning a value causes the default setter to set that value. Used in 
+		 * attribute is set on an element wrapper. Returning false prevents the default attribute
+		 * setter to run. Returning a value causes the default setter to set that value. Used in
 		 * Renderer.label.
 		 */
 		wrapper.attrSetters = {};
@@ -1837,6 +1936,7 @@ SVGElement.prototype = {
 	 */
 	animate: function (params, options, complete) {
 		var animOptions = pick(options, globalAnimation, true);
+		stop(this); // stop regardless of animation actually running, or reverting to .attr (#607)			
 		if (animOptions) {
 			animOptions = merge(animOptions);
 			if (complete) { // allows using a callback with the global animation without overwriting it
@@ -1868,6 +1968,7 @@ SVGElement.prototype = {
 			skipAttr,
 			attrSetters = wrapper.attrSetters,
 			shadows = wrapper.shadows,
+			htmlNode = wrapper.htmlNode,
 			hasSetSymbolSize,
 			ret = wrapper;
 
@@ -1898,16 +1999,16 @@ SVGElement.prototype = {
 			for (key in hash) {
 				skipAttr = false; // reset
 				value = hash[key];
-				
+
 				// check for a specific attribute setter
 				result = attrSetters[key] && attrSetters[key](value, key);
-				
+
 				if (result !== false) {
-					
+
 					if (result !== UNDEFINED) {
 						value = result; // the attribute setter has returned a new value to set
 					}
-					
+
 					// paths
 					if (key === 'd') {
 						if (value && value.join) { // join path
@@ -2052,7 +2153,33 @@ SVGElement.prototype = {
 					} else if (!skipAttr) {
 						attr(element, key, value);
 					}
-					
+
+				}
+
+				// Issue #38
+				if (htmlNode && (key === 'x' || key === 'y' ||
+						key === 'translateX' || key === 'translateY' || key === 'visibility')) {
+					var bBox,
+						arr = htmlNode.length ? htmlNode : [this],
+						length = arr.length,
+						itemWrapper,
+						j;
+
+					for (j = 0; j < length; j++) {
+						itemWrapper = arr[j];
+						bBox = itemWrapper.getBBox();
+						htmlNode = itemWrapper.htmlNode; // reassign to child item
+						css(htmlNode, extend(wrapper.styles, {
+							left: (bBox.x + (wrapper.translateX || 0)) + PX,
+							top: (bBox.y + (wrapper.translateY || 0)) + PX
+						}));
+
+						if (key === 'visibility') {
+							css(htmlNode, {
+								visibility: value
+							});
+						}
+					}
 				}
 
 			}
@@ -2387,6 +2514,14 @@ SVGElement.prototype = {
 			renderer.buildText(this);
 		}
 
+		// register html spans in groups
+		if (parent && this.htmlNode) {
+			if (!parent.htmlNode) {
+				parent.htmlNode = [];
+			}
+			parent.htmlNode.push(this);
+		}
+
 		// mark the container as having z indexed children
 		if (zIndex) {
 			parentWrapper.handleZ = true;
@@ -2427,6 +2562,17 @@ SVGElement.prototype = {
 	},
 
 	/**
+	 * Removes a child either by removeChild or move to garbageBin.
+	 * Issue 490; in VML removeChild results in Orphaned nodes according to sIEve, discardElement does not.
+	 */
+	safeRemoveChild: function (element) {
+		var parentNode = element.parentNode;
+		if (parentNode) {
+			parentNode.removeChild(element);
+		}
+	},
+
+	/**
 	 * Destroy the element and element wrapper
 	 */
 	destroy: function () {
@@ -2434,25 +2580,32 @@ SVGElement.prototype = {
 			element = wrapper.element || {},
 			shadows = wrapper.shadows,
 			box = wrapper.box,
-			parentNode = element.parentNode,
-			key;
+			key,
+			i;
 
 		// remove events
 		element.onclick = element.onmouseout = element.onmouseover = element.onmousemove = null;
 		stop(wrapper); // stop running animations
 
-		// remove element
-		if (parentNode) {
-			parentNode.removeChild(element);
+		if (wrapper.clipPath) {
+			wrapper.clipPath = wrapper.clipPath.destroy();
 		}
+
+		// Destroy stops in case this is a gradient object
+		if (wrapper.stops) {
+			for (i = 0; i < wrapper.stops.length; i++) {
+				wrapper.stops[i] = wrapper.stops[i].destroy();
+			}
+			wrapper.stops = null;
+		}
+
+		// remove element
+		wrapper.safeRemoveChild(element);
 
 		// destroy shadows
 		if (shadows) {
 			each(shadows, function (shadow) {
-				parentNode = shadow.parentNode;
-				if (parentNode) { // the entire chart HTML can be overwritten
-					parentNode.removeChild(shadow);
-				}
+				wrapper.safeRemoveChild(shadow);
 			});
 		}
 
@@ -2560,14 +2713,38 @@ SVGRenderer.prototype = {
 		renderer.box = boxWrapper.element;
 		renderer.boxWrapper = boxWrapper;
 		renderer.alignedObjects = [];
-		renderer.url = isIE ? '' : loc.href.replace(/#.*?$/, ''); // page url used for internal references
+		renderer.url = isIE ? '' : loc.href.replace(/#.*?$/, '')
+			.replace(/\(/g, '\\(').replace(/\)/g, '\\)'); // Page url used for internal references. #24, #672.
 		renderer.defs = this.createElement('defs').add();
 		renderer.forExport = forExport;
+		renderer.gradients = {}; // Object where gradient SvgElements are stored
 
 		renderer.setSize(width, height, false);
-
 	},
 
+	/**
+	 * Destroys the renderer and its allocated members.
+	 */
+	destroy: function () {
+		var renderer = this,
+			rendererDefs = renderer.defs;
+		renderer.box = null;
+		renderer.boxWrapper = renderer.boxWrapper.destroy();
+
+		// Call destroy on all gradient elements
+		destroyObjectProperties(renderer.gradients || {});
+		renderer.gradients = null;
+
+		// Defs are null in VMLRenderer
+		// Otherwise, destroy them here.
+		if (rendererDefs) {
+			renderer.defs = rendererDefs.destroy();
+		}
+
+		renderer.alignedObjects = null;
+
+		return null;
+	},
 
 	/**
 	 * Create a wrapper for an SVG element
@@ -2598,9 +2775,9 @@ SVGRenderer.prototype = {
 			hrefRegex = /href="([^"]+)"/,
 			parentX = attr(textNode, 'x'),
 			textStyles = wrapper.styles,
-			reverse = isFirefox && textStyles && textStyles.HcDirection === 'rtl' &&
-				!this.forExport && pInt(userAgent.split('Firefox/')[1]) < 4, // issue #38
-			arr,
+			renderAsHtml = textStyles && wrapper.useHTML && !this.forExport,
+			htmlNode = wrapper.htmlNode,
+			//arr, issue #38 workaround
 			width = textStyles && pInt(textStyles.width),
 			textLineHeight = textStyles && textStyles.lineHeight,
 			lastLine,
@@ -2649,14 +2826,14 @@ SVGRenderer.prototype = {
 						.replace(/&gt;/g, '>');
 
 					// issue #38 workaround.
-					if (reverse) {
+					/*if (reverse) {
 						arr = [];
 						i = span.length;
 						while (i--) {
 							arr.push(span.charAt(i));
 						}
 						span = arr.join('');
-					}
+					}*/
 
 					// add the text node
 					tspan.appendChild(doc.createTextNode(span));
@@ -2706,7 +2883,7 @@ SVGRenderer.prototype = {
 							rest = [];
 
 						while (words.length || rest.length) {
-							actualWidth = textNode.getBBox().width;
+							actualWidth = wrapper.getBBox().width;
 							tooLong = actualWidth > width;
 							if (!tooLong || words.length === 1) { // new line needed
 								words = rest;
@@ -2736,7 +2913,22 @@ SVGRenderer.prototype = {
 			});
 		});
 
+		// Fix issue #38 and allow HTML in tooltips and other labels
+		if (renderAsHtml) {
+			if (!htmlNode) {
+				htmlNode = wrapper.htmlNode = createElement('span', null, extend(textStyles, {
+					position: ABSOLUTE,
+					top: 0,
+					left: 0
+				}), this.box.parentNode);
+			}
+			htmlNode.innerHTML = wrapper.textStr;
 
+			i = childNodes.length;
+			while (i--) {
+				childNodes[i].style.visibility = HIDDEN;
+			}
+		}
 	},
 
 	/**
@@ -3160,7 +3352,7 @@ SVGRenderer.prototype = {
 		},
 		'arc': function (x, y, w, h, options) {
 			var start = options.start,
-				radius = w || h,
+				radius = options.r || w || h,
 				end = options.end - 0.000001, // to prevent cos and sin of start and end from becoming equal on 360 arcs
 				innerRadius = options.innerR,
 				cosStart = mathCos(start),
@@ -3216,6 +3408,7 @@ SVGRenderer.prototype = {
 
 		wrapper = this.rect(x, y, width, height, 0).add(clipPath);
 		wrapper.id = id;
+		wrapper.clipPath = clipPath;
 
 		return wrapper;
 	},
@@ -3225,7 +3418,7 @@ SVGRenderer.prototype = {
 	 * Take a color and return it if it's a string, make it a gradient if it's a
 	 * gradient configuration object. Prior to Highstock, an array was used to define
 	 * a linear gradient with pixel positions relative to the SVG. In newer versions
-	 * we change the coordinates to apply relative to the shape, using coordinates 
+	 * we change the coordinates to apply relative to the shape, using coordinates
 	 * 0-1 within the shape. To preserve backwards compatibility, linearGradient
 	 * in this definition is an object of x1, y1, x2 and y2.
 	 *
@@ -3237,37 +3430,62 @@ SVGRenderer.prototype = {
 		if (color && color.linearGradient) {
 			var renderer = this,
 				linearGradient = color[LINEAR_GRADIENT],
-				relativeToShape = !linearGradient.length, // keep backwards compatibility
-				id = PREFIX + idCounter++,
+				relativeToShape = !isArray(linearGradient), // keep backwards compatibility
+				id,
+				gradients = renderer.gradients,
 				gradientObject,
+				x1 = linearGradient.x1 || linearGradient[0] || 0,
+				y1 = linearGradient.y1 || linearGradient[1] || 0,
+				x2 = linearGradient.x2 || linearGradient[2] || 0,
+				y2 = linearGradient.y2 || linearGradient[3] || 0,
 				stopColor,
-				stopOpacity;
+				stopOpacity,
+				// Create a unique key in order to reuse gradient objects. #671.
+				key = [relativeToShape, x1, y1, x2, y2, color.stops.join(',')].join(',');
 			
-			gradientObject = renderer.createElement(LINEAR_GRADIENT)
-				.attr(extend({
-					id: id,
-					x1: linearGradient.x1 || linearGradient[0] || 0,
-					y1: linearGradient.y1 || linearGradient[1] || 0,
-					x2: linearGradient.x2 || linearGradient[2] || 0,
-					y2: linearGradient.y2 || linearGradient[3] || 0
-				}, relativeToShape ? null : { gradientUnits: 'userSpaceOnUse' }))
-				.add(renderer.defs);
-
-			each(color.stops, function (stop) {
-				if (regexRgba.test(stop[1])) {
-					colorObject = Color(stop[1]);
-					stopColor = colorObject.get('rgb');
-					stopOpacity = colorObject.get('a');
-				} else {
-					stopColor = stop[1];
-					stopOpacity = 1;
-				}
-				renderer.createElement('stop').attr({
-					offset: stop[0],
-					'stop-color': stopColor,
-					'stop-opacity': stopOpacity
-				}).add(gradientObject);
-			});
+			// If the gradient with the same setup is already created, reuse it
+			if (gradients[key]) {
+				id = attr(gradients[key].element, 'id');
+			
+			// If not, create a new one and keep the reference.	
+			} else {
+				id = PREFIX + idCounter++;
+				gradientObject = renderer.createElement(LINEAR_GRADIENT)
+					.attr(extend({
+						id: id,
+						x1: x1,
+						y1: y1,
+						x2: x2,
+						y2: y2
+					}, relativeToShape ? null : { gradientUnits: 'userSpaceOnUse' }))
+					.add(renderer.defs);
+	
+				// The gradient needs to keep a list of stops to be able to destroy them
+				gradientObject.stops = [];
+				each(color.stops, function (stop) {
+					var stopObject;
+					if (regexRgba.test(stop[1])) {
+						colorObject = Color(stop[1]);
+						stopColor = colorObject.get('rgb');
+						stopOpacity = colorObject.get('a');
+					} else {
+						stopColor = stop[1];
+						stopOpacity = 1;
+					}
+					stopObject = renderer.createElement('stop').attr({
+						offset: stop[0],
+						'stop-color': stopColor,
+						'stop-opacity': stopOpacity
+					}).add(gradientObject);
+	
+					// Add the stop element to the gradient
+					gradientObject.stops.push(stopObject);
+				});
+				
+				// Keep a reference to the gradient object so it is possible to reuse it and
+				// destroy it later
+				gradients[key] = gradientObject;
+			}
 
 			return 'url(' + this.url + '#' + id + ')';
 
@@ -3294,8 +3512,9 @@ SVGRenderer.prototype = {
 	 * @param {String} str
 	 * @param {Number} x Left position
 	 * @param {Number} y Top position
+	 * @param {Boolean} useHTML Use HTML to render the text
 	 */
-	text: function (str, x, y) {
+	text: function (str, x, y, useHTML) {
 
 		// declare variables
 		var renderer = this,
@@ -3318,6 +3537,7 @@ SVGRenderer.prototype = {
 
 		wrapper.x = x;
 		wrapper.y = y;
+		wrapper.useHTML = useHTML;
 		return wrapper;
 	},
 
@@ -3352,14 +3572,14 @@ SVGRenderer.prototype = {
 			crispAdjust = 0,
 			deferredAttr = {},
 			attrSetters = wrapper.attrSetters;
-			
+
 		/**
 		 * This function runs after the label is added to the DOM (when the bounding box is
 		 * available), and after the text of the label is updated to detect the new bounding
 		 * box and reflect it in the border box.
 		 */
 		function updateBoxSize() {
-			bBox = (width === undefined || height === undefined || wrapper.styles.textAlign) && 
+			bBox = (width === undefined || height === undefined || wrapper.styles.textAlign) &&
 				text.getBBox(true);
 			wrapper.width = (width || bBox.width) + 2 * padding;
 			wrapper.height = (height || bBox.height) + 2 * padding;
@@ -3368,10 +3588,10 @@ SVGRenderer.prototype = {
 			if (!box) {
 				wrapper.box = box = shape ?
 					renderer.symbol(shape, 0, 0, wrapper.width, wrapper.height) :
-					renderer.rect(0, 0, wrapper.width, wrapper.height, 0, deferredAttr['stroke-width']);
+					renderer.rect(0, 0, wrapper.width, wrapper.height, 0, deferredAttr[STROKE_WIDTH]);
 				box.add(wrapper);
 			}
-			
+
 			// apply the box attributes
 			box.attr(merge({
 				width: wrapper.width,
@@ -3379,7 +3599,7 @@ SVGRenderer.prototype = {
 			}, deferredAttr));
 			deferredAttr = null;
 		}
-		
+
 		/**
 		 * This function runs after setting text or padding, but only if padding is changed
 		 */
@@ -3388,12 +3608,12 @@ SVGRenderer.prototype = {
 				textAlign = styles && styles.textAlign,
 				x = padding,
 				y = padding + mathRound(pInt(wrapper.element.style.fontSize || 11) * 1.2);
-			
+
 			// compensate for alignment
 			if (defined(width) && (textAlign === 'center' || textAlign === 'right')) {
 				x += { center: 0.5, right: 1 }[textAlign] * (width - bBox.width);
 			}
-			
+
 			// update if anything changed
 			if (x !== text.x || y !== text.y) {
 				text.attr({
@@ -3401,7 +3621,7 @@ SVGRenderer.prototype = {
 					y: y
 				});
 			}
-			
+
 			// record current values
 			text.x = x;
 			text.y = y;
@@ -3420,12 +3640,7 @@ SVGRenderer.prototype = {
 			}
 		}
 
-		
-		/**
-		 * After the text element is added, get the desired size of the border box
-		 * and add it before the text in the DOM.
-		 */
-		addEvent(wrapper, 'add', function () {
+		function getSizeAfterAdd() {
 			wrapper.attr({
 				text: str, // alignment is available now
 				x: x,
@@ -3433,13 +3648,18 @@ SVGRenderer.prototype = {
 				anchorX: anchorX,
 				anchorY: anchorY
 			});
-		});
-		
-		
+		}
+
+		/**
+		 * After the text element is added, get the desired size of the border box
+		 * and add it before the text in the DOM.
+		 */
+		addEvent(wrapper, 'add', getSizeAfterAdd);
+
 		/*
 		 * Add specific attribute setters.
-		 */   
-		
+		 */
+
 		// only change local variables
 		attrSetters.width = function (value) {
 			width = value;
@@ -3452,7 +3672,7 @@ SVGRenderer.prototype = {
 		attrSetters.padding = function (value) {
 			padding = value;
 			updateTextPadding();
-			
+
 			return false;
 		};
 
@@ -3461,7 +3681,7 @@ SVGRenderer.prototype = {
 			align = value;
 			return false; // prevent setting text-anchor on the group
 		};
-		
+
 		// apply these to the box and the text alike
 		attrSetters.text = function (value, key) {
 			text.attr(key, value);
@@ -3469,7 +3689,7 @@ SVGRenderer.prototype = {
 			updateTextPadding();
 			return false;
 		};
-		
+
 		// apply these to the box but not to the text
 		attrSetters[STROKE_WIDTH] = function (value, key) {
 			crispAdjust = value % 2 / 2;
@@ -3490,12 +3710,12 @@ SVGRenderer.prototype = {
 			boxAttr(key, value - wrapperY);
 			return false;
 		};
-		
+
 		// rename attributes
 		attrSetters.x = function (value) {
 			wrapperX = value;
-			wrapperX -= { left: 0, center: 0.5, right: 1 }[align] * ((width || bBox.width) + padding); 
-			
+			wrapperX -= { left: 0, center: 0.5, right: 1 }[align] * ((width || bBox.width) + padding);
+
 			wrapper.attr('translateX', mathRound(wrapperX));
 			return false;
 		};
@@ -3504,7 +3724,7 @@ SVGRenderer.prototype = {
 			wrapper.attr('translateY', mathRound(value));
 			return false;
 		};
-		
+
 		// Redirect certain methods to either the box or the text
 		var baseCss = wrapper.css;
 		return extend(wrapper, {
@@ -3514,7 +3734,8 @@ SVGRenderer.prototype = {
 			css: function (styles) {
 				if (styles) {
 					var textStyles = {};
-					each(['fontSize', 'fontWeight', 'fontFamily', 'color', 'lineHeight'], function (prop) {
+					styles = merge({}, styles); // create a copy to avoid altering the original object (#537)
+					each(['fontSize', 'fontWeight', 'fontFamily', 'color', 'lineHeight', 'width'], function (prop) {
 						if (styles[prop] !== UNDEFINED) {
 							textStyles[prop] = styles[prop];
 							delete styles[prop];
@@ -3528,7 +3749,7 @@ SVGRenderer.prototype = {
 			 * Return the bounding box of the box, not the group
 			 */
 			getBBox: function () {
-				return box.getBBox();				
+				return box.getBBox();
 			},
 			/**
 			 * Apply the shadow to the box
@@ -3536,6 +3757,23 @@ SVGRenderer.prototype = {
 			shadow: function (b) {
 				box.shadow(b);
 				return wrapper;
+			},
+			/**
+			 * Destroy and release memory.
+			 */
+			destroy: function () {
+				removeEvent(wrapper, 'add', getSizeAfterAdd);
+
+				// Added by button implementation
+				removeEvent(wrapper.element, 'mouseenter');
+				removeEvent(wrapper.element, 'mouseleave');
+
+				if (text) {
+					// Destroy the text element
+					text = text.destroy();
+				}
+				// Call base implementation to destroy the rest
+				SVGElement.prototype.destroy.call(wrapper);
 			}
 		});
 	}
@@ -3642,6 +3880,26 @@ var VMLElement = extendClass(SVGElement, {
 	},
 
 	/**
+	 * In IE8 documentMode 8, we need to recursively set the visibility down in the DOM
+	 * tree for nested groups. Related to #61, #586.
+	 */
+	toggleChildren: function (element, visibility) {
+		var childNodes = element.childNodes,
+			i = childNodes.length;
+			
+		while (i--) {
+			
+			// apply the visibility
+			css(childNodes[i], { visibility: visibility });
+			
+			// we have a nested group, apply it to its children again
+			if (childNodes[i].nodeName === 'DIV') {
+				this.toggleChildren(childNodes[i], visibility);
+			}
+		}
+	},
+
+	/**
 	 * Get or set attributes
 	 */
 	attr: function (hash, val) {
@@ -3655,7 +3913,6 @@ var VMLElement = extendClass(SVGElement, {
 			nodeName = element.nodeName,
 			renderer = wrapper.renderer,
 			symbolName = wrapper.symbolName,
-			childNodes,
 			hasSetSymbolSize,
 			shadows = wrapper.shadows,
 			skipAttr,
@@ -3687,7 +3944,7 @@ var VMLElement = extendClass(SVGElement, {
 				// check for a specific attribute setter
 				result = attrSetters[key] && attrSetters[key](value, key);
 
-				if (result !== false) {
+				if (result !== false && value !== null) { // #620
 
 					if (result !== UNDEFINED) {
 						value = result; // the attribute setter has returned a new value to set
@@ -3744,15 +4001,11 @@ var VMLElement = extendClass(SVGElement, {
 					// directly mapped to css
 					} else if (key === 'zIndex' || key === 'visibility') {
 
-						// issue 61 workaround
+						// workaround for #61 and #586
 						if (docMode8 && key === 'visibility' && nodeName === 'DIV') {
 							element.gVis = value;
-							childNodes = element.childNodes;
-							i = childNodes.length;
-							while (i--) {
-								css(childNodes[i], { visibility: value });
-							}
-							if (value === VISIBLE) { // issue 74
+							wrapper.toggleChildren(element, value);
+							if (value === VISIBLE) { // #74
 								value = null;
 							}
 						}
@@ -3767,6 +4020,9 @@ var VMLElement = extendClass(SVGElement, {
 
 					// width and height
 					} else if (key === 'width' || key === 'height') {
+						
+						value = mathMax(0, value); // don't set width or height below zero (#311)
+						
 						this[key] = value; // used in getter
 
 						// clipping rectangle special
@@ -3914,6 +4170,19 @@ var VMLElement = extendClass(SVGElement, {
 	},
 
 	/**
+	 * Removes a child either by removeChild or move to garbageBin.
+	 * Issue 490; in VML removeChild results in Orphaned nodes according to sIEve, discardElement does not.
+	 */
+	safeRemoveChild: function (element) {
+		// discardElement will detach the node from its parent before attaching it
+		// to the garbage bin. Therefore it is important that the node is attached and have parent.
+		var parentNode = element.parentNode;
+		if (parentNode) {
+			discardElement(element);
+		}
+	},
+
+	/**
 	 * Extend element.destroy by removing it from the clip members array
 	 */
 	destroy: function () {
@@ -3923,7 +4192,7 @@ var VMLElement = extendClass(SVGElement, {
 			wrapper.destroyClip();
 		}
 
-		SVGElement.prototype.destroy.apply(wrapper);
+		return SVGElement.prototype.destroy.apply(wrapper);
 	},
 
 	/**
@@ -4319,19 +4588,26 @@ VMLRenderer.prototype = merge(SVGRenderer.prototype, { // inherit SVGRenderer
 				}
 			});
 
-			// calculate the angle based on the linear vector
-			angle = 90  - math.atan(
-				(y2 - y1) / // y vector
-				(x2 - x1) // x vector
-				) * 180 / mathPI;
-				
-
-			// when colors attribute is used, the meanings of opacity and o:opacity2
-			// are reversed.
-			markup = ['<', prop, ' colors="0% ', color1, ',100% ', color2, '" angle="', angle,
-				'" opacity="', opacity2, '" o:opacity2="', opacity1,
-				'" type="gradient" focus="100%" method="any" />'];
-			createElement(this.prepVML(markup), null, null, elem);
+			// Apply the gradient to fills only.
+			if (prop === 'fill') {
+				// calculate the angle based on the linear vector
+				angle = 90  - math.atan(
+					(y2 - y1) / // y vector
+					(x2 - x1) // x vector
+					) * 180 / mathPI;
+	
+	
+				// when colors attribute is used, the meanings of opacity and o:opacity2
+				// are reversed.
+				markup = ['<fill colors="0% ', color1, ',100% ', color2, '" angle="', angle,
+					'" opacity="', opacity2, '" o:opacity2="', opacity1,
+					'" type="gradient" focus="100%" method="any" />'];
+				createElement(this.prepVML(markup), null, null, elem);
+			
+			// Gradients are not supported for VML stroke, return the first color. #722.
+			} else {
+				return stopColor;
+			}
 
 
 		// if the color is an rgba color, split it and add a fill node
@@ -4516,7 +4792,7 @@ VMLRenderer.prototype = merge(SVGRenderer.prototype, { // inherit SVGRenderer
 		arc: function (x, y, w, h, options) {
 			var start = options.start,
 				end = options.end,
-				radius = w || h,
+				radius = options.r || w || h,
 				cosStart = mathCos(start),
 				sinStart = mathSin(start),
 				cosEnd = mathCos(end),
@@ -4592,7 +4868,7 @@ VMLRenderer.prototype = merge(SVGRenderer.prototype, { // inherit SVGRenderer
 
 		rect: function (left, top, width, height, options) {
 			/*for (var n in r) {
-				logTime && console.log(n)
+				logTime && console .log(n)
 				}*/
 
 			if (!defined(options)) {
@@ -4664,10 +4940,6 @@ VMLRenderer.prototype = merge(SVGRenderer.prototype, { // inherit SVGRenderer
  */
 function Chart(options, callback) {
 
-	defaultXAxisOptions = merge(defaultXAxisOptions, defaultOptions.xAxis);
-	defaultYAxisOptions = merge(defaultYAxisOptions, defaultOptions.yAxis);
-	defaultOptions.xAxis = defaultOptions.yAxis = null;
-
 	// Handle regular options
 	var seriesOptions = options.series; // skip merging data points to increase performance
 	options.series = null;
@@ -4728,7 +5000,7 @@ function Chart(options, callback) {
 		legend,
 		legendWidth,
 		legendHeight,
-		chartPosition,// = getPosition(container),
+		chartPosition,
 		hasCartesianSeries = optionsChart.showAxes,
 		isResizing = 0,
 		axes = [],
@@ -4752,26 +5024,25 @@ function Chart(options, callback) {
 	 * Create a new axis object
 	 * @param {Object} options
 	 */
-	function Axis(options) {
+	function Axis(userOptions) {
 
 		// Define variables
-		var isXAxis = options.isX,
-			opposite = options.opposite, // needed in setOptions
+		var isXAxis = userOptions.isX,
+			opposite = userOptions.opposite, // needed in setOptions
 			horiz = inverted ? !isXAxis : isXAxis,
 			side = horiz ?
 				(opposite ? 0 : 2) : // top : bottom
 				(opposite ? 1 : 3),  // right : left
-			stacks = {};
+			stacks = {},
 
-
-		options = merge(
+			options = merge(
 				isXAxis ? defaultXAxisOptions : defaultYAxisOptions,
 				[defaultTopAxisOptions, defaultRightAxisOptions,
 					defaultBottomAxisOptions, defaultLeftAxisOptions][side],
-				options
-			);
+				userOptions
+			),
 
-		var axis = this,
+			axis = this,
 			axisTitle,
 			type = options.type,
 			isDatetimeAxis = type === 'datetime',
@@ -4790,13 +5061,14 @@ function Chart(options, callback) {
 			axisBottom,
 			axisRight,
 			translate, // fn
+			setAxisTranslation, // fn
 			getPlotLinePath, // fn
 			axisGroup,
 			gridGroup,
 			axisLine,
 			dataMin,
 			dataMax,
-			maxZoom,
+			minRange = options.minRange || options.maxZoom,
 			range = options.range,
 			userMin,
 			userMax,
@@ -4820,17 +5092,18 @@ function Chart(options, callback) {
 			minorTickInterval,
 			magnitude,
 			tickPositions, // array containing predefined positions
+			tickPositioner = options.tickPositioner,
 			ticks = {},
 			minorTicks = {},
 			alternateBands = {},
 			tickAmount,
 			labelOffset,
 			axisTitleMargin,// = options.title.margin,
-			dateTimeLabelFormat,
 			categories = options.categories,
 			labelFormatter = options.labels.formatter ||  // can be overwritten by dynamic format
 				function () {
 					var value = this.value,
+						dateTimeLabelFormat = this.dateTimeLabelFormat,
 						ret;
 
 					if (dateTimeLabelFormat) { // datetime axis
@@ -4858,64 +5131,57 @@ function Chart(options, callback) {
 		/**
 		 * The Tick class
 		 */
-		function Tick(pos, minor) {
+		function Tick(pos, type) {
 			var tick = this;
 			tick.pos = pos;
-			tick.minor = minor;
+			tick.type = type || '';
 			tick.isNew = true;
 
-			if (!minor) {
+			if (!type) {
 				tick.addLabel();
 			}
 		}
 		Tick.prototype = {
-			attachLabel: function () {
-				var label = this.label;
-				if (label && !this.added) {
-					label.deferUpdateTransform = true;
-					label.add(axisGroup);
-				}
-			},
-			updateTransformLabel: function () {
-				var label = this.label;
-				if (label) {
-					label.deferUpdateTransform = false;
-					label.updateTransform();
-				}
-			},
-			computeBBox: function () {
-				var label = this.label,
-					bBox;
-				if (label) {
-					bBox = label.getBBox();
-					label.elemWidth = bBox.width;
-					label.elemHeight = bBox.height;
-				}
-			},
+
 			/**
 			 * Write the tick label
 			 */
 			addLabel: function () {
-				var pos = this.pos,
+				var tick = this,
+					pos = tick.pos,
 					labelOptions = options.labels,
 					str,
-					withLabel = !((pos === min && !pick(options.showFirstLabel, 1)) ||
-						(pos === max && !pick(options.showLastLabel, 1))),
 					width = (categories && horiz && categories.length &&
 						!labelOptions.step && !labelOptions.staggerLines &&
 						!labelOptions.rotation &&
 						plotWidth / categories.length) ||
 						(!horiz && plotWidth / 2),
+					isFirst = pos === tickPositions[0],
+					isLast = pos === tickPositions[tickPositions.length - 1],
 					css,
-					label = this.label;
+					value = categories && defined(categories[pos]) ? categories[pos] : pos,
+					label = tick.label,
+					tickPositionInfo = tickPositions.info,
+					dateTimeLabelFormat;
 
+				// Set the datetime label format. If a higher rank is set for this position, use that. If not,
+				// use the general format.
+				if (isDatetimeAxis && tickPositionInfo) {
+					dateTimeLabelFormat = options.dateTimeLabelFormats[tickPositionInfo.higherRanks[pos] || tickPositionInfo.unitName];
+				}
+
+				// set properties for access in render method
+				tick.isFirst = isFirst;
+				tick.isLast = isLast;
 
 				// get the string
 				str = labelFormatter.call({
-						isFirst: pos === tickPositions[0],
-						isLast: pos === tickPositions[tickPositions.length - 1],
+						axis: axis, // docs
+						chart: chart, // docs
+						isFirst: isFirst,
+						isLast: isLast,
 						dateTimeLabelFormat: dateTimeLabelFormat,
-						value: (categories && categories[pos] ? categories[pos] : pos)
+						value: isLog ? lin2log(value) : value
 					});
 
 
@@ -4925,24 +5191,28 @@ function Chart(options, callback) {
 
 				// first call
 				if (!defined(label)) {
-					this.label =
-						defined(str) && withLabel && labelOptions.enabled ?
+					tick.label =
+						defined(str) && labelOptions.enabled ?
 							renderer.text(
 									str,
 									0,
-									0
+									0,
+									labelOptions.useHTML
 								)
 								.attr({
 									align: labelOptions.align,
 									rotation: labelOptions.rotation
 								})
 								// without position absolute, IE export sometimes is wrong
-								.css(css) :
+								.css(css)
+								.add(axisGroup) :
 							null;
 
 				// update
 				} else if (label) {
-					label.attr({ text: str })
+					label.attr({
+							text: str
+						})
 						.css(css);
 				}
 			},
@@ -4963,23 +5233,23 @@ function Chart(options, callback) {
 			 */
 			render: function (index, old) {
 				var tick = this,
-					major = !tick.minor,
+					type = tick.type,
 					label = tick.label,
 					pos = tick.pos,
 					labelOptions = options.labels,
 					gridLine = tick.gridLine,
-					gridLineWidth = major ? options.gridLineWidth : options.minorGridLineWidth,
-					gridLineColor = major ? options.gridLineColor : options.minorGridLineColor,
-					dashStyle = major ?
-						options.gridLineDashStyle :
-						options.minorGridLineDashStyle,
+					gridPrefix = type ? type + 'Grid' : 'grid',
+					tickPrefix = type ? type + 'Tick' : 'tick',
+					gridLineWidth = options[gridPrefix + 'LineWidth'],
+					gridLineColor = options[gridPrefix + 'LineColor'],
+					dashStyle = options[gridPrefix + 'LineDashStyle'],
+					tickLength = options[tickPrefix + 'Length'],
+					tickWidth = options[tickPrefix + 'Width'] || 0,
+					tickColor = options[tickPrefix + 'Color'],
+					tickPosition = options[tickPrefix + 'Position'],
 					gridLinePath,
 					mark = tick.mark,
 					markPath,
-					tickLength = major ? options.tickLength : options.minorTickLength,
-					tickWidth = major ? options.tickWidth : (options.minorTickWidth || 0),
-					tickColor = major ? options.tickColor : options.minorTickColor,
-					tickPosition = major ? options.tickPosition : options.minorTickPosition,
 					step = labelOptions.step,
 					cHeight = (old && oldChartHeight) || chartHeight,
 					attribs,
@@ -5007,13 +5277,19 @@ function Chart(options, callback) {
 						if (dashStyle) {
 							attribs.dashstyle = dashStyle;
 						}
+						if (!type) {
+							attribs.zIndex = 1;
+						}
 						tick.gridLine = gridLine =
 							gridLineWidth ?
 								renderer.path(gridLinePath)
 									.attr(attribs).add(gridGroup) :
 								null;
 					}
-					if (gridLine && gridLinePath) {
+
+					// If the parameter 'old' is set, the current call will be followed
+					// by another call, therefore do not do any animations this time
+					if (!old && gridLine && gridLinePath) {
 						gridLine.animate({
 							d: gridLinePath
 						});
@@ -5071,10 +5347,20 @@ function Chart(options, callback) {
 					if (staggerLines) {
 						y += (index / (step || 1) % staggerLines) * 16;
 					}
+
+					// apply show first and show last
+					if ((tick.isFirst && !pick(options.showFirstLabel, 1)) ||
+							(tick.isLast && !pick(options.showLastLabel, 1))) {
+						label.hide();
+					} else {
+						// show those that may have been previously hidden, either by show first/last, or by step
+						label.show();
+					}
+
 					// apply step
-					if (step) {
+					if (step && index % step) {
 						// show those indices dividable by step
-						label[index % step ? 'hide' : 'show']();
+						label.hide();
 					}
 
 					label[tick.isNew ? 'attr' : 'animate']({
@@ -5089,13 +5375,7 @@ function Chart(options, callback) {
 			 * Destructor for the tick prototype
 			 */
 			destroy: function () {
-				var tick = this,
-					n;
-				for (n in tick) {
-					if (tick[n] && tick[n].destroy) {
-						tick[n].destroy();
-					}
-				}
+				destroyObjectProperties(this);
 			}
 		};
 
@@ -5122,13 +5402,15 @@ function Chart(options, callback) {
 		 */
 		render: function () {
 			var plotLine = this,
+				halfPointRange = (axis.pointRange || 0) / 2,
 				options = plotLine.options,
 				optionsLabel = options.label,
 				label = plotLine.label,
 				width = options.width,
 				to = options.to,
-				toPath, // bands only
 				from = options.from,
+				value = options.value,
+				toPath, // bands only
 				dashStyle = options.dashStyle,
 				svgElem = plotLine.svgElem,
 				path = [],
@@ -5143,9 +5425,16 @@ function Chart(options, callback) {
 				events = options.events,
 				attribs;
 
+			// logarithmic conversion
+			if (isLog) {
+				from = log2lin(from);
+				to = log2lin(to);
+				value = log2lin(value);
+			}
+
 			// plot line
 			if (width) {
-				path = getPlotLinePath(options.value, width);
+				path = getPlotLinePath(value, width);
 				attribs = {
 					stroke: color,
 					'stroke-width': width
@@ -5155,8 +5444,8 @@ function Chart(options, callback) {
 				}
 			} else if (defined(from) && defined(to)) { // plot band
 				// keep within plot area
-				from = mathMax(from, min);
-				to = mathMin(to, max);
+				from = mathMax(from, min - halfPointRange);
+				to = mathMin(to, max + halfPointRange);
 
 				toPath = getPlotLinePath(to);
 				path = getPlotLinePath(from);
@@ -5240,14 +5529,14 @@ function Chart(options, callback) {
 				// get the bounding box and align the label
 				xs = [path[1], path[4], pick(path[6], path[1])];
 				ys = [path[2], path[5], pick(path[7], path[2])];
-				x = mathMin.apply(math, xs);
-				y = mathMin.apply(math, ys);
+				x = arrayMin(xs);
+				y = arrayMin(ys);
 
 				label.align(optionsLabel, false, {
 					x: x,
 					y: y,
-					width: mathMax.apply(math, xs) - x,
-					height: mathMax.apply(math, ys) - y
+					width: arrayMax(xs) - x,
+					height: arrayMax(ys) - y
 				});
 				label.show();
 
@@ -5263,15 +5552,10 @@ function Chart(options, callback) {
 		 * Remove the plot line or band
 		 */
 		destroy: function () {
-			var obj = this,
-				n;
+			var obj = this;
 
-			for (n in obj) {
-				if (obj[n] && obj[n].destroy) {
-					obj[n].destroy(); // destroy SVG wrappers
-				}
-				delete obj[n];
-			}
+			destroyObjectProperties(obj);
+
 			// remove it from the lookup
 			erase(plotLinesAndBands, obj);
 		}
@@ -5280,7 +5564,7 @@ function Chart(options, callback) {
 		/**
 		 * The class for stack items
 		 */
-		function StackItem(options, isNegative, x) {
+		function StackItem(options, isNegative, x, stackOption) {
 			var stackItem = this;
 
 			// Tells if the stack is negative
@@ -5291,6 +5575,9 @@ function Chart(options, callback) {
 
 			// Save the x value to be able to position the label later
 			stackItem.x = x;
+
+			// Save the stack option on the series configuration object
+			stackItem.stack = stackOption;
 
 			// The align options and text align varies on whether the stack is negative and
 			// if the chart is inverted or not.
@@ -5306,6 +5593,10 @@ function Chart(options, callback) {
 		}
 
 		StackItem.prototype = {
+			destroy: function () {
+				destroyObjectProperties(this);
+			},
+
 			/**
 			 * Sets the total of this stack. Should be called when a serie is hidden or shown
 			 * since that will affect the total of other stacks.
@@ -5376,7 +5667,7 @@ function Chart(options, callback) {
 
 			// loop through this axis' series
 			each(axis.series, function (series) {
-				
+
 				if (series.visible || !optionsChart.ignoreHiddenSeries) {
 
 					var seriesOptions = series.options,
@@ -5384,6 +5675,7 @@ function Chart(options, callback) {
 						posPointStack,
 						negPointStack,
 						stackKey,
+						stackOption,
 						negKey,
 						xData,
 						yData,
@@ -5391,16 +5683,17 @@ function Chart(options, callback) {
 						y,
 						threshold = seriesOptions.threshold,
 						yDataLength,
-						distance,
 						activeYData = [],
 						activeCounter = 0;
-					
+
 					// Get dataMin and dataMax for X axes
 					if (isXAxis) {
 						xData = series.xData;
-						dataMin = mathMin(pick(dataMin, xData[0]), mathMin.apply(math, xData));
-						dataMax = mathMax(pick(dataMax, xData[0]), mathMax.apply(math, xData));
-						
+						if (xData.length) {
+							dataMin = mathMin(pick(dataMin, xData[0]), arrayMin(xData));
+							dataMax = mathMax(pick(dataMax, xData[0]), arrayMax(xData));
+						}
+
 					// Get dataMin and dataMax for Y axes, as well as handle stacking and processed data
 					} else {
 						var isNegative,
@@ -5408,19 +5701,20 @@ function Chart(options, callback) {
 							key,
 							cropped = series.cropped,
 							xExtremes = series.xAxis.getExtremes(),
-							findPointRange,
-							pointRange,
+							//findPointRange,
+							//pointRange,
 							j,
 							hasModifyValue = !!series.modifyValue;
-							
-						
+
+
 						// Handle stacking
 						stacking = seriesOptions.stacking;
 						usePercentage = stacking === 'percent';
 
 						// create a stack for this particular series type
 						if (stacking) {
-							stackKey = series.type + pick(seriesOptions.stack, '');
+							stackOption = seriesOptions.stack;
+							stackKey = series.type + pick(stackOption, '');
 							negKey = '-' + stackKey;
 							series.stackKey = stackKey; // used in translate
 
@@ -5435,11 +5729,9 @@ function Chart(options, callback) {
 							dataMax = 99;
 						}
 
-						// get clipped and grouped data
-						series.processData();
-						
+
 						// processData can alter series.pointRange, so this goes after
-						findPointRange = series.pointRange === null;
+						//findPointRange = series.pointRange === null;
 
 						xData = series.processedXData;
 						yData = series.processedYData;
@@ -5450,13 +5742,12 @@ function Chart(options, callback) {
 						for (i = 0; i < yDataLength; i++) {
 							x = xData[i];
 							y = yData[i];
-							if (y !== null && y !== UNDEFINED &&
-								(cropped || ((xData[i + 1] || x) >= xExtremes.min && (xData[i + 1] || x) <= xExtremes.max))) {
+							if (y !== null && y !== UNDEFINED) {
 
 								// read stacked values into a stack based on the x value,
 								// the sign of y and the stack key
 								if (stacking) {
-									isNegative = y < 0;
+									isNegative = y < threshold;
 									pointStack = isNegative ? negPointStack : posPointStack;
 									key = isNegative ? negKey : stackKey;
 
@@ -5473,49 +5764,52 @@ function Chart(options, callback) {
 									// If the StackItem is there, just update the values,
 									// if not, create one first
 									if (!stacks[key][x]) {
-										stacks[key][x] = new StackItem(options.stackLabels, isNegative, x);
+										stacks[key][x] = new StackItem(options.stackLabels, isNegative, x, stackOption);
 									}
 									stacks[key][x].setTotal(y);
 
-								
-								 // general hook, used for Highstock compare values feature
+
+								// general hook, used for Highstock compare values feature
 								} else if (hasModifyValue) {
 									y = series.modifyValue(y);
 								}
 
-								j = y.length;
-								if (j) { // array, like ohlc data
-									while (j--) {
-										if (y[j] !== null) {
-											activeYData[activeCounter++] = y[j];
-										}
-									}
-								} else {
-									activeYData[activeCounter++] = y;
-								}
-
-
-
 								// get the smallest distance between points
-								if (i) {
+								/*if (i) {
 									distance = mathAbs(xData[i] - xData[i - 1]);
 									pointRange = pointRange === UNDEFINED ? distance : mathMin(distance, pointRange);
+								}*/
+
+								// for points within the visible range, including the first point outside the
+								// visible range, consider y extremes
+								if (cropped || ((xData[i + 1] || x) >= xExtremes.min && (xData[i - 1] || x) <= xExtremes.max)) {
+
+									j = y.length;
+									if (j) { // array, like ohlc data
+										while (j--) {
+											if (y[j] !== null) {
+												activeYData[activeCounter++] = y[j];
+											}
+										}
+									} else {
+										activeYData[activeCounter++] = y;
+									}
 								}
 							}
 						}
 
 						// record the least unit distance
-						if (findPointRange) {
+						/*if (findPointRange) {
 							series.pointRange = pointRange || 1;
 						}
-						series.closestPointRange = pointRange;
-						
+						series.closestPointRange = pointRange;*/
+
 
 						// Get the dataMin and dataMax so far. If percentage is used, the min and max are
-						// always 0 and 100. If the length of activeYData is 0, continue with null values. 
+						// always 0 and 100. If the length of activeYData is 0, continue with null values.
 						if (!usePercentage && activeYData.length) {
-							dataMin = mathMin(pick(dataMin, activeYData[0]), mathMin.apply(math, activeYData));
-							dataMax = mathMax(pick(dataMax, activeYData[0]), mathMax.apply(math, activeYData));								
+							dataMin = mathMin(pick(dataMin, activeYData[0]), arrayMin(activeYData));
+							dataMax = mathMax(pick(dataMax, activeYData[0]), arrayMax(activeYData));
 						}
 
 
@@ -5545,7 +5839,8 @@ function Chart(options, callback) {
 				cvsOffset = 0,
 				localA = old ? oldTransA : transA,
 				localMin = old ? oldMin : min,
-				returnValue;
+				returnValue,
+				postTranslate = options.ordinal || (isLog && handleLog);
 
 			if (!localA) {
 				localA = transA;
@@ -5565,14 +5860,15 @@ function Chart(options, callback) {
 					val = axisLength - val;
 				}
 				returnValue = val / localA + localMin; // from chart pixel to value
-				if (isLog && handleLog) {
-					returnValue = lin2log(returnValue);
+				if (postTranslate) { // log and ordinal axes
+					returnValue = axis.lin2val(returnValue);
 				}
 
 			} else { // normal translation, from axis value to pixel, relative to plot
-				if (isLog && handleLog) {
-					val = log2lin(val);
+				if (postTranslate) { // log and ordinal axes
+					val = axis.val2lin(val);
 				}
+
 				returnValue = sign * (val - localMin) * localA + cvsOffset + (sign * minPixelPadding);
 			}
 
@@ -5641,19 +5937,100 @@ function Chart(options, callback) {
 		 */
 		function setLinearTickPositions() {
 
-			var i,
+			var pos,
+				lastPos,
 				roundedMin = correctFloat(mathFloor(min / tickInterval) * tickInterval),
 				roundedMax = correctFloat(mathCeil(max / tickInterval) * tickInterval);
 
 			tickPositions = [];
 
-			// populate the intermediate values
-			i = correctFloat(roundedMin);
-			while (i <= roundedMax) {
-				tickPositions.push(i);
-				i = correctFloat(i + tickInterval);
+			// Populate the intermediate values
+			pos = roundedMin;
+			while (pos <= roundedMax) {
+
+				// Place the tick on the rounded value
+				tickPositions.push(pos);
+
+				// Always add the raw tickInterval, not the corrected one.
+				pos = correctFloat(pos + tickInterval);
+
+				// If the interval is not big enough in the current min - max range to actually increase
+				// the loop variable, we need to break out to prevent endless loop. Issue #619
+				if (pos === lastPos) {
+					break;
+				}
+
+				// Record the last value
+				lastPos = pos;
+			}
+		}
+
+		/**
+		 * Adjust the min and max for the minimum range. Keep in mind that the series data is 
+		 * not yet processed, so we don't have information on data cropping and grouping, or 
+		 * updated axis.pointRange or series.pointRange. The data can't be processed until
+		 * we have finally established min and max.
+		 */
+		function adjustForMinRange() {
+			var zoomOffset,
+				spaceAvailable = dataMax - dataMin > minRange,
+				closestDataRange,
+				i,
+				distance,
+				xData,
+				loopLength,
+				minArgs,
+				maxArgs;
+
+			// Set the automatic minimum range based on the closest point distance
+			if (isXAxis && minRange === UNDEFINED) {
+
+				if (defined(options.min) || defined(options.max)) {
+					minRange = null; // don't do this again
+
+				} else {
+
+					// Find the closest distance between raw data points, as opposed to
+					// closestPointRange that applies to processed points (cropped and grouped)
+					each(axis.series, function (series) {
+						xData = series.xData;
+						loopLength = series.xIncrement ? 1 : xData.length - 1;
+						for (i = loopLength; i > 0; i--) {
+							distance = xData[i] - xData[i - 1];
+							if (closestDataRange === UNDEFINED || distance < closestDataRange) {
+								closestDataRange = distance;
+							}
+						}
+					});
+					minRange = mathMin(closestDataRange * 5, dataMax - dataMin);
+				}
 			}
 
+			// if minRange is exceeded, adjust
+			if (max - min < minRange) {
+
+				zoomOffset = (minRange - max + min) / 2;
+
+				// if min and max options have been set, don't go beyond it
+				minArgs = [min - zoomOffset, pick(options.min, min - zoomOffset)];
+				if (spaceAvailable) { // if space is available, stay within the data range
+					minArgs[2] = dataMin;
+				}
+				min = arrayMax(minArgs);
+
+				maxArgs = [min + minRange, pick(options.max, min + minRange)];
+				if (spaceAvailable) { // if space is availabe, stay within the data range
+					maxArgs[2] = dataMax;
+				}
+				max = arrayMin(maxArgs);
+
+				// now if the max is adjusted, adjust the min back
+				if (max - min < minRange) {
+					minArgs[0] = max - minRange;
+					minArgs[1] = pick(options.min, max - minRange);
+					min = arrayMax(minArgs);
+				}
+			}
 		}
 
 		/**
@@ -5661,21 +6038,12 @@ function Chart(options, callback) {
 		 * to the nearest tick
 		 */
 		function setTickPositions(secondPass) {
+
 			var length,
 				linkedParent,
 				linkedParentExtremes,
 				tickIntervalOption = options.tickInterval,
-				tickPixelIntervalOption = options.tickPixelInterval,
-				zoomOffset;
-
-			// set the max zoom once
-			if (secondPass) {
-				maxZoom = options.maxZoom || (
-					isXAxis && !defined(options.min) && !defined(options.max) ?
-						mathMin(axis.closestPointRange * 5, dataMax - dataMin) :
-						null
-				);
-			}
+				tickPixelIntervalOption = options.tickPixelInterval;
 
 			// linked axis gets the extremes from the parent axis
 			if (isLinked) {
@@ -5695,21 +6063,15 @@ function Chart(options, callback) {
 
 			// handle zoomed range
 			if (range) {
-				userMin = min = max - range;
+				userMin = min = mathMax(min, max - range); // #618
 				userMax = max;
 				if (secondPass) {
 					range = null;  // don't use it when running setExtremes
 				}
 			}
 
-			// maxZoom exceeded, just center the selection
-			if (max - min < maxZoom) {
-
-				zoomOffset = (maxZoom - max + min) / 2;
-				// if min and max options have been set, don't go beyond it
-				min = mathMax(min - zoomOffset, pick(options.min, min - zoomOffset), dataMin);
-				max = mathMin(min + maxZoom, pick(options.max, min + maxZoom), dataMax);
-			}
+			// adjust min and max for the minimum range
+			adjustForMinRange();
 
 			// pad the values to get clear of the chart's edges
 			if (!categories && !usePercentage && !isLinked && defined(min) && defined(max)) {
@@ -5737,28 +6099,69 @@ function Chart(options, callback) {
 				);
 			}
 
+			// Now we're finished detecting min and max, crop and group series data. This
+			// is in turn needed in order to find tick positions in ordinal axes. 
+			if (isXAxis && !secondPass) {
+				each(axis.series, function (series) {
+					series.processData(min !== oldMin || max !== oldMax);             
+				});
+			}
+
+
+			// set the translation factor used in translate function
+			setAxisTranslation();
+
+			// hook for ordinal axes. To do: merge with below
+			if (axis.beforeSetTickPositions) {
+				axis.beforeSetTickPositions();
+			}
+			
+			// hook for extensions, used in Highstock ordinal axes
+			if (axis.postProcessTickInterval) {
+				tickInterval = axis.postProcessTickInterval(tickInterval);				
+			}
+
+			// for linear axes, get magnitude and normalize the interval
 			if (!isDatetimeAxis) { // linear
 				magnitude = math.pow(10, mathFloor(math.log(tickInterval) / math.LN10));
 				if (!defined(options.tickInterval)) {
 					tickInterval = normalizeTickInterval(tickInterval, null, magnitude, options);
 				}
 			}
-			axis.tickInterval = tickInterval; // record for linked axis
+
+			// record the tick interval for linked axis
+			axis.tickInterval = tickInterval;
 
 			// get minorTickInterval
 			minorTickInterval = options.minorTickInterval === 'auto' && tickInterval ?
 					tickInterval / 5 : options.minorTickInterval;
 
 			// find the tick positions
-			if (isDatetimeAxis) {
-				tickPositions = getTimeTicks(tickInterval, min, max, options.startOfWeek);
-				dateTimeLabelFormat = options.dateTimeLabelFormats[tickPositions.info.unitName];
-			} else {
-				setLinearTickPositions();
+			tickPositions = options.tickPositions || (tickPositioner && tickPositioner.apply(axis, [min, max]));
+			if (!tickPositions) {
+				if (isDatetimeAxis) {
+					tickPositions = (axis.getNonLinearTimeTicks || getTimeTicks)(
+						normalizeTimeTickInterval(tickInterval, options.units), 
+						min, 
+						max, 
+						options.startOfWeek,
+						axis.ordinalPositions, 
+						axis.closestPointRange,
+						true
+					);
+				} else {
+					setLinearTickPositions();
+				}
 			}
 
+			// post process positions, used in ordinal axes in Highstock
+			fireEvent(axis, 'afterSetTickPositions', {
+				tickPositions: tickPositions
+			});
+
+
 			if (!isLinked) {
-				
+
 				// reset min/max or remove extremes based on start/end on tick
 				var roundedMin = tickPositions[0],
 					roundedMax = tickPositions[tickPositions.length - 1];
@@ -5787,8 +6190,6 @@ function Chart(options, callback) {
 					maxTicks[xOrY] = tickPositions.length;
 				}
 			}
-
-
 		}
 
 		/**
@@ -5797,7 +6198,7 @@ function Chart(options, callback) {
 		 */
 		function adjustTickAmount() {
 
-			if (maxTicks && !isDatetimeAxis && !categories && !isLinked && options.alignTicks !== false) { // only apply to linear scale
+			if (maxTicks && maxTicks[xOrY] && !isDatetimeAxis && !categories && !isLinked && options.alignTicks !== false) { // only apply to linear scale
 				var oldTickAmount = tickAmount,
 					calculatedTickAmount = tickPositions.length;
 
@@ -5819,6 +6220,7 @@ function Chart(options, callback) {
 				}
 			}
 
+
 		}
 
 		/**
@@ -5833,10 +6235,10 @@ function Chart(options, callback) {
 			oldMin = min;
 			oldMax = max;
 			oldAxisLength = axisLength;
-			
+
 			// set the new axisLength
 			axisLength = horiz ? axisWidth : axisHeight;
-			
+
 			// is there new data?
 			each(axis.series, function (series) {
 				if (series.isDirtyData || series.isDirty ||
@@ -5844,21 +6246,21 @@ function Chart(options, callback) {
 					isDirtyData = true;
 				}
 			});
-			
+
 			// do we really need to go through all this?
 			if (axisLength !== oldAxisLength || isDirtyData || isLinked ||
 				userMin !== oldUserMin || userMax !== oldUserMax) {
-			
+
 				// get data extremes if needed
 				getSeriesExtremes();
-	
+
 				// get fixed positions based on tickInterval
 				setTickPositions();
-	
-				// the translation factor used in translate function
-				oldTransA = transA;
-				transA = axisLength / ((max - min + (axis.pointRange || 0)) || 1);
-	
+
+				// record old values to decide whether a rescale is necessary later on (#540)
+				oldUserMin = userMin;
+				oldUserMax = userMax;
+
 				// reset stacks
 				if (!isXAxis) {
 					for (type in stacks) {
@@ -5867,10 +6269,10 @@ function Chart(options, callback) {
 						}
 					}
 				}
-	
-				// mark as dirty if it is not already set to dirty and extremes have changed
+
+				// Mark as dirty if it is not already set to dirty and extremes have changed. #595.
 				if (!axis.isDirty) {
-					axis.isDirty = (min !== oldMin || max !== oldMax);
+					axis.isDirty = chart.isDirtyBox || min !== oldMin || max !== oldMax;
 				}
 			}
 		}
@@ -5909,6 +6311,42 @@ function Chart(options, callback) {
 				max: max
 			});
 		}
+		
+		/**
+		 * Update translation information
+		 */
+		setAxisTranslation = function () {
+			var range = max - min,
+				pointRange = 0,
+				closestPointRange,
+				seriesClosestPointRange;
+			
+			// adjust translation for padding
+			if (isXAxis) {
+				each(axis.series, function (series) {
+					pointRange = mathMax(pointRange, series.pointRange);
+					seriesClosestPointRange = series.closestPointRange;
+					if (!series.noSharedTooltip && defined(seriesClosestPointRange)) {
+						closestPointRange = defined(closestPointRange) ?
+							mathMin(closestPointRange, seriesClosestPointRange) :
+							seriesClosestPointRange;
+					}
+				});
+				// pointRange means the width reserved for each point, like in a column chart
+				axis.pointRange = pointRange;
+
+				// closestPointRange means the closest distance between points. In columns
+				// it is mostly equal to pointRange, but in lines pointRange is 0 while closestPointRange
+				// is some other value
+				axis.closestPointRange = closestPointRange;
+			}
+
+			// secondary values
+			oldTransA = transA;
+			axis.translationSlope = transA = axisLength / ((range + pointRange) || 1);
+			transB = horiz ? axisLeft : axisBottom; // translation addend
+			minPixelPadding = transA * (pointRange / 2);
+		};
 
 		/**
 		 * Update the axis metrics
@@ -5916,10 +6354,7 @@ function Chart(options, callback) {
 		function setAxisSize() {
 
 			var offsetLeft = options.offsetLeft || 0,
-				offsetRight = options.offsetRight || 0,
-				range = max - min,
-				pointRange = 0,
-				closestPointRange;
+				offsetRight = options.offsetRight || 0;
 
 			// basic values
 			axisLeft = pick(options.left, plotLeft + offsetLeft);
@@ -5929,39 +6364,11 @@ function Chart(options, callback) {
 			axisBottom = chartHeight - axisHeight - axisTop;
 			axisRight = chartWidth - axisWidth - axisLeft;
 			axisLength = horiz ? axisWidth : axisHeight;
-						
-			// adjust translation for padding
-			if (isXAxis) {
-				each(axis.series, function (series) {
-					pointRange = mathMax(pointRange, series.pointRange);
-					if (!series.noSharedTooltip) {
-						closestPointRange = defined(closestPointRange) ? 
-							mathMin(closestPointRange, series.closestPointRange) :
-							series.closestPointRange;
-					}
-				});
-				// pointRange means the width reserved for each point, like in a column chart
-				if ((defined(userMin) || defined(userMax)) && pointRange > tickInterval / 2) {
-					// prevent great padding when zooming tightly in to view columns
-					pointRange = 0;
-				}
-				axis.pointRange = pointRange;
-				
-				// closestPointRange means the closest distance between points. In columns
-				// it is mostly equal to pointRange, but in lines pointRange is 0 while closestPointRange
-				// is some other value
-				axis.closestPointRange = closestPointRange;
-			}
-			
-			// secondary values
-			transA = axisLength / ((range + pointRange) || 1);
-			transB = horiz ? axisLeft : axisBottom; // translation addend
-			minPixelPadding = transA * (pointRange / 2);
-			
+
 			// expose to use in Series object and navigator
 			axis.left = axisLeft;
 			axis.top = axisTop;
-			axis.len = axisLength; 
+			axis.len = axisLength;
 
 		}
 
@@ -6010,6 +6417,7 @@ function Chart(options, callback) {
 		function getOffset() {
 
 			var hasData = axis.series.length && defined(min) && defined(max),
+				showAxis = hasData || pick(options.showEmpty, true),
 				titleOffset = 0,
 				titleMargin = 0,
 				axisTitleOptions = options.title,
@@ -6022,7 +6430,7 @@ function Chart(options, callback) {
 					.attr({ zIndex: 7 })
 					.add();
 				gridGroup = renderer.g('grid')
-					.attr({ zIndex: 1 })
+					.attr({ zIndex: options.gridZIndex || 1 })
 					.add();
 			}
 
@@ -6036,16 +6444,6 @@ function Chart(options, callback) {
 						ticks[pos].addLabel(); // update labels depending on tick interval
 					}
 
-				});
-
-				each(tickPositions, function (pos) {
-					ticks[pos].attachLabel();
-				});
-				each(tickPositions, function (pos) {
-					ticks[pos].computeBBox();
-				});
-				each(tickPositions, function (pos) {
-					ticks[pos].updateTransformLabel();
 				});
 
 				each(tickPositions, function (pos) {
@@ -6077,7 +6475,8 @@ function Chart(options, callback) {
 					axisTitle = axis.axisTitle = renderer.text(
 						axisTitleOptions.text,
 						0,
-						0
+						0,
+						axisTitleOptions.useHTML
 					)
 					.attr({
 						zIndex: 7,
@@ -6091,8 +6490,14 @@ function Chart(options, callback) {
 					axisTitle.isNew = true;
 				}
 
-				titleOffset = axisTitle.getBBox()[horiz ? 'height' : 'width'];
-				titleMargin = pick(axisTitleOptions.margin, horiz ? 5 : 10);
+				if (showAxis) {
+					titleOffset = axisTitle.getBBox()[horiz ? 'height' : 'width'];
+					titleMargin = pick(axisTitleOptions.margin, horiz ? 5 : 10);
+				}
+
+				// hide or show the title depending on whether showEmpty is set
+				axisTitle[showAxis ? 'show' : 'hide']();
+
 
 			}
 
@@ -6100,9 +6505,10 @@ function Chart(options, callback) {
 			offset = directionFactor * pick(options.offset, axisOffset[side]);
 
 			axisTitleMargin =
-				labelOffset +
-				(side !== 2 && labelOffset && directionFactor * options.labels[horiz ? 'y' : 'x']) +
-				titleMargin;
+				pick(axisTitleOptions.offset,
+					labelOffset + titleMargin +
+					(side !== 2 && labelOffset && directionFactor * options.labels[horiz ? 'y' : 'x'])
+				);
 
 			axisOffset[side] = mathMax(
 				axisOffset[side],
@@ -6124,7 +6530,8 @@ function Chart(options, callback) {
 				linePath,
 				hasRendered = chart.hasRendered,
 				slideInTicks = hasRendered && defined(oldMin) && !isNaN(oldMin),
-				hasData = axis.series.length && defined(min) && defined(max);
+				hasData = axis.series.length && defined(min) && defined(max),
+				showAxis = hasData || pick(options.showEmpty, true);
 
 			// If the series has data draw the ticks. Else only the line and title
 			if (hasData || isLinked) {
@@ -6134,7 +6541,7 @@ function Chart(options, callback) {
 					var pos = min + (tickPositions[0] - min) % minorTickInterval;
 					for (; pos <= max; pos += minorTickInterval) {
 						if (!minorTicks[pos]) {
-							minorTicks[pos] = new Tick(pos, true);
+							minorTicks[pos] = new Tick(pos, 'minor');
 						}
 
 						// render new ticks in old position
@@ -6153,6 +6560,10 @@ function Chart(options, callback) {
 					// linked axes need an extra check to find out if
 					if (!isLinked || (pos >= min && pos <= max)) {
 
+						if (!ticks[pos]) {
+							ticks[pos] = new Tick(pos);
+						}
+
 						// render new ticks in old position
 						if (slideInTicks && ticks[pos].isNew) {
 							ticks[pos].render(i, true);
@@ -6161,6 +6572,7 @@ function Chart(options, callback) {
 						ticks[pos].isActive = true;
 						ticks[pos].render(i);
 					}
+
 				});
 
 				// alternate grid color
@@ -6182,10 +6594,12 @@ function Chart(options, callback) {
 				}
 
 				// custom plot lines and bands
-				if (!hasRendered) { // only first time
+				if (!axis._addedPlotLB) { // only first time
 					each((options.plotLines || []).concat(options.plotBands || []), function (plotLineOptions) {
-						plotLinesAndBands.push(new PlotLineOrBand(plotLineOptions).render());
+						//plotLinesAndBands.push(new PlotLineOrBand(plotLineOptions).render());
+						addPlotBandOrLine(plotLineOptions);
 					});
+					axis._addedPlotLB = true;
 				}
 
 
@@ -6243,9 +6657,12 @@ function Chart(options, callback) {
 					axisLine.animate({ d: linePath });
 				}
 
+				// show or hide the line depending on options.showEmpty
+				axisLine[showAxis ? 'show' : 'hide']();
+
 			}
 
-			if (axisTitle) {
+			if (axisTitle && showAxis) {
 				// compute anchor points for each of the title align options
 				var margin = horiz ? axisLeft : axisTop,
 					fontSize = pInt(axisTitleOptions.style.fontSize || 12),
@@ -6350,7 +6767,7 @@ function Chart(options, callback) {
 		 */
 		function setCategories(newCategories, doRedraw) {
 				// set the categories
-				axis.categories = categories = newCategories;
+				axis.categories = userOptions.categories = categories = newCategories;
 
 				// force reindexing tooltips
 				each(axis.series, function (series) {
@@ -6367,6 +6784,40 @@ function Chart(options, callback) {
 				}
 		}
 
+		/**
+		 * Destroys an Axis instance.
+		 */
+		function destroy() {
+			var stackKey;
+
+			// Remove the events
+			removeEvent(axis);
+
+			// Destroy each stack total
+			for (stackKey in stacks) {
+				destroyObjectProperties(stacks[stackKey]);
+
+				stacks[stackKey] = null;
+			}
+
+			// Destroy stack total group
+			if (axis.stackTotalGroup) {
+				axis.stackTotalGroup = axis.stackTotalGroup.destroy();
+			}
+
+			// Destroy collections
+			each([ticks, minorTicks, alternateBands, plotLinesAndBands], function (coll) {
+				destroyObjectProperties(coll);
+			});
+
+			// Destroy local variables
+			each([axisLine, axisGroup, gridGroup, axisTitle], function (obj) {
+				if (obj) {
+					obj.destroy();
+				}
+			});
+			axisLine = axisGroup = gridGroup = axisTitle = null;
+		}
 
 
 		// Run Axis
@@ -6396,6 +6847,7 @@ function Chart(options, callback) {
 			getOffset: getOffset,
 			render: render,
 			setAxisSize: setAxisSize,
+			setAxisTranslation: setAxisTranslation,
 			setCategories: setCategories,
 			setExtremes: setExtremes,
 			setScale: setScale,
@@ -6406,7 +6858,8 @@ function Chart(options, callback) {
 			removePlotLine: removePlotBandOrLine,
 			reversed: reversed,
 			series: [], // populated by Series
-			stacks: stacks
+			stacks: stacks,
+			destroy: destroy
 		});
 
 		// register event listeners
@@ -6414,54 +6867,14 @@ function Chart(options, callback) {
 			addEvent(axis, eventType, events[eventType]);
 		}
 
-		// set min and max
-		//setScale();
+		// extend logarithmic axis
+		if (isLog) {
+			axis.val2lin = log2lin;
+			axis.lin2val = lin2log;
+		}
 
 	} // end Axis
 
-
-	/**
-	 * The toolbar object
-	 */
-	function Toolbar() {
-		var buttons = {};
-
-		/*jslint unparam: true*//* allow the unused param title until Toolbar rewrite*/
-		function add(id, text, title, fn) {
-			if (!buttons[id]) {
-				var button = renderer.text(
-					text,
-					0,
-					0
-				)
-				.css(options.toolbar.itemStyle)
-				.align({
-					align: 'right',
-					x: -marginRight - 20,
-					y: plotTop + 30
-				})
-				.on('click', fn)
-				.attr({
-					align: 'right',
-					zIndex: 20
-				})
-				.add();
-				buttons[id] = button;
-			}
-		}
-		/*jslint unparam: false*/
-
-		function remove(id) {
-			discardElement(buttons[id].element);
-			buttons[id] = null;
-		}
-
-		// public
-		return {
-			add: add,
-			remove: remove
-		};
-	}
 
 	/**
 	 * The tooltip object
@@ -6495,6 +6908,22 @@ function Chart(options, callback) {
 			.hide()
 			.add()
 			.shadow(options.shadow);
+
+		/**
+		 * Destroy the tooltip and its elements.
+		 */
+		function destroy() {
+			each(crosshairs, function (crosshair) {
+				if (crosshair) {
+					crosshair.destroy();
+				}
+			});
+
+			// Destroy and clear local variables
+			if (label) {
+				label = label.destroy();
+			}
+		}
 
 		/**
 		 * In case no user defined formatter is given, this will be used
@@ -6549,14 +6978,7 @@ function Chart(options, callback) {
 			if (!tooltipIsHidden) {
 				var hoverPoints = chart.hoverPoints;
 
-				//group.hide();
 				label.hide();
-
-				each(crosshairs, function (crosshair) {
-					if (crosshair) {
-						crosshair.hide();
-					}
-				});
 
 				// hide previous hoverPoints and set new
 				if (hoverPoints) {
@@ -6570,6 +6992,17 @@ function Chart(options, callback) {
 				tooltipIsHidden = true;
 			}
 
+		}
+
+		/**
+		 * Hide the crosshairs
+		 */
+		function hideCrosshairs() {
+			each(crosshairs, function (crosshair) {
+				if (crosshair) {
+					crosshair.hide();
+				}
+			});
 		}
 
 		/**
@@ -6636,8 +7069,8 @@ function Chart(options, callback) {
 			y = mathRound(tooltipPos ? tooltipPos[1] : (inverted ? plotHeight - plotX : plotY));
 
 
-			// hide tooltip if the point falls outside the plot
-			show = shared || !point.series.isCartesian || isInsidePlot(x, y);
+			// For line type series, hide tooltip if the point falls outside the plot
+			show = shared || !currentSeries.isCartesian || currentSeries.tooltipOutsidePlot || isInsidePlot(x, y);
 
 			// update the inner HTML
 			if (text === false || !show) {
@@ -6660,8 +7093,17 @@ function Chart(options, callback) {
 					stroke: options.borderColor || point.color || currentSeries.color || '#606060'
 				});
 
-				placedTooltipPoint = placeBox(label.width, label.height, plotLeft, plotTop,
-					plotWidth, plotHeight, {x: x, y: y}, pick(options.distance, 12));
+				placedTooltipPoint = placeBox(
+					label.width,
+					label.height,
+					plotLeft,
+					plotTop,
+					plotWidth,
+					plotHeight,
+					{x: x, y: y},
+					pick(options.distance, 12),
+					inverted
+				);
 
 				// do the move
 				move(mathRound(placedTooltipPoint.x), mathRound(placedTooltipPoint.y));
@@ -6689,7 +7131,7 @@ function Chart(options, callback) {
 							attribs = {
 								'stroke-width': crosshairsOptions[i].width || 1,
 								stroke: crosshairsOptions[i].color || '#C0C0C0',
-								zIndex: 2
+								zIndex: crosshairsOptions[i].zIndex || 2
 							};
 							if (crosshairsOptions[i].dashStyle) {
 								attribs.dashstyle = crosshairsOptions[i].dashStyle;
@@ -6709,16 +7151,17 @@ function Chart(options, callback) {
 		return {
 			shared: shared,
 			refresh: refresh,
-			hide: hide
+			hide: hide,
+			hideCrosshairs: hideCrosshairs,
+			destroy: destroy
 		};
 	}
 
 	/**
 	 * The mouse tracker object
-	 * @param {Object} chart
 	 * @param {Object} options
 	 */
-	function MouseTracker(chart, options) {
+	function MouseTracker(options) {
 
 
 		var mouseDownX,
@@ -6737,9 +7180,6 @@ function Chart(options, callback) {
 		 */
 		function normalizeMouseEvent(e) {
 			var ePos,
-				pageZoomFix = isWebKit &&
-					doc.width / doc.body.scrollWidth -
-					1, // #224, #348
 				chartPosLeft,
 				chartPosTop,
 				chartX,
@@ -6755,45 +7195,32 @@ function Chart(options, callback) {
 			if (e.originalEvent) {
 				e = e.originalEvent;
 			}
-			
+
 			// The same for MooTools. It renames e.pageX to e.page.x. #445.
 			if (e.event) {
 				e = e.event;
 			}
-			
+
 			// iOS
 			ePos = e.touches ? e.touches.item(0) : e;
 
-			// in certain cases, get mouse position
-			if (e.type !== 'mousemove' || win.opera || pageZoomFix) { // only Opera needs position on mouse move, see below
-				chartPosition = getPosition(container);
-				chartPosLeft = chartPosition.left;
-				chartPosTop = chartPosition.top;
-			}
+			// get mouse position
+			chartPosition = offset(container);
+			chartPosLeft = chartPosition.left;
+			chartPosTop = chartPosition.top;
 
 			// chartX and chartY
 			if (isIE) { // IE including IE9 that has pageX but in a different meaning
 				chartX = e.x;
 				chartY = e.y;
 			} else {
-				if (ePos.layerX === UNDEFINED) { // Opera and iOS
-					chartX = ePos.pageX - chartPosLeft;
-					chartY = ePos.pageY - chartPosTop;
-				} else {
-					chartX = e.layerX;
-					chartY = e.layerY;
-				}
-			}
-
-			// correct for page zoom bug in WebKit
-			if (pageZoomFix) {
-				chartX += mathRound((pageZoomFix + 1) * chartPosLeft - chartPosLeft);
-				chartY += mathRound((pageZoomFix + 1) * chartPosTop - chartPosTop);
+				chartX = ePos.pageX - chartPosLeft;
+				chartY = ePos.pageY - chartPosTop;
 			}
 
 			return extend(e, {
-				chartX: chartX,
-				chartY: chartY
+				chartX: mathRound(chartX),
+				chartY: mathRound(chartY)
 			});
 		}
 
@@ -6903,6 +7330,7 @@ function Chart(options, callback) {
 
 			if (tooltip) {
 				tooltip.hide();
+				tooltip.hideCrosshairs();
 			}
 
 			hoverX = null;
@@ -6971,11 +7399,32 @@ function Chart(options, callback) {
 		}
 
 		/**
+		 * Special handler for mouse move that will hide the tooltip when the mouse leaves the plotarea.
+		 */
+		function hideTooltipOnMouseMove(e) {
+			var pageX = defined(e.pageX) ? e.pageX : e.page.x, // In mootools the event is wrapped and the page x/y position is named e.page.x
+				pageY = defined(e.pageX) ? e.pageY : e.page.y; // Ref: http://mootools.net/docs/core/Types/DOMEvent
+
+			if (chartPosition &&
+					!isInsidePlot(pageX - chartPosition.left - plotLeft,
+						pageY - chartPosition.top - plotTop)) {
+				resetTracker();
+			}
+		}
+
+		/**
+		 * When mouse leaves the container, hide the tooltip.
+		 */
+		function hideTooltipOnMouseLeave() {
+			resetTracker();
+			chartPosition = null; // also reset the chart position, used in #149 fix
+		}
+
+		/**
 		 * Set the JS events on the container element
 		 */
 		function setDOMEvents() {
 			var lastWasOutsidePlot = true;
-
 			/*
 			 * Record the starting position of a dragoperation
 			 */
@@ -6989,7 +7438,7 @@ function Chart(options, callback) {
 
 				// record the start position
 				chart.mouseIsDown = mouseIsDown = true;
-				mouseDownX = e.chartX;
+				chart.mouseDownX = mouseDownX = e.chartX;
 				mouseDownY = e.chartY;
 
 				addEvent(doc, hasTouch ? 'touchend' : 'mouseup', drop);
@@ -7013,11 +7462,6 @@ function Chart(options, callback) {
 				var chartX = e.chartX,
 					chartY = e.chartY,
 					isOutsidePlot = !isInsidePlot(chartX - plotLeft, chartY - plotTop);
-
-				// cache chart position for issue #149 fix
-				if (!chartPosition) {
-					chartPosition = getPosition(container);
-				}
 
 				// on touch devices, only trigger click if a handler is defined
 				if (hasTouch && e.type === 'touchstart') {
@@ -7062,8 +7506,7 @@ function Chart(options, callback) {
 						Math.pow(mouseDownY - chartY, 2)
 					);
 					if (hasDragged > 10) {
-						var clickedInside = isInsidePlot(mouseDownX - plotLeft, mouseDownY - plotTop),
-							hoverPoints = chart.hoverPoints;
+						var clickedInside = isInsidePlot(mouseDownX - plotLeft, mouseDownY - plotTop);
 
 						// make a selection
 						if (hasCartesianSeries && (zoomX || zoomY) && clickedInside) {
@@ -7076,7 +7519,7 @@ function Chart(options, callback) {
 									0
 								)
 								.attr({
-									fill: 'rgba(69,114,167,0.25)',
+									fill: optionsChart.selectionMarkerFill || 'rgba(69,114,167,0.25)',
 									zIndex: 7
 								})
 								.add();
@@ -7102,25 +7545,7 @@ function Chart(options, callback) {
 
 						// panning
 						if (clickedInside && !selectionMarker && optionsChart.panning) {
-
-							var xAxis = chart.xAxis[0],
-								extremes = xAxis.getExtremes(),
-								newMin = xAxis.translate(mouseDownX - chartX, true),
-								newMax = xAxis.translate(mouseDownX + plotWidth - chartX, true);
-
-							// remove active points for shared tooltip
-							if (hoverPoints) {
-								each(hoverPoints, function (point) {
-									point.setState();
-								});
-							}
-
-							if (newMin > mathMin(extremes.dataMin, extremes.min) && newMax < mathMax(extremes.dataMax, extremes.max)) {
-								xAxis.setExtremes(newMin, newMax, true, false);
-							}
-
-							mouseDownX = chartX;
-							css(container, { cursor: 'move' });
+							chart.pan(chartX);
 						}
 					}
 
@@ -7143,22 +7568,12 @@ function Chart(options, callback) {
 			/*
 			 * When the mouse leaves the container, hide the tracking (tooltip).
 			 */
-			addEvent(container, 'mouseleave', resetTracker);
+			addEvent(container, 'mouseleave', hideTooltipOnMouseLeave);
 
 			// issue #149 workaround
 			// The mouseleave event above does not always fire. Whenever the mouse is moving
 			// outside the plotarea, hide the tooltip
-			addEvent(doc, 'mousemove', function (e) {
-				if (e.event) {
-					e = e.event; // MooTools renames e.pageX to e.page.x
-				}
-				if (chartPosition &&
-						!isInsidePlot(e.pageX - chartPosition.left - plotLeft,
-							e.pageY - chartPosition.top - plotTop)) {
-					resetTracker();
-				}
-			});
-
+			addEvent(doc, 'mousemove', hideTooltipOnMouseMove);
 
 			container.ontouchstart = function (e) {
 				// For touch devices, use touchmove to zoom
@@ -7233,6 +7648,20 @@ function Chart(options, callback) {
 		}
 
 		/**
+		 * Destroys the MouseTracker object and disconnects DOM events.
+		 */
+		function destroy() {
+			// Destroy the tracker group element
+			if (chart.trackerGroup) {
+				chart.trackerGroup = trackerGroup = chart.trackerGroup.destroy();
+			}
+
+			removeEvent(container, 'mouseleave', hideTooltipOnMouseLeave);
+			removeEvent(doc, 'mousemove', hideTooltipOnMouseMove);
+			container.onclick = container.onmousedown = container.onmousemove = container.ontouchstart = container.ontouchend = container.ontouchmove = null;
+		}
+
+		/**
 		 * Create the image map that listens for mouseovers
 		 */
 		placeTrackerGroup = function () {
@@ -7261,23 +7690,24 @@ function Chart(options, callback) {
 		placeTrackerGroup();
 		if (options.enabled) {
 			chart.tooltip = tooltip = Tooltip(options);
+			
+			// set the fixed interval ticking for the smooth tooltip
+			tooltipInterval = setInterval(function () {
+				if (tooltipTick) {
+					tooltipTick();
+				}
+			}, 32);
 		}
 
 		setDOMEvents();
-
-		// set the fixed interval ticking for the smooth tooltip
-		tooltipInterval = setInterval(function () {
-			if (tooltipTick) {
-				tooltipTick();
-			}
-		}, 32);
 
 		// expose properties
 		extend(this, {
 			zoomX: zoomX,
 			zoomY: zoomY,
 			resetTracker: resetTracker,
-			normalizeMouseEvent: normalizeMouseEvent
+			normalizeMouseEvent: normalizeMouseEvent,
+			destroy: destroy
 		});
 	}
 
@@ -7285,9 +7715,8 @@ function Chart(options, callback) {
 
 	/**
 	 * The overview of the chart's series
-	 * @param {Object} chart
 	 */
-	var Legend = function (chart) {
+	var Legend = function () {
 
 		var options = chart.options.legend;
 
@@ -7302,15 +7731,16 @@ function Chart(options, callback) {
 			style = options.style,
 			itemStyle = options.itemStyle,
 			itemHoverStyle = options.itemHoverStyle,
-			itemHiddenStyle = options.itemHiddenStyle,
-			padding = pInt(style.padding),
-			rightPadding = 20,
+			itemHiddenStyle = merge(itemStyle, options.itemHiddenStyle),
+			padding = options.padding || pInt(style.padding),
 			y = 18,
 			initialItemX = 4 + padding + symbolWidth + symbolPadding,
 			itemX,
 			itemY,
 			lastItemY,
 			itemHeight = 0,
+			itemMarginTop = options.itemMarginTop || 0,
+			itemMarginBottom = options.itemMarginBottom || 0,
 			box,
 			legendBorderWidth = options.borderWidth,
 			legendBackgroundColor = options.backgroundColor,
@@ -7401,6 +7831,18 @@ function Chart(options, callback) {
 
 		}
 
+		/**
+		 * Destroys the legend.
+		 */
+		function destroy() {
+			if (box) {
+				box = box.destroy();
+			}
+
+			if (legendGroup) {
+				legendGroup = legendGroup.destroy();
+			}
+		}
 
 		/**
 		 * Position the checkboxes after the width is determined
@@ -7557,16 +7999,16 @@ function Chart(options, callback) {
 			bBox = li.getBBox();
 
 			itemWidth = item.legendItemWidth =
-				options.itemWidth || symbolWidth + symbolPadding + bBox.width + rightPadding;
+				options.itemWidth || symbolWidth + symbolPadding + bBox.width + padding;
 			itemHeight = bBox.height;
 
 			// if the item exceeds the width, start a new line
 			if (horizontal && itemX - initialItemX + itemWidth >
 					(widthOption || (chartWidth - 2 * padding - initialItemX))) {
 				itemX = initialItemX;
-				itemY += itemHeight;
+				itemY += itemMarginTop + itemHeight + itemMarginBottom;
 			}
-			lastItemY = itemY;
+			lastItemY = itemY + itemMarginBottom;
 
 			// position the newly generated or reordered items
 			positionItem(item, itemX, itemY);
@@ -7575,7 +8017,7 @@ function Chart(options, callback) {
 			if (horizontal) {
 				itemX += itemWidth;
 			} else {
-				itemY += itemHeight;
+				itemY += itemMarginTop + itemHeight + itemMarginBottom;
 			}
 
 			// the width of the widest item
@@ -7584,10 +8026,6 @@ function Chart(options, callback) {
 				offsetWidth
 			);
 
-
-
-			// add it all to an array to use below
-			//allItems.push(item);
 		}
 
 		/**
@@ -7597,7 +8035,7 @@ function Chart(options, callback) {
 		 */
 		function renderLegend() {
 			itemX = initialItemX;
-			itemY = y;
+			itemY = padding + itemMarginTop + y - 5; // 5 is the number of pixels above the text
 			offsetWidth = 0;
 			lastItemY = 0;
 
@@ -7618,9 +8056,11 @@ function Chart(options, callback) {
 				}
 
 				// use points or series for the legend item depending on legendType
-				allItems = allItems.concat(seriesOptions.legendType === 'point' ?
-					serie.data :
-					serie
+				allItems = allItems.concat(
+						serie.legendItems ||
+						(seriesOptions.legendType === 'point' ?
+								serie.data :
+								serie)
 				);
 
 			});
@@ -7710,7 +8150,8 @@ function Chart(options, callback) {
 		return {
 			colorizeItem: colorizeItem,
 			destroyItem: destroyItem,
-			renderLegend: renderLegend
+			renderLegend: renderLegend,
+			destroy: destroy
 		};
 	};
 
@@ -7898,7 +8339,7 @@ function Chart(options, callback) {
 				stop(clipRect);
 				clipRect.animate({ // for chart resize
 					width: chart.plotSizeX,
-					height: chart.plotSizeY
+					height: chart.plotSizeY + 1
 				});
 			}
 
@@ -7972,14 +8413,16 @@ function Chart(options, callback) {
 	 * Hide the loading layer
 	 */
 	function hideLoading() {
-		animate(loadingDiv, {
-			opacity: 0
-		}, {
-			duration: options.loading.hideDuration || 100,
-			complete: function () {
-				css(loadingDiv, { display: NONE });
-			}
-		});
+		if (loadingDiv) {
+			animate(loadingDiv, {
+				opacity: 0
+			}, {
+				duration: options.loading.hideDuration || 100,
+				complete: function () {
+					css(loadingDiv, { display: NONE });
+				}
+			});
+		}
 		loadingShown = false;
 	}
 
@@ -8008,7 +8451,7 @@ function Chart(options, callback) {
 
 		// search points
 		for (i = 0; i < series.length; i++) {
-			points = series[i].points;
+			points = series[i].points || [];
 			for (j = 0; j < points.length; j++) {
 				if (points[j].id === id) {
 					return points[j];
@@ -8073,12 +8516,37 @@ function Chart(options, callback) {
 	}
 
 	/**
+	 * Display the zoom button
+	 */
+	function showResetZoom() {
+		var lang = defaultOptions.lang,
+			btnOptions = optionsChart.resetZoomButton,
+			box = btnOptions.relativeTo === 'plot' && {
+				x: plotLeft,
+				y: plotTop,
+				width: plotWidth,
+				height: plotHeight
+			};
+
+		chart.resetZoomButton = renderer.button(lang.resetZoom, null, null, zoomOut, btnOptions.theme)
+			.attr({
+				align: btnOptions.position.align,
+				title: lang.resetZoomTitle
+			})
+			.add()
+			.align(btnOptions.position, false, box);
+	}
+
+	/**
 	 * Zoom out to 1:1
 	 */
 	zoomOut = function () {
-		fireEvent(chart, 'selection', { resetSelection: true }, zoom);
-		chart.toolbar.remove('zoom');
+		var resetZoomButton = chart.resetZoomButton;
 
+		fireEvent(chart, 'selection', { resetSelection: true }, zoom);
+		if (resetZoomButton) {
+			chart.resetZoomButton = resetZoomButton.destroy();
+		}
 	};
 	/**
 	 * Zoom into a given portion of the chart given by axis coordinates
@@ -8087,30 +8555,67 @@ function Chart(options, callback) {
 	zoom = function (event) {
 
 		// add button to reset selection
-		var lang = defaultOptions.lang,
-			animate = chart.pointCount < 100;
+		var animate = chart.pointCount < 100,
+			hasZoomed;
 
-		if (chart.resetZoomEnabled !== false) { // hook for Stock charts etc.
-			chart.toolbar.add('zoom', lang.resetZoom, lang.resetZoomTitle, zoomOut);
+		if (chart.resetZoomEnabled !== false && !chart.resetZoomButton) { // hook for Stock charts etc.
+			showResetZoom();
 		}
 
 		// if zoom is called with no arguments, reset the axes
 		if (!event || event.resetSelection) {
 			each(axes, function (axis) {
 				if (axis.options.zoomEnabled !== false) {
-					axis.setExtremes(null, null, true, animate);
+					axis.setExtremes(null, null, false);
+					hasZoomed = true;
 				}
 			});
 		} else { // else, zoom in on all axes
 			each(event.xAxis.concat(event.yAxis), function (axisData) {
 				var axis = axisData.axis;
 
-				// don't zoom more than maxZoom
+				// don't zoom more than minRange
 				if (chart.tracker[axis.isXAxis ? 'zoomX' : 'zoomY']) {
-					axis.setExtremes(axisData.min, axisData.max, true, animate);
+					axis.setExtremes(axisData.min, axisData.max, false);
+					hasZoomed = true;
 				}
 			});
 		}
+		
+		// Redraw
+		if (hasZoomed) {
+			redraw(true, animate);
+		}
+	};
+
+	/**
+	 * Pan the chart by dragging the mouse across the pane. This function is called
+	 * on mouse move, and the distance to pan is computed from chartX compared to
+	 * the first chartX position in the dragging operation.
+	 */
+	chart.pan = function (chartX) {
+
+		var xAxis = chart.xAxis[0],
+			mouseDownX = chart.mouseDownX,
+			halfPointRange = xAxis.pointRange / 2,
+			extremes = xAxis.getExtremes(),
+			newMin = xAxis.translate(mouseDownX - chartX, true) + halfPointRange,
+			newMax = xAxis.translate(mouseDownX + plotWidth - chartX, true) - halfPointRange,
+			hoverPoints = chart.hoverPoints;
+
+		// remove active points for shared tooltip
+		if (hoverPoints) {
+			each(hoverPoints, function (point) {
+				point.setState();
+			});
+		}
+
+		if (newMin > mathMin(extremes.dataMin, extremes.min) && newMax < mathMax(extremes.dataMax, extremes.max)) {
+			xAxis.setExtremes(newMin, newMax, true, false);
+		}
+
+		chart.mouseDownX = chartX; // set new reference for next run
+		css(container, { cursor: 'move' });
 	};
 
 	/**
@@ -8136,14 +8641,14 @@ function Chart(options, callback) {
 				chartTitleOptions = arr[2];
 
 			if (title && titleOptions) {
-				title.destroy(); // remove old
-				title = null;
+				title = title.destroy(); // remove old
 			}
 			if (chartTitleOptions && chartTitleOptions.text && !title) {
 				chart[name] = renderer.text(
 					chartTitleOptions.text,
 					0,
-					0
+					0,
+					chartTitleOptions.useHTML
 				)
 				.attr({
 					align: chartTitleOptions.align,
@@ -8215,7 +8720,8 @@ function Chart(options, callback) {
 					// content overflow in IE
 				width: chartWidth + PX,
 				height: chartHeight + PX,
-				textAlign: 'left'
+				textAlign: 'left',
+				lineHeight: 'normal' // #427
 			}, optionsChart.style),
 			renderToClone || renderTo
 		);
@@ -8376,6 +8882,17 @@ function Chart(options, callback) {
 	}
 
 	/**
+	 * Fires endResize event on chart instance.
+	 */
+	function fireEndResize() {
+		if (chart) {
+			fireEvent(chart, 'endResize', null, function () {
+				isResizing -= 1;
+			});
+		}
+	}
+
+	/**
 	 * Resize the chart to a given width and height
 	 * @param {Number} width
 	 * @param {Number} height
@@ -8441,11 +8958,12 @@ function Chart(options, callback) {
 		fireEvent(chart, 'resize');
 
 		// fire endResize and set isResizing back
-		setTimeout(function () {
-			fireEvent(chart, 'endResize', null, function () {
-				isResizing -= 1;
-			});
-		}, (globalAnimation && globalAnimation.duration) || 500);
+		// If animation is disabled, fire without delay
+		if (globalAnimation === false) {
+			fireEndResize();
+		} else { // else set a timeout with the animation duration
+			setTimeout(fireEndResize, (globalAnimation && globalAnimation.duration) || 500);
+		}
 	};
 
 	/**
@@ -8470,9 +8988,8 @@ function Chart(options, callback) {
 		};
 
 		each(axes, function (axis) {
-			if (axis.isDirty) {
-				axis.setAxisSize();
-			}
+			axis.setAxisSize();
+			axis.setAxisTranslation();
 		});
 	};
 
@@ -8574,26 +9091,26 @@ function Chart(options, callback) {
 	 */
 	function setInverted() {
 		var BAR = 'bar',
-			isInverted = pick(
-				inverted, // it is set before 
-				optionsChart.inverted,
-				optionsChart.type === BAR, // default series type 
+			isInverted = (
+				inverted || // it is set before
+				optionsChart.inverted ||
+				optionsChart.type === BAR || // default series type
 				optionsChart.defaultSeriesType === BAR // backwards compatible
 			),
 			seriesOptions = options.series,
 			i = seriesOptions && seriesOptions.length;
-		
+
 		// check if a bar series is present in the config options
 		while (!isInverted && i--) {
 			if (seriesOptions[i].type === BAR) {
 				isInverted = true;
 			}
-		}		
-		
+		}
+
 		// set the chart property and the chart scope variable
 		chart.inverted = inverted = isInverted;
 	}
-	
+
 	/**
 	 * Render all graphics for the chart
 	 */
@@ -8607,7 +9124,7 @@ function Chart(options, callback) {
 
 
 		// Legend
-		legend = chart.legend = new Legend(chart);
+		legend = chart.legend = new Legend();
 
 		// Get margins by pre-rendering axes
 		// set axes scales
@@ -8669,15 +9186,10 @@ function Chart(options, callback) {
 			});
 		}
 
-		// Toolbar (don't redraw)
-		if (!chart.toolbar) {
-			chart.toolbar = Toolbar(chart);
-		}
-
 		// Credits
 		if (credits.enabled && !chart.credits) {
 			creditsHref = credits.href;
-			renderer.text(
+			chart.credits = renderer.text(
 				credits.text,
 				0,
 				0
@@ -8713,40 +9225,62 @@ function Chart(options, callback) {
 	 * Clean up memory usage
 	 */
 	function destroy() {
-		var i = series.length,
+		var i,
 			parentNode = container && container.parentNode;
+
+		// If the chart is destroyed already, do nothing.
+		// This will happen if if a script invokes chart.destroy and
+		// then it will be called again on win.unload
+		if (chart === null) {
+			return;
+		}
 
 		// fire the chart.destoy event
 		fireEvent(chart, 'destroy');
 
 		// remove events
-		removeEvent(win, 'unload', destroy);
 		removeEvent(chart);
 
-		each(axes, function (axis) {
-			removeEvent(axis);
+		// ==== Destroy collections:
+		// Destroy axes
+		i = axes.length;
+		while (i--) {
+			axes[i] = axes[i].destroy();
+		}
+
+		// Destroy each series
+		i = series.length;
+		while (i--) {
+			series[i] = series[i].destroy();
+		}
+
+		// ==== Destroy chart properties:
+		each(['title', 'subtitle', 'seriesGroup', 'clipRect', 'credits', 'tracker', 'scroller', 'rangeSelector'], function (name) {
+			var prop = chart[name];
+
+			if (prop) {
+				chart[name] = prop.destroy();
+			}
 		});
 
-		// destroy each series
-		while (i--) {
-			series[i].destroy();
-		}
+		// ==== Destroy local variables:
+		each([chartBackground, plotBorder, plotBackground, legend, tooltip, renderer, tracker], function (obj) {
+			if (obj && obj.destroy) {
+				obj.destroy();
+			}
+		});
+		chartBackground = plotBorder = plotBackground = legend = tooltip = renderer = tracker = null;
 
 		// remove container and all SVG
 		if (container) { // can break in IE when destroyed before finished loading
 			container.innerHTML = '';
 			removeEvent(container);
 			if (parentNode) {
-				parentNode.removeChild(container);
+				discardElement(container);
 			}
 
 			// IE6 leak
 			container = null;
-		}
-
-		// IE7 leak
-		if (renderer) { // can break in IE when destroyed before finished loading
-			renderer.alignedObjects = null;
 		}
 
 		// memory and CPU leak
@@ -8756,6 +9290,9 @@ function Chart(options, callback) {
 		for (i in chart) {
 			delete chart[i];
 		}
+
+		chart = null;
+		options = null;
 	}
 	/**
 	 * Prepare for first rendering after all data are loaded
@@ -8798,7 +9335,7 @@ function Chart(options, callback) {
 
 		// get axes
 		getAxes();
-		
+
 		// Initialize the series
 		each(options.series || [], function (serieOptions) {
 			initSeries(serieOptions);
@@ -8815,7 +9352,7 @@ function Chart(options, callback) {
 		chart.render = render;
 
 		// depends on inverted and on margins being set
-		chart.tracker = tracker = new MouseTracker(chart, options.tooltip);
+		chart.tracker = tracker = new MouseTracker(options.tooltip);
 
 
 		render();
@@ -8833,10 +9370,6 @@ function Chart(options, callback) {
 	}
 
 	// Run chart
-
-
-	// Destroy the chart and free up memory.
-	addEvent(win, 'unload', destroy);
 
 	// Set up auto resize
 	if (optionsChart.reflow !== false) {
@@ -8879,14 +9412,14 @@ function Chart(options, callback) {
 	chart.pointCount = 0;
 	chart.counters = new ChartCounters();
 	/*
-	if ($) $(function() {
+	if ($) $(function () {
 		$container = $('#container');
 		var origChartWidth,
 			origChartHeight;
 		if ($container) {
 			$('<button>+</button>')
 				.insertBefore($container)
-				.click(function() {
+				.click(function () {
 					if (origChartWidth === UNDEFINED) {
 						origChartWidth = chartWidth;
 						origChartHeight = chartHeight;
@@ -8895,7 +9428,7 @@ function Chart(options, callback) {
 				});
 			$('<button>-</button>')
 				.insertBefore($container)
-				.click(function() {
+				.click(function () {
 					if (origChartWidth === UNDEFINED) {
 						origChartWidth = chartWidth;
 						origChartHeight = chartHeight;
@@ -8904,7 +9437,7 @@ function Chart(options, callback) {
 				});
 			$('<button>1:1</button>')
 				.insertBefore($container)
-				.click(function() {
+				.click(function () {
 					if (origChartWidth === UNDEFINED) {
 						origChartWidth = chartWidth;
 						origChartHeight = chartHeight;
@@ -9008,7 +9541,7 @@ Point.prototype = {
 			prop;
 
 		series.chart.pointCount--;
-		
+
 		if (hoverPoints) {
 			point.setState();
 			erase(hoverPoints, point);
@@ -9040,9 +9573,9 @@ Point.prototype = {
 	 */
 	destroyElements: function () {
 		var point = this,
-			props = ['graphic', 'tracker', 'dataLabel', 'group', 'connector'],
+			props = ['graphic', 'tracker', 'dataLabel', 'group', 'connector', 'shadowGroup'],
 			prop,
-			i = 5;
+			i = 6;
 		while (i--) {
 			prop = props[i];
 			if (point[prop]) {
@@ -9078,23 +9611,24 @@ Point.prototype = {
 			series = point.series,
 			chart = series.chart;
 
-		point.selected = selected = pick(selected, !point.selected);
+		selected = pick(selected, !point.selected);
 
-		//series.isDirty = true;
-		point.firePointEvent(selected ? 'select' : 'unselect');
-		point.setState(selected && SELECT_STATE);
+		// fire the event with the defalut handler
+		point.firePointEvent(selected ? 'select' : 'unselect', { accumulate: accumulate }, function () {
+			point.selected = selected;
+			point.setState(selected && SELECT_STATE);
 
-		// unselect all other points unless Ctrl or Cmd + click
-		if (!accumulate) {
-			each(chart.getSelectedPoints(), function (loopPoint) {
-				if (loopPoint.selected && loopPoint !== point) {
-					loopPoint.selected = false;
-					loopPoint.setState(NORMAL_STATE);
-					loopPoint.firePointEvent('unselect');
-				}
-			});
-		}
-
+			// unselect all other points unless Ctrl or Cmd + click
+			if (!accumulate) {
+				each(chart.getSelectedPoints(), function (loopPoint) {
+					if (loopPoint.selected && loopPoint !== point) {
+						loopPoint.selected = false;
+						loopPoint.setState(NORMAL_STATE);
+						loopPoint.firePointEvent('unselect');
+					}
+				});
+			}
+		});
 	},
 
 	onMouseOver: function () {
@@ -9356,16 +9890,15 @@ Point.prototype = {
 
 		// apply hover styles to the existing point
 		if (point.graphic) {
-			radius = pointAttr[state].r;
+			radius = point.graphic.symbolName && pointAttr[state].r;
 			point.graphic.attr(merge(
 				pointAttr[state],
-				radius ? extend({ // new symbol attributes
+				radius ? { // new symbol attributes (#507, #612)
 					x: plotX - radius,
-					y: plotY - radius
-				}, point.graphic.symbolName ? { // don't apply to image symbols #507
+					y: plotY - radius,
 					width: 2 * radius,
 					height: 2 * radius
-				} : {}) : {}
+				} : {}
 			));
 		} else {
 			// if a graphic is not applied to each point in the normal state, create a shared
@@ -9537,24 +10070,42 @@ Series.prototype = {
 	 * Divide the series data into segments divided by null values.
 	 */
 	getSegments: function () {
-		var lastNull = -1,
+		var series = this,
+			lastNull = -1,
 			segments = [],
-			points = this.points;
+			i,
+			points = series.points,
+			pointsLength = points.length;
 
-		// create the segments
-		each(points, function (point, i) {
-			if (point.y === null) {
-				if (i > lastNull + 1) {
-					segments.push(points.slice(lastNull + 1, i));
+		if (pointsLength) { // no action required for []
+			
+			// if connect nulls, just remove null points
+			if (series.options.connectNulls) {
+				i = pointsLength;
+				while (i--) {
+					if (points[i].y === null) {
+						points.splice(i, 1);
+					}
 				}
-				lastNull = i;
-			} else if (i === points.length - 1) { // last value
-				segments.push(points.slice(lastNull + 1, i + 1));
+				segments = [points];
+				
+			// else, split on null points
+			} else {
+				each(points, function (point, i) {
+					if (point.y === null) {
+						if (i > lastNull + 1) {
+							segments.push(points.slice(lastNull + 1, i));
+						}
+						lastNull = i;
+					} else if (i === pointsLength - 1) { // last value
+						segments.push(points.slice(lastNull + 1, i + 1));
+					}
+				});
 			}
-		});
-		this.segments = segments;
-
-
+		}
+		
+		// register it
+		series.segments = segments;
 	},
 	/**
 	 * Set the series options by merging from the options tree
@@ -9596,9 +10147,17 @@ Series.prototype = {
 	 * Get the series' symbol
 	 */
 	getSymbol: function () {
-		var defaultSymbols = this.chart.options.symbols,
-			counters = this.chart.counters;
-		this.symbol = this.options.marker.symbol || defaultSymbols[counters.symbol++];
+		var series = this,
+			seriesMarkerOption = series.options.marker,
+			chart = series.chart,
+			defaultSymbols = chart.options.symbols,
+			counters = chart.counters;
+		series.symbol = seriesMarkerOption.symbol || defaultSymbols[counters.symbol++];
+		
+		// don't substract radius in image symbols (#604)
+		if (/^url/.test(series.symbol)) {
+			seriesMarkerOption.radius = 0;
+		}
 		counters.wrapSymbol(defaultSymbols.length);
 	},
 
@@ -9641,7 +10200,7 @@ Series.prototype = {
 		point = { series: series };
 		series.pointClass.prototype.applyOptions.apply(point, [options]);
 		xData.push(point.x);
-		yData.push(point.y);
+		yData.push(series.valueCount === 4 ? [point.open, point.high, point.low, point.close] : point.y);
 		dataOptions.push(options);
 
 
@@ -9688,11 +10247,11 @@ Series.prototype = {
 		if (defined(initialColor)) { // reset colors for pie
 			chart.counters.color = initialColor;
 		}
-
+		
 		// parallel arrays
 		var xData = [],
 			yData = [],
-			dataLength = data.length,
+			dataLength = data ? data.length : [],
 			turboThreshold = options.turboThreshold || 1000,
 			pt,
 			ohlc = series.valueCount === 4;
@@ -9721,7 +10280,7 @@ Series.prototype = {
 					x += pointInterval;
 				}
 				series.xIncrement = x;
-			} else if (firstPoint.constructor === Array) { // assume all points are arrays
+			} else if (isArray(firstPoint)) { // assume all points are arrays
 				if (ohlc) { // [x, o, h, l, c]
 					for (i = 0; i < dataLength; i++) {
 						pt = data[i];
@@ -9805,7 +10364,7 @@ Series.prototype = {
 	 * Process the data by cropping away unused data points if the series is longer
 	 * than the crop threshold. This saves computing time for lage series.
 	 */
-	processData: function () {
+	processData: function (force) {
 		var series = this,
 			processedXData = series.xData, // copied during slice operation below
 			processedYData = series.yData,
@@ -9813,12 +10372,22 @@ Series.prototype = {
 			cropStart = 0,
 			cropEnd = dataLength,
 			cropped,
+			distance,
+			closestPointRange,
+			xAxis = series.xAxis,
 			i, // loop variable
-			cropThreshold = series.options.cropThreshold; // todo: consider combining it with turboThreshold
+			options = series.options,
+			cropThreshold = options.cropThreshold;
+
+		// If the series data or axes haven't changed, don't go through this. Return false to pass
+		// the message on to override methods like in data grouping. 
+		if (series.isCartesian && !series.isDirty && !xAxis.isDirty && !series.yAxis.isDirty && !force) {
+			return false;
+		}
 
 		// optionally filter out points outside the plot area
 		if (!cropThreshold || dataLength > cropThreshold || series.forceCrop) {
-			var extremes = series.xAxis.getExtremes(),
+			var extremes = xAxis.getExtremes(),
 				min = extremes.min,
 				max = extremes.max;
 
@@ -9843,17 +10412,34 @@ Series.prototype = {
 						cropEnd = i + 1;
 						break;
 					}
+					
 				}
 				processedXData = processedXData.slice(cropStart, cropEnd);
 				processedYData = processedYData.slice(cropStart, cropEnd);
 				cropped = true;
 			}
 		}
-
+		
+		
+		// Find the closest distance between processed points
+		for (i = processedXData.length - 1; i > 0; i--) {
+			distance = processedXData[i] - processedXData[i - 1];
+			if (closestPointRange === UNDEFINED || distance < closestPointRange) {
+				closestPointRange = distance;
+			}
+		}
+		
+		// Record the properties
 		series.cropped = cropped; // undefined or true
 		series.cropStart = cropStart;
 		series.processedXData = processedXData;
 		series.processedYData = processedYData;
+		
+		if (options.pointRange === null) { // null means auto, as for columns, candlesticks and OHLC
+			series.pointRange = closestPointRange || 1;
+		}
+		series.closestPointRange = closestPointRange;
+		
 	},
 
 	/**
@@ -9898,8 +10484,9 @@ Series.prototype = {
 			}
 		}
 
-		// hide cropped-away points - this only runs when the number of points is above cropThreshold
-		if (data && processedDataLength !== (dataLength = data.length)) {
+		// Hide cropped-away points - this only runs when the number of points is above cropThreshold, or when
+		// swithching view from non-grouped data to grouped data (#637)	
+		if (data && (processedDataLength !== (dataLength = data.length) || hasGroupedData)) {
 			for (i = 0; i < dataLength; i++) {
 				if (i === cropStart && !hasGroupedData) { // when has grouped data, clear all points
 					i += processedDataLength;
@@ -9933,6 +10520,7 @@ Series.prototype = {
 			points = series.points,
 			dataLength = points.length,
 			hasModifyValue = !!series.modifyValue,
+			isLastSeries = series.index === yAxis.series.length - 1,
 			i;
 		
 		for (i = 0; i < dataLength; i++) {
@@ -9940,12 +10528,12 @@ Series.prototype = {
 				xValue = point.x,
 				yValue = point.y,
 				yBottom = point.low,
-				stack = yAxis.stacks[(yValue < 0 ? '-' : '') + series.stackKey],
+				stack = yAxis.stacks[(yValue < options.threshold ? '-' : '') + series.stackKey],
 				pointStack,
 				pointStackTotal;
 				
 			// get the plotX translation
-			point.plotX = series.xAxis.translate(xValue);
+			point.plotX = mathRound(xAxis.translate(xValue) * 10) / 10; // Math.round fixes #591
 
 			// calculate the bottom y value for stacked series
 			if (stacking && series.visible && stack && stack[xValue]) {
@@ -9953,7 +10541,11 @@ Series.prototype = {
 				pointStackTotal = pointStack.total;
 				pointStack.cum = yBottom = pointStack.cum - yValue; // start from top
 				yValue = yBottom + yValue;
-
+				
+				if (isLastSeries) {
+					yBottom = options.threshold;
+				}
+				
 				if (stacking === 'percent') {
 					yBottom = pointStackTotal ? yBottom * 100 / pointStackTotal : 0;
 					yValue = pointStackTotal ? yValue * 100 / pointStackTotal : 0;
@@ -9974,7 +10566,7 @@ Series.prototype = {
 
 			// set the y value
 			if (yValue !== null) {
-				point.plotY = yAxis.translate(yValue, 0, 1, 0, 1);
+				point.plotY = mathRound(yAxis.translate(yValue, 0, 1, 0, 1) * 10) / 10; // Math.round fixes #591
 			}
 
 			// set client related positions for mouse tracking
@@ -10113,7 +10705,7 @@ Series.prototype = {
 
 
 		// hide the tooltip
-		if (tooltip && !options.stickyTracking) {
+		if (tooltip && !options.stickyTracking && !tooltip.shared) {
 			tooltip.hide();
 		}
 
@@ -10190,7 +10782,7 @@ Series.prototype = {
 							width: 2 * radius,
 							height: 2 * radius
 						} : {}));
-					} else {
+					} else if (radius > 0) {
 						point.graphic = chart.renderer.symbol(
 							pick(point.marker && point.marker.symbol, series.symbol),
 							plotX - radius,
@@ -10364,8 +10956,8 @@ Series.prototype = {
 	destroy: function () {
 		var series = this,
 			chart = series.chart,
-			//chartSeries = series.chart.series,
-			issue134 = /\/5[0-9\.]+ (Safari|Mobile)\//.test(userAgent), // todo: update when Safari bug is fixed
+			seriesClipRect = series.clipRect,
+			issue134 = /AppleWebKit\/533/.test(userAgent),
 			destroy,
 			i,
 			data = series.data || [],
@@ -10403,6 +10995,12 @@ Series.prototype = {
 		}
 		series.points = null;
 
+		// If this series clipRect is not the global one (which is removed on chart.destroy) we
+		// destroy it here.
+		if (seriesClipRect && seriesClipRect !== chart.clipRect) {
+			series.clipRect = seriesClipRect.destroy();
+		}
+
 		// destroy all SVGElements associated to the series
 		each(['area', 'graph', 'dataLabelsGroup', 'group', 'tracker'], function (prop) {
 			if (series[prop]) {
@@ -10439,17 +11037,23 @@ Series.prototype = {
 				points = series.points,
 				seriesOptions = series.options,
 				options = seriesOptions.dataLabels,
+				pointOptions,
+				generalOptions,
 				str,
 				dataLabelsGroup = series.dataLabelsGroup,
 				chart = series.chart,
+				xAxis = series.xAxis,
+				groupLeft = xAxis ? xAxis.left : chart.plotLeft,
+				yAxis = series.yAxis,
+				groupTop = yAxis ? yAxis.top : chart.plotTop,
 				renderer = chart.renderer,
 				inverted = chart.inverted,
 				seriesType = series.type,
-				color,
 				stacking = seriesOptions.stacking,
 				isBarLike = seriesType === 'column' || seriesType === 'bar',
 				vAlignIsNull = options.verticalAlign === null,
-				yIsNull = options.y === null;
+				yIsNull = options.y === null,
+				dataLabel;
 
 			if (isBarLike) {
 				if (stacking) {
@@ -10479,90 +11083,110 @@ Series.prototype = {
 							visibility: series.visible ? VISIBLE : HIDDEN,
 							zIndex: 6
 						})
-						.translate(chart.plotLeft, chart.plotTop)
+						.translate(groupLeft, groupTop)
 						.add();
 			} else {
-				dataLabelsGroup.translate(chart.plotLeft, chart.plotTop);
+				dataLabelsGroup.translate(groupLeft, groupTop);
 			}
-
-			// determine the color
-			color = options.color;
-			if (color === 'auto') { // 1.0 backwards compatibility
-				color = null;
-			}
-			options.style.color = pick(color, series.color, 'black');
 
 			// make the labels for each point
+			generalOptions = options;
 			each(points, function (point) {
-				var barX = point.barX,
-					plotX = (barX && barX + point.barW / 2) || point.plotX || -999,
-					plotY = pick(point.plotY, -999),
-					dataLabel = point.dataLabel,
-					align = options.align,
-					individualYDelta = yIsNull ? (point.y > 0 ? -6 : 12) : options.y;
-
-				// get the string
-				str = options.formatter.call(point.getLabelConfig());
-				x = (inverted ? chart.plotWidth - plotY : plotX) + options.x;
-				y = (inverted ? chart.plotHeight - plotX : plotY) + individualYDelta;
-
-				// in columns, align the string to the column
-				if (seriesType === 'column') {
-					x += { left: -1, right: 1 }[align] * point.barW / 2 || 0;
+				
+				dataLabel = point.dataLabel;
+				
+				// Merge in individual options from point // docs
+				options = generalOptions; // reset changes from previous points
+				pointOptions = point.options;
+				if (pointOptions && pointOptions.dataLabels) {
+					options = merge(options, pointOptions.dataLabels);
 				}
-
-				if (inverted && point.y < 0) {
-					align = 'right';
-					x -= 10;
-				}
-
-				// update existing label
-				if (dataLabel) {
-					// vertically centered
-					if (inverted && !options.y) {
-						y = y + pInt(dataLabel.styles.lineHeight) * 0.9 - dataLabel.getBBox().height / 2;
+				
+				// If the point is outside the plot area, destroy it. #678
+				if (dataLabel && series.isCartesian && !chart.isInsidePlot(point.plotX, point.plotY)) {
+					point.dataLabel = dataLabel.destroy();
+				
+				// Individual labels are disabled if the are explicitly disabled 
+				// in the point options, or if they fall outside the plot area.
+				} else if (options.enabled) {
+				
+					// Get the string
+					str = options.formatter.call(point.getLabelConfig(), options);
+					
+					var barX = point.barX,
+						plotX = (barX && barX + point.barW / 2) || point.plotX || -999,
+						plotY = pick(point.plotY, -999),
+						align = options.align,
+						individualYDelta = yIsNull ? (point.y >= 0 ? -6 : 12) : options.y;
+	
+					// Postprocess the positions
+					x = (inverted ? chart.plotWidth - plotY : plotX) + options.x;
+					y = (inverted ? chart.plotHeight - plotX : plotY) + individualYDelta;
+					
+					// in columns, align the string to the column
+					if (seriesType === 'column') {
+						x += { left: -1, right: 1 }[align] * point.barW / 2 || 0;
 					}
-					dataLabel
+	
+					if (!stacking && inverted && point.y < 0) {
+						align = 'right';
+						x -= 10;
+					}
+					
+					// Determine the color
+					options.style.color = pick(options.color, options.style.color, series.color, 'black');
+	
+					
+					// update existing label
+					if (dataLabel) {
+						// vertically centered
+						if (inverted && !options.y) {
+							y = y + pInt(dataLabel.styles.lineHeight) * 0.9 - dataLabel.getBBox().height / 2;
+						}
+						dataLabel
+							.attr({
+								text: str
+							}).animate({
+								x: x,
+								y: y
+							});
+					// create new label
+					} else if (defined(str)) {
+						dataLabel = point.dataLabel = renderer.text(
+							str,
+							x,
+							y
+						)
 						.attr({
-							text: str
-						}).animate({
-							x: x,
-							y: y
-						});
-				// create new label
-				} else if (defined(str)) {
-					dataLabel = point.dataLabel = renderer.text(
-						str,
-						x,
-						y
-					)
-					.attr({
-						align: align,
-						rotation: options.rotation,
-						zIndex: 1
-					})
-					.css(options.style)
-					.add(dataLabelsGroup);
-					// vertically centered
-					if (inverted && !options.y) {
-						dataLabel.attr({
-							y: y + pInt(dataLabel.styles.lineHeight) * 0.9 - dataLabel.getBBox().height / 2
-						});
+							align: align,
+							rotation: options.rotation,
+							zIndex: 1
+						})
+						.css(options.style)
+						.add(dataLabelsGroup);
+						// vertically centered
+						if (inverted && !options.y) {
+							dataLabel.attr({
+								y: y + pInt(dataLabel.styles.lineHeight) * 0.9 - dataLabel.getBBox().height / 2
+							});
+						}
 					}
-				}
-
-				if (isBarLike && seriesOptions.stacking && dataLabel) {
-					var barY = point.barY,
-						barW = point.barW,
-						barH = point.barH;
-
-					dataLabel.align(options, null,
-						{
-							x: inverted ? chart.plotWidth - barY - barH : barX,
-							y: inverted ? chart.plotHeight - barX - barW : barY,
-							width: inverted ? barH : barW,
-							height: inverted ? barW : barH
-						});
+	
+					if (isBarLike && seriesOptions.stacking && dataLabel) {
+						var barY = point.barY,
+							barW = point.barW,
+							barH = point.barH;
+	
+						dataLabel.align(options, null,
+							{
+								x: inverted ? chart.plotWidth - barY - barH : barX,
+								y: inverted ? chart.plotHeight - barX - barW : barY,
+								width: inverted ? barH : barW,
+								height: inverted ? barW : barH
+							});
+					}
+					
+					
 				}
 			});
 		}
@@ -10643,8 +11267,17 @@ Series.prototype = {
 					areaSegmentPath.push(L, segmentPath[1], segmentPath[2]);
 				}
 				if (options.stacking && series.type !== 'areaspline') {
-					// follow stack back. Todo: implement areaspline
+					
+					// Follow stack back. Todo: implement areaspline. A general solution could be to 
+					// reverse the entire graphPath of the previous series, though may be hard with
+					// splines and with series with different extremes
 					for (i = segment.length - 1; i >= 0; i--) {
+					
+						// step line?
+						if (i < segment.length - 1 && options.step) {
+							areaSegmentPath.push(segment[i + 1].plotX, segment[i].yBottom);
+						}
+						
 						areaSegmentPath.push(segment[i].plotX, segment[i].yBottom);
 					}
 
@@ -10732,7 +11365,7 @@ Series.prototype = {
 		if (!clipRect) {
 			clipRect = series.clipRect = !chart.hasRendered && chart.clipRect ?
 				chart.clipRect :
-				renderer.clipRect(0, 0, chart.plotSizeX, chart.plotSizeY);
+				renderer.clipRect(0, 0, chart.plotSizeX, chart.plotSizeY + 1);
 			if (!chart.clipRect) {
 				chart.clipRect = clipRect;
 			}
@@ -10759,7 +11392,7 @@ Series.prototype = {
 			}
 
 			if (doClip) {
-				group.clip(series.clipRect);
+				group.clip(clipRect);
 			}
 			group.attr({
 					visibility: series.visible ? VISIBLE : HIDDEN,
@@ -10997,11 +11630,13 @@ Series.prototype = {
 			trackerPath = [].concat(series.graphPath),
 			trackerPathLength = trackerPath.length,
 			chart = series.chart,
+			renderer = chart.renderer,
 			snap = chart.options.tooltip.snap,
 			tracker = series.tracker,
 			cursor = options.cursor,
 			css = cursor && { cursor: cursor },
 			singlePoints = series.singlePoints,
+			group,
 			singlePoint,
 			i;
 
@@ -11031,14 +11666,18 @@ Series.prototype = {
 			tracker.attr({ d: trackerPath });
 
 		} else { // create
-			series.tracker = chart.renderer.path(trackerPath)
+			group = renderer.g()
+				.clip(series.clipRect)
+				.add(chart.trackerGroup);
+				
+			series.tracker = renderer.path(trackerPath)
 				.attr({
 					isTracker: true,
 					stroke: TRACKER_FILL,
 					fill: NONE,
 					'stroke-width' : options.lineWidth + 2 * snap,
 					visibility: series.visible ? VISIBLE : HIDDEN,
-					zIndex: 1
+					zIndex: options.zIndex || 1
 				})
 				.on(hasTouch ? 'touchstart' : 'mouseover', function () {
 					if (chart.hoverSeries !== series) {
@@ -11051,7 +11690,7 @@ Series.prototype = {
 					}
 				})
 				.css(css)
-				.add(chart.trackerGroup);
+				.add(group);
 		}
 
 	}
@@ -11179,6 +11818,7 @@ seriesTypes.areaspline = AreaSplineSeries;
 var ColumnSeries = extendClass(Series, {
 	type: 'column',
 	useThreshold: true,
+	tooltipOutsidePlot: true,
 	pointAttrToOptions: { // mapping between SVG attributes and the corresponding options
 		stroke: 'borderColor',
 		'stroke-width': 'borderWidth',
@@ -11243,8 +11883,7 @@ var ColumnSeries = extendClass(Series, {
 		// the number of column series in the plot, the groupPadding
 		// and the pointPadding options
 		var points = series.points,
-			pointRange = pick(series.pointRange, xAxis.pointRange),
-			categoryWidth = mathAbs(xAxis.translate(0) - xAxis.translate(pointRange)),
+			categoryWidth = mathAbs(xAxis.translationSlope) * (xAxis.ordinalSlope || xAxis.closestPointRange || 1),
 			groupPadding = categoryWidth * options.groupPadding,
 			groupWidth = categoryWidth - 2 * groupPadding,
 			pointOffsetWidth = groupWidth / columnCount,
@@ -11374,9 +12013,18 @@ var ColumnSeries = extendClass(Series, {
 			shapeArgs,
 			tracker,
 			trackerLabel = +new Date(),
-			cursor = series.options.cursor,
+			options = series.options,
+			cursor = options.cursor,
 			css = cursor && { cursor: cursor },
+			group,
 			rel;
+			
+		// Add a series specific group to allow clipping the trackers
+		if (series.isCartesian) {
+			group = renderer.g()
+				.clip(series.clipRect)
+				.add(chart.trackerGroup);	
+		}
 
 		each(series.points, function (point) {
 			tracker = point.tracker;
@@ -11393,7 +12041,7 @@ var ColumnSeries = extendClass(Series, {
 							isTracker: trackerLabel,
 							fill: TRACKER_FILL,
 							visibility: series.visible ? VISIBLE : HIDDEN,
-							zIndex: 1
+							zIndex: options.zIndex || 1
 						})
 						.on(hasTouch ? 'touchstart' : 'mouseover', function (event) {
 							rel = event.relatedTarget || event.fromElement;
@@ -11404,7 +12052,7 @@ var ColumnSeries = extendClass(Series, {
 
 						})
 						.on('mouseout', function (event) {
-							if (!series.options.stickyTracking) {
+							if (!options.stickyTracking) {
 								rel = event.relatedTarget || event.toElement;
 								if (attr(rel, 'isTracker') !== trackerLabel) {
 									series.onMouseOut();
@@ -11412,7 +12060,7 @@ var ColumnSeries = extendClass(Series, {
 							}
 						})
 						.css(css)
-						.add(point.group || chart.trackerGroup); // pies have point group - see issue #118
+						.add(point.group || group); // pies have point group - see issue #118
 				}
 			}
 		});
@@ -11533,7 +12181,7 @@ var ScatterSeries = extendClass(Series, {
 			if (graphic) { // doesn't exist for null points
 				graphic
 					.attr({ isTracker: true })
-					.on('mouseover', function () {
+					.on(hasTouch ? 'touchstart' : 'mouseover', function () {
 						series.onMouseOver();
 						point.onMouseOver();
 					})
@@ -11722,6 +12370,8 @@ var PieSeries = extendClass(Series, {
 	 * Do translation for pie slices
 	 */
 	translate: function () {
+		this.generatePoints();
+		
 		var total = 0,
 			series = this,
 			cumulative = -0.25, // start at top
@@ -12178,6 +12828,7 @@ seriesTypes.pie = PieSeries;
 /* ****************************************************************************
  * Start data grouping module												 *
  ******************************************************************************/
+/*jslint white:true */
 var DATA_GROUPING = 'dataGrouping',
 	seriesProto = Series.prototype,
 	baseProcessData = seriesProto.processData,
@@ -12185,6 +12836,53 @@ var DATA_GROUPING = 'dataGrouping',
 	baseDestroy = seriesProto.destroy,
 	baseTooltipHeaderFormatter = seriesProto.tooltipHeaderFormatter,
 	NUMBER = 'number',
+	
+	commonOptions = {
+			approximation: 'average', // average, open, high, low, close, sum
+			//forced: undefined,
+			groupPixelWidth: 2,
+			// the first one is the point or start value, the second is the start value if we're dealing with range,
+			// the third one is the end value if dealing with a range
+			dateTimeLabelFormats: hash( 
+				MILLISECOND, ['%A, %b %e, %H:%M:%S.%L', '%A, %b %e, %H:%M:%S.%L', '-%H:%M:%S.%L'],
+				SECOND, ['%A, %b %e, %H:%M:%S', '%A, %b %e, %H:%M:%S', '-%H:%M:%S'],
+				MINUTE, ['%A, %b %e, %H:%M', '%A, %b %e, %H:%M', '-%H:%M'],
+				HOUR, ['%A, %b %e, %H:%M', '%A, %b %e, %H:%M', '-%H:%M'],
+				DAY, ['%A, %b %e, %Y', '%A, %b %e', '-%A, %b %e, %Y'],
+				WEEK, ['Week from %A, %b %e, %Y', '%A, %b %e', '-%A, %b %e, %Y'],
+				MONTH, ['%B %Y', '%B', '-%B %Y'],
+				YEAR, ['%Y', '%Y', '-%Y']
+			)
+			// smoothed = false, // enable this for navigator series only
+		},
+		
+		// units are defined in a separate array to allow complete overriding in case of a user option
+		defaultDataGroupingUnits = [[
+				MILLISECOND, // unit name
+				[1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
+			], [
+				SECOND,
+				[1, 2, 5, 10, 15, 30]
+			], [
+				MINUTE,
+				[1, 2, 5, 10, 15, 30]
+			], [
+				HOUR,
+				[1, 2, 3, 4, 6, 8, 12]
+			], [
+				DAY,
+				[1]
+			], [
+				WEEK,
+				[1]
+			], [
+				MONTH,
+				[1, 3, 6]
+			], [
+				YEAR,
+				null
+			]
+		],
 	
 	/**
 	 * Define the available approximation types. The data grouping approximations takes an array
@@ -12228,10 +12926,10 @@ var DATA_GROUPING = 'dataGrouping',
 			return arr.length ? arr[0] : (arr.hasNulls ? null : UNDEFINED);
 		},
 		high: function (arr) {
-			return arr.length ? mathMax.apply(0, arr) : (arr.hasNulls ? null : UNDEFINED);
+			return arr.length ? arrayMax(arr) : (arr.hasNulls ? null : UNDEFINED);
 		},
 		low: function (arr) {
-			return arr.length ? mathMin.apply(0, arr) : (arr.hasNulls ? null : UNDEFINED);
+			return arr.length ? arrayMin(arr) : (arr.hasNulls ? null : UNDEFINED);
 		},
 		close: function (arr) {
 			return arr.length ? arr[arr.length - 1] : (arr.hasNulls ? null : UNDEFINED);
@@ -12250,6 +12948,8 @@ var DATA_GROUPING = 'dataGrouping',
 		}
 	};
 
+/*jslint white:false */
+
 /**
  * Takes parallel arrays of x and y data and groups the data into intervals defined by groupPositions, a collection
  * of starting x values for each group.
@@ -12264,10 +12964,12 @@ seriesProto.groupData = function (xData, yData, groupPositions, approximation) {
 		pointX,
 		pointY,
 		groupedY,
+		handleYData = !!yData, // when grouping the fake extended axis for panning, we don't need to consider y
 		values1 = [],
 		values2 = [],
 		values3 = [],
 		values4 = [],
+		approximationFn = typeof approximation === 'function' ? approximation : approximations[approximation],
 		i;
 	
 		for (i = 0; i <= dataLength; i++) {
@@ -12278,9 +12980,7 @@ seriesProto.groupData = function (xData, yData, groupPositions, approximation) {
 
 				// get group x and y 
 				pointX = groupPositions.shift();				
-				groupedY = typeof approximation === 'function' ?
-						approximation(values1, values2, values3, values4) : // custom approximation callback function
-						approximations[approximation](values1, values2, values3, values4); // predefined approximation
+				groupedY = approximationFn(values1, values2, values3, values4);
 				
 				// push the grouped data		
 				if (groupedY !== UNDEFINED) {
@@ -12306,7 +13006,7 @@ seriesProto.groupData = function (xData, yData, groupPositions, approximation) {
 			}
 			
 			// for each raw data point, push it to an array that contains all values for this specific group
-			pointY = yData[i];
+			pointY = handleYData ? yData[i] : null;
 			if (approximation === 'ohlc') {
 				
 				var index = series.cropStart + i,
@@ -12360,17 +13060,25 @@ seriesProto.processData = function () {
 	var series = this,
 		options = series.options,
 		dataGroupingOptions = options[DATA_GROUPING],
-		groupingEnabled = dataGroupingOptions && dataGroupingOptions.enabled;
+		groupingEnabled = dataGroupingOptions && dataGroupingOptions.enabled,
+		groupedData = series.groupedData,
+		hasGroupedData;
 
 	// run base method
 	series.forceCrop = groupingEnabled; // #334
-	baseProcessData.apply(series);
-
-	// disabled?
-	if (!groupingEnabled) {
+	
+	// clear previous groups, #622
+	each(groupedData || [], function (point, i) {
+		if (point) {
+			groupedData[i] = point.destroy ? point.destroy() : null;
+		}
+	});
+	
+	// skip if processData returns false or if grouping is disabled (in that order)
+	if (baseProcessData.apply(series, arguments) === false || !groupingEnabled) {
 		return;
 	}
-
+	
 	var i,
 		chart = series.chart,
 		processedXData = series.processedXData,
@@ -12378,10 +13086,9 @@ seriesProto.processData = function () {
 		plotSizeX = chart.plotSizeX,
 		xAxis = series.xAxis,
 		groupPixelWidth = pick(xAxis.groupPixelWidth, dataGroupingOptions.groupPixelWidth),
-		maxPoints = plotSizeX / groupPixelWidth,
 		dataLength = processedXData.length,
-		groupedData = series.groupedData,
-		chartSeries = chart.series;
+		chartSeries = chart.series,
+		nonGroupedPointRange = series.pointRange;
 
 	// attempt to solve #334: if multiple series are compared on the same x axis, give them the same
 	// group pixel width
@@ -12393,27 +13100,29 @@ seriesProto.processData = function () {
 			}
 		}
 		xAxis.groupPixelWidth = groupPixelWidth;
+		
 	}
 
-	// clear previous groups
-	each(groupedData || [], function (point, i) {
-		if (point) {
-			// TODO: find out why this is looping over all points in the Navigator when changing range
-			groupedData[i] = point.destroy ? point.destroy() : null;
-		}
-	});
-
-	
-	if (dataLength > maxPoints || dataGroupingOptions.forced) {
-		series.hasGroupedData = true;
+	// Execute grouping if the amount of points is greater than the limit defined in groupPixelWidth
+	if (dataLength > (plotSizeX / groupPixelWidth) || dataGroupingOptions.forced) {
+		hasGroupedData = true;
 
 		series.points = null; // force recreation of point instances in series.translate
 
-		var xMin = processedXData[0],
-			xMax = processedXData[dataLength - 1],
-			interval = groupPixelWidth * (xMax - xMin) / plotSizeX,
-			groupPositions = getTimeTicks(interval, xMin, xMax, null, dataGroupingOptions.units),
-			groupedXandY = series.groupData(processedXData, processedYData, groupPositions, dataGroupingOptions.approximation),
+		var extremes = xAxis.getExtremes(),
+			xMin = extremes.min,
+			xMax = extremes.max,
+			groupIntervalFactor = (xAxis.getGroupIntervalFactor && xAxis.getGroupIntervalFactor(xMin, xMax, processedXData)) || 1,
+			interval = (groupPixelWidth * (xMax - xMin) / plotSizeX) * groupIntervalFactor,			
+			groupPositions = (xAxis.getNonLinearTimeTicks || getTimeTicks)(
+				normalizeTimeTickInterval(interval, dataGroupingOptions.units || defaultDataGroupingUnits),
+				xMin, 
+				xMax, 
+				null, 
+				processedXData, 
+				series.closestPointRange
+			),
+			groupedXandY = seriesProto.groupData.apply(series, [processedXData, processedYData, groupPositions, dataGroupingOptions.approximation]),
 			groupedXData = groupedXandY[0],
 			groupedYData = groupedXandY[1];
 			
@@ -12433,17 +13142,17 @@ seriesProto.processData = function () {
 		if (options.pointRange === null) { // null means auto, as for columns, candlesticks and OHLC
 			series.pointRange = groupPositions.info.totalRange;
 		}
+		series.closestPointRange = groupPositions.info.totalRange;
 		
 		// set series props
 		series.processedXData = groupedXData;
 		series.processedYData = groupedYData;
-
 	} else {
 		series.currentDataGrouping = null;
-		series.pointRange = options.pointRange;
+		series.pointRange = nonGroupedPointRange;
 	}
 
-
+	series.hasGroupedData = hasGroupedData;
 };
 
 seriesProto.generatePoints = function () {
@@ -12474,7 +13183,7 @@ seriesProto.tooltipHeaderFormatter = function (key) {
 		ret;
 	
 	// apply only to grouped series
-	if (xAxis.options.type === 'datetime' && dataGroupingOptions) {
+	if (xAxis && xAxis.options.type === 'datetime' && dataGroupingOptions) {
 		
 		// set variables
 		currentDataGrouping = series.currentDataGrouping;		
@@ -12536,51 +13245,6 @@ seriesProto.destroy = function () {
 
 
 // Extend the plot options
-/*jslint white:true */
-var commonOptions = {
-	approximation: 'average', // average, open, high, low, close, sum
-	//forced: undefined,
-	groupPixelWidth: 2,
-	// the first one is the point or start value, the second is the start value if we're dealing with range,
-	// the third one is the end value if dealing with a range
-	dateTimeLabelFormats: hash( 
-		MILLISECOND, ['%A, %b %e, %H:%M:%S.%L', '%A, %b %e, %H:%M:%S.%L', '-%H:%M:%S.%L'],
-		SECOND, ['%A, %b %e, %H:%M:%S', '%A, %b %e, %H:%M:%S', '-%H:%M:%S'],
-		MINUTE, ['%A, %b %e, %H:%M', '%A, %b %e, %H:%M', '-%H:%M'],
-		HOUR, ['%A, %b %e, %H:%M', '%A, %b %e, %H:%M', '-%H:%M'],
-		DAY, ['%A, %b %e, %Y', '%A, %b %e', '-%A, %b %e, %Y'],
-		WEEK, ['Week from %A, %b %e, %Y', '%A, %b %e', '-%A, %b %e, %Y'],
-		MONTH, ['%B %Y', '%B', '-%B %Y'],
-		YEAR, ['%Y', '%Y', '-%Y']
-	),
-
-	// smoothed = false, // enable this for navigator series only
-	units: [[
-		MILLISECOND, // unit name
-		[1, 2, 5, 10, 20, 25, 50, 100, 200, 500] // allowed multiples
-	], [
-		SECOND,
-		[1, 2, 5, 10, 15, 30]
-	], [
-		MINUTE,
-		[1, 2, 5, 10, 15, 30]
-	], [
-		HOUR,
-		[1, 2, 3, 4, 6, 8, 12]
-	], [
-		DAY,
-		[1]
-	], [
-		WEEK,
-		[1]
-	], [
-		MONTH,
-		[1, 3, 6]
-	], [
-		YEAR,
-		null
-	]]
-};
 
 // line types
 defaultPlotOptions.line[DATA_GROUPING] =
@@ -12593,7 +13257,6 @@ defaultPlotOptions.column[DATA_GROUPING] = merge(commonOptions, {
 		approximation: 'sum',
 		groupPixelWidth: 10
 });
-/*jslint white:false */
 /* ****************************************************************************
  * End data grouping module												   *
  ******************************************************************************//* ****************************************************************************
@@ -12708,10 +13371,10 @@ var OHLCSeries = extendClass(seriesTypes.column, {
 		each(series.points, function (point) {
 			// the graphics
 			if (point.open !== null) {
-				point.plotOpen = yAxis.translate(point.open, 0, 1);
+				point.plotOpen = yAxis.translate(point.open, 0, 1, 0, 1);
 			}
 			if (point.close !== null) {
-				point.plotClose = yAxis.translate(point.close, 0, 1);
+				point.plotClose = yAxis.translate(point.close, 0, 1, 0, 1);
 			}
 
 		});
@@ -12944,12 +13607,14 @@ seriesTypes.candlestick = CandlestickSeries;
  * Start Flags series code													*
  *****************************************************************************/
 
-var symbols = Renderer.prototype.symbols;
+var symbols = SVGRenderer.prototype.symbols;
 
 // 1 - set default options
 defaultPlotOptions.flags = merge(defaultPlotOptions.column, {
+	dataGrouping: null,
 	fillColor: 'white',
 	lineWidth: 1,
+	pointRange: 0, // #673
 	//radius: 2,
 	shape: 'flag',
 	stackDistance: 7,
@@ -13005,7 +13670,8 @@ seriesTypes.flags = extendClass(seriesTypes.column, {
 			optionsOnSeries = options.onSeries,
 			onSeries = optionsOnSeries && chart.get(optionsOnSeries),
 			onData,
-			onPoint;
+			leftPoint,
+			rightPoint;
 
 
 		// relate to a master series
@@ -13020,9 +13686,20 @@ seriesTypes.flags = extendClass(seriesTypes.column, {
 
 			while (i-- && points[cursor]) {
 				point = points[cursor];
-				onPoint = onData[i];
-				if (onPoint.x <= point.x) {
-					point.plotY = onPoint.plotY;
+				leftPoint = onData[i];
+				if (leftPoint.x <= point.x) {
+					point.plotY = leftPoint.plotY;
+					
+					// interpolate between points, #666
+					if (leftPoint.x < point.x) { 
+						rightPoint = onData[i + 1];
+						if (rightPoint) {
+							point.plotY += 
+								((point.x - leftPoint.x) / (rightPoint.x - leftPoint.x)) * // the distance ratio, between 0 and 1 
+								(rightPoint.plotY - leftPoint.plotY); // the y distance
+						}
+					}
+					
 					cursor--;
 					i++; // check again for points in the same x position
 					if (cursor < 0) {
@@ -13205,10 +13882,18 @@ each(['circle', 'square'], function (shape) {
 			path.push('M', anchorX, y + h, 'L', anchorX, anchorY);
 		}
 
-		//console.trace(x, y, );
 		return path;
 	};
 });
+
+// The symbol callbacks are generated on the SVGRenderer object in all browsers. Even
+// VML browsers need this in order to generate shapes in export. Now share
+// them with the VMLRenderer.
+if (Renderer === VMLRenderer) {
+	each(['flag', 'circlepin', 'squarepin'], function (shape) {
+		VMLRenderer.prototype.symbols[shape] = symbols[shape];
+	});
+}
 
 /* ****************************************************************************
  * End Flags series code													  *
@@ -13233,7 +13918,7 @@ var buttonGradient = hash(
 			[1, '#CCC']
 		]
 	),
-	units = [].concat(defaultPlotOptions.line.dataGrouping.units); // copy
+	units = [].concat(defaultDataGroupingUnits); // copy
 
 // add more resolution to units
 units[4] = [DAY, [1, 2, 3, 4]]; // allow more days
@@ -13258,12 +13943,15 @@ extend(defaultOptions, {
 			fillOpacity: 0.4,
 			dataGrouping: {
 				approximation: 'average',
+				groupPixelWidth: 2,
 				smoothed: true,
 				units: units
 			},
 			dataLabels: {
 				enabled: false
 			},
+			id: PREFIX + 'navigator-series',
+			lineColor: '#4572A7',
 			lineWidth: 1,
 			marker: {
 				enabled: false
@@ -13338,6 +14026,7 @@ Highcharts.Scroller = function (chart) {
 		navigatorLeft,
 		navigatorWidth,
 		navigatorSeries,
+		navigatorData,
 		scrollbarOptions = chartOptions.scrollbar,
 		scrollbarEnabled = scrollbarOptions.enabled,
 		grabbedLeft,
@@ -13381,7 +14070,8 @@ Highcharts.Scroller = function (chart) {
 		scrollbarTrack,
 		scrollbar,
 		scrollbarRifles,
-		scrollbarButtons = [];
+		scrollbarButtons = [],
+		elementsToDestroy = []; // Array containing the elements to destroy when Scroller is destroyed
 
 	chart.resetZoomEnabled = false;
 
@@ -13396,7 +14086,8 @@ Highcharts.Scroller = function (chart) {
 				fill: handlesOptions.backgroundColor,
 				stroke: handlesOptions.borderColor,
 				'stroke-width': 1
-			};
+			},
+			tempElem;
 
 		// create the elements
 		if (!rendered) {
@@ -13404,16 +14095,17 @@ Highcharts.Scroller = function (chart) {
 			// the group
 			handles[index] = renderer.g()
 				.css({ cursor: 'e-resize' })
-				.attr({ zIndex: 3 })
+				.attr({ zIndex: 4 - index }) // zIndex = 3 for right handle, 4 for left
 				.add();
 
 			// the rectangle
-			renderer.rect(-4.5, 0, 9, 16, 3, 1)
+			tempElem = renderer.rect(-4.5, 0, 9, 16, 3, 1)
 				.attr(attr)
 				.add(handles[index]);
+			elementsToDestroy.push(tempElem);
 
 			// the rifles
-			renderer.path([
+			tempElem = renderer.path([
 					'M',
 					-1.5, 4,
 					'L',
@@ -13424,6 +14116,7 @@ Highcharts.Scroller = function (chart) {
 					0.5, 12
 				]).attr(attr)
 				.add(handles[index]);
+			elementsToDestroy.push(tempElem);
 		}
 
 		handles[index].translate(scrollerLeft + scrollbarHeight + parseInt(x, 10), top + height / 2 - 8);
@@ -13434,12 +14127,12 @@ Highcharts.Scroller = function (chart) {
 	 * @param {Number} index 0 is left, 1 is right
 	 */
 	function drawScrollbarButton(index) {
-
+		var tempElem;
 		if (!rendered) {
 
 			scrollbarButtons[index] = renderer.g().add(scrollbarGroup);
 
-			renderer.rect(
+			tempElem = renderer.rect(
 				-0.5,
 				-0.5,
 				scrollbarHeight + 1, // +1 to compensate for crispifying in rect method
@@ -13451,8 +14144,9 @@ Highcharts.Scroller = function (chart) {
 				'stroke-width': scrollbarOptions.buttonBorderWidth,
 				fill: scrollbarOptions.buttonBackgroundColor
 			}).add(scrollbarButtons[index]);
+			elementsToDestroy.push(tempElem);
 
-			renderer.path([
+			tempElem = renderer.path([
 				'M',
 				scrollbarHeight / 2 + (index ? -1 : 1), scrollbarHeight / 2 - 3,
 				'L',
@@ -13461,6 +14155,7 @@ Highcharts.Scroller = function (chart) {
 			]).attr({
 				fill: scrollbarOptions.buttonArrowColor
 			}).add(scrollbarButtons[index]);
+			elementsToDestroy.push(tempElem);
 		}
 
 		// adjust the right side button to the varying length of the scroll track
@@ -13479,7 +14174,7 @@ Highcharts.Scroller = function (chart) {
 	 * @param {Number} pxMax Pixel value maximum
 	 */
 	function render(min, max, pxMin, pxMax) {
-		
+
 		// don't render the navigator until we have data (#486)
 		if (isNaN(min)) {
 			return;
@@ -13491,7 +14186,7 @@ Highcharts.Scroller = function (chart) {
 
 		outlineTop = top + halfOutline;
 		navigatorLeft = pick(
-			xAxis.left, 
+			xAxis.left,
 			chart.plotLeft + scrollbarHeight // in case of scrollbar only, without navigator
 		);
 		navigatorWidth = pick(xAxis.len, chart.plotWidth - 2 * scrollbarHeight);
@@ -13499,7 +14194,7 @@ Highcharts.Scroller = function (chart) {
 		scrollerWidth = navigatorWidth + 2 * scrollbarHeight;
 
 		// Set the scroller x axis extremes to reflect the total. The navigator extremes
-		// should always be the extremes of the union of all series in the chart as 
+		// should always be the extremes of the union of all series in the chart as
 		// well as the navigator series.
 		if (xAxis.getExtremes) {
 			var baseExtremes = chart.xAxis[0].getExtremes(), // the base
@@ -13512,12 +14207,12 @@ Highcharts.Scroller = function (chart) {
 				xAxis.setExtremes(newMin, newMax, true, false);
 			}
 		}
-		
+
 		// get the pixel position of the handles
 		pxMin = pick(pxMin, xAxis.translate(min));
 		pxMax = pick(pxMax, xAxis.translate(max));
-		
-		
+
+
 		// handles are allowed to cross
 		zoomedMin = pInt(mathMin(pxMin, pxMax));
 		zoomedMax = pInt(mathMax(pxMin, pxMax));
@@ -13571,8 +14266,7 @@ Highcharts.Scroller = function (chart) {
 						fill: scrollbarOptions.barBackgroundColor,
 						stroke: scrollbarOptions.barBorderColor,
 						'stroke-width': scrollbarStrokeWidth,
-						rx: barBorderRadius,
-						ry: barBorderRadius
+						r: barBorderRadius
 					})
 					.add(scrollbarGroup);
 
@@ -13658,111 +14352,116 @@ Highcharts.Scroller = function (chart) {
 	}
 
 	/**
-	 * Set up the mouse and touch events for the navigator and scrollbar
+	 * Event handler for the mouse down event.
 	 */
-	function addEvents() {
-		addEvent(chart.container, MOUSEDOWN, function (e) {
-			e = chart.tracker.normalizeMouseEvent(e);
-			var chartX = e.chartX,
-				chartY = e.chartY,
-				handleSensitivity = hasTouch ? 10 : 7,
-				left,
-				isOnNavigator;
+	function mouseDownHandler(e) {
+		e = chart.tracker.normalizeMouseEvent(e);
+		var chartX = e.chartX,
+			chartY = e.chartY,
+			handleSensitivity = hasTouch ? 10 : 7,
+			left,
+			isOnNavigator;
 
-			if (chartY > top && chartY < top + height + scrollbarHeight) { // we're vertically inside the navigator
-				isOnNavigator = !scrollbarEnabled || chartY < top + height;
+		if (chartY > top && chartY < top + height + scrollbarHeight) { // we're vertically inside the navigator
+			isOnNavigator = !scrollbarEnabled || chartY < top + height;
 
-				// grab the left handle
-				if (isOnNavigator && math.abs(chartX - zoomedMin - navigatorLeft) < handleSensitivity) {
-					grabbedLeft = true;
-					otherHandlePos = zoomedMax;
+			// grab the left handle
+			if (isOnNavigator && math.abs(chartX - zoomedMin - navigatorLeft) < handleSensitivity) {
+				grabbedLeft = true;
+				otherHandlePos = zoomedMax;
 
-				// grab the right handle
-				} else if (isOnNavigator && math.abs(chartX - zoomedMax - navigatorLeft) < handleSensitivity) {
-					grabbedRight = true;
-					otherHandlePos = zoomedMin;
+			// grab the right handle
+			} else if (isOnNavigator && math.abs(chartX - zoomedMax - navigatorLeft) < handleSensitivity) {
+				grabbedRight = true;
+				otherHandlePos = zoomedMin;
 
-				// grab the zoomed range
-				} else if (chartX > navigatorLeft + zoomedMin && chartX < navigatorLeft + zoomedMax) {
-					grabbedCenter = chartX;
-					defaultBodyCursor = bodyStyle.cursor;
-					bodyStyle.cursor = 'ew-resize';
+			// grab the zoomed range
+			} else if (chartX > navigatorLeft + zoomedMin && chartX < navigatorLeft + zoomedMax) {
+				grabbedCenter = chartX;
+				defaultBodyCursor = bodyStyle.cursor;
+				bodyStyle.cursor = 'ew-resize';
 
-					dragOffset = chartX - zoomedMin;
+				dragOffset = chartX - zoomedMin;
 
-				// shift the range by clicking on shaded areas, scrollbar track or scrollbar buttons
-				} else if (chartX > scrollerLeft && chartX < scrollerLeft + scrollerWidth) {
+			// shift the range by clicking on shaded areas, scrollbar track or scrollbar buttons
+			} else if (chartX > scrollerLeft && chartX < scrollerLeft + scrollerWidth) {
 
-					if (isOnNavigator) { // center around the clicked point
-						left = chartX - navigatorLeft - range / 2;
-					} else { // click on scrollbar
-						if (chartX < navigatorLeft) { // click left scrollbar button
-							left = zoomedMin - mathMin(10, range);
-						} else if (chartX > scrollerLeft + scrollerWidth - scrollbarHeight) {
-							left = zoomedMin + mathMin(10, range);
-						} else {
-							// click on scrollbar track, shift the scrollbar by one range
-							left = chartX < navigatorLeft + zoomedMin ? // on the left
-								zoomedMin - range :
-								zoomedMax;
-						}
-					}
-					if (left < 0) {
-						left = 0;
-					} else if (left + range > navigatorWidth) {
-						left = navigatorWidth - range;
-					}
-					if (left !== zoomedMin) { // it has actually moved
-						chart.xAxis[0].setExtremes(
-							xAxis.translate(left, true),
-							xAxis.translate(left + range, true),
-							true,
-							false
-						);
+				if (isOnNavigator) { // center around the clicked point
+					left = chartX - navigatorLeft - range / 2;
+				} else { // click on scrollbar
+					if (chartX < navigatorLeft) { // click left scrollbar button
+						left = zoomedMin - mathMin(10, range);
+					} else if (chartX > scrollerLeft + scrollerWidth - scrollbarHeight) {
+						left = zoomedMin + mathMin(10, range);
+					} else {
+						// click on scrollbar track, shift the scrollbar by one range
+						left = chartX < navigatorLeft + zoomedMin ? // on the left
+							zoomedMin - range :
+							zoomedMax;
 					}
 				}
-			}
-			if (e.preventDefault) { // tries to drag object when clicking on the shades
-				e.preventDefault();
-			}
-		});
-
-		addEvent(chart.container, MOUSEMOVE, function (e) {
-			e = chart.tracker.normalizeMouseEvent(e);
-			var chartX = e.chartX;
-			
-			// validation for handle dragging
-			if (chartX < navigatorLeft) {
-				chartX = navigatorLeft;
-			} else if (chartX > scrollerLeft + scrollerWidth - scrollbarHeight) {
-				chartX = scrollerLeft + scrollerWidth - scrollbarHeight;
-			}
-
-			// drag left handle
-			if (grabbedLeft) {
-				hasDragged = true;
-				render(0, 0, chartX - navigatorLeft, otherHandlePos);
-
-			// drag right handle
-			} else if (grabbedRight) {
-				hasDragged = true;
-				render(0, 0, otherHandlePos, chartX - navigatorLeft);
-
-			// drag scrollbar or open area in navigator
-			} else if (grabbedCenter) {
-				hasDragged = true;
-				if (chartX < dragOffset) { // outside left
-					chartX = dragOffset;
-				} else if (chartX > navigatorWidth + dragOffset - range) { // outside right
-					chartX = navigatorWidth + dragOffset - range;
+				if (left < 0) {
+					left = 0;
+				} else if (left + range > navigatorWidth) {
+					left = navigatorWidth - range;
 				}
-
-				render(0, 0, chartX - dragOffset, chartX - dragOffset + range);
+				if (left !== zoomedMin) { // it has actually moved
+					chart.xAxis[0].setExtremes(
+						xAxis.translate(left, true),
+						xAxis.translate(left + range, true),
+						true,
+						false
+					);
+				}
 			}
-		});
+		}
+		if (e.preventDefault) { // tries to drag object when clicking on the shades
+			e.preventDefault();
+		}
+	}
 
-		addEvent(document, MOUSEUP, function () {
-			if (hasDragged) {
+	/**
+	 * Event handler for the mouse move event.
+	 */
+	function mouseMoveHandler(e) {
+		e = chart.tracker.normalizeMouseEvent(e);
+		var chartX = e.chartX;
+
+		// validation for handle dragging
+		if (chartX < navigatorLeft) {
+			chartX = navigatorLeft;
+		} else if (chartX > scrollerLeft + scrollerWidth - scrollbarHeight) {
+			chartX = scrollerLeft + scrollerWidth - scrollbarHeight;
+		}
+
+		// drag left handle
+		if (grabbedLeft) {
+			hasDragged = true;
+			render(0, 0, chartX - navigatorLeft, otherHandlePos);
+
+		// drag right handle
+		} else if (grabbedRight) {
+			hasDragged = true;
+			render(0, 0, otherHandlePos, chartX - navigatorLeft);
+
+		// drag scrollbar or open area in navigator
+		} else if (grabbedCenter) {
+			hasDragged = true;
+			if (chartX < dragOffset) { // outside left
+				chartX = dragOffset;
+			} else if (chartX > navigatorWidth + dragOffset - range) { // outside right
+				chartX = navigatorWidth + dragOffset - range;
+			}
+
+			render(0, 0, chartX - dragOffset, chartX - dragOffset + range);
+		}
+	}
+
+	/**
+	 * Event handler for the mouse up event.
+	 */
+	function mouseUpHandler() {
+		if (hasDragged) {
 				chart.xAxis[0].setExtremes(
 					xAxis.translate(zoomedMin, true),
 					xAxis.translate(zoomedMax, true),
@@ -13772,7 +14471,86 @@ Highcharts.Scroller = function (chart) {
 			}
 			grabbedLeft = grabbedRight = grabbedCenter = hasDragged = dragOffset = null;
 			bodyStyle.cursor = defaultBodyCursor;
-		});
+	}
+
+	function updatedDataHandler() {
+		var baseXAxis = baseSeries.xAxis,
+			baseExtremes = baseXAxis.getExtremes(),
+			baseMin = baseExtremes.min,
+			baseMax = baseExtremes.max,
+			baseDataMin = baseExtremes.dataMin,
+			baseDataMax = baseExtremes.dataMax,
+			range = baseMax - baseMin,
+			stickToMin,
+			stickToMax,
+			newMax,
+			newMin,
+			doRedraw,
+			navXData = navigatorSeries.xData,
+			hasSetExtremes = !!baseXAxis.setExtremes;
+
+		// detect whether to move the range
+		stickToMax = baseMax >= navXData[navXData.length - 1];
+		stickToMin = baseMin <= baseDataMin;
+
+		// set the navigator series data to the new data of the base series
+		if (!navigatorData) {
+			navigatorSeries.options.pointStart = baseSeries.xData[0];
+			navigatorSeries.setData(baseSeries.options.data, false);
+			doRedraw = true;
+		}
+
+		// if the zoomed range is already at the min, move it to the right as new data
+		// comes in
+		if (stickToMin) {
+			newMin = baseDataMin;
+			newMax = newMin + range;
+		}
+
+		// if the zoomed range is already at the max, move it to the right as new data
+		// comes in
+		if (stickToMax) {
+			newMax = baseDataMax;
+			if (!stickToMin) { // if stickToMin is true, the new min value is set above
+				newMin = mathMax(newMax - range, navigatorSeries.xData[0]);
+			}
+		}
+
+		// update the extremes
+		if (hasSetExtremes && (stickToMin || stickToMax)) {
+			baseXAxis.setExtremes(newMin, newMax, true, false);
+		// if it is not at any edge, just move the scroller window to reflect the new series data
+		} else {
+			if (doRedraw) {
+				chart.redraw(false);
+			}
+
+			render(
+				mathMax(baseMin, baseDataMin),
+				mathMin(baseMax, baseDataMax)
+			);
+		}
+	}
+
+	/**
+	 * Set up the mouse and touch events for the navigator and scrollbar
+	 */
+	function addEvents() {
+		addEvent(chart.container, MOUSEDOWN, mouseDownHandler);
+		addEvent(chart.container, MOUSEMOVE, mouseMoveHandler);
+		addEvent(document, MOUSEUP, mouseUpHandler);
+	}
+
+	/**
+	 * Removes the event handlers attached previously with addEvents.
+	 */
+	function removeEvents() {
+		removeEvent(chart.container, MOUSEDOWN, mouseDownHandler);
+		removeEvent(chart.container, MOUSEMOVE, mouseMoveHandler);
+		removeEvent(document, MOUSEUP, mouseUpHandler);
+		if (navigatorEnabled) {
+			removeEvent(baseSeries, 'updatedData', updatedDataHandler);
+		}
 	}
 
 	/**
@@ -13789,15 +14567,17 @@ Highcharts.Scroller = function (chart) {
 			var baseOptions = baseSeries.options,
 				mergedNavSeriesOptions,
 				baseData = baseOptions.data,
-				navigatorSeriesOptions = navigatorOptions.series,
-				navigatorData = navigatorSeriesOptions.data;
+				navigatorSeriesOptions = navigatorOptions.series;
 
 			// remove it to prevent merging one by one
+			navigatorData = navigatorSeriesOptions.data;
 			baseOptions.data = navigatorSeriesOptions.data = null;
-			
-			
+
+
 			// an x axis is required for scrollbar also
-			xAxis = new chart.Axis(merge(navigatorOptions.xAxis, {
+			xAxis = new chart.Axis(merge({
+				ordinal: baseSeries.xAxis.options.ordinal // inherit base xAxis' ordinal option
+			}, navigatorOptions.xAxis, {
 				isX: true,
 				type: 'datetime',
 				index: xAxisIndex,
@@ -13833,7 +14613,8 @@ Highcharts.Scroller = function (chart) {
 				yAxis: yAxisIndex,
 				name: 'Navigator',
 				showInLegend: false,
-				isInternal: true
+				isInternal: true,
+				visible: true
 			});
 
 			// set the data back
@@ -13846,67 +14627,7 @@ Highcharts.Scroller = function (chart) {
 
 			// respond to updated data in the base series
 			// todo: use similiar hook when base series is not yet initialized
-			addEvent(baseSeries, 'updatedData', function () {
-
-				var baseExtremes = baseSeries.xAxis.getExtremes(),
-					baseMin = baseExtremes.min,
-					baseMax = baseExtremes.max,
-					baseDataMin = baseExtremes.dataMin,
-					baseDataMax = baseExtremes.dataMax,
-					range = baseMax - baseMin,
-					stickToMin,
-					stickToMax,
-					newMax,
-					newMin,
-					doRedraw,
-					baseXAxis = baseSeries.xAxis,
-					hasSetExtremes = !!baseXAxis.setExtremes;
-					
-				// detect whether to move the range
-				stickToMax = baseMax >=
-					navigatorSeries.xData[navigatorSeries.xData.length - 1];
-				stickToMin = baseMin - range <=
-					navigatorSeries.xData[0];
-
-				// set the navigator series data to the new data of the base series
-				if (!navigatorData) {
-					navigatorSeries.options.pointStart = baseSeries.xData[0];
-					navigatorSeries.setData(baseSeries.options.data, false);
-					doRedraw = true;
-				}
-
-				// if the zoomed range is already at the min, move it to the right as new data
-				// comes in
-				if (stickToMin) {
-					newMin = baseDataMin;
-					newMax = newMin + range;
-				}
-				
-				// if the zoomed range is already at the max, move it to the right as new data
-				// comes in
-				if (stickToMax) {
-					newMax = baseDataMax;
-					if (!stickToMin) { // if stickToMin is true, the new min value is set above
-						newMin = mathMax(newMax - range, navigatorSeries.xData[0]);
-					}
-				}
-				
-				// update the extremes
-				if (hasSetExtremes && (stickToMin || stickToMax)) {
-					baseXAxis.setExtremes(newMin, newMax, true, false);
-				// if it is not at any edge, just move the scroller window to reflect the new series data
-				} else {
-					if (doRedraw) {
-						chart.redraw(false);
-					}
-					
-					render(
-						mathMax(baseMin, baseDataMin),
-						mathMin(baseMax, baseDataMax)
-					);					
-				}
-				
-			});
+			addEvent(baseSeries, 'updatedData', updatedDataHandler);
 
 		// in case of scrollbar only, fake an x axis to get translation
 		} else {
@@ -13929,13 +14650,34 @@ Highcharts.Scroller = function (chart) {
 		addEvents();
 	}
 
+	/**
+	 * Destroys allocated elements.
+	 */
+	function destroy() {
+		// Disconnect events added in addEvents
+		removeEvents();
+
+		// Destroy local variables
+		each([xAxis, yAxis, leftShade, rightShade, outline, scrollbarTrack, scrollbar, scrollbarRifles, scrollbarGroup], function (obj) {
+			if (obj && obj.destroy) {
+				obj.destroy();
+			}
+		});
+		xAxis = yAxis = leftShade = rightShade = outline = scrollbarTrack = scrollbar = scrollbarRifles = scrollbarGroup = null;
+
+		// Destroy elements in collection
+		each([scrollbarButtons, handles, elementsToDestroy], function (coll) {
+			destroyObjectProperties(coll);
+		});
+	}
 
 	// Run scroller
 	init();
 
 	// Expose
 	return {
-		render: render
+		render: render,
+		destroy: destroy
 	};
 
 };
@@ -13993,7 +14735,11 @@ Highcharts.RangeSelector = function (chart) {
 		div,
 		leftBox,
 		rightBox,
+		boxSpanElements = {},
+		divAbsolute,
+		divRelative,
 		selected,
+		zoomText,
 		buttons = [],
 		buttonOptions,
 		options,
@@ -14106,7 +14852,7 @@ Highcharts.RangeSelector = function (chart) {
 				}
 			);
 			selected = i;
-			
+
 		} else { // existing axis object; after render time
 			setTimeout(function () { // make sure the visual state is set before the heavy process begins
 				baseAxis.setExtremes(
@@ -14122,25 +14868,29 @@ Highcharts.RangeSelector = function (chart) {
 	}
 
 	/**
+	 * The handler connected to container that handles mousedown.
+	 */
+	function mouseDownHandler() {
+		if (leftBox) {
+			leftBox.blur();
+		}
+		if (rightBox) {
+			rightBox.blur();
+		}
+	}
+
+	/**
 	 * Initialize the range selector
 	 */
 	function init() {
 		chart.extraTopMargin = 25;
 		options = chart.options.rangeSelector;
 		buttonOptions = options.buttons || defaultButtons;
-		
-		
+
+
 		var selectedOption = options.selected;
 
-		addEvent(container, MOUSEDOWN, function () {
-
-			if (leftBox) {
-				leftBox.blur();
-			}
-			if (rightBox) {
-				rightBox.blur();
-			}
-		});
+		addEvent(container, MOUSEDOWN, mouseDownHandler);
 
 		// zoomed range based on a pre-selected button index
 		if (selectedOption !== UNDEFINED && buttonOptions[selectedOption]) {
@@ -14181,7 +14931,7 @@ Highcharts.RangeSelector = function (chart) {
 			input;
 
 		// create the text label
-		createElement('span', {
+		boxSpanElements[name] = createElement('span', {
 			innerHTML: lang[isMin ? 'rangeSelectorFrom' : 'rangeSelectorTo']
 		}, options.labelStyle, div);
 
@@ -14246,17 +14996,16 @@ Highcharts.RangeSelector = function (chart) {
 			inputEnabled = options.inputEnabled !== false,
 			states = buttonTheme && buttonTheme.states,
 			plotLeft = chart.plotLeft,
-			buttonLeft,
-			zoomText;
+			buttonLeft;
 
 		// create the elements
 		if (!rendered) {
 			zoomText = renderer.text(lang.rangeSelectorZoom, plotLeft, chart.plotTop - 10)
 				.css(options.labelStyle)
 				.add();
-				
+
 			// button starting position
-			buttonLeft = plotLeft + zoomText.getBBox().width + 5;  
+			buttonLeft = plotLeft + zoomText.getBBox().width + 5;
 
 			each(buttonOptions, function (rangeOptions, i) {
 				buttons[i] = renderer.button(
@@ -14275,10 +15024,10 @@ Highcharts.RangeSelector = function (chart) {
 					textAlign: 'center'
 				})
 				.add();
-				
+
 				// increase button position for the next button
 				buttonLeft += buttons[i].width + (options.buttonSpacing || 0);
-				
+
 				if (selected === i) {
 					buttons[i].setState(2);
 				}
@@ -14288,18 +15037,18 @@ Highcharts.RangeSelector = function (chart) {
 			// first create a wrapper outside the container in order to make
 			// the inputs work and make export correct
 			if (inputEnabled) {
-				div = createElement('div', null, {
+				divRelative = div = createElement('div', null, {
 					position: 'relative',
 					height: 0,
 					fontFamily: chartStyle.fontFamily,
 					fontSize: chartStyle.fontSize,
 					zIndex: 1 // above container
 				});
-				
+
 				container.parentNode.insertBefore(div, container);
-				
+
 				// create an absolutely positionied div to keep the inputs
-				div = createElement('div', null, extend({
+				divAbsolute = div = createElement('div', null, extend({
 					position: 'absolute',
 					top: (chart.plotTop - 25) + 'px',
 					right: (chart.chartWidth - chart.plotLeft - chart.plotWidth) + 'px'
@@ -14320,14 +15069,46 @@ Highcharts.RangeSelector = function (chart) {
 		rendered = true;
 	}
 
+	/**
+	 * Destroys allocated elements.
+	 */
+	function destroy() {
+		removeEvent(container, MOUSEDOWN, mouseDownHandler);
 
+		// Destroy elements in collections
+		each([buttons], function (coll) {
+			destroyObjectProperties(coll);
+		});
+
+		// Destroy zoomText
+		if (zoomText) {
+			zoomText = zoomText.destroy();
+		}
+
+		// Clear input element events
+		if (leftBox) {
+			leftBox.onfocus = leftBox.onblur = leftBox.onchange = null;
+		}
+		if (rightBox) {
+			rightBox.onfocus = rightBox.onblur = rightBox.onchange = null;
+		}
+
+		// Discard divs and spans
+		each([leftBox, rightBox, boxSpanElements.min, boxSpanElements.max, divAbsolute, divRelative], function (item) {
+			discardElement(item);
+		});
+		// Null the references
+		leftBox = rightBox = boxSpanElements = div = divAbsolute = divRelative = null;
+
+	}
 
 	// Run RangeSelector
 	init();
 
 	// Expose
 	return {
-		render: render
+		render: render,
+		destroy: destroy
 	};
 };
 
@@ -14355,45 +15136,56 @@ Chart.prototype.callbacks.push(function (chart) {
 		rangeSelector.render(extremes.min, extremes.max);
 	}
 
+	function afterSetExtremesHandlerScroller(e) {
+		scroller.render(e.min, e.max);
+	}
+
+	function afterSetExtremesHandlerRangeSelector(e) {
+		rangeSelector.render(e.min, e.max);
+	}
+
+	function destroyEvents() {
+		if (scroller) {
+			removeEvent(chart, 'resize', renderScroller);
+			removeEvent(chart.xAxis[0], 'afterSetExtremes', afterSetExtremesHandlerScroller);
+		}
+		if (rangeSelector) {
+			removeEvent(chart, 'resize', renderRangeSelector);
+			removeEvent(chart.xAxis[0], 'afterSetExtremes', afterSetExtremesHandlerRangeSelector);
+		}
+	}
+
 	// initiate the scroller
 	if (scroller) {
-
 		// redraw the scroller on setExtremes
-		addEvent(chart.xAxis[0], 'afterSetExtremes', function (e) {
-			scroller.render(e.min, e.max);
-		});
+		addEvent(chart.xAxis[0], 'afterSetExtremes', afterSetExtremesHandlerScroller);
 
 		// redraw the scroller chart resize
 		addEvent(chart, 'resize', renderScroller);
 
-
 		// do it now
 		renderScroller();
-
 	}
 	if (rangeSelector) {
-
-
-
 		// redraw the scroller on setExtremes
-		addEvent(chart.xAxis[0], 'afterSetExtremes', function (e) {
-			rangeSelector.render(e.min, e.max);
-		});
+		addEvent(chart.xAxis[0], 'afterSetExtremes', afterSetExtremesHandlerRangeSelector);
 
 		// redraw the scroller chart resize
 		addEvent(chart, 'resize', renderRangeSelector);
 
-
 		// do it now
 		renderRangeSelector();
-
 	}
+
+	// Remove resize/afterSetExtremes at chart destroy
+	addEvent(chart, 'destroy', destroyEvents);
 });
 /**
  * A wrapper for Chart with all the default values for a Stock chart
  */
 Highcharts.StockChart = function (options, callback) {
-	var seriesOptions = options.series, // to increase performance, don't merge the data
+	var seriesOptions = options.series, // to increase performance, don't merge the data 
+		opposite,
 		lineOptions = {
 
 			marker: {
@@ -14405,6 +15197,7 @@ Highcharts.StockChart = function (options, callback) {
 					}
 				}
 			},
+			// gapSize: 0, // docs
 			shadow: false,
 			states: {
 				hover: {
@@ -14421,6 +15214,7 @@ Highcharts.StockChart = function (options, callback) {
 		return merge({ // defaults
 				minPadding: 0,
 				maxPadding: 0,
+				ordinal: true,
 				title: {
 					text: null
 				},
@@ -14434,10 +15228,11 @@ Highcharts.StockChart = function (options, callback) {
 
 	// apply Y axis options to both single and multi y axes
 	options.yAxis = map(splat(options.yAxis || {}), function (yAxisOptions) {
+		opposite = yAxisOptions.opposite;
 		return merge({ // defaults
 			labels: {
-				align: 'left',
-				x: 2,
+				align: opposite ? 'right' : 'left',
+				x: opposite ? -2 : 2,
 				y: -2
 			},
 			showLastLabel: false,
@@ -14553,7 +15348,7 @@ seriesProto.processData = function () {
 	var series = this;
 	
 	// call base method
-	seriesProcessData.apply(this);
+	seriesProcessData.apply(this, arguments);
 	
 	if (series.options.compare) {
 		
@@ -14593,12 +15388,622 @@ Point.prototype.tooltipFormatter = function (pointFormat) {
  * End value compare logic                                                    *
  *****************************************************************************/
 
+/* ****************************************************************************
+ * Start ordinal axis logic                                                   *
+ *****************************************************************************/
+
+(function () {
+	var baseInit = seriesProto.init,
+		baseGetSegments = seriesProto.getSegments;
+		
+	seriesProto.init = function () {
+		var series = this,
+			chart,
+			xAxis;
+		
+		// call base method
+		baseInit.apply(series, arguments);
+		
+		// chart and xAxis are set in base init
+		chart = series.chart;
+		xAxis = series.xAxis;
+		
+		// Destroy the extended ordinal index on updated data
+		if (xAxis && xAxis.options.ordinal) {
+			addEvent(series, 'updatedData', function () {
+				delete xAxis.ordinalIndex;
+			});
+		}
+		
+		/**
+		 * Extend the ordinal axis object. If we rewrite the axis object to a prototype model,
+		 * we should add these properties to the prototype instead.
+		 */
+		if (xAxis && xAxis.options.ordinal && !xAxis.hasOrdinalExtension) {
+				
+			xAxis.hasOrdinalExtension = true;
+		
+			/**
+			 * Calculate the ordinal positions before tick positions are calculated. 
+			 * TODO: When we rewrite Axis to use a prototype model, this should be implemented
+			 * as a method extension to avoid overhead in the core.
+			 */
+			xAxis.beforeSetTickPositions = function () {
+				var axis = this,
+					len,
+					ordinalPositions = [],
+					useOrdinal = false,
+					dist,
+					extremes = axis.getExtremes(),
+					min = extremes.min,
+					max = extremes.max,
+					minIndex,
+					maxIndex,
+					slope,
+					i;
+				
+				// apply the ordinal logic
+				if (axis.options.ordinal) {
+					
+					each(axis.series, function (series, i) {
+						
+						if (series.visible !== false) {
+							
+							// concatenate the processed X data into the existing positions, or the empty array 
+							ordinalPositions = ordinalPositions.concat(series.processedXData);
+							len = ordinalPositions.length;
+							
+							// if we're dealing with more than one series, remove duplicates
+							if (i && len) {
+							
+								ordinalPositions.sort(function (a, b) {
+									return a - b; // without a custom function it is sorted as strings
+								});
+							
+								i = len - 1;
+								while (i--) {
+									if (ordinalPositions[i] === ordinalPositions[i + 1]) {
+										ordinalPositions.splice(i, 1);
+									}
+								}
+							}
+						}
+						
+					});
+					
+					// cache the length
+					len = ordinalPositions.length;					
+					
+					// Check if we really need the overhead of mapping axis data against the ordinal positions.
+					// If the series consist of evenly spaced data any way, we don't need any ordinal logic.
+					if (len > 2) { // two points have equal distance by default
+						dist = ordinalPositions[1] - ordinalPositions[0]; 
+						i = len - 1;
+						while (i-- && !useOrdinal) {
+							if (ordinalPositions[i + 1] - ordinalPositions[i] !== dist) {
+								useOrdinal = true;
+							}
+						}
+					}
+					
+					// Record the slope and offset to compute the linear values from the array index.
+					// Since the ordinal positions may exceed the current range, get the start and 
+					// end positions within it (#719, #665b)
+					if (useOrdinal) {
+						
+						// Register
+						axis.ordinalPositions = ordinalPositions;
+						
+						// This relies on the ordinalPositions being set
+						minIndex = xAxis.val2lin(min, true);
+						maxIndex = xAxis.val2lin(max, true);
+				
+						// Set the slope and offset of the values compared to the indices in the ordinal positions
+						axis.ordinalSlope = slope = (max - min) / (maxIndex - minIndex);
+						axis.ordinalOffset = min - (minIndex * slope);
+						
+					} else {
+						axis.ordinalPositions = axis.ordinalSlope = axis.ordinalOffset = UNDEFINED;
+					}
+				}
+			};
+			
+			/**
+			 * Translate from a linear axis value to the corresponding ordinal axis position. If there
+			 * are no gaps in the ordinal axis this will be the same. The translated value is the value
+			 * that the point would have if the axis were linear, using the same min and max.
+			 * 
+			 * @param Number val The axis value
+			 * @param Boolean toIndex Whether to return the index in the ordinalPositions or the new value
+			 */
+			xAxis.val2lin = function (val, toIndex) {
+				
+				var axis = this,
+					ordinalPositions = axis.ordinalPositions;
+				
+				if (!ordinalPositions) {
+					return val;
+				
+				} else {
+				
+					var ordinalLength = ordinalPositions.length,
+						i,
+						distance,
+						ordinalIndex;
+						
+					// first look for an exact match in the ordinalpositions array
+					i = ordinalLength;
+					while (i--) {
+						if (ordinalPositions[i] === val) {
+							ordinalIndex = i;
+							break;
+						}
+					}
+					
+					// if that failed, find the intermediate position between the two nearest values
+					i = ordinalLength - 1;
+					while (i--) {
+						if (val > ordinalPositions[i] || i === 0) { // interpolate
+							distance = (val - ordinalPositions[i]) / (ordinalPositions[i + 1] - ordinalPositions[i]); // something between 0 and 1
+							ordinalIndex = i + distance;
+							break;
+						}
+					}
+					return toIndex ?
+						ordinalIndex :
+						axis.ordinalSlope * (ordinalIndex || 0) + axis.ordinalOffset;
+				}
+			};
+			
+			/**
+			 * Translate from linear (internal) to axis value
+			 * 
+			 * @param Number val The linear abstracted value
+			 * @param Boolean fromIndex Translate from an index in the ordinal positions rather than a value
+			 */
+			xAxis.lin2val = function (val, fromIndex) {
+				var axis = this,
+					ordinalPositions = axis.ordinalPositions;
+				
+				if (!ordinalPositions) { // the visible range contains only equally spaced values
+					return val;
+				
+				} else {
+				
+					var ordinalSlope = axis.ordinalSlope,
+						ordinalOffset = axis.ordinalOffset,
+						i = ordinalPositions.length - 1,
+						linearEquivalentLeft,
+						linearEquivalentRight,
+						distance;
+						
+					
+					// Handle the case where we translate from the index directly, used only 
+					// when panning an ordinal axis
+					if (fromIndex) {
+						
+						if (val < 0) { // out of range, in effect panning to the left
+							val = ordinalPositions[0];
+						} else if (val > i) { // out of range, panning to the right
+							val = ordinalPositions[i];
+						} else { // split it up
+							i = mathFloor(val);
+							distance = val - i; // the decimal
+						}
+						
+					// Loop down along the ordinal positions. When the linear equivalent of i matches
+					// an ordinal position, interpolate between the left and right values.
+					} else {
+						while (i--) {
+							linearEquivalentLeft = (ordinalSlope * i) + ordinalOffset;
+							if (val >= linearEquivalentLeft) {
+								linearEquivalentRight = (ordinalSlope * (i + 1)) + ordinalOffset;
+								distance = (val - linearEquivalentLeft) / (linearEquivalentRight - linearEquivalentLeft); // something between 0 and 1
+								break;
+							}
+						}
+					}
+					
+					// If the index is within the range of the ordinal positions, return the associated
+					// or interpolated value. If not, just return the value
+					return distance !== UNDEFINED && ordinalPositions[i] !== UNDEFINED ?
+						ordinalPositions[i] + (distance ? distance * (ordinalPositions[i + 1] - ordinalPositions[i]) : 0) : 
+						val;
+				}
+			};
+			
+			/**
+			 * Get the ordinal positions for the entire data set. This is necessary in chart panning
+			 * because we need to find out what points or data groups are available outside the 
+			 * visible range. When a panning operation starts, if an index for the given grouping
+			 * does not exists, it is created and cached. This index is deleted on updated data, so
+			 * it will be regenerated the next time a panning operation starts.
+			 */
+			xAxis.getExtendedPositions = function () {
+				var grouping = xAxis.series[0].currentDataGrouping,
+					ordinalIndex = xAxis.ordinalIndex,
+					key = grouping ? grouping.count + grouping.unitName : 'raw',
+					extremes = xAxis.getExtremes(),
+					fakeAxis,
+					fakeSeries;
+					
+				// If this is the first time, or the ordinal index is deleted by updatedData,
+				// create it.
+				if (!ordinalIndex) {
+					ordinalIndex = xAxis.ordinalIndex = {};
+				}
+				
+				
+				if (!ordinalIndex[key]) {
+					
+					// Create a fake axis object where the extended ordinal positions are emulated
+					fakeAxis = {
+						series: [],
+						getExtremes: function () {
+							return {
+								min: extremes.dataMin,
+								max: extremes.dataMax
+							};
+						},
+						options: {
+							ordinal: true
+						}
+					};
+					
+					// Add the fake series to hold the full data, then apply processData to it
+					each(xAxis.series, function (series) {
+						fakeSeries = {
+							xAxis: fakeAxis,
+							xData: series.xData,
+							chart: chart
+						};
+						fakeSeries.options = {
+							dataGrouping : grouping ? {
+								enabled: true,
+								forced: true,
+								approximation: 'open', // doesn't matter which, use the fastest
+								units: [[grouping.unitName, [grouping.count]]]
+							} : {
+								enabled: false
+							}
+						};
+						series.processData.apply(fakeSeries);
+						
+						fakeAxis.series.push(fakeSeries);
+					});
+					
+					// Run beforeSetTickPositions to compute the ordinalPositions
+					xAxis.beforeSetTickPositions.apply(fakeAxis);
+					
+					// Cache it
+					ordinalIndex[key] = fakeAxis.ordinalPositions;
+				}
+				return ordinalIndex[key];
+			};
+			
+			/**
+			 * Find the factor to estimate how wide the plot area would have been if ordinal
+			 * gaps were included. This value is used to compute an imagined plot width in order
+			 * to establish the data grouping interval. 
+			 * 
+			 * A real world case is the intraday-candlestick
+			 * example. Without this logic, it would show the correct data grouping when viewing
+			 * a range within each day, but once moving the range to include the gap between two
+			 * days, the interval would include the cut-away night hours and the data grouping
+			 * would be wrong. So the below method tries to compensate by identifying the most
+			 * common point interval, in this case days. 
+			 * 
+			 * An opposite case is presented in issue #718. We have a long array of daily data,
+			 * then one point is appended one hour after the last point. We expect the data grouping
+			 * not to change.
+			 * 
+			 * In the future, if we find cases where this estimation doesn't work optimally, we
+			 * might need to add a second pass to the data grouping logic, where we do another run
+			 * with a greater interval if the number of data groups is more than a certain fraction
+			 * of the desired group count.
+			 */
+			xAxis.getGroupIntervalFactor = function (xMin, xMax, processedXData) {
+				var i = 0,
+					len = processedXData.length, 
+					distances = [],
+					median;
+					
+				// Register all the distances in an array
+				for (; i < len - 1; i++) {
+					distances[i] = processedXData[i + 1] - processedXData[i];
+				}
+				
+				// Sort them and find the median
+				distances.sort(function (a, b) {
+					return a - b;
+				});
+				median = distances[mathFloor(len / 2)];
+				
+				// Return the factor needed for data grouping
+				return (len * median) / (xMax - xMin);
+			};
+			
+			/**
+			 * Make the tick intervals closer because the ordinal gaps make the ticks spread out or cluster
+			 */
+			xAxis.postProcessTickInterval = function (tickInterval) {
+				var ordinalSlope = this.ordinalSlope;
+				
+				return ordinalSlope ? 
+					tickInterval / (ordinalSlope / xAxis.closestPointRange) : 
+					tickInterval;
+			};
+			
+			/**
+			 * In an ordinal axis, there might be areas with dense consentrations of points, then large
+			 * gaps between some. Creating equally distributed ticks over this entire range
+			 * may lead to a huge number of ticks that will later be removed. So instead, break the 
+			 * positions up in segments, find the tick positions for each segment then concatenize them.
+			 * This method is used from both data grouping logic and X axis tick position logic. 
+			 */
+			xAxis.getNonLinearTimeTicks = function (normalizedInterval, min, max, startOfWeek, positions, closestDistance, findHigherRanks) {
+				
+				var start = 0,
+					end = 0,
+					segmentPositions,
+					higherRanks = {},
+					hasCrossedHigherRank,
+					info,
+					posLength,
+					outsideMax,
+					groupPositions = [];
+					
+				// The positions are not always defined, for example for ordinal positions when data
+				// has regular interval
+				if (!positions || min === UNDEFINED) {
+					return getTimeTicks(normalizedInterval, min, max, startOfWeek);
+				}
+				
+				// Analyze the positions array to split it into segments on gaps larger than 5 times
+				// the closest distance. The closest distance is already found at this point, so 
+				// we reuse that instead of computing it again.
+				posLength = positions.length;
+				for (; end < posLength; end++) {
+					
+					outsideMax = end && positions[end - 1] > max;
+					
+					if (positions[end] < min) { // Set the last position before min
+						start = end;
+					
+					} else if (end === posLength - 1 || positions[end + 1] - positions[end] > closestDistance * 5 || outsideMax) {
+						
+						// For each segment, calculate the tick positions from the getTimeTicks utility
+						// function. The interval will be the same regardless of how long the segment is.
+						segmentPositions = getTimeTicks(normalizedInterval, positions[start], positions[end], startOfWeek);		
+						
+						groupPositions = groupPositions.concat(segmentPositions);
+						
+						// Set start of next segment
+						start = end + 1;						
+					}
+					
+					if (outsideMax) {
+						break;
+					}
+				}
+				
+				// Get the grouping info from the last of the segments. The info is the same for
+				// all segments.
+				info = segmentPositions.info;
+				
+				// Optionally identify ticks with higher rank, for example when the ticks
+				// have crossed midnight.
+				if (findHigherRanks && info.unitRange <= timeUnits[HOUR]) {
+					end = groupPositions.length - 1;
+					
+					// Compare points two by two
+					for (start = 1; start < end; start++) {
+						if (new Date(groupPositions[start])[getDate]() !== new Date(groupPositions[start - 1])[getDate]()) {
+							higherRanks[groupPositions[start]] = DAY;
+							hasCrossedHigherRank = true;
+						}
+					}
+					
+					// If the complete array has crossed midnight, we want to mark the first
+					// positions also as higher rank
+					if (hasCrossedHigherRank) {
+						higherRanks[groupPositions[0]] = DAY;
+					}
+					info.higherRanks = higherRanks;
+				}
+				
+				// Save the info
+				groupPositions.info = info;				
+				
+				
+				// Return it
+				return groupPositions;
+				
+			};
+			
+			/**
+			 * Post process tick positions. The tickPositions array is altered. Don't show ticks 
+			 * within a gap in the ordinal axis, where the space between
+			 * two points is greater than a portion of the tick pixel interval
+			 */
+			addEvent(xAxis, 'afterSetTickPositions', function (e) {
+				
+				var options = xAxis.options,
+					tickPixelIntervalOption = options.tickPixelInterval,
+					tickPositions = e.tickPositions;
+				
+				if (xAxis.ordinalPositions && defined(tickPixelIntervalOption)) { // check for squashed ticks
+					var i = tickPositions.length,
+						itemToRemove,
+						translated,
+						lastTranslated,
+						tickInfo = tickPositions.info,
+						higherRanks = tickInfo ? tickInfo.higherRanks : [];
+					
+					while (i--) {
+						translated = xAxis.translate(tickPositions[i]);
+						
+						// Remove ticks that are closer than 0.6 times the pixel interval from the one to the right 
+						if (lastTranslated && lastTranslated - translated < tickPixelIntervalOption * 0.6) {
+							
+							// Is this a higher ranked position with a normal position to the right?
+							if (higherRanks[tickPositions[i]] && !higherRanks[tickPositions[i + 1]]) {
+								
+								// Yes: remove the lower ranked neighbour to the right
+								itemToRemove = i + 1;
+								lastTranslated = translated; // #709
+								
+							} else {
+								
+								// No: remove this one
+								itemToRemove = i;
+							}
+							
+							tickPositions.splice(itemToRemove, 1);
+							
+						} else {
+							lastTranslated = translated;
+						}
+					}
+				}
+			});
+			
+			
+			/**
+			 * Overrride the chart.pan method for ordinal axes. 
+			 */
+			
+			var baseChartPan = chart.pan;
+			chart.pan = function (chartX) {
+				var xAxis = chart.xAxis[0],
+					runBase = false;
+				if (xAxis.options.ordinal) {
+					
+					var mouseDownX = chart.mouseDownX,
+						extremes = xAxis.getExtremes(),
+						dataMax = extremes.dataMax,
+						min = extremes.min,
+						max = extremes.max,
+						newMin,
+						newMax,
+						hoverPoints = chart.hoverPoints,
+						closestPointRange = xAxis.closestPointRange,
+						pointPixelWidth = xAxis.translationSlope * (xAxis.ordinalSlope || closestPointRange),
+						movedUnits = (mouseDownX - chartX) / pointPixelWidth, // how many ordinal units did we move?
+						extendedAxis = { ordinalPositions: xAxis.getExtendedPositions() }, // get index of all the chart's points
+						ordinalPositions,
+						searchAxisLeft,
+						lin2val = xAxis.lin2val,
+						val2lin = xAxis.val2lin,
+						searchAxisRight;
+					
+					if (!extendedAxis.ordinalPositions) { // we have an ordinal axis, but the data is equally spaced
+						runBase = true;
+					
+					} else if (mathAbs(movedUnits) > 1) {
+						
+						// Remove active points for shared tooltip
+						if (hoverPoints) {
+							each(hoverPoints, function (point) {
+								point.setState();
+							});
+						}
+						
+						if (movedUnits < 0) {
+							searchAxisLeft = extendedAxis;
+							searchAxisRight = xAxis.ordinalPositions ? xAxis : extendedAxis;
+						} else {
+							searchAxisLeft = xAxis.ordinalPositions ? xAxis : extendedAxis;
+							searchAxisRight = extendedAxis;
+						}
+						
+						// In grouped data series, the last ordinal position represents the grouped data, which is 
+						// to the left of the real data max. If we don't compensate for this, we will be allowed
+						// to pan grouped data series passed the right of the plot area. 
+						ordinalPositions = searchAxisRight.ordinalPositions;
+						if (dataMax > ordinalPositions[ordinalPositions.length - 1]) {
+							ordinalPositions.push(dataMax);
+						}
+						
+						// Get the new min and max values by getting the ordinal index for the current extreme, 
+						// then add the moved units and translate back to values. This happens on the 
+						// extended ordinal positions if the new position is out of range, else it happens
+						// on the current x axis which is smaller and faster.
+						newMin = lin2val.apply(searchAxisLeft, [
+							val2lin.apply(searchAxisLeft, [min, true]) + movedUnits, // the new index 
+							true // translate from index
+						]);
+						newMax = lin2val.apply(searchAxisRight, [
+							val2lin.apply(searchAxisRight, [max, true]) + movedUnits, // the new index 
+							true // translate from index
+						]);
+						
+						// Apply it if it is within the available data range
+						if (newMin > mathMin(extremes.dataMin, min) && newMax < mathMax(dataMax, max)) {
+							xAxis.setExtremes(newMin, newMax, true, false);
+						}
+				
+						chart.mouseDownX = chartX; // set new reference for next run
+						css(chart.container, { cursor: 'move' });
+					}
+				
+				} else {
+					runBase = true;
+				}
+				
+				// revert to the linear chart.pan version
+				if (runBase) {
+					baseChartPan.apply(chart, arguments);
+				}
+			}; 
+		}
+	};
+			
+	/**
+	 * Extend getSegments by identifying gaps in the ordinal data so that we can draw a gap in the 
+	 * line or area
+	 */
+	seriesProto.getSegments = function () {
+		
+		var series = this,
+			segments,
+			gapSize = series.options.gapSize;
+	
+		// call base method
+		baseGetSegments.apply(series);
+		
+		if (series.xAxis.options.ordinal && gapSize) {
+		
+			// properties
+			segments = series.segments;
+			
+			// extension for ordinal breaks
+			each(segments, function (segment, no) {
+				var i = segment.length - 1;
+				while (i--) {
+					if (segment[i + 1].x - segment[i].x > series.xAxis.closestPointRange * gapSize) {
+						segments.splice( // insert after this one
+							no + 1,
+							0,
+							segment.splice(i + 1, segment.length - i)
+						);
+					}
+				}
+			});
+		}
+	};
+}());
+
+/* ****************************************************************************
+ * End ordinal axis logic                                                   *
+ *****************************************************************************/
 // global variables
 extend(Highcharts, {
 	Chart: Chart,
 	dateFormat: dateFormat,
 	pathAnim: pathAnim,
 	getOptions: getOptions,
+	hasRtlBug: hasRtlBug,
 	numberFormat: numberFormat,
 	Point: Point,
 	Color: Color,
@@ -14621,6 +16026,6 @@ extend(Highcharts, {
 	splat: splat,
 	extendClass: extendClass,
 	product: 'Highstock',
-	version: '1.0.1'
+	version: '1.1.3'
 });
 }());

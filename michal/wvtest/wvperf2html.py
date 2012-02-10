@@ -151,7 +151,11 @@ class Graph:
                                         s += '<br/><span style="color:'+ point.series.color+';">'+ point.series.name +'</span>: '+point.y;
                                     });
                                     return s;
-                                }
+                                },
+                                style: {
+                                    whiteSpace: 'normal',
+                                    width: '400px',
+                                },
                             },
 		            plotOptions: {
 		                series: {

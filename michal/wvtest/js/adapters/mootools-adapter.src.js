@@ -1,5 +1,5 @@
 /**
- * @license Highstock JS v1.0.1 (2011-10-25)
+ * @license Highstock JS v1.1.3 (2012-02-03)
  * MooTools adapter
  *
  * (c) 2010-2011 Torstein Hønsi
@@ -87,7 +87,7 @@ win.HighchartsAdapter = {
 				el.attr.call(el, args[0], args[1][0]);
 			};
 			// dirty hack to trick Moo into handling el as an element wrapper
-			el.$family = el.uid = true;
+			el.$family = function () { return true; };
 		}
 
 		// stop running animations
@@ -100,6 +100,11 @@ win.HighchartsAdapter = {
 				transition: Fx.Transitions.Quad.easeInOut
 			}, options)
 		);
+
+		// Make sure that the element reference is set when animating svg elements
+		if (isSVGElement) {
+			effect.element = el;
+		}
 
 		// special treatment for paths
 		if (params.d) {
@@ -125,7 +130,7 @@ win.HighchartsAdapter = {
 	each: function (arr, fn) {
 		return legacy ?
 			$each(arr, fn) :
-			arr.each(fn);
+			Array.each(arr, fn);
 	},
 
 	/**
@@ -172,6 +177,17 @@ win.HighchartsAdapter = {
 	},
 
 	/**
+	 * Get the offset of an element relative to the top left corner of the web page
+	 */
+	offset: function (el) {
+		var offsets = $(el).getOffsets();
+		return {
+			left: offsets.x,
+			top: offsets.y
+		};
+	},
+
+	/**
 	 * Extends an object with Events, if its not done
 	 */
 	extendWithEvents: function (el) {
@@ -206,8 +222,11 @@ win.HighchartsAdapter = {
 	},
 
 	removeEvent: function (el, type, fn) {
+		if (typeof el === 'string') {
+			// el.removeEvents below apperantly calls this method again. Do not quite understand why, so for now just bail out.
+			return;
+		}
 		win.HighchartsAdapter.extendWithEvents(el);
-
 		if (type) {
 			if (type === 'unload') { // Moo self destructs before custom unload events
 				type = 'beforeunload';
