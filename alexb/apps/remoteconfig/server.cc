@@ -261,7 +261,7 @@ void Remcon::handle_packet(void) {
                 if (res == ENONE) {
                   rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
                   if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
-                  if (ENONE != service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)) { Logging::printf("failure - rebind of sc usage cap failed\n"); };
+                  if (rrres != service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)) { Logging::printf("failure - rebind of sc usage cap failed %x\n", rrres); };
 
                   server_data[j].scs_usage = scs_usage;
                   server_data[j].maxmem    = mem;
