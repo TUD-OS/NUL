@@ -2,13 +2,10 @@
 # -*- Mode: Python -*-
 
 import sys
-import glob
-import os
 import subprocess
-import re
 import zlib
 import struct
-import tempfile
+import array
 from stat import *
 
 width  = 1024
@@ -20,13 +17,9 @@ if (len(sys.argv) != 3):
 
 pdf = sys.argv[1]
 out = sys.argv[2]
-tmpdir = tempfile.mkdtemp()
 
 print("Input : " + pdf)
 print("Output: " + out)
-print
-print("Directory for (huge) temporary files: " + tmpdir)
-print
 
 print("Converting to raw image data. Go get a coffee. This can take a while.")
 
@@ -37,34 +30,22 @@ print("Converting to raw image data. Go get a coffee. This can take a while.")
 #                        tmpdir + '/page%d.png'])
 
 print("FIXME Resolution is hardcoded.")
-subprocess.check_call(['pdftoppm', '-r', '203.2', '-W', '1024', '-H', '768', pdf, tmpdir + '/page'])
+ppmdata = subprocess.Popen(['pdftoppm', '-r', '203.2', '-W', '1024', '-H', '768', pdf],
+                           stdin = open("/dev/null"), stdout = subprocess.PIPE)
+ppmstream = ppmdata.stdout
 
-def numcomp(x, y):
-    xnum = int(re.search('(?<=page-)[0-9]+', x).group(0))
-    ynum = int(re.search('(?<=page-)[0-9]+', y).group(0))
-    return xnum - ynum;
-
-# TODO Use ImageMagick python interface
 compressed_pages = []
-for page in sorted(glob.glob(tmpdir + '/page-*.ppm'), numcomp):
-    subprocess.check_call(['convert', page, '-separate', '-swap', '0,2', '-combine', '-depth', '8', page + '.rgb'])
-    os.remove(page)
-    uncompressed_len = os.stat(page + '.rgb')[ST_SIZE]
-    assert (width*height*3) == uncompressed_len
-    file = open(page + '.rgb', 'rb')
-    os.remove(page + '.rgb')
-    data = file.read()
-    file.close()
-    compressed = zlib.compress(data, 9)
-    print("Compressed page to %d%% (%s)." %
-          (100*len(compressed)/uncompressed_len, hex(len(compressed))))
+while ppmstream.readline() == "P6\n":
+    w,h = map(int, ppmstream.readline()[:-1].split())
+    assert ppmstream.readline()=="255\n"
+    rgb = array.array("c", ppmstream.read(w*h*3))
+    rgb[0::3], rgb[2::3] = rgb[2::3],rgb[0::3]
+    compressed = zlib.compress(rgb, 9)
+    uncompressed_len = len(rgb)
+    print("Compressed page to %d%%." % (100*len(compressed)/uncompressed_len))
     compressed_pages.append(compressed)
 
-try:
-    os.rmdir(tmpdir)
-except OSError:
-    print("Temporary directory is not empty. Not removed.")
-
+ppmstream.close()
 
 # See README.org for file format details.
 outfile = open(out, "wb")
@@ -75,12 +56,10 @@ outfile.write(struct.pack("ccccHHI", "P", "R", "E", "0",
 offset = 12 + (len(compressed_pages)+1)*4
 for page in compressed_pages + [""]:
     outfile.write(struct.pack("I", offset))
-    print("offset " + hex(offset))
     offset += len(page)
 
 # Write image data
 for page in compressed_pages:
-    print("CRC32 of compressed page: " + str(zlib.crc32(page)))
     outfile.write(page)
 
 # EOF
