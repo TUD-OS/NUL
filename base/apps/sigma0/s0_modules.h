@@ -214,25 +214,21 @@
     modinfo->physsize = (modinfo->physsize + 0xFFF) & ~0xFFF;
 
     check1(ERESOURCE, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
-           "s0: [%2u] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
+           "\ns0: [%2u] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
            CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
 
     check1(ERESOURCE, ((psize_needed > modinfo->physsize) || !elf),
-           "s0: [%2u] Could not allocate %ld MB memory. We need %ld MB.\n", modinfo->id, modinfo->physsize >> 20, psize_needed >> 20);
+           "\ns0: [%2u] We need %ld MB, however only %ld MB were configured to be used.\n", modinfo->id, psize_needed >> 20, modinfo->physsize >> 20);
 
     {
       SemaphoreGuard l(_lock_mem);
-      if (!(pmem = _free_phys.alloc(modinfo->physsize, 22))) {
-        _free_phys.debug_dump("free phys");
-        _virt_phys.debug_dump("virt phys");
-        _free_virt.debug_dump("free virt");
-      }
-      check1(ERESOURCE, !pmem);
+      if (!(pmem = _free_phys.alloc(modinfo->physsize, 22))) _free_phys.debug_dump("free phys");
+      check1(ERESOURCE, !pmem, "\ns0: [%2u] Not enough memory available - %ld MB were requested.\n", modinfo->id, modinfo->physsize >> 20);
     }
 
     // Don't assign modinfo->mem directly (potential double free)
     tmem = map_self(utcb, pmem, modinfo->physsize);
-    check2(_free_pmem, (tmem ? 0 : ERESOURCE), "s0: [%2u] mapping of %ld MB (%#lx) failed (phys=%#lx)",
+    check2(_free_pmem, (tmem ? 0 : ERESOURCE), "\ns0: [%2u] mapping of %ld MB (%#lx) failed (phys=%#lx)",
            modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
     MEMORY_BARRIER;
     modinfo->mem = tmem;
@@ -254,10 +250,10 @@
     {
       SemaphoreGuard l(_lock_mem);
       phip = _free_phys.alloc(0x1000U, 12);
-      check2(_free_pmem, (phip ? 0 : ERESOURCE), "s0: out of memory - hip(0x1000U)");
+      check2(_free_pmem, (phip ? 0 : ERESOURCE), "\ns0: [%2u] out of memory - hip(0x1000U)", modinfo->id);
     }
     modinfo->hip = map_self(utcb, phip, 0x1000U);
-    check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "s0: hip(0x1000U) could not be mapped");
+    check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "\ns0: [%2u] hip(0x1000U) could not be mapped", modinfo->id);
 
     // allocate a console for it
     alloc_console(modinfo, modinfo->cmdline, bswitch);
