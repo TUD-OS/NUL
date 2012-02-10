@@ -1501,8 +1501,10 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           } else msg.id = internal_id;
         } else {
           msg.res = start_config(myutcb(), msg.id, internal_id);
-          if (msg.res)
+          if (msg.res) {
             Logging::printf("s0: start of config failed, res = %d, config id=%d\n", msg.res, msg.id);
+            switch_view(_mb, 0, _console_data[0].console);
+          }
           else msg.id = internal_id;
         }
         return !msg.res;
