@@ -11,7 +11,24 @@ nul.App(target_env, 'rocknshine',
         LIBS    = [ 'service', 'tinf', 'runtime'],
         MEMSIZE = 1<<16)
 
-host_env.Command('#bin/apps/rocknshine.example', ['pdfprepare.py', 'presentation.pdf'],
-                 '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
+rocknshine_env = host_env.Clone()
+
+# From AutoconfRecipies in Scons wiki:
+# note that the full command path or none is returned, which can serve as True or False.
+def CheckCommand(context, cmd):
+       context.Message('Checking for %s command... ' % cmd)
+       result = WhereIs(cmd)
+       context.Result(result is not None)
+       return result
+
+conf = Configure(rocknshine_env, custom_tests = {'CheckCommand' : CheckCommand})
+has_pdftoppm = conf.CheckCommand("pdftoppm")
+conf.Finish()
+
+if has_pdftoppm:
+    host_env.Command('#bin/apps/rocknshine.example', ['pdfprepare.py', 'presentation.pdf'],
+                     '${SOURCES[0]} ${SOURCES[1:]} ${TARGET}')
+else:
+    print("Install poppler if you want to use pdfprepare to generate rocknshine slide sets.")
 
 # EOF
