@@ -28,15 +28,22 @@
 #include "nul/service_log.h"
 #include "nul/service_disk.h"
 
-/**
- * Layout of the capability space.
- */
+/****************************************************/
+/* Layout of the capability space                   */
+/****************************************************/
+
 enum Cap_space_layout
   {
     PT_IRQ       = 0x20,
     PT_VMX       = 0x100,
     PT_SVM       = 0x200
   };
+
+/****************************************************/
+/* Extern Variables                                 */
+/****************************************************/
+
+extern char __freemem;
 
 /****************************************************/
 /* Static Variables                                 */
@@ -201,7 +208,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
 	  break;
 	case KBCODE_SCROLL: // scroll lock
 	  Logging::printf("revoke all memory\n");
-	  extern char __freemem;
 	  revoke_all_mem(&__freemem, 0x30000000, DESC_MEM_ALL, true);
 	  break;
 	case KBFLAG_EXTEND1 | KBFLAG_RELEASE | 0x77: // break
@@ -510,7 +516,6 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     pde &= ~0x3fffffU;
     check1(0, _original_physsize < (pde | 0x3fffffU), "pde points out of RAM");
 
-    extern char __freemem;
     return reinterpret_cast<struct donor_buffer *>(&__freemem + pde);
   }
 
@@ -638,7 +643,6 @@ public:
           msg.value = 0;
         else
           {
-            extern char __freemem;
             msg.len    = _physsize - msg.value;
             msg.ptr    = &__freemem + msg.value;
           }
@@ -929,7 +933,6 @@ public:
     Logging::printf("Vancouver: hip %p utcb %p args '%s'\n", hip, utcb, args);
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    extern char __freemem;
     _physmem = reinterpret_cast<unsigned long>(&__freemem);
     _original_physsize = 0;
     // get physsize
