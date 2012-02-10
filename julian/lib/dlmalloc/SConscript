@@ -1,0 +1,14 @@
+# -*- Mode: Python -*-
+
+import nul
+
+Import('target_env')
+
+#                    dlmalloc-config.h
+nul.Lib(target_env,
+        "dlmalloc",
+        SOURCES = [ 'dlmalloc-support.cc',
+                    'dlmalloc.c'
+                    ])
+
+# EOF
