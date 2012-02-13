@@ -21,25 +21,14 @@
 #include "nul/service_admission.h"
 #include <wvprogram.h>
 #include "nul/service_fs.h"
-#include <nul/service_timer.h>
+#include <nul/timer_helper.h>
 
 volatile unsigned count;
 
-Clock *           clock;
-TimerProtocol *   timer_service;
-KernelSemaphore   timersem;
-
-
 class StartStop : public WvProgram
 {
-  cap_sel                  thread_exc;
-
-  static void msleep(unsigned msecs)
-  {
-    TimerProtocol::MessageTimer msg(clock->abstime(msecs, 1000));
-    timer_service->timer(*myutcb(), msg);
-    timersem.downmulti();
-  }
+  TimerHelper * timer;
+  cap_sel       thread_exc;
 
   static void startup(unsigned pid, void *tls, Utcb *utcb) __attribute__((regparm(1)))
   {
@@ -47,12 +36,12 @@ class StartStop : public WvProgram
     asmlinkage_protect("g"(tls), "g"(utcb));
   }
 
-  static void watchdog() NORETURN
+  static void watchdog(StartStop *tls, Utcb *utcb) __attribute__((regparm(0), noreturn))
   {
     unsigned last = 0;
     unsigned same_cnt = 0;
     while(1) {
-      msleep(100);
+      tls->timer->msleep(100);
       Logging::printf("Watchdog: count=%u\n", count);
       if (count == last) {
         if (++same_cnt == 50) {
@@ -70,14 +59,9 @@ class StartStop : public WvProgram
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
-    clock = new Clock(hip->freq_tsc * 1000);
-    timer_service = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0));
-    assert(clock);
-    assert(timer_service);
-    timersem = KernelSemaphore(timer_service->get_notify_sm());
+    timer = new TimerHelper(this);
 
     ConfigProtocol service_config(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-
 
     unsigned portal_num = FsProtocol::CAP_SERVER_PT + Global::hip.cpu_count();
     unsigned cap_base = alloc_cap(portal_num);
