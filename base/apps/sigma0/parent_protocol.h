@@ -54,7 +54,7 @@ private:
        * and if yes, a pointer to the value is returned.
        *
        * If the value is NULL, only the prefix is checked for precence
-       * and the value is to be processed by the called.
+       * and the value is to be processed by the caller.
        */
       const char *has(const char *prefix, const char *value="") const {
 	const char *pos;
