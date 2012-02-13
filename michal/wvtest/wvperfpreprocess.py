@@ -131,7 +131,7 @@ for line in sys.stdin.readlines():
                 print 'Testing "Parent protocol open_session performance" in parentperf_open:'
             else:
                 print 'Testing "Parent protocol call performance" in parentperf_call:'
-            line = line.replace('cycles ok', 'cycles axis="duration [cycles]" ok');
+            line = line.replace('cycles ok', 'cycles axis="duration" ok');
             line = line.replace(key, tag+'_'+key);
             print line
         continue
@@ -140,6 +140,9 @@ for line in sys.stdin.readlines():
         if linetype == 'testing' and 'PASSIVE' in what: line = line.replace('loc.wv', 'loc-passive.wv');
         if linetype == 'perf' and key != 'files':
             line = line.replace('ok', 'axis="lines" ok');
+
+    if 'pingpong.wv' in where:
+        if linetype == 'perf': line = line.replace('ok', 'axis="duration" ok');
         #print >>sys.stderr, line
 
     # Output (possibly modified) line
