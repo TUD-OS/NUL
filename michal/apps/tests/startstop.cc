@@ -21,22 +21,61 @@
 #include "nul/service_admission.h"
 #include <wvprogram.h>
 #include "nul/service_fs.h"
+#include <nul/service_timer.h>
 
 volatile unsigned count;
 
-NORETURN void watchdog() 
-{
-  while(1) {
-    //Logging::printf("I'm here %u\n", count);
-  }
-}
+Clock *           clock;
+TimerProtocol *   timer_service;
+KernelSemaphore   timersem;
 
 
 class StartStop : public WvProgram
 {
+  cap_sel                  thread_exc;
+
+  static void msleep(unsigned msecs)
+  {
+    TimerProtocol::MessageTimer msg(clock->abstime(msecs, 1000));
+    timer_service->timer(*myutcb(), msg);
+    timersem.downmulti();
+  }
+
+  static void startup(unsigned pid, void *tls, Utcb *utcb) __attribute__((regparm(1)))
+  {
+    utcb->eip = reinterpret_cast<unsigned *>(utcb->esp)[0];
+    asmlinkage_protect("g"(tls), "g"(utcb));
+  }
+
+  static void watchdog() NORETURN
+  {
+    unsigned last = 0;
+    unsigned same_cnt = 0;
+    while(1) {
+      msleep(100);
+      Logging::printf("Watchdog: count=%u\n", count);
+      if (count == last) {
+        if (++same_cnt == 50) {
+          WVPERF(count, "-");
+          WvTest::exit();
+        }
+      } else {
+        last = count;
+        same_cnt = 0;
+      }
+    }
+  }
+
+
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
+    clock = new Clock(hip->freq_tsc * 1000);
+    timer_service = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0));
+    assert(clock);
+    assert(timer_service);
+    timersem = KernelSemaphore(timer_service->get_notify_sm());
+
     ConfigProtocol service_config(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
 
@@ -62,10 +101,14 @@ public:
     WVNUL(file_obj.copy(*utcb, nulconfig, fileinfo.size));
 
     // Create a thread on CPU0 (we should be on CPU1) which monitors when we die on "Out of memory"
-    cap_sel ec;
     phy_cpu_no cpu = 0;
+    unsigned exc_ec = create_ec4pt(this,  cpu, 0);
+    WVPASS(exc_ec);
+    thread_exc = alloc_cap(32);
+    WVNOVA(nova_create_pt(thread_exc + 30, exc_ec, reinterpret_cast<unsigned long>(startup),  MTD_RSP | MTD_RIP_LEN));
+    cap_sel ec;
     Utcb *u = 0;
-    WVPASS(ec = create_ec_helper(this, cpu, 0, &u, reinterpret_cast<void *>(&watchdog)));
+    WVPASS(ec = create_ec_helper(this, cpu, thread_exc, &u, reinterpret_cast<void *>(&watchdog)));
     AdmissionProtocol::sched sched(AdmissionProtocol::sched::TYPE_APERIODIC);
     AdmissionProtocol service_admission(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
     WVNUL(service_admission.set_name(*utcb, "startstop"));
@@ -75,7 +118,7 @@ public:
     unsigned long mem = 0;
     cap_sel scs_usage = alloc_cap();
     for (count = 0; count < 10000; count++) {
-      Logging::printf("#%u\n", count);
+      //Logging::printf("#%u\n", count);
       unsigned start_res = service_config.start_config(*utcb, id, mem, scs_usage, nulconfig, fileinfo.size);
       if (start_res) { WVNUL(start_res); break; }
       unsigned kill_res = service_config.kill(*utcb, id);

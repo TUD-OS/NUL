@@ -333,7 +333,7 @@ public:
    * ASMFUNCS(..., WvTest).
    */
   __attribute__ ((noreturn))
-  static void exit(const char *msg)
+  static void exit(const char *msg = 0)
   {
     if (msg && strcmp(msg, "run returned"))
       Logging::printf("! %s() - %s FAILED\n", __func__, msg);
