@@ -38,6 +38,10 @@
 # define WARN_UNUSED
 #endif
 
+#ifndef nullptr
+ #define nullptr 0
+#endif
+
 #ifdef __cplusplus
 # define BEGIN_EXTERN_C extern "C" {
 # define END_EXTERN_C   }
