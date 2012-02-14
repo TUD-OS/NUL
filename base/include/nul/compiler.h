@@ -38,8 +38,10 @@
 # define WARN_UNUSED
 #endif
 
-#ifndef nullptr
- #define nullptr 0
+#ifdef __cplusplus
+# if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 6)
+#  define nullptr 0
+# endif
 #endif
 
 #ifdef __cplusplus
