@@ -259,9 +259,11 @@ void Remcon::handle_packet(void) {
                 unsigned long mem = 0;
                 res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
                 if (res == ENONE) {
-                  rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage,0,DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
+                  unsigned res_usage;
+                  rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
                   if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
-                  if (ENONE != (rrres = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage))) { Logging::printf("failure - rebind of sc usage cap failed %x\n", rrres); };
+                  if (ENONE != (res_usage = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)))
+                    Logging::printf("failure - rebind of sc usage cap %#x failed: %#x\n", scs_usage, res_usage);
 
                   server_data[j].scs_usage = scs_usage;
                   server_data[j].maxmem    = mem;
@@ -313,8 +315,10 @@ void Remcon::handle_packet(void) {
        
         uint64 consumed_time = 0;
         if (entry->active &&
-            ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time))
+            ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time)) {
           Logging::printf("failure - could not get consumed time of client\n");
+          break;
+        }
 
         *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(entry->maxmem / 1024); //in kB
         *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus
