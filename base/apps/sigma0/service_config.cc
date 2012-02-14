@@ -53,7 +53,7 @@ public:
 
         MessageConsole msg(MessageConsole::TYPE_START, ~0);
         msg.cmdline = config;
-        if (_bus_console.send(msg)) {
+        if (_bus_console.send(msg) && msg.cap_sc_usage && msg.mem) {
           //XXX utcb.head.mtr is modified by sigma0.cc (by map_self), first untyped word is error code
           utcb.head.untyped = 1;
           utcb << msg.id << msg.mem << Utcb::TypedMapCap(msg.cap_sc_usage);
