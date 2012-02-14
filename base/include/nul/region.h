@@ -48,6 +48,9 @@ public:
   unsigned      count() const { return _count; }
   const Region *list()  const { return _list; }
 
+  /**
+   * Find the region to a virtual address.
+   */
   Region *find(unsigned long long pos)
   {
     for (Region *r = _list + _count; --r >= _list;)
@@ -140,7 +143,7 @@ public:
   /**
    * Alloc a region from the list.
    */
-  unsigned long long alloc(unsigned long long size, unsigned align_order)
+  unsigned long long alloc(unsigned long long size, unsigned align_order, unsigned nb_offset = 0)
   {
     assert(_count < SIZE);
     assert(align_order < 8*sizeof(unsigned long long));
@@ -149,20 +152,19 @@ public:
 
     for (Region *r = _list; r < _list + _count; r++)
       {
-        unsigned long long virt = (r->end() - size) & ~((1ULL << align_order) - 1);
-        if (size <= r->size && virt >= r->virt
+        unsigned long long virt = ((r->end() - size) & ~((1ULL << align_order) - 1)) - nb_offset;
+        if ((size + nb_offset <= r->size) && (virt >= r->virt)
             && (!min || min->size > r->size)) min = r;
       }
 
     if (min) {
-      unsigned long long virt = (min->end() - size) & ~((1ULL << align_order) - 1);
-      del(Region(virt, size));
+      unsigned long long virt = ((min->end() - size) & ~((1ULL << align_order) - 1)) - nb_offset;
+      del(Region(virt, size + nb_offset));
       return virt;
     }
 
     return 0;
   }
-
 
   void debug_dump(const char *prefix)
   {
