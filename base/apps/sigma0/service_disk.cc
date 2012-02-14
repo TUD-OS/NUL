@@ -457,13 +457,12 @@ public:
   virtual void    dealloc_cap(cap_sel c)
   { return CapAllocator::dealloc_cap(c); }
 
-  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out)
+  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out, cap_sel ec = ~0u)
   {
-    cap_sel ec;
     bool ret;
-    MessageHostOp msg = MessageHostOp::create_ec4pt(&ec, this, cpu, utcb_out);
+    MessageHostOp msg = MessageHostOp::create_ec4pt(ec, this, cpu, utcb_out);
     ret = _mb.bus_hostop.send(msg);
-    return ret ? ec : 0;
+    return ret ? msg._create_ec4pt.ec : 0;
   }
 
   void add_disk(Disk *disk)

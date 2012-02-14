@@ -32,9 +32,9 @@ public:
   virtual void    dealloc_cap(cap_sel c)
   { return NovaProgram::dealloc_cap(c); }
 
-  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out)
+  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out, cap_sel ec = ~0u)
   {
-    return NovaProgram::create_ec4pt(this, cpu, 0, utcb_out);
+    return NovaProgram::create_ec4pt(this, cpu, 0, utcb_out, ec);
   }
 
   SServiceProgram(const char *console_name = "service")

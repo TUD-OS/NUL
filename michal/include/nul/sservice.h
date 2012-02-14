@@ -33,7 +33,7 @@ public:
   typedef SessionsTmpl<Session, BaseSService> Sessions;
   Sessions _sessions;
 protected:
-  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out) = 0;
+  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out, cap_sel ec = ~0u) = 0;
 
   virtual unsigned new_session(Session *session) = 0;
   virtual unsigned handle_request(Session *session, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap) = 0;
