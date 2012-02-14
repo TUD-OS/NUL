@@ -425,7 +425,7 @@ class HostAhci : public StaticReceiver<HostAhci>
       create_ahci_port(buffer, i, _regs->ports+i, bus_hostop, bus_disk, bus_commit, clock, dmar);
     for (unsigned i=30; _regs_high && i < 32; i++)
       create_ahci_port(buffer, i, _regs_high+(i-30), bus_hostop, bus_disk, bus_commit, clock, dmar);
-    delete buffer;
+    delete [] buffer;
 
     // clear pending irqs
     _regs->is = _regs->pi;
