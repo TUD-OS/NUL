@@ -385,13 +385,11 @@ struct MessageConsole
       unsigned input_device;
       unsigned input_data;
     };
-    struct {
+    struct { //used with TYPE_START
+      cap_sel cap_sc_usage;
+      unsigned long mem;
       unsigned res;
       char const * cmdline;
-    };
-    struct {
-      unsigned cap_sc_usage;
-      unsigned long mem;
     };
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
