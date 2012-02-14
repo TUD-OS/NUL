@@ -215,7 +215,7 @@ public:
 
   void enable_irqs()
   {
-    _hwreg[VTEIMS] = 1;
+    _hwreg[VTEIMS] = 3;
   }
 
   Host82576VF(HostVfPci pci, DBus<MessageHostOp> &bus_hostop,
@@ -257,7 +257,6 @@ public:
     // Setup autoclear and stuff for both IRQs.
     _hwreg[VTEIAC] = 3;
     _hwreg[VTEIAM] = 3;
-    _hwreg[VTEIMS] = 3;
 
     // Set single buffer mode
     _hwreg[SRRCTL0] = 2 /* 2KB packet buffer */ | SRRCTL_DESCTYPE_ADV1B | SRRCTL_DROP_EN;
