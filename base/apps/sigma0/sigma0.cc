@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -560,20 +560,57 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * (for SSE stuff).
    */
   static void *sigma0_memalloc(unsigned long size, unsigned long align) {
+    unsigned long offset = 0x10;
+
     if (!size) return 0;
     if (align < 0x10) align = 0x10;
 
     size = (size + 0xF) & ~0xF;
-
-    unsigned long pmem;
+    unsigned long long pmem;
     {
       SemaphoreGuard l(_lock_mem);
-      pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1));
+      pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1), offset);
     }
-    void *res;
-    if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size))) Logging::panic("s0: %s(%lx, %lx) EOM!\n", __func__, size, align);
-    memset(res, 0, size);
-    return res;
+    if (pmem) assert (((pmem + offset) & 0xF) == 0);
+
+    char *res;
+    if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size + offset))) { Logging::printf("s0: %s(%lx, %lx) EOM!\n", __func__, size, align); return 0; }
+
+    assert ((reinterpret_cast<unsigned long>(res + offset) & 0xF) == 0);
+    memset(res, 0, size + offset);
+    *(reinterpret_cast<unsigned long *>(res + offset) - 2) = 0x55555555;
+    *(reinterpret_cast<unsigned long *>(res + offset) - 1) = size;
+
+    //Logging::printf("memalloc pmem-%lu=%#llx, res-%lu=%p res=%p size=%#lx\n", offset, pmem, offset, res, res + offset, size);
+
+    return res + offset;
+  }
+
+  static void sigma0_memfree(void * ptr) {
+    static unsigned long long sum;
+    unsigned offset = 0x10;
+
+    if (!ptr) return;
+    unsigned long size  = *(reinterpret_cast<unsigned long *>(ptr) - 1);
+    unsigned long magic = *(reinterpret_cast<unsigned long *>(ptr) - 2);
+    if (magic != 0x55555555) Logging::panic("memfree %p - corrupted memory pointer\n", ptr);
+
+    //Logging::printf("memfree - size=%#lx (%p) - freed overall %#llx Bytes\n", size, ptr, (sum += size));//__builtin_return_address(0), __builtin_return_address(1));
+    {
+      SemaphoreGuard l(_lock_mem);
+
+      unsigned long vptr = reinterpret_cast<unsigned long>(ptr) - offset;
+      Region * r = sigma0->_virt_phys.find(vptr);
+      assert(r);
+      assert(vptr - r->virt + size + offset <= r->size);
+
+      Region * s = sigma0->_free_phys.find(r->phys + (vptr - r->virt));
+      assert(!s);
+      if (r->phys + (vptr - r->virt) >= (1ULL << 20))
+        sigma0->_free_phys.add(Region(r->phys + (vptr - r->virt) , size + offset, r->phys + (vptr - r->virt)));
+      else
+        Logging::printf("memfree - skipped phys memory below first 1M\n");
+    }
   }
 
   /**
@@ -626,6 +663,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // switch to another allocator
     memalloc = sigma0_memalloc;
+    memfree  = sigma0_memfree;
 
     // create a hip containing virtual addresses for aux
     if (_hip->length > 0x1000) return 1;
