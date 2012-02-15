@@ -2,7 +2,7 @@
  * @file 
  * Simple service in its own protection domain.
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -21,8 +21,8 @@
 #include <nul/program.h>
 #include <sigma0/console.h>
 
-template<class Session>
-class SServiceProgram : public BaseSService<Session>, public NovaProgram, public ProgramConsole
+template<class Session, class A, template <class Session, class A> class Base>
+class SServiceProgram : public Base<Session, A>, public NovaProgram, public ProgramConsole
 {
 public:
 

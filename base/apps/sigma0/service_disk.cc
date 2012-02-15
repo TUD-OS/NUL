@@ -202,7 +202,7 @@ struct DiskClient : public GenericClientData {
 };
 
 class DiskService :
-  public BaseSService<DiskClient>,
+  public XlateSService<DiskClient, DiskService>,
   public CapAllocator, public StaticReceiver<DiskService>
 {
 private:
@@ -491,7 +491,7 @@ public:
     for (unsigned i = 0; i < _mb.bus_disk.count(); i++) {
       add_disk(new S0Disk(&_mb.bus_disk, i));
     }
-    register_service(this, "/disk", *mb.hip());
+    register_service("/disk", *mb.hip());
   }
 };
 
