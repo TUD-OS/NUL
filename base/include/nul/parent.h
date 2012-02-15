@@ -1,8 +1,9 @@
 /** @file
- * Parent protocol.
+ * Parent protocol - constants and client side.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
