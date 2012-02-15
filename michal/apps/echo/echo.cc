@@ -96,7 +96,7 @@ public:
 	  return false;
 
         utcb_worker->head.crd = Crd(alloc_cap(), 0, DESC_CAP_ALL).value();
-        utcb_worker->head.crd_translate = Crd(0, 16, DESC_CAP_ALL).value();
+        utcb_worker->head.crd_translate = 0;
 
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EchoService>::portal_func);
         res = nova_create_pt(pt_worker, cap_worker_ec, portal_func, 0);
