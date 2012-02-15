@@ -8,6 +8,14 @@ quiet_target_env = target_env.Clone()
 quiet_target_env.Append(CPPDEFINES = '-DQUIET')
 quiet_target_env['OBJSUFFIX'] = '-quiet.o'
 
+noxlate_target_env = target_env.Clone()
+noxlate_target_env.Append(CPPDEFINES = '-DNOXLATE')
+noxlate_target_env['OBJSUFFIX'] = '-noxlate.o'
+
+noxlate_quiet_target_env = target_env.Clone()
+noxlate_quiet_target_env.Append(CPPDEFINES = ['-DNOXLATE', '-DQUIET'])
+noxlate_quiet_target_env['OBJSUFFIX'] = '-noxlate-quiet.o'
+
 nul.App(target_env, 'echo',
         SOURCES = [ 'echo.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
@@ -48,6 +56,23 @@ nul.App(quiet_target_env, 'echo2ss-quiet',
 nul.App(target_env, 'echo2test',
         SOURCES = [ 'echo2test.cc' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(noxlate_target_env, 'echo2test-noxlate',
+        SOURCES = [ 'echo2test.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<22)
+
+nul.App(noxlate_target_env, 'echo2ss-noxlate',
+        SOURCES = [ 'echo2ss.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        LIBS    = [ 'runtime' ],
+        MEMSIZE = 1<<22)
+
+nul.App(noxlate_quiet_target_env, 'echo2ss-noxlate-quiet',
+        SOURCES = [ 'echo2ss.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        LIBS    = [ 'runtime' ],
         MEMSIZE = 1<<22)
 
 nul.App(target_env, 'parentperf',

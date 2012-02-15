@@ -25,21 +25,29 @@
 #include <nul/sserviceprogram.h>
 #include <wvtest.h>
 
-// This construct can be used to store per-client data
-struct EchoClient : public GenericClientData {
-  unsigned last_val;		// Last value sent by client
-};
-
 #ifdef QUIET
 #define verbose(...)
 #else
 #define verbose(...) Logging::printf(__VA_ARGS__)
 #endif
 
-class EchoService : public SServiceProgram<EchoClient>
+#ifdef NOXLATE
+#define BASE_SSERVICE NoXlateSService
+#define BASE_CLIENT   PerCpuIdClientData
+#else
+#define BASE_SSERVICE XlateSService
+#define BASE_CLIENT   GenericClientData
+#endif
+
+// This construct can be used to store per-client data
+struct EchoClient : public BASE_CLIENT {
+  unsigned last_val;		// Last value sent by client
+};
+
+class EchoService : public SServiceProgram<EchoClient, EchoService, BASE_SSERVICE>
 {
   virtual unsigned new_session(EchoClient *client) {
-    verbose("Opened a new session\n");
+    verbose("echo: Opened a new session for client %p\n", client);
     return ENONE;
   }
 
@@ -50,7 +58,7 @@ class EchoService : public SServiceProgram<EchoClient>
       unsigned value;
       check1(EPROTO, input.get_word(value));
       // Get the value sent by a client
-      verbose("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+      verbose("echo: Client %p sent us value %d\n", client, value);
       client->last_val = value; // Remember the received value
       return value; // "Echo" the received value back
     }
@@ -64,9 +72,9 @@ class EchoService : public SServiceProgram<EchoClient>
   }
 
 public:
-  EchoService() : SServiceProgram<EchoClient>("Echo service") {
+  EchoService() : SServiceProgram<EchoClient, EchoService, BASE_SSERVICE>("Echo service") {
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + Global::hip.cpu_count()));
-    register_service(this, "/echo");
+    register_service("/echo");
   }
 };
 

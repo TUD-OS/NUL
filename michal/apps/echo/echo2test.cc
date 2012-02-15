@@ -18,7 +18,13 @@
  */
 
 #include <wvprogram.h>
+
+#ifndef NOXLATE
 #include "service_echo.h"
+#else
+#include "service_echo_noxlate.h"
+#define EchoProtocol EchoProtocolNoXlate
+#endif
 
 class EchoTest : public WvProgram
 {

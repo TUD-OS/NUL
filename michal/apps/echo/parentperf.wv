@@ -3,9 +3,9 @@
 WVDESC=Parent protocol performance
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
     script \
-    script_start:1,3 \
+    script_start:1,4 \
     script_wait:1000 \
-    script_start:4 \
+    script_start:5 \
     script_waitchild
 bin/apps/echo-quiet.nul
 echo1.nulconfig <<EOF
@@ -22,8 +22,13 @@ echo3.nulconfig <<EOF
 namespace::/serv3 sigma0::mem:16 simgma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
 rom://bin/apps/echo2ss-quiet.nul
 EOF
+bin/apps/echo2ss-noxlate-quiet.nul
+echo4.nulconfig <<EOF
+namespace::/serv4 sigma0::mem:16 simgma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo2ss-noxlate-quiet.nul
+EOF
 bin/apps/parentperf.nul
 parentperf.nulconfig <<EOF
-sigma0::mem:16 sigma0::cpu:0 name::/s0/log name::/s0/fs/rom name::/serv1/echo name::/serv2/echo name::/serv3/echo name::/s0/admission ||
+sigma0::mem:16 sigma0::cpu:0 name::/s0/log name::/s0/fs/rom name::/serv1/echo name::/serv2/echo name::/serv3/echo name::/serv4/echo name::/s0/admission ||
 rom://bin/apps/parentperf.nul
 EOF

@@ -17,7 +17,7 @@
 
 #include <nul/parent.h>
 
-struct EchoProtocol : public GenericProtocol {
+struct EchoProtocolNoXlate : public GenericNoXlateProtocol {
 
   enum {
     TYPE_ECHO = ParentProtocol::TYPE_GENERIC_END,
@@ -36,11 +36,11 @@ struct EchoProtocol : public GenericProtocol {
     return res;
   }
 
-  explicit EchoProtocol(CapAllocator *a, unsigned instance=0, bool blocking = true)
-    : GenericProtocol("echo", instance,
-                      a->alloc_cap(EchoProtocol::CAP_SERVER_PT + Global::hip.cpu_count()),
-                      blocking) {}
+  explicit EchoProtocolNoXlate(CapAllocator *a, unsigned instance=0, bool blocking = true)
+    : GenericNoXlateProtocol("echo", instance,
+                             a->alloc_cap(EchoProtocolNoXlate::CAP_SERVER_PT + Global::hip.cpu_count()),
+                             blocking, a->alloc_cap(Global::hip.cpu_desc_count())) {}
   void close() {
-    GenericProtocol::close(*BaseProgram::myutcb(), EchoProtocol::CAP_SERVER_PT + Global::hip.cpu_count());
+    GenericNoXlateProtocol::close(*BaseProgram::myutcb(), EchoProtocolNoXlate::CAP_SERVER_PT + Global::hip.cpu_count());
   }
 };

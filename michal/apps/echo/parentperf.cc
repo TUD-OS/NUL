@@ -19,17 +19,21 @@
 
 #include <wvprogram.h>
 #include "service_echo.h"
+#include "service_echo_noxlate.h"
 
 class ParentPerf : public WvProgram
 {
   static const unsigned tries = 1000;
   uint64 results[tries];
 
-  void benchmark(EchoProtocol *echo) {
+  template <class T>
+  void benchmark(T *echo) {
     uint64 tic, tac, min = ~0ull, max = 0, ipc_duration;
 
     // Warmup call to wait on the service to start and get the cache warm
-    echo->echo(*myutcb(), 42);
+    WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
+    echo->close();
+    WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
     echo->close();
     
     tic = Cpu::rdtsc();
@@ -56,6 +60,7 @@ class ParentPerf : public WvProgram
     WVPERF(min, "cycles");
     WVPERF(max, "cycles");
   }
+
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
@@ -65,6 +70,8 @@ public:
     benchmark(new EchoProtocol(this, 1));
     WVSTART("Service with sessions (implemented as a subclass of SService)");
     benchmark(new EchoProtocol(this, 2));
+    WVSTART("Service with sessions represented by portals (implemented as a subclass of NoXlateSService)");
+    benchmark(new EchoProtocolNoXlate(this, 3));
   }
 };
 
