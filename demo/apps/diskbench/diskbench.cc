@@ -88,7 +88,7 @@ public:
     disk = new DiskProtocol(this, 0);
     res = disk->attach(*utcb, disk_buffer, sizeof(disk_buffer), alloc_cap(),
 		       diskconsumer, sem);
-    if (res) Logging::panic("delegate_dma_buffer failed: %d\n", res);
+    if (res) Logging::panic("disk->attach failed: %d\n", res);
     Motherboard *mb = new Motherboard(new Clock(hip->freq_tsc*1000), hip);
     mb->parse_args(reinterpret_cast<const char *>(hip->get_mod(0)->aux));
 

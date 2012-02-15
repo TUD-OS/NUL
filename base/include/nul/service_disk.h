@@ -94,8 +94,7 @@ struct DiskProtocol : public GenericProtocol {
     /* Delegate sempahore and request portal capability for memory delegation */
     init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem->sm());
     utcb.head.crd = Crd(tmp_cap, 0, DESC_CAP_ALL).value();
-    res = call_server_drop(utcb);
-    check2(err, res);
+    check2(err, call_server_drop(utcb));
 
     /* Delegate the memory via the received portal */
     utcb.add_frame();

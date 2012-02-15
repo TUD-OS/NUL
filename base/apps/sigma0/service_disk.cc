@@ -212,7 +212,7 @@ private:
 
   cap_sel _deleg_ec[Config::MAX_CPUS];
 
-  DiskClient *_get_client_from_pt(cap_sel pt) {
+  DiskClient *_get_client_from_deleg_pt(cap_sel pt) {
     DiskClient *client = 0;
     for (client = _sessions.next(client); client && pt; client = _sessions.next(client))
       if (client->deleg_pt == pt) {
@@ -225,7 +225,7 @@ private:
     DiskClient *client = 0;
     //unsigned res;
     Sessions::Guard guard_c(&_sessions, utcb, this);
-    client =_get_client_from_pt(pt);
+    client =_get_client_from_deleg_pt(pt);
     if (!client) return EEXISTS;
 
     Crd consumer_mem = input.translated_cap(0);
@@ -327,8 +327,6 @@ private:
     return attach_drives(*BaseProgram::myutcb(), client->get_identity());
   }
 
-
-public:
   virtual unsigned handle_request(DiskClient *client, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap)
     {
       SemaphoreGuard l(_lock);
@@ -437,6 +435,20 @@ public:
       }
     }
 
+  void add_disk(Disk *disk)
+  {
+    disks.add(disk);
+    char message[200], *end = message+sizeof(message), *start = message;
+    Vprintf::snprintf(start, end-start, "disk: Added");
+    start += 11;
+    for (Disk::Name *name = disk->names.head; name && start < end; name = name->next) {
+      Vprintf::snprintf(start, end-start, " '%s'", name->name);
+      start += strlen(name->name) + 3;
+    }
+    Logging::printf("%s\n", message);
+  }
+
+public:
   bool receive(MessageDiskCommit &msg)
   {
     // user provided write?
@@ -463,19 +475,6 @@ public:
     MessageHostOp msg = MessageHostOp::create_ec4pt(ec, this, cpu, utcb_out);
     ret = _mb.bus_hostop.send(msg);
     return ret ? msg._create_ec4pt.ec : 0;
-  }
-
-  void add_disk(Disk *disk)
-  {
-    disks.add(disk);
-    char message[200], *end = message+sizeof(message), *start = message;
-    Vprintf::snprintf(start, end-start, "disk: Added");
-    start += 11;
-    for (Disk::Name *name = disk->names.head; name && start < end; name = name->next) {
-      Vprintf::snprintf(start, end-start, " '%s'", name->name);
-      start += strlen(name->name) + 3;
-    }
-    Logging::printf("%s\n", message);
   }
 
   DiskService(Motherboard &mb, unsigned _cap, unsigned _cap_order)
