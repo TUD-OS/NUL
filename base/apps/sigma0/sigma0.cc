@@ -571,7 +571,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       SemaphoreGuard l(_lock_mem);
       pmem = sigma0->_free_phys.alloc(size, Cpu::bsr(align | 1), offset);
     }
-    if (pmem) assert (((pmem + offset) & 0xF) == 0);
+    assert ((pmem == 0) or ((pmem + offset) & 0xF) == 0);
 
     char *res;
     if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size + offset))) { Logging::printf("s0: %s(%lx, %lx) EOM!\n", __func__, size, align); return 0; }
