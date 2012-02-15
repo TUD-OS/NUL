@@ -169,7 +169,7 @@ public:
 };
 
 // per client data
-struct DiskClient : public GenericClientData {
+struct DiskClient : public PerCpuIdClientData {
   enum {
     MAXDISKS           = 32,	// Maximum number of disks per client
   };
@@ -202,7 +202,7 @@ struct DiskClient : public GenericClientData {
 };
 
 class DiskService :
-  public XlateSService<DiskClient, DiskService>,
+  public NoXlateSService<DiskClient, DiskService>,
   public CapAllocator, public StaticReceiver<DiskService>
 {
 private:

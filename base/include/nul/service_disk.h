@@ -30,7 +30,7 @@
  * Client part of the disk protocol.
  * Missing: register shared memory producer/consumer.
  */
-struct DiskProtocol : public GenericProtocol {
+struct DiskProtocol : public GenericNoXlateProtocol {
   enum {
     MAXDISKREQUESTS    = 32  // max number of outstanding disk requests per client
   };
@@ -163,9 +163,11 @@ struct DiskProtocol : public GenericProtocol {
   }
 
   DiskProtocol(CapAllocator *a, unsigned instance)
-    : GenericProtocol("disk", instance, a->alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), false) {}
+    : GenericNoXlateProtocol("disk", instance, a->alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), false,
+                             a->alloc_cap(Global::hip.cpu_desc_count())) {}
 
   void destroy(Utcb &utcb, CapAllocator *a) {
-    GenericProtocol::destroy(utcb, DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count(), a);
+    GenericNoXlateProtocol::destroy(utcb, DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count(), a);
+    a->dealloc_cap(_session_base, Global::hip.cpu_desc_count());
   }
 };
