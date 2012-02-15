@@ -18,6 +18,7 @@
  */
 #pragma once
 #include "nul/parent.h"
+#include "nul/baseprogram.h"
 
 /**
  * Optimize the request of different resources and the rollback if one failes.
@@ -68,10 +69,30 @@ struct BaseClientData {
 class GenericClientData : public BaseClientData {
   cap_sel identity;  ///< A capability created by the service to identify the session.
 public:
-  void set_identity(cap_sel id) { identity = id; }
-  cap_sel get_identity() { return identity; }
+  void    set_identity(cap_sel id)   { identity = id; }
+  cap_sel get_identity()             { return identity; }
+  void    set_singleton(cap_sel cap) { }
+  cap_sel get_singleton()            { return identity; }
+
+  template <class A>
+  void dealloc_identity(A * obj) { obj->dealloc_cap(identity); }
 };
 
+// ClientData base type for use with NoXlateSService
+class PerCpuIdClientData : public BaseClientData {
+  cap_sel portals[Config::MAX_CPUS];
+  cap_sel singleton;
+public:
+  void    set_identity(cap_sel id)   { portals[BaseProgram::myutcb()->head.nul_cpunr] = id; }
+  cap_sel get_identity()             { return portals[BaseProgram::myutcb()->head.nul_cpunr]; }
+  void    set_singleton(cap_sel cap) { singleton = cap; }
+  cap_sel get_singleton()            { return singleton; }
+
+  template <class A>
+  void dealloc_identity(A * obj) {
+    for (unsigned i = 0; i < Config::MAX_CPUS; i++) obj->dealloc_cap(portals[i]);
+  }
+};
 
 /**
  * A generic container that stores per-client data.
@@ -120,7 +141,7 @@ class ClientDataStorage {
             T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
             data->session_close(utcb);
           }
-          obj->dealloc_cap(data->get_identity());
+          data->dealloc_identity(obj);
           if (free_pseudonym) obj->dealloc_cap(data->pseudonym);
           //tmp = data->del;
           unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
@@ -134,6 +155,25 @@ class ClientDataStorage {
       } else
         if (__DEBUG__) Logging::printf("gs: did not get cleaning list\n");
     }
+  }
+
+  unsigned create_identity(GenericClientData * data, A * obj) {
+    return nova_create_sm(data->get_identity());
+  }
+
+  // XXX: We use client type here to distinguish between Xlate and
+  // NoXlate services. This might not be always correct. For example,
+  // it would be fine to use GenericClientData with NoXlate protocol
+  // provided that the service doesn't enforce one session per client
+  // policy (get/set_singleton()). This implementation would not allow
+  // it.
+  //
+  // We could use type traits to select which implementation we want
+  // here. This would also allow us to get rid of __DEBUG__ and
+  // free_pseudonym template parameters which usually only clutter
+  // compiler error messages.
+  unsigned create_identity(PerCpuIdClientData * data, A * obj) {
+    return obj->create_session_portal(data->get_identity());
   }
 
 public:
@@ -177,11 +217,23 @@ public:
     assert(!(reinterpret_cast<unsigned long>(&recyc64) & 0x7));
   }
 
+  unsigned alloc_identity(T * data, A * obj)
+  {
+    unsigned res, identity;
+    identity = obj->alloc_cap();
+    if (!identity) return ERESOURCE;
+    data->set_identity(identity);
+    data->set_singleton(identity);
+    res = create_identity(data, obj);
+    if (res) obj->dealloc_cap(identity);
+    return res;
+  }
+
   /**
    * Allocates session data for a client.
    *
-   * Sets data->pseudonym to @a pseudonym and creates a new
-   * data->identity.
+   * Sets data->pseudonym to @a pseudonym and creates a new session
+   * identity.
    *
    * @param utcb UTCB
    * @param[out] data Allocated client data
@@ -197,17 +249,13 @@ public:
     check1(res, res = guard2.status());
     guard2.commit();
 
-    unsigned identity = obj->alloc_cap();
-    if (!identity) return ERESOURCE;
     data = new T;
     if (!data) return ERESOURCE;
 
     memset(data, 0, sizeof(T));
     data->pseudonym = pseudonym;
-    data->set_identity(identity);
-    res = nova_create_sm(data->get_identity());
+    res = alloc_identity(data, obj);
     if (res != ENONE) {
-      obj->dealloc_cap(identity);
       delete data;
       data = 0;
       return res;
