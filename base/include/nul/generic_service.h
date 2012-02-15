@@ -407,7 +407,7 @@ public:
     Guard guard_c(this, utcb, obj);
     T * client = get_invalid_client(utcb, obj);
     while (client) {
-      Logging::printf("ad: found dead client - freeing datastructure\n");
+      Logging::printf("gs: found dead client %p - freeing datastructure\n", client);
       free_client_data(utcb, client, obj);
       client = get_invalid_client(utcb, obj, client);
     }

@@ -303,7 +303,7 @@ public:
         ClientData *cdata;
 
         if ((res = session.get_client_data(utcb, cdata, input.identity()))) return res;
-        //Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
+        //Logging::printf("pp: close session for %#x for %#x\n", cdata->get_identity(), cdata->pseudonym);
         return session.free_client_data(utcb, cdata, this);
       }
     case ParentProtocol::TYPE_GET_PORTAL:
