@@ -119,18 +119,23 @@ for line in sys.stdin.readlines():
             if 'diskbench-ramdisk-old.wv' in where:
                 line = line.replace('throughput', 'old-protocol', 1)
 
-    if 'parentperf.' in where:
+    if 'parentperf.' in where or 'parentperfsmp.' in where:
         if linetype == 'testing':
+            if 'parentperf.wv' in where: smp = False
+            elif 'parentperfsmp.wv' in where: smp = True
             if what == 'Service without sessions': tag = 'nosess'
             elif what == 'Service with sessions':  tag = 'sess'
             elif what == 'Service with sessions (implemented as a subclass of SService)': tag = 'sserv'
+            elif what == 'Service with sessions represented by portals (implemented as a subclass of NoXlateSService)': tag = 'noxsserv'
             else: tag = None
         elif linetype == 'perf':
             if key == 'min' or key == 'max': continue
             if key == 'open_session':
-                print 'Testing "Parent protocol open_session performance" in parentperf_open:'
+                if not smp: print 'Testing "Parent protocol open_session performance" in parentperf_open:'
+                else:       continue
             else:
-                print 'Testing "Parent protocol call performance" in parentperf_call:'
+                if not smp: print 'Testing "Parent protocol call performance" in parentperf_call:'
+                else:       print 'Testing "Parent protocol call performance (4 CPUs in parallel)" in parentperf_call_smp:'
             line = line.replace('cycles ok', 'cycles axis="duration" ok');
             line = line.replace(key, tag+'_'+key);
             print line
