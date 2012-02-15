@@ -332,9 +332,9 @@ public:
 };
 
 /// Helper class that replaces calls to init_frame() with calls to init_frame_noid().
-class GenericPtSessProtocol : public GenericProtocol {
+class GenericNoXlateProtocol : public GenericProtocol {
 public:
-  GenericPtSessProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
+  GenericNoXlateProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
     : GenericProtocol(service, instance, cap_base, blocking, session_base) {}
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return init_frame_noid(utcb, op); }
