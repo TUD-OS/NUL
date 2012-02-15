@@ -587,7 +587,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   }
 
   static void sigma0_memfree(void * ptr) {
-    static unsigned long long sum;
+    //static unsigned long long sum;
     unsigned offset = 0x10;
 
     if (!ptr) return;
