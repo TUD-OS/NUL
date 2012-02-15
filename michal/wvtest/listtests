@@ -19,9 +19,10 @@ michal/wvtest/sizes.wv
 michal/wvtest/wvtesttest.wv
 alexb/apps/ipc_test/ipctest.wv
 julian/apps/per-cpu-service/per-cpu-service.wv
-michal/apps/echo/echo2sstest.wv
-michal/apps/echo/echo2test.wv
 michal/apps/echo/echotest.wv
+michal/apps/echo/echo2test.wv
+michal/apps/echo/echo2sstest.wv
+michal/apps/echo/echo2ssnoxlate.wv
 michal/apps/logdisk/part.wv
 michal/apps/logdisk/gpt.wv
 michal/apps/tests/timer.wv broken_in_qemu
@@ -32,8 +33,14 @@ michal/boot/vancouver-linux-basic.wv
 michal/boot/vancouver-linux-boot-time.wv
 michal/boot/diskbench-vm.wv
 michal/boot/vancouver-dpci.wv needs_net
-alexb/apps/libvirt/libvirt.wv
 michal/boot/vancouver-boot-from-disk.wv
+alexb/apps/libvirt/libvirt.wv
+alexb/apps/libvirt/libvirt-connect.wv slow
+alexb/apps/libvirt/libvirt-start-stop.wv slow
+michal/apps/echo/parentperf.wv
+michal/apps/tests/pingpong.wv
+michal/apps/tests/startstop.wv slow
+michal/wvtest/loc.wv
 """
 
 test_end="""\
@@ -58,7 +65,7 @@ class Test(object):
         self.name = words[0]
         self.tags = words[1:]
         try:
-            p = subprocess.Popen("cd $(git rev-parse --show-cdup) && git check-attr -a " + self.name, shell=True, stdout=subprocess.PIPE);
+            p = subprocess.Popen("cd $(git rev-parse --show-toplevel) && git check-attr -a " + self.name, shell=True, stdout=subprocess.PIPE);
             for line in  p.stdout:
                 words = string.split(line)
                 if len(words) >= 3 and words[2] == "set":
