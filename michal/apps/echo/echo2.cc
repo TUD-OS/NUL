@@ -52,7 +52,7 @@ private:
   typedef ClientDataStorage<ClientData, EchoService, true, true> EchoClientDataStorage;
 
   EchoClientDataStorage _storage;
-
+  char * flag_revoke; // Share memory with parent to signalize us dead clients
 public:
 
   EchoService() : NovaProgram(), ProgramConsole() {}
@@ -95,6 +95,8 @@ public:
         res = _storage.alloc_client_data(utcb, data, pseudonym, this);
         if (res == ERESOURCE) { _storage.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
+
+        if (*flag_revoke) { *flag_revoke = 0; _storage.cleanup_clients(utcb, this)); }
 
         res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
@@ -158,6 +160,9 @@ public:
       unsigned service_cap = alloc_cap();
       Utcb *utcb_worker;
 
+      flag_revoke = new (0x1000) char[0x1000];
+      if (!flag_revoke) return false;
+
       // Create worker threads and portals for each CPU
       for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
         Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(hip) + hip->cpu_offs + cpunr*hip->cpu_size);
@@ -177,7 +182,7 @@ public:
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EchoService>::portal_func);
         res = nova_create_pt(pt_worker, cap_worker_ec, portal_func, 0);
         if (res) return false;
-        res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_worker, service_cap);
+        res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_worker, service_cap, flag_revoke);
         if (res) return !res;
       }
 

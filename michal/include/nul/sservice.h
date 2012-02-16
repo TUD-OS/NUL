@@ -31,6 +31,7 @@ protected:
   typedef ClientDataStorage<Session, A> Sessions;
   Sessions _sessions;
   cap_sel  _worker_ec_base;
+  char * flag_revoke; // Share memory with parent to signalize us dead clients
 
   virtual unsigned new_session(Session *session) = 0;
   virtual unsigned handle_request(Session *session, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap) = 0;
@@ -64,6 +65,9 @@ public:
 
     _worker_ec_base = alloc_cap(hip.cpu_desc_count());
 
+    flag_revoke = new (0x1000) char[0x1000];
+    if (!flag_revoke) return false;
+
     for (phy_cpu_no i = 0; i < hip.cpu_desc_count(); i++) {
       Hip_cpu const &cpu = hip.cpus()[i];
       if (not cpu.enabled()) continue;
@@ -83,7 +87,7 @@ public:
 
       // Register service
       res = ParentProtocol::register_service(*BaseProgram::myutcb(), service_name, i,
-                                             worker_pt, service_cap);
+                                             worker_pt, service_cap, flag_revoke);
       if (res != ENONE)
         Logging::panic("Registering service on CPU%u failed.\n", i);
     }
@@ -125,6 +129,8 @@ public:
     res = _sessions.alloc_client_data(utcb, session, pseudonym, static_cast<A*>(this));
     if (res == ERESOURCE) { _sessions.cleanup_clients(utcb, static_cast<A*>(this)); return ERETRY; } //force garbage collection run
     else if (res) return res;
+
+    if (*flag_revoke) { *flag_revoke = 0; _sessions.cleanup_clients(utcb, static_cast<A*>(this)); }
 
     res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_singleton());
     assert(!res);

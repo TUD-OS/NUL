@@ -115,10 +115,10 @@ struct ParentProtocol {
    * @param cap_service Capability selector where parent delegates us
    * the service identifier. It seems that this identifier is not used
    * for anything.
-   * @param revoke_mem Memory page used to substitute the memory that
-   * was provided to the service by a client, but was revoked later.
-   * Having such memory makes it easier for services to deal with
-   * situations when the memory is revoked during service operation.
+   * @param revoke_mem Memory page the parent will use to signalize us
+   * that some client has died (or closed session). The service can
+   * use this to figure out when it is not necessary to search for
+   * dead clients.
    */
   static unsigned
   register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt,
