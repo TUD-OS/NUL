@@ -265,7 +265,7 @@ public:
           for (ClientData * c = session.next(); c; c = session.next(c))
             if (c->name == service_name && c->pseudonym == input.identity()) {
               utcb << Utcb::TypedMapCap(c->get_identity());
-            //Logging::printf("has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->identity, c->pseudonym, service_name);
+              //Logging::printf("pp: has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->get_identity(), c->pseudonym, service_name);
               return ENONE;
             }
         }
@@ -278,7 +278,7 @@ public:
           GuardC guard_c(&session, utcb, this);
           ClientData * data = session.get_invalid_client(utcb, this);
           while (data) {
-            //Logging::printf("s0: found dead client - freeing datastructure\n");
+            //Logging::printf("pp: found dead client - freeing datastructure\n");
             count++;
 
             notify_service(utcb, data);
@@ -289,10 +289,10 @@ public:
           if (count > 0) return ERETRY;
           else return ERESOURCE;
         }
-        //Logging::printf("s0: created new client %s identity=0x%x pseudo=0x%x\n", request, cdata->identity, cdata->pseudonym);
 
         cdata->name = service_name;
         cdata->len  = service_name_len;
+        //Logging::printf("pp: created new client  service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
         utcb << Utcb::TypedMapCap(cdata->get_identity());
         return ENONE;
       }
@@ -303,12 +303,13 @@ public:
         ClientData *cdata;
 
         if ((res = session.get_client_data(utcb, cdata, input.identity()))) return res;
-        //Logging::printf("pp: close session for %#x for %#x\n", cdata->get_identity(), cdata->pseudonym);
+        //Logging::printf("pp: close session for service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
         return session.free_client_data(utcb, cdata, this);
       }
     case ParentProtocol::TYPE_GET_PORTAL:
       {
         unsigned portal, res;
+        //Logging::printf("pp: get portal for id %#x\n", input.identity());
         if (res = get_portal(utcb, input.identity(), portal)) return res;
         utcb << Utcb::TypedMapCap(portal);
         return res;

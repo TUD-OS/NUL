@@ -136,6 +136,7 @@ class ClientDataStorage {
           err = nova_syscall(NOVA_LOOKUP,  Crd(data->pseudonym, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout);
           // XXX Can this fail?
           (void)err;
+          if (__DEBUG__) Logging::printf("gs: deleting %p identity=%#x pseudonym=%#x\n", data, data->get_identity(), data->pseudonym);
           if (crdout) {
             T::get_quota(utcb, data->pseudonym,"cap", -2);
             T::get_quota(utcb, data->pseudonym, "mem", -sizeof(T));
@@ -147,11 +148,10 @@ class ClientDataStorage {
           unsigned long nv_del = reinterpret_cast<unsigned long>(&data->del);
           tmp = *reinterpret_cast<T **>(nv_del);
           delete data;
-          if (__DEBUG__) Logging::printf("gs: delete %p\n", data);
           data = tmp;
           counter ++;
         }
-        if (__DEBUG__) Logging::printf("gs: cleaned objects 0x%lx\n", counter);
+        if (__DEBUG__) Logging::printf("gs: cleaned objects %ld\n", counter);
       } else
         if (__DEBUG__) Logging::printf("gs: did not get cleaning list\n");
     }
