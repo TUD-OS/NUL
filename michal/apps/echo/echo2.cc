@@ -96,7 +96,7 @@ public:
         if (res == ERESOURCE) { _storage.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
-        if (*flag_revoke) { *flag_revoke = 0; _storage.cleanup_clients(utcb, this)); }
+        if (*flag_revoke) { *flag_revoke = 0; _storage.cleanup_clients(utcb, this); }
 
         res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
