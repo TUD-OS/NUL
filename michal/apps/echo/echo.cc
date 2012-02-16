@@ -66,7 +66,7 @@ public:
 	return value;
       }
       default:
-	Logging::printf("Unknown op!!!!\n");
+	Logging::printf("echo: Unknown op!!!!\n");
         return EPROTO;
       }
     }
