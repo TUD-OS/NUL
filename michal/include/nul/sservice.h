@@ -146,7 +146,7 @@ public:
   unsigned handle_session(Utcb &utcb, cap_sel session_id, unsigned op, Utcb::Frame &input, bool &free_cap)
   {
     unsigned res;
-    typename Sessions::Guard guard_c(&this->_sessions, utcb, static_cast<A*>(this));
+    typename Sessions::Guard guard_c(&this->_sessions);
     Session *session = 0;
     if (res = _sessions.get_client_data(utcb, session, session_id)) {
       // Return EEXISTS to ask the client for opening the session

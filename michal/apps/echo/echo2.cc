@@ -116,7 +116,7 @@ public:
       {
 	verbose("EchoProtocol::TYPE_ECHO\n");
 
-	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
+	EchoClientDataStorage::Guard guard_c(&_storage);
 	ClientData *data = 0;
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  // Return EEXISTS to ask the client for opening the session
@@ -135,7 +135,7 @@ public:
       {
 	verbose("EchoProtocol::TYPE_GET_LAST\n");
 	ClientData *data = 0;
-	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
+	EchoClientDataStorage::Guard guard_c(&_storage);
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  Logging::printf("echo: Client %d: Cannot get client data to retrieve the value\n",
 			  input.identity());
