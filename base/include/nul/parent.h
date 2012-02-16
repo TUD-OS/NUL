@@ -294,6 +294,7 @@ public:
     obj->dealloc_cap(_cap_base, portal_num);
   }
 
+  // XXX: Clarify the intended difference between destroy() and close()
   /**
    * Close the session to the parent.
    * - Revoke all caps we got from external and we created (default: revoke_lock = true)

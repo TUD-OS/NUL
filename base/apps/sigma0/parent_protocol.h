@@ -304,6 +304,7 @@ public:
 
         if ((res = session.get_client_data(utcb, cdata, input.identity()))) return res;
         //Logging::printf("pp: close session for service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
+        notify_service(utcb, cdata); // XXX: Race - see below
         return session.free_client_data(utcb, cdata, this);
       }
     case ParentProtocol::TYPE_GET_PORTAL:
@@ -446,7 +447,7 @@ public:
         for (ClientData * c = session.next(); c; c = session.next(c)) {
           if (c->pseudonym != input.identity(1)) continue;
 
-          notify_service(utcb, c);
+          notify_service(utcb, c); // XXX: Race - clients can notice which client was killed only after we revoke pseudonym, i.e. after return from this block (Guard)
 
           //Logging::printf("s0: freeing session to service on behalf of a dying client\n");
           res = session.free_client_data(utcb, c, this);
