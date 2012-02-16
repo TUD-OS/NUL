@@ -39,17 +39,21 @@ class ParentPerf : public WvProgram
   template <class T>
   void benchmark(T *echo) {
     uint64 tic, tac, min = ~0ull, max = 0, ipc_duration;
+    unsigned res;
 
     // Warmup call to wait on the service to start and get the cache warm
     if (v) {
-      WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
+      res = echo->echo(*myutcb(), 42);
+      assert(res == 42U);
       echo->close();
-      WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
+      res = echo->echo(*myutcb(), 42);
+      assert(res == 42U);
       echo->close();
     
       tic = Cpu::rdtsc();
       echo->echo(*myutcb(), 42);
       tac = Cpu::rdtsc();
+      assert(res == 42U);
       uint64 open_session = tac - tic;
       WVPERF(open_session, "cycles");
     }
@@ -58,6 +62,7 @@ class ParentPerf : public WvProgram
       tic = Cpu::rdtsc();
       echo->echo(*myutcb(), 42);
       tac = Cpu::rdtsc();
+      assert(res == 42U);
       if (v) {
         ipc_duration = tac - tic;
         min = MIN(min, ipc_duration);
