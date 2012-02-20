@@ -49,7 +49,7 @@ private:
     unsigned last_val;		// Last value sent by client
   };
 
-  typedef ClientDataStorage<ClientData, EchoService, true, true> EchoClientDataStorage;
+  typedef ClientDataStorage<ClientData, EchoService> EchoClientDataStorage;
 
   EchoClientDataStorage _storage;
   char * flag_revoke; // Share memory with parent to signalize us dead clients
