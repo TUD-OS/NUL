@@ -173,7 +173,8 @@ public:
   {
     //Logging::printf("sum(%p, %u, %08x, %u)\n", buf, size, state, odd);
     //hexdump(buf, size);
-    unsigned cstate = state;
+    uint8 const *buf_end = buf + size;
+    unsigned cstate      = state;
 
     // Step 1: Align buffer to 16 byte (for SSE)
     unsigned align_steps = 0xF & (0x10 - (reinterpret_cast<mword>(buf) & 0xF));
@@ -187,6 +188,8 @@ public:
       __m128i     sum = _mm_setzero_si128();
 
       while (size > 32) {
+        assert((buf + 32) <= buf_end);
+
         __m128i v1 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf));
         __m128i v2 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf) + 1);
 
