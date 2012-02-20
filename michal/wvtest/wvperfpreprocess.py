@@ -131,6 +131,7 @@ for line in sys.stdin.readlines():
         elif linetype == 'perf':
             if key == 'min' or key == 'max': continue
             if key == 'open_session':
+                if 'pre-vnet-removal-239-g910c152' in commit or 'pre-vnet-removal-240-g9b2fa79' in commit: continue # Broken measurements
                 if not smp: print 'Testing "Parent protocol open_session performance" in parentperf_open:'
                 else:       continue
             else:
