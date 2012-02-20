@@ -931,9 +931,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    return;
 	  }
 
-	  if (request_pcicfg(modinfo->id, utcb)) return;
-
 	  SemaphoreGuard l(_lock_gsi);
+
+	  if (request_pcicfg(modinfo->id, utcb)) return;
 
 	  if (!request_disks(modinfo, utcb) &&
 	      !request_console(modinfo, utcb) && !request_network(modinfo, utcb))
