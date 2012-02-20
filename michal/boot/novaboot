@@ -36,7 +36,6 @@ $CFG::script_modifier = '';
 @CFG::chainloaders = ();
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
-
 sub read_config($) {
     my ($cfg) = @_;
     {
@@ -57,7 +56,7 @@ sub read_config($) {
 my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure("no_ignore_case");
 GetOptions (
@@ -77,6 +76,7 @@ GetOptions (
     "off"	     => \$off_opt,
     "on"	     => \$on_opt,
     "qemu|Q=s" 	     => \$qemu,
+    "qemu-append=s"  => \$qemu_append,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
@@ -96,6 +96,7 @@ if (defined $I_opt) { $server=''; $iprelay=''; }
 
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
+$qemu_append ||= '';
 if ($builddir) { $CFG::builddir = $builddir; }
 
 if ($dump_config) {
@@ -462,6 +463,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
     # Qemu
     @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if exists $variables->{QEMU_FLAGS};
     @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
+    push(@qemu_flags, split(/ /, $qemu_append));
 
     if (defined $iso_image) {
 	# Boot NOVA with grub (and test the iso image)
@@ -723,9 +725,15 @@ files generated via "<<WORD" syntax.
 
 Use specific version of qemu binary. The default is 'qemu'.
 
+=item --qemu-append=I<flags>
+
+Append I<flags> to the default qemu flags (QEMU_FLAGS variable or
+C<-cpu coreduo -smp 2>).
+
 =item -q, --qemu-flags=I<flags>
 
-Use specific qemu flags insted of the default ones (C<-cpu coreduo -smp 2>).
+Replace the default qemu flags (QEMU_FLAGS variable or C<-cpu coreduo
+-smp 2>) with I<flags> specified here.
 
 =item --server[=[[user@]server:]path]
 
