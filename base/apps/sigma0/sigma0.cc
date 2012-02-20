@@ -157,61 +157,70 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
   s0_AdmissionProtocol * service_admission;
   s0_ParentProtocol    * service_parent;
 
-  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights = DESC_MEM_ALL)
+  char *map_self(Utcb *utcb, unsigned long physmem, unsigned long size, unsigned rights, bool frame = false)
   {
-    assert(size);
-
+    unsigned long virt = 0;
+    unsigned old_crd = utcb->head.crd;
     // we align to order but not more than 4M
     unsigned order = Cpu::bsr(size | 1);
     if (order < 12 || order > 22) order = 22;
-
     unsigned alignment = (1 << order) - 1;
     unsigned long ofs = physmem & alignment;
-    physmem -= ofs;
+    unsigned long offset = 0;
+
+    assert(size);
     size    += ofs;
+    physmem -= ofs;
+
     if (size & alignment) size += alignment + 1 - (size & alignment);
 
-    unsigned long virt = 0;
+    if (frame) utcb->add_frame();
+    *utcb << Crd(0, 20, rights);
+
     if ((rights & 3) == DESC_TYPE_MEM)
     {
       SemaphoreGuard l(_lock_mem);
 
       unsigned long s = _virt_phys.find_phys(physmem, size);
-      if (s)  return reinterpret_cast<char *>(s) + ofs;
-      virt = _free_virt.alloc(size, MAX(Cpu::minshift(physmem, size), 22U));
-      if (!virt) return 0;
+      if (s) { virt = s; goto cleanup; }
+      if (!(virt = _free_virt.alloc(size, MAX(Cpu::minshift(physmem, size), 22U)))) goto cleanup;
     }
-    unsigned old_crd = utcb->head.crd;
-    utcb->head.crd = Crd(0, 20, rights).value();
-    char *res = reinterpret_cast<char *>(virt);
-    unsigned long offset = 0;
     while (size > offset)
     {
       utcb->set_header(0, 0);
-      unsigned long s = utcb->add_mappings(physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights);
+      unsigned long s = utcb->add_mappings(physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights, frame, Utcb::STACK_START / 2 );
       if (verbose & VERBOSE_INFO)
         Logging::printf("s0: map self %lx -> %lx size %lx offset %lx s %lx typed %x\n",
                         physmem, virt, size, offset, s, utcb->head.typed);
-      offset = size - s;
-      unsigned err;
+
       memmove(utcb->msg, utcb->item_start(), sizeof(unsigned) * utcb->head.typed * 2);
       utcb->set_header(2*utcb->head.typed, 0);
+
+      unsigned err;
       if ((err = nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo)))
       {
-        Logging::printf("s0: map_self failed with %x mtr %x/%x\n", err, utcb->head.untyped, utcb->head.typed);
-        res = 0;
+        Logging::printf("s0: map_self failed with %#x\n", err);
         break;
       }
+      offset = size - s;
     }
-    //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
-    utcb->head.crd = old_crd;
-    //take care that utcb/frame code don't fail if it is used after map_self
-    utcb->reset();
-    if ((rights & 3) == DESC_TYPE_MEM) {
+    if ((rights & 3) == DESC_TYPE_MEM && offset) {
       SemaphoreGuard l(_lock_mem);
-      _virt_phys.add(Region(virt, size, physmem));
+      _virt_phys.add(Region(virt, offset, physmem)); //add memory which where mapped (offset) --> offset != size in case of an error
     }
-    return res ? res + ofs : 0;
+    if (offset != size) virt = 0; //Not all memory could be mapped
+
+    cleanup:
+
+    if (frame) utcb->drop_frame();
+    else {
+      //XXX if a mapping fails undo already done mappings and add free space back to free_virt !
+      utcb->head.crd = old_crd;
+      //take care that utcb/frame code don't fail if it is used after map_self
+      utcb->reset();
+    }
+
+    return (!virt ? 0 : reinterpret_cast<char *>(virt) + ofs);
   }
 
   /**
@@ -226,7 +235,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     do {
       //if (res) unmap_self(res, size);
       size += 0x1000;
-      res = map_self(utcb, src, size) + offset;
+      res = map_self(utcb, src, size, DESC_MEM_ALL, true) + offset;
     } while (strnlen(res, size - offset) == (size - offset));
     return res;
   }
@@ -512,7 +521,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     // map vga memory
     Logging::printf("s0: map vga memory\n");
-    _vga = map_self(utcb, 0xa0000, 1<<17);
+    _vga = map_self(utcb, 0xa0000, 1<<17, DESC_MEM_ALL, true);
 
     // keep the boot screen
     memcpy(_vga + 0x1a000, _vga + 0x18000, 0x1000);
@@ -574,7 +583,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     assert ((pmem == 0) or ((pmem + offset) & 0xF) == 0);
 
     char *res;
-    if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size + offset))) { Logging::printf("s0: %s(%lx, %lx) EOM!\n", __func__, size, align); return 0; }
+    if (!pmem || !(res = sigma0->map_self(myutcb(), pmem, size + offset, DESC_MEM_ALL, true))) {
+      Logging::printf("s0: %s(%lx, %lx) EOM!\n", __func__, size, align); return 0; }
 
     assert ((reinterpret_cast<unsigned long>(res + offset) & 0xF) == 0);
     memset(res, 0, size + offset);
@@ -648,7 +658,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         // map all the modules early to be sure that we have enough virtual memory left
         // skip modules with length zero
         if (hmem->size != 0) {
-          map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful);
+          map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful, DESC_MEM_ALL, true);
         }
 
         // Make sure to remove the commandline as well.
@@ -683,7 +693,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           // It is an error to access this module, because it is zero bytes long.
           hmem->addr = 0;
         } else 
-          hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful));
+          hmem->addr = reinterpret_cast<unsigned long>(map_self(utcb, hmem->addr, (hmem->size + 0xfff) & ~0xffful, DESC_MEM_ALL, true));
       } 
       if (hmem->aux) {
         need_evacuation = need_evacuation or (hmem->aux < (1U<<20));
@@ -992,7 +1002,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  {
 			    // XXX make sure it is not physmem and only one gets it
 			    unsigned long addr = msg->value & ~0xffful;
-			    char *ptr = map_self(utcb, addr, msg->len);
+			    char *ptr = map_self(utcb, addr, msg->len, DESC_MEM_ALL);
 			    utcb->set_header(1, 0);
 			    utcb->msg[0] = utcb->add_mappings(reinterpret_cast<unsigned long>(ptr), msg->len, MAP_MAP, DESC_MEM_ALL);
 			    if (utcb->msg[0] == 0)
@@ -1082,7 +1092,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         map_self(myutcb(), (msg.value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg.value & 0xff), DESC_IO_ALL);
         break;
       case MessageHostOp::OP_ALLOC_IOMEM:
-        msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL);
+        msg.ptr = map_self(myutcb(), msg.value, msg.len, DESC_MEM_ALL, true);
         break;
       case MessageHostOp::OP_ALLOC_SEMAPHORE:
         msg.value = alloc_cap();

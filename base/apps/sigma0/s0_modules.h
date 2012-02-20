@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -163,7 +163,7 @@
     }
     if (!physaddr || !msize) { Logging::printf("s0: Not enough memory\n"); res = __LINE__; goto fs_out; }
 
-    addr = map_self(utcb, physaddr, msize);
+    addr = map_self(utcb, physaddr, msize, DESC_MEM_ALL, true);
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (file_obj.copy(*utcb, addr, fileinfo.size)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
@@ -227,7 +227,7 @@
     }
 
     // Don't assign modinfo->mem directly (potential double free)
-    tmem = map_self(utcb, pmem, modinfo->physsize);
+    tmem = map_self(utcb, pmem, modinfo->physsize, DESC_MEM_ALL, true);
     check2(_free_pmem, (tmem ? 0 : ERESOURCE), "\ns0: [%2u] mapping of %ld MB (%#lx) failed (phys=%#lx)",
            modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
     MEMORY_BARRIER;
@@ -252,7 +252,7 @@
       phip = _free_phys.alloc(0x1000U, 12);
       check2(_free_pmem, (phip ? 0 : ERESOURCE), "\ns0: [%2u] out of memory - hip(0x1000U)", modinfo->id);
     }
-    modinfo->hip = map_self(utcb, phip, 0x1000U);
+    modinfo->hip = map_self(utcb, phip, 0x1000U, DESC_MEM_ALL, true);
     check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "\ns0: [%2u] hip(0x1000U) could not be mapped", modinfo->id);
 
     // allocate a console for it
