@@ -71,8 +71,9 @@ struct ParentProtocol {
   static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame, bool percpu = true) {
     unsigned res;
     res = nova_call(cap_base + (percpu ? utcb.head.nul_cpunr : 0));
-    if (!utcb.head.untyped) res = EPROTO; //if we don't get a result word it's a protocol violation
-    else if (!res) res = utcb.msg[0];
+    if (!res)
+      if (!utcb.head.untyped) res = EPROTO; //if we don't get a result word it's a protocol violation
+      else res = utcb.msg[0];
     if (drop_frame) utcb.drop_frame();
     return res;
   }
