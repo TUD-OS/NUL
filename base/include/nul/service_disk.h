@@ -101,12 +101,12 @@ struct DiskProtocol : public GenericNoXlateProtocol {
 #ifdef DISK_SERVICE_IN_S0
     utcb << dma_size;
     utcb << Utcb::TypedTranslateMem(consumer, 0);
-    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL);
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL, true);
     assert(res == ENONE);
 #else
 #warning TODO
     utcb << Utcb::TypedDelegateMem(consumer, 0);
-    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL);
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL, true);
     assert(res = ENONE);
 #endif
     res = nova_call(tmp_cap);
