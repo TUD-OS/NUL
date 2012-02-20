@@ -79,7 +79,6 @@ struct ParentProtocol {
 
   static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance,
 				unsigned cap_pseudonym, unsigned parent_id = CAP_PARENT_ID) {
-    if (service && service[0] == '/') Logging::panic("Service name '%s' starts with '/'\n", service);
     return call(init_frame(utcb, TYPE_OPEN, parent_id) << instance << Utcb::String(service)
 						       << Crd(cap_pseudonym, 0, DESC_CAP_ALL),
 		CAP_PT_PERCPU, true);
