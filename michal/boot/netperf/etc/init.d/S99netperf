@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -e
+
+if grep -q netserver /proc/cmdline; then
+    ifconfig eth0 192.168.1.1 netmask 255.255.255.0
+    netserver -L 192.168.1.1 -4 -p 1234
+
+    # Execute commands sent from the other VM
+    while true; do
+	cmd=$(nc -l -p 2345)
+	eval $cmd
+    done
+fi
+
+run() {
+    name=$1
+    netperf -H 192.168.1.1 -p 1234 -t TCP_STREAM | tee log
+    set $(tail -n 1 log)
+    echo "! $0 PERF: $name $5 Mbps ok"
+}
+
+if grep -q netperf /proc/cmdline; then
+    ifconfig eth0 192.168.1.2 netmask 255.255.255.0
+
+    sleep 2
+
+    ethtool --offload eth0 rx off tx off sg off tso off gso off gro off # lro off ufo off rxvlan off txvlan off rxhash off
+    nc 192.168.1.1:2345 <<EOF
+    ethtool --offload eth0 rx off tx off sg off tso off gso off gro off # lro off ufo off rxvlan off txvlan off rxhash off
+EOF
+    run TCP_offload_off
+
+    ethtool --offload eth0 rx on tx on sg on tso on gso on gro on # lro on ufo on rxvlan on txvlan on rxhash on
+    nc 192.168.1.1:2345 <<EOF
+ethtool --offload eth0 rx on tx on sg on tso on gso on gro on # lro on ufo on rxvlan on txvlan on rxhash on
+EOF
+    run TCP_offload_on
+
+    echo "wvtest: done"
+
+    echo exit | nc 192.168.1.1:2345
+fi
