@@ -148,7 +148,9 @@ for line in sys.stdin.readlines():
             line = line.replace('ok', 'axis="lines" ok');
 
     if 'pingpong.wv' in where:
-        if linetype == 'perf': line = line.replace('ok', 'axis="duration" ok');
+        if linetype == 'perf':
+            if 'min' in key or 'max' in key: continue
+            line = line.replace('ok', 'axis="duration" ok');
         #print >>sys.stderr, line
 
     # Output (possibly modified) line
