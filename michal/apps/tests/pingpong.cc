@@ -34,13 +34,16 @@ public:
     WVSHOWHEX(ec);
     cap_sel pt = alloc_cap();
     WVNOVA(nova_create_pt(pt, ec, reinterpret_cast<unsigned long>(portal_func), 0));
-    uint64 tic, tac, min = ~0ull, max = 0, ipc_duration;
+    uint64 tic, tac, min = ~0ull, max = 0, ipc_duration, rdtsc;
+    tic = Cpu::rdtsc();
+    tac = Cpu::rdtsc();
+    rdtsc = tac-tic;
     for (unsigned i=0; i<tries; i++) {
       tic = Cpu::rdtsc();
       char res = nova_call(pt);
       tac = Cpu::rdtsc();
       assert(res == 0);
-      ipc_duration = tac - tic;
+      ipc_duration = tac - tic - rdtsc;
       min = MIN(min, ipc_duration);
       max = MAX(max, ipc_duration);
       results[i] = ipc_duration;

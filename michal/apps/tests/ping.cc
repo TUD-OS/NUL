@@ -38,13 +38,16 @@ public:
     } while (res == ERETRY);
     WVNUL(res);
     
-    uint64 tic, tac, xpd_min = ~0ull, xpd_max = 0, ipc_duration;
+    uint64 tic, tac, xpd_min = ~0ull, xpd_max = 0, ipc_duration, rdtsc;
+    tic = Cpu::rdtsc();
+    tac = Cpu::rdtsc();
+    rdtsc = tac-tic;
     for (unsigned i=0; i<tries; i++) {
       tic = Cpu::rdtsc();
       char res = nova_call(pt);
       tac = Cpu::rdtsc();
       assert(res == 0);
-      ipc_duration = tac - tic;
+      ipc_duration = tac - tic - rdtsc;
       xpd_min = MIN(xpd_min, ipc_duration);
       xpd_max = MAX(xpd_max, ipc_duration);
       results[i] = ipc_duration;
