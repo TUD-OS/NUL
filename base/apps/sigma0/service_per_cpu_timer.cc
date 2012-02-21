@@ -822,7 +822,7 @@ public:
     // XXX Lots of pointless log->phy cpu index conversions...
 
     log_cpu_no cpus = mb.hip()->cpu_count();
-    assert(cpus < Config::MAX_CPUS);
+    assert(cpus <= Config::MAX_CPUS);
 
     for (phy_cpu_no i = 0; i < mb.hip()->cpu_desc_count(); i++) {
       const Hip_cpu &c = mb.hip()->cpus()[i];
