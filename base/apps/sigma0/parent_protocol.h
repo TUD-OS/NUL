@@ -57,24 +57,24 @@ private:
        * and the value is to be processed by the caller.
        */
       const char *has(const char *prefix, const char *value="") const {
-	const char *pos;
-	size_t plen = strlen(prefix);
-	size_t vlen = value ? strlen(value) : 0;
-	for (pos = strstr(cmdline, prefix);
-	     pos && pos+plen+vlen <= cmdline+len && (pos == cmdline || isspace(pos[-1]));
-	     pos = strstr(pos+1, prefix)) {
-	  pos += plen;
-	  if (value) {
-	    if (strncmp(pos, value, vlen) == 0 && (pos+vlen == cmdline+len || isspace(pos[vlen])))
-	      return pos;
-	  } else {
-	    return pos;
-	  }
-	}
-	return NULL;
+        const char *pos;
+        size_t plen = strlen(prefix);
+        size_t vlen = value ? strlen(value) : 0;
+        for (pos = strstr(cmdline, prefix);
+             pos && pos+plen+vlen <= cmdline+len && (pos == cmdline || isspace(pos[-1]));
+             pos = strstr(pos+1, prefix)) {
+          pos += plen;
+          if (value) {
+            if (strncmp(pos, value, vlen) == 0 && (pos+vlen == cmdline+len || isspace(pos[vlen])))
+              return pos;
+          } else {
+            return pos;
+          }
+        }
+        return NULL;
       }
       const char *get(const char *prefix) const {
-	return has(prefix, NULL);
+        return has(prefix, NULL);
       }
     };
 
@@ -91,7 +91,7 @@ private:
 //        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
           return ENONE;
         }
-	return ERESOURCE;
+        return ERESOURCE;
       }
 
       unsigned long cmdlen;
@@ -100,20 +100,20 @@ private:
       Cmdline client_cmdline(cmdline, cmdlen);
 
       if (!strncmp(quota_name, "disk::", 6)) {
-	const char *disk_name = quota_name + 6;
-	unsigned len = strlen(disk_name);
-	/* TODO: Pattern matching */
-	if (client_cmdline.has("disk::", disk_name))
-	  return ENONE;
+        const char *disk_name = quota_name + 6;
+        unsigned len = strlen(disk_name);
+        /* TODO: Pattern matching */
+        if (client_cmdline.has("disk::", disk_name))
+          return ENONE;
 
-	if (len == 1 && isdigit(disk_name[0]) && client_cmdline.has("sigma0::drive:", disk_name)) /* Backward compatibility */
-	  return ENONE;
+        if (len == 1 && isdigit(disk_name[0]) && client_cmdline.has("sigma0::drive:", disk_name)) /* Backward compatibility */
+          return ENONE;
 
-	return ERESOURCE;
+        return ERESOURCE;
       }
 
       if (strcmp(quota_name, "diskadd") == 0)
-	return client_cmdline.has("diskadd") ? ENONE : ERESOURCE;
+        return client_cmdline.has("diskadd") ? ENONE : ERESOURCE;
 
       return ERESOURCE;
     }
