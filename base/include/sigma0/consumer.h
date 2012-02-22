@@ -100,8 +100,8 @@ public:
 
     if (*len == ~0u)
       {
-	Parent::_rpos = 0;
-	len = Parent::_buffer + Parent::_rpos;
+        Parent::_rpos = 0;
+        len = Parent::_buffer + Parent::_rpos;
       }
     assert(*len < sizeof(unsigned) * (SIZE - 1));
     buffer =  reinterpret_cast<unsigned char *>(Parent::_buffer + Parent::_rpos + 1);
@@ -138,18 +138,18 @@ public:
     unsigned needed = (len + 2*sizeof(unsigned) - 1) / sizeof(unsigned);
     if (left > Parent::_consumer->_wpos)
       {
-	right = left - Parent::_consumer->_wpos;
-	left = 0;
+        right = left - Parent::_consumer->_wpos;
+        left = 0;
       }
 
     if ((needed > right) && (needed > left))
       {
-	COUNTER_INC("NET drop");
-	COUNTER_SET("NET rpos", Parent::_consumer->_rpos);
-	COUNTER_SET("NET wpos", Parent::_consumer->_wpos);
-	COUNTER_SET("NET size", len);
-	Parent::_dropping = true;
-	return false;
+        COUNTER_INC("NET drop");
+        COUNTER_SET("NET rpos", Parent::_consumer->_rpos);
+        COUNTER_SET("NET wpos", Parent::_consumer->_wpos);
+        COUNTER_SET("NET size", len);
+        Parent::_dropping = true;
+        return false;
       }
     Parent::_dropping = false;
 
