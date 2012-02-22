@@ -49,7 +49,7 @@ private:
       unsigned quantum;
       PACKED timevalue last[10];
       char name[32];
-    } scs[64];
+    } scs[Config::MAX_CPUS + 32]; //still guessing
 
     void* operator new(size_t size) {
       assert(size == sizeof(struct ClientData));
