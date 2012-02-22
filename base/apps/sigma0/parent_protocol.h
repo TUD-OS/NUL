@@ -291,6 +291,7 @@ public:
         }
 
         cdata->name = service_name;
+        MEMORY_BARRIER; //make sure cdata is complete, len could be used in parallel to decide to compare against cdata->name already
         cdata->len  = service_name_len;
         //Logging::printf("pp: created new client  service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
         utcb << Utcb::TypedMapCap(cdata->get_identity());
@@ -353,12 +354,11 @@ public:
           else return ERESOURCE;
         }
 
-        sdata->len = namespace_len + request_len + 1;
-        char * tmp = new char[sdata->len];
-        sdata->name = tmp;
+        unsigned slen = namespace_len + request_len + 1;
+        char * tmp = new char[slen];
         memcpy(tmp, cmdline, namespace_len);
         memcpy(tmp + namespace_len, request, request_len);
-        tmp[sdata->len - 1] = 0;
+        tmp[slen - 1] = 0;
         sdata->cpu  = cpu;
         sdata->pt   = input.received_cap();
 
@@ -366,6 +366,9 @@ public:
         if (!input.get_word(client_mem_revoke))
           sdata->mem_revoke = get_client_memory(input.identity(), client_mem_revoke);
 
+        sdata->name = tmp;
+        MEMORY_BARRIER; //make sure sdata is complete, len could be used in parallel to decide to compare against sdata->name already
+        sdata->len  = slen;
         {
           GuardS guard_s(&_server);
           for (ServerData * s2 = _server.next(); s2; s2 = _server.next(s2))
