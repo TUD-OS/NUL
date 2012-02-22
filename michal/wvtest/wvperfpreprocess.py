@@ -102,9 +102,6 @@ for line in sys.stdin.readlines():
         # Skip warmup results
         continue
 
-    if 'standalone/basicperf.c' in where and linetype == 'perf':
-        line = line.replace('ok', 'axis="duration" ok');
-
     if 'vancouver-linux-basic' in where:
         continue                # Ignore the old test
 
@@ -137,7 +134,6 @@ for line in sys.stdin.readlines():
             else:
                 if not smp: print 'Testing "Parent protocol call performance" in parentperf_call:'
                 else:       print 'Testing "Parent protocol call performance (4 CPUs in parallel)" in parentperf_call_smp:'
-            line = line.replace('cycles ok', 'cycles axis="duration" ok');
             line = line.replace(key, tag+'_'+key);
             print line
         continue
@@ -150,7 +146,6 @@ for line in sys.stdin.readlines():
     if 'pingpong.wv' in where:
         if linetype == 'perf':
             if 'min' in key or 'max' in key: continue
-            line = line.replace('ok', 'axis="duration" ok');
         #print >>sys.stderr, line
 
     # Output (possibly modified) line

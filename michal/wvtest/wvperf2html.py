@@ -9,21 +9,25 @@ import time
 import numpy as np
 
 class Axis:
-    def __init__(self, name):
+    def __init__(self, name=None, units=None):
         self.name = name
-        self.units = None
+        self.units = units
         self.num = None
     def getLabel(self):
-        if self.units:
+        if self.units and self.name:
             return "%s [%s]" % (self.name, self.units)
+        elif self.units:
+            return self.units
         else:
             return self.name
+    def __repr__(self): return "Axis(name=%s units=%s, id=%s)" % (self.name, self.units, hex(id(self)))
 
 class Column:
     def __init__(self, name, units, axis):
         self.name = name
         self.units = units
         self.axis = axis
+    def __repr__(self): return "Column(name=%s units=%s axis=%s)" % (self.name, self.units, repr(self.axis))
 
 class Row(dict):
     def __init__(self, graph, date):
@@ -66,7 +70,7 @@ class Graph:
         row = self[date]
         row[col] = val
         if not self.columns.has_key(col):
-            axis=self.getAxis(col)
+            axis=self.getAxis(units) or self.addAxis(units, Axis(units=units))
             column = Column(col, units, axis)
             self.columns[col] = column
             self.columns_ordered.append(column)
@@ -77,13 +81,16 @@ class Graph:
         self.columns[col].units=units
         self.columns[col].axis.units=units
 
-    def setAxis(self, col, axis):
-        self.columns[col].axis = self.getAxis(axis)
+    def addAxis(self, key, axis):
+        self.axes[key] = axis
+        return axis
 
-    def getAxis(self, col):
-        if not self.axes.has_key(col):
-            self.axes[col] = Axis(col)
-        return self.axes[col]
+    def setAxis(self, col, key):
+        self.columns[col].axis = self.getAxis(key) or self.addAxis(key, Axis(name=key))
+
+    def getAxis(self, key):
+        if not self.axes.has_key(key): return None
+        return self.axes[key]
 
     def findRanges(self):
         for axis in self.axes.values():
