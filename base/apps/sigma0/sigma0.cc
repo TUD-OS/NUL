@@ -1689,12 +1689,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
     if (!initialized_s0_tasks)                     Logging::panic("s0: embedded s0 services not running - you forget the boot_s0_services option\n");
-
     if (!mac_host) mac_host = generate_hostmac();
-
-    if (res = service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr))
-      Logging::panic("s0: could not start admission service - error %x\n", res);
-    service_admission->set_name(*utcb, "sigma0");
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
@@ -1715,9 +1710,10 @@ PARAM_HANDLER(boot_s0_services, "Start embedded services running as separate tas
   // XXX This should work on the expanded command line...
 
   const char *hostvga = NULL; size_t hvlength = 0;
-  const char *s0_serv = NULL;
-  const char *current;
+  const char *s0_serv = NULL; const char *current;
   size_t length;
+  Utcb * utcb = BaseProgram::myutcb();
+
   while ((current = mb.next_arg(cmdline, length))) {
     if (strstr(current, "boot_s0_services") == current)
       s0_serv = current;
@@ -1739,7 +1735,13 @@ PARAM_HANDLER(boot_s0_services, "Start embedded services running as separate tas
   if (hostvga)
     sigma0->init_console();
 
-  if (sigma0->boot_s0_services(BaseProgram::myutcb())) Logging::panic("s0: could not start embedded s0 services\n");
+  if (sigma0->boot_s0_services(utcb)) Logging::panic("s0: could not start embedded s0 services\n");
+
+  unsigned res;
+  if (res = sigma0->service_admission->push_scs(*utcb, NOVA_DEFAULT_PD_CAP + 2, utcb->head.nul_cpunr))
+    Logging::panic("s0: could not start admission service - error %x\n", res);
+  sigma0->service_admission->set_name(*utcb, "sigma0");
+
   sigma0->initialized_s0_tasks = true;
 }
 
