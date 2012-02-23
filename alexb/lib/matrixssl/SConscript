@@ -3,7 +3,7 @@
 import nul
 Import('target_env')
 
-# sources are based on matrixssl-3-2-2-open release from 7th October 2011
+# sources are based on matrixssl-3-3-open release from February 22, 2012
 
 target_env.Append(CPPPATH = [ 'own/include',
                               'contrib',

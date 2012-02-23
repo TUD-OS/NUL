@@ -1,11 +1,14 @@
 /*
  *	sslEncode.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Secure Sockets Layer protocol message encoding portion of MatrixSSL
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -162,6 +165,17 @@ int32 matrixSslEncode(ssl_t *ssl, unsigned char *buf, uint32 size,
 	}
 	*len = c - buf;
 
+#ifdef SSL_REHANDSHAKES_ENABLED
+	if (ssl->flags & SSL_FLAGS_SERVER) {
+		ssl->rehandshakeBytes += *len;
+		if (ssl->rehandshakeBytes >= BYTES_BEFORE_RH_CREDIT) {
+			if (ssl->rehandshakeCount < 0x8000) {
+				ssl->rehandshakeCount++;
+			}
+			ssl->rehandshakeBytes = 0;
+		}
+	}
+#endif /* SSL_REHANDSHAKES_ENABLED */
 	return *len;
 }
 
@@ -298,6 +312,7 @@ int32 sslEncodeResponse(ssl_t *ssl, psBuf_t *out, uint32 *requiredLen)
 				ssl->peerVerifyDataLen; /* 2 for total len, 5 for type+len */
 		}
 #endif /* ENABLE_SECURE_REHANDSHAKES */
+
 
 
 		if ((out->buf + out->size) - out->end < messageSize) {
@@ -712,7 +727,7 @@ static int32 encryptRecord(ssl_t *ssl, int32 type, int32 messageSize,
 	int32			rc, ptLen, divLen, modLen;
 
 	encryptStart = out->end + ssl->recordHeadLen;
-	ptLen = (uint32)*c - (uint32)encryptStart;
+	ptLen = *c - encryptStart;
 #ifdef USE_TLS
 #ifdef USE_TLS_1_1
 	if ((ssl->flags & SSL_FLAGS_WRITE_SECURE) &&
@@ -752,7 +767,9 @@ static int32 encryptRecord(ssl_t *ssl, int32 type, int32 messageSize,
 	} else {
 #endif /* USE_TLS_1_1 */
 		if (type == SSL_RECORD_TYPE_HANDSHAKE) {
-			sslUpdateHSHash(ssl, pt, ptLen);
+			if ((rc = sslUpdateHSHash(ssl, pt, ptLen)) < 0) {
+				return rc;
+			}
 		}
 		*c += ssl->generateMac(ssl, (unsigned char)type, pt,
 			ptLen, *c);
@@ -922,24 +939,26 @@ static int32 writeServerHello(ssl_t *ssl, sslBuf_t *out)
 		extLen -= 2; /* Don't add self to total extension len */
 		*c = (extLen & 0xFF00) >> 8; c++;
 		*c = extLen & 0xFF; c++;
-#ifdef ENABLE_SECURE_REHANDSHAKES		
-		/* RenegotiationInfo*/
-		*c = (EXT_RENEGOTIATION_INFO & 0xFF00) >> 8; c++;
-		*c = EXT_RENEGOTIATION_INFO & 0xFF; c++;
-		if (ssl->myVerifyDataLen == 0) {
-			*c = 0; c++;
-			*c = 1; c++;
-			*c = 0; c++;
-		} else {
-			*c = ((ssl->myVerifyDataLen+ssl->peerVerifyDataLen+1) & 0xFF00)>>8;
-			c++;
-			*c = (ssl->myVerifyDataLen + ssl->peerVerifyDataLen + 1) & 0xFF;
-			c++;
-			*c = (ssl->myVerifyDataLen + ssl->peerVerifyDataLen) & 0xFF; c++;
-			memcpy(c, ssl->peerVerifyData, ssl->peerVerifyDataLen);
-			c += ssl->peerVerifyDataLen;
-			memcpy(c, ssl->myVerifyData, ssl->myVerifyDataLen);
-			c += ssl->myVerifyDataLen;
+#ifdef ENABLE_SECURE_REHANDSHAKES
+		if (ssl->secureRenegotiationFlag == PS_TRUE) {
+			/* RenegotiationInfo*/
+			*c = (EXT_RENEGOTIATION_INFO & 0xFF00) >> 8; c++;
+			*c = EXT_RENEGOTIATION_INFO & 0xFF; c++;
+			if (ssl->myVerifyDataLen == 0) {
+				*c = 0; c++;
+				*c = 1; c++;
+				*c = 0; c++;
+			} else {
+				*c =((ssl->myVerifyDataLen+ssl->peerVerifyDataLen+1)&0xFF00)>>8;
+				c++;
+				*c = (ssl->myVerifyDataLen + ssl->peerVerifyDataLen + 1) & 0xFF;
+				c++;
+				*c = (ssl->myVerifyDataLen + ssl->peerVerifyDataLen) & 0xFF;c++;
+				memcpy(c, ssl->peerVerifyData, ssl->peerVerifyDataLen);
+				c += ssl->peerVerifyDataLen;
+				memcpy(c, ssl->myVerifyData, ssl->myVerifyDataLen);
+				c += ssl->myVerifyDataLen;
+			}
 		}
 #endif /* ENABLE_SECURE_REHANDSHAKES */
 

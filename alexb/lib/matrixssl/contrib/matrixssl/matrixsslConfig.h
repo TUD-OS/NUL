@@ -1,11 +1,14 @@
 /*
  *	matrixsslConfig.h
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Configuration settings for building the MatrixSSL library.
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -63,8 +66,10 @@ extern "C" {
 /*
 	Support for TLS protocols.
 	
-	- SSLv3 is always on unless disabled
-	- TLS versions must 'stack' (can't support 1.1 without 1.0)
+	- SSLv3 is always on unless disabled below
+	- TLS versions must 'stack'
+		- must enable TLS if enabling TLS 1.1
+		- must enable TLS 1.1 if enabling TLS 1.2
 */
 #define USE_TLS			/* TLS 1.0 aka SSL 3.1 */
 #define USE_TLS_1_1
@@ -177,26 +182,37 @@ extern "C" {
     In Sept. 2011 security researchers demonstrated how a previously known
     CBC encryption weakness could be used to decrypt HTTP data over SSL.
     The attack was named BEAST (Browser Exploit Against SSL/TLS).
+ 
+	This issue only effects TLS 1.0 (and SSL) and only if the cipher suite
+	is using a symmetric CBC block cipher.  Enable USE_TLS_1_1 above to
+	completely negate this workaround if TLS 1.1 is also supported by peers.
    
     As with previous SSL vulnerabilities, the attack is generally considered
     a very low risk for individual browsers as it requires the attacker
-    to have control over the network to become a MIM.  They will also have
+    to have control over the network to become a MITM.  They will also have
     to have knowledge of the first couple blocks of underlying plaintext
     in order to mount the attack.
     
     A zero length record proceeding a data record has been a known fix to this
     problem for years and MatrixSSL has always supported the handling of empty
-    records.
+    records. So alternatively, an implementation could always encode a zero
+	length record before each record encode. Some old SSL implementations do
+	not handle decoding zero length records, however.
    
-    This BEAST fix is on the sending side and moves the implementation down to
+    This BEAST fix is on the client side and moves the implementation down to
     the SSL library level so users do not need to manually send zero length
     records. This fix uses the same IV obfuscation logic as a zero length
-    record by breaking up each application data record in two. The first being
-    just a single byte of the plaintext message.
+    record by breaking up each application data record in two. Because some 
+	implementations don't handle zero-length records, the the first record
+    is the first byte of the plaintext message, and the second record
+	contains the remainder of the message.
+ 
+	This fix is based on the workaround implemented in Google Chrome:
+	http://src.chromium.org/viewvc/chrome?view=rev&revision=97269
 
-    This issue only effects TLS 1.0 (and SSL) and only if the cipher suite
-    is using a symmetric CBC block cipher.  Enable USE_TLS_1_1 above to
-    completely negate this workaround if TLS 1.1 is also supported by peers
+	This workaround adds approximagely 53 bytes to the encoded length of each 
+	SSL record that is encoded, due to the additional header, padding and MAC
+	of the second record.
 */
 #define USE_BEAST_WORKAROUND
 

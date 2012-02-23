@@ -1,11 +1,14 @@
 /*
  *	coreApi.h
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
- *	Prototypes for the PeerSec core public APIs
+ *	Prototypes for the Matrix core public APIs
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -126,10 +129,10 @@ PSPUBLIC int32		psGetTime(psTime_t *t);
 PSPUBLIC int32		psDiffMsecs(psTime_t then, psTime_t now);
 PSPUBLIC int32		psCompareTime(psTime_t a, psTime_t b);
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 PSPUBLIC int32		psGetFileBuf(psPool_t *pool, const char *fileName,
 								 unsigned char **buf, int32 *bufLen);
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 
 #ifdef USE_MULTITHREADING
 PSPUBLIC int32		psCreateMutex(psMutex_t *mutex);

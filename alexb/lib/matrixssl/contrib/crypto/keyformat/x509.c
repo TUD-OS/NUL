@@ -1,10 +1,13 @@
 /*
  *	x509.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -14,8 +17,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -107,7 +110,7 @@ static int32 x509ConfirmSignature(unsigned char *sigHash, unsigned char *sigOut,
 		
 
 /******************************************************************************/
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 /******************************************************************************/
 
 static int32 pemCertFileBufToX509(psPool_t *pool, unsigned char *fileBuf,
@@ -263,7 +266,7 @@ static int32 pemCertFileBufToX509(psPool_t *pool, unsigned char *fileBuf,
 	*x509certList = front;
 	return PS_SUCCESS;
 }
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 /******************************************************************************/
 
 
@@ -494,7 +497,7 @@ int32 psX509ParseCert(psPool_t *pool, unsigned char *pp, uint32 size,
 				psTraceCrypto("There was an error parsing a certificate\n");
 				psTraceCrypto("extension.  This is likely caused by an\n");
 				psTraceCrypto("extension format that is not currently\n");
-				psTraceCrypto("recognized.  Please email support@peersec.com\n");
+				psTraceCrypto("recognized.  Please email AuthenTec support\n");
 				psTraceCrypto("to add support for the extension.\n\n");
 				return PS_PARSE_FAIL;
 			}

@@ -1,11 +1,14 @@
 /*
  *	matrixsslApi.c
- *  Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *  Release $Name: MATRIXSSL-3-3-0-OPEN $
  * 
  *	MatrixSSL Public API Layer
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -106,6 +109,7 @@ int32 matrixSslNewClientSession(ssl_t **ssl, sslKeys_t *keys,
 		lssl->extCb = (sslExtCb_t)extCb;
 	}
 
+
 RETRY_HELLO:
 	tmp.size = lssl->outsize;
 	tmp.buf = tmp.start = tmp.end = lssl->outbuf;
@@ -160,6 +164,10 @@ int32 matrixSslNewServerSession(ssl_t **ssl, sslKeys_t *keys,
 		goto NEW_SVR_ERROR;
 	}
 
+#ifdef SSL_REHANDSHAKES_ENABLED
+	lssl->rehandshakeCount = DEFAULT_RH_CREDITS;
+#endif /* SSL_REHANDSHAKES_ENABLED */
+	
 	*ssl = lssl;
 	return MATRIXSSL_SUCCESS;
 	
@@ -216,7 +224,7 @@ int32 matrixSslGetOutdata(ssl_t *ssl, unsigned char **buf)
 /*
 	Caller is asking for an allocated buffer to write plaintext into.
 		That plaintext will then be encoded when the caller subsequently calls
-		matrixSslEncodeWriteBuf()
+		matrixSslEncodeWritebuf()
 		
 	This is also explicitly called by matrixSslEncodeToOutdata	
 	
@@ -281,9 +289,9 @@ int32 matrixSslGetWritebuf(ssl_t *ssl, unsigned char **buf, uint32 requestedLen)
 /*
 	Get current available space in outbuf
 */
-	if ((ssl->outsize < ssl->outlen)) {
+	if (ssl->outsize < ssl->outlen) {
 		return PS_FAILURE;
-	} else
+	}
 	sz = ssl->outsize - ssl->outlen;
 
 /*
@@ -299,10 +307,10 @@ int32 matrixSslGetWritebuf(ssl_t *ssl, unsigned char **buf, uint32 requestedLen)
 /*
 		Recalculate available free space
 */
-		if ((ssl->outsize < ssl->outlen)) {
+		if (ssl->outsize < ssl->outlen) {
 			return PS_FAILURE;
-		} else
-	    sz = ssl->outsize - ssl->outlen;
+		}
+		sz = ssl->outsize - ssl->outlen;
 	}
 /*
 	Now that requiredLen has been confirmed/created, return number of available
@@ -332,9 +340,9 @@ int32 matrixSslGetWritebuf(ssl_t *ssl, unsigned char **buf, uint32 requestedLen)
 		/* The reserved space accounts for a full encoding of a 1 byte record.
 			The final -1 is so that when the second encrypt arrives it will
 			land as an in-situ */
-		overhead = ((ssl->enMacSize + 1) % ssl->enBlockSize) ? 1 : 0;
-		*buf = ssl->outbuf + ssl->outlen + (2 * ssl->recordHeadLen) + 
-			(ssl->enBlockSize * overhead) +
+		overhead = ((ssl->enMacSize + 1) % ssl->enBlockSize) ? 
+			ssl->enBlockSize : 0;
+		*buf = ssl->outbuf + ssl->outlen + (2 * ssl->recordHeadLen) + overhead +
 			(ssl->enBlockSize * ((ssl->enMacSize + 1)/ssl->enBlockSize)) - 1;
 	} else {
 		*buf = ssl->outbuf + ssl->outlen + ssl->recordHeadLen;
@@ -362,7 +370,7 @@ int32 matrixSslEncodeWritebuf(ssl_t *ssl, uint32 len)
 	unsigned char	*origbuf;
 	int32			rc, reserved;
 	
-	if (!ssl || len < 0) {
+	if (!ssl || ((int32)len < 0)) {
 		return PS_ARG_FAIL;
 	}
 	if (ssl->bFlags & BFLAG_CLOSE_AFTER_SENT) {
@@ -378,8 +386,8 @@ int32 matrixSslEncodeWritebuf(ssl_t *ssl, uint32 len)
 	reserved = ssl->recordHeadLen;
 #ifdef USE_BEAST_WORKAROUND
 	if (ssl->bFlags & BFLAG_STOP_BEAST) {
-		rc = ((ssl->enMacSize + 1) % ssl->enBlockSize) ? 1 : 0;
-		reserved += ssl->recordHeadLen + (ssl->enBlockSize * rc) +
+		rc = ((ssl->enMacSize + 1) % ssl->enBlockSize) ? ssl->enBlockSize : 0;
+		reserved += ssl->recordHeadLen + rc +
 			(ssl->enBlockSize * ((ssl->enMacSize + 1)/ssl->enBlockSize)) - 1;
 	}
 #endif
@@ -524,7 +532,7 @@ int32 matrixSslReceivedData(ssl_t *ssl, uint32 bytes, unsigned char **ptbuf,
 	*ptlen = 0;
 	ssl->inlen += bytes;
 	if (ssl->inlen == 0) {
-		return PS_ARG_FAIL;
+		return PS_SUCCESS; /* Nothing to do.  Basically a poll */
 	}
 	/* Parameterized sanity check to avoid infinite loops */
 	if (matrixSslHandshakeIsComplete(ssl)) {
@@ -965,7 +973,16 @@ L_REHANDSHAKE:
 	ssl->outlen += sbuf.end - sbuf.start;
 	return MATRIXSSL_SUCCESS;
 }
-#else
+
+/* Undocumented helper function to add rehandshake credits for testing */
+void matrixSslAddRehandshakeCredits(ssl_t *ssl, int32 credits)
+{
+	if ((ssl->rehandshakeCount + credits) < 0x8000) {
+		ssl->rehandshakeCount += credits;
+	}
+}
+
+#else /* !SSL_REHANDSHAKES_ENABLED */
 int32 matrixSslEncodeRehandshake(ssl_t *ssl, sslKeys_t *keys,
 				int32 (*certCb)(ssl_t *ssl, psX509Cert_t *cert, int32 alert),
 				uint32 sessionOption, uint32 cipherSpec)
@@ -1017,6 +1034,10 @@ int32 matrixSslSentData(ssl_t *ssl, uint32 bytes)
 		matrixSslGetSessionId(ssl, ssl->sid);
 #endif /* USE_CLIENT_SIDE_SSL */
 		rc = MATRIXSSL_HANDSHAKE_COMPLETE;
+#ifdef USE_SSL_INFORMATIONAL_TRACE
+		/* Client side resumed completion or server standard completion */
+		matrixSslPrintHSDetails(ssl);
+#endif		
 	}
 	return rc;
 }

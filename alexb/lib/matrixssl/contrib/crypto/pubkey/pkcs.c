@@ -1,11 +1,14 @@
 /*
  *	pkcs.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Collection of RSA PKCS standards 
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2010. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -389,17 +392,17 @@ int32 pkcs8ParsePrivBin(psPool_t *pool, unsigned char *p, int32 size,
 	}
 	p += len;
 	
-	if (end > p) {
+	plen = (int32)(end - p);
+	if (plen > 0) {
 		/*  It is not clear in the spec, but if password encrypted
 			there are additional, non ASN.1 bytes that correspond
 			to the 3DES block padding */
-		len = end - p;
 		while(p < end) {
-			if (*p++ != (char)len) {
+			if (*p++ != (char)plen) {
 				goto PKCS8_FAIL;	
 			}
 		}
-	} else if (end < p) {
+	} else if (plen < 0) {
 		goto PKCS8_FAIL;	
 	}
 	
@@ -413,7 +416,7 @@ PKCS8_FAIL:
 	return PS_FAILURE;
 }
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 #ifdef USE_PKCS12
 /******************************************************************************/
 /*
@@ -1249,11 +1252,11 @@ ERR_FBUF:
 }
 
 #endif /* USE_PKCS12 */
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 
 #endif /* USE_PKCS8 */
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 static const char encryptHeader[] = "DEK-Info: DES-EDE3-CBC,";
 
 #ifdef USE_PKCS5
@@ -1455,7 +1458,7 @@ int32 pkcs1DecodePrivFile(psPool_t *pool, char *fileName, char *password,
 	return PS_SUCCESS;
 }
 
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 #endif /* USE_PRIVATE_KEY_PARSING */
 /******************************************************************************/
 

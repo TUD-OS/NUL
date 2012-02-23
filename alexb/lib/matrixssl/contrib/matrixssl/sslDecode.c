@@ -1,11 +1,14 @@
 /*
  *	sslDecode.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Secure Sockets Layer protocol message decoding portion of MatrixSSL
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -835,9 +838,7 @@ static int32 parseSSLHandshake(ssl_t *ssl, char *inbuf, uint32 len)
 	short			renegotiationExt;
 	uint32			hsLen, extLen, extType, cipher = 0;
 	unsigned char	hsMsgHash[MD5_HASH_SIZE + SHA1_HASH_SIZE];
-#ifdef USE_SERVER_SIDE_SSL
 	psPool_t	*pkiPool;
-#endif /* USE_SERVER_SIDE_SSL */
 
 #ifdef USE_SERVER_SIDE_SSL
 	unsigned char	*p;
@@ -859,7 +860,6 @@ static int32 parseSSLHandshake(ssl_t *ssl, char *inbuf, uint32 len)
 
 
 	
-
 	rc = MATRIXSSL_SUCCESS;
 	c = (unsigned char*)inbuf;
 	end = (unsigned char*)(inbuf + len);
@@ -945,6 +945,18 @@ hsStateDetermined:
 	if (hsType == SSL_HS_CLIENT_HELLO) { 
 		sslInitHSHash(ssl);
 		if (ssl->hsState == SSL_HS_DONE) {
+#ifdef SSL_REHANDSHAKES_ENABLED
+			/* This is a mechanism where each X bytes of data transfer gains
+				you a re-handshake credit.  Prevents the DOS attack	of repeat
+				re-handshake requests */
+			if (ssl->rehandshakeCount == 0) {
+				ssl->err = SSL_ALERT_NO_RENEGOTIATION;
+				psTraceInfo("Client re-handshaking too often\n");
+				return MATRIXSSL_ERROR;
+			}
+			ssl->rehandshakeBytes = 0; /* reset */
+			ssl->rehandshakeCount--;
+#endif /* SSL_REHANDSHAKES_ENABLED */
 /*
 			Rehandshake. Server receiving client hello on existing connection
 */
@@ -1053,7 +1065,7 @@ SKIP_HSHEADER_PARSE:
 				ssl->minVer = TLS_MIN_VER;
 				ssl->flags |= SSL_FLAGS_TLS;
 #ifdef USE_TLS_1_1 /* TLS_1_1 */
-				if (ssl->reqMinVer == TLS_1_1_MIN_VER) {
+				if (ssl->reqMinVer >= TLS_1_1_MIN_VER) {
 					ssl->minVer = TLS_1_1_MIN_VER;
 					ssl->sec.explicitIv = PS_TRUE;
 					ssl->flags |= SSL_FLAGS_TLS_1_1;
@@ -1296,6 +1308,9 @@ SKIP_HSHEADER_PARSE:
 					c += extLen;
 				}				
 			}
+/*
+			Handle the extensions that were missing or not what we wanted
+*/
 #ifdef ENABLE_SECURE_REHANDSHAKES
 			if (renegotiationExt == 0) {
 #ifdef REQUIRE_SECURE_REHANDSHAKES
@@ -1429,6 +1444,7 @@ SKIP_HSHEADER_PARSE:
 		if (ssl->flags & SSL_FLAGS_RESUMED) {
 			ssl->hsState = SSL_HS_FINISHED;
 		} else {
+		
 			ssl->hsState = SSL_HS_CLIENT_KEY_EXCHANGE;
 		}
 /*
@@ -1505,7 +1521,7 @@ SKIP_HSHEADER_PARSE:
 				the first two bytes to the negotiated version rather than the
 				requested version.  This is known in OpenSSL as the
 				SSL_OP_TLS_ROLLBACK_BUG. We allow this to slide only if we
-				don't support TLS, TLS was requested and the negotiated
+				don't support TLS, TLS was requested, and the negotiated
 				versions match.
 */
 				if (*ssl->sec.premaster != ssl->reqMajVer) {
@@ -1608,10 +1624,20 @@ SKIP_HSHEADER_PARSE:
 		if (ssl->flags & SSL_FLAGS_SERVER) {
 			if (!(ssl->flags & SSL_FLAGS_RESUMED)) {
 				rc = SSL_PROCESS_DATA;
+			} else {
+#ifdef USE_SSL_INFORMATIONAL_TRACE
+				/* Server side resumed completion */
+				matrixSslPrintHSDetails(ssl);
+#endif		
 			}
 		} else {
 			if (ssl->flags & SSL_FLAGS_RESUMED) {
 				rc = SSL_PROCESS_DATA;
+			} else {
+#ifdef USE_SSL_INFORMATIONAL_TRACE
+				/* Client side standard completion */
+				matrixSslPrintHSDetails(ssl);
+#endif			
 			}
 		}
 #ifdef USE_CLIENT_SIDE_SSL
@@ -1708,13 +1734,14 @@ SKIP_HSHEADER_PARSE:
 			} else {
 #ifdef USE_TLS_1_1
 				if (ssl->reqMinVer == TLS_MIN_VER &&
-						ssl->minVer == TLS_1_1_MIN_VER) {
+                        ssl->minVer <= TLS_1_2_MIN_VER) {
 					ssl->reqMinVer = ssl->minVer;
 					ssl->minVer = TLS_MIN_VER;
 					ssl->flags &= ~SSL_FLAGS_TLS_1_1;
 					ssl->sec.explicitIv = PS_FALSE;
 				} else {
-#endif/* USE_TLS_1_1 */			
+#endif/* USE_TLS_1_1 */
+					/* Wasn't able to settle on a common protocol */
 					ssl->err = SSL_ALERT_PROTOCOL_VERSION;
 					psTraceIntInfo("Unsupported ssl version: %d\n",
 						ssl->reqMajVer);
@@ -1725,7 +1752,7 @@ SKIP_HSHEADER_PARSE:
 			}
 		}
 #endif /* USE_TLS */
-		
+
 /*
 		Next is a 32 bytes of random data for key generation
 		and a single byte with the session ID length

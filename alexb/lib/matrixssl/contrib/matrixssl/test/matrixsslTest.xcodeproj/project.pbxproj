@@ -3,18 +3,18 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8729A78314B35E3F00D962AF /* libmatrixssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8729A77314B35DEB00D962AF /* libmatrixssl.a */; };
 		87CCD47C11331958009C2F6A /* sslTest.c in Sources */ = {isa = PBXBuildFile; fileRef = 87CCD47B11331958009C2F6A /* sslTest.c */; };
-		87CCD4A611331BCE009C2F6A /* libmatrixssl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 87CCD49311331A8B009C2F6A /* libmatrixssl.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		87CCD49211331A8B009C2F6A /* PBXContainerItemProxy */ = {
+		8729A77214B35DEB00D962AF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = 87CCD48E11331A8B009C2F6A /* matrixssl.xcodeproj */;
+			containerPortal = 8729A76814B35DEB00D962AF /* matrixssl.xcodeproj */;
 			proxyType = 2;
 			remoteGlobalIDString = D2AAC046055464E500DB518D;
 			remoteInfo = matrixssl;
@@ -34,8 +34,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8729A76814B35DEB00D962AF /* matrixssl.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = matrixssl.xcodeproj; path = ../../matrixssl.xcodeproj; sourceTree = "<group>"; };
 		87CCD47B11331958009C2F6A /* sslTest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sslTest.c; sourceTree = "<group>"; };
-		87CCD48E11331A8B009C2F6A /* matrixssl.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; name = matrixssl.xcodeproj; path = ../../matrixssl.xcodeproj; sourceTree = SOURCE_ROOT; };
 		8DD76FB20486AB0100D96B5E /* matrixsslTest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = matrixsslTest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -44,7 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				87CCD4A611331BCE009C2F6A /* libmatrixssl.a in Frameworks */,
+				8729A78314B35E3F00D962AF /* libmatrixssl.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -54,7 +54,7 @@
 		08FB7794FE84155DC02AAC07 /* matrixsslTest */ = {
 			isa = PBXGroup;
 			children = (
-				87CCD48E11331A8B009C2F6A /* matrixssl.xcodeproj */,
+				8729A76814B35DEB00D962AF /* matrixssl.xcodeproj */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6A0FF2B0290797F04C91782 /* Documentation */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
@@ -78,10 +78,10 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		87CCD48F11331A8B009C2F6A /* Products */ = {
+		8729A76914B35DEB00D962AF /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				87CCD49311331A8B009C2F6A /* libmatrixssl.a */,
+				8729A77314B35DEB00D962AF /* libmatrixssl.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -119,15 +119,22 @@
 /* Begin PBXProject section */
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "matrixsslTest" */;
-			compatibilityVersion = "Xcode 3.1";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* matrixsslTest */;
 			projectDirPath = "";
 			projectReferences = (
 				{
-					ProductGroup = 87CCD48F11331A8B009C2F6A /* Products */;
-					ProjectRef = 87CCD48E11331A8B009C2F6A /* matrixssl.xcodeproj */;
+					ProductGroup = 8729A76914B35DEB00D962AF /* Products */;
+					ProjectRef = 8729A76814B35DEB00D962AF /* matrixssl.xcodeproj */;
 				},
 			);
 			projectRoot = "";
@@ -138,11 +145,11 @@
 /* End PBXProject section */
 
 /* Begin PBXReferenceProxy section */
-		87CCD49311331A8B009C2F6A /* libmatrixssl.a */ = {
+		8729A77314B35DEB00D962AF /* libmatrixssl.a */ = {
 			isa = PBXReferenceProxy;
 			fileType = archive.ar;
 			path = libmatrixssl.a;
-			remoteRef = 87CCD49211331A8B009C2F6A /* PBXContainerItemProxy */;
+			remoteRef = 8729A77214B35DEB00D962AF /* PBXContainerItemProxy */;
 			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 /* End PBXReferenceProxy section */
@@ -165,15 +172,13 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /usr/local/bin;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)/../..\"",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				PRODUCT_NAME = matrixsslTest;
+				SDKROOT = "";
 			};
 			name = Debug;
 		};
@@ -183,12 +188,11 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = G5;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				INSTALL_PATH = /usr/local/bin;
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"\"$(SRCROOT)/../..\"",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
 				PRODUCT_NAME = matrixsslTest;
+				SDKROOT = "";
 			};
 			name = Release;
 		};
@@ -202,8 +206,7 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				ONLY_ACTIVE_ARCH = NO;
-				PREBINDING = NO;
-				SDKROOT = macosx10.5;
+				SDKROOT = "";
 				USER_HEADER_SEARCH_PATHS = "../.. ../../sampleCerts";
 			};
 			name = Debug;
@@ -216,8 +219,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = POSIX;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				PREBINDING = NO;
-				SDKROOT = macosx10.5;
+				SDKROOT = "";
 				USER_HEADER_SEARCH_PATHS = "../.. ../../sampleCerts";
 			};
 			name = Release;
