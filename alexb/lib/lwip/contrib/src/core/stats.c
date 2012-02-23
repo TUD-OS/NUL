@@ -69,7 +69,7 @@ void stats_init(void)
 
 #if LWIP_STATS_DISPLAY
 void
-stats_display_proto(struct stats_proto *proto, char *name)
+stats_display_proto(struct stats_proto *proto, const char *name)
 {
   LWIP_PLATFORM_DIAG(("\n%s\n\t", name));
   LWIP_PLATFORM_DIAG(("xmit: %"STAT_COUNTER_F"\n\t", proto->xmit)); 
@@ -88,9 +88,9 @@ stats_display_proto(struct stats_proto *proto, char *name)
 
 #if IGMP_STATS
 void
-stats_display_igmp(struct stats_igmp *igmp)
+stats_display_igmp(struct stats_igmp *igmp, const char *name)
 {
-  LWIP_PLATFORM_DIAG(("\nIGMP\n\t"));
+  LWIP_PLATFORM_DIAG(("\n%s\n\t", name));
   LWIP_PLATFORM_DIAG(("xmit: %"STAT_COUNTER_F"\n\t", igmp->xmit)); 
   LWIP_PLATFORM_DIAG(("recv: %"STAT_COUNTER_F"\n\t", igmp->recv)); 
   LWIP_PLATFORM_DIAG(("drop: %"STAT_COUNTER_F"\n\t", igmp->drop)); 
@@ -110,7 +110,7 @@ stats_display_igmp(struct stats_igmp *igmp)
 
 #if MEM_STATS || MEMP_STATS
 void
-stats_display_mem(struct stats_mem *mem, char *name)
+stats_display_mem(struct stats_mem *mem, const char *name)
 {
   LWIP_PLATFORM_DIAG(("\nMEM %s\n\t", name));
   LWIP_PLATFORM_DIAG(("avail: %"U32_F"\n\t", (u32_t)mem->avail)); 
@@ -159,9 +159,14 @@ stats_display(void)
   LINK_STATS_DISPLAY();
   ETHARP_STATS_DISPLAY();
   IPFRAG_STATS_DISPLAY();
+  IP6_FRAG_STATS_DISPLAY();
   IP_STATS_DISPLAY();
+  ND6_STATS_DISPLAY();
+  IP6_STATS_DISPLAY();
   IGMP_STATS_DISPLAY();
+  MLD6_STATS_DISPLAY();
   ICMP_STATS_DISPLAY();
+  ICMP6_STATS_DISPLAY();
   UDP_STATS_DISPLAY();
   TCP_STATS_DISPLAY();
   MEM_STATS_DISPLAY();

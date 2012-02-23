@@ -94,8 +94,8 @@ PACK_STRUCT_BEGIN
  * if 'type' in ethernet header is ETHTYPE_VLAN.
  * See IEEE802.Q */
 struct eth_vlan_hdr {
-  PACK_STRUCT_FIELD(u16_t tpid);
   PACK_STRUCT_FIELD(u16_t prio_vid);
+  PACK_STRUCT_FIELD(u16_t tpid);
 } PACK_STRUCT_STRUCT;
 PACK_STRUCT_END
 #ifdef PACK_STRUCT_USE_INCLUDES
@@ -137,6 +137,7 @@ PACK_STRUCT_END
 #define ETHTYPE_ARP       0x0806U
 #define ETHTYPE_IP        0x0800U
 #define ETHTYPE_VLAN      0x8100U
+#define ETHTYPE_IPV6      0x86DDU
 #define ETHTYPE_PPPOEDISC 0x8863U  /* PPP Over Ethernet Discovery Stage */
 #define ETHTYPE_PPPOE     0x8864U  /* PPP Over Ethernet Session Stage */
 
@@ -210,7 +211,13 @@ err_t ethernet_input(struct pbuf *p, struct netif *netif);
 
 #define eth_addr_cmp(addr1, addr2) (memcmp((addr1)->addr, (addr2)->addr, ETHARP_HWADDR_LEN) == 0)
 
+/* global constants in etharp.c */
 extern const struct eth_addr ethbroadcast, ethzero;
+
+/* debug print an Ethernet MAC address (struct eth_addr *) */
+#define eth_addr_debug_print(debug, ethaddr) \
+  LWIP_DEBUGF(debug, ("%02"X8_F":%02"X8_F":%02"X8_F":%02"X8_F":%02"X8_F":%02"X8_F, \
+    (ethaddr)->addr[0], (ethaddr)->addr[1], (ethaddr)->addr[2], (ethaddr)->addr[3], (ethaddr)->addr[4], (ethaddr)->addr[5]))
 
 #endif /* LWIP_ARP || LWIP_ETHERNET */
 

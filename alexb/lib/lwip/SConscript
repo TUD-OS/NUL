@@ -3,7 +3,7 @@
 import nul
 Import('target_env')
 
-target_env.Append(CPPPATH = ['contrib/src/include', 'contrib/src/include/ipv4',
+target_env.Append(CPPPATH = ['contrib/src/include', 'contrib/src/include/ipv4', 'contrib/src/include/ipv6',
                              'own/include', '../../../vancouver/include']);
 
 nul.Lib(target_env, 'ip_lwip',

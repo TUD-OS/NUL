@@ -76,7 +76,6 @@
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
 #include "lwip/def.h"
-#include "lwip/sys.h"
 #include "lwip/dhcp.h"
 #include "lwip/autoip.h"
 #include "lwip/dns.h"
@@ -115,7 +114,7 @@
 #define DHCP_OPTION_IDX_T2          5
 #define DHCP_OPTION_IDX_SUBNET_MASK 6
 #define DHCP_OPTION_IDX_ROUTER      7
-#define DHCP_OPTION_IDX_DNS_SERVER	8
+#define DHCP_OPTION_IDX_DNS_SERVER  8
 #define DHCP_OPTION_IDX_MAX         (DHCP_OPTION_IDX_DNS_SERVER + DNS_MAX_SERVERS)
 
 /** Holds the decoded option values, only valid while in dhcp_recv.
@@ -125,6 +124,11 @@ u32_t dhcp_rx_options_val[DHCP_OPTION_IDX_MAX];
     only valid while in dhcp_recv.
     @todo: move this into struct dhcp? */
 u8_t  dhcp_rx_options_given[DHCP_OPTION_IDX_MAX];
+
+#ifdef DHCP_GLOBAL_XID
+static u32_t xid;
+static u8_t xid_initialised;
+#endif /* DHCP_GLOBAL_XID */
 
 #define dhcp_option_given(dhcp, idx)          (dhcp_rx_options_given[idx] != 0)
 #define dhcp_got_option(dhcp, idx)            (dhcp_rx_options_given[idx] = 1)
@@ -1628,8 +1632,6 @@ dhcp_create_msg(struct netif *netif, struct dhcp *dhcp, u8_t message_type)
    *  at runtime, any supporting function prototypes can be defined in DHCP_GLOBAL_XID_HEADER */
   static u32_t xid = 0xABCD0000;
 #else
-  static u32_t xid;
-  static u8_t xid_initialised = 0;
   if (!xid_initialised) {
     xid = DHCP_GLOBAL_XID;
     xid_initialised = !xid_initialised;
