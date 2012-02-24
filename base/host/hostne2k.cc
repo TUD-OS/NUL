@@ -56,10 +56,10 @@ class HostNe2k : public StaticReceiver<HostNe2k>
   void access_internal_ram(unsigned short offset, unsigned short dwords, void *buffer, bool read)
   {
     outb(0x22,   _port);              // page0 no-remote DMA, STA
-    outb((offset & 0xFFU),  _port + 0x8);  // transmit count
-    outb((offset >> 8) & 0xFFU,  _port + 0x9);  // transmit count
-    outb((dwords*4) & 0xFFU,  _port + 0xa);  // transmit count
-    outb((dwords*4) & 0xFFU,  _port + 0xb);  // transmit count
+    outb((offset & 0xFFU),  _port + 0x8);
+    outb((offset >> 8) & 0xFFU,  _port + 0x9);
+    outb((dwords*4) & 0xFFU,  _port + 0xa);
+    outb(((dwords*4) >> 8) & 0xFFU,  _port + 0xb);
     outb(read ? 0xa : 0x12,   _port); // read or write remote DMA, STA
 
     // we use 32bit IO accesses
