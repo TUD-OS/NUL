@@ -230,6 +230,7 @@ public:
     uint32 state = 0;
     bool   odd   = false;
 
+#warning FIXME Pseudo header is wrong for IPv6
     // Source and destination IP addresses (part of pseudo header)
     sum(buf + maclen + 12, 8, state, odd);
 
