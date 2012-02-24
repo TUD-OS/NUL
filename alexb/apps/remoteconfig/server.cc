@@ -78,7 +78,8 @@ void Remcon::handle_packet(void) {
     if (sizeof(buf_out) != send(buf_out, sizeof(buf_out)))
       Logging::printf("failure - sending reply\n");
 
-    Logging::printf("failure - bad version\n");
+    Logging::printf("failure - outdated protocol request version %#x != %#x current\n",
+      Math::htons(_in->version), DAEMON_VERSION);
 
     return;
   }

@@ -32,7 +32,7 @@ typedef uint64 uint64_t;
 
 #include "nova_types.h"
 #define UUID_LEN 16
-#define DAEMON_VERSION 0xb000U
+#define DAEMON_VERSION 0xb001U
 
 class ConfigProtocol;
 
