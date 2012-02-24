@@ -224,25 +224,31 @@ public:
   static uint16
   tcpudpsum(const uint8 *buf, uint8 proto,
 	    unsigned maclen, unsigned iplen,
-	    unsigned len)
+	    unsigned len, bool ipv6 = false)
   {
     //Logging::printf("--- tcpudpsum(%p) \n", buf);
     uint32 state = 0;
     bool   odd   = false;
 
-#warning FIXME Pseudo header is wrong for IPv6
-    // Source and destination IP addresses (part of pseudo header)
-    sum(buf + maclen + 12, 8, state, odd);
-
-    // Second part of pseudo header: 0, protocol ID, UDP length
-    uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
-    sum(reinterpret_cast<uint8 *>(p), sizeof(p), state, odd);
-
+    if (not ipv6) {
+      // IPv4:
+      // Source and destination IP addresses (part of pseudo header)
+      sum(buf + maclen + 12, 8, state, odd);
+      
+      // Second part of pseudo header: 0, protocol ID, UDP length
+      const uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
+      sum(reinterpret_cast<const uint8 *>(p), sizeof(p), state, odd);
+    } else {
+      // IPv6:
+      // Source and destination IP addresses (part of pseudo header)
+      sum(buf + maclen + 8, 2*16, state, odd);
+      const uint32 pseudo2[2] = {Endian::hton32(len - maclen - iplen),
+                                 Endian::hton32(proto) };
+      sum(reinterpret_cast<const uint8 *>(pseudo2), sizeof(pseudo2), state, odd);
+    }
+      
     // Sum L4 header plus payload
-    //sum(buf + maclen + iplen, len - maclen - iplen, state, odd);
-    sum(buf + maclen + iplen, 32, state, odd);
-    sum(buf + maclen + iplen + 32, len - maclen - iplen - 32, state, odd);
-
+    sum(buf + maclen + iplen, len - maclen - iplen, state, odd);
     return ~fixup(state);
   }
 

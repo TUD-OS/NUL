@@ -298,7 +298,8 @@ class Model82576vf : public StaticReceiver<Model82576vf>
           {
             uint8 *l4_sum = packet + maclen + iplen + ((l4t == tx_desc::L4T_UDP) ? 6 : 16);
             l4_sum[0] = l4_sum[1] = 0;
-            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, packet_len);
+            uint16 sum = IPChecksum::tcpudpsum(packet, (l4t == tx_desc::L4T_UDP) ? 17 : 6, maclen, iplen, packet_len,
+                                               (tucmd & 2 /* IPv4 */) == 0);
 	    l4_sum[0] = sum;
 	    l4_sum[1] = sum>>8;
 	    //Logging::printf("%s CSO %x\n", (l4t == L4T_UDP) ? "UDP" : "TCP", sum);
