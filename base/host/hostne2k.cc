@@ -94,34 +94,34 @@ public:
     // intialize the card
     unsigned char reset_prog [] =
       {
-	0x0, 0x21,      // page0, abort remote DMA, STOP
-	0xe, 0x48,      // DCR in byte mode, no loopback and 4byte FIFO
-	0xa, 0x00,      // zero remote byte count
-	0xb, 0x00,      // zero remote byte count
-	0xd, 0x02,      // transmit: loopback mode
-	0xc, 0x20,      // receive:  monitor mode
-	0x4, PG_TX,     // transmit start
-	0x1, PG_START,  // startpg
-	0x2, PG_STOP,   // stoppg
-	0x3, PG_START,  // boundary
-	0x7, 0xff,      // clear isr
-	0xf, 0x00,      // set imr
-	0x0, 0x61,      // page1, abort remote DMA, STOP
-	// we do not initialize phys reg, as we use promiscuous mode later on
-	0x7, PG_START+1,// CURPAGE
-	0x8, 0xff,      // multicast
-	0x9, 0xff,      // multicast
-	0xa, 0xff,      // multicast
-	0xb, 0xff,      // multicast
-	0xc, 0xff,      // multicast
-	0xd, 0xff,      // multicast
-	0xe, 0xff,      // multicast
-	0xf, 0xff,      // multicast
-	0x0, 0x22,      // page0, START
-	0x7, 0xff,      // clear isr
-	0xf, 0x11,      // set imr to get RX and overflow IRQ
-	0xd, 0x00,      // transmit: normal mode
-	0xc, 0x1e,      // receive: small packets, broadcast, multicast and promiscuous
+        0x0, 0x21,      // page0, abort remote DMA, STOP
+        0xe, 0x48,      // DCR in byte mode, no loopback and 4byte FIFO
+        0xa, 0x00,      // zero remote byte count
+        0xb, 0x00,      // zero remote byte count
+        0xd, 0x02,      // transmit: loopback mode
+        0xc, 0x20,      // receive:  monitor mode
+        0x4, PG_TX,     // transmit start
+        0x1, PG_START,  // startpg
+        0x2, PG_STOP,   // stoppg
+        0x3, PG_START,  // boundary
+        0x7, 0xff,      // clear isr
+        0xf, 0x00,      // set imr
+        0x0, 0x61,      // page1, abort remote DMA, STOP
+        // we do not initialize phys reg, as we use promiscuous mode later on
+        0x7, PG_START+1,// CURPAGE
+        0x8, 0xff,      // multicast
+        0x9, 0xff,      // multicast
+        0xa, 0xff,      // multicast
+        0xb, 0xff,      // multicast
+        0xc, 0xff,      // multicast
+        0xd, 0xff,      // multicast
+        0xe, 0xff,      // multicast
+        0xf, 0xff,      // multicast
+        0x0, 0x22,      // page0, START
+        0x7, 0xff,      // clear isr
+        0xf, 0x11,      // set imr to get RX and overflow IRQ
+        0xd, 0x00,      // transmit: normal mode
+        0xc, 0x1e,      // receive: small packets, broadcast, multicast and promiscuous
       };
     for (unsigned i=0; i < sizeof(reset_prog)/2; i++) outb(reset_prog[i*2 + 1], _port + reset_prog[i*2]);
     _next_packet = PG_START + 1;
@@ -156,45 +156,45 @@ public:
     if (isr & 1)
       {
 
-	// get current page pointer
-	outb(0x62, _port);
-	unsigned char current_page = inb(_port + 7);
-	outb(0x22, _port);
+        // get current page pointer
+        outb(0x62, _port);
+        unsigned char current_page = inb(_port + 7);
+        outb(0x22, _port);
 
-	if (current_page != _next_packet)
-	  {
-	    // read all packets from the ring buffer
-	    unsigned pages;
-	    if (current_page >= _next_packet)
-	       pages = current_page - _next_packet;
-	    else
-	      pages = PG_STOP - _next_packet;
-	    access_internal_ram(_next_packet * PAGE_SIZE, pages * PAGE_SIZE / 4, _receive_buffer, true);
+        if (current_page != _next_packet)
+          {
+            // read all packets from the ring buffer
+            unsigned pages;
+            if (current_page >= _next_packet)
+               pages = current_page - _next_packet;
+            else
+              pages = PG_STOP - _next_packet;
+            access_internal_ram(_next_packet * PAGE_SIZE, pages * PAGE_SIZE / 4, _receive_buffer, true);
 
-	    // ring buffer wrap around?
-	    if (current_page < _next_packet)
-	      {
-		access_internal_ram(PG_START * PAGE_SIZE, (current_page - PG_START) * PAGE_SIZE / 4, _receive_buffer + pages * PAGE_SIZE, true);
-		pages += (current_page - PG_START);
-	      }
+            // ring buffer wrap around?
+            if (current_page < _next_packet)
+              {
+                access_internal_ram(PG_START * PAGE_SIZE, (current_page - PG_START) * PAGE_SIZE / 4, _receive_buffer + pages * PAGE_SIZE, true);
+                pages += (current_page - PG_START);
+              }
 
-	    // prog new boundary
-	    _next_packet = current_page;
-	    outb((_next_packet > PG_START) ? (_next_packet - 1) : (PG_STOP - 1), _port + 0x3);
+            // prog new boundary
+            _next_packet = current_page;
+            outb((_next_packet > PG_START) ? (_next_packet - 1) : (PG_STOP - 1), _port + 0x3);
 
-	    // now parse the packets and send them upstream
-	    unsigned packet_len = 0;
-	    for (unsigned index = 0; index < pages; index += (4 + packet_len + PAGE_SIZE - 1) / PAGE_SIZE)
-	      {
-		unsigned offset = index*PAGE_SIZE;
+            // now parse the packets and send them upstream
+            unsigned packet_len = 0;
+            for (unsigned index = 0; index < pages; index += (4 + packet_len + PAGE_SIZE - 1) / PAGE_SIZE)
+              {
+                unsigned offset = index*PAGE_SIZE;
 
-		// Please note that we receive only good packages, thus the status bits are not valid!
-		packet_len = _receive_buffer[offset + 2] + (_receive_buffer[offset + 3] << 8);
+                // Please note that we receive only good packages, thus the status bits are not valid!
+                packet_len = _receive_buffer[offset + 2] + (_receive_buffer[offset + 3] << 8);
 
-		MessageNetwork msg2(_receive_buffer + offset + 4, packet_len - 4, 0);
-		_bus_network.send(msg2);
-	      }
-	  }
+                MessageNetwork msg2(_receive_buffer + offset + 4, packet_len - 4, 0);
+                _bus_network.send(msg2);
+              }
+          }
       }
 
     // overflow -> we simply reset the card
@@ -218,29 +218,29 @@ public:
 
 
 PARAM_HANDLER(hostne2k,
-	      "hostne2k - provide ne2k-pci drivers.",
-	      "Example: hostne2k.")
+              "hostne2k - provide ne2k-pci drivers.",
+              "Example: hostne2k.")
 {
   HostPci pci(mb.bus_hwpcicfg, mb.bus_hostop);
   for (unsigned bdf, num = 0; bdf = pci.search_device(0x2, 0x0, num++);)
     if (pci.conf_read(bdf, 0) == 0x802910ec)
       {
-	unsigned port = pci.conf_read(bdf, HostPci::BAR0);
-	// must be an ioport
-	if ((port & 3) != 1 || (port >> 16)) continue;
-	port &= ~3;
-	unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
+        unsigned port = pci.conf_read(bdf, HostPci::BAR0);
+        // must be an ioport
+        if ((port & 3) != 1 || (port >> 16)) continue;
+        port &= ~3;
+        unsigned irq = pci.get_gsi(mb.bus_hostop, mb.bus_acpi, bdf, 0);
 
-	Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
-	MessageHostOp msg_io(MessageHostOp::OP_ALLOC_IOIO_REGION, port << 8 | 5);
-	if (!mb.bus_hostop.send(msg_io))
-	  {
-	    Logging::printf("%s could not allocate ioports %x-%x\n", __PRETTY_FUNCTION__, port, port + (1 << 5) - 1);
-	    continue;
-	  }
+        Logging::printf("bdf %x id %x port %x irq %x\n", bdf, pci.conf_read(bdf, 0), port, irq);
+        MessageHostOp msg_io(MessageHostOp::OP_ALLOC_IOIO_REGION, port << 8 | 5);
+        if (!mb.bus_hostop.send(msg_io))
+          {
+            Logging::printf("%s could not allocate ioports %x-%x\n", __PRETTY_FUNCTION__, port, port + (1 << 5) - 1);
+            continue;
+          }
 
-	HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
-	mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
-	mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
+        HostNe2k *dev = new HostNe2k(mb.bus_hwioin, mb.bus_hwioout, mb.bus_network, mb.clock(), port, irq);
+        mb.bus_network.add(dev, HostNe2k::receive_static<MessageNetwork>);
+        mb.bus_hostirq.add(dev, HostNe2k::receive_static<MessageIrq>);
       }
 }
