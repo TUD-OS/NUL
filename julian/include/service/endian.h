@@ -24,8 +24,8 @@
 namespace Endian {
 
 #ifdef __i386
-  static inline uint16 hton16(uint16 value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
-  static inline uint16 ntoh16(uint16 value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
+  static inline uint16 hton16(uint16 value) { asm ("xchg %b0, %h0" : "+Q"(value)); return value; }
+  static inline uint16 ntoh16(uint16 value) { asm ("xchg %b0, %h0" : "+Q"(value)); return value; }
   static inline uint32 hton32(uint32 value) { asm ("bswap %0" : "+r"(value)); return value; }
   static inline uint32 ntoh32(uint32 value) { asm ("bswap %0" : "+r"(value)); return value; }
 
