@@ -56,8 +56,10 @@ class HostNe2k : public StaticReceiver<HostNe2k>
   void access_internal_ram(unsigned short offset, unsigned short dwords, void *buffer, bool read)
   {
     outb(0x22,   _port);              // page0 no-remote DMA, STA
-    outw(offset, _port + 0x8);
-    outw(dwords*4,  _port + 0xa);
+    outb((offset & 0xFFU),  _port + 0x8);  // transmit count
+    outb((offset >> 8) & 0xFFU,  _port + 0x9);  // transmit count
+    outb((dwords*4) & 0xFFU,  _port + 0xa);  // transmit count
+    outb((dwords*4) & 0xFFU,  _port + 0xb);  // transmit count
     outb(read ? 0xa : 0x12,   _port); // read or write remote DMA, STA
 
     // we use 32bit IO accesses
@@ -75,7 +77,8 @@ public:
 
     // send the packet out
     access_internal_ram(PG_TX * PAGE_SIZE, (len+3)/4, const_cast<void *>(buffer), false);
-    outw(len,  _port + 0x5);  // transmit count
+    outb((len & 0xFFU),  _port + 0x5);  // transmit count
+    outb((len >> 8) & 0xFFU,  _port + 0x6);  // transmit count
     outb(0x26, _port);        // page0, no-dma, transmit, STA
     return true;
   }
@@ -190,6 +193,7 @@ public:
 
                 // Please note that we receive only good packages, thus the status bits are not valid!
                 packet_len = _receive_buffer[offset + 2] + (_receive_buffer[offset + 3] << 8);
+                assert(packet_len + offset < BUFFER_SIZE);
 
                 MessageNetwork msg2(_receive_buffer + offset + 4, packet_len - 4, 0);
                 _bus_network.send(msg2);
