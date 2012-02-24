@@ -51,10 +51,8 @@
     modinfo->sigma0_cmdlen  = sigma0_cmdlen;
     modinfo->type           = ModuleInfo::TYPE_APP;
 
-    if (verbose & VERBOSE_INFO) {
-      Logging::printf("s0: [%2u] module '", modinfo->id);
-      fancy_output(cmdline, 4096);
-    }
+    LOG_VERBOSE("s0: [%2u] module '", modinfo->id);
+    if (verbose & VERBOSE_INFO) fancy_output(cmdline, 4096);
 
     return modinfo;
   }
@@ -233,8 +231,7 @@
     MEMORY_BARRIER;
     modinfo->mem = tmem;
 
-    if (verbose & VERBOSE_INFO)
-      Logging::printf("s0: [%2u] using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
+    LOG_VERBOSE("s0: [%2u] using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
      * We memset the client memory to make sure we get an
@@ -307,8 +304,7 @@
       utcb->drop_frame();
     }
 
-    if (verbose & VERBOSE_INFO)
-      Logging::printf("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+    LOG_VERBOSE("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 
     check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT,
            DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
@@ -372,7 +368,7 @@
   unsigned kill_module(ModuleInfo * modinfo) {
     if (!modinfo || !_modinfo[modinfo->id].mem || !_modinfo[modinfo->id].physsize || modinfo->id < 5) return __LINE__;
 
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - initiate destruction of client ... \n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u] - initiate destruction of client ... \n", modinfo->id);
     // send kill message to parent service so that client specific data structures within a service can be released
     unsigned err = 0;
     unsigned recv_cap = alloc_cap();
@@ -396,12 +392,12 @@
     if (err) Logging::printf("s0: [%2u]   can not inform service about dying client\n", modinfo->id);
 
     // unmap all service portals
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all caps\n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u]   revoke all caps\n", modinfo->id);
     unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory + hip
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory %p + hip %p\n", modinfo->id, modinfo->mem, modinfo->hip);
+    LOG_VERBOSE("s0: [%2u]   revoke all memory %p + hip %p\n", modinfo->id, modinfo->mem, modinfo->hip);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
     revoke_all_mem(modinfo->hip, 0x1000U, DESC_MEM_ALL, false);
 
@@ -435,17 +431,17 @@
     // XXX legacy - should be a service - freeing producer/consumer stuff
     unsigned cap;
     if (cap = _prod_network[modinfo->id].sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach network\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach network\n", modinfo->id);
       dealloc_cap(cap);
       memset(&_prod_network[modinfo->id], 0, sizeof(_prod_network[modinfo->id]));
     }
     if (cap = _disk_data[modinfo->id].prod_disk.sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach disks\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach disks\n", modinfo->id);
       dealloc_cap(cap);
       memset(&_disk_data[modinfo->id], 0, sizeof(_disk_data[modinfo->id]));
     }
     if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach stdin\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach stdin\n", modinfo->id);
       dealloc_cap(cap);
       //DEAD message dissappear here if you free _console_data ...
       //memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
@@ -458,7 +454,7 @@
     // XXX free more, such as GSIs, IRQs, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - destruction done\n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u] - destruction done\n", modinfo->id);
     free_module(modinfo);
     return 0;
   }

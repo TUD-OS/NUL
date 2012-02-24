@@ -53,6 +53,8 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 
 #define S0_DEFAULT_CMDLINE "namespace::/s0 name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/fs/embedded quota::guid"
 
+#define LOG_VERBOSE(X, ...) do { if (verbose & VERBOSE_INFO) Logging::printf(X, __VA_ARGS__); } while (0)
+
   // module data
   struct ModuleInfo
   {
@@ -189,9 +191,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     {
       utcb->set_header(0, 0);
       unsigned long s = utcb->add_mappings(physmem + offset, size - offset, (virt + offset) | MAP_DPT | MAP_HBIT, rights, frame, Utcb::STACK_START / 2 );
-      if (verbose & VERBOSE_INFO)
-        Logging::printf("s0: map self %lx -> %lx size %lx offset %lx s %lx typed %x\n",
-                        physmem, virt, size, offset, s, utcb->head.typed);
+      LOG_VERBOSE("s0: map self %lx -> %lx size %lx offset %lx s %lx typed %x\n",
+                  physmem, virt, size, offset, s, utcb->head.typed);
 
       memmove(utcb->msg, utcb->item_start(), sizeof(unsigned) * utcb->head.typed * 2);
       utcb->set_header(2*utcb->head.typed, 0);
@@ -925,8 +926,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	        assert(!rest); //should ever succeed, one page should ever fit
 	      }
 	    }
-	    if (verbose & VERBOSE_INFO)
-	      Logging::printf("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
+	    LOG_VERBOSE("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	    return;
 	  }
@@ -1526,7 +1526,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           _console_data[i].prod_stdin.produce(item);
           return true;
         }
-      Logging::printf("s0: drop input %x at console %x.%x\n", msg.input_data, msg.id, msg.view);
+      LOG_VERBOSE("s0: drop input %x at console %x.%x\n", msg.input_data, msg.id, msg.view);
       break;
     case MessageConsole::TYPE_RESET:
       if (msg.id == 0)
