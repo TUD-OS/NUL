@@ -10,10 +10,23 @@ libvirt-$(VERSION).tar.gz:
 	cd libvirt-$(VERSION) && patch -p1 <../nova.diff
 	touch $@
 
-libvirt-repo/configure.ac:
+libvirt-repo/.git:
 	cd $(shell git rev-parse --show-toplevel) && git submodule update --init $(shell git rev-parse --show-prefix)libvirt-repo
 
-.configure.stamp: libvirt-repo/configure.ac
+LIBVIRT_HASH=$(shell git --git-dir=libvirt-repo/.git rev-parse HEAD)
+LIBVIRT_HASH_OLD=$(shell cat .version.stamp)
+
+# Update .version.stamp whenever the HEAD of the libvirt repostory is updated
+ifneq ($(wildcard .version.stamp),)
+ifneq ($(LIBVIRT_HASH),$(LIBVIRT_HASH_OLD))
+.PHONY: .version.stamp
+endif
+endif
+
+.version.stamp: libvirt-repo/.git
+	echo $(LIBVIRT_HASH) > $@
+
+.configure.stamp: .version.stamp
 	cd libvirt-repo && \
 	 autoreconf && \
 	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --with-nova --without-macvtap
