@@ -97,7 +97,7 @@ void Remcon::handle_packet(void) {
         uint32_t * ids = reinterpret_cast<uint32_t *>(&_out->opspecific);
 
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || !server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::RUNNING) continue;
 
           k++;
           ids[k] = Math::htonl(server_data[i].id);
@@ -125,7 +125,7 @@ void Remcon::handle_packet(void) {
       {
         unsigned i, k = 0;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           k++;
         }
 
@@ -141,7 +141,7 @@ void Remcon::handle_packet(void) {
 
         unsigned i,k = 0;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           if (names + server_data[i].showname_len + 1 > buf_out + NOVA_PACKET_LEN) {
             Logging::printf("no space left\n");
             break; //no space left
@@ -163,7 +163,7 @@ void Remcon::handle_packet(void) {
 
         unsigned i, len;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           len = server_data[i].showname_len;
           if (memcmp(server_data[i].showname, _name, len)) continue;
           if (buf_in + NOVA_PACKET_LEN <=_name + len || _name[len] != 0) continue;
@@ -192,7 +192,7 @@ void Remcon::handle_packet(void) {
     case NOVA_GET_NAME_ID:
       {
         GET_LOCAL_ID;
-        if (!server_data[localid].active) break;
+        if (server_data[localid].state == server_data::status::OFF) break;
 
         unsigned len = server_data[localid].showname_len + 1;
         if (&_out->opspecific + UUID_LEN + len > buf_out + NOVA_PACKET_LEN) break; // no space left
@@ -282,7 +282,7 @@ void Remcon::handle_packet(void) {
               if (module) delete [] module;
               fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
-              if (res == ENONE) server_data[j].active = true;
+              if (res == ENONE) server_data[j].state = server_data::status::RUNNING;
               else {
                 Logging::printf("failure - starting VM - reason : %#x\n", res);
                 dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
@@ -292,7 +292,7 @@ void Remcon::handle_packet(void) {
               break;
             }
           } else {
-            server_data[i].active = true;
+            server_data[i].state = server_data::status::RUNNING;
             _out->result  = NOVA_OP_SUCCEEDED;
           }
           break;
@@ -315,15 +315,17 @@ void Remcon::handle_packet(void) {
         if (!entry) break;
        
         uint64 consumed_time = 0;
-        if (entry->active &&
+        if (entry->state != server_data::status::OFF &&
             ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time)) {
           Logging::printf("failure - could not get consumed time of client\n");
           break;
         }
 
-        *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(entry->maxmem / 1024); //in kB
-        *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus
-        *reinterpret_cast<uint64_t *>(&_out->opspecific + 2*sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
+        char  * ptr = reinterpret_cast<char *>(&_out->opspecific);
+        *reinterpret_cast<uint32_t *>(ptr) = Math::htonl(entry->maxmem / 1024); //in kB
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint32_t)) = Math::htonl(1); //vcpus
+        *reinterpret_cast<uint64_t *>(ptr += sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint64_t)) = Math::htonl(entry->state);
         _out->result  = NOVA_OP_SUCCEEDED;
 
         break;

@@ -47,7 +47,11 @@ class Remcon : public CapAllocator {
     bool gevents;
 
     struct server_data {
-      bool active;
+      enum status {
+        OFF     = 0,
+        RUNNING = 1,
+        PAUSED  = 3,
+      } state;
       bool events;
       cap_sel scs_usage;
       unsigned long maxmem;
