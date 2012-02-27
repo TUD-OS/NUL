@@ -97,7 +97,7 @@ void Remcon::handle_packet(void) {
         uint32_t * ids = reinterpret_cast<uint32_t *>(&_out->opspecific);
 
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].state != server_data::status::RUNNING) continue;
+          if (server_data[i].id == 0 || server_data[i].state == server_data::status::OFF) continue;
 
           k++;
           ids[k] = Math::htonl(server_data[i].id);
