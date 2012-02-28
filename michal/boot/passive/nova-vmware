@@ -3,7 +3,8 @@
 QEMU_FLAGS=-cpu phenom -smp 2 -m 1024 -net nic,model=ne2k_pci -net user,hostfwd=tcp:127.0.0.1:9999-:9999,hostfwd=tcp:127.0.0.1:10000-:10000
 HYPERVISOR_PARAMS=iommu serial spinner
 bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga:0x40000,0x40000 hostvesa hostkeyb:0+0x60+1+12+1 \
-		    nubus host82573:0 hostide service_config service_disk script_start:1 name::/s0/events
+		    nubus host82573:0 hostide service_config service_disk script_start:1 script_waitchild script_start:2 name::/s0/events
+bin/apps/logdisk.nul
 bin/apps/remote_config.nul
 bin/apps/vancouver.nul
 bin/boot/munich
@@ -12,8 +13,12 @@ imgs/passive/initramfs
 imgs/passive/privkeySrv.der
 imgs/passive/certSrv.crt
 imgs/passive/CAcertSrv.crt
+bin/apps/logdisk.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk diskadd disk::0 ||
+rom://bin/apps/logdisk.nul
+EOF
 bin/apps/remote_config.nulconfig <<EOF
-namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid ||
+namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid disk::type:2be899e8-009f-47d1-a069-bd4bc05c20ea ||
 rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt
 EOF
 linux.nulconfig <<EOF
