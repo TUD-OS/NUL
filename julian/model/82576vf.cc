@@ -90,7 +90,7 @@ class Model82576vf : public StaticReceiver<Model82576vf>
     unsigned n;
     volatile uint32 *regs;
 
-    virtual void reset();
+    virtual void reset() = 0;
 
     void init(Model82576vf *_parent, unsigned _n, uint32 *_regs)
     {
