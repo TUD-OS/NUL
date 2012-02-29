@@ -20,3 +20,4 @@ nova-qemu: nova
 vmware-image:
 	../novaboot --iso=nova-vmware.iso -- nova-vmware ../gdisk
 	ovftool -tt=vmx --powerOffTarget --overwrite  vmware/NOVA.vmx .
+	echo 'vhv.enable = "TRUE"' >> NOVA/NOVA.vmx
