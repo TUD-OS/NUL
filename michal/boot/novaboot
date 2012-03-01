@@ -479,7 +479,8 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 	$kcmd = '' if !defined $kcmd;
 	my $initrd = join ",", @$modules;
 
-	push(@qemu_flags, ('-kernel', $kbin, '-append', $kcmd, '-initrd', $initrd));
+	push(@qemu_flags, ('-kernel', $kbin, '-append', $kcmd));
+	push(@qemu_flags, ('-initrd', $initrd)) if $initrd;
     }
     push(@qemu_flags,  qw(-serial stdio)); # Redirect serial output (for collecting test restuls)
     exec_verbose(($CFG::qemu,  '-name', $config_name, @qemu_flags));
