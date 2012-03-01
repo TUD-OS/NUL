@@ -213,7 +213,7 @@
 
     check1(ERESOURCE, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
            "\ns0: [%2u] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
-           CLIENT_BOOT_UTCB - MEM_OFFSET / 1024, modinfo->physsize / 1024);
+           (CLIENT_BOOT_UTCB - MEM_OFFSET) / 1024, modinfo->physsize / 1024);
 
     check1(ERESOURCE, ((psize_needed > modinfo->physsize) || !elf),
            "\ns0: [%2u] We need %ld MB, however only %ld MB were configured to be used.\n", modinfo->id, psize_needed >> 20, modinfo->physsize >> 20);
