@@ -259,6 +259,7 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
         COUNTER_INC("timer");
         SemaphoreGuard l(_lock);
         timeout_trigger();
+        timeout_request();
       }
     }
   }
@@ -863,10 +864,15 @@ public:
    * update timeout in sigma0
    */
   static void timeout_request() {
+    static timevalue last_to;
     if (_timeouts.timeout() != ~0ull) {
-      TimerProtocol::MessageTimer msg2(_timeouts.timeout());
-      unsigned res = service_timer->timer(*myutcb(), msg2);
-      assert(!res);
+      timevalue next_to = _timeouts.timeout();
+      if (next_to != last_to) {
+        last_to = next_to;
+        TimerProtocol::MessageTimer msg2(next_to);
+        unsigned res = service_timer->timer(*myutcb(), msg2);
+        assert(!res);
+      }
     }
   }
 
@@ -881,8 +887,6 @@ public:
       _timeouts.cancel(nr);
       _mb->bus_timeout.send(msg);
     }
-    // request a new timeout upstream
-    timeout_request();
   }
 
 
