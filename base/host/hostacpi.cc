@@ -114,7 +114,7 @@ public:
       case MessageAcpi::ACPI_GET_TABLE:
       {
         unsigned instance = msg.instance;
-        Logging::printf("ac: search ACPI table %s\n", msg.name);
+        //Logging::printf("ac: search ACPI table %s\n", msg.name);
         char *table = acpi_get_rsdp();
         if (!table) break;
 
