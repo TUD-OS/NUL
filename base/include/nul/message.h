@@ -546,7 +546,7 @@ struct MessageHostOp
     return n;
   }
 
-  static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked, char const * name)
+  static MessageHostOp attach_irq(unsigned irq, phy_cpu_no cpu, bool locked, char const * name)
   {
     MessageHostOp n(OP_ATTACH_IRQ, irq, !locked, cpu);
     n.desc = name;
