@@ -41,7 +41,7 @@ To see full command lines run =scons VERBOSE=1=. To compile a
 debugging version (with less optimization applied), use =scons
 debug=1=.
 
-Most of the compiler parameters is defined in base/SConscript.
+Most of the compiler parameters are defined in base/SConscript.
 * Debugging
 ** How to decode crash messages
 
@@ -61,7 +61,8 @@ objdump -S myapp.nul.debug|less -p80000c39
 - *ERR:* The error code. In this case, the page-fault handling portal
   is bound to another CPU than the one where the page-fault occured.
 
-* Interfaces
+* NUL API
+This section documents various interfaces avaiable to NUL programs.
 ** Semaphores
 Futex-like semaphore is defined in semaphore.h as =class Semaphore=.
 ** Memory map
@@ -88,10 +89,10 @@ MEMSIZE value in SConscript.
 Applications can inherit their class from =ProgramConsole= class in
 order to have access to the console. The console is created by
 =calling console_init()=. This also initializes the Logging facility.
-** Service protocol (Parent protocol)
+** Parent/Service protocol
 # <<parent protocol>>
-Service protocol (formerly called parent protocol) is used for
-communication between clients and services (also called servers). It
+Parent/service protocol is used for communication between clients and
+services (also called servers) with the assistance from parent. It
 offers the following properties:
 
 - *Name service*: Services are identified by strings such as
@@ -99,19 +100,19 @@ offers the following properties:
 - *Authorization*: Clients must by authorized by a parent to use a
   particular service.
 - *Anonymity*: the service does not know the real identity of the
-  client.
+  client. Only the parent does.
 - *Quota*: ...
 
 The service protocol consists of several closely related protocols:
-- *Parent protocol* covers communication between a client (or a
-  service) and its parent.
-- *Session protocol* is used in communication between the client and
+- *Parent protocol* covers communication between a client and its
+  parent or between a service and its parent.
+- *Service protocol* is used in communication between the client and
   the service.
 
 
-Parent protocol (class =ParentProtocol=) implements the lowest level
-of the protocol. The message is composed in UTCB (untyped items) and
-its format is defined as:
+Class =ParentProtocol= implements the lowest level of the protocol.
+The message is composed in UTCB (untyped items) and its format is
+defined as:
 
 #+CAPTION: Request message format
 #+LABEL: service-protocol-request-message
@@ -135,9 +136,9 @@ its format is defined as:
 IdentifyCap is a capability that is used to identify the sender in a
 parent. If the child calls its parent, the identity is the semaphore
 created by the parent in =Sigma0::_start_config()=.
-*** Unsorted notes
+*** Differences between parent and service protocols
 
-- Although the parent protocol and the session protocol are logically
+  Although the parent protocol and the service protocol are logically
   different, there is some similarity between them. Namely, the parent
   also provides a service to clients. This service allows them to
   connect to other services. Because of that the <<CAP_PARENT_ID>> can
@@ -182,10 +183,11 @@ Returns the portal for the service previously requested by <<TYPE_OPEN>>.
 *** Generic protocol
 
 Generic protocol (class =GenericProtocol=) is a client-side
-implementation of the whole protocol for talking to the service. Its
-method =call_server()= takes care of setting up everything as well as
-of sending the message. Typically, service specific protocols are
-derived from this class.
+implementation of the whole parent/service protocol. Its method
+=call_server()= takes care of setting up everything (including
+negotation with parent) as well as of sending the message to the
+service. Typically, service specific protocols are derived from this
+class.
 
 The protocol operates on a contiguous range of capability selectors
 whose layout is shown in the table below:
@@ -194,7 +196,7 @@ whose layout is shown in the table below:
 |---------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------|
 | Selector      | Symbol             | Meaning                                                                                                                          |
 |---------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------|
-| base + 0      | CAP_PSEUDONYM      | Identifies the client to the service                                                                                             |
+| base + 0      | CAP_PSEUDONYM      | Identifies the client to the service (retrieved from parent).                                                                    |
 | base + 1      | CAP_LOCK           | TODO                                                                                                                             |
 | base + 2      | CAP_SERVER_SESSION | Identifies the session to the service (one client can open multiple sessions to the service)                                     |
 | base + 3, ... | CAP_SERVER_PT      | Per-CPU portals to talk to the service. If the service is available only on a single CPU, there might be only a single selector. |
@@ -274,26 +276,33 @@ get_pseudonym -> out [label=disable];
 #+end_src
 *** Service implementation 
 
-Server side of the protocol is implemented in class s0_ParentProtocol
-and ...
+Server side of the parent protocol is implemented in class
+s0_ParentProtocol.
 
-... Services can use =class ClientDataStorage= to store and search for
-client specific data.
+Other services may be implemented either from scratch or by using
+several helper classes:
+- Class =ClientDataStorage= can be used to store and search for client
+  specific data (sessions).
+- Class =SService= and its derived classes encapsulate all the
+  boilerplate code for the services.
 
 ** Disk access
+
+Note: this is obsolete.
+
 Accessing the disk currently works as follows.
 
 Sigma0 has a table called Sigma0::_disk_data with an entry for each
 possible client. The index to the table is determined from the portal
 capability selector which receives the disk request. Besides other
-things, the entry in this table determines which disks are accessbible
+things, the entry in this table determines which disks are accessible
 by the client as defined by sigma0::drive:X command line parameters.
 
-A client that wants to acces a disk creates a semaphore and a
+A client that wants to access a disk creates a semaphore and a
 DiskConsumer object, which is a ring buffer for MessageDiskCommit
 messages. Then, it calls Sigma0 via Sigma0Base::request_disks_attach(),
 which delegates the semaphore to Sigma0 and passes it the address of
-the Consumer object. Sigma0 connects the producer in the apropriate
+the Consumer object. Sigma0 connects the producer in the appropriate
 entry in Sigma0::_disk_data with the consumer in the client.
 
 Reading from the disk is performed by sending MessageDisk::DISK_READ
@@ -310,7 +319,7 @@ about completion of his request.
 
 ** Logging
 
-Sometimes it is usefull to have central log of multiple applications.
+Sometimes it is useful to have central log of multiple applications.
 This can be achieved by using the tracebuffer service implemented in Sigma0.
 The tracebuffer is activated by default but if you want the to see the
 output from other applications than Sigma0, you need to put
@@ -397,8 +406,8 @@ entry point defined in the linker script).
 
 *** Memory management 
 
-Sigma0 class iherits =_free_virt= members, which is a region list used
-to manage free virtual memory for later delegation to childs.
+Sigma0 class inherits =_free_virt= members, which is a region list
+used to manage free virtual memory for later delegation to children.
 Initially, all memory is put into this list.
 
 *** Memory mapping
@@ -1122,7 +1131,7 @@ Listens for =MessageInput= and uses this for switching the consoles.
 
 *** Starting programs
 
-Starting of programs other than Sigma0 (let us call them childs) is
+Starting of programs other than Sigma0 (let us call them children) is
 controlled by configuration scripts (text files with /.nulconfig/
 extension). The scripts have to be loaded by the bootloader into the
 memory. Programs can be started either automatically by using =script=
@@ -1133,11 +1142,11 @@ shortcuts (by default LWin+<num>). The number /<num>/ refers to the
 The actual spawning of the program is implemented in
 =Sigma0::_start_config()=. It involves the following steps:
 1. Allocation of memory and copying the executable to that memory.
-2. Allocation of a console for the the new program
+2. Allocation of a console for the new program
 3. Preparation of a new Hypervisor Information Page (HIP) for the
    program.
 4. Creation of exception handling portals (page-fault and startup).
-
+   
    The portal capability selectors are allocated in the range /base/
    -- /base/ + 0x400. The /base/ is calculated as =CLIENT_PT_OFFSET +
       (<num>-1)*(1<<CLIENT_PT_SHIFT)=, i.e.
