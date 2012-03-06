@@ -15,9 +15,11 @@ def update_doxyfile(target, source, env):
     t.close()    
 
 doxyfileBuilder = Builder(action = update_doxyfile)
-env=Environment(tools=['default', 'doxygen'],
-                toolpath='.',
+
+env=Environment(tools=['default'], toolpath='.',
                 BUILDERS = {'Doxyfile' : doxyfileBuilder})
+env.Append(DOXYGEN = ARGUMENTS.get('DOXYGEN', 'doxygen'))
+
 
 doxyfile = env.Doxyfile('Doxyfile.tmpl')
 
@@ -33,7 +35,9 @@ dox = env.Command("nul.dox", ["nul.org", "org-e-doxygen.el", "org-mode/lisp/org.
                                     (org-e-doxygen-export-to-doxygen nil nil nil nil \\"${TARGET.dir.abspath}\\"))" """)
 
 if env.Detect("doxygen"):       # Do not fail if doxygen is not installed
-    env.Doxygen(doxyfile)
+    doxygen = env.Command('html/index.html', [ doxyfile, dox ],
+                          "cd ${SOURCE.dir} && ${DOXYGEN} ${SOURCE.file}")
+    AlwaysBuild(doxygen)
 else:
     import SCons.Warnings
     SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen not found - documentation won't be built")
