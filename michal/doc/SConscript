@@ -34,11 +34,11 @@ dox = env.Command("nul.dox", ["nul.org", "org-e-doxygen.el", "org-mode/lisp/org.
                      --eval "(progn (org-version) \
                                     (org-e-doxygen-export-to-doxygen nil nil nil nil \\"${TARGET.dir.abspath}\\"))" """)
 
-if env.Detect("doxygen"):       # Do not fail if doxygen is not installed
+if env.Detect(env["DOXYGEN"]):       # Do not fail if doxygen is not installed
     doxygen = env.Command('html/index.html', [ doxyfile, dox ],
                           "cd ${SOURCE.dir} && ${DOXYGEN} ${SOURCE.file}")
     AlwaysBuild(doxygen)
 else:
     import SCons.Warnings
-    SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen not found - documentation won't be built")
+    SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen executable (%s) not found - documentation won't be built" % env["DOXYGEN"])
 
