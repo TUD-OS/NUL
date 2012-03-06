@@ -56,7 +56,7 @@ struct nul_tcp_struct {
   struct tcp_pcb * listening_pcb;
   struct tcp_pcb * openconn_pcb;
   void (*fn_recv_call)(uint16 localport, void * in_data, size_t in_len);
-} nul_tcps[2];
+} nul_tcps[3];
 
 /*
  * time
