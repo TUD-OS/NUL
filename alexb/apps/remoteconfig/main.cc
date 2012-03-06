@@ -65,7 +65,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     enum {
       LIBVIRT_CMD_PORT=9999,
-      LIBVIRT_EVT_PORT=10000
+      LIBVIRT_EVT_PORT=10000,
+      LIBVIRT_FILE_PORT=10043,
     };
 
   public:
@@ -91,6 +92,15 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 //          Logging::printf("[da ip] - write port=%lu size=%zu\n", arg.port, arg.count);
           nul_ip_config(IP_TCP_SEND, &arg);
         }
+    }
+
+    static
+    void recv_call_back_file(uint16 localport, void * in, size_t in_len) {
+/*
+      void * appdata, * out;
+      size_t appdata_len, out_len;
+*/
+      Logging::printf("got data %u\n", in_len);
     }
 
     static
@@ -265,14 +275,17 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         unsigned long port;
         void (*fn)(uint16 localport, void * in_data, size_t in_len);
       } conn = { LIBVIRT_CMD_PORT, recv_call_back };
-      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
+      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 
       conn.port = LIBVIRT_EVT_PORT;
       conn.fn = recv_call_back;
+      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 
-      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port\n");
+      conn.port = LIBVIRT_FILE_PORT;
+      conn.fn = recv_call_back_file;
+      if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
+      Logging::printf("done    - open tcp port %d, %d, %d\n", LIBVIRT_CMD_PORT, LIBVIRT_EVT_PORT, LIBVIRT_FILE_PORT);
 
-      Logging::printf("done    - open tcp port %lu - %lu\n", conn.port - 1, conn.port);
       if (!static_ip)
         Logging::printf(".......   looking for an IP address via DHCP\n");
 
