@@ -146,6 +146,9 @@ for line in sys.stdin.readlines():
     if 'pingpong.wv' in where:
         if linetype == 'perf':
             if 'min' in key or 'max' in key: continue
+
+    if 'vancouver-boottime.wv' in where and linetype == 'perf' and key == 'tsc':
+        line = "! PERF: boottime %f s ok" % (val/2.66e9)
         #print >>sys.stderr, line
 
     # Output (possibly modified) line
