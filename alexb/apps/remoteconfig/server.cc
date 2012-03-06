@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -206,13 +206,28 @@ void Remcon::handle_packet(void) {
     case NOVA_VM_START:
       {
         char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
-        if (check_uuid(_uuid + UUID_LEN)) break; //if we have this uuid already deny starting
+        struct server_data * entry = check_uuid(_uuid);
+        unsigned j;
+        if (!entry) {
+          for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
+            if(server_data[j].id != 0) continue;
+            if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
+            Logging::printf("something new to start\n");
 
-        unsigned i, j;
-        for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if(memcmp(server_data[i].uuid, _uuid, UUID_LEN)) continue;
-          
-          if(server_data[i].istemplate) {
+            memcpy(server_data[j].uuid, _uuid, UUID_LEN);
+            server_data[j].filename     = "";
+            server_data[j].filename_len = 0;
+            server_data[j].showname     = ""; //XXX which name to choose
+            server_data[j].showname_len = 0; //XXX which name to choose
+//            memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
+
+            server_data[j].state = server_data::status::RUNNING;
+            _out->result  = NOVA_OP_SUCCEEDED;
+            break;
+          }
+        } else {
+            if (!entry->istemplate) break; //only templates may be instantiated and started
+            if (check_uuid(_uuid + UUID_LEN)) break; //if we have this 'new' uuid already deny starting
             again:
             for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
               if(server_data[j].id != 0) continue;
@@ -233,11 +248,11 @@ void Remcon::handle_packet(void) {
               }
 
               memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
-              server_data[j].filename     = server_data[i].filename;
-              server_data[j].filename_len = server_data[i].filename_len;
-              server_data[j].showname     = server_data[i].showname; //XXX which name to choose
-              server_data[j].showname_len = server_data[i].showname_len; //XXX which name to choose
-              memcpy(server_data[j].fsname, server_data[i].fsname, sizeof(server_data[i].fsname)); //XXX which name to choose
+              server_data[j].filename     = entry->filename;
+              server_data[j].filename_len = entry->filename_len;
+              server_data[j].showname     = entry->showname; //XXX which name to choose
+              server_data[j].showname_len = entry->showname_len; //XXX which name to choose
+              memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
 
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
@@ -291,11 +306,7 @@ void Remcon::handle_packet(void) {
 
               break;
             }
-          } else {
-            server_data[i].state = server_data::status::RUNNING;
-            _out->result  = NOVA_OP_SUCCEEDED;
-          }
-          break;
+            break;
         }
         break;
       }
