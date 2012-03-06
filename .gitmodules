@@ -6,3 +6,6 @@
 	path = alexb/apps/libvirt/libvirt-repo
 	url = os.inf.tu-dresden.de:/home/sojka/repos/libvirt.git
 	ignore = untracked
+[submodule "michal/doc/org-mode"]
+	path = michal/doc/org-mode
+	url = git://orgmode.org/org-mode.git
