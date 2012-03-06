@@ -4,11 +4,8 @@
 #+LANGUAGE:  en
 #+OPTIONS:   H:3 num:t toc:t \n:nil @:t ::t |:t ^:{} -:t f:t *:t <:t author:nil timestamp:t
 
-* TODO How to generate doxygen from this file			   :noexport:
-* Introduction
-
 The NOVA OS Virtualization Architecture is a research project aimed at
-constructing a secure virtualization environment with a small trusted
+constructing a secure virtualization environment with small trusted
 computing base. NOVA consists of a microhypervisor and an unprivileged
 multi-server user environment running on top of it.
 
@@ -30,8 +27,11 @@ microhypervisor. It contains the virtual device models to give an OS
 the illusion of running on bare hardware. Furthermore it emulates
 realmode and MMIO instructions and provides a virtual BIOS.
 
-** Status of this documentation
-Very preliminary!
+*Status of this documentation:* Very preliminary!
+
+Table of content:
+#+DOXYGEN_SUBPAGES:
+
 * Compilation
   :PROPERTIES:
   :CUSTOM_ID: compid
@@ -42,7 +42,7 @@ debugging version (with less optimization applied), use =scons
 debug=1=.
 
 Most of the compiler parameters is defined in base/SConscript.
-* Debugging							       :page:
+* Debugging
 ** How to decode crash messages
 
 #+begin_example
@@ -61,12 +61,14 @@ objdump -S myapp.nul.debug|less -p80000c39
 - *ERR:* The error code. In this case, the page-fault handling portal
   is bound to another CPU than the one where the page-fault occured.
 
-* Interfaces							       :page:
+* Interfaces
 ** Semaphores
 Futex-like semaphore is defined in semaphore.h as =class Semaphore=.
 ** Memory map
 Memory MAP of NUL programs is currently as follows:
 
+|--------------------------------------+------------|
+| Addresses                            | Content    |
 |--------------------------------------+------------|
 | 0x1000 - 0x7fffffff                  | Free       |
 | 0x80000000 - __image_end             | Elf image  |
@@ -81,12 +83,12 @@ the program's binary. At the end of this area, there is a heap used in
 simplemalloc.cc. The size of the heap is determined at compile time by
 MEMSIZE value in SConscript.
 
-** Console							       :page:
+** Console
 
 Applications can inherit their class from =ProgramConsole= class in
 order to have access to the console. The console is created by
 =calling console_init()=. This also initializes the Logging facility.
-** Service protocol (Parent protocol)				       :page:
+** Service protocol (Parent protocol)
 # <<parent protocol>>
 Service protocol (formerly called parent protocol) is used for
 communication between clients and services (also called servers). It
@@ -189,14 +191,14 @@ The protocol operates on a contiguous range of capability selectors
 whose layout is shown in the table below:
 
 #+CAPTION: Capability selectors used by the service protocol
-|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
-| Selector      | Symbol                 | Meaning                                                                                                                          |
-|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
-| base + 0      | <<CAP_PSEUDONYM>>      | Identifies the client to the service                                                                                             |
-| base + 1      | <<CAP_LOCK>>           | TODO                                                                                                                             |
-| base + 2      | <<CAP_SERVER_SESSION>> | Identifies the session to the service (one client can open multiple sessions to the service)                                     |
-| base + 3, ... | <<CAP_SERVER_PT>>      | Per-CPU portals to talk to the service. If the service is available only on a single CPU, there might be only a single selector. |
-|---------------+------------------------+----------------------------------------------------------------------------------------------------------------------------------|
+|---------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------|
+| Selector      | Symbol             | Meaning                                                                                                                          |
+|---------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------|
+| base + 0      | CAP_PSEUDONYM      | Identifies the client to the service                                                                                             |
+| base + 1      | CAP_LOCK           | TODO                                                                                                                             |
+| base + 2      | CAP_SERVER_SESSION | Identifies the session to the service (one client can open multiple sessions to the service)                                     |
+| base + 3, ... | CAP_SERVER_PT      | Per-CPU portals to talk to the service. If the service is available only on a single CPU, there might be only a single selector. |
+|---------------+--------------------+----------------------------------------------------------------------------------------------------------------------------------|
 
 The protocol is defined by the following rules:
 
@@ -306,7 +308,7 @@ request if sends a MessageDiskCommit to Sigma0 which again translates
 the message for the client and uses Producer to notify the client
 about completion of his request.
 
-** Logging							       :page:
+** Logging
 
 Sometimes it is usefull to have central log of multiple applications.
 This can be achieved by using the tracebuffer service implemented in Sigma0.
@@ -327,7 +329,7 @@ When the second parameter in the command line is non-zero (1 in the
 example above), the traced outout also goes to the sigma0 output, i.e.
 to the VGA and/or serial line if those are enabled.
 
-** Admission service						       :page:
+** Admission service
 
 Admission service is responsible for creating scheduling contexts. No
 other protection domain (besides Sigma0) has the right to create
@@ -361,14 +363,17 @@ admission service by changing the content of
 ~base/apps/sigma0/cfg/admission.nulconfig~. For instnace, you can
 remove the ~top~ parameter and add ~log~ parameter to get some logging
 output from the service.
-** Restrictions/Caveats						       :page:
+** Restrictions/Caveats
 *** Static constructors (C++)
 NUL does not support automatic calling of constructors of static
 objects. 
 
-* NUL Components						       :page:
+* NUL Components
   This section lists the main components (servers) of NUL.
-** Sigma0 - Partition Manager 					       :page:
+
+#+DOXYGEN_SUBPAGES: xxx
+
+** Sigma0 - Partition Manager
 *** Basic operation
 Sigma0 is the root task (i.e. it runs in a root protection domain and
 it is the first task run by the hypervisor). Its initialization is
@@ -430,8 +435,10 @@ additional parameter specifies the alignment of the memory block.
 
 Portal wrapper functions cannot be greped - they are defined with
 PT_FUNC() or PT_FUNC_NORETURN() macros.
-*** Capability selector allocation				       :page:
+*** Capability selector allocation
 TODO How are capability selectors allocated?
+|-----------------------+------------------------------------------------------------------------------|
+| Capability indices    | Use                                                                          |
 |-----------------------+------------------------------------------------------------------------------|
 | 0 -- 0x10000          | reserved by program.h                                                        |
 | 0xff                  | parent id - parent identifies us by translation of this capability to its PD |
@@ -1113,7 +1120,7 @@ exactly bus_console used to.
 *** HostVga
 Listens for =MessageInput= and uses this for switching the consoles.
 
-*** Starting programs						       :page:
+*** Starting programs
 
 Starting of programs other than Sigma0 (let us call them childs) is
 controlled by configuration scripts (text files with /.nulconfig/
@@ -1173,7 +1180,7 @@ The actual spawning of the program is implemented in
 *** Interrupt handling
 TODO
 
-** Vancouver - VMM 						       :page:
+** Vancouver - VMM
 
 So far, this section contains only inteconnection diagram of
 Vancouver. For clarity, this diagram omits connections to hostop,
