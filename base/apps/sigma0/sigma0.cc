@@ -1655,6 +1655,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
         }
       }
     }
+    // Make sure not to return zero.
+    if (x.state == 0) x.state = 0xCAFEBABE;
     return x.state;
   }
 
@@ -1664,6 +1666,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
    * specific number.
    */
   unsigned long long get_mac(unsigned clientnr) {
+    if (!mac_host) mac_host = generate_hostmac();
     return (static_cast<unsigned long long>(mac_prefix) << 16) + (static_cast<unsigned long long>(mac_host) << 8) + clientnr;
   }
 
@@ -1689,7 +1692,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     if ((res = create_host_devices(utcb, __hip)))  Logging::panic("s0: create host devices failed %x\n", res);
     if (!initialized_s0_tasks)                     Logging::panic("s0: embedded s0 services not running - you forget the boot_s0_services option\n");
-    if (!mac_host) mac_host = generate_hostmac();
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
