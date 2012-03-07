@@ -1,0 +1,14 @@
+<domain type="nova">
+  <name>xml</name>
+  <memory>128000</memory>
+  <currentMemory>128000</currentMemory>
+  <os>
+    <type arch='i686'>hvm</type>
+  </os>
+  <devices>
+    <disk type='file'>
+      <source file='libvirt-test.xml'/> <!-- raw disk file use here -->
+      <target dev='hda'/>
+    </disk>
+  </devices>
+</domain>

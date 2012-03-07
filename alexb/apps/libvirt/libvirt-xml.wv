@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+. $(dirname $0)/libvirt.wv.inc\
+
+WVSTART Start of a VM via xml file
+
+init
+
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 create $(dirname $0)/libvirt-test.xml"
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 dumpxml 2"
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
+    WVPASS test "$(grep "xml.*idle" log|wc -l)" -eq 1
+    WVPASS virsh -c nova+tls://$NOVA_IP:9999 'destroy 2'
+
+finish
