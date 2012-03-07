@@ -50,6 +50,7 @@ class Remcon : public CapAllocator {
       enum status {
         OFF     = 0,
         RUNNING = 1,
+        BLOCKED = 2,
         PAUSED  = 3,
       } state;
       bool events;

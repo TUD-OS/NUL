@@ -137,7 +137,7 @@ void Remcon::handle_packet(void) {
     case NOVA_LIST_DEFINED_DOMAINS:
       {
         uint32_t * num = reinterpret_cast<uint32_t *>(&_out->opspecific);
-        unsigned char * names = reinterpret_cast<unsigned char *>(&_out->opspecific) + 4;
+        unsigned char * names = reinterpret_cast<unsigned char *>(&_out->opspecific) + sizeof(uint32_t);
 
         unsigned i,k = 0;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
@@ -165,8 +165,8 @@ void Remcon::handle_packet(void) {
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
           if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           len = server_data[i].showname_len;
-          if (memcmp(server_data[i].showname, _name, len)) continue;
           if (buf_in + NOVA_PACKET_LEN <=_name + len || _name[len] != 0) continue;
+          if (memcmp(server_data[i].showname, _name, len)) continue;
           if (&_out->opspecific + UUID_LEN + len + 1 > buf_out + NOVA_PACKET_LEN) break; //no space left
       
           memcpy(&_out->opspecific, server_data[i].uuid, UUID_LEN);
@@ -209,19 +209,30 @@ void Remcon::handle_packet(void) {
         struct server_data * entry = check_uuid(_uuid);
         unsigned j;
         if (!entry) {
+          uint32_t maxmem = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN));
+          uint32_t showname_len = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN + sizeof(uint32_t)));
+          char * showname = _uuid + UUID_LEN + 2 * sizeof(uint32_t);
+          if (showname_len > NOVA_PACKET_LEN || (showname + showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) break; // cheater!
+
           for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
             if(server_data[j].id != 0) continue;
             if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
-            Logging::printf("something new to start\n");
 
+            char * _name = new char [showname_len];
+            if (!_name) {
+              server_data[j].id = 0;
+              break;
+            }
+            memcpy(_name, showname, showname_len);
             memcpy(server_data[j].uuid, _uuid, UUID_LEN);
             server_data[j].filename     = "";
             server_data[j].filename_len = 0;
-            server_data[j].showname     = ""; //XXX which name to choose
-            server_data[j].showname_len = 0; //XXX which name to choose
+            server_data[j].showname     = _name;
+            server_data[j].showname_len = showname_len;
+            server_data[j].maxmem       = maxmem * 1024;
 //            memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
 
-            server_data[j].state = server_data::status::RUNNING;
+            server_data[j].state = server_data::status::BLOCKED;
             _out->result  = NOVA_OP_SUCCEEDED;
             break;
           }
@@ -329,7 +340,7 @@ void Remcon::handle_packet(void) {
         if (entry->state != server_data::status::OFF &&
             ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time)) {
           Logging::printf("failure - could not get consumed time of client\n");
-          break;
+          //break;
         }
 
         char  * ptr = reinterpret_cast<char *>(&_out->opspecific);
