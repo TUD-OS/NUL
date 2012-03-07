@@ -47,7 +47,6 @@ public:
 
       Qpd q(p.type, 10000); //EARLY SIGMA0 BOOT (no admission service running)
       res = nova_create_sc (idx_sc, idx_ec, q);
-
       assert(!res && counter < tmp_size);
       tmp[counter].para = p; tmp[counter].cpu = cpu; tmp[counter].idx = idx_sc; tmp[counter].admission_sc = a_sc;
       memcpy(tmp[counter++].name, name, strlen(name) + 1);
@@ -67,6 +66,8 @@ public:
     unsigned res, i;
 
     _blocking = true; //enable blocking - early boot finished
+
+    nova_revoke(Crd(NOVA_DEFAULT_PD_CAP, 0, DESC_TYPE_CAP | DESC_RIGHT_SC), true); // revoke right to create sc by s0
 
     if (root_sc != ~0U) {
       assert(tmp && counter < tmp_size);
