@@ -426,8 +426,9 @@ foreach my $script (@scripts) {
 	exit;
     }
 
-    my $pulsar_config = "config-$pulsar";
+    my $pulsar_config;
     if (defined $pulsar) {
+	$pulsar_config = "config-$pulsar";
 	generate_configs('', $generated, $filename);
 	generate_pulsar_config($pulsar_config, $modules);
 	if (!defined $server) {
