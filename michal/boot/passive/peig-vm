@@ -15,9 +15,9 @@ EOF
 bin/apps/vancouver.nul
 peig.nulconfig <<EOF
 sigma0::mem:256 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk disk::name:PEIG_VM ||
-rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 vfpci:0x10c98086,0,7 drive:0,0,0 ||
+rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 82576vf vfpci:0x10c98086,0,7 drive:0,0,0 ||
 rom://bin/boot/munich ||
-rom://imgs/passive/bzImage clocksource=tsc vga=0 root=/dev/sda1 console=ttyS0  ||
+rom://imgs/passive/bzImage clocksource=tsc vga=0 root=/dev/sda1 console=ttyS0 ip=:::::eth1:dhcp ||
 EOF
 bin/boot/munich
 imgs/passive/bzImage
