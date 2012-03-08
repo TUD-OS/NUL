@@ -1,12 +1,15 @@
 /*
  *	sslTest.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Self-test of the MatrixSSL handshake protocol and encrypted data exchange.
  *	Each enabled cipher suite is run through all configured SSL handshake paths
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -16,8 +19,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -34,20 +37,21 @@
 
 /*
 	This test application can also run in a mode that measures the time of
-	SSL connections.  The granularity is milliseconds, however, so most
-	non-embedded platforms will report 0 msecs/conn for most stats. 
+	SSL connections.  If USE_HIGHRES time is disabled the granularity is
+	milliseconds so most non-embedded platforms will report 0 msecs/conn for
+	most stats. 
 
-	Standard handshakes, resumed handshakes, and client-auth handshakes
-	(commercial only) are timed for each enabled cipher suite.
-	The other handshake types will still run but will not be timed
+	Standard handshakes and client-auth handshakes (commercial only) are timed
+	for each enabled cipher suite. The other handshake types will still run
+	but will not be timed
 */
 /* #define ENABLE_PERF_TIMING */
-#define CONN_ITER			1000 /* number of connections per 'type'of hs */
+#define CONN_ITER			500 /* number of connections per type of hs */
 #define APP_DATA_LEN		1024
 
 #ifdef ENABLE_PERF_TIMING
 #define testTrace(x)
-#define TIME_UNITS "msecs/conn\n"
+#define TIME_UNITS "msecs/connection\n"
 #else /* !ENABLE_PERF_TIMING */
 #define testTrace(x) _psTrace(x)
 #endif /* ENABLE_PERF_TIMING */
@@ -90,11 +94,11 @@ static	sslSessionId_t	clientSessionId;
 */
 #define USE_HEADER_KEYS /* comment out this line to test with .pem files */
 
-#if defined(PS_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)
+#if defined(MATRIX_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)
 static char svrKeyFile[] = "../crypto/sampleCerts/privkeySrv.pem";
 static char svrCertFile[] = "../crypto/sampleCerts/certSrv.pem";
 static char svrCAfile[] = "../crypto/sampleCerts/CAcertSrv.pem";
-#endif  /* PS_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
+#endif  /* MATRIX_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
 
 					
 #ifdef USE_HEADER_KEYS
@@ -239,11 +243,7 @@ int main(int argc, char **argv)
 #ifdef ENABLE_PERF_TIMING
 	int32			perfIter;
 	uint32			clnTime, svrTime;
-	psTime_t		start, end;
 #endif /* ENABLE_PERF_TIMING */
-	static char heap[63 * 1024];
-
-	psDefineHeap(heap, sizeof(heap));
 
 	if (matrixSslOpen() < 0) {
 		fprintf(stderr, "matrixSslOpen failed, exiting...");
@@ -263,10 +263,11 @@ int main(int argc, char **argv)
 		_psTrace("	Standard handshake test\n");
 #ifdef ENABLE_PERF_TIMING
 /*
-		Each matrixSsl call in the handshake is wrapped by a timer.  The 
-		data exchange phase is not being included in the time
+		Each matrixSsl call in the handshake is wrapped by a timer.  Data
+		exchange is NOT included in the timer
 */
 		clnTime = svrTime = 0;
+		_psTraceInt("		%d connections\n", (int32)CONN_ITER);
 		for (perfIter = 0; perfIter < CONN_ITER; perfIter++) {
 #endif /* ENABLE_PERF_TIMING */		
 		if (initializeHandshake(clnConn, svrConn, ciphers[id],
@@ -278,31 +279,17 @@ int main(int argc, char **argv)
 			_psTrace("		FAILED: Standard handshake\n");
 			goto LBL_FREE;
 		} else {
-			testTrace("		PASSED: Standard handshake\n");
-#if APP_DATA_LEN
-#ifdef ENABLE_PERF_TIMING
-			psGetTime(&start);
-#endif /* ENABLE_PERF_TIMING */	
-			if (exchangeAppData(clnConn, svrConn) < 0) {
-				_psTrace(" but FAILED to exchange application data\n");
+			testTrace("		PASSED: Standard handshake");	
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
+				_psTrace(" but FAILED to exchange srv application data\n");
+			} else {
+				testTrace("\n");
 			}
-#ifdef ENABLE_PERF_TIMING
-			psGetTime(&end);
-			clnTime += psDiffMsecs(start, end);
-			psGetTime(&start);
-#endif /* ENABLE_PERF_TIMING */	
-			if (exchangeAppData(svrConn, clnConn) < 0) {
-				_psTrace(" but FAILED to exchange application data\n");
-			}
-#ifdef ENABLE_PERF_TIMING
-			psGetTime(&end);
-			svrTime += psDiffMsecs(start, end);
-#endif /* ENABLE_PERF_TIMING */	
-#endif /* APP_DATA_LEN */
 		}
 #ifdef ENABLE_PERF_TIMING
-		clnTime += clnConn->runningTime;
 		svrTime += svrConn->runningTime;
+		clnTime += clnConn->runningTime;
 		/* Have to reset conn for full handshake... except last time through */
 		if (perfIter + 1 != CONN_ITER) {
 			matrixSslDeleteSession(clnConn->ssl);
@@ -310,20 +297,16 @@ int main(int argc, char **argv)
 			matrixSslInitSessionId(clientSessionId);
 		}
 		} /* iteration loop close */
-		_psTraceInt("CONN_ITER:  %d\n", (int32)CONN_ITER);
-		_psTraceInt("CLIENT:     %d " TIME_UNITS, (int32)clnTime/CONN_ITER);
-		_psTraceInt("SERVER:     %d " TIME_UNITS, (int32)svrTime/CONN_ITER);
-		_psTraceInt("APP_DATA:   %d x 2 bytes\n", (int32)APP_DATA_LEN);
-//		_psTrace("Press any key to continue tests");
-		_psTrace("\n==========\n");
-//		getchar();
+		_psTraceInt("		CLIENT:	%d " TIME_UNITS, (int32)clnTime/CONN_ITER);
+		_psTraceInt("		SERVER:	%d " TIME_UNITS, (int32)svrTime/CONN_ITER);
+		_psTrace("\n");
 #endif /* ENABLE_PERF_TIMING */
 		
 #ifdef SSL_REHANDSHAKES_ENABLED	
 /*
 		 Re-Handshake (full handshake over existing connection)
 */		
-		_psTrace("	Re-handshake test (client-initiated)\n");		
+		testTrace("	Re-handshake test (client-initiated)\n");		
 		if (initializeReHandshake(clnConn, svrConn, ciphers[id].cipherId) < 0) {
 			_psTrace("		FAILED: initializing Re-handshake\n");
 			goto LBL_FREE;
@@ -332,8 +315,9 @@ int main(int argc, char **argv)
 			_psTrace("		FAILED: Re-handshake\n");
 			goto LBL_FREE;
 		} else {
-			testTrace("		PASSED: Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			testTrace("		PASSED: Re-handshake");			
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
@@ -346,11 +330,7 @@ int main(int argc, char **argv)
 /*
 		Resumed handshake (fast handshake over new connection)
 */				
-		_psTrace("	Resumed handshake test (new connection)\n");
-#ifdef ENABLE_PERF_TIMING
-		clnTime = svrTime = 0;
-		for (perfIter = 0; perfIter < CONN_ITER; perfIter++) {
-#endif /* ENABLE_PERF_TIMING */			
+		testTrace("	Resumed handshake test (new connection)\n");		
 		if (initializeResumedHandshake(clnConn, svrConn,
 				ciphers[id]) < 0) {
 			_psTrace("		FAILED: initializing Resumed handshake\n");
@@ -361,29 +341,19 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Resumed handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
 			}
-		}
-#ifdef ENABLE_PERF_TIMING
-		clnTime += clnConn->runningTime;
-		svrTime += svrConn->runningTime;
-		/* Have to reset conn for full handshake */
-		} /* iteration loop */
-		_psTraceInt("CLIENT:  %d " TIME_UNITS, (int32)clnTime/CONN_ITER);
-		_psTraceInt("SERVER:  %d " TIME_UNITS, (int32)svrTime/CONN_ITER);
-		_psTrace("Press any key to continue tests");
-		_psTrace("\n==========\n");
-//		getchar();
-#endif /* ENABLE_PERF_TIMING */		
+		}	
 		
 #ifdef SSL_REHANDSHAKES_ENABLED		
 /*
 		 Re-handshake initiated by server (full handshake over existing conn)
 */			
-		_psTrace("	Re-handshake test (server initiated)\n");
+		testTrace("	Re-handshake test (server initiated)\n");
 		if (initializeServerInitiatedReHandshake(clnConn, svrConn,
 									   ciphers[id].cipherId) < 0) {
 			_psTrace("		FAILED: initializing Re-handshake\n");
@@ -394,17 +364,20 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
 			}
 		}	
 	
+		/* Testing 5 more re-handshake paths.  Add some credits */
+		matrixSslAddRehandshakeCredits(svrConn->ssl, 5);
 /*
 		Resumed re-handshake (fast handshake over existing connection)
 */				
-		_psTrace("	Resumed Re-handshake test (client initiated)\n");
+		testTrace("	Resumed Re-handshake test (client initiated)\n");
 		if (initializeResumedReHandshake(clnConn, svrConn,
 				 ciphers[id].cipherId) < 0) {
 				_psTrace("		FAILED: initializing Resumed Re-handshake\n");
@@ -415,7 +388,8 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Resumed Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
@@ -425,7 +399,7 @@ int main(int argc, char **argv)
 /*
 		 Resumed re-handshake initiated by server (fast handshake over conn)
 */		
-		_psTrace("	Resumed Re-handshake test (server initiated)\n");
+		testTrace("	Resumed Re-handshake test (server initiated)\n");
 		if (initializeServerInitiatedResumedReHandshake(clnConn, svrConn,
 									   ciphers[id].cipherId) < 0) {
 				_psTrace("		FAILED: initializing Resumed Re-handshake\n");
@@ -436,7 +410,8 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Resumed Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
@@ -445,7 +420,7 @@ int main(int argc, char **argv)
 /*
 		Re-handshaking with "upgraded" parameters
 */
-		_psTrace("	Change cert callback Re-handshake test\n");
+		testTrace("	Change cert callback Re-handshake test\n");
 		if (initializeUpgradeCertCbackReHandshake(clnConn, svrConn,
 									   ciphers[id].cipherId) < 0) {
 				_psTrace("		FAILED: init upgrade certCback Re-handshake\n");
@@ -456,7 +431,8 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Upgrade cert callback Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
@@ -465,7 +441,7 @@ int main(int argc, char **argv)
 /*
 		Upgraded keys
 */
-		_psTrace("	Change keys Re-handshake test\n");
+		testTrace("	Change keys Re-handshake test\n");
 		if (initializeUpgradeKeysReHandshake(clnConn, svrConn,
 									   ciphers[id].cipherId) < 0) {
 				_psTrace("		FAILED: init upgrade keys Re-handshake\n");
@@ -476,7 +452,8 @@ int main(int argc, char **argv)
 			goto LBL_FREE;
 		} else {
 			testTrace("		PASSED: Upgrade keys Re-handshake");
-			if (exchangeAppData(clnConn, svrConn) < 0) {
+			if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 				_psTrace(" but FAILED to exchange application data\n");
 			} else {
 				testTrace("\n");
@@ -486,8 +463,8 @@ int main(int argc, char **argv)
 		Change cipher spec test.  Changing to a hardcoded RSA suite so this
 		will not work on suites that don't have RSA material loaded
 */
-		if (ciphers[id].rsa == 1) {
-			_psTrace("	Change cipher suite Re-handshake test\n");
+		if (ciphers[id].rsa == 1 && ciphers[id].ecdh == 0) {
+			testTrace("	Change cipher suite Re-handshake test\n");
 			if (initializeChangeCipherReHandshake(clnConn, svrConn,
 									   ciphers[id].cipherId) < 0) {
 					_psTrace("		FAILED: init change cipher Re-handshake\n");
@@ -498,7 +475,8 @@ int main(int argc, char **argv)
 				goto LBL_FREE;
 			} else {
 				testTrace("		PASSED: Change cipher suite Re-handshake");
-				if (exchangeAppData(clnConn, svrConn) < 0) {
+				if (exchangeAppData(clnConn, svrConn) < 0 ||
+					exchangeAppData(svrConn, clnConn) < 0) {
 					_psTrace(" but FAILED to exchange application data\n");
 				} else {
 					testTrace("\n");
@@ -752,15 +730,10 @@ static int32 exchangeAppData(sslConn_t *sendingSide, sslConn_t *receivingSide)
 	int32			writeBufLen, inBufLen, dataSent, rc;
 	uint32			ptLen, totalProcessed, requestedLen;
 	unsigned char	*writeBuf, *inBuf, *plaintextBuf;
-#ifdef ENABLE_PERF_TIMING
-	psTime_t    start, end;
-#endif /* ENABLE_PERF_TIMING */
+
 /*
 	Client sends the data
 */
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&start);
-#endif
 	requestedLen = APP_DATA_LEN;
 	writeBufLen = matrixSslGetWritebuf(sendingSide->ssl, &writeBuf,
 		requestedLen);
@@ -778,11 +751,6 @@ static int32 exchangeAppData(sslConn_t *sendingSide, sslConn_t *receivingSide)
 SEND_MORE:		
 	writeBufLen = matrixSslGetOutdata(sendingSide->ssl, &writeBuf);	
 
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&end);
-	sendingSide->runningTime += psDiffMsecs(start, end);
-#endif
-
 /*
 	Receiving side must ask for storage space to receive data into.
 	
@@ -792,14 +760,7 @@ SEND_MORE:
 	record length was parsed off and the buffer was reallocated to the
 	exact necessary length
 */
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&start);
-#endif
 	inBufLen = matrixSslGetReadbuf(receivingSide->ssl, &inBuf);
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&end);
-	receivingSide->runningTime += psDiffMsecs(start, end);
-#endif
 	
 	dataSent = min(writeBufLen, inBufLen);
 	memcpy(inBuf, writeBuf, dataSent);
@@ -807,21 +768,11 @@ SEND_MORE:
 /*
 	Now update the sending side that data has been "sent"
 */
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&start);
-#endif
 	matrixSslSentData(sendingSide->ssl, dataSent);
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&end);
-	sendingSide->runningTime += psDiffMsecs(start, end);
-#endif
 		
 /*
 	Received data
 */
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&start);
-#endif
 	rc = matrixSslReceivedData(receivingSide->ssl, dataSent, &plaintextBuf,
 		&ptLen);
 		
@@ -836,10 +787,6 @@ SEND_MORE:
 		printf("Unexpected error in exchangeAppData: %d\n", rc);
 		return PS_FAILURE;
 	}
-#ifdef ENABLE_PERF_TIMING
-	psGetTime(&end);
-	receivingSide->runningTime += psDiffMsecs(start, end);
-#endif
 	
 	return PS_SUCCESS;
 }
@@ -863,12 +810,12 @@ static int32 initializeServer(sslConn_t *conn, testCipherSpec_t cipherSuite)
 
 
 		if (cipherSuite.rsa && !cipherSuite.ecdh) {
-#if defined(PS_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)	
+#if defined(MATRIX_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)	
 			if (matrixSslLoadRsaKeys(keys, svrCertFile, svrKeyFile, NULL, NULL)
 					< 0) {
 				return PS_FAILURE;
 			}
-#endif /* PS_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
+#endif /* MATRIX_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
 
 #ifdef USE_HEADER_KEYS
 			if (matrixSslLoadRsaKeysMem(keys, certSrvBuf, sizeof(certSrvBuf),
@@ -918,11 +865,11 @@ static int32 initializeClient(sslConn_t *conn, testCipherSpec_t cipherSuite,
 		
 
 		if (cipherSuite.rsa && !cipherSuite.ecdh) {
-#if defined(PS_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)
+#if defined(MATRIX_USE_FILE_SYSTEM) && !defined(USE_HEADER_KEYS)
 			if (matrixSslLoadRsaKeys(keys, NULL, NULL, NULL, svrCAfile) < 0) {
 				return PS_FAILURE;
 			}
-#endif /* PS_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
+#endif /* MATRIX_USE_FILE_SYSTEM && !USE_HEADER_KEYS */
 
 #ifdef USE_HEADER_KEYS
 			if (matrixSslLoadRsaKeysMem(keys, NULL, 0, NULL, 0, CAcertSrvBuf,

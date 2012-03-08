@@ -52,7 +52,7 @@ private:
   typedef ClientDataStorage<ClientData, EchoService> EchoClientDataStorage;
 
   EchoClientDataStorage _storage;
-
+  char * flag_revoke; // Share memory with parent to signalize us dead clients
 public:
 
   EchoService() : NovaProgram(), ProgramConsole() {}
@@ -67,8 +67,8 @@ public:
       switch (op) {
       case ParentProtocol::TYPE_OPEN:
       {
-	verbose("ParentProtocol::TYPE_OPEN\n");
         unsigned pseudonym = input.received_cap();
+	verbose("echo2: ParentProtocol::TYPE_OPEN from pseudonym %#x\n", pseudonym);
         unsigned cap_session = 0;
 
         if (!pseudonym) return EPROTO;
@@ -96,17 +96,19 @@ public:
         if (res == ERESOURCE) { _storage.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
         else if (res) return res;
 
+        if (*flag_revoke) { *flag_revoke = 0; _storage.cleanup_clients(utcb, this); }
+
         res = ParentProtocol::set_singleton(utcb, data->pseudonym, data->get_identity());
         assert(!res);
 
         free_cap = false;
-        verbose("----- created echo client pseudonym=0x%x identity=0x%x\n", data->pseudonym, data->get_identity());
+        verbose("echo2: created echo client %p, pseudonym=0x%x, identity=0x%x\n", data, data->pseudonym, data->get_identity());
         utcb << Utcb::TypedMapCap(data->get_identity());
         return res;
       }
       case ParentProtocol::TYPE_CLOSE:
       {
-	verbose("ParentProtocol::TYPE_CLOSE\n");
+	verbose("echo2: ParentProtocol::TYPE_CLOSE, from id %#x\n", input.identity());
         ClientData *data = 0;
         EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
         check1(res, res = _storage.get_client_data(utcb, data, input.identity()));
@@ -114,28 +116,28 @@ public:
       }
       case EchoProtocol::TYPE_ECHO:
       {
-	verbose("EchoProtocol::TYPE_ECHO\n");
+	verbose("echo2: EchoProtocol::TYPE_ECHO from id %#x\n", input.identity());
 
-	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
+	EchoClientDataStorage::Guard guard_c(&_storage);
 	ClientData *data = 0;
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  // Return EEXISTS to ask the client for opening the session
-	  verbose("Cannot get client (id=0x%x) data: 0x%x\n", input.identity(), res);
+	  verbose("echo2: Cannot get client data: err=%#x\n", res);
 	  return res;
 	}
 
 	unsigned value;
 	check1(EPROTO, input.get_word(value));
 	// Get the value sent by a client
-	verbose("echo: Client 0x%x sent us a value %d\n", input.identity(), value);
+	verbose("echo2: Client 0x%x sent us value %d\n", input.identity(), value);
 	data->last_val = value; // Remember the received value
 	return value; // "Echo" the received value back
       }
       case EchoProtocol::TYPE_GET_LAST:
       {
-	verbose("EchoProtocol::TYPE_GET_LAST\n");
+	verbose("echo2: EchoProtocol::TYPE_GET_LAST from id %#x\n", input.identity());
 	ClientData *data = 0;
-	EchoClientDataStorage::Guard guard_c(&_storage, utcb, this);
+	EchoClientDataStorage::Guard guard_c(&_storage);
 	if (res = _storage.get_client_data(utcb, data, input.identity())) {
 	  Logging::printf("echo: Client %d: Cannot get client data to retrieve the value\n",
 			  input.identity());
@@ -145,7 +147,7 @@ public:
 	return ENONE;		// The returned value will appear in utcb.msg[0]
       }
       default:
-	Logging::printf("Unknown op!!!!\n");
+	Logging::printf("echo2: Unknown op!!!!\n");
         return EPROTO;
       }
     }
@@ -157,6 +159,9 @@ public:
       unsigned exc_base_worker, pt_worker;
       unsigned service_cap = alloc_cap();
       Utcb *utcb_worker;
+
+      flag_revoke = new (0x1000) char[0x1000];
+      if (!flag_revoke) return false;
 
       // Create worker threads and portals for each CPU
       for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
@@ -177,7 +182,7 @@ public:
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<EchoService>::portal_func);
         res = nova_create_pt(pt_worker, cap_worker_ec, portal_func, 0);
         if (res) return false;
-        res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_worker, service_cap);
+        res = ParentProtocol::register_service(*utcb, service_name, cpunr, pt_worker, service_cap, flag_revoke);
         if (res) return !res;
       }
 

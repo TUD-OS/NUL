@@ -1,11 +1,14 @@
 /*
  *	matrixssl.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	The session and authentication management portions of the MatrixSSL library
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -33,7 +36,7 @@
 /******************************************************************************/
 
 static const char copyright[] = 
-"Copyright PeerSec Networks Inc. All rights reserved.";
+"Copyright AuthenTec Inc. All rights reserved.";
 
 #ifdef USE_SERVER_SIDE_SSL
 static int32 verifyReadKeys(psPool_t *pool, sslKeys_t *keys);
@@ -52,7 +55,7 @@ static psMutex_t			prngLock;
 static sslSessionEntry_t	sessionTable[SSL_SESSION_TABLE_SIZE];
 #endif /* USE_SERVER_SIDE_SSL */
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 static int32 matrixSslLoadKeyMaterial(sslKeys_t *keys, const char *certFile,
 				const char *privFile, const char *privPass, const char *CAfile,
 				int32 privKeyType);
@@ -166,7 +169,7 @@ int32 matrixSslNewKeys(sslKeys_t **keys)
 	return PS_SUCCESS;
 }
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 #ifdef USE_PKCS12
 /******************************************************************************/
 /*
@@ -328,7 +331,7 @@ static int32 matrixSslLoadKeyMaterial(sslKeys_t *keys, const char *certFile,
 
 	return PS_SUCCESS;
 }
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 
 /******************************************************************************/
 /*
@@ -602,14 +605,14 @@ int32 matrixSslNewSession(ssl_t **ssl, sslKeys_t *keys, sslSessionId_t *session,
 	Data buffers
 */
 	lssl->outsize = SSL_DEFAULT_OUT_BUF_SIZE;
-	lssl->outbuf = psMalloc(PEERSEC_NO_POOL, lssl->outsize);
+	lssl->outbuf = psMalloc(MATRIX_NO_POOL, lssl->outsize);
 	if (lssl->outbuf == NULL) {
 		psTraceInfo("Out of memory for outbuf in matrixSslNewSession\n");
 		psFree(lssl);
 		return PS_MEM_FAIL;
 	}
 	lssl->insize = SSL_DEFAULT_IN_BUF_SIZE;
-	lssl->inbuf = psMalloc(PEERSEC_NO_POOL, lssl->insize);
+	lssl->inbuf = psMalloc(MATRIX_NO_POOL, lssl->insize);
 	if (lssl->inbuf == NULL) {
 		psTraceInfo("Out of memory for inbuf in matrixSslNewSession\n");
 		psFree(lssl->outbuf);
@@ -769,12 +772,60 @@ void matrixSslGetAnonStatus(ssl_t *ssl, int32 *certArg)
 	*certArg = ssl->sec.anon;
 }
 
+
+#ifdef USE_SSL_INFORMATIONAL_TRACE
+void matrixSslPrintHSDetails(ssl_t *ssl)
+{
+	if (ssl->hsState == SSL_HS_DONE) {
+		psTraceInfo("\n");
+		if (ssl->minVer == SSL3_MIN_VER) {
+			psTraceInfo("SSL 3.0 ");
+		} else if (ssl->minVer == TLS_MIN_VER) {
+			psTraceInfo("TLS 1.0 ");
+		} else if (ssl->minVer == TLS_1_1_MIN_VER) {
+			psTraceInfo("TLS 1.1 ");
+		} else if (ssl->minVer == TLS_1_2_MIN_VER) {
+			psTraceInfo("TLS 1.2 ");
+		}
+		psTraceInfo("connection established: ");
+		switch (ssl->cipher->ident) {
+			case SSL_RSA_WITH_NULL_MD5:
+				psTraceInfo("SSL_RSA_WITH_NULL_MD5\n");
+				break;
+			case SSL_RSA_WITH_NULL_SHA:
+				psTraceInfo("SSL_RSA_WITH_NULL_SHA\n");
+				break;
+			case SSL_RSA_WITH_RC4_128_MD5:
+				psTraceInfo("SSL_RSA_WITH_RC4_128_MD5\n");
+				break;
+			case SSL_RSA_WITH_RC4_128_SHA:
+				psTraceInfo("SSL_RSA_WITH_RC4_128_SHA\n");
+				break;
+			case SSL_RSA_WITH_3DES_EDE_CBC_SHA:
+				psTraceInfo("SSL_RSA_WITH_3DES_EDE_CBC_SHA\n");
+				break;
+			case TLS_RSA_WITH_AES_128_CBC_SHA:
+				psTraceInfo("TLS_RSA_WITH_AES_128_CBC_SHA\n");
+				break;
+			case TLS_RSA_WITH_AES_256_CBC_SHA:
+				psTraceInfo("TLS_RSA_WITH_AES_256_CBC_SHA\n");
+				break;
+			default:
+				psTraceIntInfo("!!!! DEFINE ME %d !!!!\n", ssl->cipher->ident);
+		}
+		//psTraceBytes("	Master Secret", ssl->sec.masterSecret,
+		//	SSL_HS_MASTER_SIZE);
+	}
+	return;
+}
+#endif
+
 /******************************************************************************/
 /*
 	Returns PS_TRUE if we've completed the SSL handshake.
 */
 int32 matrixSslHandshakeIsComplete(ssl_t *ssl)
-{
+{	
 	return (ssl->hsState == SSL_HS_DONE) ? PS_TRUE : PS_FALSE;
 }
 
@@ -818,6 +869,7 @@ int32 sslUpdateHSHash(ssl_t *ssl, unsigned char *in, uint32 len)
 
 	return 0;
 }
+
 
 /******************************************************************************/
 /*

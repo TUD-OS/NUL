@@ -1,12 +1,15 @@
 /*
  *	matrixssllib.h
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
  *	Internal header file used for the MatrixSSL implementation.
  *	Only modifiers of the library should be intersted in this file
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -16,8 +19,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -292,7 +295,7 @@ extern "C" {
 #define SSL_FLAGS_ANON_CIPHER	0x000200
 #define SSL_FLAGS_FALSE_START	0x000400
 #define SSL_FLAGS_TLS_1_1		0x000800
-#define SSL_FLAGS_TLS_1_2		0x400000 /* TODO: bump others down */
+#define SSL_FLAGS_TLS_1_2		0x400000
 	
 /*
 	Buffer flags (ssl->bFlags)
@@ -301,6 +304,12 @@ extern "C" {
 #define BFLAG_HS_COMPLETE		0x02
 #define BFLAG_STOP_BEAST		0x04 
 	
+/*
+	Number of bytes server must send before creating a re-handshake credit
+*/
+#define DEFAULT_RH_CREDITS		1 /* Allow for one rehandshake by default */
+#define	BYTES_BEFORE_RH_CREDIT	20 * 1024 * 1024
+
 /*
 	Cipher types
 */
@@ -349,11 +358,11 @@ extern "C" {
 #define SSL3_MAJ_VER	3
 #define SSL3_MIN_VER	0
 #define TLS_MIN_VER		1
+#define TLS_1_1_MIN_VER	2
+#define TLS_1_2_MIN_VER	3
 
 
 #ifdef USE_TLS
-#define TLS_1_1_MIN_VER	2
-#define TLS_1_2_MIN_VER	3
 #define TLS_HS_FINISHED_SIZE	12
 #define TLS_MAJ_VER		3
 #endif /* USE_TLS */
@@ -376,6 +385,7 @@ extern "C" {
 	Supported HELLO extensions
 */
 #define EXT_RENEGOTIATION_INFO			0xFF01
+#define EXT_SIGNATURE_ALGORITHMS		0x00D
 
 /*
 	Maximum key block size for any defined cipher
@@ -383,7 +393,7 @@ extern "C" {
 	Value is largest total among all cipher suites for
 		2*macSize + 2*keySize + 2*ivSize
 */
-#define SSL_MAX_KEY_BLOCK_SIZE			2*20 + 2*32 + 2*16 + SHA1_HASH_SIZE
+#define SSL_MAX_KEY_BLOCK_SIZE			2*32 + 2*32 + 2*16 + SHA1_HASH_SIZE
 
 /*
 	Master secret is 48 bytes, sessionId is 32 bytes max
@@ -409,7 +419,7 @@ extern "C" {
 #define psTraceInfo(x) _psTrace(x)
 #define psTraceStrInfo(x, y) _psTraceStr(x, y)
 #define psTraceIntInfo(x, y) _psTraceInt(x, y)
-#endif /* USE_SSL_INFORMATIONA_TRACE */
+#endif /* USE_SSL_INFORMATIONAL_TRACE */
 
 /******************************************************************************/
 
@@ -615,7 +625,11 @@ typedef struct ssl {
 	uint32			myVerifyDataLen;
 	uint32			peerVerifyDataLen;
 	int32			secureRenegotiationFlag;
-#endif /* ENABLE_SECURE_REHANDSHAKES */	
+#endif /* ENABLE_SECURE_REHANDSHAKES */
+#ifdef SSL_REHANDSHAKES_ENABLED
+	int32			rehandshakeCount; /* Make this an internal define of 1 */
+	int32			rehandshakeBytes; /* Make this an internal define of 10MB */
+#endif /* SSL_REHANDSHAKES_ENABLED */	
 	int32			(*extCb)(void *ssl, unsigned short extType,
 						unsigned short extLen, void *e);
 	int32			recordHeadLen;
@@ -658,6 +672,14 @@ extern int32	matrixSslGetSessionId(ssl_t *ssl, sslSessionId_t *sessionId);
 #endif /* USE_CLIENT_SIDE_SSL */
 
 extern int32 matrixSslGetPrngData(unsigned char *bytes, uint32 size);
+
+#ifdef USE_SSL_INFORMATIONAL_TRACE
+extern void matrixSslPrintHSDetails(ssl_t *ssl);
+#endif /* USE_SSL_INFORMATIONAL_TRACE */
+
+#ifdef SSL_REHANDSHAKES_ENABLED
+PSPUBLIC void matrixSslAddRehandshakeCredits(ssl_t *ssl, int32 credits);
+#endif
 
 /******************************************************************************/
 /*
@@ -711,6 +733,8 @@ extern int32 csRsaEncryptPriv(psPool_t *pool, psPubKey_t *key,
 			unsigned char *in, uint32 inlen, unsigned char *out, uint32 outlen);
 extern int32 csRsaDecryptPriv(psPool_t *pool, psPubKey_t *key, 
 			unsigned char *in, uint32 inlen, unsigned char *out, uint32 outlen);
+			
+			
 
 #ifndef DISABLE_SSLV3
 /******************************************************************************/

@@ -143,7 +143,7 @@ netconn_getaddr(struct netconn *conn, ip_addr_t *addr, u16_t *port, u8_t local)
 
   msg.function = do_getaddr;
   msg.msg.conn = conn;
-  msg.msg.msg.ad.ipaddr = addr;
+  msg.msg.msg.ad.ipaddr = ip_2_ipX(addr);
   msg.msg.msg.ad.port = port;
   msg.msg.msg.ad.local = local;
   err = TCPIP_APIMSG(&msg);
@@ -307,9 +307,9 @@ netconn_accept(struct netconn *conn, struct netconn **new_conn)
   API_EVENT(conn, NETCONN_EVT_RCVMINUS, 0);
 
   if (newconn == NULL) {
-    /* connection has been closed */
-    NETCONN_SET_SAFE_ERR(conn, ERR_CLSD);
-    return ERR_CLSD;
+    /* connection has been aborted */
+    NETCONN_SET_SAFE_ERR(conn, ERR_ABRT);
+    return ERR_ABRT;
   }
 #if TCP_LISTEN_BACKLOG
   /* Let the stack know that we have accepted the connection. */
@@ -372,7 +372,7 @@ netconn_recv_data(struct netconn *conn, void **new_buf)
 #endif /* LWIP_SO_RCVTIMEO*/
 
 #if LWIP_TCP
-  if (conn->type == NETCONN_TCP) {
+  if (NETCONNTYPE_GROUP(conn->type) == NETCONN_TCP) {
     if (!netconn_get_noautorecved(conn) || (buf == NULL)) {
       /* Let the stack know that we have taken the data. */
       /* TODO: Speedup: Don't block and wait for the answer here
@@ -434,7 +434,7 @@ err_t
 netconn_recv_tcp_pbuf(struct netconn *conn, struct pbuf **new_buf)
 {
   LWIP_ERROR("netconn_recv: invalid conn", (conn != NULL) &&
-             netconn_type(conn) == NETCONN_TCP, return ERR_ARG;);
+             NETCONNTYPE_GROUP(netconn_type(conn)) == NETCONN_TCP, return ERR_ARG;);
 
   return netconn_recv_data(conn, (void **)new_buf);
 }
@@ -461,7 +461,7 @@ netconn_recv(struct netconn *conn, struct netbuf **new_buf)
   LWIP_ERROR("netconn_accept: invalid recvmbox", sys_mbox_valid(&conn->recvmbox), return ERR_CONN;);
 
 #if LWIP_TCP
-  if (conn->type == NETCONN_TCP) {
+  if (NETCONNTYPE_GROUP(conn->type) == NETCONN_TCP) {
     struct pbuf *p = NULL;
     /* This is not a listening netconn, since recvmbox is set */
 
@@ -481,7 +481,7 @@ netconn_recv(struct netconn *conn, struct netbuf **new_buf)
     buf->p = p;
     buf->ptr = p;
     buf->port = 0;
-    ip_addr_set_any(&buf->addr);
+    ipX_addr_set_any(LWIP_IPV6, &buf->addr);
     *new_buf = buf;
     /* don't set conn->last_err: it's only ERR_OK, anyway */
     return ERR_OK;
@@ -508,7 +508,7 @@ void
 netconn_recved(struct netconn *conn, u32_t length)
 {
 #if LWIP_TCP
-  if ((conn != NULL) && (conn->type == NETCONN_TCP) &&
+  if ((conn != NULL) && (NETCONNTYPE_GROUP(conn->type) == NETCONN_TCP) &&
       (netconn_get_noautorecved(conn))) {
     struct api_msg msg;
     /* Let the stack know that we have taken the data. */
@@ -540,7 +540,7 @@ err_t
 netconn_sendto(struct netconn *conn, struct netbuf *buf, ip_addr_t *addr, u16_t port)
 {
   if (buf != NULL) {
-    ip_addr_set(&buf->addr, addr);
+    ipX_addr_set_ipaddr(PCB_ISIPV6(conn->pcb.ip), &buf->addr, addr);
     buf->port = port;
     return netconn_send(conn, buf);
   }
@@ -591,7 +591,7 @@ netconn_write(struct netconn *conn, const void *dataptr, size_t size, u8_t apifl
   err_t err;
 
   LWIP_ERROR("netconn_write: invalid conn",  (conn != NULL), return ERR_ARG;);
-  LWIP_ERROR("netconn_write: invalid conn->type",  (conn->type == NETCONN_TCP), return ERR_VAL;);
+  LWIP_ERROR("netconn_write: invalid conn->type",  (NETCONNTYPE_GROUP(conn->type)== NETCONN_TCP), return ERR_VAL;);
   if (size == 0) {
     return ERR_OK;
   }
@@ -664,7 +664,7 @@ netconn_shutdown(struct netconn *conn, u8_t shut_rx, u8_t shut_tx)
   return netconn_close_shutdown(conn, (shut_rx ? NETCONN_SHUT_RD : 0) | (shut_tx ? NETCONN_SHUT_WR : 0));
 }
 
-#if LWIP_IGMP
+#if LWIP_IGMP || (LWIP_IPV6 && LWIP_IPV6_MLD)
 /**
  * Join multicast groups for UDP netconns.
  *
@@ -688,15 +688,15 @@ netconn_join_leave_group(struct netconn *conn,
 
   msg.function = do_join_leave_group;
   msg.msg.conn = conn;
-  msg.msg.msg.jl.multiaddr = multiaddr;
-  msg.msg.msg.jl.netif_addr = netif_addr;
+  msg.msg.msg.jl.multiaddr = ip_2_ipX(multiaddr);
+  msg.msg.msg.jl.netif_addr = ip_2_ipX(netif_addr);
   msg.msg.msg.jl.join_or_leave = join_or_leave;
   err = TCPIP_APIMSG(&msg);
 
   NETCONN_SET_SAFE_ERR(conn, err);
   return err;
 }
-#endif /* LWIP_IGMP */
+#endif /* LWIP_IGMP || (LWIP_IPV6 && LWIP_IPV6_MLD) */
 
 #if LWIP_DNS
 /**

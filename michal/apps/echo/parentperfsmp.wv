@@ -1,0 +1,62 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+WVDESC=Parent protocol SMP performance
+QEMU_FLAGS=-cpu coreduo -smp 4
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12,2 \
+    script \
+    script_start:1,4 \
+    script_wait:1000 \
+    script_start:6,4 \
+    script_waitchild \
+    script_wait:1000 \
+    script_start:10,4 \
+    script_waitchild \
+    script_wait:1000 \
+    script_start:14,4 \
+    script_waitchild \
+    script_wait:1000 \
+    script_start:18,4 \
+    script_waitchild \
+    script_wait:1000
+bin/apps/echo-quiet.nul
+echo1.nulconfig <<EOF
+namespace::/serv1 sigma0::mem:8 sigma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo-quiet.nul
+EOF
+bin/apps/echo2-quiet.nul
+echo2.nulconfig <<EOF
+namespace::/serv2 sigma0::mem:8 sigma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo2-quiet.nul
+EOF
+bin/apps/echo2ss-quiet.nul
+echo3.nulconfig <<EOF
+namespace::/serv3 sigma0::mem:8 simgma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo2ss-quiet.nul
+EOF
+bin/apps/echo2ss-noxlate-quiet.nul
+echo4.nulconfig <<EOF
+namespace::/serv4 sigma0::mem:8 simgma0::cpu:0 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/echo2ss-noxlate-quiet.nul
+EOF
+bin/apps/parentperf.nul
+
+parentperf.nulconfig <<EOF
+sigma0::mem:8 sigma0::cpu:0 name::/s0/log name::/s0/fs/rom name::/serv1/echo name::/serv2/echo name::/serv3/echo name::/serv4/echo name::/s0/admission ||
+rom://bin/apps/parentperf.nul
+EOF
+parentperf1.nulconfig < cat parentperf.nulconfig; echo test:1
+parentperf1q1.nulconfig < sed -e 's/cpu:0/cpu:1/' parentperf.nulconfig; echo test:1 quiet tries:1000000
+parentperf1q2.nulconfig < sed -e 's/cpu:0/cpu:2/' parentperf.nulconfig; echo test:1 quiet tries:1000000
+parentperf1q3.nulconfig < sed -e 's/cpu:0/cpu:3/' parentperf.nulconfig; echo test:1 quiet tries:1000000
+parentperf2.nulconfig < cat parentperf.nulconfig; echo test:2
+parentperf2q1.nulconfig < sed -e 's/cpu:0/cpu:1/' parentperf.nulconfig; echo test:2 quiet tries:1000000
+parentperf2q2.nulconfig < sed -e 's/cpu:0/cpu:2/' parentperf.nulconfig; echo test:2 quiet tries:1000000
+parentperf2q3.nulconfig < sed -e 's/cpu:0/cpu:3/' parentperf.nulconfig; echo test:2 quiet tries:1000000
+parentperf3.nulconfig < cat parentperf.nulconfig; echo test:3
+parentperf3q1.nulconfig < sed -e 's/cpu:0/cpu:1/' parentperf.nulconfig; echo test:3 quiet tries:1000000
+parentperf3q2.nulconfig < sed -e 's/cpu:0/cpu:2/' parentperf.nulconfig; echo test:3 quiet tries:1000000
+parentperf3q3.nulconfig < sed -e 's/cpu:0/cpu:3/' parentperf.nulconfig; echo test:3 quiet tries:1000000
+parentperf4.nulconfig < cat parentperf.nulconfig; echo test:4
+parentperf4q1.nulconfig < sed -e 's/cpu:0/cpu:1/' parentperf.nulconfig; echo test:4 quiet tries:1000000
+parentperf4q2.nulconfig < sed -e 's/cpu:0/cpu:2/' parentperf.nulconfig; echo test:4 quiet tries:1000000
+parentperf4q3.nulconfig < sed -e 's/cpu:0/cpu:3/' parentperf.nulconfig; echo test:4 quiet tries:1000000

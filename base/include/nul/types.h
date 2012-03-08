@@ -28,6 +28,10 @@
 #endif
 
 BEGIN_EXTERN_C
+#ifdef __MMX__
+#include <mmintrin.h>
+#endif
+
 #ifdef __SSE2__
 #include <emmintrin.h>
 #endif

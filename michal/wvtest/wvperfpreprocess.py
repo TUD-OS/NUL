@@ -102,9 +102,6 @@ for line in sys.stdin.readlines():
         # Skip warmup results
         continue
 
-    if 'standalone/basicperf.c' in where and linetype == 'perf':
-        line = line.replace('ok', 'axis="duration" ok');
-
     if 'vancouver-linux-basic' in where:
         continue                # Ignore the old test
 
@@ -119,19 +116,24 @@ for line in sys.stdin.readlines():
             if 'diskbench-ramdisk-old.wv' in where:
                 line = line.replace('throughput', 'old-protocol', 1)
 
-    if 'parentperf.' in where:
+    if 'parentperf.' in where or 'parentperfsmp.' in where:
         if linetype == 'testing':
+            if 'parentperf.wv' in where: smp = False
+            elif 'parentperfsmp.wv' in where: smp = True
             if what == 'Service without sessions': tag = 'nosess'
             elif what == 'Service with sessions':  tag = 'sess'
             elif what == 'Service with sessions (implemented as a subclass of SService)': tag = 'sserv'
+            elif what == 'Service with sessions represented by portals (implemented as a subclass of NoXlateSService)': tag = 'noxsserv'
             else: tag = None
         elif linetype == 'perf':
             if key == 'min' or key == 'max': continue
             if key == 'open_session':
-                print 'Testing "Parent protocol open_session performance" in parentperf_open:'
+                if 'pre-vnet-removal-239-g910c152' in commit or 'pre-vnet-removal-240-g9b2fa79' in commit: continue # Broken measurements
+                if not smp: print 'Testing "Parent protocol open_session performance" in parentperf_open:'
+                else:       continue
             else:
-                print 'Testing "Parent protocol call performance" in parentperf_call:'
-            line = line.replace('cycles ok', 'cycles axis="duration" ok');
+                if not smp: print 'Testing "Parent protocol call performance" in parentperf_call:'
+                else:       print 'Testing "Parent protocol call performance (4 CPUs in parallel)" in parentperf_call_smp:'
             line = line.replace(key, tag+'_'+key);
             print line
         continue
@@ -142,7 +144,11 @@ for line in sys.stdin.readlines():
             line = line.replace('ok', 'axis="lines" ok');
 
     if 'pingpong.wv' in where:
-        if linetype == 'perf': line = line.replace('ok', 'axis="duration" ok');
+        if linetype == 'perf':
+            if 'min' in key or 'max' in key: continue
+
+    if 'vancouver-boottime.wv' in where and linetype == 'perf' and key == 'tsc':
+        line = "! PERF: boottime %f s ok" % (val/2.66e9)
         #print >>sys.stderr, line
 
     # Output (possibly modified) line

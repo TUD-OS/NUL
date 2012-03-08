@@ -3,4 +3,4 @@
 typedef unsigned long long psTime_t;
 
 // don't divide by 64bit value
-#define USE_PEERSEC_DIV64
+#define USE_MATRIX_DIV64

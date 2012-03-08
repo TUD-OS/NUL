@@ -1,5 +1,5 @@
 /*
-    Copyright 2011 PeerSec Networks, Inc.
+    Copyright 2012 AuthenTec
     This file is auto-generated
 */
 #ifndef _h_MATRIXSSL_VERSION
@@ -8,10 +8,10 @@
 extern "C" {
 #endif
 
-#define MATRIXSSL_VERSION      "3.2.2-OPEN"
+#define MATRIXSSL_VERSION      "3.3.0-OPEN"
 #define MATRIXSSL_VERSION_MAJOR 3
-#define MATRIXSSL_VERSION_MINOR 2
-#define MATRIXSSL_VERSION_PATCH 2
+#define MATRIXSSL_VERSION_MINOR 3
+#define MATRIXSSL_VERSION_PATCH 0
 #define MATRIXSSL_VERSION_CODE "OPEN"
 
 #ifdef __cplusplus

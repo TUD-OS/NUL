@@ -173,7 +173,8 @@ public:
   {
     //Logging::printf("sum(%p, %u, %08x, %u)\n", buf, size, state, odd);
     //hexdump(buf, size);
-    unsigned cstate = state;
+    uint8 const *buf_end = buf + size;
+    unsigned cstate      = state;
 
     // Step 1: Align buffer to 16 byte (for SSE)
     unsigned align_steps = 0xF & (0x10 - (reinterpret_cast<mword>(buf) & 0xF));
@@ -187,6 +188,8 @@ public:
       __m128i     sum = _mm_setzero_si128();
 
       while (size > 32) {
+        assert((buf + 32) <= buf_end);
+
         __m128i v1 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf));
         __m128i v2 = _mm_load_si128(reinterpret_cast<__m128i const *>(buf) + 1);
 
@@ -221,24 +224,31 @@ public:
   static uint16
   tcpudpsum(const uint8 *buf, uint8 proto,
 	    unsigned maclen, unsigned iplen,
-	    unsigned len)
+	    unsigned len, bool ipv6 = false)
   {
     //Logging::printf("--- tcpudpsum(%p) \n", buf);
     uint32 state = 0;
     bool   odd   = false;
 
-    // Source and destination IP addresses (part of pseudo header)
-    sum(buf + maclen + 12, 8, state, odd);
-
-    // Second part of pseudo header: 0, protocol ID, UDP length
-    uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
-    sum(reinterpret_cast<uint8 *>(p), sizeof(p), state, odd);
-
+    if (not ipv6) {
+      // IPv4:
+      // Source and destination IP addresses (part of pseudo header)
+      sum(buf + maclen + 12, 8, state, odd);
+      
+      // Second part of pseudo header: 0, protocol ID, UDP length
+      const uint16 p[] = { static_cast<uint16>(proto << 8), Endian::hton16(len - maclen - iplen) };
+      sum(reinterpret_cast<const uint8 *>(p), sizeof(p), state, odd);
+    } else {
+      // IPv6:
+      // Source and destination IP addresses (part of pseudo header)
+      sum(buf + maclen + 8, 2*16, state, odd);
+      const uint32 pseudo2[2] = {Endian::hton32(len - maclen - iplen),
+                                 Endian::hton32(proto) };
+      sum(reinterpret_cast<const uint8 *>(pseudo2), sizeof(pseudo2), state, odd);
+    }
+      
     // Sum L4 header plus payload
-    //sum(buf + maclen + iplen, len - maclen - iplen, state, odd);
-    sum(buf + maclen + iplen, 32, state, odd);
-    sum(buf + maclen + iplen + 32, len - maclen - iplen - 32, state, odd);
-
+    sum(buf + maclen + iplen, len - maclen - iplen, state, odd);
     return ~fixup(state);
   }
 

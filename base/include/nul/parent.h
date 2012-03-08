@@ -1,8 +1,9 @@
 /** @file
- * Parent protocol.
+ * Parent protocol - constants and client side.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of Vancouver.
@@ -91,14 +92,15 @@ struct ParentProtocol {
   static unsigned call(Utcb &utcb, unsigned cap_base, bool drop_frame, bool percpu = true) {
     unsigned res;
     res = nova_call(cap_base + (percpu ? utcb.head.nul_cpunr : 0));
-    if (!res) res = utcb.msg[0];
+    if (!res)
+      if (!utcb.head.untyped) res = EPROTO; //if we don't get a result word it's a protocol violation
+      else res = utcb.msg[0];
     if (drop_frame) utcb.drop_frame();
     return res;
   }
 
   static unsigned get_pseudonym(Utcb &utcb, const char *service, unsigned instance,
 				unsigned cap_pseudonym, unsigned parent_id = CAP_PARENT_ID) {
-    if (service && service[0] == '/') Logging::panic("Service name '%s' starts with '/'\n", service);
     return call(init_frame(utcb, TYPE_OPEN, parent_id) << instance << Utcb::String(service)
 						       << Crd(cap_pseudonym, 0, DESC_CAP_ALL),
 		CAP_PT_PERCPU, true);
@@ -135,10 +137,10 @@ struct ParentProtocol {
    * @param cap_service Capability selector where parent delegates us
    * the service identifier. It seems that this identifier is not used
    * for anything.
-   * @param revoke_mem Memory page used to substitute the memory that
-   * was provided to the service by a client, but was revoked later.
-   * Having such memory makes it easier for services to deal with
-   * situations when the memory is revoked during service operation.
+   * @param revoke_mem Memory page the parent will use to signalize us
+   * that some client has died (or closed session). The service can
+   * use this to figure out when it is not necessary to search for
+   * dead clients.
    */
   static unsigned
   register_service(Utcb &utcb, const char *service, unsigned cpu, unsigned pt,
@@ -314,6 +316,7 @@ public:
     obj->dealloc_cap(_cap_base, portal_num);
   }
 
+  // XXX: Clarify the intended difference between destroy() and close()
   /**
    * Close the session to the parent.
    * - Revoke all caps we got from external and we created (default: revoke_lock = true)
@@ -327,8 +330,11 @@ public:
     res = nova_revoke(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL), true);
     res = nova_revoke(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL), true);
     if (portal_num > CAP_SERVER_PT)
-      for (unsigned i=0; i < portal_num - CAP_SERVER_PT; i++)
+      for (unsigned i=0; i < portal_num - CAP_SERVER_PT; i++) {
         res = nova_revoke(Crd(_cap_base + CAP_SERVER_PT + i, 0, DESC_CAP_ALL), true);
+        if (_session_base != _cap_base + CAP_SERVER_PT)
+          res = nova_revoke(Crd(_session_base + i, 0, DESC_CAP_ALL), true);
+      }
     (void)res;
   }
 
@@ -350,9 +356,9 @@ public:
 };
 
 /// Helper class that replaces calls to init_frame() with calls to init_frame_noid().
-class GenericPtSessProtocol : public GenericProtocol {
+class GenericNoXlateProtocol : public GenericProtocol {
 public:
-  GenericPtSessProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
+  GenericNoXlateProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
     : GenericProtocol(service, instance, cap_base, blocking, session_base) {}
 
   Utcb & init_frame(Utcb &utcb, unsigned op) { return init_frame_noid(utcb, op); }

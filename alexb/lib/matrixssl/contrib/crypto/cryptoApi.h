@@ -1,11 +1,14 @@
 /*
  *	cryptoApi.h
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
- *	Prototypes for the PeerSec crypto public APIs
+ *	Prototypes for the Matrix crypto public APIs
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -15,8 +18,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -210,22 +213,22 @@ PSPUBLIC int32 pkcs1ParsePrivBin(psPool_t *pool, unsigned char *p,
 #ifdef USE_PKCS8
 PSPUBLIC int32 pkcs8ParsePrivBin(psPool_t *pool, unsigned char *p,
 				int32 size, char *pass, psPubKey_t **key);
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 #ifdef USE_PKCS12				
 PSPUBLIC int32 psPkcs12Parse(psPool_t *pool, psX509Cert_t **cert,
 				psPubKey_t **privKey, const unsigned char *file, int32 flags,
 				unsigned char *importPass, int32 ipasslen,
 				unsigned char *privkeyPass, int32 kpasslen);
 #endif /* USE_PKCS12 */
-#endif /* PS_USE_FILE_SYSTEM */				
+#endif /* MATRIX_USE_FILE_SYSTEM */				
 #endif /* USE_PKCS8 */
 
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 PSPUBLIC int32 pkcs1ParsePrivFile(psPool_t *pool, char *fileName,
 				char *password, psPubKey_t **outkey);
 PSPUBLIC int32 pkcs1DecodePrivFile(psPool_t *pool, char *fileName,
 				char *password,	unsigned char **DERout, uint32 *DERlen);
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 #endif /* USE_PRIVATE_KEY_PARSING */
 
 #endif /* USE_RSA */

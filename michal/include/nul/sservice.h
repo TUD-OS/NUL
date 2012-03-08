@@ -23,49 +23,50 @@
 #include <nul/parent.h>
 #include <nul/generic_service.h>
 #include <nul/baseprogram.h>
+#include <wvtest.h>
 
-template <class T, class A>
-struct DefaultSessions : public ClientDataStorage<T, A> {};
-
-template<class Session, template <class, class> class SessionsTmpl=DefaultSessions>
+template<class Session, class A>
 class BaseSService {
-public:
-  typedef SessionsTmpl<Session, BaseSService> Sessions;
-  Sessions _sessions;
 protected:
-  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out) = 0;
+  typedef ClientDataStorage<Session, A> Sessions;
+  Sessions _sessions;
+  cap_sel  _worker_ec_base;
+  char * flag_revoke; // Share memory with parent to signalize us dead clients
 
   virtual unsigned new_session(Session *session) = 0;
   virtual unsigned handle_request(Session *session, unsigned op, Utcb::Frame &input, Utcb &utcb, bool &free_cap) = 0;
 
+  mword get_portal_func_addr() { return reinterpret_cast<mword>(StaticPortalFunc<A>::portal_func); }
+
 public:
-  // We act as a cap allocator
+
+  // I don't like this CAP (de)alloc stuff here, but it is currently
+  // the easist way how to implement it independently of the service.
   virtual cap_sel alloc_cap(unsigned count = 1) = 0;
-  virtual void  dealloc_cap(cap_sel c) = 0;
+  virtual void    dealloc_cap(cap_sel c) = 0;
+  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out, cap_sel ec = ~0u) = 0;
 
-  unsigned alloc_crd()
-  {
-    return Crd(alloc_cap(), 0, DESC_CAP_ALL).value();
-  }
-
+  unsigned alloc_crd() {return Crd(alloc_cap(), 0, DESC_CAP_ALL).value();}
 
   /**
    * Registers the service with parent
    *
-   * @param service Service class
    * @param service_name Service name to register
    * @param hip Specifies on which CPUs to start the service.
    *
-   * @return
+   * @return true in case of success, false otherwise.
    */
-  template<class T> // We use the template to properly instantiate StaticPortalFunc
-  static bool register_service(T *service, const char *service_name, Hip &hip = Global::hip)
+  bool register_service(const char *service_name, Hip &hip = Global::hip)
   {
     Logging::printf("Constructing service %s...\n", service_name);
 
-    cap_sel  service_cap = service->alloc_cap();
+    cap_sel  service_cap = alloc_cap();
     unsigned res;
-    mword portal_func = reinterpret_cast<mword>(StaticPortalFunc<T>::portal_func);
+
+    _worker_ec_base = alloc_cap(hip.cpu_desc_count());
+
+    flag_revoke = new (0x1000) char[0x1000];
+    if (!flag_revoke) return false;
 
     for (phy_cpu_no i = 0; i < hip.cpu_desc_count(); i++) {
       Hip_cpu const &cpu = hip.cpus()[i];
@@ -73,18 +74,20 @@ public:
 
       // Create service EC
       Utcb *utcb_service;
-      cap_sel worker_ec = service->create_ec4pt(i, &utcb_service);
+      cap_sel worker_ec = create_ec4pt(i, &utcb_service, _worker_ec_base+i);
       assert(worker_ec != 0);
-      utcb_service->head.crd = service->alloc_crd();
-      utcb_service->head.crd_translate = Crd(0, 31, DESC_CAP_ALL).value();
+      utcb_service->head.crd = alloc_crd();
+      utcb_service->head.crd_translate = static_cast<A*>(this)->get_crdt();
 
-      cap_sel worker_pt = service->alloc_cap();
-      res = nova_create_pt(worker_pt, worker_ec, portal_func, 0);
+      // TODO cap_sel worker_ec = _worker_ec_base+i;
+      cap_sel worker_pt = alloc_cap();
+      assert(worker_pt);
+      res = nova_create_pt(worker_pt, _worker_ec_base+i, get_portal_func_addr(), 0);
       assert(res == NOVA_ESUCCESS);
 
       // Register service
       res = ParentProtocol::register_service(*BaseProgram::myutcb(), service_name, i,
-                                             worker_pt, service_cap);
+                                             worker_pt, service_cap, flag_revoke);
       if (res != ENONE)
         Logging::panic("Registering service on CPU%u failed.\n", i);
     }
@@ -93,181 +96,124 @@ public:
     return true;
   }
 
+  unsigned open_session(Utcb &utcb, cap_sel pseudonym, bool &free_cap)
+  {
+    unsigned res;
+    unsigned cap_singleton = 0;
+
+    if (!pseudonym) return EPROTO;
+
+    //Ask parent whether we have already a session with this client (TODO: Not all services may want this)
+    res = ParentProtocol::check_singleton(utcb, pseudonym, cap_singleton);
+    if (!res && cap_singleton)
+      {
+        Session *session = 0;
+        typename Sessions::Guard guard_c(&_sessions, utcb, static_cast<A*>(this));
+        while (session = _sessions.next(session)) {
+          if (session->get_singleton() == cap_singleton) {
+            dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
+            session->pseudonym = pseudonym;
+
+            if (!session->get_identity())
+              res = _sessions.alloc_identity(session, static_cast<A*>(this));
+
+            utcb << Utcb::TypedMapCap(session->get_identity());
+            free_cap = false;
+            _sessions.cleanup_clients(utcb, static_cast<A*>(this));
+            return ENONE;
+          }
+        }
+      }
+
+    Session *session = 0;
+    res = _sessions.alloc_client_data(utcb, session, pseudonym, static_cast<A*>(this));
+    if (res == ERESOURCE) { _sessions.cleanup_clients(utcb, static_cast<A*>(this)); return ERETRY; } //force garbage collection run
+    else if (res) return res;
+
+    if (*flag_revoke) { *flag_revoke = 0; _sessions.cleanup_clients(utcb, static_cast<A*>(this)); }
+
+    res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_singleton());
+    assert(!res);
+
+    free_cap = false;
+    utcb << Utcb::TypedMapCap(session->get_identity());
+    return new_session(session);
+  }
+
+  unsigned close_session(Utcb &utcb, cap_sel session_id)
+  {
+    unsigned res;
+    Session *session = 0;
+    typename Sessions::Guard guard_c(&this->_sessions, utcb, static_cast<A*>(this));
+    check1(res, res = _sessions.get_client_data(utcb, session, session_id));
+    return _sessions.free_client_data(utcb, session, static_cast<A*>(this));
+  }
+
+  unsigned handle_session(Utcb &utcb, cap_sel session_id, unsigned op, Utcb::Frame &input, bool &free_cap)
+  {
+    unsigned res;
+    typename Sessions::Guard guard_c(&this->_sessions);
+    Session *session = 0;
+    if (res = _sessions.get_client_data(utcb, session, session_id)) {
+      // Return EEXISTS to ask the client for opening the session
+      // Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", pid, res);
+      return res;
+    }
+    return handle_request(session, op, input, utcb, free_cap);
+  }
+
+};
+
+/// Service that uses semaphores as identifiers for sessions. This is
+/// the original way how parent/service protocol worked. Kernel has to
+/// perform translate operation during every call to the service.
+template<class Session, class A>
+class XlateSService : public BaseSService<Session, A> {
+  typedef BaseSService<Session, A> Base;
+
+public:
+  unsigned get_crdt() { return Crd(0, 31, DESC_CAP_ALL).value(); }
+
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
   {
-    unsigned op, res;
+    unsigned op;
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
     case ParentProtocol::TYPE_OPEN:
-      {
-        unsigned pseudonym = input.received_cap();
-        unsigned cap_session = 0;
-
-        if (!pseudonym) return EPROTO;
-
-        //Ask parent whether we have already a session with this client (TODO: Not all services may want this)
-        res = ParentProtocol::check_singleton(utcb, pseudonym, cap_session);
-        if (!res && cap_session)
-	  {
-	    Session *session = 0;
-	    typename Sessions::Guard guard_c(&_sessions, utcb, this);
-	    while (session = _sessions.next(session)) {
-	      if (session->get_identity() == cap_session) {
-		dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
-		session->pseudonym = pseudonym;
-		utcb << Utcb::TypedMapCap(session->get_identity());
-		free_cap = false;
-		_sessions.cleanup_clients(utcb, this);
-		return ENONE;
-	      }
-	    }
-	  }
-
-	Session *session = 0;
-        res = _sessions.alloc_client_data(utcb, session, pseudonym, this);
-        if (res == ERESOURCE) { _sessions.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
-        else if (res) return res;
-
-        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_identity());
-        assert(!res);
-
-        free_cap = false;
-        utcb << Utcb::TypedMapCap(session->get_identity());
-        return new_session(session);
-      }
-    case ParentProtocol::TYPE_CLOSE: {
-      Session *session = 0;
-      typename Sessions::Guard guard_c(&_sessions, utcb, this);
-      check1(res, res = _sessions.get_client_data(utcb, session, input.identity()));
-      return _sessions.free_client_data(utcb, session, this);
-    }
+      return Base::open_session(utcb, input.received_cap(), free_cap);
+    case ParentProtocol::TYPE_CLOSE:
+      return Base::close_session(utcb, input.identity());
     default:
-      {
-	typename Sessions::Guard guard_c(&_sessions, utcb, this);
-	Session *session = 0;
-	if (res = _sessions.get_client_data(utcb, session, input.identity())) {
-	  // Return EEXISTS to ask the client for opening the session
-	  //Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", input.identity(), res);
-	  return res;
-	}
-	return handle_request(session, op, input, utcb, free_cap);
-      }
+      return Base::handle_session(utcb, input.identity(), op, input, free_cap);
     }
   }
 };
 
+
 /// Service that uses portals insted of semaphores as identifiers for sessions
-template<class Session, template <class, class> class SessionsTmpl=DefaultSessions>
-class NoXlateSService : public BaseSService<Session, SessionsTmpl> {
-  mword portal_func_addr;
-  cap_sel worker_ec[Config::MAX_CPUS];
+template<class Session, class A>
+class NoXlateSService : public BaseSService<Session, A> {
+  typedef BaseSService<Session, A> Base;
 public:
-  typedef BaseSService<Session, SessionsTmpl> Base;
-  template<class T> // We use the template to properly instantiate StaticPortalFunc
-  bool register_service(T *service, const char *service_name, Hip &hip)
-  {
-    Logging::printf("Constructing service %s...\n", service_name);
+  unsigned get_crdt() { return 0; }
 
-    cap_sel  service_cap = service->alloc_cap();
-    unsigned res;
-    service->portal_func_addr = reinterpret_cast<mword>(StaticPortalFunc<T>::portal_func);
-
-    for (phy_cpu_no i = 0; i < hip.cpu_desc_count(); i++) {
-      Hip_cpu const &cpu = hip.cpus()[i];
-      if (not cpu.enabled()) continue;
-
-      // Create service EC
-      Utcb *utcb_service;
-      cap_sel worker_ec = service->worker_ec[i] = service->create_ec4pt(i, &utcb_service);
-      assert(worker_ec != 0);
-      utcb_service->head.crd = service->alloc_crd();
-      utcb_service->head.crd_translate = Crd(0, 31, DESC_CAP_ALL).value();
-
-      cap_sel worker_pt = service->alloc_cap();
-      res = nova_create_pt(worker_pt, worker_ec, service->portal_func_addr, 0);
-      assert(res == NOVA_ESUCCESS);
-
-      // Register service
-      res = ParentProtocol::register_service(*BaseProgram::myutcb(), service_name, i,
-                                             worker_pt, service_cap);
-      if (res != ENONE)
-        Logging::panic("Registering service on CPU%u failed.\n", i);
-    }
-
-    Logging::printf("Service %s registered.\n", service_name);
-    return true;
+  unsigned create_session_portal(cap_sel pt) {
+    return nova_create_pt(pt, Base::_worker_ec_base + BaseProgram::myutcb()->head.nul_cpunr, Base::get_portal_func_addr(), 0);
   }
-
 
   unsigned portal_func(Utcb &utcb, Utcb::Frame &input, bool &free_cap, cap_sel pid)
   {
-    unsigned op, res;
+    unsigned op;
     check1(EPROTO, input.get_word(op));
 
     switch (op) {
-    case ParentProtocol::TYPE_OPEN:
-      {
-        unsigned pseudonym = input.received_cap();
-        unsigned cap_session = 0;
-
-        if (!pseudonym) return EPROTO;
-
-        //Ask parent whether we have already a session with this client (TODO: Not all services may want this)
-        res = ParentProtocol::check_singleton(utcb, pseudonym, cap_session);
-        if (!res && cap_session)
-	  {
-	    Session volatile *session = 0;
-	    typename Base::Sessions::Guard guard_c(&this->_sessions, utcb, this);
-	    while (session = Base::_sessions.next(session)) {
-	      if (session->get_identity() == cap_session) {
-		dealloc_cap(session->pseudonym); //replace old pseudonym, first pseudnym we got via parent and gets obsolete as soon as client becomes running
-		session->pseudonym = pseudonym;
-		utcb << Utcb::TypedMapCap(session->get_identity());
-		free_cap = false;
-                Base::_sessions.cleanup_clients(utcb, this);
-		return ENONE;
-	      }
-	    }
-	  }
-
-	Session *session = 0;
-        res = Base::_sessions.alloc_client_data(utcb, session, pseudonym, this);
-        if (res == ERESOURCE) { Base::_sessions.cleanup_clients(utcb, this); return ERETRY; } //force garbage collection run
-        else if (res) return res;
-
-	// Throw away the semaphore and use a portal instead
-	res = nova_revoke_self(Crd(session->get_identity(), 0, DESC_CAP_ALL));
-	assert(!res);
-	cap_sel session_pt = this->alloc_cap();
-	res = nova_create_pt(session_pt, worker_ec[utcb.head.nul_cpunr], portal_func_addr, 0);
-	// TODO: We need per-CPU identity! For now let's hope that we are called only from one CPU.
-	session->set_identity(session_pt);
-
-        res = ParentProtocol::set_singleton(utcb, session->pseudonym, session->get_identity());
-        assert(!res);
-
-        free_cap = false;
-        utcb << Utcb::TypedMapCap(session->get_identity());
-        return new_session(session);
-      }
-    case ParentProtocol::TYPE_CLOSE: {
-      Session *session = 0;
-      typename Base::Sessions::Guard guard_c(&this->_sessions, utcb, this);
-      check1(res, res = Base::_sessions.get_client_data(utcb, session, pid));
-      return Base::_sessions.free_client_data(utcb, session, this);
-    }
+     case ParentProtocol::TYPE_OPEN:
+       return Base::open_session(utcb, input.received_cap(), free_cap);
+    case ParentProtocol::TYPE_CLOSE:
+      return Base::close_session(utcb, pid);
     default:
-      {
-	typename Base::Sessions::Guard guard_c(&this->_sessions, utcb, this);
-	Session *session = 0;
-	if (res = Base::_sessions.get_client_data(utcb, session, pid)) {
-	  // Return EEXISTS to ask the client for opening the session
-	  //Logging::printf("Cannot get client (id=0x%x) session: 0x%x\n", pid, res);
-	  return res;
-	}
-	return handle_request(session, op, input, utcb, free_cap);
-      }
+      return Base::handle_session(utcb, pid, op, input, free_cap);
     }
   }
 };

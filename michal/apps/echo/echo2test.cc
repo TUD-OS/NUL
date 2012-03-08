@@ -18,7 +18,13 @@
  */
 
 #include <wvprogram.h>
+
+#ifndef NOXLATE
 #include "service_echo.h"
+#else
+#include "service_echo_noxlate.h"
+#define EchoProtocol EchoProtocolNoXlate
+#endif
 
 class EchoTest : public WvProgram
 {
@@ -31,6 +37,7 @@ public:
     WVPASSEQ(echo->echo(*myutcb(), 42), 42U);
     WVPASSEQ(echo->get_last(*myutcb(), last_val), 0U);
     WVPASSEQ(last_val, 42U);
+    echo->close();
   }
 };
 

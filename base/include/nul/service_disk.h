@@ -30,7 +30,7 @@
  * Client part of the disk protocol.
  * Missing: register shared memory producer/consumer.
  */
-struct DiskProtocol : public GenericProtocol {
+struct DiskProtocol : public GenericNoXlateProtocol {
   enum {
     MAXDISKREQUESTS    = 32  // max number of outstanding disk requests per client
   };
@@ -94,20 +94,19 @@ struct DiskProtocol : public GenericProtocol {
     /* Delegate sempahore and request portal capability for memory delegation */
     init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem->sm());
     utcb.head.crd = Crd(tmp_cap, 0, DESC_CAP_ALL).value();
-    res = call_server_drop(utcb);
-    check2(err, res);
+    check2(err, call_server_drop(utcb));
 
     /* Delegate the memory via the received portal */
     utcb.add_frame();
 #ifdef DISK_SERVICE_IN_S0
     utcb << dma_size;
     utcb << Utcb::TypedTranslateMem(consumer, 0);
-    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL);
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, reinterpret_cast<mword>(dma_buffer), DESC_MEM_ALL, true);
     assert(res == ENONE);
 #else
 #warning TODO
     utcb << Utcb::TypedDelegateMem(consumer, 0);
-    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL);
+    res = utcb.add_mappings(reinterpret_cast<mword>(dma_buffer), dma_size, hotstop | MAP_MAP, DESC_MEM_ALL, true);
     assert(res = ENONE);
 #endif
     res = nova_call(tmp_cap);
@@ -164,9 +163,11 @@ struct DiskProtocol : public GenericProtocol {
   }
 
   DiskProtocol(CapAllocator *a, unsigned instance)
-    : GenericProtocol("disk", instance, a->alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), false) {}
+    : GenericNoXlateProtocol("disk", instance, a->alloc_cap(DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count()), false,
+                             a->alloc_cap(Global::hip.cpu_desc_count())) {}
 
   void destroy(Utcb &utcb, CapAllocator *a) {
-    GenericProtocol::destroy(utcb, DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count(), a);
+    GenericNoXlateProtocol::destroy(utcb, DiskProtocol::CAP_SERVER_PT + Global::hip.cpu_desc_count(), a);
+    a->dealloc_cap(_session_base, Global::hip.cpu_desc_count());
   }
 };

@@ -139,7 +139,6 @@ static struct igmp_group *igmp_lookup_group(struct netif *ifp, ip_addr_t *addr);
 static err_t  igmp_remove_group(struct igmp_group *group);
 static void   igmp_timeout( struct igmp_group *group);
 static void   igmp_start_timer(struct igmp_group *group, u8_t max_time);
-static void   igmp_stop_timer(struct igmp_group *group);
 static void   igmp_delaying_member(struct igmp_group *group, u8_t maxresp);
 static err_t  igmp_ip_output_if(struct pbuf *p, ip_addr_t *src, ip_addr_t *dest, struct netif *netif);
 static void   igmp_send(struct igmp_group *group, u8_t type);
@@ -382,14 +381,13 @@ igmp_remove_group(struct igmp_group *group)
 /**
  * Called from ip_input() if a new IGMP packet is received.
  *
- * @param p received igmp packet, p->payload pointing to the ip header
+ * @param p received igmp packet, p->payload pointing to the igmp header
  * @param inp network interface on which the packet was received
  * @param dest destination ip address of the igmp packet
  */
 void
 igmp_input(struct pbuf *p, struct netif *inp, ip_addr_t *dest)
 {
-  struct ip_hdr *    iphdr;
   struct igmp_msg*   igmp;
   struct igmp_group* group;
   struct igmp_group* groupref;
@@ -397,8 +395,7 @@ igmp_input(struct pbuf *p, struct netif *inp, ip_addr_t *dest)
   IGMP_STATS_INC(igmp.recv);
 
   /* Note that the length CAN be greater than 8 but only 8 are used - All are included in the checksum */    
-  iphdr = (struct ip_hdr *)p->payload;
-  if (pbuf_header(p, -(s16_t)(IPH_HL(iphdr) * 4)) || (p->len < IGMP_MINLEN)) {
+  if (p->len < IGMP_MINLEN) {
     pbuf_free(p);
     IGMP_STATS_INC(igmp.lenerr);
     LWIP_DEBUGF(IGMP_DEBUG, ("igmp_input: length error\n"));
@@ -406,9 +403,9 @@ igmp_input(struct pbuf *p, struct netif *inp, ip_addr_t *dest)
   }
 
   LWIP_DEBUGF(IGMP_DEBUG, ("igmp_input: message from "));
-  ip_addr_debug_print(IGMP_DEBUG, &(iphdr->src));
+  ip_addr_debug_print(IGMP_DEBUG, &(ip_current_header()->src));
   LWIP_DEBUGF(IGMP_DEBUG, (" to address "));
-  ip_addr_debug_print(IGMP_DEBUG, &(iphdr->dest));
+  ip_addr_debug_print(IGMP_DEBUG, &(ip_current_header()->dest));
   LWIP_DEBUGF(IGMP_DEBUG, (" on if %p\n", inp));
 
   /* Now calculate and check the checksum */
@@ -704,17 +701,6 @@ igmp_start_timer(struct igmp_group *group, u8_t max_time)
   }
   /* ensure the random value is > 0 */
   group->timer = (LWIP_RAND() % (max_time - 1)) + 1;
-}
-
-/**
- * Stop a timer for an igmp_group
- *
- * @param group the igmp_group for which to stop the timer
- */
-static void
-igmp_stop_timer(struct igmp_group *group)
-{
-  group->timer = 0;
 }
 
 /**

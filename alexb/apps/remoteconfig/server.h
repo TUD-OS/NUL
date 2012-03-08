@@ -32,7 +32,7 @@ typedef uint64 uint64_t;
 
 #include "nova_types.h"
 #define UUID_LEN 16
-#define DAEMON_VERSION 0xb000U
+#define DAEMON_VERSION 0xb001U
 
 class ConfigProtocol;
 
@@ -47,7 +47,12 @@ class Remcon : public CapAllocator {
     bool gevents;
 
     struct server_data {
-      bool active;
+      enum status {
+        OFF     = 0,
+        RUNNING = 1,
+        BLOCKED = 2,
+        PAUSED  = 3,
+      } state;
       bool events;
       cap_sel scs_usage;
       unsigned long maxmem;

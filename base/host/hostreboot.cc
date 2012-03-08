@@ -132,7 +132,6 @@ PARAM_HANDLER(hostreboot,
 {
   HostReboot *r = new HostReboot(mb.bus_hwioin, mb.bus_hwioout, argv[0]);
   if (r->init(mb)) {
-    Logging::printf("hr: add reset method %ld\n", argv[0]);
     mb.bus_console.add(r, HostReboot::receive_static);
   }
 }

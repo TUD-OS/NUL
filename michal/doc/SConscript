@@ -15,14 +15,30 @@ def update_doxyfile(target, source, env):
     t.close()    
 
 doxyfileBuilder = Builder(action = update_doxyfile)
-env=Environment(tools=['default', 'doxygen'],
-                toolpath='.',
+
+env=Environment(tools=['default'], toolpath='.',
                 BUILDERS = {'Doxyfile' : doxyfileBuilder})
+env.Append(DOXYGEN = ARGUMENTS.get('DOXYGEN', 'doxygen'))
+
 
 doxyfile = env.Doxyfile('Doxyfile.tmpl')
 
-if env.Detect("doxygen"):       # Do not fail if doxygen is not installed
-    env.Doxygen(doxyfile)
+env.Command("org-mode/lisp/org.el", [],
+            "cd .. && git submodule init michal/doc/org-mode && git submodule update michal/doc/org-mode")
+
+dox = env.Command("nul.dox", ["nul.org", "org-e-doxygen.el", "org-mode/lisp/org.el", "org-mode/contrib/lisp/org-export.el" ],
+            """emacs --batch --no-site-file --no-init-file --directory ${SOURCES[2].dir} --directory ${SOURCES[3].dir} \
+                     --eval "(progn (setq org-babel-load-languages '((dot . t))) \
+                                    (setq org-confirm-babel-evaluate nil) (setq debug-on-error t))" \
+                     --load ${SOURCES[1]} --load ${SOURCES[2]} --load ${SOURCES[3]} --visit ${SOURCES[0]} \
+                     --eval "(progn (org-version) \
+                                    (org-e-doxygen-export-to-doxygen nil nil nil nil \\"${TARGET.dir.abspath}\\"))" """)
+
+if env.Detect(env["DOXYGEN"]):       # Do not fail if doxygen is not installed
+    doxygen = env.Command('html/index.html', [ doxyfile, dox ],
+                          "cd ${SOURCE.dir} && ${DOXYGEN} ${SOURCE.file}")
+    AlwaysBuild(doxygen)
 else:
     import SCons.Warnings
-    SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen not found - documentation won't be built")
+    SCons.Warnings.warn(SCons.Warnings.WarningOnByDefault, "doxygen executable (%s) not found - documentation won't be built" % env["DOXYGEN"])
+

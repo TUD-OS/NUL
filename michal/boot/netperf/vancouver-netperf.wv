@@ -1,0 +1,24 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+HYPERVISOR_PARAMS=serial iommu
+QEMU_FLAGS=-cpu phenom -smp 2 -m 512
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT mmconfig hostserial hostvga hostkeyb:0,0x60,1,12 service_config service_disk \
+    script_start:1,2
+bin/apps/vancouver.nul
+bin/boot/munich
+imgs/bzImage-js
+initramfs-netperf.cpio < zcat imgs/initramfs-netperf.cpio.gz && cd $SRCDIR && find etc | cpio --dereference -o -H newc
+vm1.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk ||
+rom://bin/apps/vancouver.nul PC_PS2 82576vf ||
+rom://bin/boot/munich ||
+rom://imgs/bzImage-js clocksource=tsc console=ttyS0 quiet netserver ||
+rom://initramfs-netperf.cpio
+EOF
+vm2.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma  name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk ||
+rom://bin/apps/vancouver.nul PC_PS2 82576vf ||
+rom://bin/boot/munich ||
+rom://imgs/bzImage-js clocksource=tsc console=ttyS0 quiet netperf ||
+rom://initramfs-netperf.cpio
+EOF

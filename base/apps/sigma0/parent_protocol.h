@@ -57,24 +57,24 @@ private:
        * and the value is to be processed by the caller.
        */
       const char *has(const char *prefix, const char *value="") const {
-	const char *pos;
-	size_t plen = strlen(prefix);
-	size_t vlen = value ? strlen(value) : 0;
-	for (pos = strstr(cmdline, prefix);
-	     pos && pos+plen+vlen <= cmdline+len && (pos == cmdline || isspace(pos[-1]));
-	     pos = strstr(pos+1, prefix)) {
-	  pos += plen;
-	  if (value) {
-	    if (strncmp(pos, value, vlen) == 0 && (pos+vlen == cmdline+len || isspace(pos[vlen])))
-	      return pos;
-	  } else {
-	    return pos;
-	  }
-	}
-	return NULL;
+        const char *pos;
+        size_t plen = strlen(prefix);
+        size_t vlen = value ? strlen(value) : 0;
+        for (pos = strstr(cmdline, prefix);
+             pos && pos+plen+vlen <= cmdline+len && (pos == cmdline || isspace(pos[-1]));
+             pos = strstr(pos+1, prefix)) {
+          pos += plen;
+          if (value) {
+            if (strncmp(pos, value, vlen) == 0 && (pos+vlen == cmdline+len || isspace(pos[vlen])))
+              return pos;
+          } else {
+            return pos;
+          }
+        }
+        return NULL;
       }
       const char *get(const char *prefix) const {
-	return has(prefix, NULL);
+        return has(prefix, NULL);
       }
     };
 
@@ -91,7 +91,7 @@ private:
 //        Logging::printf("send clientid %lx from %x\n", *value_out, parent_cap);
           return ENONE;
         }
-	return ERESOURCE;
+        return ERESOURCE;
       }
 
       unsigned long cmdlen;
@@ -100,20 +100,20 @@ private:
       Cmdline client_cmdline(cmdline, cmdlen);
 
       if (!strncmp(quota_name, "disk::", 6)) {
-	const char *disk_name = quota_name + 6;
-	unsigned len = strlen(disk_name);
-	/* TODO: Pattern matching */
-	if (client_cmdline.has("disk::", disk_name))
-	  return ENONE;
+        const char *disk_name = quota_name + 6;
+        unsigned len = strlen(disk_name);
+        /* TODO: Pattern matching */
+        if (client_cmdline.has("disk::", disk_name))
+          return ENONE;
 
-	if (len == 1 && isdigit(disk_name[0]) && client_cmdline.has("sigma0::drive:", disk_name)) /* Backward compatibility */
-	  return ENONE;
+        if (len == 1 && isdigit(disk_name[0]) && client_cmdline.has("sigma0::drive:", disk_name)) /* Backward compatibility */
+          return ENONE;
 
-	return ERESOURCE;
+        return ERESOURCE;
       }
 
       if (strcmp(quota_name, "diskadd") == 0)
-	return client_cmdline.has("diskadd") ? ENONE : ERESOURCE;
+        return client_cmdline.has("diskadd") ? ENONE : ERESOURCE;
 
       return ERESOURCE;
     }
@@ -265,7 +265,7 @@ public:
           for (ClientData * c = session.next(); c; c = session.next(c))
             if (c->name == service_name && c->pseudonym == input.identity()) {
               utcb << Utcb::TypedMapCap(c->get_identity());
-            //Logging::printf("has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->identity, c->pseudonym, service_name);
+              //Logging::printf("pp: has already a cap %s identity=0x%x pseudo=0x%x %10s\n", request, c->get_identity(), c->pseudonym, service_name);
               return ENONE;
             }
         }
@@ -278,7 +278,7 @@ public:
           GuardC guard_c(&session, utcb, this);
           ClientData * data = session.get_invalid_client(utcb, this);
           while (data) {
-            //Logging::printf("s0: found dead client - freeing datastructure\n");
+            //Logging::printf("pp: found dead client - freeing datastructure\n");
             count++;
 
             notify_service(utcb, data);
@@ -289,10 +289,11 @@ public:
           if (count > 0) return ERETRY;
           else return ERESOURCE;
         }
-        //Logging::printf("s0: created new client %s identity=0x%x pseudo=0x%x\n", request, cdata->identity, cdata->pseudonym);
 
         cdata->name = service_name;
+        MEMORY_BARRIER; //make sure cdata is complete, len could be used in parallel to decide to compare against cdata->name already
         cdata->len  = service_name_len;
+        //Logging::printf("pp: created new client  service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
         utcb << Utcb::TypedMapCap(cdata->get_identity());
         return ENONE;
       }
@@ -303,12 +304,14 @@ public:
         ClientData *cdata;
 
         if ((res = session.get_client_data(utcb, cdata, input.identity()))) return res;
-        //Logging::printf("pp: close session for %x for %x\n", cdata->identity, cdata->pseudonym);
+        //Logging::printf("pp: close session for service='%.*s' identity=%#x pseudo=%#x\n", cdata->len, cdata->name, cdata->get_identity(), cdata->pseudonym);
+        notify_service(utcb, cdata); // XXX: Race - see below
         return session.free_client_data(utcb, cdata, this);
       }
     case ParentProtocol::TYPE_GET_PORTAL:
       {
         unsigned portal, res;
+        //Logging::printf("pp: get portal for id %#x\n", input.identity());
         if (res = get_portal(utcb, input.identity(), portal)) return res;
         utcb << Utcb::TypedMapCap(portal);
         return res;
@@ -351,12 +354,11 @@ public:
           else return ERESOURCE;
         }
 
-        sdata->len = namespace_len + request_len + 1;
-        char * tmp = new char[sdata->len];
-        sdata->name = tmp;
+        unsigned slen = namespace_len + request_len + 1;
+        char * tmp = new char[slen];
         memcpy(tmp, cmdline, namespace_len);
         memcpy(tmp + namespace_len, request, request_len);
-        tmp[sdata->len - 1] = 0;
+        tmp[slen - 1] = 0;
         sdata->cpu  = cpu;
         sdata->pt   = input.received_cap();
 
@@ -364,6 +366,9 @@ public:
         if (!input.get_word(client_mem_revoke))
           sdata->mem_revoke = get_client_memory(input.identity(), client_mem_revoke);
 
+        sdata->name = tmp;
+        MEMORY_BARRIER; //make sure sdata is complete, len could be used in parallel to decide to compare against sdata->name already
+        sdata->len  = slen;
         {
           GuardS guard_s(&_server);
           for (ServerData * s2 = _server.next(); s2; s2 = _server.next(s2))
@@ -445,7 +450,7 @@ public:
         for (ClientData * c = session.next(); c; c = session.next(c)) {
           if (c->pseudonym != input.identity(1)) continue;
 
-          notify_service(utcb, c);
+          notify_service(utcb, c); // XXX: Race - clients can notice which client was killed only after we revoke pseudonym, i.e. after return from this block (Guard)
 
           //Logging::printf("s0: freeing session to service on behalf of a dying client\n");
           res = session.free_client_data(utcb, c, this);

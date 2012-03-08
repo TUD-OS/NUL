@@ -105,37 +105,37 @@ public:
   {
     for (Region *r = _list ; r < _list + _count; r++)
       {
-	if (r->virt >= value.end() || value.virt >= r->end()) continue;
-	if (value.virt > r->virt)
-	  {
-	    // we have to split the current one
-	    if (r->end() > value.end())
-	      {
-		_count++;
-		assert(_count < SIZE);
-		memmove(r+1, r, (_count - (r - _list) - 1) * sizeof(Region));
-		(r+1)->phys += value.end() - r->virt;
-		(r+1)->size -= value.end() - (r+1)->virt;
-		(r+1)->virt  = value.end();
-	      }
-	    r->size = value.virt - r->virt;
-	  }
-	else
-	  {
-	    // we can remove from the beginning
-	    if (value.end() >= r->end())
-	      {
-		memmove(r, r+1, (_count - (r - _list) - 1) * sizeof(Region));
-		_count--;
-		r--;
-	      }
-	    else
-	      {
-		r->phys += value.end() - r->virt;
-		r->size -= value.end() - r->virt;
-		r->virt  = value.end();
-	      }
-	  }
+        if (r->virt >= value.end() || value.virt >= r->end()) continue;
+        if (value.virt > r->virt)
+          {
+            // we have to split the current one
+            if (r->end() > value.end())
+              {
+                _count++;
+                assert(_count < SIZE);
+                memmove(r+1, r, (_count - (r - _list) - 1) * sizeof(Region));
+                (r+1)->phys += value.end() - r->virt;
+                (r+1)->size -= value.end() - (r+1)->virt;
+                (r+1)->virt  = value.end();
+              }
+            r->size = value.virt - r->virt;
+          }
+        else
+          {
+            // we can remove from the beginning
+            if (value.end() >= r->end())
+              {
+                memmove(r, r+1, (_count - (r - _list) - 1) * sizeof(Region));
+                _count--;
+                r--;
+              }
+            else
+              {
+                r->phys += value.end() - r->virt;
+                r->size -= value.end() - r->virt;
+                r->virt  = value.end();
+              }
+          }
       }
   }
 

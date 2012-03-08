@@ -42,15 +42,20 @@
 
 #include "arch/cc.h"
 
-/** Temporary: define format string for size_t if not defined in cc.h */
+/* default formatter for (unsigned) size values */
 #ifndef SZT_F
 #define SZT_F U32_F
 #endif /* SZT_F */
-/** Temporary upgrade helper: define format string for u8_t as hex if not
-    defined in cc.h */
+
+/* default formatter for u8_t values in hexadecimal print format */
 #ifndef X8_F
-#define X8_F  "02x"
+#define X8_F  "02hhx"
 #endif /* X8_F */
+
+/* default formatter for u8_t values in decimal print format */
+#ifndef U8_F
+#define U8_F  "02hhu"
+#endif /* U8_F */
 
 #ifdef __cplusplus
 extern "C" {

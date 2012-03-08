@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008-2010, Bernhard Kauer <bk@vmmon.org>
  * Copyright (C) 2011, Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -51,10 +51,8 @@
     modinfo->sigma0_cmdlen  = sigma0_cmdlen;
     modinfo->type           = ModuleInfo::TYPE_APP;
 
-    if (verbose & VERBOSE_INFO) {
-      Logging::printf("s0: [%2u] module '", modinfo->id);
-      fancy_output(cmdline, 4096);
-    }
+    LOG_VERBOSE("s0: [%2u] module '", modinfo->id);
+    if (verbose & VERBOSE_INFO) fancy_output(cmdline, 4096);
 
     return modinfo;
   }
@@ -163,7 +161,7 @@
     }
     if (!physaddr || !msize) { Logging::printf("s0: Not enough memory\n"); res = __LINE__; goto fs_out; }
 
-    addr = map_self(utcb, physaddr, msize);
+    addr = map_self(utcb, physaddr, msize, DESC_MEM_ALL, true);
     if (!addr) { Logging::printf("s0: Could not map file\n"); res= __LINE__; goto phys_out; }
     if (file_obj.copy(*utcb, addr, fileinfo.size)) { Logging::printf("s0: Getting file failed %s.\n", file_name); res = __LINE__; goto map_out; }
 
@@ -269,7 +267,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
 
     check1(ERESOURCE, (modinfo->physsize > (CLIENT_BOOT_UTCB - MEM_OFFSET)),
            "\ns0: [%2u] Cannot allocate more than %u KB for client, requested %lu KB.\n", modinfo->id,
-           CLIENT_BOOT_UTCB - MEM_OFFSET, modinfo->physsize / 1024);
+           (CLIENT_BOOT_UTCB - MEM_OFFSET) / 1024, modinfo->physsize / 1024);
 
     check1(ERESOURCE, ((psize_needed > modinfo->physsize) || !elf),
            "\ns0: [%2u] We need %ld MB, however only %ld MB were configured to be used.\n", modinfo->id, psize_needed >> 20, modinfo->physsize >> 20);
@@ -281,14 +279,13 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     }
 
     // Don't assign modinfo->mem directly (potential double free)
-    tmem = map_self(utcb, pmem, modinfo->physsize);
+    tmem = map_self(utcb, pmem, modinfo->physsize, DESC_MEM_ALL, true);
     check2(_free_pmem, (tmem ? 0 : ERESOURCE), "\ns0: [%2u] mapping of %ld MB (%#lx) failed (phys=%#lx)",
            modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
     MEMORY_BARRIER;
     modinfo->mem = tmem;
 
-    if (verbose & VERBOSE_INFO)
-      Logging::printf("s0: [%2u] using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
+    LOG_VERBOSE("s0: [%2u] using memory: %ld MB (%lx) at %lx\n", modinfo->id, modinfo->physsize >> 20, modinfo->physsize, pmem);
 
     /**
      * We memset the client memory to make sure we get an
@@ -306,7 +303,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
       phip = _free_phys.alloc(0x1000U, 12);
       check2(_free_pmem, (phip ? 0 : ERESOURCE), "\ns0: [%2u] out of memory - hip(0x1000U)", modinfo->id);
     }
-    modinfo->hip = map_self(utcb, phip, 0x1000U);
+    modinfo->hip = map_self(utcb, phip, 0x1000U, DESC_MEM_ALL, true);
     check2(_free_pmem, (modinfo->hip ? 0 : ERESOURCE), "\ns0: [%2u] hip(0x1000U) could not be mapped", modinfo->id);
 
     // allocate a console for it
@@ -343,8 +340,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
       if (not map_idle_scs(utcb, pt))
         goto _free_caps;
 
-    if (verbose & VERBOSE_INFO)
-      Logging::printf("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
+    LOG_VERBOSE("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 
     check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT,
            DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
@@ -410,7 +406,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
   unsigned kill_module(ModuleInfo * modinfo) {
     if (!modinfo || !_modinfo[modinfo->id].mem || !_modinfo[modinfo->id].physsize || modinfo->id < 5) return __LINE__;
 
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - initiate destruction of client ... \n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u] - initiate destruction of client ... \n", modinfo->id);
     // send kill message to parent service so that client specific data structures within a service can be released
     unsigned err = 0;
     unsigned recv_cap = alloc_cap();
@@ -434,12 +430,12 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     if (err) Logging::printf("s0: [%2u]   can not inform service about dying client\n", modinfo->id);
 
     // unmap all service portals
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all caps\n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u]   revoke all caps\n", modinfo->id);
     unsigned res = nova_revoke(Crd(CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT), CLIENT_PT_SHIFT, DESC_CAP_ALL), true);
     if (res != NOVA_ESUCCESS) Logging::printf("s0: curiosity - nova_revoke failed %x\n", res);
 
     // and the memory + hip
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   revoke all memory %p + hip %p\n", modinfo->id, modinfo->mem, modinfo->hip);
+    LOG_VERBOSE("s0: [%2u]   revoke all memory %p + hip %p\n", modinfo->id, modinfo->mem, modinfo->hip);
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
     revoke_all_mem(modinfo->hip, 0x1000U, DESC_MEM_ALL, false);
 
@@ -473,17 +469,17 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     // XXX legacy - should be a service - freeing producer/consumer stuff
     unsigned cap;
     if (cap = _prod_network[modinfo->id].sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach network\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach network\n", modinfo->id);
       dealloc_cap(cap);
       memset(&_prod_network[modinfo->id], 0, sizeof(_prod_network[modinfo->id]));
     }
     if (cap = _disk_data[modinfo->id].prod_disk.sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach disks\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach disks\n", modinfo->id);
       dealloc_cap(cap);
       memset(&_disk_data[modinfo->id], 0, sizeof(_disk_data[modinfo->id]));
     }
     if (cap = _console_data[modinfo->id].prod_stdin.sm()) {
-      if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u]   detach stdin\n", modinfo->id);
+      LOG_VERBOSE("s0: [%2u]   detach stdin\n", modinfo->id);
       dealloc_cap(cap);
       //DEAD message dissappear here if you free _console_data ...
       //memset(&_console_data[modinfo->id], 0, sizeof(_console_data[modinfo->id]));
@@ -496,7 +492,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     // XXX free more, such as GSIs, IRQs, Console...
 
     // XXX mark module as free -> we can not do this currently as we can not free all the resources
-    if (verbose & VERBOSE_INFO) Logging::printf("s0: [%2u] - destruction done\n", modinfo->id);
+    LOG_VERBOSE("s0: [%2u] - destruction done\n", modinfo->id);
     free_module(modinfo);
     return 0;
   }

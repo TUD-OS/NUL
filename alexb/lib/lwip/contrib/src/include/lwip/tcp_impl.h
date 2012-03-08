@@ -37,12 +37,13 @@
 #if LWIP_TCP /* don't build if not configured for use in lwipopts.h */
 
 #include "lwip/tcp.h"
-#include "lwip/sys.h"
 #include "lwip/mem.h"
 #include "lwip/pbuf.h"
 #include "lwip/ip.h"
 #include "lwip/icmp.h"
 #include "lwip/err.h"
+#include "lwip/ip6.h"
+#include "lwip/ip6_addr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -278,7 +279,6 @@ PACK_STRUCT_END
 struct tcp_seg {
   struct tcp_seg *next;    /* used when putting segements on a queue */
   struct pbuf *p;          /* buffer containing data + TCP header */
-  void *dataptr;           /* pointer to the TCP data in the pbuf */
   u16_t len;               /* the TCP length of this segment */
 #if TCP_OVERSIZE_DBGCHECK
   u16_t oversize_left;     /* Extra bytes available at the end of the last
@@ -427,9 +427,20 @@ err_t tcp_enqueue_flags(struct tcp_pcb *pcb, u8_t flags);
 
 void tcp_rexmit_seg(struct tcp_pcb *pcb, struct tcp_seg *seg);
 
-void tcp_rst(u32_t seqno, u32_t ackno,
-       ip_addr_t *local_ip, ip_addr_t *remote_ip,
-       u16_t local_port, u16_t remote_port);
+void tcp_rst_impl(u32_t seqno, u32_t ackno,
+       ipX_addr_t *local_ip, ipX_addr_t *remote_ip,
+       u16_t local_port, u16_t remote_port
+#if LWIP_IPV6
+       , u8_t isipv6
+#endif /* LWIP_IPV6 */
+       );
+#if LWIP_IPV6
+#define tcp_rst(seqno, ackno, local_ip, remote_ip, local_port, remote_port, isipv6) \
+  tcp_rst_impl(seqno, ackno, local_ip, remote_ip, local_port, remote_port, isipv6)
+#else /* LWIP_IPV6 */
+#define tcp_rst(seqno, ackno, local_ip, remote_ip, local_port, remote_port, isipv6) \
+  tcp_rst_impl(seqno, ackno, local_ip, remote_ip, local_port, remote_port)
+#endif /* LWIP_IPV6 */
 
 u32_t tcp_next_iss(void);
 
@@ -437,7 +448,16 @@ void tcp_keepalive(struct tcp_pcb *pcb);
 void tcp_zero_window_probe(struct tcp_pcb *pcb);
 
 #if TCP_CALCULATE_EFF_SEND_MSS
-u16_t tcp_eff_send_mss(u16_t sendmss, ip_addr_t *addr);
+u16_t tcp_eff_send_mss_impl(u16_t sendmss, ipX_addr_t *dest
+#if LWIP_IPV6
+                           , ipX_addr_t *src, u8_t isipv6
+#endif /* LWIP_IPV6 */
+                           );
+#if LWIP_IPV6
+#define tcp_eff_send_mss(sendmss, src, dest, isipv6) tcp_eff_send_mss_impl(sendmss, dest, src, isipv6)
+#else /* LWIP_IPV6 */
+#define tcp_eff_send_mss(sendmss, src, dest, isipv6) tcp_eff_send_mss_impl(sendmss, dest)
+#endif /* LWIP_IPV6 */
 #endif /* TCP_CALCULATE_EFF_SEND_MSS */
 
 #if LWIP_CALLBACK_API

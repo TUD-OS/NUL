@@ -1,10 +1,13 @@
 /*
  *	osdep.h
  *	Operating System and Hardware Abstraction Layer
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -14,8 +17,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -50,7 +53,7 @@ extern void		osdepEntropyClose(void);
 
 /******************************************************************************/
 /*
-    If the Makefile specifies that PeerSec MatrixSSL does not currently have
+    If the Makefile specifies that MatrixSSL does not currently have
     a layer for the given OS, or the port is to "bare metal" hardware,
     do basic defines here and include externally provided file "matrixos.h".
     In addition, if building for such a platform, a C file defining the above
@@ -196,11 +199,11 @@ _psError(#C);}
 /*
 	OS specific file system apis
 */
-#ifdef PS_USE_FILE_SYSTEM
+#ifdef MATRIX_USE_FILE_SYSTEM
 	#ifdef POSIX
 	#include <sys/stat.h>
 	#endif /* POSIX */
-#endif /* PS_USE_FILE_SYSTEM */
+#endif /* MATRIX_USE_FILE_SYSTEM */
 
 #ifdef USE_MULTITHREADING
 /******************************************************************************/

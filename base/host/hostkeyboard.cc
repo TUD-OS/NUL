@@ -365,15 +365,19 @@ class HostKeyboard : public StaticReceiver<HostKeyboard>
 
 };
 
+static bool default_mouse_enabled = false;
+
+PARAM_HANDLER(enable_ps2_mouse) { default_mouse_enabled = true; }
+
 PARAM_HANDLER(hostkeyb,
-	      "hostkeyb:hdev=0,hostiobase=0x60,kbirq=1,auxirq=12,scset=2,verbose=1 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
+	      "hostkeyb:hdev=0,hostiobase=0x60,kbirq=1,auxirq=0,scset=2,verbose=0 - provide an input backend from the host keyboard (hdev) and host mouse (hdev+1).",
 	      "Example: 'hostkeyb:0x17,0x60,1,12,2'.",
 	      "A missing auxirq omits the mouse initialisation. ")
 {
   unsigned hdev       = ~argv[0] ? argv[0] : 0;
   uint16   hostiobase = ~argv[1] ? argv[1] : 0x60;
-  uint8    kbirq      = ~argv[2] ? argv[2] : 1;
-  uint8    auxirq     = ~argv[3] ? argv[3] : 12;
+  unsigned kbirq      = ~argv[2] ? argv[2] : 1;
+  unsigned auxirq     = ~argv[3] ? argv[3] : (default_mouse_enabled ? 12 : ~0U);
 
   MessageHostOp msg1(MessageHostOp::OP_ALLOC_IOIO_REGION, (hostiobase << 8) |  0);
   MessageHostOp msg2(MessageHostOp::OP_ALLOC_IOIO_REGION, ((hostiobase + 4) << 8) |  0);

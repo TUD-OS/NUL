@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -78,7 +78,8 @@ void Remcon::handle_packet(void) {
     if (sizeof(buf_out) != send(buf_out, sizeof(buf_out)))
       Logging::printf("failure - sending reply\n");
 
-    Logging::printf("failure - bad version\n");
+    Logging::printf("failure - outdated protocol request version %#x != %#x current\n",
+      Math::htons(_in->version), DAEMON_VERSION);
 
     return;
   }
@@ -96,7 +97,7 @@ void Remcon::handle_packet(void) {
         uint32_t * ids = reinterpret_cast<uint32_t *>(&_out->opspecific);
 
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || !server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state == server_data::status::OFF) continue;
 
           k++;
           ids[k] = Math::htonl(server_data[i].id);
@@ -124,7 +125,7 @@ void Remcon::handle_packet(void) {
       {
         unsigned i, k = 0;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           k++;
         }
 
@@ -136,11 +137,11 @@ void Remcon::handle_packet(void) {
     case NOVA_LIST_DEFINED_DOMAINS:
       {
         uint32_t * num = reinterpret_cast<uint32_t *>(&_out->opspecific);
-        unsigned char * names = reinterpret_cast<unsigned char *>(&_out->opspecific) + 4;
+        unsigned char * names = reinterpret_cast<unsigned char *>(&_out->opspecific) + sizeof(uint32_t);
 
         unsigned i,k = 0;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           if (names + server_data[i].showname_len + 1 > buf_out + NOVA_PACKET_LEN) {
             Logging::printf("no space left\n");
             break; //no space left
@@ -162,10 +163,10 @@ void Remcon::handle_packet(void) {
 
         unsigned i, len;
         for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0 || server_data[i].active) continue;
+          if (server_data[i].id == 0 || server_data[i].state != server_data::status::OFF) continue;
           len = server_data[i].showname_len;
-          if (memcmp(server_data[i].showname, _name, len)) continue;
           if (buf_in + NOVA_PACKET_LEN <=_name + len || _name[len] != 0) continue;
+          if (memcmp(server_data[i].showname, _name, len)) continue;
           if (&_out->opspecific + UUID_LEN + len + 1 > buf_out + NOVA_PACKET_LEN) break; //no space left
       
           memcpy(&_out->opspecific, server_data[i].uuid, UUID_LEN);
@@ -191,7 +192,7 @@ void Remcon::handle_packet(void) {
     case NOVA_GET_NAME_ID:
       {
         GET_LOCAL_ID;
-        if (!server_data[localid].active) break;
+        if (server_data[localid].state == server_data::status::OFF) break;
 
         unsigned len = server_data[localid].showname_len + 1;
         if (&_out->opspecific + UUID_LEN + len > buf_out + NOVA_PACKET_LEN) break; // no space left
@@ -205,13 +206,39 @@ void Remcon::handle_packet(void) {
     case NOVA_VM_START:
       {
         char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
-        if (check_uuid(_uuid + UUID_LEN)) break; //if we have this uuid already deny starting
+        struct server_data * entry = check_uuid(_uuid);
+        unsigned j;
+        if (!entry) {
+          uint32_t maxmem = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN));
+          uint32_t showname_len = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN + sizeof(uint32_t)));
+          char * showname = _uuid + UUID_LEN + 2 * sizeof(uint32_t);
+          if (showname_len > NOVA_PACKET_LEN || (showname + showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) break; // cheater!
 
-        unsigned i, j;
-        for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if(memcmp(server_data[i].uuid, _uuid, UUID_LEN)) continue;
-          
-          if(server_data[i].istemplate) {
+          for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
+            if(server_data[j].id != 0) continue;
+            if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
+
+            char * _name = new char [showname_len];
+            if (!_name) {
+              server_data[j].id = 0;
+              break;
+            }
+            memcpy(_name, showname, showname_len);
+            memcpy(server_data[j].uuid, _uuid, UUID_LEN);
+            server_data[j].filename     = "";
+            server_data[j].filename_len = 0;
+            server_data[j].showname     = _name;
+            server_data[j].showname_len = showname_len;
+            server_data[j].maxmem       = maxmem * 1024;
+//            memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
+
+            server_data[j].state = server_data::status::BLOCKED;
+            _out->result  = NOVA_OP_SUCCEEDED;
+            break;
+          }
+        } else {
+            if (!entry->istemplate) break; //only templates may be instantiated and started
+            if (check_uuid(_uuid + UUID_LEN)) break; //if we have this 'new' uuid already deny starting
             again:
             for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
               if(server_data[j].id != 0) continue;
@@ -232,11 +259,11 @@ void Remcon::handle_packet(void) {
               }
 
               memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
-              server_data[j].filename     = server_data[i].filename;
-              server_data[j].filename_len = server_data[i].filename_len;
-              server_data[j].showname     = server_data[i].showname; //XXX which name to choose
-              server_data[j].showname_len = server_data[i].showname_len; //XXX which name to choose
-              memcpy(server_data[j].fsname, server_data[i].fsname, sizeof(server_data[i].fsname)); //XXX which name to choose
+              server_data[j].filename     = entry->filename;
+              server_data[j].filename_len = entry->filename_len;
+              server_data[j].showname     = entry->showname; //XXX which name to choose
+              server_data[j].showname_len = entry->showname_len; //XXX which name to choose
+              memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
 
               FsProtocol::dirent fileinfo;
               FsProtocol fs_obj(cap_base, server_data[j].fsname);
@@ -281,7 +308,7 @@ void Remcon::handle_packet(void) {
               if (module) delete [] module;
               fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
-              if (res == ENONE) server_data[j].active = true;
+              if (res == ENONE) server_data[j].state = server_data::status::RUNNING;
               else {
                 Logging::printf("failure - starting VM - reason : %#x\n", res);
                 dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
@@ -290,11 +317,7 @@ void Remcon::handle_packet(void) {
 
               break;
             }
-          } else {
-            server_data[i].active = true;
-            _out->result  = NOVA_OP_SUCCEEDED;
-          }
-          break;
+            break;
         }
         break;
       }
@@ -314,15 +337,17 @@ void Remcon::handle_packet(void) {
         if (!entry) break;
        
         uint64 consumed_time = 0;
-        if (entry->active &&
+        if (entry->state != server_data::status::OFF &&
             ENONE != service_admission->get_statistics(*BaseProgram::myutcb(), entry->scs_usage, consumed_time)) {
           Logging::printf("failure - could not get consumed time of client\n");
-          break;
+          //break;
         }
 
-        *reinterpret_cast<uint32_t *>(&_out->opspecific) = Math::htonl(entry->maxmem / 1024); //in kB
-        *reinterpret_cast<uint32_t *>(&_out->opspecific + sizeof(uint32_t)) = Math::htonl(1); //vcpus
-        *reinterpret_cast<uint64_t *>(&_out->opspecific + 2*sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
+        char  * ptr = reinterpret_cast<char *>(&_out->opspecific);
+        *reinterpret_cast<uint32_t *>(ptr) = Math::htonl(entry->maxmem / 1024); //in kB
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint32_t)) = Math::htonl(1); //vcpus
+        *reinterpret_cast<uint64_t *>(ptr += sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint64_t)) = Math::htonl(entry->state);
         _out->result  = NOVA_OP_SUCCEEDED;
 
         break;

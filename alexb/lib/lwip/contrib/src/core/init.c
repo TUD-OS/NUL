@@ -56,6 +56,9 @@
 #include "lwip/dns.h"
 #include "lwip/timers.h"
 #include "netif/etharp.h"
+#include "lwip/ip6.h"
+#include "lwip/nd6.h"
+#include "lwip/mld6.h"
 
 /* Compile-time sanity checks for configuration errors.
  * These can be done independently of LWIP_DEBUG, without penalty.
@@ -175,8 +178,8 @@
 #if !LWIP_ETHERNET && (LWIP_ARP || PPPOE_SUPPORT)
   #error "LWIP_ETHERNET needs to be turned on for LWIP_ARP or PPPOE_SUPPORT"
 #endif
-#if LWIP_IGMP && !defined(LWIP_RAND)
-  #error "When using IGMP, LWIP_RAND() needs to be defined to a random-function returning an u32_t random value"
+#if (LWIP_IGMP || LWIP_IPV6) && !defined(LWIP_RAND)
+  #error "When using IGMP or IPv6, LWIP_RAND() needs to be defined to a random-function returning an u32_t random value"
 #endif
 #if LWIP_TCPIP_CORE_LOCKING_INPUT && !LWIP_TCPIP_CORE_LOCKING
   #error "When using LWIP_TCPIP_CORE_LOCKING_INPUT, LWIP_TCPIP_CORE_LOCKING must be enabled, too"
@@ -299,6 +302,13 @@ lwip_init(void)
 #if LWIP_DNS
   dns_init();
 #endif /* LWIP_DNS */
+#if LWIP_IPV6
+  ip6_init();
+  nd6_init();
+#if LWIP_IPV6_MLD
+  mld6_init();
+#endif /* LWIP_IPV6_MLD */
+#endif /* LWIP_IPV6 */
 
 #if LWIP_TIMERS
   sys_timeouts_init();

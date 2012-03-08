@@ -515,7 +515,7 @@ struct MessageHostOp
     struct {
       phy_cpu_no cpu;
       Utcb     **utcb_out;
-      cap_sel   *ec_out;
+      cap_sel    ec;            // In/Out parameter; if ~0, then a new cap will be allocated by the calee.
     } _create_ec4pt;
   };
 
@@ -546,17 +546,16 @@ struct MessageHostOp
     return n;
   }
 
-  static MessageHostOp attach_irq(uint8 irq, phy_cpu_no cpu, bool locked, char const * name)
+  static MessageHostOp attach_irq(unsigned irq, phy_cpu_no cpu, bool locked, char const * name)
   {
     MessageHostOp n(OP_ATTACH_IRQ, irq, !locked, cpu);
     n.desc = name;
     return n;
   }
 
-  static MessageHostOp create_ec4pt(cap_sel *ec_out, void *obj, phy_cpu_no cpu, Utcb **utcb_out) {
+  static MessageHostOp create_ec4pt(cap_sel &ec, void *obj, phy_cpu_no cpu, Utcb **utcb_out) {
     MessageHostOp n(OP_CREATE_EC4PT, obj);
-    assert(ec_out);
-    n._create_ec4pt.ec_out = ec_out;
+    n._create_ec4pt.ec = ec;
     n._create_ec4pt.cpu = cpu;
     n._create_ec4pt.utcb_out = utcb_out;
     return n;

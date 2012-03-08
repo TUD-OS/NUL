@@ -15,7 +15,6 @@
  */
 #pragma once
 
-//#include <nul/capalloc.h>
 #include <nul/parent.h>
 
 struct EchoProtocol : public GenericProtocol {

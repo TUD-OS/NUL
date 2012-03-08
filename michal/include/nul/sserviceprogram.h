@@ -2,7 +2,7 @@
  * @file 
  * Simple service in its own protection domain.
  *
- * Copyright (C) 2011, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -21,8 +21,8 @@
 #include <nul/program.h>
 #include <sigma0/console.h>
 
-template<class Session>
-class SServiceProgram : public BaseSService<Session>, public NovaProgram, public ProgramConsole
+template<class Session, class A, template <class Session, class A> class Base>
+class SServiceProgram : public Base<Session, A>, public NovaProgram, public ProgramConsole
 {
 public:
 
@@ -32,9 +32,9 @@ public:
   virtual void    dealloc_cap(cap_sel c)
   { return NovaProgram::dealloc_cap(c); }
 
-  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out)
+  virtual cap_sel create_ec4pt(phy_cpu_no cpu, Utcb **utcb_out, cap_sel ec = ~0u)
   {
-    return NovaProgram::create_ec4pt(this, cpu, 0, utcb_out);
+    return NovaProgram::create_ec4pt(this, cpu, 0, utcb_out, ec);
   }
 
   SServiceProgram(const char *console_name = "service")

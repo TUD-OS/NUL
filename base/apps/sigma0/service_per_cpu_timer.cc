@@ -182,7 +182,9 @@ class PerCpuTimerService : private BasicHpet,
   KernelSemaphore  _xcpu_up;
   PerCpu          *_per_cpu[Config::MAX_CPUS];
 
-  uint32 assigned_irqs;
+  uint32           _assigned_irqs;
+  bool             _verbose;
+  bool             _slow_wallclock; // If true, wait for RTC update before fetching time
 
   bool attach_timer_irq(DBus<MessageHostOp> &bus_hostop, Timer *timer, phy_cpu_no cpu)
   {
@@ -191,13 +193,15 @@ class PerCpuTimerService : private BasicHpet,
         (timer->_reg->config & FSB_INT_DEL_CAP)) {
 
       uint16 hpet_rid = get_hpet_rid(_mb.bus_acpi, 0, timer->_no);
-      Logging::printf("HPET comparator %u RID %x\n", timer->_no, hpet_rid);
+      if (_verbose)
+        Logging::printf("HPET comparator %u RID %x\n", timer->_no, hpet_rid);
 
       MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, hpet_rid, "hpet msi");
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
-      Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
-                      timer->_no, msg1.msi_gsi, cpu, msg1.msi_address, msg1.msi_value);
+      if (_verbose)
+        Logging::printf("TIMER: Timer %u -> GSI %u CPU %u (%llx:%x)\n",
+                        timer->_no, msg1.msi_gsi, cpu, msg1.msi_address, msg1.msi_value);
       
       _per_cpu[cpu]->irq = msg1.msi_gsi;
       _per_cpu[cpu]->ack = 0;
@@ -210,7 +214,7 @@ class PerCpuTimerService : private BasicHpet,
     } else {
       // If legacy is enabled, only allow IRQ2
       uint32 allowed_irqs  = (_reg->config & LEG_RT_CNF) ? (1U << 2) : timer->_reg->int_route;
-      uint32 possible_irqs = ~assigned_irqs & allowed_irqs;
+      uint32 possible_irqs = ~_assigned_irqs & allowed_irqs;
 
       if (possible_irqs == 0) {
         Logging::printf("TIMER: No IRQs left.\n");
@@ -218,7 +222,7 @@ class PerCpuTimerService : private BasicHpet,
       }
 
       unsigned irq = Cpu::bsr(possible_irqs);
-      assigned_irqs |= (1U << irq);
+      _assigned_irqs |= (1U << irq);
 
       MessageHostOp msg = MessageHostOp::attach_irq(irq, cpu, false, "hpet");
       if (not bus_hostop.send(msg)) Logging::panic("Could not attach IRQ.\n");
@@ -226,8 +230,9 @@ class PerCpuTimerService : private BasicHpet,
       _per_cpu[cpu]->irq = irq;
       _per_cpu[cpu]->ack = (irq < 16) ? 0 : (1U << timer->_no);
 
-      Logging::printf("TIMER: Timer %u -> IRQ %u (assigned %x ack %x).\n",
-                      timer->_no, irq, assigned_irqs, _per_cpu[cpu]->ack);
+      if (_verbose)
+        Logging::printf("TIMER: Timer %u -> IRQ %u (assigned %x ack %x).\n",
+                        timer->_no, irq, _assigned_irqs, _per_cpu[cpu]->ack);
 
 
       timer->_reg->config &= ~(0x1F << 9) | INT_TYPE_CNF;
@@ -396,7 +401,6 @@ class PerCpuTimerService : private BasicHpet,
     default:
       Logging::printf("CPU%u Unknown type %u. %08x %08x\n", cpu, m.type, u->msg[0], u->msg[1]);
       return;
-      assert(false);
     }
 
     // Check if we don't need to reprogram or if we are in periodic
@@ -470,7 +474,8 @@ class PerCpuTimerService : private BasicHpet,
     }
 
     _reg = reinterpret_cast<HostHpetRegister *>(msg1.ptr);
-    Logging::printf("TIMER: HPET at %08lx -> %p.\n", hpet_addr, _reg);
+    if (_verbose)
+      Logging::printf("TIMER: HPET at %08lx -> %p.\n", hpet_addr, _reg);
 
     // Check for old AMD HPETs and go home. :)
     uint8  hpet_rev    = _reg->cap & 0xFF;
@@ -503,16 +508,18 @@ class PerCpuTimerService : private BasicHpet,
     }
 
     // Figure out how many HPET timers are usable
-    Logging::printf("TIMER: HPET: cap %x config %x period %d\n", _reg->cap, _reg->config, _reg->period);
+    if (_verbose)
+      Logging::printf("TIMER: HPET: cap %x config %x period %d\n", _reg->cap, _reg->config, _reg->period);
     unsigned timers = ((_reg->cap >> 8) & 0x1F) + 1;
 
     _usable_timers = 0;
 
     uint32 combined_irqs = ~0U;
     for (unsigned i=0; i < timers; i++) {
-      Logging::printf("TIMER: HPET Timer[%d]: config %x int %x\n", i, _reg->timer[i].config, _reg->timer[i].int_route);
+      if (_verbose)
+        Logging::printf("TIMER: HPET Timer[%d]: config %x int %x\n", i, _reg->timer[i].config, _reg->timer[i].int_route);
       if ((_reg->timer[i].config | _reg->timer[i].int_route) == 0) {
-        Logging::printf("TIMER:\tTimer seems bogus. Ignore.\n");
+        Logging::printf("TIMER:\tTimer[%d] seems bogus. Ignore.\n", i);
         continue;
       }
 
@@ -800,7 +807,7 @@ public:
     }
 
     BasicRtc rtc(_mb.bus_hwioin, _mb.bus_hwioout, iobase);
-    rtc.rtc_sync(_mb.clock());
+    if (_slow_wallclock) rtc.rtc_sync(_mb.clock());
     uint64 msecs  = rtc.rtc_wallclock();
     uint64 ticks  = Math::muldiv128(msecs, _timer_freq, MessageTime::FREQUENCY);
 
@@ -808,21 +815,24 @@ public:
 
     Math::div64(msecs, MessageTime::FREQUENCY);
     gmtime(msecs, &time);
-    Logging::printf("TIMER: %d.%02d.%02d %d:%02d:%02d\n", time.mday, time.mon, time.year, time.hour, time.min, time.sec);
+    if (_verbose)
+      Logging::printf("TIMER: %d.%02d.%02d %d:%02d:%02d\n", time.mday, time.mon, time.year, time.hour, time.min, time.sec);
 
     return ticks;
   }
 
 
   PerCpuTimerService(Motherboard &mb, unsigned cap, unsigned cap_order,
-           bool hpet_force_legacy, bool force_pit, unsigned pit_period_us)
+                     bool hpet_force_legacy, bool force_pit, unsigned pit_period_us,
+                     bool verbose, bool slow_wallclock)
     : CapAllocator(cap, cap, cap_order),
-      _mb(mb), _bus_hwioout(mb.bus_hwioout), assigned_irqs(0)
+      _mb(mb), _bus_hwioout(mb.bus_hwioout), _assigned_irqs(0), _verbose(verbose),
+      _slow_wallclock(slow_wallclock)
   {
     // XXX Lots of pointless log->phy cpu index conversions...
 
     log_cpu_no cpus = mb.hip()->cpu_count();
-    assert(cpus < Config::MAX_CPUS);
+    assert(cpus <= Config::MAX_CPUS);
 
     for (phy_cpu_no i = 0; i < mb.hip()->cpu_desc_count(); i++) {
       const Hip_cpu &c = mb.hip()->cpus()[i];
@@ -841,7 +851,8 @@ public:
 
     uint64 clocks_per_tick = static_cast<uint64>(mb.hip()->freq_tsc) * 1000 * CPT_RESOLUTION;
     Math::div64(clocks_per_tick, _timer_freq);
-    Logging::printf("TIMER: %llu+%04llu/%u TSC ticks per timer tick.\n", clocks_per_tick/CPT_RESOLUTION, clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION);
+    if (verbose)
+      Logging::printf("TIMER: %llu+%04llu/%u TSC ticks per timer tick.\n", clocks_per_tick/CPT_RESOLUTION, clocks_per_tick%CPT_RESOLUTION, CPT_RESOLUTION);
     _nominal_tsc_ticks_per_timer_tick = clocks_per_tick;
 
     // Get wallclock time
@@ -882,7 +893,8 @@ public:
 
     for (unsigned i = 0; i < _usable_timers; i++) {
       phy_cpu_no cpu = mb.hip()->cpu_physical(part_cpu[i]);
-      Logging::printf("TIMER: CPU%u owns Timer%u.\n", cpu, i);
+      if (_verbose)
+        Logging::printf("TIMER: CPU%u owns Timer%u.\n", cpu, i);
 
       _per_cpu[cpu]->has_timer = true;
       if (_reg)
@@ -921,8 +933,9 @@ public:
         _per_cpu[cpu]->remote_slot->data.abstimeout = 0;
         _per_cpu[cpu]->remote_slot->data.nr = remote.abstimeouts.alloc(&_per_cpu[cpu]->remote_slot->data);
 
-        Logging::printf("TIMER: CPU%u maps to CPU%u slot %u.\n",
-                        i, mb.hip()->cpu_physical(cpu_cpu[i]), remote.slot_count);
+        if (verbose)
+          Logging::printf("TIMER: CPU%u maps to CPU%u slot %u.\n",
+                          i, mb.hip()->cpu_physical(cpu_cpu[i]), remote.slot_count);
 
         remote.slot_count ++;
       }
@@ -933,7 +946,8 @@ public:
       if (_reg) {
         _per_cpu[i]->clock_sync.fetch(_reg->counter[0]);
         if (_per_cpu[i]->has_timer) {
-          Logging::printf("TIMER: Enable interrupts for CPU%u.\n", i);
+          if (_verbose)
+            Logging::printf("TIMER: Enable interrupts for CPU%u.\n", i);
           _per_cpu[i]->timer->_reg->config |= INT_ENB_CNF;
         }
       }
@@ -960,19 +974,26 @@ public:
 
 static bool default_force_hpet_legacy = false;
 static bool default_force_pit         = false;
+static bool default_verbose           = false;
+static bool default_slow_wallclock    = false;
 
-PARAM_HANDLER(timer_hpet_legacy) { default_force_hpet_legacy = true; }
-PARAM_HANDLER(timer_force_pit)   { default_force_pit 	     = true; }
+PARAM_HANDLER(timer_hpet_legacy)    { default_force_hpet_legacy = true; }
+PARAM_HANDLER(timer_force_pit)      { default_force_pit         = true; }
+PARAM_HANDLER(timer_verbose)        { default_verbose 	        = true; }
+PARAM_HANDLER(timer_slow_wallclock) { default_slow_wallclock    = false; }
+
 
 PARAM_HANDLER(service_per_cpu_timer,
-	      "service_per_cpu_timer:[hpet_force_legacy=0][,force_pit=0][,pit_period_us]")
+	      "service_per_cpu_timer:[slow_wallclock=0][,hpet_force_legacy=0][,force_pit=0][,pit_period_us]")
 {
   unsigned cap_region = alloc_cap_region(1 << 12, 12);
-  bool     hpet_legacy   = (argv[0] == ~0U) ? default_force_hpet_legacy : argv[0];
-  bool     force_pit     = (argv[1] == ~0U) ? default_force_pit : argv[1];
-  unsigned pit_period_us = (argv[2] == ~0U) ? PIT_DEFAULT_PERIOD : argv[2];
+  bool     slow_wallclock = (argv[0] == ~0U) ? default_slow_wallclock : argv[0];
+  bool     hpet_legacy    = (argv[1] == ~0U) ? default_force_hpet_legacy : argv[1];
+  bool     force_pit      = (argv[2] == ~0U) ? default_force_pit : argv[2];
+  unsigned pit_period_us  = (argv[3] == ~0U) ? PIT_DEFAULT_PERIOD : argv[3];
 
-  PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit, pit_period_us);
+  PerCpuTimerService *h = new(16) PerCpuTimerService(mb, cap_region, 12, hpet_legacy, force_pit,
+                                                     pit_period_us, default_verbose, slow_wallclock);
 
   MessageHostOp msg(h, "/timer", reinterpret_cast<unsigned long>(StaticPortalFunc<PerCpuTimerService>::portal_func));
   msg.crd_t = Crd(cap_region, 12, DESC_TYPE_CAP).value();

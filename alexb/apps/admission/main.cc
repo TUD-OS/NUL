@@ -49,7 +49,7 @@ private:
       unsigned quantum;
       PACKED timevalue last[10];
       char name[32];
-    } scs[64];
+    } scs[Config::MAX_CPUS + 32]; //still guessing
 
     void* operator new(size_t size) {
       assert(size == sizeof(struct ClientData));
@@ -105,6 +105,7 @@ private:
   bool enable_measure;
   bool enable_log;
   bool enable_verbose;
+  unsigned cpu_start, cpu_end;
 
   unsigned interval;
 
@@ -118,6 +119,7 @@ public:
     _divider  = hip->cpu_count();
     _cap_base = base;
     enable_verbose = enable_top = enable_measure = enable_log = false;
+    cpu_start = 0, cpu_end = ~0U;
   }
 
   inline unsigned alloc_cap(unsigned num = 1, unsigned cpu = ~0U) { //XXX quirk as long as CapAllocatorAtomic can not handle num > 1
@@ -221,6 +223,8 @@ public:
           check1(EPROTO, !idx);
           check1(EPROTO, input.get_word(sched));
           check1(EPROTO, input.get_word(cpu) && cpu < _divider); //check that cpu < number of cpus
+          check1(NOVA_ECPU, !(cpu_start <= cpu && cpu <= cpu_end)); //check that we only handle cpus we should
+
           char const * name = input.get_zero_string(len);
           if (!name) return EPROTO;
 
@@ -383,10 +387,12 @@ public:
       memset(&own_scs , 0, sizeof(idle_scs));
       memcpy(&own_scs.name, "admission", 9);
 
-      for (unsigned cpunr = 0; cpunr < hip->cpu_desc_count(); cpunr++) {
+      for (unsigned cpunr = cpu_start; cpunr <= cpu_end; cpunr++) {
         Hip_cpu const *cpu = &hip->cpus()[cpunr];
         if (not cpu->enabled()) continue;
 
+        assert(cpunr < sizeof(idle_scs.scs) / sizeof(idle_scs.scs[0]));
+        assert(!idle_scs.scs[cpunr].idx);
         idle_scs.scs[cpunr].idx = ParentProtocol::CAP_PT_PERCPU + Config::MAX_CPUS + cpunr;
         idle_scs.scs[cpunr].cpu = cpunr;
 
@@ -526,10 +532,19 @@ public:
       if (!strcmp("measure", args[i])) enable_measure = true;
       if (!strcmp("log", args[i])) enable_log = true;
       if (!strcmp("verbose", args[i])) enable_verbose = true;
+      if (!memcmp("cpu", args[i], 3)) {
+        if (args[i][3] != ':') continue;
+        cpu_start = strtoul(&args[i][4], 0, 0);
+        unsigned len = strcspn(&args[i][4], ":");
+        if (len) cpu_end = strtoul(&args[i][4+len+1], 0, 0);
+      }
     }
     enable_measure = enable_measure || enable_top;
 
     if (enable_log) _console_data.log = &log;
+
+    if (cpu_end >= hip->cpu_desc_count()) cpu_end = hip->cpu_desc_count() - 1;
+    if (cpu_start >= hip->cpu_desc_count()) cpu_start = 0;
 
     Region r = _free_phys.alloc_max(12);
     if (!r.virt || !r.size) Logging::panic("no memory for client data available\n");
@@ -539,9 +554,9 @@ public:
     MemoryClientData::max   = r.size;
     MemoryClientData::max   = MemoryClientData::max / (sizeof(struct MemoryClientData));
 
-    Logging::printf("admission service: log=%s measure=%s top=%s verbose=%s max clients=%lu\n",
+    Logging::printf("admission service: log=%s, measure=%s, top=%s, verbose=%s, max clients=%lu, handle cpus=%u-%u\n",
                     enable_log ? "yes" : "no", enable_measure ? "yes" : "no",
-                    enable_top ? "yes" : "no", enable_verbose ? "yes" : "no", MemoryClientData::max);
+                    enable_top ? "yes" : "no", enable_verbose ? "yes" : "no", MemoryClientData::max, cpu_start, cpu_end);
 
     if (!start_service(utcb, hip))
       Logging::printf("failure - starting admission service\n");

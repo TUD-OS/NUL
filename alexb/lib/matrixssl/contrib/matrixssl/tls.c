@@ -1,14 +1,17 @@
 /*
  *	tls.c
- *	Release $Name: MATRIXSSL-3-2-2-OPEN $
+ *	Release $Name: MATRIXSSL-3-3-0-OPEN $
  *
- *	TLS (SSLv3.1) specific code
+ *	TLS (SSLv3.1+) specific code
  *	http://www.faqs.org/rfcs/rfc2246.html
  *	Primarily dealing with secret generation, message authentication codes
  *	and handshake hashing.
  */
 /*
- *	Copyright (c) PeerSec Networks, 2002-2011. All Rights Reserved.
+ *	Copyright (c) AuthenTec, Inc. 2011-2012
+ *	Copyright (c) PeerSec Networks, 2002-2011
+ *	All Rights Reserved
+ *
  *	The latest version of this code is available at http://www.matrixssl.org
  *
  *	This software is open source; you can redistribute it and/or modify
@@ -18,8 +21,8 @@
  *
  *	This General Public License does NOT permit incorporating this software 
  *	into proprietary programs.  If you are unable to comply with the GPL, a 
- *	commercial license for this software may be purchased from PeerSec Networks
- *	at http://www.peersec.com
+ *	commercial license for this software may be purchased from AuthenTec at
+ *	http://www.authentec.com/Products/EmbeddedSecurity/SecurityToolkits.aspx
  *	
  *	This program is distributed in WITHOUT ANY WARRANTY; without even the 
  *	implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
@@ -56,7 +59,6 @@ static int32 prf(unsigned char *sec, uint32 secLen, unsigned char *seed,
  */
 int32 tlsDeriveKeys(ssl_t *ssl)
 {
-	int32			macSize;
 	unsigned char	msSeed[SSL_HS_RANDOM_SIZE * 2 + LABEL_SIZE];
 	uint32			reqKeyLen;
 /*
@@ -95,9 +97,7 @@ skipPremaster:
 /*
 	We must generate enough key material to fill the various keys
 */
-	macSize = ssl->cipher->macSize;
-
-	reqKeyLen = 2 * macSize + 
+	reqKeyLen = 2 * ssl->cipher->macSize + 
 				2 * ssl->cipher->keySize + 
 				2 * ssl->cipher->ivSize;
 
@@ -106,15 +106,15 @@ skipPremaster:
 		reqKeyLen);
 	if (ssl->flags & SSL_FLAGS_SERVER) {
 		ssl->sec.rMACptr = ssl->sec.keyBlock;
-		ssl->sec.wMACptr = ssl->sec.rMACptr + macSize;
-		ssl->sec.rKeyptr = ssl->sec.wMACptr + macSize;
+		ssl->sec.wMACptr = ssl->sec.rMACptr + ssl->cipher->macSize;
+		ssl->sec.rKeyptr = ssl->sec.wMACptr + ssl->cipher->macSize;
 		ssl->sec.wKeyptr = ssl->sec.rKeyptr + ssl->cipher->keySize;
 		ssl->sec.rIVptr = ssl->sec.wKeyptr + ssl->cipher->keySize;
 		ssl->sec.wIVptr = ssl->sec.rIVptr + ssl->cipher->ivSize;
 	} else {
 		ssl->sec.wMACptr = ssl->sec.keyBlock;
-		ssl->sec.rMACptr = ssl->sec.wMACptr + macSize;
-		ssl->sec.wKeyptr = ssl->sec.rMACptr + macSize;
+		ssl->sec.rMACptr = ssl->sec.wMACptr + ssl->cipher->macSize;
+		ssl->sec.wKeyptr = ssl->sec.rMACptr + ssl->cipher->macSize;
 		ssl->sec.rKeyptr = ssl->sec.wKeyptr + ssl->cipher->keySize;
 		ssl->sec.wIVptr = ssl->sec.rKeyptr + ssl->cipher->keySize;
 		ssl->sec.rIVptr = ssl->sec.wIVptr + ssl->cipher->ivSize;
@@ -239,6 +239,7 @@ int32 tlsGenerateFinishedHash(ssl_t *ssl, psDigestContext_t *md5,
 		psSha1Final(sha1, out + MD5_HASH_SIZE);
 		return MD5_HASH_SIZE + SHA1_HASH_SIZE;
 	}
+	return PS_FAILURE; /* Should not reach this */
 }
 
 /******************************************************************************/
@@ -477,5 +478,9 @@ int32 matrixSslLoadHelloExtension(tlsExtension_t *ext,
 	return PS_SUCCESS;
 }
 #endif /* USE_CLIENT_SIDE_SSL */
+
+
+
+
 /******************************************************************************/
 

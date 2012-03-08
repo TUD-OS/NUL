@@ -38,8 +38,8 @@ public:
     if (cpus < parts)
       parts = cpus;
 
-    Logging::printf("top_divide: Divide %u CPU(s) (%u dead) into %u part(s).\n",
-                    cpus, n - cpus, parts);
+    // Logging::printf("top_divide: Divide %u CPU(s) (%u dead) into %u part(s).\n",
+    //                 cpus, n - cpus, parts);
     n = cpus;
 
     Quicksort<Hip_cpu>::quicksort(cpu_smallereq, local, 0, n - 1);

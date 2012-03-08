@@ -34,9 +34,10 @@ $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
 @CFG::chainloaders = ();
+$CFG::pulsar_root = '';
+$CFG::pulsar_mac = '52-54-00-12-34-56';
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
-
 sub read_config($) {
     my ($cfg) = @_;
     {
@@ -57,7 +58,7 @@ sub read_config($) {
 my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $qemu, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure("no_ignore_case");
 GetOptions (
@@ -76,7 +77,9 @@ GetOptions (
     "no-file-gen"    => \$no_file_gen,
     "off"	     => \$off_opt,
     "on"	     => \$on_opt,
+    "pulsar|p:s"     => \$pulsar,
     "qemu|Q=s" 	     => \$qemu,
+    "qemu-append=s"  => \$qemu_append,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
@@ -96,6 +99,7 @@ if (defined $I_opt) { $server=''; $iprelay=''; }
 
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
+$qemu_append ||= '';
 if ($builddir) { $CFG::builddir = $builddir; }
 
 if ($dump_config) {
@@ -120,6 +124,10 @@ if (defined $grub_config) {
 
 if (defined $grub2_config) {
     $grub2_config ||= "grub.cfg";
+}
+
+if (defined $pulsar) {
+    $pulsar ||= $CFG::pulsar_mac;
 }
 
 if ($on_opt) { $iprelay="on"; }
@@ -329,6 +337,26 @@ sub generate_grub2_config($$$$;$)
     close($fg);
 }
 
+sub generate_pulsar_config($$)
+{
+    my ($filename, $modules_ref) = @_;
+    open(my $fg, '>', $filename) or die "$filename: $!";
+    print $fg "root $CFG::pulsar_root\n" if $CFG::pulsar_root;
+    my $first = 1;
+    foreach (@$modules_ref) {
+	if ($first) {
+	    $first = 0;
+	    my ($kbin, $kcmd) = split(' ', $_, 2);
+	    $kcmd = '' if !defined $kcmd;
+	    print $fg "exec $kbin $kcmd\n";
+	} else {
+	    my @args = split;
+	    print $fg "load $_\n";
+	}
+    }
+    close($fg);
+}
+
 sub exec_verbose(@)
 {
     print "Running: ".join(' ', map("'$_'", @_))."\n";
@@ -398,18 +426,30 @@ foreach my $script (@scripts) {
 	exit;
     }
 
+    my $pulsar_config = "config-$pulsar";
+    if (defined $pulsar) {
+	generate_configs('', $generated, $filename);
+	generate_pulsar_config($pulsar_config, $modules);
+	if (!defined $server) {
+	    print("Pulsar configuration created: $CFG::builddir/$pulsar_config\n");
+	    exit;
+	}
+    }
+
     if (defined $server) {
 	($server_grub_prefix = $CFG::server_grub_prefix) =~ s/\$NAME/$config_name/;
 	($server = $CFG::server)			 =~ s/\$NAME/$config_name/;
-	my $grub_config;
+	my $bootloader_config;
 	if ($grub2_config) {
 	    generate_configs('', $generated, $filename);
-	    $grub_config ||= "grub.cfg";
+	    $bootloader_config ||= "grub.cfg";
 	    generate_grub2_config($grub2_config, $config_name, $server_grub_prefix, $modules);
+	} elsif (defined $pulsar) {
+	    $bootloader_config = $pulsar_config;
 	} else {
 	    generate_configs($server_grub_prefix, $generated, $filename);
-	    $grub_config ||= "menu.lst";
-	    generate_grub_config($grub_config, $config_name, $server_grub_prefix, $modules,
+	    $bootloader_config ||= "menu.lst";
+	    generate_grub_config($bootloader_config, $config_name, $server_grub_prefix, $modules,
 				 $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
 	}
 	my ($hostname, $path) = split(":", $server, 2);
@@ -417,7 +457,7 @@ foreach my $script (@scripts) {
 	    $path = $hostname;
 	    $hostname = "";
 	}
-	my $files = "$grub_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
+	my $files = "$bootloader_config " . join(" ", map({ ($file) = m/([^ ]*)/; $file; } @$modules));
 	my $combined_menu_lst = ($CFG::server =~ m|/\$NAME$|);
 	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
 	my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
@@ -462,6 +502,7 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
     # Qemu
     @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if exists $variables->{QEMU_FLAGS};
     @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
+    push(@qemu_flags, split(/ /, $qemu_append));
 
     if (defined $iso_image) {
 	# Boot NOVA with grub (and test the iso image)
@@ -477,7 +518,8 @@ if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $serv
 	$kcmd = '' if !defined $kcmd;
 	my $initrd = join ",", @$modules;
 
-	push(@qemu_flags, ('-kernel', $kbin, '-append', $kcmd, '-initrd', $initrd));
+	push(@qemu_flags, ('-kernel', $kbin, '-append', $kcmd));
+	push(@qemu_flags, ('-initrd', $initrd)) if $initrd;
     }
     push(@qemu_flags,  qw(-serial stdio)); # Redirect serial output (for collecting test restuls)
     exec_verbose(($CFG::qemu,  '-name', $config_name, @qemu_flags));
@@ -719,13 +761,25 @@ server directory where the boot files are copied to.
 Do not generate files on the fly (i.e. "<" syntax) except for the
 files generated via "<<WORD" syntax.
 
+=item -p, --pulsar[=mac]
+
+Generates pulsar bootloader configuration file whose name is based on
+the MAC address specified either on the command line or taken from
+I<.novaboot> configuration file.
+
 =item -Q, --qemu=I<qemu-binary>
 
 Use specific version of qemu binary. The default is 'qemu'.
 
+=item --qemu-append=I<flags>
+
+Append I<flags> to the default qemu flags (QEMU_FLAGS variable or
+C<-cpu coreduo -smp 2>).
+
 =item -q, --qemu-flags=I<flags>
 
-Use specific qemu flags insted of the default ones (C<-cpu coreduo -smp 2>).
+Replace the default qemu flags (QEMU_FLAGS variable or C<-cpu coreduo
+-smp 2>) with I<flags> specified here.
 
 =item --server[=[[user@]server:]path]
 
