@@ -191,6 +191,60 @@
     return res;
   }
 
+// Check whether we have the idle SCs.
+bool idle_sc_sanity_check(unsigned pt)
+{
+  for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
+    timevalue computetime;
+    Hip_cpu const *cpu = &_hip->cpus()[sci];
+    if (not cpu->enabled()) continue;
+    unsigned char res = nova_ctl_sc(pt + ParentProtocol::CAP_PT_IDLE_SCS + sci, computetime);
+    if (res != NOVA_ESUCCESS) return false;
+  }
+  return true;
+}
+
+bool map_idle_scs(Utcb *utcb, unsigned pt)
+{
+  utcb->add_frame();
+  *utcb << Crd(0, 31, DESC_CAP_ALL);
+  for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
+    Hip_cpu const *cpu = &_hip->cpus()[sci];
+    if (not cpu->enabled()) continue;
+    Utcb::TypedMapCap(0 + sci, DESC_CAP_ALL, pt + ParentProtocol::CAP_PT_IDLE_SCS + sci, MAP_HBIT)
+      .fill_words(utcb->msg + utcb->head.untyped);
+    utcb->head.untyped += 2;
+  }
+
+  bool res = nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo) == NOVA_ESUCCESS;
+  if (res) assert(idle_sc_sanity_check(pt));
+  utcb->drop_frame();
+  return res;
+}
+
+bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
+{
+  unsigned res;
+
+  for (unsigned cpu=0; cpu < _hip->cpu_desc_count(); cpu++) {
+    Hip_cpu const *dcpu = &_hip->cpus()[cpu];
+    if (dcpu->enabled()) {
+      check2(fail, nova_create_pt(pt + Config::EXC_PORTALS*cpu + 14,
+                                  _percpu[cpu].cap_ec_worker,
+                                  reinterpret_cast<unsigned long>(do_request_wrapper),
+                                  MTD_RIP_LEN | MTD_QUAL));
+    }
+  }
+
+  check2(fail, nova_create_pt(pt + Config::EXC_PORTALS*modinfo->cpunr + 30,
+                              _percpu[modinfo->cpunr].cap_ec_worker,
+                              reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
+
+  return true;
+ fail:
+  return false;
+}
+
   unsigned _start_config(Utcb * utcb, char * elf, unsigned long mod_size,
                          char const * client_cmdline, ModuleInfo * modinfo, unsigned &sc_usage_cap, bool bswitch)
   {
@@ -273,36 +327,18 @@
     // create special portal for every module
     pt = CLIENT_PT_OFFSET + (modinfo->id << CLIENT_PT_SHIFT);
     assert(_percpu[modinfo->cpunr].cap_ec_worker);
-    check2(_free_pmem, nova_create_pt(pt + 14, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_request_wrapper), MTD_RIP_LEN | MTD_QUAL));
-    check2(_free_caps, nova_create_pt(pt + 30, _percpu[modinfo->cpunr].cap_ec_worker, reinterpret_cast<unsigned long>(do_startup_wrapper), 0));
+
+    if (not map_exc_pts(modinfo, pt))
+      goto _free_caps;
 
     // create parent portals
     check2(_free_caps, service_parent->create_pt_per_client(pt, this));
     check2(_free_caps, nova_create_sm(pt + ParentProtocol::CAP_PARENT_ID));
 
     // map idle SCs, so that they can be mapped to the admission service during create_pd
-    if (modinfo->type == ModuleInfo::TYPE_ADMISSION) {
-      utcb->add_frame();
-      *utcb << Crd(0, 31, DESC_CAP_ALL);
-      for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) {
-        Hip_cpu const *cpu = &_hip->cpus()[sci];
-        if (not cpu->enabled()) continue;
-        Utcb::TypedMapCap(0 + sci).fill_words(utcb->msg + utcb->head.untyped, Crd(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, 0, MAP_HBIT).value());
-        utcb->head.untyped += 2;
-      }
-
-      check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
-
-      for (unsigned sci=0; sci < _hip->cpu_desc_count(); sci++) { //sanity check that we really got the idle scs
-        timevalue computetime;
-        Hip_cpu const *cpu = &_hip->cpus()[sci];
-        if (not cpu->enabled()) continue;
-        unsigned char res = nova_ctl_sc(pt + ParentProtocol::CAP_PT_PERCPU + MAXCPUS + sci, computetime);
-        assert(res == NOVA_ESUCCESS);
-      }
-
-      utcb->drop_frame();
-    }
+    if (modinfo->type == ModuleInfo::TYPE_ADMISSION)
+      if (not map_idle_scs(utcb, pt))
+        goto _free_caps;
 
     LOG_VERBOSE("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 
@@ -310,7 +346,8 @@
            DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
     check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
-			     modinfo->cpunr, 0, false, pt + NOVA_DEFAULT_PD_CAP));
+                                      modinfo->cpunr, Config::EXC_PORTALS * modinfo->cpunr,
+                                      false, pt + NOVA_DEFAULT_PD_CAP));
 
     if (modinfo->type == ModuleInfo::TYPE_ADMISSION) {
       check2(_free_caps, service_admission->alloc_sc(*utcb, pt + ParentProtocol::CAP_CHILD_EC, sched, modinfo->cpunr, this, "main", true));
@@ -318,7 +355,8 @@
       //map temporary child id
       utcb->add_frame();
       *utcb << Crd(0, 31, DESC_CAP_ALL);
-      Utcb::TypedMapCap(pt + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(pt + ParentProtocol::CAP_CHILD_ID, 0, MAP_MAP).value());
+      Utcb::TypedMapCap(pt + ParentProtocol::CAP_PARENT_ID, DESC_CAP_ALL, pt + ParentProtocol::CAP_CHILD_ID)
+        .fill_words(utcb->msg);
       utcb->head.untyped += 2;
       check2(_free_caps, nova_call(_percpu[utcb->head.nul_cpunr].cap_pt_echo));
       utcb->drop_frame();

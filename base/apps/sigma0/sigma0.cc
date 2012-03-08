@@ -544,7 +544,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
 
     // map it to the parent id of module 0
-    Utcb::TypedMapCap(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID).fill_words(utcb->msg, Crd(ParentProtocol::CAP_PARENT_ID, 0, MAP_MAP).value());
+    Utcb::TypedMapCap(CLIENT_PT_OFFSET + ParentProtocol::CAP_PARENT_ID, DESC_CAP_ALL, ParentProtocol::CAP_PARENT_ID)
+      .fill_words(utcb->msg);
     *utcb << Crd(0, 31, DESC_CAP_ALL);
     utcb->set_header(2, 0);
 
@@ -552,7 +553,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _irq_cap_base = alloc_cap(hip->cfg_gsi);
 
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      Utcb::TypedMapCap(gsi + hip->cpu_desc_count()).fill_words(utcb->msg + utcb->head.untyped, Crd(_irq_cap_base + gsi, 0, MAP_HBIT).value());
+      Utcb::TypedMapCap(gsi + hip->cpu_desc_count(), DESC_CAP_ALL, _irq_cap_base + gsi, MAP_HBIT)
+        .fill_words(utcb->msg + utcb->head.untyped);
       utcb->head.untyped += 2;
     }
 
@@ -878,6 +880,40 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  utcb->mtd = MTD_RIP_LEN | MTD_RSP | MTD_GPR_ACDB;
 	  )
 
+
+  /** Translate a page fault (given by fault and err) into a memory
+   * region [begin, begin+size).
+   * TODO Don't hardcode memory layout.
+   */
+  bool translate_client_fault(ModuleInfo *modinfo, mword fault, mword err,
+                              mword &translated, mword &begin, mword &size, unsigned &rights)
+  {
+    if (in_range(fault, CLIENT_HIP, 0x1000)) {
+      // Fault in HIP
+      translated = mword(modinfo->hip) + (fault & 0xFFF);
+      begin      = mword(modinfo->hip);
+      size       = 0x1000;
+      rights     = DESC_MEM_ALL;
+      return true;
+    } else if ((fault < CLIENT_BOOT_UTCB) and
+               in_range(fault, MEM_OFFSET, modinfo->physsize)) {
+      // Fault in application heap (includes code). The
+      // assertion above (1) prevents mapping too much memory
+      // due to misconfiguration.
+
+      translated = mword(modinfo->mem) + fault - MEM_OFFSET;
+      begin      = mword(modinfo->mem);
+      rights     = DESC_MEM_ALL;
+      size       = modinfo->physsize;
+      return true;
+    }
+
+    // No region matches
+    size   = 0;
+    rights = 0;
+    return false;
+  }
+
   /**
    * Handle child page-faults and "legacy call interface" requests.
    */
@@ -891,27 +927,51 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
 	    assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
 
-	    unsigned error =
-	        (utcb->qual[1] < MEM_OFFSET) ||
-	        (utcb->qual[1] >= MEM_OFFSET + modinfo->physsize && utcb->qual[1] < CLIENT_BOOT_UTCB) ||
-	        (utcb->qual[1] >= CLIENT_BOOT_UTCB + 0x2000);
-
-	    if ((verbose & VERBOSE_INFO) || error)
+	    if (verbose & VERBOSE_INFO)
 	      Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
-	    if (error)
-	    {
+            // Figure out memory region. This can be replaced by
+            // region list lookup in the future.
+            mword fault = utcb->qual[1];
+            mword begin;
+            mword size;
+            mword translated; // Memory region hit by page fault
+            unsigned rights;
+
+            if (not translate_client_fault(modinfo, fault, utcb->qual[0],
+                                           translated, begin, size, rights)) {
 	      Logging::printf("s0: [%2u] unresolvable pagefault - killing client ...\n", modinfo->id);
 	      utcb->reset(); //make sure that utcb/frame will work
 	      kill_module(modinfo);
 	      return;
 	    }
+
+           assert((begin <= translated) && (translated < (begin + size)));
+
+            // We've figured out what memory to map. Map a single
+            // naturally aligned flexpage to the client.
+            const mword page_mask = ((1UL << Utcb::MINSHIFT)-1);
+            assert((size >= 0x1000) and ((begin & page_mask) == 0));
+            unsigned order = Cpu::maxalign(translated - begin, begin, fault - (translated - begin), size);
+
+            if (verbose & VERBOSE_INFO)
+              Logging::printf("s0: %lx %lx+%lx -> order %u: %lx+%lx\n", translated, begin, size, order,
+                              translated & ~((1UL << order)-1), 1UL << order);
+
+            assert(order >= Utcb::MINSHIFT);
+            assert((1UL << order) <= size);
+
+            mword aligned_begin = translated & ~((1UL << order)-1);
+            const Crd region = Crd(aligned_begin >> Utcb::MINSHIFT, order - Utcb::MINSHIFT, rights);
 	    // we can not overmap -> thus remove all rights first if the PTE was present
 	    if (utcb->qual[0] & 1) {
-	      revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
-	      revoke_all_mem(modinfo->hip, 0x1000, DESC_MEM_ALL, false);
-	    }
+              Logging::printf("s0: potential overmap. revoke!\n");
+              nova_revoke(region, false);
+            }
+
+            utcb->reset();
+            *utcb << Utcb::TypedMapCap(region, (fault & ~page_mask));
 
 	    utcb->set_header(0,0);
 	    if ((utcb->qual[1] & CLIENT_HIP) == CLIENT_HIP) {
@@ -928,6 +988,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	    }
 	    LOG_VERBOSE("s0: [%2u, %02x] map %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
+
 	    return;
 	  }
 

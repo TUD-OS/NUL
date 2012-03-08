@@ -54,16 +54,37 @@ struct ParentProtocol {
 
   /** Capabilities used by parent to construct child */
   enum {
-    CAP_CHILD_ID  = 252, ///< Temporary SM capability used by parent during child construction.
-                         //   alloc_cap don't work here - translate window issue
-    CAP_SC_USAGE  = 253, ///< SM capability to get access to child utilization information provided by admission service.
-                         //   Temporary capability - If this cap is rebound this index becomes invalid.
-    CAP_CHILD_EC  = 254, ///<EC capability of first child thread
-    CAP_PARENT_ID = 255, ///< Semaphore capability used by parent to identify children. Also used by child to signal events to parents (ParentProtocol::signal()).
-    CAP_PT_PERCPU = 256, ///< Portal capabilities (according to number of CPUs) passed by parent to child
+    /// Temporary SM capability used by parent during child
+    /// construction. alloc_cap don't work here - translate window
+    /// issue.
+    CAP_CHILD_ID  = Config::CAP_PARENT_BEGIN,
+
+    /// SM capability to get access to child utilization information
+    /// provided by admission service.  Temporary capability - If this
+    /// cap is rebound this index becomes invalid.
+    CAP_SC_USAGE,
+
+    /// EC capability of first child thread.
+    CAP_CHILD_EC,
+
+    /// Semaphore capability used by parent to identify children. Also
+    /// used by child to signal events to parents
+    /// (ParentProtocol::signal()).
+    CAP_PARENT_ID,
+
+    /// Portal capabilities (according to number of CPUs) passed by
+    /// parent to child.
+    CAP_PT_PERCPU,
+
+    /// Idle SCs. Only created for the admission service.
+    CAP_PT_IDLE_SCS = CAP_PT_PERCPU + Config::MAX_CPUS,
   };
 
-  static Utcb & init_frame(Utcb &utcb, unsigned op, unsigned id) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(id); }
+  static_assert((CAP_PT_PERCPU + Config::MAX_CPUS) < (1U << Config::CAP_RESERVED_ORDER),
+                "Capability Space misconfiguration.");
+
+  static Utcb & init_frame(Utcb &utcb, unsigned op, unsigned id) {
+    return utcb.add_frame() << op << Utcb::TypedIdentifyCap(Crd(id, 0, DESC_CAP_ALL)); }
 
   /**
    * Low-level systemcall.
@@ -127,7 +148,7 @@ struct ParentProtocol {
   {
     assert(cap_service);
     init_frame(utcb, TYPE_REGISTER, CAP_PARENT_ID) << cpu << Utcb::String(service) << reinterpret_cast<unsigned>(revoke_mem)
-						   << Utcb::TypedMapCap(pt) << Crd(cap_service, 0, DESC_CAP_ALL);
+						   << Utcb::TypedMapCap(Crd(pt, 0, DESC_CAP_ALL)) << Crd(cap_service, 0, DESC_CAP_ALL);
     return call(utcb, CAP_PT_PERCPU, true);
   };
 
@@ -138,7 +159,7 @@ struct ParentProtocol {
 
   static unsigned get_quota(Utcb &utcb, unsigned cap_client_pseudonym, const char *name, long invalue, long *outvalue=0) {
     init_frame(utcb, TYPE_GET_QUOTA, CAP_PARENT_ID) << invalue << Utcb::String(name)
-						    << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+						    << Utcb::TypedIdentifyCap(Crd(cap_client_pseudonym, 0, DESC_CAP_ALL));
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
     if (!res && outvalue && utcb >> *outvalue)  res = EPROTO;
     utcb.drop_frame();
@@ -147,8 +168,8 @@ struct ParentProtocol {
 
   /// @see check_singleton()
   static unsigned set_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned cap_local_session) {
-    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(cap_client_pseudonym)
-						    << Utcb::TypedMapCap(cap_local_session);
+    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 1U << Utcb::TypedIdentifyCap(Crd(cap_client_pseudonym, 0, DESC_CAP_ALL))
+						    << Utcb::TypedMapCap(Crd(cap_local_session, 0, DESC_CAP_ALL));
     return call(utcb, CAP_PT_PERCPU, true);
   }
 
@@ -157,7 +178,7 @@ struct ParentProtocol {
   /// not done automatically.
   static unsigned check_singleton(Utcb &utcb, unsigned cap_client_pseudonym, unsigned &cap_local_session,
 				  Crd crd = Crd(0, 31, DESC_CAP_ALL)) {
-    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    init_frame(utcb, TYPE_SINGLETON, CAP_PARENT_ID) << 2U << Utcb::TypedIdentifyCap(Crd(cap_client_pseudonym, 0, DESC_CAP_ALL));
     utcb.head.crd_translate = crd.value();
     Utcb::Frame input(&utcb, sizeof(utcb.msg) / sizeof(unsigned));
     unsigned res = call(utcb, CAP_PT_PERCPU, false);
@@ -166,7 +187,7 @@ struct ParentProtocol {
     return res;
   }
   static unsigned kill(Utcb &utcb, unsigned cap_client_pseudonym, unsigned service_cap = 0) {
-    init_frame(utcb, TYPE_REQ_KILL, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(cap_client_pseudonym);
+    init_frame(utcb, TYPE_REQ_KILL, CAP_PARENT_ID) << Utcb::TypedIdentifyCap(Crd(cap_client_pseudonym, 0, DESC_CAP_ALL));
     return call(utcb, service_cap ? service_cap : 0U + CAP_PT_PERCPU, true, !service_cap);
   }
 
@@ -241,7 +262,7 @@ public:
       if (nova_lookup(Crd(sess, 0, DESC_CAP_ALL)).attr() & DESC_TYPE_CAP)
         nova_revoke(Crd(sess, 0, DESC_CAP_ALL), true);
 
-      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(_cap_base + CAP_PSEUDONYM)
+      utcb.add_frame() << TYPE_OPEN << Utcb::TypedMapCap(Crd(_cap_base + CAP_PSEUDONYM, 0, DESC_CAP_ALL))
                        << Crd(sess, 0, DESC_CAP_ALL);
       res = call(utcb, _cap_base + CAP_SERVER_PT, true);
 
@@ -320,7 +341,8 @@ public:
   unsigned get_notify_sm() { return _cap_base + CAP_SERVER_SESSION; }
 
   static Utcb & init_frame_noid(Utcb &utcb, unsigned op) { return utcb.add_frame() << op; }
-  Utcb & init_frame(Utcb &utcb, unsigned op) { return utcb.add_frame() << op << Utcb::TypedIdentifyCap(_cap_base + CAP_SERVER_SESSION); }
+  Utcb & init_frame(Utcb &utcb, unsigned op) {
+    return utcb.add_frame() << op << Utcb::TypedIdentifyCap(Crd(_cap_base + CAP_SERVER_SESSION, 0, DESC_CAP_ALL)); }
 
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
     : _service(service), _instance(instance), _cap_base(cap_base), _session_base(session_base == ~0u ? _cap_base + CAP_SERVER_PT : session_base),  _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)

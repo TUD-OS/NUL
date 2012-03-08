@@ -187,21 +187,28 @@ struct Utcb
   /** Used with << operator to set up "delegate" typed item in UTCB. */
   struct TypedMapCap {
     unsigned value;
-    void fill_words(unsigned *ptr, unsigned hotspot=MAP_MAP) {   *ptr++ = value;  *ptr = hotspot;  }
-    TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+    unsigned hotspot;
+    void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = hotspot;  }
+    DEPRECATED TypedMapCap(unsigned cap, unsigned attr = DESC_CAP_ALL, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
+      : value(cap << MINSHIFT | attr), hotspot(hotspot << MINSHIFT | hbits) {}
+    TypedMapCap(Crd crd, unsigned hotspot = 0, unsigned hbits = MAP_MAP)
+      : value  (crd.value()),
+        hotspot(hotspot | hbits)
+    {}
   };
 
   /** Used with << operator  to set up "translate" typed item in UTCB. */
   struct TypedIdentifyCap {
     unsigned value;
     void fill_words(unsigned *ptr) {   *ptr++ = value;  *ptr = 0;  }
-    TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+    DEPRECATED TypedIdentifyCap(unsigned cap, unsigned attr = DESC_CAP_ALL) : value(cap << MINSHIFT | attr) {}
+    TypedIdentifyCap(Crd      crd) : value(crd.value()) {}
   };
 
   /** Used with << operator to set up "translate" typed item in UTCB for memory. */
   struct TypedTranslateMem : TypedIdentifyCap {
     TypedTranslateMem(void *base, unsigned order, unsigned perms = DESC_RIGHTS_ALL)
-      : TypedIdentifyCap(0, reinterpret_cast<unsigned>(base) & ~0xfff | (order & 0x1f) << 7 | perms & DESC_RIGHTS_ALL | DESC_TYPE_MEM) {}
+      : TypedIdentifyCap(Crd(reinterpret_cast<mword>(base) >> MINSHIFT, order & 0x1f, (perms & DESC_RIGHTS_ALL) | DESC_TYPE_MEM)) {}
   };
 
   struct String {
@@ -356,7 +363,10 @@ struct Utcb
 
   /**
    * Add mappings to a UTCB.
-   * Returns size of memory left which couldn't be put on the utcb becaus no space is left.
+   *
+   * Returns size of memory left which couldn't be put on the utcb
+   * because no space is left. If this is not zero, the caller has to
+   * handle this case! See sigma0.cc map_self for inspiration.
    */
   WARN_UNUSED
   unsigned long add_mappings(unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights,

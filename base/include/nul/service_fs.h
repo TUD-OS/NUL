@@ -20,6 +20,7 @@
 #include <nul/types.h>
 #include <service/string.h>
 #include "parent.h"
+#include <nul/baseprogram.h>
 
 /**
  */
@@ -31,6 +32,7 @@ struct FsProtocol : public GenericProtocol {
     TYPE_MAP,
     TYPE_CREATE,
     TYPE_WRITE,
+    EPAGEFAULT,
   };
 
   struct dirent {
@@ -120,7 +122,19 @@ struct FsProtocol : public GenericProtocol {
         if (order > 22) order = 22;
 
         res = fs_obj.call_server(init_frame_noid(utcb, TYPE_COPY) << Utcb::String(name, name_len) << file_offset
-              << Utcb::TypedMapCap((addr_int + local_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), true);
+                                 << Utcb::TypedMapCap((addr_int + local_offset) >> Utcb::MINSHIFT, Crd(0, order - 12, DESC_MEM_ALL).value()), false);
+        if (res == EPAGEFAULT) {
+          utcb.msg[0] = 0; //utcb/frame code assumes that msg[0] is zero in case of success if you use '>>' to get transferred data
+          unsigned long pf;
+          if (utcb >> pf) return ERESOURCE; //no hint was given what went wrong - abort
+          if (pf > addr_size) return EPROTO; //service fs try to cheat us - damn boy - abort 
+          Logging::printf("request mapping fs - addr=%#lx offset=%#lx pf=%#lx\n", addr_int, local_offset, pf);
+          BaseProgram::request_mapping(reinterpret_cast<char *>(addr_int + local_offset + pf), 0x1000U, 0); //at least one page
+          utcb.drop_frame();
+          continue; //retry
+        }
+        utcb.drop_frame();
+
         file_offset += 1ULL << order; local_offset += 1UL << order;
         addr_size   -= (1ULL << order) > addr_size ? addr_size : (1ULL << order);
       }
@@ -173,9 +187,9 @@ struct FsProtocol : public GenericProtocol {
 //        Logging::printf("typed %x addr %lx order %lx size %lx hotspot %lx msg %p START %x &msg[START]=%p item_start %p\n",
 //          utcb.head.typed, addr, order, size, hotspot, utcb.msg, utcb.msg[Utcb::STACK_START], &utcb.msg[Utcb::STACK_START], utcb.item_start());
 
-          Utcb::TypedMapCap value = Utcb::TypedMapCap(addr >> Utcb::MINSHIFT, ((order - 12) << 7) | DESC_MEM_ALL);
+          Utcb::TypedMapCap value = Utcb::TypedMapCap(Crd(addr >> Utcb::MINSHIFT, order - 12, DESC_MEM_ALL), hotspot, MAP_MAP); //MAP_HBIT);
           utcb.head.typed++;
-          value.fill_words(utcb.item_start(), hotspot | MAP_MAP); //MAP_HBIT);
+          value.fill_words(utcb.item_start());
           addr    += 1 << order;
           size    -= 1 << order;
           hotspot += 1 << order;
