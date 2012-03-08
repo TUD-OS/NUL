@@ -927,8 +927,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 	  if (utcb->head.untyped == EXCEPTION_WORDS) {
 	    assert(MEM_OFFSET + modinfo->physsize <= CLIENT_BOOT_UTCB);
 
-	    if (verbose & VERBOSE_INFO)
-	      Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
+	    LOG_VERBOSE("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
 	        modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 
             // Figure out memory region. This can be replaced by
@@ -955,8 +954,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             assert((size >= 0x1000) and ((begin & page_mask) == 0));
             unsigned order = Cpu::maxalign(translated - begin, begin, fault - (translated - begin), size);
 
-            if (verbose & VERBOSE_INFO)
-              Logging::printf("s0: %lx %lx+%lx -> order %u: %lx+%lx\n", translated, begin, size, order,
+            LOG_VERBOSE("s0: [%2u, %02x] %lx %lx+%lx -> order %u: %lx+%lx\n", modinfo->id, pid, translated, begin, size, order,
                               translated & ~((1UL << order)-1), 1UL << order);
 
             assert(order >= Utcb::MINSHIFT);
