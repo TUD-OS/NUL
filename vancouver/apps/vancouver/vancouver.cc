@@ -788,13 +788,17 @@ public:
           return !service_admission->alloc_sc(*myutcb(), ec_cap, sched, cpu, "service");
         }
         break;
+      case MessageHostOp::OP_CREATE_EC4PT:
+	msg._create_ec4pt.ec = create_ec4pt(msg.obj, msg._create_ec4pt.cpu,
+                                            Config::EXC_PORTALS * msg._create_ec4pt.cpu,
+                                            msg._create_ec4pt.utcb_out, msg._create_ec4pt.ec);
+	return msg._create_ec4pt.ec != 0;
       case MessageHostOp::OP_VIRT_TO_PHYS:
       case MessageHostOp::OP_REGISTER_SERVICE:
       case MessageHostOp::OP_ALLOC_SERVICE_PORTAL:
       case MessageHostOp::OP_WAIT_CHILD:
-      case MessageHostOp::OP_CREATE_EC4PT:
       default:
-        Logging::panic("%s - unimplemented operation %x", __PRETTY_FUNCTION__, msg.type);
+        Logging::panic("%s - unimplemented operation %#x", __PRETTY_FUNCTION__, msg.type);
       }
       return res;
   }
