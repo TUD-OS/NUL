@@ -41,9 +41,17 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
   unsigned _disk_count;
   bool _diskop_inprogress;
 
+  void init_params() {
+    // get sectors of the disk
+    for (_disk_count = 0; _disk_count < MAX_DISKS; _disk_count++) {
+      MessageDisk msg2(_disk_count, &_disk_params[_disk_count]);
+      if (!_mb.bus_disk.send(msg2) || msg2.error) break;
+    }
+  }
 
   bool check_drive(MessageBios &msg, unsigned &disk_nr)
   {
+    if (!~_disk_count) init_params();
     disk_nr = msg.cpu->dl & 0x7f;
     if (msg.cpu->dl & 0x80 && disk_nr < _disk_count) return true;
     error(msg, 0x01); // invalid parameter
@@ -296,11 +304,7 @@ public:
     mb.bus_diskcommit.add(this,  VirtualBiosDisk::receive_static<MessageDiskCommit>);
     mb.bus_timeout.add(this,     VirtualBiosDisk::receive_static<MessageTimeout>);
 
-    // get sectors of the disk
-    for (_disk_count = 0; _disk_count < MAX_DISKS; _disk_count++) {
-      MessageDisk msg2(_disk_count, &_disk_params[_disk_count]);
-      if (!_mb.bus_disk.send(msg2) || msg2.error) break;
-    }
+    _disk_count = ~0u;
 
     // get timer
     MessageTimer msg0;

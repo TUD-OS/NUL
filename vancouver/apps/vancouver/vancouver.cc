@@ -803,29 +803,31 @@ public:
       return res;
   }
 
+  bool init_disk_service() {
+    unsigned res;
+    service_disk = new DiskProtocol(this, 0);
+    assert(service_disk);
+    KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
+    DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
+    assert(diskconsumer);
+    cap_sel tmp_portal = alloc_cap();
+    check2(err, service_disk->attach(*myutcb(), reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem));
+    create_irq_thread(~0u, 0, do_disk, "disk");
+    return true;
+  err:
+    service_disk->destroy(*myutcb(), this);
+    dealloc_cap(sem->sm());
+    dealloc_cap(tmp_portal);
+    delete sem;
+    delete diskconsumer;
+    delete service_disk;
+    service_disk = 0; //serves as indicator to start or not to start the do_disk handler thread
+
+    return false;
+  }
 
   bool  receive(MessageDisk &msg)    {
-    if (!service_disk) {
-      service_disk = new DiskProtocol(this, 0);
-      KernelSemaphore *sem = new KernelSemaphore(alloc_cap(), true);
-      DiskConsumer *diskconsumer = new (1<<12) DiskConsumer();
-      assert(diskconsumer);
-      cap_sel tmp_portal = alloc_cap();
-      unsigned res = service_disk->attach(*myutcb(), reinterpret_cast<void*>(_physmem), _physsize, tmp_portal, diskconsumer, sem);
-      if (res) {
-        Logging::printf("disk->attach failed: %d\n", res);
-
-        service_disk->destroy(*myutcb(), this);
-        dealloc_cap(sem->sm());
-        dealloc_cap(tmp_portal);
-        delete sem;
-        delete diskconsumer;
-        delete service_disk;
-        service_disk = 0; //serves as indicator to start or not to start the do_disk handler thread
-
-        return false;
-      }
-    }
+    if (!service_disk && !init_disk_service()) return false;
 
     msg.error = MessageDisk::DISK_OK;
     switch (msg.type) {
@@ -971,7 +973,6 @@ public:
     create_irq_thread(~0u, 0, do_timer,   "timer");
     if (_mb->bus_input.count()) create_irq_thread(~0u, 0, do_stdin, "stdin");
     if (_mb->bus_network.count() > (_donor_net ? 0 : 1)) create_irq_thread(~0u, 0, do_network, "net");
-    if (service_disk) create_irq_thread(~0u, 0, do_disk, "disk");
 
     // init VCPUs
     for (VCpu *vcpu = _mb->last_vcpu; vcpu; vcpu=vcpu->get_last()) {
