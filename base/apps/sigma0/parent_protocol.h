@@ -330,7 +330,7 @@ public:
         //Logging::printf("\tregister client %x @ cpu %x _cmdline '%.10s' servicename '%.10s'\n", input.identity(), cpu, _cmdline, request);
         cmdline = strstr(_cmdline, "namespace::");
         if (!cmdline || cmdline > _cmdline + s0_cmdlen) return EPERM;
-        cmdline += 11;
+        cmdline += sizeof("namespace::")-1;
         unsigned namespace_len = strcspn(cmdline, " \t");
 
         QuotaGuard<ServerData> guard1(utcb, input.identity(), "mem", request_len + namespace_len + 1);
