@@ -92,9 +92,8 @@ struct DiskProtocol : public GenericNoXlateProtocol {
     this->sem = notify_sem;
 
     /* Delegate sempahore and request portal capability for memory delegation */
-    init_frame(utcb, TYPE_GET_MEM_PORTAL) << Utcb::TypedMapCap(notify_sem->sm());
-    utcb.head.crd = Crd(tmp_cap, 0, DESC_CAP_ALL).value();
-    check2(err, call_server_drop(utcb));
+    check2(err, call_server_drop(init_frame(utcb, TYPE_GET_MEM_PORTAL)
+                                 << Utcb::TypedMapCap(notify_sem->sm()) << Crd(tmp_cap, 0, DESC_CAP_ALL)));
 
     /* Delegate the memory via the received portal */
     utcb.add_frame();
