@@ -407,6 +407,8 @@ public:
       return true;
     case CpuMessage::TYPE_TRIPLE:
       msg.cpu->actv_state = 2;
+      if (!is_ap())
+	got_event(EVENT_RESET);
       break;
     case CpuMessage::TYPE_HLT:
       assert(!msg.cpu->actv_state);
