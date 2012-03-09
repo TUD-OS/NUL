@@ -97,28 +97,28 @@ static inline unsigned char nova_syscall(unsigned w0, unsigned w1, unsigned w2, 
 }
 
 
-WARN_UNUSED inline unsigned char  nova_call(unsigned idx_pt)
+WARN_UNUSED static inline unsigned char  nova_call(unsigned idx_pt)
 {  return nova_syscall1(idx_pt << 8 | NOVA_IPC_CALL); }
 
-inline unsigned char  nova_create_pd (unsigned idx_pd, Crd pt_crd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+static inline unsigned char  nova_create_pd (unsigned idx_pd, Crd pt_crd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_pd << 8 | NOVA_CREATE_PD, dstpd, pt_crd.value(), 0, 0); }
 
-inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+static inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *esp, unsigned char cpunr, unsigned excpt_base, bool worker, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {
   return nova_syscall(idx_ec << 8 | (worker ? NOVA_CREATE_EC : NOVA_CREATE_ECCLIENT), dstpd,
 		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base);
 }
 
-WARN_UNUSED inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+WARN_UNUSED static inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, dstpd, idx_ec, qpd.value(), 0); }
 
-WARN_UNUSED inline unsigned char  nova_ctl_sc(unsigned idx_sc, unsigned long long &computetime)
+WARN_UNUSED static inline unsigned char  nova_ctl_sc(unsigned idx_sc, unsigned long long &computetime)
 {  return nova_syscall(idx_sc << 8 | NOVA_SC_CTL, 0, 0, 0, 0, reinterpret_cast<unsigned *>(&computetime) + 1, reinterpret_cast<unsigned *>(&computetime)); }
 
-WARN_UNUSED inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+WARN_UNUSED static inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, dstpd, idx_ec, mtd, eip); }
 
-WARN_UNUSED inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+WARN_UNUSED static inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, dstpd, initial, 0, 0); }
 
 static inline unsigned char  nova_revoke(Crd crd, bool myself)
@@ -134,30 +134,30 @@ inline Crd nova_lookup(Crd crd)
   return Crd(res);
 }
 
-inline Crd nova_lookup(void *m)
+static inline Crd nova_lookup(void *m)
 {
   return nova_lookup(Crd(reinterpret_cast<mword>(m) >> 12, 32 - 12, DESC_MEM_ALL));
 }
 
-WARN_UNUSED inline unsigned char  nova_recall(unsigned idx_ec)
+WARN_UNUSED static inline unsigned char  nova_recall(unsigned idx_ec)
 {  return nova_syscall1(idx_ec << 8 | NOVA_RECALL); }
 
 
-WARN_UNUSED inline unsigned char  nova_semup(unsigned idx_sm)
+WARN_UNUSED static inline unsigned char  nova_semup(unsigned idx_sm)
 {  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_UP); }
 
 
-WARN_UNUSED inline unsigned char  nova_semdown(unsigned idx_sm)
+WARN_UNUSED static inline unsigned char  nova_semdown(unsigned idx_sm)
 {  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_DOWN); }
 
-WARN_UNUSED inline unsigned char  nova_semdownmulti(unsigned idx_sm)
+WARN_UNUSED static inline unsigned char  nova_semdownmulti(unsigned idx_sm)
 {  return nova_syscall1(idx_sm << 8 | NOVA_SEMCTL_DOWN_MULTI); }
 
-WARN_UNUSED inline unsigned char  nova_assign_pci(unsigned pd, void *pf_cfg_mem, unsigned vf_rid)
+WARN_UNUSED static inline unsigned char  nova_assign_pci(unsigned pd, void *pf_cfg_mem, unsigned vf_rid)
 {  return nova_syscall(pd << 8 | NOVA_ASSIGN_PCI, reinterpret_cast<unsigned>(pf_cfg_mem), vf_rid, 0, 0); }
 
 
-WARN_UNUSED inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, void *pci_cfg_mem=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
+WARN_UNUSED static inline unsigned char  nova_assign_gsi(unsigned idx_sm, unsigned cpu_nr, void *pci_cfg_mem=0, unsigned long long* msi_address=0, unsigned *msi_value = 0)
 {
   unsigned out1;
   unsigned char res = nova_syscall(idx_sm << 8 | NOVA_ASSIGN_GSI, reinterpret_cast<unsigned>(pci_cfg_mem), cpu_nr, 0, 0, &out1, msi_value);
