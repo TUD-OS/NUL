@@ -39,7 +39,7 @@ public:
     backup_page = new (0x1000) char [0x1000];
   }
 
-  unsigned alloc_crd() { assert(!"rom fs don't keep mappings and should never ask for new ones"); }
+  unsigned alloc_crd() { Logging::panic("rom fs don't keep mappings and should never ask for new ones"); }
 
   static void portal_pagefault(Service_fs *tls, Utcb *utcb) __attribute__((regparm(0)))
   {
