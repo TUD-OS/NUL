@@ -89,7 +89,7 @@ public:
       res = ParentProtocol::register_service(*BaseProgram::myutcb(), service_name, i,
                                              worker_pt, service_cap, flag_revoke);
       if (res != ENONE)
-        Logging::panic("Registering service on CPU%u failed.\n", i);
+        Logging::panic("Registering service on CPU%u failed: %#x.\n", i, res);
     }
 
     Logging::printf("Service %s registered.\n", service_name);
