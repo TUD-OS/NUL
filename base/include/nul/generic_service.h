@@ -364,7 +364,7 @@ public:
       for (T ** prev = &_head; T *current = *prev; prev = reinterpret_cast<T **>(&current->next))
         Logging::printf(" %p ->", current);
     }
-    assert(0);
+    __builtin_trap();
   }
 
   /**
@@ -437,7 +437,7 @@ template <class C> struct StaticPortalFunc {
     }
 
     if (free_cap) {
-      unsigned res = nova_revoke(Crd(utcb->head.crd), true);
+      UNUSED unsigned res = nova_revoke(Crd(utcb->head.crd), true);
       assert(res == NOVA_ESUCCESS);
     }
 

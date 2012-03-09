@@ -47,7 +47,7 @@ class CapAllocator : public InternalCapAllocator {
     return Cpu::atomic_xadd(&_cap_, count);
   }
   void dealloc_cap(unsigned cap, unsigned count = 1) {
-    while (count--) { unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true); assert(res == NOVA_ESUCCESS); }
+    while (count--) { UNUSED unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true); assert(res == NOVA_ESUCCESS); }
     // XXX add it back to the cap-allocator
   }
 };

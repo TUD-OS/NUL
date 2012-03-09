@@ -347,8 +347,7 @@ public:
   GenericProtocol(const char *service, unsigned instance, unsigned cap_base, bool blocking, unsigned session_base=~0u)
     : _service(service), _instance(instance), _cap_base(cap_base), _session_base(session_base == ~0u ? _cap_base + CAP_SERVER_PT : session_base),  _lock(cap_base + CAP_LOCK), _blocking(blocking), _disabled(false)
   {
-    unsigned res;
-    res = nova_create_sm(cap_base + CAP_LOCK);
+    UNUSED unsigned res = nova_create_sm(cap_base + CAP_LOCK);
     assert(res == NOVA_ESUCCESS);
     _lock.up();
 //    Logging::printf("New Protocol '%s' base %x\n", service, cap_base);
