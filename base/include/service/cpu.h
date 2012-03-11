@@ -73,7 +73,10 @@ class Cpu
   }
 
   // bsr and bsf are undefined, if value is zero.
+
+  /// Finds the position of the most significant "1" bit
   static  unsigned bsr(unsigned value) { return __builtin_clz(value) ^ 0x1F; }
+  /// Finds the position of the least significant "1" bit
   static  unsigned bsf(unsigned value) { return __builtin_ctz(value); }
 
   /**
