@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage;
 use File::Basename;
 use File::Spec;
@@ -33,9 +33,10 @@ $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
-@CFG::chainloaders = ();
+@CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
+%CFG::custom_options = ('I' => '--server --iprelay');
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
 sub read_config($) {
@@ -61,7 +62,7 @@ GetOptions ("config|c=s" => \$cfg);
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
 
 Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
 my %opt_spec = (
@@ -72,7 +73,6 @@ my %opt_spec = (
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "grub2:s" 	     => \$grub2_config,
-    "I"		     => \$I_opt,
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
@@ -88,6 +88,9 @@ my %opt_spec = (
     "h" 	     => \$help,
     "help" 	     => \$man,
     );
+foreach my $opt(keys(%CFG::custom_options)) {
+    $opt_spec{$opt} = sub { GetOptionsFromString($CFG::custom_options{$opt}, %opt_spec); };
+}
 GetOptions %opt_spec or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
@@ -95,8 +98,6 @@ pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
-
-if (defined $I_opt) { $server=''; $iprelay=''; }
 
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
@@ -109,7 +110,7 @@ if ($dump_config) {
     foreach my $key(sort(keys(%CFG::))) { # See "Symbol Tables" in perlmod(1)
 	if (defined ${$CFG::{$key}}) { print Data::Dumper->Dump([${$CFG::{$key}}], ["*$key"]); }
 	if (defined @{$CFG::{$key}}) { print Data::Dumper->Dump([\@{$CFG::{$key}}], ["*$key"]); }
-	print "\n";
+	if (        %{$CFG::{$key}}) { print Data::Dumper->Dump([\%{$CFG::{$key}}], ["*$key"]); }
     }
     print "1;\n";
     exit;
@@ -728,10 +729,6 @@ i.e. run update-grub on Debian/Ubuntu.
 
 Print short (B<-h>) or long (B<--help>) help.
 
-=item -I
-
-Shortcut for B<--server --iprelay>.
-
 =item --iprelay[=cmd]
 
 If no I<cmd> is given, use IP relay to reset the machine and to get
@@ -882,16 +879,32 @@ defined and non-empty, the variable HYPERVISOR_PARAMS is not used.
 
 =head1 CONFIGURATION FILE
 
-novaboot can read its configuration from ~/.novaboot (or another file
-specified with B<-c> parameter). It is a file with perl syntax, which
-sets values to certain variables. The current configuration can be
-dumped with B<--dump-config> switch. Use
+novaboot can read its configuration from ~/.novaboot file (or another
+file specified with B<-c> parameter). It is a file with perl syntax,
+which sets values to certain variables. The current configuration can
+be dumped with B<--dump-config> switch. Use
 
     novaboot --dump-config > ~/.novaboot
 
-to create a default config file and modify it to your needs. Some
-configuration variables can be overriden by environment variables (see
-below) or by command line switches.
+to create a default configuration file and modify it to your needs.
+Some configuration variables can be overriden by environment variables
+(see below) or by command line switches.
+
+Documentation to some configuration file variables follows:
+
+=over 8
+
+=item @chainloaders
+
+Custom chainloaders to load before hypervisor and files specified in
+novaboot script. E.g. ('bin/boot/bender promisc', 'bin/boot/zapp').
+
+=item %custom_options
+
+Defines custom command line options that can serve as shortcuts to
+other options. E.g. 'S' => '--server=boot:/tftproot --serial=/dev/ttyUSB0'.
+
+=back
 
 =head1 ENVIRONMENT VARIABLES
 
