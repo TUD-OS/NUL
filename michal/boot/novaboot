@@ -614,6 +614,8 @@ B<novaboot> [ options ] [--] script...
 
 B<./script> [ options ]
 
+B<novaboot> --help
+
 =head1 DESCRIPTION
 
 This program makes it easier to boot NOVA in different environments.
