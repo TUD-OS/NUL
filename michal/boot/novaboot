@@ -56,16 +56,18 @@ sub read_config($) {
 }
 
 my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
+Getopt::Long::Configure(qw/no_ignore_case pass_through/);
+GetOptions ("config|c=s" => \$cfg);
+if (-s $cfg) { read_config($cfg); }
 
 # Command line
 my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
 
-Getopt::Long::Configure("no_ignore_case");
-GetOptions (
+Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
+my %opt_spec = (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
     "build-dir=s"    => \$builddir,
-    "config|c=s"     => \$cfg,
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
@@ -85,11 +87,10 @@ GetOptions (
     "server:s" 	     => \$server,
     "h" 	     => \$help,
     "help" 	     => \$man,
-    ) or pod2usage(2);
+    );
+GetOptions %opt_spec or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
-
-if (-s $cfg) { read_config($cfg); }
 
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
