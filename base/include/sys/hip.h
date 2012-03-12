@@ -20,6 +20,7 @@
 #pragma once
 
 #include <nul/types.h>
+#include <nul/config.h>
 
 class Hip_cpu
 {
@@ -94,22 +95,34 @@ class Hip
 	}
 
 	bool has_vmx() {  return api_flg &  (1 << 1); }
-	bool has_svm() {  return api_flg &  (1 << 2); }
+        bool has_svm() {  return api_flg &  (1 << 2); }
 
-	// Returns the number of Hip_cpu descriptors.
-	unsigned cpu_desc_count() const { return (mem_offs - cpu_offs) / cpu_size; }
+        /* Returns the capability index at which GSI semaphores start
+           in the kernel's capability space. */
+        cap_sel gsi_cap_base() const
+        {
+          return (mem_offs - cpu_offs) / cpu_size;
+        }
 
-	// Returns the number of enabled CPUs.
-	unsigned cpu_count() {
-	  unsigned cpucnt = 0;
-	  for (unsigned i=0; i < cpu_desc_count(); i++) {
-	    Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
-	    if (not cpu->enabled()) continue;
-	    cpucnt++;
-	  }
-	  return cpucnt;
-	}
+        // Returns the number of Hip_cpu descriptors. This is
+        // artifially capped at Config::MAX_CPUS and will never return
+        // a value that is larger.
+        unsigned cpu_desc_count() const
+        {
+          unsigned items = (mem_offs - cpu_offs) / cpu_size;
+          return (items > Config::MAX_CPUS) ? unsigned(Config::MAX_CPUS) : items;
+        }
 
+        // Returns the number of enabled CPUs.
+        unsigned cpu_count() {
+          unsigned cpucnt = 0;
+          for (unsigned i=0; i < cpu_desc_count(); i++) {
+            Hip_cpu *cpu = reinterpret_cast<Hip_cpu *>(reinterpret_cast<char *>(this) + cpu_offs + i*cpu_size);
+            if (not cpu->enabled()) continue;
+            cpucnt++;
+          }
+          return cpucnt;
+        }
 	Hip_cpu const *cpus() const {
           //assert(cpu_size == sizeof(Hip_cpu));
           return reinterpret_cast<Hip_cpu const *>(reinterpret_cast<char const *>(this) + cpu_offs);

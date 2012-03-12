@@ -553,7 +553,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     _irq_cap_base = alloc_cap(hip->cfg_gsi);
 
     for (unsigned gsi=0; gsi < hip->cfg_gsi; gsi++) {
-      Utcb::TypedMapCap(gsi + hip->cpu_desc_count(), DESC_CAP_ALL, _irq_cap_base + gsi, MAP_HBIT)
+      Utcb::TypedMapCap(hip->gsi_cap_base() + gsi, DESC_CAP_ALL, _irq_cap_base + gsi, MAP_HBIT)
         .fill_words(utcb->msg + utcb->head.untyped);
       utcb->head.untyped += 2;
     }
