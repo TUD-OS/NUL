@@ -494,7 +494,9 @@ public:
   template <class T>
   unsigned create_pt_per_client(unsigned base, T * __sigma0) {
     for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
+      assert(lcpu < MAXCPUS);
       unsigned pcpu = __sigma0->_cpunr[lcpu];
+      assert(pcpu < MAXCPUS);
       check1(3, nova_create_pt(base + ParentProtocol::CAP_PT_PERCPU + pcpu,
                                _percpu[pcpu].cap_ec_parent,
                                reinterpret_cast<unsigned long>(StaticPortalFunc<s0_ParentProtocol>::portal_func),
@@ -508,6 +510,7 @@ public:
     for (unsigned lcpu = 0; lcpu < __sigma0->_numcpus; lcpu++) {
       Utcb *utcb = 0;
       unsigned pcpu = __sigma0->_cpunr[lcpu];
+      assert(pcpu < MAXCPUS);
       _percpu[pcpu].cap_ec_parent = __sigma0->create_ec4pt(this, pcpu, __sigma0->_percpu[lcpu].exc_base, &utcb);
       utcb->head.crd = alloc_crd();
       utcb->head.crd_translate = Crd(_cap_all_start, _cap_all_order, DESC_CAP_ALL).value();
