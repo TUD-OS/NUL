@@ -1754,6 +1754,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
     Logging::printf("s0:\t=> INIT done <=\n\n");
 
+    // We use insider knowledge here to figure out NUM_CPU of the hypervisor.
+    if (hip->gsi_cap_base() != hip->cpu_desc_count())
+      Logging::printf("s0: NUL is built for %u CPU%s, but the hypervisor supports %u.\n",
+                      unsigned(Config::MAX_CPUS), (Config::MAX_CPUS == 1) ? "" : "s",
+                      hip->gsi_cap_base());
+
     // block ourself since we have finished initialization
     block_forever();
   }
