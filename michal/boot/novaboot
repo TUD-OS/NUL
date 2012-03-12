@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use Getopt::Long;
+use Getopt::Long qw(GetOptionsFromString);
 use Pod::Usage;
 use File::Basename;
 use File::Spec;
@@ -33,9 +33,11 @@ $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = '';
-@CFG::chainloaders = ();
+@CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
+%CFG::custom_options = ('I' => '--server --iprelay');
+$CFG::scons = "scons -j2";
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
 sub read_config($) {
@@ -56,21 +58,22 @@ sub read_config($) {
 }
 
 my $cfg = $ENV{'NOVABOOT_CONFIG'} || $ENV{'HOME'}."/.novaboot";
+Getopt::Long::Configure(qw/no_ignore_case pass_through/);
+GetOptions ("config|c=s" => \$cfg);
+if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $I_opt, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $scons, $serial, $server);
 
-Getopt::Long::Configure("no_ignore_case");
-GetOptions (
+Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
+my %opt_spec = (
     "append|a=s"     => \$append,
     "bender|b"       => \$bender,
     "build-dir=s"    => \$builddir,
-    "config|c=s"     => \$cfg,
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "grub2:s" 	     => \$grub2_config,
-    "I"		     => \$I_opt,
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
     "name=s"	     => \$config_name_opt,
@@ -81,26 +84,33 @@ GetOptions (
     "qemu|Q=s" 	     => \$qemu,
     "qemu-append=s"  => \$qemu_append,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
+    "scons:s"	     => \$scons,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
     "h" 	     => \$help,
     "help" 	     => \$man,
-    ) or pod2usage(2);
+    );
+foreach my $opt(keys(%CFG::custom_options)) {
+    $opt_spec{$opt} = sub { GetOptionsFromString($CFG::custom_options{$opt}, %opt_spec); };
+}
+GetOptions %opt_spec or pod2usage(2);
 pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
-
-if (-s $cfg) { read_config($cfg); }
 
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
 
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
 
-if (defined $I_opt) { $server=''; $iprelay=''; }
-
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
 $qemu_append ||= '';
 if ($builddir) { $CFG::builddir = $builddir; }
+
+if (defined $pulsar) {
+    $CFG::pulsar_mac = $pulsar;
+}
+
+if ($scons) { $CFG::scons = $scons; }
 
 if ($dump_config) {
     use Data::Dumper;
@@ -108,6 +118,7 @@ if ($dump_config) {
     foreach my $key(sort(keys(%CFG::))) { # See "Symbol Tables" in perlmod(1)
 	if (defined ${$CFG::{$key}}) { print Data::Dumper->Dump([${$CFG::{$key}}], ["*$key"]); }
 	if (defined @{$CFG::{$key}}) { print Data::Dumper->Dump([\@{$CFG::{$key}}], ["*$key"]); }
+	if (        %{$CFG::{$key}}) { print Data::Dumper->Dump([\%{$CFG::{$key}}], ["*$key"]); }
 	print "\n";
     }
     print "1;\n";
@@ -124,10 +135,6 @@ if (defined $grub_config) {
 
 if (defined $grub2_config) {
     $grub2_config ||= "grub.cfg";
-}
-
-if (defined $pulsar) {
-    $pulsar ||= $CFG::pulsar_mac;
 }
 
 if ($on_opt) { $iprelay="on"; }
@@ -428,13 +435,20 @@ foreach my $script (@scripts) {
 
     my $pulsar_config;
     if (defined $pulsar) {
-	$pulsar_config = "config-$pulsar";
+	$pulsar_config = "config-$CFG::pulsar_mac";
 	generate_configs('', $generated, $filename);
 	generate_pulsar_config($pulsar_config, $modules);
 	if (!defined $server) {
 	    print("Pulsar configuration created: $CFG::builddir/$pulsar_config\n");
 	    exit;
 	}
+    }
+
+    if (defined $scons) {
+	my @files = map({ ($file) = m/([^ ]*)/; $file; } @$modules);
+	# Filter-out generated files
+	my @to_build = grep({ my $file = $_; !scalar(grep($file eq $$_{filename}, @$generated)) } @files);
+	system_verbose($CFG::scons." ".join(" ", @to_build));
     }
 
     if (defined $server) {
@@ -613,6 +627,8 @@ B<novaboot> [ options ] [--] script...
 
 B<./script> [ options ]
 
+B<novaboot> --help
+
 =head1 DESCRIPTION
 
 This program makes it easier to boot NOVA in different environments.
@@ -725,10 +741,6 @@ i.e. run update-grub on Debian/Ubuntu.
 
 Print short (B<-h>) or long (B<--help>) help.
 
-=item -I
-
-Shortcut for B<--server --iprelay>.
-
 =item --iprelay[=cmd]
 
 If no I<cmd> is given, use IP relay to reset the machine and to get
@@ -781,6 +793,11 @@ C<-cpu coreduo -smp 2>).
 
 Replace the default qemu flags (QEMU_FLAGS variable or C<-cpu coreduo
 -smp 2>) with I<flags> specified here.
+
+=item --scons[=scons command]
+
+Runs I<scons> to build files that are not generated by novaboot
+itself.
 
 =item --server[=[[user@]server:]path]
 
@@ -879,16 +896,32 @@ defined and non-empty, the variable HYPERVISOR_PARAMS is not used.
 
 =head1 CONFIGURATION FILE
 
-novaboot can read its configuration from ~/.novaboot (or another file
-specified with B<-c> parameter). It is a file with perl syntax, which
-sets values to certain variables. The current configuration can be
-dumped with B<--dump-config> switch. Use
+novaboot can read its configuration from ~/.novaboot file (or another
+file specified with B<-c> parameter). It is a file with perl syntax,
+which sets values to certain variables. The current configuration can
+be dumped with B<--dump-config> switch. Use
 
     novaboot --dump-config > ~/.novaboot
 
-to create a default config file and modify it to your needs. Some
-configuration variables can be overriden by environment variables (see
-below) or by command line switches.
+to create a default configuration file and modify it to your needs.
+Some configuration variables can be overriden by environment variables
+(see below) or by command line switches.
+
+Documentation to some configuration file variables follows:
+
+=over 8
+
+=item @chainloaders
+
+Custom chainloaders to load before hypervisor and files specified in
+novaboot script. E.g. ('bin/boot/bender promisc', 'bin/boot/zapp').
+
+=item %custom_options
+
+Defines custom command line options that can serve as shortcuts to
+other options. E.g. 'S' => '--server=boot:/tftproot --serial=/dev/ttyUSB0'.
+
+=back
 
 =head1 ENVIRONMENT VARIABLES
 
