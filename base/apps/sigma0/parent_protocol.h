@@ -220,8 +220,8 @@ private:
   }
 
   unsigned free_service(Utcb &utcb, ServerData *sdata) {
-    dealloc_cap(sdata->pt);
-    delete sdata->name;
+    if (sdata->pt) dealloc_cap(sdata->pt);
+    if (sdata->name) delete [] sdata->name;
     ServerData::get_quota(utcb, sdata->pseudonym, "cap", -1);
     ServerData::get_quota(utcb, sdata->pseudonym, "mem", -sdata->len);
     return _server.free_client_data(utcb, sdata, this);
@@ -356,6 +356,11 @@ public:
 
         unsigned slen = namespace_len + request_len + 1;
         char * tmp = new char[slen];
+        if (!tmp) {
+          free_service(utcb, sdata);
+          return ERESOURCE;
+        }
+
         memcpy(tmp, cmdline, namespace_len);
         memcpy(tmp + namespace_len, request, request_len);
         tmp[slen - 1] = 0;
