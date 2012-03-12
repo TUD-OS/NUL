@@ -104,6 +104,10 @@ if ($qemu) { $CFG::qemu = $qemu; }
 $qemu_append ||= '';
 if ($builddir) { $CFG::builddir = $builddir; }
 
+if (defined $pulsar) {
+    $CFG::pulsar_mac = $pulsar;
+}
+
 if ($dump_config) {
     use Data::Dumper;
     $Data::Dumper::Indent=0;
@@ -126,10 +130,6 @@ if (defined $grub_config) {
 
 if (defined $grub2_config) {
     $grub2_config ||= "grub.cfg";
-}
-
-if (defined $pulsar) {
-    $pulsar ||= $CFG::pulsar_mac;
 }
 
 if ($on_opt) { $iprelay="on"; }
@@ -430,7 +430,7 @@ foreach my $script (@scripts) {
 
     my $pulsar_config;
     if (defined $pulsar) {
-	$pulsar_config = "config-$pulsar";
+	$pulsar_config = "config-$CFG::pulsar_mac";
 	generate_configs('', $generated, $filename);
 	generate_pulsar_config($pulsar_config, $modules);
 	if (!defined $server) {
