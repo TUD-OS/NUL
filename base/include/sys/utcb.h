@@ -218,6 +218,12 @@ struct Utcb
   };
 
   /**
+   * Returns the number of words needed for storing the current UTCB
+   * content to a UTCB frame as implemented in add_frame().
+   */
+  unsigned frame_words() { return HEADER_SIZE/sizeof(msg[0]) + head.untyped + 2*head.typed + 1; }
+
+  /**
    * Push UTCB header and data to a stack area in the UTCB.
    *
    * Later, UTCB can be fully restored by drop_frame() or partially
@@ -295,7 +301,10 @@ struct Utcb
   // Optional check to avoid IPCs where receiver will reject
   // the message because of validate_recv_bounds() result.
   bool validate_send_bounds() {
-    return (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START); //XXX there are more checks
+    return
+      (head.untyped <= STACK_START) and
+      (head.typed*2 <= MAX_DATA_WORDS - STACK_START - 1) and
+      (frame_words() <= MAX_DATA_WORDS - STACK_START - 1);
   }
 
   // Check whether the UTCB is empty (e.g. after receiving a message
@@ -305,9 +314,9 @@ struct Utcb
   {
     return
       (msg[STACK_START] == 0) and
-      (head.untyped*sizeof(unsigned) + HEADER_SIZE < STACK_START) and
-      (head.typed*sizeof(unsigned)*2 < sizeof(struct Utcb)) and
-      ((sizeof(struct Utcb) - head.typed*sizeof(unsigned)*2) > (HEADER_SIZE + STACK_START + (head.untyped + 1 + head.typed*2)*sizeof(unsigned)));
+      (head.untyped <= STACK_START) and
+      (head.typed*2 <= MAX_DATA_WORDS - STACK_START - 1) and
+      (frame_words() <= MAX_DATA_WORDS - STACK_START - 1);
   }
 
   template <typename T>
@@ -359,6 +368,8 @@ struct Utcb
   enum { MINSHIFT = 12 };
   enum {
     HEADER_SIZE = sizeof(struct head),
+    MAX_DATA_WORDS = sizeof(msg) / sizeof(msg[0]),
+    MAX_FRAME_WORDS = MAX_DATA_WORDS - STACK_START - 1,
   };
 
   /**
