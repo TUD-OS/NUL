@@ -28,7 +28,7 @@
 struct Utcb
 {
   enum {
-    STACK_START = 512,
+    STACK_START = 512,          ///< Index where we store a "frame pointer" to the top of the stack
   };
 
   typedef struct Descriptor
@@ -176,10 +176,22 @@ struct Utcb
     Frame(Utcb *utcb, unsigned end) : _utcb(utcb), _end(end), _consumed() {}
   };
 
+  /** Converts index to UTCB data to UTCB "frame pointers". */
+  unsigned ind2fp(unsigned ofs) { return ofs - STACK_START - 1; }
+
+  /** Converts UTCB "frame pointer" to index to UTCB data area. */
+  unsigned fp2ind(unsigned fp) { return fp + STACK_START + 1; }
+
+  /** Returns the index to UTCB data area of the first empty word above the UTCB stack area. */
+  unsigned get_stack_top() { return fp2ind(msg[STACK_START]); }
+
+  /** Sets the "top pointer" of the UTCB stack area */
+  void     set_stack_top(unsigned ofs) { msg[STACK_START] = ind2fp(ofs); }
+
   Frame get_nested_frame() {
     if (!msg[STACK_START])
       return Frame(this, sizeof(this)/sizeof(unsigned));
-    unsigned old_ofs = msg[msg[STACK_START] + STACK_START] + STACK_START + 1;
+    unsigned old_ofs = fp2ind(msg[get_stack_top() - 1]);
     Utcb *x = reinterpret_cast<Utcb *>(msg+old_ofs);
     return Frame(x, x->head.untyped + 2*x->head.typed);
   }
@@ -232,7 +244,7 @@ struct Utcb
    * TODO: put error code at some fixed point
    */
   Utcb &  add_frame() {
-    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    unsigned ofs = get_stack_top();
     // XXX Security problem!
     assert(ofs < sizeof(msg)/sizeof(msg[0]));
 
@@ -245,9 +257,9 @@ struct Utcb
     memcpy(msg + ofs, msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, head.typed * 2 * sizeof(msg[0]));
     ofs += head.typed * 2;
     msg[ofs++] = msg[STACK_START];
-    msg[STACK_START] = ofs - STACK_START - 1;
 
     assert(ofs < sizeof(msg) / sizeof(unsigned));
+    set_stack_top(ofs);
 
     // init the header
     head.mtr = 0;
@@ -260,9 +272,9 @@ struct Utcb
   void skip_frame() {
     //Logging::printf("skip %p frame at %x-%x\n", this, ofs, msg[ofs - 1] + STACK_START + 1);
     unsigned mtr = head.mtr;
-    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    unsigned ofs = get_stack_top();
     msg[STACK_START] = msg[ofs - 1];
-    memcpy(&head, msg + msg[STACK_START] + STACK_START + 1 , HEADER_SIZE);
+    memcpy(&head, &msg[get_stack_top()], HEADER_SIZE);
     head.mtr = mtr;
   }
 
@@ -271,14 +283,14 @@ struct Utcb
    * remove the restored state from the stack area.
    */
   void drop_frame() {
-    unsigned ofs = msg[STACK_START] + STACK_START + 1;
+    unsigned ofs = get_stack_top();
     assert (ofs > STACK_START + 1);
 
     // XXX clear the UTCB to detect bugs
     memset(msg, 0xe8, STACK_START * sizeof(msg[0]));
     memset(msg+ofs, 0xd5, sizeof(msg) - ofs * sizeof(msg[0]));
 
-    unsigned old_ofs = msg[ofs - 1] +  STACK_START + 1;
+    unsigned old_ofs = fp2ind(msg[ofs - 1]);
     //Logging::printf("drop %p frame %x-%x\n", this, old_ofs, ofs);
     ofs = old_ofs;
     memcpy(&head, msg+ofs, HEADER_SIZE);
@@ -287,7 +299,7 @@ struct Utcb
     ofs += head.untyped;
     memmove(msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, msg + ofs, head.typed * 2 * sizeof(msg[0]));
     ofs += head.typed * 2;
-    msg[STACK_START] = old_ofs - STACK_START - 1;
+    set_stack_top(old_ofs);
   }
 
   void set_header(unsigned untyped, unsigned typed) { head.untyped = untyped; head.typed = typed; }
