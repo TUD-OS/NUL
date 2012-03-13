@@ -375,22 +375,30 @@ struct Utcb
   /**
    * Add mappings to a UTCB.
    *
-   * Returns size of memory left which couldn't be put on the utcb
+   * @param addr Start of the memory area to be delegated/translated
+   * @param size Size of the memory area to be delegated/translated
+   * @param hotspot Zero for translation or hotspot | flags | MAP_MAP for delegation.
+   * @param rights Permission mask and type Crd type bits.
+   * @param frame Set this to true if the receiver uses Utcb::Frame
+   * and you want him to pass bound checks.
+   * @param max_items The maximum number of typed items to be put in UTCB.
+   *
+   * @return Size of memory left which couldn't be put on the utcb
    * because no space is left. If this is not zero, the caller has to
    * handle this case! See sigma0.cc map_self for inspiration.
    */
   WARN_UNUSED
   unsigned long add_mappings(unsigned long addr, unsigned long size, unsigned long hotspot, unsigned rights,
-                             bool frame = false, unsigned max_items = sizeof(msg) / sizeof(msg[0]))
+                             bool frame = false, unsigned max_items = sizeof(msg) / sizeof(msg[0]) / 2)
   {
     while (size > 0) {
       unsigned minshift = Cpu::minshift(addr | (hotspot & ~0xffful) , size);
       assert(minshift >= Utcb::MINSHIFT);
       this->head.typed++;
       unsigned *item = this->item_start();
-      if (item <= this->msg+this->head.untyped ||
-          (frame ? item <= (this->msg + this->msg[STACK_START]) : false) ||
-          (frame ? this->head.typed > max_items : false))
+      if (item < &msg[head.untyped] ||
+          head.typed > max_items ||
+          (frame && !validate_send_bounds()))
         { this->head.typed --; return size; }
       item[1] = hotspot;
       item[0] = addr | ((minshift-Utcb::MINSHIFT) << 7) | rights;
