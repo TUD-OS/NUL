@@ -940,6 +940,9 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 
             if (not translate_client_fault(modinfo, fault, utcb->qual[0],
                                            translated, begin, size, rights)) {
+              // Print pagefault info for unresolvable pfs even when verbose is not specified
+              Logging::printf("s0: [%2u, %02x] pagefault %x/%x for %llx err %llx at %x\n",
+                              modinfo->id, pid, utcb->head.untyped, utcb->head.typed, utcb->qual[1], utcb->qual[0], utcb->eip);
 	      Logging::printf("s0: [%2u] unresolvable pagefault - killing client ...\n", modinfo->id);
 	      utcb->reset(); //make sure that utcb/frame will work
 	      kill_module(modinfo);
