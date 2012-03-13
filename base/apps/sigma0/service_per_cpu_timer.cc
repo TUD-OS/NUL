@@ -836,6 +836,7 @@ public:
 
     for (phy_cpu_no i = 0; i < mb.hip()->cpu_desc_count(); i++) {
       const Hip_cpu &c = mb.hip()->cpus()[i];
+      assert(i <  (sizeof(_per_cpu) / sizeof(_per_cpu[0])));
       _per_cpu[i] = c.enabled() ? (new(64) PerCpu) : NULL;
     }
 
