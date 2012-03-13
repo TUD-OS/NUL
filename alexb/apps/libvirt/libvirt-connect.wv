@@ -4,6 +4,8 @@
 
 WVSTART Connecting multiple times to NOVA libvirt daemon
 
+echo "wvtest: expect 103 tests"
+
 init
 
 for i in $(seq 100); do

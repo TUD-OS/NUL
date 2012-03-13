@@ -4,6 +4,8 @@
 
 WVSTART Start and stop two VMs multiple times using libvirt
 
+echo "wvtest: expect 403 tests"
+
 init
 
 for i in $(seq 100); do

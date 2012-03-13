@@ -69,6 +69,8 @@ my $tests_failed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
 my $ignore_exit_patterns = 0;
+my $expected_test_count = 0;
+my $expected_test_base = 0;
 
 sub matches_exit_pattern($)
 {
@@ -84,6 +86,22 @@ sub matches_exit_pattern($)
 	    ;
     }
 }
+
+sub check_number_of_tests()
+{
+    if ($expected_test_count) {
+	my $executed = $tests_executed - $expected_test_base;
+	my $result;
+	if ($executed == $expected_test_count) {
+	    $result = "ok";
+	} else {
+	    $result = "FAILED";
+	    print "Expected $expected_test_count tests, executed $executed tests.\n"
+	}
+	print "! $0: tests_expected == tests_executed  $result\n";
+    }
+}
+
 
 alarm($timeout);
 while (<$fh>)
@@ -106,6 +124,11 @@ while (<$fh>)
     }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif (/wvtest: ignore exit patterns/) { $ignore_exit_patterns = 1; }
+    elsif (/wvtest: expect ([0-9]+) tests/) {
+	check_number_of_tests();
+	$expected_test_count = $1;
+	$expected_test_base = $tests_executed;
+    }
     elsif (matches_exit_pattern($_))
     {
 	if (!$ENV{WVTEST_NOKILL}) {
@@ -144,6 +167,8 @@ if ($ret != 0) {
 if (!$ENV{WVTEST_EXIT_PATTERN}) {
     printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
 }
+check_number_of_tests();
+
 if ($tests_failed > 0) { $ret = 1; }
 if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
 
