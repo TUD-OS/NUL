@@ -30,6 +30,7 @@ init() {
 	    nic=82576
 	fi
 	nova=$nulroot/michal/boot/passive/nova-$nic
+	echo "wvtest: ignore exit patterns"
 	set -x
 	$wvpath/wvnulrun $nova $_args | tee passive.log
 	test "$NOVA_IP" || NOVA_IP=$(sed -ne '/.*update  - got ip=\([^ ]*\).*/ s//\1/p' passive.log)
