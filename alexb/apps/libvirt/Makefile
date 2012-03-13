@@ -10,7 +10,7 @@ libvirt-$(VERSION).tar.gz:
 	cd libvirt-$(VERSION) && patch -p1 <../nova.diff
 	touch $@
 
-libvirt-repo/.git:
+libvirt-repo/.git/description:
 	cd $(shell git rev-parse --show-toplevel) && git submodule update --init $(shell git rev-parse --show-prefix)libvirt-repo
 
 LIBVIRT_HASH=$(shell git --git-dir=libvirt-repo/.git rev-parse HEAD)
@@ -19,11 +19,13 @@ LIBVIRT_HASH_OLD=$(shell cat .version.stamp)
 # Update .version.stamp whenever the HEAD of the libvirt repostory is updated
 ifneq ($(wildcard .version.stamp),)
 ifneq ($(LIBVIRT_HASH),$(LIBVIRT_HASH_OLD))
+$(info New libvirt version: rebuild forced)
 .PHONY: .version.stamp
 endif
 endif
 
-.version.stamp: libvirt-repo/.git
+.version.stamp: libvirt-repo/.git/description
+	@echo newer: $?
 	echo $(LIBVIRT_HASH) > $@
 
 .configure.stamp: .version.stamp
