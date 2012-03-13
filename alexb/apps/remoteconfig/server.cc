@@ -411,6 +411,16 @@ void Remcon::handle_packet(void) {
         _out->result  = NOVA_OP_SUCCEEDED;
       }
       break;
+    case NOVA_AUTH:
+      {
+        uint32_t len = Math::ntohl(*reinterpret_cast<uint32_t *>(&_in->opspecific));
+        unsigned char * authid = reinterpret_cast<unsigned char *>(&_in->opspecific) + sizeof(len);
+        if (len < 2 || &_out->opspecific + len > buf_out + NOVA_PACKET_LEN) break; // cheater!
+
+        authid[len - 1] = 0;
+        Logging::printf("%u %s\n", len, authid);
+      }
+      break;
     default:
       Logging::printf("got bad packet op=%u\n", op);
   }
