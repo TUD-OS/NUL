@@ -236,7 +236,7 @@ struct Utcb
     ofs += HEADER_SIZE/sizeof(unsigned);
     memcpy(msg + ofs, msg, head.untyped*sizeof(unsigned));
     ofs += head.untyped;
-    memcpy(msg + ofs, msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, head.typed * 2 * 4);
+    memcpy(msg + ofs, msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, head.typed * 2 * sizeof(msg[0]));
     ofs += head.typed * 2;
     msg[ofs++] = msg[STACK_START];
     msg[STACK_START] = ofs - STACK_START - 1;
@@ -269,8 +269,8 @@ struct Utcb
     assert (ofs > STACK_START + 1);
 
     // XXX clear the UTCB to detect bugs
-    memset(msg, 0xe8, 512 * 4);
-    memset(msg+ofs, 0xd5, sizeof(msg) - ofs * 4);
+    memset(msg, 0xe8, STACK_START * sizeof(msg[0]));
+    memset(msg+ofs, 0xd5, sizeof(msg) - ofs * sizeof(msg[0]));
 
     unsigned old_ofs = msg[ofs - 1] +  STACK_START + 1;
     //Logging::printf("drop %p frame %x-%x\n", this, old_ofs, ofs);
@@ -279,7 +279,7 @@ struct Utcb
     ofs += HEADER_SIZE/sizeof(unsigned);
     memcpy(msg, msg+ofs, head.untyped * sizeof(unsigned));
     ofs += head.untyped;
-    memmove(msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, msg + ofs, head.typed * 2 * 4);
+    memmove(msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, msg + ofs, head.typed * 2 * sizeof(msg[0]));
     ofs += head.typed * 2;
     msg[STACK_START] = old_ofs - STACK_START - 1;
   }
