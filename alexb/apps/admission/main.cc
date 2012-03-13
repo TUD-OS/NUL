@@ -265,8 +265,7 @@ public:
           } else {
             unsigned idx_sc = alloc_cap(1, cpu);
             unsigned char res;
-            //XXX security bug -- force ec to be on right cpu //XXX
-            res = nova_create_sc(idx_sc, idx, Qpd(data->scs[i].prio, data->scs[i].quantum));
+            res = nova_create_sc(idx_sc, idx, Qpd(data->scs[i].prio, data->scs[i].quantum), data->scs[i].cpu);
             if (res != NOVA_ESUCCESS) {
               memset(&data->scs[i], 0, sizeof(data->scs[i]));
               dealloc_cap(idx_sc);

@@ -46,7 +46,7 @@ public:
       if (!idx_sc) return ERESOURCE;
 
       Qpd q(p.type, 10000); //EARLY SIGMA0 BOOT (no admission service running)
-      res = nova_create_sc (idx_sc, idx_ec, q);
+      res = nova_create_sc (idx_sc, idx_ec, q, cpu);
       assert(!res && counter < tmp_size);
       tmp[counter].para = p; tmp[counter].cpu = cpu; tmp[counter].idx = idx_sc; tmp[counter].admission_sc = a_sc;
       memcpy(tmp[counter++].name, name, strlen(name) + 1);

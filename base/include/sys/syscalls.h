@@ -109,8 +109,8 @@ static inline unsigned char  nova_create_ec(unsigned idx_ec, void *utcb, void *e
 		      reinterpret_cast<unsigned>(utcb) | cpunr, reinterpret_cast<unsigned>(esp), excpt_base);
 }
 
-WARN_UNUSED static inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
-{  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, dstpd, idx_ec, qpd.value(), 0); }
+WARN_UNUSED static inline unsigned char  nova_create_sc (unsigned idx_sc, unsigned idx_ec, Qpd qpd, unsigned cpu, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
+{  return nova_syscall(idx_sc << 8 | NOVA_CREATE_SC, dstpd, idx_ec, qpd.value(), cpu); }
 
 WARN_UNUSED static inline unsigned char  nova_ctl_sc(unsigned idx_sc, unsigned long long &computetime)
 {  return nova_syscall(idx_sc << 8 | NOVA_SC_CTL, 0, 0, 0, 0, reinterpret_cast<unsigned *>(&computetime) + 1, reinterpret_cast<unsigned *>(&computetime)); }

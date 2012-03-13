@@ -1,0 +1,39 @@
+diff --git a/include/syscall.h b/include/syscall.h
+index c6e65f3..628563b 100644
+--- a/include/syscall.h
++++ b/include/syscall.h
+@@ -84,6 +84,9 @@ class Sys_create_sc : public Sys_regs
+ 
+         ALWAYS_INLINE
+         inline Qpd qpd() const { return Qpd (ebx); }
++
++        ALWAYS_INLINE
++        inline unsigned long cpu() const { return ebp; }
+ };
+ 
+ class Sys_create_pt : public Sys_regs
+diff --git a/src/syscall.cpp b/src/syscall.cpp
+index f29fbcf..e470285 100644
+--- a/src/syscall.cpp
++++ b/src/syscall.cpp
+@@ -260,7 +260,7 @@ void Ec::sys_create_sc()
+ {
+     Sys_create_sc *r = static_cast<Sys_create_sc *>(current->sys_regs());
+ 
+-    trace (TRACE_SYSCALL, "EC:%p SYS_CREATE SC:%#lx EC:%#lx P:%#x Q:%#x", current, r->sel(), r->ec(), r->qpd().prio(), r->qpd().quantum());
++    trace (TRACE_SYSCALL, "EC:%p SYS_CREATE SC:%#lx EC:%#lx P:%#x Q:%#x CPU:%lu", current, r->sel(), r->ec(), r->qpd().prio(), r->qpd().quantum(), r->cpu());
+ 
+     Capability cap = Space_obj::lookup (r->pd());
+     if (EXPECT_FALSE (cap.obj()->type() != Kobject::PD) || !(cap.prm() & 1UL << Kobject::SC)) {
+@@ -275,6 +275,11 @@ void Ec::sys_create_sc()
+     }
+     Ec *ec = static_cast<Ec *>(cap.obj());
+ 
++    if (EXPECT_FALSE (ec->cpu != r->cpu())) {
++        trace (TRACE_ERROR, "%s: CPU of SC CAP doesn't match CPU of EC CAP %u != %lu", __func__, ec->cpu, r->cpu());
++        sys_finish<Sys_regs::BAD_CPU>();
++    }
++
+     if (EXPECT_FALSE (!ec->glb)) {
+         trace (TRACE_ERROR, "%s: Cannot bind SC", __func__);
+         sys_finish<Sys_regs::BAD_CAP>();
