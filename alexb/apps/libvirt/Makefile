@@ -29,7 +29,7 @@ endif
 .configure.stamp: .version.stamp
 	cd libvirt-repo && \
 	 autoreconf && \
-	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --with-nova --without-macvtap
+	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --with-nova --without-macvtap --without-python
 	touch $@
 
 .build.stamp: .configure.stamp
