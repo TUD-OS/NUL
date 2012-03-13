@@ -279,7 +279,7 @@ struct Utcb
     ofs += HEADER_SIZE/sizeof(unsigned);
     memcpy(msg, msg+ofs, head.untyped * sizeof(unsigned));
     ofs += head.untyped;
-    memcpy(msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, msg + ofs, head.typed * 2 * 4);
+    memmove(msg + sizeof(msg) / sizeof(unsigned) - head.typed* 2, msg + ofs, head.typed * 2 * 4);
     ofs += head.typed * 2;
     msg[STACK_START] = old_ofs - STACK_START - 1;
   }
