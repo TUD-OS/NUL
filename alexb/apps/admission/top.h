@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 - 2012, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -130,7 +130,7 @@ public:
     assert(count == 1); CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>::dealloc_cap(cap, count);
   }
 
-  inline unsigned alloc_crd() { return Crd(alloc_cap(1, BaseProgram::mycpu()), 0, DESC_CAP_ALL).value(); }
+  inline unsigned alloc_crd() { return Crd(alloc_cap(1, BaseProgram::mycpu()), 0, DESC_CAP_ALL).value(); } //XXX physical cpu number is here used, but logical should be used! XXX//
 
   #include "top.h"
 
@@ -222,7 +222,7 @@ public:
 
           check1(EPROTO, !idx);
           check1(EPROTO, input.get_word(sched));
-          check1(EPROTO, input.get_word(cpu) && cpu < _divider); //check that cpu < number of cpus
+          check1(EPROTO, input.get_word(cpu) && cpu < Global::hip.cpu_desc_count() && Global::hip.cpus()[cpu].enabled()); //check that cpu < number of cpus and that cpu is enabled
           check1(NOVA_ECPU, !(cpu_start <= cpu && cpu <= cpu_end)); //check that we only handle cpus we should
 
           char const * name = input.get_zero_string(len);
@@ -263,7 +263,7 @@ public:
             data->scs[i].idx = idx; //got from outside
             free_cap = false;
           } else {
-            unsigned idx_sc = alloc_cap(1, cpu);
+            unsigned idx_sc = alloc_cap(1, cpu); //XXX physical cpu number is here used, but logical should be used! XXX//
             unsigned char res;
             res = nova_create_sc(idx_sc, idx, Qpd(data->scs[i].prio, data->scs[i].quantum), data->scs[i].cpu);
             if (res != NOVA_ESUCCESS) {
@@ -284,7 +284,7 @@ public:
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, client, input.identity())) return res;
 
-          if (!(client->statistics = alloc_cap(1, BaseProgram::mycpu()))) return ERESOURCE;
+          if (!(client->statistics = alloc_cap(1, BaseProgram::mycpu()))) return ERESOURCE; //XXX physical cpu number is here used, but logical should be used! XXX//
           if (NOVA_ESUCCESS != nova_create_sm(client->statistics)) {
             dealloc_cap(client->statistics); client->statistics = 0; return ERESOURCE;
           }
@@ -400,9 +400,9 @@ public:
           Logging::panic("Couldn't get idle sc cap - cpu %u, idx %#x\n", idle_scs.scs[cpunr].cpu, idle_scs.scs[cpunr].idx);
 
         unsigned s0_exc_base = Config::EXC_PORTALS * cpunr;
-        unsigned cap_ec = create_ec4pt(this, cpunr, s0_exc_base, &utcb_wo, alloc_cap(1, cpunr));
+        unsigned cap_ec = create_ec4pt(this, cpunr, s0_exc_base, &utcb_wo, alloc_cap(1, cpunr)); //XXX physical cpu number is here used, but logical should be used! XXX//
         if (!cap_ec) return false;
-        unsigned cap_pf = create_ec4pt(this, cpunr, s0_exc_base, &utcb_pf, alloc_cap(1, cpunr));
+        unsigned cap_pf = create_ec4pt(this, cpunr, s0_exc_base, &utcb_pf, alloc_cap(1, cpunr)); //XXX physical cpu number is here used, but logical should be used! XXX//
         if (!cap_pf) return false;
 
         utcb_wo->head.crd = alloc_crd();
@@ -410,7 +410,7 @@ public:
         assert(!(_cap_base & ((1UL << CONST_CAP_RANGE)-1)));
         utcb_pf->head.crd = 0;
 
-        unsigned pt_wo            = alloc_cap();
+        unsigned pt_wo            = alloc_cap(1, cpunr); //XXX physical cpu number is here used, but logical should be used! XXX//
         unsigned long portal_func = reinterpret_cast<unsigned long>(StaticPortalFunc<AdmissionService>::portal_func);
         res = nova_create_pt(pt_wo, cap_ec, portal_func, 0);
         if (res) return false;
