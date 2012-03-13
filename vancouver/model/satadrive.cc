@@ -43,7 +43,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   unsigned _dsf[7];
   unsigned _splits[32];
   DiskParameter _params;
-  static unsigned const DMA_DESCRIPTORS = 58;
+  static unsigned const DMA_DESCRIPTORS = 64;
   DmaDescriptor _dma[DMA_DESCRIPTORS];
 
 
