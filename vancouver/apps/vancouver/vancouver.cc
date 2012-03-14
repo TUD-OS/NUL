@@ -63,6 +63,7 @@ bool           _rdtsc_exit;
 bool           _service_events = false;
 bool           _donor_net = false;
 unsigned long  _original_physsize;
+timevalue      _last_to = ~0ULL;
 
 struct donor_buffer
 {
@@ -878,11 +879,10 @@ public:
    * update timeout in sigma0
    */
   static void timeout_request() {
-    static timevalue last_to;
     if (_timeouts.timeout() != ~0ull) {
       timevalue next_to = _timeouts.timeout();
-      if (next_to != last_to) {
-        last_to = next_to;
+      if (next_to != _last_to) {
+        _last_to = next_to;
         TimerProtocol::MessageTimer msg2(next_to);
         unsigned res = service_timer->timer(*myutcb(), msg2);
         assert(!res);
@@ -893,6 +893,10 @@ public:
 
   static void timeout_trigger() {
     timevalue now = _mb->clock()->time();
+
+    // Force time reprogramming. Otherwise, we might not reprogram a
+    // timer, if the timeout event reached us too early.
+    _last_to = ~0ULL;
 
     // trigger all timeouts that are due
     unsigned nr;
