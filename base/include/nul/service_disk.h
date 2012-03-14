@@ -1,8 +1,9 @@
 /** @file
- * Client part of the log protocol.
+ * Client part of the disk protocol.
  *
  * Copyright (C) 2010, Bernhard Kauer <bk@vmmon.org>
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -23,6 +24,7 @@
 #include "sigma0/consumer.h"
 #include <nul/types.h>
 #include <nul/program.h>
+#include <nul/message.h>
 
 #define DISK_SERVICE_IN_S0
 
