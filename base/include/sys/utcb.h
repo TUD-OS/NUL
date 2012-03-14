@@ -286,7 +286,7 @@ struct Utcb
     unsigned ofs = get_stack_top();
     assert (ofs > STACK_START + 1);
 
-    // XXX clear the UTCB to detect bugs
+    // XXX clear the UTCB to detect bugs (this costs us 500 cycles on Core i7)
     memset(msg, 0xe8, STACK_START * sizeof(msg[0]));
     memset(msg+ofs, 0xd5, sizeof(msg) - ofs * sizeof(msg[0]));
 
