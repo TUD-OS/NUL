@@ -18,7 +18,7 @@ namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom na
 rom://bin/apps/logdisk.nul
 EOF
 bin/apps/remote_config.nulconfig <<EOF
-namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid disk::type:2be899e8-009f-47d1-a069-bd4bc05c20ea ||
+namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid name::/s0/disk disk::type:2be899e8-009f-47d1-a069-bd4bc05c20ea ||
 rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt
 EOF
 linux.nulconfig <<EOF
