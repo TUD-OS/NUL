@@ -27,43 +27,11 @@
 #include <nul/types.h>
 #include "crc32.cc"
 #include "nul/uuid.h"
+#include "nul/disk_helper.h"
 
-class DiskHelper : public DiskProtocol {
-  static char disk_buffer[4<<20];
-public:
-  DiskHelper(CapAllocator* a, unsigned instance) : DiskProtocol(a, instance) {
-    unsigned res;
-    cap_sel sem_cap = a->alloc_cap();
-    cap_sel tmp_cap = a->alloc_cap();
+class LogDiskMan;
 
-    KernelSemaphore *sem = new KernelSemaphore(sem_cap, true);
-    DiskProtocol::DiskConsumer *diskconsumer = new (1<<12) DiskProtocol::DiskConsumer();
-    assert(diskconsumer);
-
-    res = attach(*BaseProgram::myutcb(), disk_buffer, sizeof(disk_buffer), tmp_cap,
-		 diskconsumer, sem);
-    if (res) Logging::panic("DiskProtocol::attach failed: %d\n", res);
-  }
-
-  unsigned read_synch(unsigned disknum, uint64 start_secotr, size_t size) {
-    DmaDescriptor dma;
-    unsigned res;
-
-    dma.byteoffset = 0;
-    dma.bytecount  = size;
-    assert(size <= sizeof(disk_buffer));
-    res = read(*BaseProgram::myutcb(), disknum, /*usertag*/0, start_secotr, /*dmacount*/1, &dma);
-    if (res)
-      return res;
-
-    sem->downmulti();
-    assert(consumer->has_data());
-    MessageDiskCommit *msg = consumer->get_buffer();
-    assert(msg->usertag == 0);
-    consumer->free_buffer();
-    return ENONE;
-  }
-};
+typedef DiskHelper<LogDiskMan> MyDiskHelper;
 
 class Partition {
   enum {
@@ -91,7 +59,7 @@ class Partition {
   static_assert(sizeof(mbr) == SECTOR_SIZE, "Wrong size of MBR");
 
 public:
-  static unsigned add_extended_partitions(DiskHelper *disk, unsigned disknum, struct partition *e)
+  static unsigned add_extended_partitions(MyDiskHelper *disk, unsigned disknum, struct partition *e)
   {
     unsigned res;
     unsigned num = 5;
@@ -123,7 +91,7 @@ public:
   }
 
 
-  static bool find(DiskHelper *disk, unsigned disknum)
+  static bool find(MyDiskHelper *disk, unsigned disknum)
   {
     bool found = false;
     disk->read_synch(disknum, 0, SECTOR_SIZE);
@@ -199,7 +167,7 @@ class GPT {
 
 public:
 
-  static bool find(DiskHelper *disk, unsigned disknum)
+  static bool find(MyDiskHelper *disk, unsigned disknum)
   {
 #define skip_if(cond, msg, ...) if (cond) { Logging::printf(msg " on disk %d - skiping\n", ##__VA_ARGS__, disknum); return false; }
     unsigned res;
@@ -263,7 +231,7 @@ public:
 
 class LogDiskMan : public NovaProgram, ProgramConsole
 {
-  DiskHelper *disk;
+  MyDiskHelper *disk;
 
 public:
   NORETURN
@@ -273,7 +241,7 @@ public:
     console_init("LogDisk", new Semaphore(alloc_cap(), true));
     _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    disk = new DiskHelper(this, 0);
+    disk = new MyDiskHelper(this, 0);
 
     unsigned count = 0;
     disk->get_disk_count(*BaseProgram::myutcb(), count);
@@ -297,8 +265,6 @@ public:
     block_forever();
   }
 };
-
-char DiskHelper::disk_buffer[4<<20] ALIGNED(0x1000);
 
 bool GPT::header::check_crc()
 {

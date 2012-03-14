@@ -249,7 +249,7 @@ class Lvm
 
   };
 
-  DiskHelper *disk;
+  MyDiskHelper *disk;
   ListWithCount<PV> pvs;
 
   static bool isspace(const char c) {return c == ' ' || c == 0x9 || c == 13 || c == 11;}
@@ -381,10 +381,10 @@ class Lvm
     return ENONE;
   };
 
-  Lvm(DiskHelper *disk) : disk(disk) {}
+  Lvm(MyDiskHelper *disk) : disk(disk) {}
 
 public:
-  static void find(DiskHelper *disk, unsigned disknum)
+  static void find(MyDiskHelper *disk, unsigned disknum)
   {
     Lvm lvm(disk);
     WVNUL(lvm.scan_pvs(disknum));
