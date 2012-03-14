@@ -173,6 +173,9 @@ struct Utcb
       return res;
     }
 
+    /// Set receive window for the next call. This will not work with StaticPortalFunc! Use this only in custom protocols.
+    Frame& operator <<(Crd value) { _utcb->head.crd = value.value(); return *this; }
+
     Frame(Utcb *utcb, unsigned end) : _utcb(utcb), _end(end), _consumed() {}
   };
 
