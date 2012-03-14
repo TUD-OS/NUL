@@ -46,6 +46,7 @@ struct DiskProtocol : public GenericNoXlateProtocol {
     TYPE_GET_MEM_PORTAL,
     TYPE_DMA_BUFFER,
     TYPE_ADD_LOGICAL_DISK,
+    TYPE_CHECK_NAME,
   };
 
   struct Segment {
@@ -161,6 +162,17 @@ struct DiskProtocol : public GenericNoXlateProtocol {
       utcb << Utcb::String(names[i]);
     for (unsigned i=0; i < num_segments; i++) utcb << *segments++;
     return call_server_drop(utcb);
+  }
+
+  /// Check whether a disk is known under a specific name. If it is,
+  /// match is set to true, otherwise it is set to false.
+  unsigned check_name(Utcb &utcb, unsigned disk, const char *name, bool &match) {
+    unsigned res;
+    if (!(res = call_server_keep(init_frame(utcb, TYPE_CHECK_NAME) << disk << Utcb::String(name)))) {
+      match = utcb.msg[1];
+      utcb.drop_frame();
+    }
+    return res;
   }
 
   DiskProtocol(CapAllocator *a, unsigned instance)

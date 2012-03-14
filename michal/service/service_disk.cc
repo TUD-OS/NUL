@@ -429,6 +429,22 @@ private:
 	  }
 	  return ENONE;
 	}
+      case DiskProtocol::TYPE_CHECK_NAME:
+        {
+          unsigned disknum;
+          bool match = false;
+	  if (input.get_word(disknum))     return EPROTO;
+          Disk *disk = client->disk(disknum);
+          if (!disk) return EPERM;
+          unsigned len;
+          const char *name = input.get_zero_string(len);
+
+          for (Disk::Name *dn = disk->names.head; dn && !match; dn = dn->next)
+            match = (strcmp(name, dn->name) == 0);
+          Logging::printf("Checking %d for %s: %d\n", disknum, name, match);
+          utcb << match;
+          return ENONE;
+        }
       default:
 	Logging::panic("Unknown disk op!!!!\n");
         return EPROTO;

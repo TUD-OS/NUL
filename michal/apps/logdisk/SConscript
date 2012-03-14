@@ -9,4 +9,9 @@ nul.App(target_env, 'logdisk',
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         MEMSIZE = 1<<16)
 
+nul.App(target_env, 'disk_name_check',
+        SOURCES = [ 'check.cc' ],
+        OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
+        MEMSIZE = 1<<16)
+
 # EOF

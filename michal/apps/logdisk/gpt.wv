@@ -22,3 +22,12 @@ disk: Added '1p2' 'uuid:5fa25944-8dca-42c6-8b06-b472add7af4a' 'type:e6edd274-2a2
 disk: Added '1p3' 'uuid:8bab31be-cdbb-4bca-8107-67de693acfb8' 'type:0fc63daf-8483-4772-8e79-3d69d8477de4' 'name:Third partition'
 EOF
 WVPASS diff -u expected.log disks.log
+
+WVPASS "grep -i 'match for disk' gpt.log > match.log"
+WVPASS cat > expected.log <<EOF
+(6) Match for disk 0  
+(6) No match for disk 1  
+(6) Match for disk 2  
+(6) No match for disk 3  
+EOF
+WVPASS diff -u expected.log match.log
