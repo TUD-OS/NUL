@@ -30,9 +30,6 @@ struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
   return NULL;
 }
 
-void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
-}
-
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
 
   out = 0; out_len = 0;
@@ -220,6 +217,13 @@ void Remcon::handle_packet(void) {
           for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
             if(server_data[j].id != 0) continue;
             if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
+
+//            server_data[j].disks // XXX don't assume only one disk
+            server_data[j].disks[0].internal.diskid = get_free_disk(server_data[j].disks[0].internal.sectorsize);
+            if (server_data[j].disks[0].internal.diskid == ~0U) {
+              server_data[j].id = 0;
+              break;
+            }
 
             char * _name = new char [showname_len];
             if (!_name) {

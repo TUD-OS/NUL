@@ -23,6 +23,7 @@
 #include <nul/service_admission.h>
 #include <nul/service_fs.h>
 #include <nul/capalloc.h>
+#include <nul/disk_helper.h>
 
 #include <nul/types.h>
 typedef uint8  uint8_t;
@@ -43,6 +44,7 @@ typedef PacketProducer<NOVA_PACKET_LEN * 64> EventProducer;
 
 class Remcon : public CapAllocator {
   private:
+    DiskHelper<Remcon, 4096> * service_disk;
 
     bool gevents;
 
@@ -65,6 +67,14 @@ class Remcon : public CapAllocator {
       const char * showname;
       unsigned showname_len;
       unsigned filename_len;
+      struct {
+        uint64_t size;
+        uint64_t read;
+        struct {
+          unsigned diskid;
+          unsigned sectorsize;
+        } internal;
+      } disks[4];
     } server_data[32];
 
     unsigned char buf_out[NOVA_PACKET_LEN];
@@ -152,6 +162,11 @@ class Remcon : public CapAllocator {
 
         cmdl += len;
       }
+
+      //attach to disk service
+      service_disk = new DiskHelper<Remcon, 4096>(this, 0);
+      assert(service_disk);
+
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
@@ -164,6 +179,22 @@ class Remcon : public CapAllocator {
           return memcpy(uuid, server_data[i].uuid, UUID_LEN);
       }
       return false;
+    }
+
+    unsigned get_free_disk(unsigned & sectorsize) {
+      unsigned count = 0, i;
+      if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
+
+      Logging::printf("count %u\n", count);
+      for (i=0; i < count; i++) {
+        DiskParameter params;
+        unsigned res = service_disk->get_params(*BaseProgram::myutcb(), i, &params);
+        params.name[sizeof(params.name) - 1] = 0;
+        Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
+          params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
+        sectorsize = params.sectorsize; //XXX see return
+      }
+      return count - 1; //XXX
     }
 
     bool push_event(int guid, uint32_t eventid, uint32_t extra_len = 0, char const * extra = 0) {
