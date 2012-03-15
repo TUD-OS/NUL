@@ -98,7 +98,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     }
 
     static
-    void recv_call_back_file(uint16 localport, void * in, size_t in_len) {
+    void recv_call_back_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
       static unsigned char buffer[1024];
       static unsigned pos = 0;
       static uint64_t toberead = 0, parts, next, read;
@@ -111,7 +111,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         parts = toberead;
         Math::div64(parts, 68);
         next  = parts;
-        Logging::printf(".......   receiving image of size %llu\n        [", toberead);
+        Logging::printf(".......   receiving image of size %llu from %u.%u.%u.%u:%u -> %u\n        [",
+                        toberead, remoteip & 0xff, (remoteip >> 8) & 0xff, (remoteip >> 16) & 0xff,
+                        (remoteip >> 24) & 0xff, remoteport, localport);
         return;
       }
 
@@ -138,7 +140,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
 
     static
-    void recv_call_back(uint16 localport, void * in, size_t in_len) {
+    void recv_call_back(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
       void * appdata, * out;
       size_t appdata_len, out_len;
       unsigned char * sslbuf;
@@ -248,7 +250,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
           nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x3) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -323,7 +325,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       struct {
         unsigned long port;
-        void (*fn)(uint16 localport, void * in_data, size_t in_len);
+//        void (*fn)(uint16 localport, void * in_data, size_t in_len);
+        void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
       } conn = { LIBVIRT_CMD_PORT, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 

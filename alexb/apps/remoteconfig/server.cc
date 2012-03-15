@@ -30,6 +30,9 @@ struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
   return NULL;
 }
 
+void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
+}
+
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
 
   out = 0; out_len = 0;
