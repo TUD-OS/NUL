@@ -73,6 +73,20 @@ class KeyboardController : public StaticReceiver<KeyboardController>
   unsigned _ps2ports;
   unsigned char _ram[32];
 
+  unsigned char translate_keycodes(unsigned char value) {
+    if (_ram[RAM_CMDBYTE] & CMD_TRANSLATE)
+      {
+	if (value == 0xf0)
+	  {
+	    _ram[RAM_GOT_RELEASE] = true;
+	    return value;
+	  }
+	value = GenericKeyboard::translate_sc2_to_sc1(value);
+	if (_ram[RAM_GOT_RELEASE]) value |= 0x80;
+      }
+    _ram[RAM_GOT_RELEASE] = false;
+    return value;
+  }
 
   void read_from_device(unsigned char port)
   {
@@ -82,6 +96,10 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 	if (!_bus_ps2.send(msg))
 	  return;
 
+	if (port == _ps2ports) {
+	  msg.value = translate_keycodes(msg.value);
+	  if (_ram[RAM_GOT_RELEASE]) continue;
+	}
 	got_data(msg.value, port != _ps2ports);
       }
   }
@@ -123,18 +141,6 @@ class KeyboardController : public StaticReceiver<KeyboardController>
 
   void got_data(unsigned char value, bool from_aux)
   {
-    // translate?
-    if (!from_aux && _ram[RAM_CMDBYTE] & CMD_TRANSLATE)
-      {
-	if (value == 0xf0)
-	  {
-	    _ram[RAM_GOT_RELEASE] = true;
-	    return;
-	  }
-	value = GenericKeyboard::translate_sc2_to_sc1(value);
-	if (_ram[RAM_GOT_RELEASE]) value |= 0x80;
-	_ram[RAM_GOT_RELEASE] = false;
-      }
     if (check_pwd(value, from_aux))  return;
 
     _ram[RAM_OBF] = value;
@@ -211,7 +217,7 @@ public:
 		  legacy_write(MessageLegacy::RESET, 0);
 		break;
 	      case 0xd2: // write keyboard output buffer
-		got_data(msg.value, false);
+		got_data(translate_keycodes(msg.value), false);
 		break;
 	      case 0xd3: // write aux output buffer
 		got_data(msg.value, true);
