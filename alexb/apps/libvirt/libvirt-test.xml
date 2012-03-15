@@ -7,7 +7,7 @@
   </os>
   <devices>
     <disk type='file'>
-      <source file='libvirt-test.xml'/> <!-- raw disk file use here -->
+      <source file='/bin/cat'/> <!-- raw disk file use here -->
       <target dev='hda'/>
     </disk>
   </devices>
