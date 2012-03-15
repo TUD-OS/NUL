@@ -43,14 +43,14 @@ public:
     if (res) Logging::panic("DiskProtocol::attach failed: %d\n", res);
   }
 
-  unsigned read_synch(unsigned disknum, uint64 start_secotr, size_t size) {
+  unsigned read_write_synch(bool read, unsigned disknum, uint64 start_sector, size_t size) {
     DmaDescriptor dma;
     unsigned res;
 
     dma.byteoffset = 0;
     dma.bytecount  = size;
     assert(size <= sizeof(disk_buffer));
-    res = read(*BaseProgram::myutcb(), disknum, /*usertag*/0, start_secotr, /*dmacount*/1, &dma);
+    res = read_write(*BaseProgram::myutcb(), read, disknum, /*usertag*/0, start_sector, /*dmacount*/1, &dma);
     if (res)
       return res;
 
@@ -60,6 +60,14 @@ public:
     assert(msg->usertag == 0);
     consumer->free_buffer();
     return ENONE;
+  }
+
+  unsigned read_synch(unsigned disknum, uint64 start_secotr, size_t size) {
+    return read_write_synch(true, disknum, start_secotr, size);
+  }
+
+  unsigned write_synch(unsigned disknum, uint64 start_secotr, size_t size) {
+    return read_write_synch(false, disknum, start_secotr, size);
   }
 };
 

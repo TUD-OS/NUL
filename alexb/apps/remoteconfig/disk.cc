@@ -61,7 +61,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     if (entry->disks[client->diskid].internal.diskid == ~0U || !entry->disks[0].internal.sectorsize) return;
     if (entry->disks[client->diskid].size) return;
 
-    entry->disks[client->diskid].size = Endian::ntoh64(client->size);
+    entry->disks[client->diskid].size = Endian::hton64(client->size); //actual ntoh64
     entry->disks[client->diskid].read = 0;
 
     Logging::printf("connection %u, disk id %u, internal disk id %u, sector size %u\n", free - 1, client->diskid,
@@ -110,6 +110,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     if (connections[i].buffer_pos == connections[i].buffer_size ||
       entry->disks[connections[i].diskid].read == entry->disks[connections[i].diskid].size)
     {
+      //unsigned res = service_disk->write_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, connections[i].buffer_pos);
       unsigned res = service_disk->read_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, connections[i].buffer_pos);
       if (res != ENONE) Logging::printf("disk operation failed: %x\n", res); //XXX todos here
       connections[i].sector     += connections[i].buffer_size / entry->disks[connections[i].diskid].internal.sectorsize;
