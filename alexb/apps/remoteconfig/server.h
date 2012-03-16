@@ -98,10 +98,13 @@ class Remcon : public CapAllocator {
       }
     }
 
-    struct server_data * check_uuid(char uuid[UUID_LEN]);
+    struct server_data * check_uuid(char const uuid[UUID_LEN]);
 
     EventProducer     * eventproducer;
     AdmissionProtocol * service_admission;
+
+    const char * ldisks [2];
+    bool ldisks_used[2];
 
   public:
 
@@ -164,9 +167,12 @@ class Remcon : public CapAllocator {
       }
 
       //attach to disk service
-      service_disk = new DiskHelper<Remcon, 4096>(this, 0);
+      service_disk = new (0x1000) DiskHelper<Remcon, 4096>(this, 0);
       assert(service_disk);
 
+      ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX
+      ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX
+      ldisks_used = { 0, 0 }; //XXX
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
@@ -181,20 +187,49 @@ class Remcon : public CapAllocator {
       return false;
     }
 
-    unsigned get_free_disk(unsigned & sectorsize) {
-      unsigned count = 0, i;
+    bool clean_disk(unsigned internal_id) {
+      unsigned count = 0, j;
+      if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return false;
+
+      assert(internal_id < count);
+      for (j=0; j < sizeof(ldisks) / sizeof(ldisks[0]); j++) {
+        if (!ldisks_used[j]) continue;
+
+        bool match;
+        unsigned res = service_disk->check_name(*BaseProgram::myutcb(), internal_id, ldisks[j], match);
+        if (res != ENONE || !match) continue;
+        ldisks_used[j] = false;
+        return true;
+      }
+      return false;
+    }
+
+    unsigned get_free_disk(uint64_t disksize, unsigned & sectorsize) {
+      unsigned count = 0, i, j;
       if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
 
-      Logging::printf("count %u\n", count);
       for (i=0; i < count; i++) {
-        DiskParameter params;
-        unsigned res = service_disk->get_params(*BaseProgram::myutcb(), i, &params);
-        params.name[sizeof(params.name) - 1] = 0;
-        Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
-          params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
-        sectorsize = params.sectorsize; //XXX see return
+        for (j=0; j < sizeof(ldisks) / sizeof(ldisks[0]); j++) {
+          if (ldisks_used[j]) continue;
+
+          bool match;
+          unsigned res = service_disk->check_name(*BaseProgram::myutcb(), i, ldisks[j], match);
+          if (res != ENONE || !match) break;
+
+          DiskParameter params;
+          res = service_disk->get_params(*BaseProgram::myutcb(), i, &params);
+          if (res != ENONE || params.sectors * params.sectorsize < disksize) break;
+
+          //params.name[sizeof(params.name) - 1] = 0;
+          //Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
+          //params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
+
+          sectorsize = params.sectorsize;
+          ldisks_used[j] = true; //XXX
+          return i;
+        }
       }
-      return count - 1; //XXX
+      return ~0U;
     }
 
     bool push_event(int guid, uint32_t eventid, uint32_t extra_len = 0, char const * extra = 0) {

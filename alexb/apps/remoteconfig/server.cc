@@ -21,9 +21,11 @@
 #include <nul/service_config.h>
 #include <nul/baseprogram.h>
 
+#include <service/endian.h>
+
 #include "server.h"
 
-struct Remcon::server_data * Remcon::check_uuid(char uuid[UUID_LEN]) {
+struct Remcon::server_data * Remcon::check_uuid(char const uuid[UUID_LEN]) {
   unsigned i;
   for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++)
     if (server_data[i].id != 0 && !memcmp(server_data[i].uuid, uuid, UUID_LEN)) return &server_data[i];
@@ -205,38 +207,48 @@ void Remcon::handle_packet(void) {
       }
     case NOVA_VM_START:
       {
-        char * _uuid = reinterpret_cast<char *>(&_in->opspecific);
-        struct server_data * entry = check_uuid(_uuid);
         unsigned j;
-        if (!entry) {
-          uint32_t maxmem = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN));
-          uint32_t showname_len = Math::ntohl(*reinterpret_cast<uint32_t *>(_uuid + UUID_LEN + sizeof(uint32_t)));
-          char * showname = _uuid + UUID_LEN + 2 * sizeof(uint32_t);
-          if (showname_len > NOVA_PACKET_LEN || (showname + showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) break; // cheater!
+        struct tmp0 {
+          char const uuid[UUID_LEN];
+        } PACKED * tmp = reinterpret_cast<struct tmp0 *>(&_in->opspecific);
+        struct server_data * entry = check_uuid(tmp->uuid);
 
+        if (!entry) {
+          struct tmp1 {
+            char const uuid[UUID_LEN];
+            uint32_t maxmem;
+            uint32_t showname_len;
+            uint64_t disk_size;
+            char showname;
+          } PACKED * client = reinterpret_cast<struct tmp1 *>(&_in->opspecific);
+
+          client->showname_len = Math::ntohl(client->showname_len);
+          if (client->showname_len > NOVA_PACKET_LEN || (&client->showname + client->showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) break; // cheater!
           for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
             if(server_data[j].id != 0) continue;
             if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
 
 //            server_data[j].disks // XXX don't assume only one disk
-            server_data[j].disks[0].internal.diskid = get_free_disk(server_data[j].disks[0].internal.sectorsize);
+            server_data[j].disks[0].size = Endian::hton64(client->disk_size); //actual ntoh64
+            server_data[j].disks[0].internal.diskid = get_free_disk(server_data[j].disks[0].size, server_data[j].disks[0].internal.sectorsize);
             if (server_data[j].disks[0].internal.diskid == ~0U) {
+              Logging::printf("failure - no free disk with enough space - %llu Byte\n", server_data[j].disks[0].size);
               server_data[j].id = 0;
               break;
             }
 
-            char * _name = new char [showname_len];
+            char * _name = new char [client->showname_len];
             if (!_name) {
               server_data[j].id = 0;
               break;
             }
-            memcpy(_name, showname, showname_len);
-            memcpy(server_data[j].uuid, _uuid, UUID_LEN);
+            memcpy(_name, &client->showname, client->showname_len);
+            memcpy(server_data[j].uuid, client->uuid, UUID_LEN);
             server_data[j].filename     = "";
             server_data[j].filename_len = 0;
             server_data[j].showname     = _name;
-            server_data[j].showname_len = showname_len;
-            server_data[j].maxmem       = maxmem * 1024;
+            server_data[j].showname_len = client->showname_len;
+            server_data[j].maxmem       = Math::ntohl(client->maxmem) * 1024;
 //            memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
 
             server_data[j].state = server_data::status::BLOCKED;
@@ -245,7 +257,7 @@ void Remcon::handle_packet(void) {
           }
         } else {
             if (!entry->istemplate) break; //only templates may be instantiated and started
-            if (check_uuid(_uuid + UUID_LEN)) break; //if we have this 'new' uuid already deny starting
+            if (check_uuid(tmp->uuid + UUID_LEN)) break; //if we have this 'new' uuid already deny starting
             again:
             for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
               if(server_data[j].id != 0) continue;
@@ -265,7 +277,7 @@ void Remcon::handle_packet(void) {
                 break;
               }
 
-              memcpy(server_data[j].uuid, _uuid + UUID_LEN, UUID_LEN);
+              memcpy(server_data[j].uuid, tmp->uuid + UUID_LEN, UUID_LEN);
               server_data[j].filename     = entry->filename;
               server_data[j].filename_len = entry->filename_len;
               server_data[j].showname     = entry->showname; //XXX which name to choose
@@ -333,6 +345,10 @@ void Remcon::handle_packet(void) {
         GET_LOCAL_ID;
         unsigned res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == ENONE) {
+          if (server_data[localid].disks[0].internal.diskid != ~0U) {
+            bool freedisk = clean_disk(server_data[localid].disks[0].internal.diskid); //XXX more than one disk !!!
+            if (!freedisk) Logging::printf("failure  - freeing internal disk %u\n", server_data[localid].disks[0].internal.diskid);
+          }
           memset(&server_data[localid], 0, sizeof(server_data[localid]));
           _out->result  = NOVA_OP_SUCCEEDED;
         }

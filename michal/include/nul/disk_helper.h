@@ -27,8 +27,8 @@
  */
 template <class C, unsigned S = 4<<20 >
 class DiskHelper : public DiskProtocol {
-  static char disk_buffer[S];
 public:
+  static char disk_buffer[S];
   DiskHelper(CapAllocator* a, unsigned instance) : DiskProtocol(a, instance) {
     unsigned res;
     cap_sel sem_cap = a->alloc_cap();

@@ -50,7 +50,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     struct client {
       char uuid[UUID_LEN];
       uint32_t diskid;
-      uint64_t size;
+      uint64_t disk_size;
     } PACKED * client = reinterpret_cast<struct client *>(in);
     if (in_len < sizeof(*client)) return;
 
@@ -58,14 +58,15 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     if (!entry) return;
     client->diskid = Math::ntohl(client->diskid);
     if (client->diskid >= sizeof(entry->disks) / sizeof(entry->disks[0])) return;
-    if (entry->disks[client->diskid].internal.diskid == ~0U || !entry->disks[0].internal.sectorsize) return;
-    if (entry->disks[client->diskid].size) return;
+    if (entry->disks[client->diskid].internal.diskid == ~0U ||
+        !entry->disks[client->diskid].internal.sectorsize) return;
+    if (!entry->disks[client->diskid].size ||
+         entry->disks[client->diskid].size != Endian::hton64(client->disk_size)) return; //actual ntoh64
 
-    entry->disks[client->diskid].size = Endian::hton64(client->size); //actual ntoh64
     entry->disks[client->diskid].read = 0;
 
-    Logging::printf("connection %u, disk id %u, internal disk id %u, sector size %u\n", free - 1, client->diskid,
-      entry->disks[client->diskid].internal.diskid, entry->disks[client->diskid].internal.sectorsize);
+    //Logging::printf("connection %u, disk id %u, internal disk id %u, sector size %u\n", free - 1, client->diskid,
+    //  entry->disks[client->diskid].internal.diskid, entry->disks[client->diskid].internal.sectorsize);
     Logging::printf(".......   receiving image of size %llu from %u.%u.%u.%u:%u -> %u\n        [",
                     entry->disks[client->diskid].size, remoteip & 0xff, (remoteip >> 8) & 0xff, (remoteip >> 16) & 0xff,
                     (remoteip >> 24) & 0xff, remoteport, localport);
@@ -110,9 +111,19 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     if (connections[i].buffer_pos == connections[i].buffer_size ||
       entry->disks[connections[i].diskid].read == entry->disks[connections[i].diskid].size)
     {
-      //unsigned res = service_disk->write_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, connections[i].buffer_pos);
-      unsigned res = service_disk->read_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, connections[i].buffer_pos);
-      if (res != ENONE) Logging::printf("disk operation failed: %x\n", res); //XXX todos here
+      assert(sizeof(service_disk->disk_buffer) == connections[i].buffer_size);
+      memcpy(service_disk->disk_buffer, connections[i].buffer, connections[i].buffer_size);
+      unsigned ssize = (((connections[i].buffer_pos - 1) / entry->disks[connections[i].diskid].internal.sectorsize) + 1) * entry->disks[connections[i].diskid].internal.sectorsize;
+      unsigned res = service_disk->write_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, ssize);
+      if (res != ENONE) Logging::printf("disk operation failed: %#x\n", res); //XXX todos here
+
+      //for debugging currently only
+      memset(service_disk->disk_buffer, 0, connections[i].buffer_size);
+      res = service_disk->read_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, ssize);
+      if (res != ENONE) Logging::printf("failure - could not read what was written: %#x\n", res);
+      if (memcmp(service_disk->disk_buffer, connections[i].buffer, connections[i].buffer_size)) Logging::printf("failure - could not read back what was written\n");
+      // debugging stuff end
+
       connections[i].sector     += connections[i].buffer_size / entry->disks[connections[i].diskid].internal.sectorsize;
       connections[i].buffer_pos = 0;
     }
