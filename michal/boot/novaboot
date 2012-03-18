@@ -468,8 +468,8 @@ if (defined $iprelay) {
 	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
     }
 
-    sub relay($$) {
-	my ($relay, $onoff) = @_;
+    sub relay($$;$) {
+	my ($relay, $onoff, $can_giveup) = @_;
 	my $confirmation = '';
 	print $IPRELAY relaycmd($relay, $onoff);
 
@@ -482,9 +482,13 @@ if (defined $iprelay) {
 	$IPRELAY->blocking(0);
 
 	alarm(20); # Timeout in seconds
-        local $SIG{ALRM} = sub { die "Relay confirmation timeout"; };
+	my $giveup = 0;
+        local $SIG{ALRM} = sub {
+	    if ($can_giveup) { print("Relay confirmation timeout - ignoring\n"); $giveup = 1;}
+	    else {die "Relay confirmation timeout";}
+	};
 	my $index;
-	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0) {
+	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0 && !$giveup) {
 	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
 	    if (!defined($read)) {
 		die($!) unless $! == EAGAIN;
@@ -585,7 +589,7 @@ if ($serial || defined $iprelay) {
     my $CONN;
     if (defined $iprelay) {
 	print "novaboot: Reseting the test box... ";
-	relay(2, 1); # Reset the machine
+	relay(2, 1, 1); # Reset the machine
 	usleep(100000);
 	relay(2, 0);
 	print "done\n";
