@@ -51,11 +51,12 @@ END_EXTERN_C
 
 void sys_init(void) { }
 
+typedef void (*fn_recv_call_t)(uint32 remoteip, uint16 remoteport, uint16 localport, void * in_data, size_t in_len);
 struct nul_tcp_struct {
   u16_t port;
   struct tcp_pcb * listening_pcb;
   struct tcp_pcb * openconn_pcb;
-  void (*fn_recv_call)(uint16 localport, void * in_data, size_t in_len);
+  fn_recv_call_t fn_recv_call;
 } nul_tcps[3];
 
 /*
@@ -218,7 +219,7 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
     }
 
     if (tcp_struct && tcp_struct->fn_recv_call)
-      tcp_struct->fn_recv_call(tpcb->local_port, p->payload, p->len);
+      tcp_struct->fn_recv_call(tpcb->remote_ip.addr, tpcb->remote_port, tpcb->local_port, p->payload, p->len);
 
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
@@ -263,7 +264,7 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
 }
 
 static
-bool nul_ip_tcp(unsigned _port, void (*fn_call_me)(uint16 localport, void * data, unsigned len)) {
+bool nul_ip_tcp(unsigned _port, fn_recv_call_t fn_call_me) {
   struct tcp_pcb * tmp_pcb = tcp_new();
   if (!tmp_pcb) Logging::panic("tcp new failed\n");
 
@@ -320,7 +321,7 @@ bool nul_ip_config(unsigned para, void * arg) {
   switch (para) {
     case 0: /* ask for version of this implementation */
       if (!arg) return false;
-      *reinterpret_cast<unsigned long long *>(arg) = 0x2;
+      *reinterpret_cast<unsigned long long *>(arg) = 0x3;
       return true;
     case 1: /* enable dhcp to get an ip address */
       dhcp_start(&nul_netif);
@@ -389,7 +390,7 @@ bool nul_ip_config(unsigned para, void * arg) {
 
       assert(sizeof(unsigned long) == sizeof(void *));
       unsigned long * port = reinterpret_cast<unsigned long *>(arg);
-      return nul_ip_tcp(*port, reinterpret_cast<void (*)(uint16 localport, void * data, unsigned len)>(*(port + 1)));
+      return nul_ip_tcp(*port, reinterpret_cast<fn_recv_call_t>(*(port + 1)));
       break;
     }
     case 6: /* set ip addr */

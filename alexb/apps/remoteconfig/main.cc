@@ -19,8 +19,6 @@
 #include <nul/service_timer.h>
 #include <nul/service_log.h>
 #include <nul/service_config.h>
-#include <nul/service_disk.h>
-#include <nul/disk_helper.h>
 #include <service/endian.h>
 #include <service/cmdline.h>
 
@@ -62,8 +60,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 {
   private:
     static Remcon * remcon;
-    static DiskHelper<RemoteConfig, 4096> * service_disk;
-
     static void * tls_session_cmd, * tls_session_event;
 
     enum {
@@ -98,47 +94,14 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     }
 
     static
-    void recv_call_back_file(uint16 localport, void * in, size_t in_len) {
-      static unsigned char buffer[1024];
-      static unsigned pos = 0;
-      static uint64_t toberead = 0, parts, next, read;
-
-      if (!in || in_len == 0) return;
-
-      if (!toberead) {
-        toberead = Endian::hton64(*reinterpret_cast<uint64_t *>(in));
-        read  = 0;
-        parts = toberead;
-        Math::div64(parts, 68);
-        next  = parts;
-        Logging::printf(".......   receiving image of size %llu\n        [", toberead);
-        return;
-      }
-
-      read += in_len;
-      if (read > next) { next += parts; Logging::printf("="); }
-      if (read >= toberead) {
-        Logging::printf(">]\ndone    - upload of image, size expected=%llu actual=%llu\n", toberead, read);
-        toberead = 0;
-      }
-
-      size_t rest = in_len;
-      while (rest) {
-        size_t cplen = (pos + rest) > sizeof(buffer) ? sizeof(buffer) - pos : rest;
-        rest -= cplen;
-        memcpy(&buffer[pos], in, cplen);
-        pos  += cplen;
-        if (pos == sizeof(buffer)) {
-          unsigned res = service_disk->read_synch(2, 0, sizeof(buffer));
-          if (res != ENONE) Logging::printf("disk operation failed: %x\n", res); //XXX todos here
-          pos = 0;
-        }
-      }
+    void recv_call_back_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
+      remcon->recv_file(remoteip, remoteport, localport, in, in_len);
+      return;
     }
 
 
     static
-    void recv_call_back(uint16 localport, void * in, size_t in_len) {
+    void recv_call_back(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
       void * appdata, * out;
       size_t appdata_len, out_len;
       unsigned char * sslbuf;
@@ -183,21 +146,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       EventService * event = new EventService(remcon);
       if (!event || !event->start_service(utcb, hip, this)) return false;
 
-      //attach to disk service
-      service_disk = new DiskHelper<RemoteConfig, 4096>(this, 0);
-      if (!service_disk) return false;
-
-      unsigned count = 0, i;
-      if (ENONE != service_disk->get_disk_count(*utcb, count)) return false;
-
-      Logging::printf("count %u\n", count);
-      for (i=0; i < count; i++) {
-        DiskParameter params;
-        unsigned res = service_disk->get_params(*utcb, i, &params);
-        params.name[sizeof(params.name) - 1] = 0;
-        Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
-          params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
-      }
       return true;
     }
 
@@ -248,7 +196,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
           nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x2) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x3) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -323,7 +271,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       struct {
         unsigned long port;
-        void (*fn)(uint16 localport, void * in_data, size_t in_len);
+//        void (*fn)(uint16 localport, void * in_data, size_t in_len);
+        void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
       } conn = { LIBVIRT_CMD_PORT, recv_call_back };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 
@@ -412,7 +361,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 } /* namespace */
 
 Remcon * ab::RemoteConfig::remcon;
-DiskHelper<ab::RemoteConfig, 4096> * ab::RemoteConfig::service_disk;
 void * ab::RemoteConfig::tls_session_cmd, * ab::RemoteConfig::tls_session_event;
 
 ASMFUNCS(ab::RemoteConfig, NovaProgram)
