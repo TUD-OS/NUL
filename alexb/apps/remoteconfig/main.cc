@@ -135,12 +135,23 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     }
 
     bool start_services(Utcb *utcb, Hip * hip, EventProducer * producer) {
+      char const *args[16];
+      char const *cmdline = reinterpret_cast<char const *>(hip->get_mod(0)->aux);
+      unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+      char const * templatefile = 0, * diskuuidfile = 0;
+      unsigned temp_len = 0, disk_len = 0;
+      for (unsigned i=1; i < argv && i < 16; i++) {
+        if (!strncmp("template=", args[i],9)) { templatefile = args[i] + 9; temp_len = strcspn(templatefile, " \n\t\f");}
+        if (!strncmp("diskuuid=", args[i],9)) { diskuuidfile = args[i] + 9; disk_len = strcspn(diskuuidfile, " \n\t\f");}
+        continue;
+      }
+
       //create network service object
       ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
       unsigned cap_region = alloc_cap_region(1 << 14, 14);
       if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
       remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
-                          cap_region, 14, producer);
+                          cap_region, 14, producer, templatefile, temp_len, diskuuidfile, disk_len);
 
       //create event service object
       EventService * event = new EventService(remcon);
@@ -153,9 +164,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
                      Clock * _clock, KernelSemaphore &sem, TimerProtocol * timer_service)
     {
       unsigned long long arg = 0;
-      char *args[16];
-      char *pos_s;
-      char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+      char const *args[16];
+      char const *pos_s;
+      char const *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
       unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
       unsigned res;
       unsigned char *serverkey = 0, *servercert = 0, *cacert = 0, **crypto;
@@ -232,9 +243,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned long addr[4] = { 0, 0x00ffffffUL, 0, 0 }; //addr, netmask, gw
       bool static_ip = false;
       for (unsigned i=1; i < argv && i < 16; i++) {
-        if (!strncmp("ip="  , args[i],3)) { entry=0; pos_s = args[i] + 3; static_ip = true; goto parse; }
-        if (!strncmp("mask=", args[i],5)) { entry=1; pos_s = args[i] + 5; goto parse; }
-        if (!strncmp("gw="  , args[i],3)) { entry=2; pos_s = args[i] + 3; goto parse; }
+        if (!strncmp("ip="      , args[i],3)) { entry=0; pos_s = args[i] + 3; static_ip = true; goto parse; }
+        if (!strncmp("mask="    , args[i],5)) { entry=1; pos_s = args[i] + 5; goto parse; }
+        if (!strncmp("gw="      , args[i],3)) { entry=2; pos_s = args[i] + 3; goto parse; }
         continue;
 
         parse:

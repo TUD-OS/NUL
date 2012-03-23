@@ -59,14 +59,13 @@ class Remcon : public CapAllocator {
       cap_sel scs_usage;
       unsigned long maxmem;
       short istemplate;
-      uint32_t id;
       unsigned short remoteid;
       char uuid[UUID_LEN];
       char fsname[32];
-      const char * filename;
+      const char * config;
       const char * showname;
       unsigned showname_len;
-      unsigned filename_len;
+      unsigned config_len;
       struct {
         uint64_t size;
         uint64_t read;
@@ -75,6 +74,7 @@ class Remcon : public CapAllocator {
           unsigned sectorsize;
         } internal;
       } disks[4];
+      uint32_t id;
     } server_data[32];
 
     unsigned char buf_out[NOVA_PACKET_LEN];
@@ -99,9 +99,13 @@ class Remcon : public CapAllocator {
     }
 
     struct server_data * check_uuid(char const uuid[UUID_LEN]);
+    struct server_data * get_free_entry();
 
     EventProducer     * eventproducer;
     AdmissionProtocol * service_admission;
+
+    const char * file_template, * file_diskuuid;
+    unsigned file_len_template, file_len_diskuuid;
 
     const char * ldisks [2];
     bool ldisks_used[2];
@@ -109,10 +113,13 @@ class Remcon : public CapAllocator {
   public:
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
-           unsigned long cap_start, unsigned long cap_order, EventProducer * producer) :
+           unsigned long cap_start, unsigned long cap_order, EventProducer * producer,
+           const char * templatefile, unsigned len_template, const char * diskfile, unsigned len_disk) :
       CapAllocator(cap_start, cap_start, cap_order), gevents(false),
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
-      cpu_count(_cpu_count), eventproducer(producer)
+      cpu_count(_cpu_count), eventproducer(producer),
+      file_template(templatefile), file_diskuuid(diskfile),
+      file_len_template(len_template), file_len_diskuuid(len_disk)
     {
       service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _cpu_count));
 
@@ -159,8 +166,8 @@ class Remcon : public CapAllocator {
         server_data[pos].istemplate = 1;
         server_data[pos].showname = showname;
         server_data[pos].showname_len = showname_len;
-        server_data[pos].filename = filename;
-        server_data[pos].filename_len = len - (filename - cmdl);
+        server_data[pos].config = filename;
+        server_data[pos].config_len = len - (filename - cmdl);
         pos ++;
 
         cmdl += len;
@@ -172,8 +179,7 @@ class Remcon : public CapAllocator {
 
       ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX
       ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX
-      ldisks_used[0] = 0; //XXX
-      ldisks_used[1] = 0; //XXX
+      ldisks_used = { 0, 0 }; //XXX
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
@@ -205,7 +211,7 @@ class Remcon : public CapAllocator {
       return false;
     }
 
-    unsigned get_free_disk(uint64_t disksize, unsigned & sectorsize) {
+    unsigned get_free_disk(uint64_t disksize, unsigned & sectorsize, char * diskuuid, unsigned diskuuidmax) {
       unsigned count = 0, i, j;
       if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
 
@@ -225,6 +231,9 @@ class Remcon : public CapAllocator {
           //Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
           //params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
 
+          if (diskuuidmax < strlen(ldisks[j])) return ~0U;
+
+          memcpy(diskuuid, ldisks[j], strlen(ldisks[j]));
           sectorsize = params.sectorsize;
           ldisks_used[j] = true; //XXX
           return i;
