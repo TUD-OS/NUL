@@ -29,53 +29,61 @@ public:
   // Parse a string into substrings separated by spaces. Backspaces
   // quote spaces. To insert a literal backspace, use \\. cmdline is
   // modified.
-  static unsigned parse(char *cmdline, char *argv[], unsigned argv_size)
-  {
-    enum {
-      WHITESPACE,
-      ARG,
-      QUOTE,
-    } state = WHITESPACE;
+  #define PARSE(X) \
+  { \
+    enum { \
+      WHITESPACE, \
+      ARG, \
+      QUOTE, \
+    } state = WHITESPACE; \
+\
+    unsigned cur = 0; \
+\
+    while ((cur < argv_size) && (*cmdline != 0)) { \
+      char c = *cmdline; \
+\
+      switch (state) { \
+      case WHITESPACE: \
+        switch (c) { \
+        case WHITESPACE_CHARS: \
+          break; \
+        default: \
+          argv[cur] = cmdline; \
+          state = ARG; \
+          break; \
+        } \
+        break; \
+      case ARG: \
+        switch (c) { \
+        case WHITESPACE_CHARS: \
+          X; \
+          cur++; \
+          state = WHITESPACE; \
+          break; \
+        case '\\': \
+          state = QUOTE; \
+          /* FALLTHROUGH */ \
+        default: \
+          break; \
+        } \
+        break; \
+      case QUOTE: \
+        /* Eat any character */ \
+        state = ARG; \
+        break; \
+      } \
+      cmdline++; \
+    } \
+\
+    if (state != WHITESPACE) cur++; \
+    return cur; \
+  }
 
-    unsigned cur = 0;
-
-    while ((cur < argv_size) && (*cmdline != 0)) {
-      char c = *cmdline;
-
-      switch (state) {
-      case WHITESPACE:
-        switch (c) {
-        case WHITESPACE_CHARS:
-            break;
-        default:
-          argv[cur] = cmdline;
-          state = ARG;
-          break;
-        }
-        break;
-      case ARG:
-        switch (c) {
-        case WHITESPACE_CHARS:
-            *cmdline = 0; cur++;
-          state = WHITESPACE;
-          break;
-        case '\\':
-          state = QUOTE;
-          // FALLTHROUGH
-        default:
-          break;
-        }
-        break;
-      case QUOTE:
-        // Eat any character
-        state = ARG;
-        break;
-      }
-      cmdline++;
-    }
-
-    if (state != WHITESPACE) cur++;
-    return cur;
+  static unsigned parse(char *cmdline, char *argv[], unsigned argv_size) {
+    PARSE(*cmdline = 0)
+  }
+  static unsigned parse(char const *cmdline, char const *argv[], unsigned argv_size) {
+    PARSE(while(0) {})
   }
 
 };
