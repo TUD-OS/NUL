@@ -32,6 +32,45 @@ struct Remcon::server_data * Remcon::check_uuid(char const uuid[UUID_LEN]) {
   return NULL;
 }
 
+unsigned Remcon::start_entry(struct Remcon::server_data * entry)
+{
+  unsigned res, crdout;
+  unsigned short id;
+  unsigned long mem = 0;
+  cap_sel scs_usage = alloc_cap();
+  if (!scs_usage) return ERESOURCE;
+
+  res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, entry->config, entry->config_len);
+  if (res == ENONE) {
+    unsigned res_usage;
+    unsigned char rrres;
+    rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
+    if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
+    if (ENONE != (res_usage = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage))) {
+      Logging::printf("failure - rebind of sc usage cap %#x failed: %#x\n", scs_usage, res_usage);
+      res = EPERM; goto cleanup;
+    }
+
+    entry->scs_usage = scs_usage;
+    entry->maxmem    = mem;
+    entry->remoteid  = id;
+    entry->state     = server_data::status::RUNNING;
+  } else goto cleanup;
+
+  return res;
+
+  cleanup:
+  dealloc_cap(scs_usage);
+
+  return res;
+}
+
+void Remcon::free_entry(struct Remcon::server_data * entry) {
+  if (entry->showname) delete [] entry->showname;
+  if (entry->config) delete [] entry->config;
+  memset(entry, 0, sizeof(entry));
+}
+
 struct Remcon::server_data * Remcon::get_free_entry() {
   unsigned i;
 
@@ -233,19 +272,13 @@ void Remcon::handle_packet(void) {
           char showname;
         } PACKED * client = 0;
 
-        unsigned crdout, filelen, res = EABORT;
-        unsigned char rrres;
+        unsigned filelen, res = EABORT;
         char * module = 0;
         char const * file = 0;
         FsProtocol::dirent fileinfo;
         unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
         cap_sel cap_base  = alloc_cap(portal_num);
-        cap_sel scs_usage = alloc_cap();
-        if (!cap_base || !scs_usage) {
-          if (cap_base) dealloc_cap(cap_base, portal_num);
-          if (scs_usage) dealloc_cap(scs_usage);
-          break;
-        }
+        if (!cap_base) break;
         FsProtocol * fs_obj = 0;
         FsProtocol::File * file_obj = 0;
 
@@ -280,9 +313,15 @@ void Remcon::handle_packet(void) {
           if (check_uuid(tmp->uuid + UUID_LEN)) goto ecleanup; //if we have this 'new' uuid already deny starting
 
           memcpy(entry->uuid, tmp->uuid + UUID_LEN, UUID_LEN);
-          entry->showname     = etemplate->showname; //XXX which name to choose
-          entry->showname_len = etemplate->showname_len; //XXX which name to choose
-          memcpy(entry->fsname, etemplate->fsname, sizeof(etemplate->fsname)); //XXX which name to choose
+          entry->showname_len = etemplate->showname_len + 8;
+          char * tmp     = new char [entry->showname_len];
+          if (!tmp) goto ecleanup;
+          memcpy(tmp, etemplate->showname, etemplate->showname_len);
+          Vprintf::snprintf(tmp + etemplate->showname_len, 8, " %4u", entry->id);
+          tmp[entry->showname_len - 1] = 0;
+          entry->showname = tmp;
+
+          memcpy(entry->fsname, etemplate->fsname, sizeof(etemplate->fsname));
           file = etemplate->config;
           filelen = etemplate->config_len;
         }
@@ -322,7 +361,6 @@ void Remcon::handle_packet(void) {
             goto cleanup;
           }
 
-          Logging::printf("\n%s\n", module);
           entry->state = server_data::status::BLOCKED;
           _out->result  = NOVA_OP_SUCCEEDED;
           break;
@@ -331,23 +369,11 @@ void Remcon::handle_packet(void) {
           entry->disks[0].internal.diskid = ~0U; //XXX
         }
 
-        {
-          unsigned short id;
-          unsigned long mem = 0;
-          res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
-          if (res == ENONE) {
-            unsigned res_usage;
-            rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
-            if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
-            if (ENONE != (res_usage = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)))
-              Logging::printf("failure - rebind of sc usage cap %#x failed: %#x\n", scs_usage, res_usage);
-
-            entry->scs_usage = scs_usage;
-            entry->maxmem    = mem;
-            entry->remoteid  = id;
-            _out->result  = NOVA_OP_SUCCEEDED;
-            entry->state = server_data::status::RUNNING;
-          } else if (res == ConfigProtocol::ECONFIGTOOBIG)
+        res = start_entry(entry);
+        if (res == ENONE) {
+          _out->result  = NOVA_OP_SUCCEEDED;
+        } else {
+          if (res == ConfigProtocol::ECONFIGTOOBIG)
             Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", entry->showname, fileinfo.size);
           else if (res == ERESOURCE) {
             _out->result  = NOVA_OP_FAILED_OUT_OF_MEMORY;
@@ -357,22 +383,20 @@ void Remcon::handle_packet(void) {
 
         cleanup:
 
+        //cap_base is deallocated in fs_obj.destroy
         if (fs_obj) fs_obj->destroy(*BaseProgram::myutcb(), portal_num, this);
         if (file_obj) delete file_obj;
         if (fs_obj) delete fs_obj;
 
         if (res != ENONE) {
           Logging::printf("failure - starting VM - reason : %#x\n", res);
-          if (client && entry->showname) delete [] entry->showname;
-          if (module) delete [] module;
-          if (scs_usage) dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
-          memset(entry, 0, sizeof(entry));
+          free_entry(entry);
         }
 
         break;
 
         ecleanup:
-        memset(entry, 0, sizeof(entry));
+        free_entry(entry);
         break;
       }
     case NOVA_VM_DESTROY:

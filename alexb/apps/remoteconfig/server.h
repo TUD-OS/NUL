@@ -100,6 +100,8 @@ class Remcon : public CapAllocator {
 
     struct server_data * check_uuid(char const uuid[UUID_LEN]);
     struct server_data * get_free_entry();
+    void free_entry(struct server_data * entry);
+    unsigned start_entry(struct server_data * entry);
 
     EventProducer     * eventproducer;
     AdmissionProtocol * service_admission;

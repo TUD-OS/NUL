@@ -115,15 +115,19 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
       memcpy(service_disk->disk_buffer, connections[i].buffer, connections[i].buffer_size);
       unsigned ssize = (((connections[i].buffer_pos - 1) / entry->disks[connections[i].diskid].internal.sectorsize) + 1) * entry->disks[connections[i].diskid].internal.sectorsize;
       unsigned res = service_disk->write_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, ssize);
-      if (res != ENONE) Logging::printf("disk operation failed: %#x\n", res); //XXX todos here
-
+      if (res != ENONE) {
+        Logging::printf("disk operation failed: %#x\n", res); //XXX todos here
+        free_entry(entry);
+        return;
+      }
+/*
       //for debugging currently only
       memset(service_disk->disk_buffer, 0, connections[i].buffer_size);
       res = service_disk->read_synch(entry->disks[connections[i].diskid].internal.diskid, connections[i].sector, ssize);
       if (res != ENONE) Logging::printf("failure - could not read what was written: %#x\n", res);
       if (memcmp(service_disk->disk_buffer, connections[i].buffer, connections[i].buffer_size)) Logging::printf("failure - could not read back what was written\n");
       // debugging stuff end
-
+*/
       connections[i].sector     += connections[i].buffer_size / entry->disks[connections[i].diskid].internal.sectorsize;
       connections[i].buffer_pos = 0;
     }
@@ -135,6 +139,9 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     memset(&connections[i], 0, sizeof(connections[i]));
     if (entry->disks[connections[i].diskid].read > entry->disks[connections[i].diskid].size)
       Logging::printf("error   - image was larger then specified\n");
+    unsigned res = start_entry(entry);
+    Logging::printf("%s - %u starting VM %u\n", res == ENONE ? "success" : "failure", res, entry->id);
+    if (res != ENONE) free_entry(entry);
   }
 }
 
