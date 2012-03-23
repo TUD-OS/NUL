@@ -523,8 +523,8 @@ public:
 
     interval = 2000; //2s
 
-    char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
-    char *args[16];
+    char const *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+    char const *args[16];
     unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
     for (unsigned i=1; i < argv; i++) {
       if (!strcmp("top", args[i])) enable_top = true;
