@@ -407,7 +407,7 @@ class SataDrive : public FisReceiver, public StaticReceiver<SataDrive>
   SataDrive(DBus<MessageDisk> &bus_disk, DBus<MessageMemRegion> *bus_memregion, DBus<MessageMem> *bus_mem, unsigned hostdisk, DiskParameter params)
     : _bus_memregion(bus_memregion), _bus_mem(bus_mem), _bus_disk(bus_disk), _hostdisk(hostdisk), _multiple(0), _ctrl(0), _params(params)
   {
-    Logging::printf("SATA disk %x flags %x sectors %llx", hostdisk, _params.flags, _params.sectors);
+    Logging::printf("SATA disk %x flags %x sectors %llx\n", hostdisk, _params.flags, _params.sectors);
   }
 };
 
