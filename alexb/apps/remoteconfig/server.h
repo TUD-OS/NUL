@@ -181,7 +181,8 @@ class Remcon : public CapAllocator {
 
       ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX
       ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX
-      ldisks_used = { 0, 0 }; //XXX
+      ldisks_used[0] = false; //XXX
+      ldisks_used[1] = false; //XXX
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
