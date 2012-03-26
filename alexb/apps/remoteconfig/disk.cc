@@ -80,7 +80,11 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     connections[free - 1].buffer_size = 4096;
     connections[free - 1].buffer = new (0x1000) char[connections[free - 1].buffer_size];
 
-    return;
+    if (in_len > sizeof(*client)) {
+      in = reinterpret_cast<char *>(in) + sizeof(*client);
+      in_len -= sizeof(*client);
+      i = free - 1;
+    } else return;
   }
 
   struct server_data * entry = check_uuid(connections[i].uuid);
