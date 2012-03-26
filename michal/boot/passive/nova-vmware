@@ -1,2 +1,2 @@
 #!/bin/sh
-sed -e 's/@SIGMA0_ARGS@/host82573:0 hostide/' $(dirname $0)/nova | novaboot "$@"
+sed -e 's/@SIGMA0_ARGS@/host82573:0 hostide/' $(dirname $0)/nova | if [ "$1" != "--dump" ]; then novaboot "$@"; else cat; fi
