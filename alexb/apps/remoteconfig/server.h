@@ -113,8 +113,8 @@ class Remcon : public CapAllocator {
     const char * file_template, * file_diskuuid;
     unsigned file_len_template, file_len_diskuuid;
 
-    const char * ldisks [4];
-    bool ldisks_used[4];
+    const char * ldisks [5];
+    bool ldisks_used[5];
 
   public:
 
@@ -187,10 +187,12 @@ class Remcon : public CapAllocator {
       ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX alex local test box
       ldisks[2] = "uuid:75919be6-df33-4f2d-bc54-d4cc829c65d3"; //XXX alex qemu box
       ldisks[3] = "uuid:d4d38d86-7231-4a28-a97d-91cf35c801ae"; //XXX alex qemu box
+      ldisks[4] = "uuid:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2"; //XXX michal test box - nightly tests
       ldisks_used[0] = false; //XXX
       ldisks_used[1] = false; //XXX
       ldisks_used[2] = false; //XXX
       ldisks_used[3] = false; //XXX
+      ldisks_used[4] = false; //XXX
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
