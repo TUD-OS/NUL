@@ -43,14 +43,14 @@ class CapAllocator : public InternalCapAllocator {
   { }
 
   unsigned alloc_cap(unsigned count = 1) {
-    assert(_cap_ < _cap_start + (1 << _cap_order) - 1);
-    assert(_cap_ + count < _cap_start + (1 << _cap_order) - 1);
-    assert(_cap_ >= _cap_start);
+//    assert(_cap_ < _cap_start + (1 << _cap_order) - 1);
+//    assert(_cap_ + count < _cap_start + (1 << _cap_order) - 1);
+//    assert(_cap_ >= _cap_start);
     return Cpu::atomic_xadd(&_cap_, count);
   }
   void dealloc_cap(unsigned cap, unsigned count = 1) {
-    assert(cap >= _cap_start && count <= (1 << _cap_order));
-    assert( cap + count < _cap_start + (1 << _cap_order) - 1);
+//    assert((cap >= _cap_start) && (count <= (1 << _cap_order)));
+//    assert( cap + count < _cap_start + (1 << _cap_order) - 1);
     while (count--) { UNUSED unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true); assert(res == NOVA_ESUCCESS); }
     // XXX add it back to the cap-allocator
   }
