@@ -291,7 +291,7 @@ void Remcon::handle_packet(void) {
           client->showname_len = Math::ntohl(client->showname_len);
           if (client->showname_len > NOVA_PACKET_LEN ||
               (&client->showname + client->showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) goto ecleanup; // cheater!
-          if (!this->file_template || !this->file_len_template) goto ecleanup;
+          if (!this->file_template || !this->file_len_template) { Logging::printf("failure - no disk template configured\n"); goto ecleanup; }
 
           memcpy(entry->uuid, client->uuid, UUID_LEN);
           char * _name = new char [client->showname_len];
@@ -334,7 +334,7 @@ void Remcon::handle_packet(void) {
         if ((res = fs_obj->get(*BaseProgram::myutcb(), *file_obj, file, filelen)) ||
             (res = file_obj->get_info(*BaseProgram::myutcb(), fileinfo)))
         {
-          Logging::printf("failure - err=0x%x, config %30s could not load file '%s'\n", res, entry->showname, file);
+          Logging::printf("failure - err=0x%x, config %30s could not load file\n '%s'\n", res, entry->showname, file);
           goto cleanup;
         }
 
@@ -362,6 +362,8 @@ void Remcon::handle_packet(void) {
           }
 
           entry->state = server_data::status::BLOCKED;
+          uint32_t id = Math::htonl(entry->id);
+          memcpy(&_out->opspecific, &id, sizeof(id));
           _out->result  = NOVA_OP_SUCCEEDED;
           break;
         } else {
@@ -371,6 +373,8 @@ void Remcon::handle_packet(void) {
 
         res = start_entry(entry);
         if (res == ENONE) {
+          uint32_t id = Math::htonl(entry->id);
+          memcpy(&_out->opspecific, &id, sizeof(id));
           _out->result  = NOVA_OP_SUCCEEDED;
         } else {
           if (res == ConfigProtocol::ECONFIGTOOBIG)
@@ -440,6 +444,7 @@ void Remcon::handle_packet(void) {
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
         uint32_t localid = Math::ntohl(*_id);
+        uint32_t eventid = Math::ntohl(*(_id + 1));
 
         if (localid == ~0U) {
           gevents = (op == NOVA_ENABLE_EVENT);
@@ -449,8 +454,22 @@ void Remcon::handle_packet(void) {
 
         localid -= 1;
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        server_data[localid].events = (op == NOVA_ENABLE_EVENT);
+        unsigned ij = chg_event_slot(&server_data[localid], eventid, op == NOVA_ENABLE_EVENT);
+        if (ij == ~0U) break;
+        //Logging::printf("event enabled %u\n", eventid);
+        _out->result  = NOVA_OP_SUCCEEDED;
+        break;
+      }
+    case NOVA_ATOMIC_RULE:
+      {
+        GET_LOCAL_ID;
+        uint32_t eventid  = Math::ntohl(*(_id + 1));
+        uint32_t actionid = Math::ntohl(*(_id + 2));
 
+        unsigned ij = get_event_slot(&server_data[localid], eventid);
+        if (~0U == ij) break;
+
+        server_data[localid].events[ij].action = actionid;
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
@@ -475,7 +494,7 @@ void Remcon::handle_packet(void) {
         lookfor = Cpu::bsr(mask); //XXX check whether all cores has same number of threads?
         HIP_COUNT(core, lookfor, thread);
 
-        Logging::printf("packages %u, cores %u, threads %u, vendor ", package, core, thread);
+        //Logging::printf("packages %u, cores %u, threads %u, vendor ", package, core, thread);
         unsigned eax = 0, ebx = 0, ecx = 0, edx = 0;
         eax = Cpu::cpuid(eax, ebx, ecx, edx);
 
@@ -486,10 +505,10 @@ void Remcon::handle_packet(void) {
         *data++ = Math::htonl(1); //NUMA nodes
         *data++ = Math::htonl(package); *data++ = Math::htonl(core); *data++ = Math::htonl(thread);
 
-        char * name = reinterpret_cast<char *>(data);
+        //char * name = reinterpret_cast<char *>(data);
         *data++ = ebx; *data++ = edx; *data++ = ecx; *data++ = 0;
         //be aware not to exceed NOVA_PACKET_LEN here if you add a longer string !
-        Logging::printf("%s\n", name);
+        //Logging::printf("%s\n", name);
 
         _out->result  = NOVA_OP_SUCCEEDED;
       }

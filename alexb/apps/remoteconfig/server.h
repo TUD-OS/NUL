@@ -55,7 +55,11 @@ class Remcon : public CapAllocator {
         BLOCKED = 2,
         PAUSED  = 3,
       } state;
-      bool events;
+      struct event {
+        uint32_t id;
+        uint32_t action;
+        bool used;
+      } events[16];
       cap_sel scs_usage;
       unsigned long maxmem;
       short istemplate;
@@ -109,8 +113,8 @@ class Remcon : public CapAllocator {
     const char * file_template, * file_diskuuid;
     unsigned file_len_template, file_len_diskuuid;
 
-    const char * ldisks [2];
-    bool ldisks_used[2];
+    const char * ldisks [4];
+    bool ldisks_used[4];
 
   public:
 
@@ -179,10 +183,14 @@ class Remcon : public CapAllocator {
       service_disk = new (0x1000) DiskHelper<Remcon, 4096>(this, 0);
       assert(service_disk);
 
-      ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX
-      ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX
+      ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX alex local test box
+      ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX alex local test box
+      ldisks[2] = "uuid:75919be6-df33-4f2d-bc54-d4cc829c65d3"; //XXX alex qemu box
+      ldisks[3] = "uuid:d4d38d86-7231-4a28-a97d-91cf35c801ae"; //XXX alex qemu box
       ldisks_used[0] = false; //XXX
       ldisks_used[1] = false; //XXX
+      ldisks_used[2] = false; //XXX
+      ldisks_used[3] = false; //XXX
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
@@ -219,16 +227,16 @@ class Remcon : public CapAllocator {
       if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
 
       for (i=0; i < count; i++) {
-        for (j=0; j < sizeof(ldisks) / sizeof(ldisks[0]); j++) {
+        for (j=0; j < (sizeof(ldisks) / sizeof(ldisks[0])); j++) {
           if (ldisks_used[j]) continue;
 
           bool match;
           unsigned res = service_disk->check_name(*BaseProgram::myutcb(), i, ldisks[j], match);
-          if (res != ENONE || !match) break;
+          if (res != ENONE || !match) continue;
 
           DiskParameter params;
           res = service_disk->get_params(*BaseProgram::myutcb(), i, &params);
-          if (res != ENONE || params.sectors * params.sectorsize < disksize) break;
+          if (res != ENONE || params.sectors * params.sectorsize < disksize) continue;
 
           //params.name[sizeof(params.name) - 1] = 0;
           //Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
@@ -245,6 +253,23 @@ class Remcon : public CapAllocator {
       return ~0U;
     }
 
+    unsigned chg_event_slot(struct server_data * entry, uint32_t eventID, bool newentry) {
+      for(unsigned i=0; i < sizeof(entry->events)/sizeof(entry->events[0]); i++) {
+        if (newentry && entry->events[i].used) continue;
+        if (!newentry && entry->events[i].id != eventID) continue;
+        entry->events[i].id   = eventID;
+        entry->events[i].used = newentry;
+        return i;
+      }
+      return ~0U;
+    }
+    unsigned get_event_slot(struct server_data * entry, uint32_t eventID)
+    {
+      for(unsigned i=0; i < sizeof(entry->events)/sizeof(entry->events[0]); i++)
+        if (entry->events[i].used && entry->events[i].id == eventID) return i;
+      return ~0U;
+    }
+
     bool push_event(int guid, uint32_t eventid, uint32_t extra_len = 0, char const * extra = 0) {
       unsigned char buf[NOVA_PACKET_LEN];
       struct outgoing_packet * out  = reinterpret_cast<struct outgoing_packet *>(buf);
@@ -256,7 +281,7 @@ class Remcon : public CapAllocator {
       }
       if (!gevents) {
         struct server_data * entry = check_uuid(uuid);
-        if (!entry || !entry->events) return false;
+        if (!entry || (~0U == get_event_slot(entry, eventid))) return false;
       }
 
       *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN) = Math::htonl(eventid);
