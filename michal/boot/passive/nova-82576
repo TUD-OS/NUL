@@ -1,2 +1,2 @@
-#!/bin/sh
-sed -e 's/@SIGMA0_ARGS@/host82576:0 host82576vf:0,0,1 hostahci/' $(dirname $0)/nova | novaboot "$@"
+#!/usr/bin/env bash
+exec novaboot "$@" <(sed -e 's/@SIGMA0_ARGS@/host82576:0 host82576vf:0,0,1 hostahci/' $(dirname $0)/nova)
