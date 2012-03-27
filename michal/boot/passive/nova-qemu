@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec novaboot "$@" <(sed -e 's/@SIGMA0_ARGS@/hostne2k hostide/' $(dirname $0)/nova)
+exec novaboot "$@" -- <(sed -e 's/@SIGMA0_ARGS@/hostne2k hostide/' $(dirname $0)/nova)
