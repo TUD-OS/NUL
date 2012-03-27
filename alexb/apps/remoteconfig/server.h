@@ -113,8 +113,10 @@ class Remcon : public CapAllocator {
     const char * file_template, * file_diskuuid;
     unsigned file_len_template, file_len_diskuuid;
 
-    const char * ldisks [5];
-    bool ldisks_used[5];
+    struct disks {
+      const char * disk_uuid;
+      bool used;
+    } * disks;
 
   public:
 
@@ -183,16 +185,53 @@ class Remcon : public CapAllocator {
       service_disk = new (0x1000) DiskHelper<Remcon, 4096>(this, 0);
       assert(service_disk);
 
-      ldisks[0] = "uuid:aa428dc4-b26a-47d5-8b47-083d561639ea"; //XXX alex local test box
-      ldisks[1] = "uuid:bacb3e30-eb8c-4a93-85f9-5e86f6101357"; //XXX alex local test box
-      ldisks[2] = "uuid:75919be6-df33-4f2d-bc54-d4cc829c65d3"; //XXX alex qemu box
-      ldisks[3] = "uuid:d4d38d86-7231-4a28-a97d-91cf35c801ae"; //XXX alex qemu box
-      ldisks[4] = "uuid:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2"; //XXX michal test box - nightly tests
-      ldisks_used[0] = false; //XXX
-      ldisks_used[1] = false; //XXX
-      ldisks_used[2] = false; //XXX
-      ldisks_used[3] = false; //XXX
-      ldisks_used[4] = false; //XXX
+      //get the disk we are allowed to use
+      assert(this->file_diskuuid);
+
+      char const * file = 0;
+      FsProtocol::dirent fileinfo;
+      unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
+      unsigned res;
+      cap_sel cap_base  = alloc_cap(portal_num);
+      assert(cap_base);
+
+      char fsname[16];
+      memcpy(fsname, "fs/", 3);
+      proto_len = sizeof(fsname) - 3;
+      file = FsProtocol::parse_file_name(this->file_diskuuid, fsname + 3, proto_len);
+      assert(file);
+
+      FsProtocol fs_obj = FsProtocol(cap_base, fsname);
+      FsProtocol::File file_obj = FsProtocol::File(fs_obj, alloc_cap());
+
+      res = fs_obj.get(*BaseProgram::myutcb(), file_obj, file, this->file_len_diskuuid - (file - this->file_diskuuid));
+      assert(res == ENONE);
+      res = file_obj.get_info(*BaseProgram::myutcb(), fileinfo);
+      assert(res == ENONE);
+
+      char * module = new(4096) char[fileinfo.size];
+      assert(module);
+
+      res = file_obj.copy(*BaseProgram::myutcb(), module, fileinfo.size);
+      assert(res == ENONE);
+      assert(fileinfo.size < (1ULL << 32));
+      unsigned long fsize = fileinfo.size;
+      assert(fsize % 42 == 0);
+
+      disks = new struct disks[fsize / 42 + 1];
+
+      unsigned n=0;
+      while (n + 42 <= fsize) {
+        disks[n / 42].disk_uuid     = module + n;
+        module[n + 41] = 0;
+        disks[n / 42].used          = false;
+        Logging::printf("        - disk '%s'\n", disks[n/42].disk_uuid);
+        n += 42;
+      }
+      disks[n/42].disk_uuid = 0;
+      disks[n/42].used      = true;
+
+      fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
@@ -208,47 +247,49 @@ class Remcon : public CapAllocator {
     }
 
     bool clean_disk(unsigned internal_id) {
-      unsigned count = 0, j;
+      unsigned count = 0;
       if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return false;
 
       assert(internal_id < count);
-      for (j=0; j < sizeof(ldisks) / sizeof(ldisks[0]); j++) {
-        if (!ldisks_used[j]) continue;
+      struct disks * ldisk = disks;
+      while (ldisk->disk_uuid) {
+        if (!ldisk->used) { ldisk++; continue; }
 
         bool match;
-        unsigned res = service_disk->check_name(*BaseProgram::myutcb(), internal_id, ldisks[j], match);
-        if (res != ENONE || !match) continue;
-        ldisks_used[j] = false;
+        unsigned res = service_disk->check_name(*BaseProgram::myutcb(), internal_id, ldisk->disk_uuid, match);
+        if (res != ENONE || !match) { ldisk++; continue; }
+        ldisk->used = false;
         return true;
       }
       return false;
     }
 
     unsigned get_free_disk(uint64_t disksize, unsigned & sectorsize, char * diskuuid, unsigned diskuuidmax) {
-      unsigned count = 0, i, j;
+      unsigned count = 0, i;
       if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
 
       for (i=0; i < count; i++) {
-        for (j=0; j < (sizeof(ldisks) / sizeof(ldisks[0])); j++) {
-          if (ldisks_used[j]) continue;
+        struct disks * ldisk = disks;
+        while (ldisk->disk_uuid) {
+          if (ldisk->used) { ldisk++; continue; }
 
           bool match;
-          unsigned res = service_disk->check_name(*BaseProgram::myutcb(), i, ldisks[j], match);
-          if (res != ENONE || !match) continue;
+          unsigned res = service_disk->check_name(*BaseProgram::myutcb(), i, ldisk->disk_uuid, match);
+          if (res != ENONE || !match) { ldisk++; continue; }
 
           DiskParameter params;
           res = service_disk->get_params(*BaseProgram::myutcb(), i, &params);
-          if (res != ENONE || params.sectors * params.sectorsize < disksize) continue;
+          if (res != ENONE || params.sectors * params.sectorsize < disksize) { ldisk++; continue; }
 
           //params.name[sizeof(params.name) - 1] = 0;
           //Logging::printf("params %s - %u : flags=%u sectors=%#llx sectorsize=%u maxrequest=%u name=%s\n", res == ENONE ? " success" : "failure", i,
           //params.flags, params.sectors, params.sectorsize, params.maxrequestcount, params.name);
 
-          if (diskuuidmax < strlen(ldisks[j])) return ~0U;
+          if (diskuuidmax < 41) return ~0U;
 
-          memcpy(diskuuid, ldisks[j], strlen(ldisks[j]));
+          memcpy(diskuuid, ldisk->disk_uuid, 41);
           sectorsize = params.sectorsize;
-          ldisks_used[j] = true; //XXX
+          ldisk->used = true;
           return i;
         }
       }

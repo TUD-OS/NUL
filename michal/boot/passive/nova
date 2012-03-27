@@ -19,11 +19,14 @@ rom://bin/apps/logdisk.nul
 EOF
 bin/apps/remote_config.nulconfig <<EOF
 namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid name::/s0/disk disk::type:2be899e8-009f-47d1-a069-bd4bc05c20ea ||
-rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt template=rom://template.config
+rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt template=rom://template.config diskuuid=rom://diskuuid.config
 EOF
 template.config <<EOF
 sigma0::mem:256 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/disk disk::XXXX:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX ||
 rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 82576vf drive:0,0,0 service_events ||
+EOF
+diskuuid.config <<EOF
+uuid:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2
 EOF
 linux.nulconfig <<EOF
 name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 ||
