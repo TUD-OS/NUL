@@ -527,10 +527,10 @@ public:
     char const *args[16];
     unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
     for (unsigned i=1; i < argv; i++) {
-      if (!strcmp("top", args[i])) enable_top = true;
-      if (!strcmp("measure", args[i])) enable_measure = true;
-      if (!strcmp("log", args[i])) enable_log = true;
-      if (!strcmp("verbose", args[i])) enable_verbose = true;
+      if (!memcmp("top", args[i], 3)) enable_top = true;
+      if (!memcmp("measure", args[i], 7)) enable_measure = true;
+      if (!memcmp("log", args[i], 3)) enable_log = true;
+      if (!memcmp("verbose", args[i], 7)) enable_verbose = true;
       if (!memcmp("cpu", args[i], 3)) {
         if (args[i][3] != ':') continue;
         cpu_start = strtoul(&args[i][4], 0, 0);
