@@ -25,7 +25,7 @@ PARAM_HANDLER(help, "help:nr - prints a list of valid parameters and give detail
   for (unsigned i=0; i < maxi; i++)
     {
       char **strings = reinterpret_cast<char **>((&__param_table_start)[i*2+1]);
-      Logging::printf("\t%2d) %s\n", i, strings[1]);
+      Logging::printf("\t%2d) %s\n", i, strings[1] ? strings[1] : strings[0]);
     }
 
   if (argv[0] <= maxi)
