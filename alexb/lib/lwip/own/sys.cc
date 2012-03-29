@@ -197,9 +197,16 @@ bool nul_ip_udp(unsigned _port) {
 /*
  * TCP stuff
  */
+#define NUL_TCP_EOF (~0u)
+
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
   Logging::printf("[tcp] connection closed - port %u\n", tcp_struct->port);
+  if (tcp_struct->fn_recv_call) {
+    tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
+                             tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
+                             NULL, NUL_TCP_EOF);
+  }
   tcp_struct->openconn_pcb = 0;
   tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
 }

@@ -30,6 +30,8 @@
 
 EXTERN_C void dlmalloc_init(cap_sel pool);
 
+#define NUL_TCP_EOF (~0u)
+
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" bool nul_ip_config(unsigned para, void * arg);
