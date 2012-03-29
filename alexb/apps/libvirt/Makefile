@@ -29,9 +29,12 @@ endif
 	echo $(LIBVIRT_HASH) > $@
 
 .configure.stamp: .version.stamp Makefile
-	cd libvirt-repo && \
-	 autoreconf && \
-	 ./autogen.sh --without-uml --without-openvz --without-vmware --without-lxc --without-esx --with-nova --without-macvtap --without-python --without-remote --without-libvirtd
+	cd libvirt-repo && autoreconf -v && ./autogen.sh		\
+	--without-uml --without-openvz --without-vmware --without-lxc	\
+	--without-esx --with-nova --without-macvtap --without-python	\
+	--without-remote --without-libvirtd --without-qemu		\
+	--without-vbox --without-avahi --without-selinux
+
 	touch $@
 
 .build.stamp: .configure.stamp
