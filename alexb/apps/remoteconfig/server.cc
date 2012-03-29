@@ -498,8 +498,12 @@ void Remcon::handle_packet(void) {
         unsigned eax = 0, ebx = 0, ecx = 0, edx = 0;
         eax = Cpu::cpuid(eax, ebx, ecx, edx);
 
+        unsigned long long memory_max = 0;
+        service_config->info(*BaseProgram::myutcb(), memory_max);
+        memory_max = memory_max >> 10;
+
         uint32_t * data = reinterpret_cast<uint32_t *>(&_out->opspecific);
-        *data++ = Math::htonl(0); //memory size kb
+        *data++ = Math::htonl(memory_max); //memory size kb
         *data++ = Math::htonl(Global::hip.cpu_count()); //active cpus
         *data++ = Math::htonl(Global::hip.freq_tsc / 1000); //freq in MHz
         *data++ = Math::htonl(1); //NUMA nodes
