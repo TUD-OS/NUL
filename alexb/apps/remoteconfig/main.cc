@@ -106,15 +106,15 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       size_t appdata_len, out_len;
       unsigned char * sslbuf;
       int32 rc;
+      void *&tls_session = (localport == LIBVIRT_CMD_PORT) ? tls_session_cmd : tls_session_event;
 
       assert(localport == LIBVIRT_CMD_PORT || localport == LIBVIRT_EVT_PORT);
-      int32 len = nul_tls_len(localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event, sslbuf);
+      int32 len = nul_tls_len(tls_session, sslbuf);
       if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
       //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
       memcpy(sslbuf, in, in_len);
 
-      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport,
-          localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
+      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport, tls_session);
       if (rc > 0) {
         if (localport == LIBVIRT_EVT_PORT) return; //don't allow to send via event port messages to the daemon
 
@@ -123,8 +123,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         out = 0; out_len = 0;
         remcon->recv_call_back(appdata, appdata_len, out, out_len);
         appdata = out; appdata_len = out_len;
-        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport,
-                            localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
+        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport, tls_session);
         if (rc > 0) goto loop;
       }
       if (rc < 0) nul_ip_config(IP_TCP_CLOSE, &localport);
