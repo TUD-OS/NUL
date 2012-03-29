@@ -142,12 +142,12 @@ int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void
       assert(rc == 0);
       return -1;
     case MATRIXSSL_RECEIVED_ALERT:     // 6  An alert was received 
-      if (buf[1] == SSL_ALERT_CLOSE_NOTIFY) {
+      if (buf && ubuflen > 1 && (buf[1] == SSL_ALERT_CLOSE_NOTIFY)) {
         matrixSslProcessedData(ssl, &buf, &ubuflen);
         rc = MATRIXSSL_REQUEST_CLOSE;
       } else {
         Logging::printf("        - tls - received alert %s(%x) type=%x \n",
-          (ubuflen > 1 && buf[0] == SSL_ALERT_LEVEL_WARNING) ? "warning" : (buf[0] == SSL_ALERT_LEVEL_FATAL ? "fatal" : "unknown"),
+          (buf && ubuflen > 0 && (buf[0] == SSL_ALERT_LEVEL_WARNING)) ? "warning" : ((buf && ubuflen > 0 && (buf[0] == SSL_ALERT_LEVEL_FATAL)) ? "fatal" : "unknown"),
           (ubuflen > 1 && buf) ? buf[0] : 0, (ubuflen > 1 && buf) ? buf[1] : 0);
         rc = matrixSslProcessedData(ssl, &buf, &ubuflen);
       }
