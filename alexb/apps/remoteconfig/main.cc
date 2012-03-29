@@ -43,6 +43,7 @@ extern "C" int32 nul_tls_session(void *&ssl);
 extern "C" int32 nul_tls_len(void * ssl, unsigned char * &buf);
 extern "C" int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                                 void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session);
+extern "C" void  nul_tls_delete_session(void * ssl_session);
 
 enum {
   IP_NUL_VERSION  = 0,
@@ -111,6 +112,12 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       void *&tls_session = (localport == LIBVIRT_CMD_PORT) ? tls_session_cmd : tls_session_event;
 
       assert(localport == LIBVIRT_CMD_PORT || localport == LIBVIRT_EVT_PORT);
+      if (!in && in_len == NUL_TCP_EOF) {
+        nul_tls_delete_session(tls_session);
+        rc  = nul_tls_session(tls_session); // Prepare new session for the next time???
+        assert(rc == 0);
+        return;
+      }
       int32 len = nul_tls_len(tls_session, sslbuf);
       if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
       //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);

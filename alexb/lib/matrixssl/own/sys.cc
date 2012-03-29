@@ -69,6 +69,11 @@ int32 nul_tls_len(void * ssl, unsigned char * &buf) {
  return len;
 }
 
+void nul_tls_delete_session(void * ssl_session)
+{
+  matrixSslDeleteSession(reinterpret_cast<ssl_t *>(ssl_session));
+}
+
 int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                      void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session)
 {
@@ -131,7 +136,7 @@ int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void
           matrixSslSentData(ssl, len);
         }
       }
-      matrixSslDeleteSession(ssl);
+      nul_tls_delete_session(ssl_session);
       rc  = nul_tls_session(ssl_session);
       ssl = reinterpret_cast<ssl_t *>(ssl_session);
       assert(rc == 0);
