@@ -5,7 +5,7 @@ import nul
 Import('target_env')
 
 nul.App(target_env, 'remote_config',
-        SOURCES = [ 'main.cc', 'server.cc', 'events.cc', 'disk.cc' ],
+        SOURCES = [ 'main.cc', 'server.cc', 'events.cc', 'disk.cc', 'sha.cc' ],
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o',
                     '#service/logging.o', '#service/vprintf.o'],

@@ -23,6 +23,7 @@
 #include <service/endian.h>
 
 #include "server.h"
+#include "sha.h"
 
 void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
   static struct connection {
@@ -33,6 +34,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     uint64_t sector;
     unsigned buffer_size;
     unsigned buffer_pos;
+    Sha1::Context sha;
     char * buffer;
   } connections[4];
   unsigned i, free = 0;
@@ -79,6 +81,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     connections[free - 1].buffer_pos  = 0;
     connections[free - 1].buffer_size = 4096;
     connections[free - 1].buffer = new (0x1000) char[connections[free - 1].buffer_size];
+    Sha1::init(&connections[free - 1].sha);
 
     if (in_len > sizeof(*client)) {
       in = reinterpret_cast<char *>(in) + sizeof(*client);
@@ -110,8 +113,13 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
   while (rest) {
     size_t cplen = (connections[i].buffer_pos + rest) > connections[i].buffer_size ? connections[i].buffer_size - connections[i].buffer_pos : rest;
     rest -= cplen;
+
     memcpy(&connections[i].buffer[connections[i].buffer_pos], in, cplen);
+    Sha1::hash(&connections[i].sha, reinterpret_cast<unsigned char *>(in), cplen);
+
     connections[i].buffer_pos  += cplen;
+    in = reinterpret_cast<unsigned char *>(in) + cplen;
+
     if (connections[i].buffer_pos == connections[i].buffer_size ||
       entry->disks[connections[i].diskid].read == entry->disks[connections[i].diskid].size)
     {
@@ -138,13 +146,18 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
   }
 
   if (entry->disks[connections[i].diskid].read >= entry->disks[connections[i].diskid].size) {
-    Logging::printf("]\ndone    - received image\n");
+    Sha1::finish(&connections[i].sha);
+    Logging::printf("]\ndone    - image sha1: ");
+    for (unsigned j=0; j < sizeof(connections[i].sha.hash); j++) {
+      Logging::printf("%02x", connections[i].sha.hash[j]);
+    }
+    Logging::printf("\n");
     delete [] connections[i].buffer;
     memset(&connections[i], 0, sizeof(connections[i]));
     if (entry->disks[connections[i].diskid].read > entry->disks[connections[i].diskid].size)
       Logging::printf("error   - image was larger then specified\n");
     unsigned res = start_entry(entry);
-    Logging::printf("%s - %u starting VM %u\n", res == ENONE ? "success" : "failure", res, entry->id);
+    Logging::printf("%s - starting VM %u (err=%u)\n", res == ENONE ? "success" : "failure", entry->id, res);
     if (res != ENONE) free_entry(entry);
   }
 }
