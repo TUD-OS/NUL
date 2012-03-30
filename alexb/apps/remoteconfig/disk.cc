@@ -26,7 +26,7 @@
 #include "sha.h"
 
 void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
-                       void * in, size_t in_len, void * out, size_t out_len)
+                       void * in, size_t in_len, void * &out, size_t &out_len)
 {
   static struct connection {
     uint32 ip;
@@ -36,9 +36,9 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     uint64_t sector;
     unsigned buffer_size;
     unsigned buffer_pos;
-    Sha1::Context sha;
     char * buffer;
   } connections[4];
+  Sha1::Context sha[4];
   unsigned i, free = 0;
 
   if (!in || in_len == 0) return;
@@ -75,6 +75,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
                     entry->disks[client->diskid].size, remoteip & 0xff, (remoteip >> 8) & 0xff, (remoteip >> 16) & 0xff,
                     (remoteip >> 24) & 0xff, remoteport, localport);
 
+    memset(&connections[free - 1], 0, sizeof(connections[free - 1]));
     connections[free - 1].ip   = remoteip;
     connections[free - 1].port = remoteport;
     memcpy(connections[free - 1].uuid, client->uuid, UUID_LEN);
@@ -83,7 +84,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     connections[free - 1].buffer_pos  = 0;
     connections[free - 1].buffer_size = 4096;
     connections[free - 1].buffer = new (0x1000) char[connections[free - 1].buffer_size];
-    Sha1::init(&connections[free - 1].sha);
+    Sha1::init(&sha[free - 1]);
 
     if (in_len > sizeof(*client)) {
       in = reinterpret_cast<char *>(in) + sizeof(*client);
@@ -117,7 +118,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     rest -= cplen;
 
     memcpy(&connections[i].buffer[connections[i].buffer_pos], in, cplen);
-    Sha1::hash(&connections[i].sha, reinterpret_cast<unsigned char *>(in), cplen);
+    Sha1::hash(&sha[i], reinterpret_cast<unsigned char *>(in), cplen);
 
     connections[i].buffer_pos  += cplen;
     in = reinterpret_cast<unsigned char *>(in) + cplen;
@@ -148,10 +149,10 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   }
 
   if (entry->disks[connections[i].diskid].read >= entry->disks[connections[i].diskid].size) {
-    Sha1::finish(&connections[i].sha);
+    Sha1::finish(&sha[i]);
     Logging::printf("]\ndone    - image sha1: ");
-    for (unsigned j=0; j < sizeof(connections[i].sha.hash); j++) {
-      Logging::printf("%02x", connections[i].sha.hash[j]);
+    for (unsigned j=0; j < sizeof(sha[i].hash); j++) {
+      Logging::printf("%02x", sha[i].hash[j]);
     }
     Logging::printf("\n");
     delete [] connections[i].buffer;
@@ -162,8 +163,8 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     Logging::printf("%s - starting VM %u (err=%u)\n", res == ENONE ? "success" : "failure", entry->id, res);
     if (res != ENONE) free_entry(entry);
 
-    out = &connections[i].sha.hash;
-    out_len = sizeof(connections[i].sha.hash);
+    out = sha[i].hash;
+    out_len = sizeof(sha[i].hash);
   }
 }
 
