@@ -28,7 +28,7 @@ endif
 	@echo newer: $?
 	echo $(LIBVIRT_HASH) > $@
 
-.configure.stamp: .version.stamp Makefile
+.configure.stamp: .version.stamp
 	cd libvirt-repo && autoreconf -v && ./autogen.sh		\
 	--without-uml --without-openvz --without-vmware --without-lxc	\
 	--without-esx --with-nova --without-macvtap --without-python	\

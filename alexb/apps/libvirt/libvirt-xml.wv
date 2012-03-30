@@ -5,8 +5,7 @@
 WVSTART Start of a VM via xml file
 
 init
-
-    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 create $(dirname $0)/libvirt-test.xml"
+    WVPASS "virsh -c nova+tls://$NOVA_IP:9999 create <(sed -e \"s/\/bin\/cat/${nulroot//\//\\\/}\/build\/imgs\/bootable-hdd.img/\" $(dirname $0)/libvirt-test.xml)"
     WVPASS "virsh -c nova+tls://$NOVA_IP:9999 dumpxml 2"
     WVPASS "virsh -c nova+tls://$NOVA_IP:9999 list --all | tee log"
     WVPASS test "$(grep "xml.*running" log|wc -l)" -eq 1
