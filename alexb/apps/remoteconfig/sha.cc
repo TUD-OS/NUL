@@ -27,7 +27,7 @@ inline
 unsigned int Sha1::get_w(unsigned char * value, unsigned int round)
 {
   unsigned int res;
-  unsigned int *w = (unsigned int *) value;
+  unsigned int *w = reinterpret_cast<unsigned int *>(value);
   if (round >= 16)
     {
       res = w[16] = ROL(w[13] ^ w[8] ^ w[2] ^ w[0], 1);
@@ -52,7 +52,7 @@ Sha1::process_block(struct Context *ctx)
   unsigned int tmp;
 
   for (i=0; i<5; i++)
-    X[i+1] = Math::ntohl(((unsigned int *) ctx->hash)[i]);
+    X[i+1] = Math::ntohl((reinterpret_cast<unsigned int *>(ctx->hash))[i]);
 
   for(i = 0; i < 80; i++)
     {
@@ -77,7 +77,7 @@ Sha1::process_block(struct Context *ctx)
 
   /* we store the hash in big endian - this avoids a loop at the end... */
   for (i=0; i<5; i++)
-    ((unsigned int *) ctx->hash)[i] = Math::ntohl(Math::ntohl(((unsigned int*) ctx->hash)[i]) + X[i+1]);
+    (reinterpret_cast<unsigned int *>(ctx->hash))[i] = Math::ntohl(Math::ntohl((reinterpret_cast<unsigned int*>(ctx->hash))[i]) + X[i+1]);
 }
 
 /**
@@ -88,11 +88,11 @@ Sha1::init(struct Context *ctx)
 {
   ctx->index = 0;
   ctx->blocks = 0;
-  ((unsigned int *)ctx->hash)[0] = 0x01234567;
-  ((unsigned int *)ctx->hash)[1] = 0x89ABCDEF;
-  ((unsigned int *)ctx->hash)[2] = 0xFEDCBA98;
-  ((unsigned int *)ctx->hash)[3] = 0x76543210;
-  ((unsigned int *)ctx->hash)[4] = 0xf0e1d2c3;
+  (reinterpret_cast<unsigned int *>(ctx->hash))[0] = 0x01234567;
+  (reinterpret_cast<unsigned int *>(ctx->hash))[1] = 0x89ABCDEF;
+  (reinterpret_cast<unsigned int *>(ctx->hash))[2] = 0xFEDCBA98;
+  (reinterpret_cast<unsigned int *>(ctx->hash))[3] = 0x76543210;
+  (reinterpret_cast<unsigned int *>(ctx->hash))[4] = 0xf0e1d2c3;
 }
 
 /**
@@ -138,6 +138,6 @@ Sha1::finish(struct Context *ctx)
   /* using a 32bit value for blocks and not using the upper bits of
      tmp limits the maximum hash size to 512 MB. */
   unsigned long long tmp = (ctx->blocks << 9)+(ctx->index<<3);
-  ((unsigned long *) ctx->buffer)[15] = Math::ntohl(tmp & 0xffffffff);
+  (reinterpret_cast<unsigned long *>(ctx->buffer))[15] = Math::ntohl(tmp & 0xffffffff);
   process_block(ctx);
 }
