@@ -234,7 +234,7 @@ class Remcon : public CapAllocator {
       fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
     }
 
-    void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len);
+    void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len, void * out, size_t out_len);
     void recv_call_back(void * in, size_t in_len, void * & out, size_t & out_len);
     int send(void * mem, size_t count) { assert(mem == buf_out); assert(count == sizeof(buf_out)); dowrite = true; return count; }
 

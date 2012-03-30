@@ -98,7 +98,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     static
     void recv_call_back_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
-      remcon->recv_file(remoteip, remoteport, localport, in, in_len);
+      void * out = 0;
+      size_t out_len = 0;
+      remcon->recv_file(remoteip, remoteport, localport, in, in_len, out, out_len);
+      write_out(LIBVIRT_FILE_PORT, out, out_len);
       return;
     }
 

@@ -25,7 +25,9 @@
 #include "server.h"
 #include "sha.h"
 
-void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
+void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
+                       void * in, size_t in_len, void * out, size_t out_len)
+{
   static struct connection {
     uint32 ip;
     uint32 port;
@@ -159,6 +161,9 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, voi
     unsigned res = start_entry(entry);
     Logging::printf("%s - starting VM %u (err=%u)\n", res == ENONE ? "success" : "failure", entry->id, res);
     if (res != ENONE) free_entry(entry);
+
+    out = &connections[i].sha.hash;
+    out_len = sizeof(connections[i].sha.hash);
   }
 }
 
