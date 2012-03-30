@@ -3,6 +3,8 @@ img=$(readlink -f $(dirname $0)/../../../build/imgs)/gpt-disk-10M.img
 set -x
 rm -f $img
 dd if=/dev/zero of=$img bs=1k seek=10k count=1
-/sbin/sgdisk --clear --new=0:0:0 --partition-guid=1:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2 --typecode=1:2be899e8-009f-47d1-a069-bd4bc05c20ea --info=1 $img
+test -x /sbin/sgdisk && sgdisk=/sbin/sgdisk
+test -x /usr/sbin/sgdisk && sgdisk=/usr/sbin/sgdisk
+$sgdisk --clear --new=1:0:0 --partition-guid=1:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2 --typecode=1:2be899e8-009f-47d1-a069-bd4bc05c20ea --info=1 $img
 
 exec novaboot "$@" -- <(sed -e 's/@SIGMA0_ARGS@/hostne2k hostide/' $(dirname $0)/nova)
