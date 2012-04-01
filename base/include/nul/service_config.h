@@ -27,6 +27,7 @@ struct ConfigProtocol : public GenericProtocol {
   enum {
     TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END,
     TYPE_KILL,
+    TYPE_INFO_HOST,
     ECONFIGTOOBIG = ELASTGLOBAL,
   };
 
@@ -41,6 +42,13 @@ struct ConfigProtocol : public GenericProtocol {
     utcb >> maxmem;
 
     out:
+    utcb.drop_frame();
+    return res;
+  }
+
+  unsigned info(Utcb &utcb, unsigned long long &maxmem) {
+    unsigned res = call_server(init_frame(utcb, TYPE_INFO_HOST), false);
+    utcb >> maxmem;
     utcb.drop_frame();
     return res;
   }

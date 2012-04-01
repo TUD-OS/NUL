@@ -75,6 +75,18 @@ public:
 
         return msg.res;
       }
+    case ConfigProtocol::TYPE_INFO_HOST:
+      {
+        unsigned long long maxmem = 0;
+
+        for (int i = 0; i < (Global::hip.length - Global::hip.mem_offs) / Global::hip.mem_size; i++) {
+          Hip_mem *hmem = reinterpret_cast<Hip_mem *>(reinterpret_cast<char *>(&Global::hip) + Global::hip.mem_offs) + i;
+          if (hmem->type == 1) maxmem += hmem->size;
+        }
+
+        utcb << maxmem;
+        return ENONE;
+      }
     default:
       return EPROTO;
     }

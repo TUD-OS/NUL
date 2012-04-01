@@ -32,6 +32,60 @@ struct Remcon::server_data * Remcon::check_uuid(char const uuid[UUID_LEN]) {
   return NULL;
 }
 
+unsigned Remcon::start_entry(struct Remcon::server_data * entry)
+{
+  unsigned res, crdout;
+  unsigned short id;
+  unsigned long mem = 0;
+  cap_sel scs_usage = alloc_cap();
+  if (!scs_usage) return ERESOURCE;
+
+  res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, entry->config, entry->config_len);
+  if (res == ENONE) {
+    unsigned res_usage;
+    unsigned char rrres;
+    rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
+    if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
+    if (ENONE != (res_usage = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage))) {
+      Logging::printf("failure - rebind of sc usage cap %#x failed: %#x\n", scs_usage, res_usage);
+      res = EPERM; goto cleanup;
+    }
+
+    entry->scs_usage = scs_usage;
+    entry->maxmem    = mem;
+    entry->remoteid  = id;
+    entry->state     = server_data::status::RUNNING;
+  } else goto cleanup;
+
+  return res;
+
+  cleanup:
+  dealloc_cap(scs_usage);
+
+  return res;
+}
+
+void Remcon::free_entry(struct Remcon::server_data * entry) {
+  if (entry->showname) delete [] entry->showname;
+  if (entry->config) delete [] entry->config;
+  memset(entry, 0, sizeof(entry));
+}
+
+struct Remcon::server_data * Remcon::get_free_entry() {
+  unsigned i;
+
+  again:
+
+  for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
+    if(server_data[i].id != 0) continue;
+    if (0 != Cpu::cmpxchg4b(&server_data[i].id, 0, i + 1)) goto again;
+    return &server_data[i];
+  }
+  return NULL;
+}
+
+
+
 void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &out_len) {
 
   out = 0; out_len = 0;
@@ -207,137 +261,146 @@ void Remcon::handle_packet(void) {
       }
     case NOVA_VM_START:
       {
-        unsigned j;
         struct tmp0 {
           char const uuid[UUID_LEN];
         } PACKED * tmp = reinterpret_cast<struct tmp0 *>(&_in->opspecific);
-        struct server_data * entry = check_uuid(tmp->uuid);
+        struct tmp1 {
+          char const uuid[UUID_LEN];
+          uint32_t maxmem;
+          uint32_t showname_len;
+          uint64_t disk_size;
+          char showname;
+        } PACKED * client = 0;
 
-        if (!entry) {
-          struct tmp1 {
-            char const uuid[UUID_LEN];
-            uint32_t maxmem;
-            uint32_t showname_len;
-            uint64_t disk_size;
-            char showname;
-          } PACKED * client = reinterpret_cast<struct tmp1 *>(&_in->opspecific);
+        unsigned filelen, res = EABORT;
+        char * module = 0;
+        char const * file = 0;
+        FsProtocol::dirent fileinfo;
+        unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
+        cap_sel cap_base  = alloc_cap(portal_num);
+        if (!cap_base) break;
+        FsProtocol * fs_obj = 0;
+        FsProtocol::File * file_obj = 0;
 
+        struct server_data * entry = Remcon::get_free_entry();
+        if (!entry) break;
+        struct server_data * etemplate = check_uuid(tmp->uuid);
+
+        if (!etemplate) {
+          client = reinterpret_cast<struct tmp1 *>(&_in->opspecific);
           client->showname_len = Math::ntohl(client->showname_len);
-          if (client->showname_len > NOVA_PACKET_LEN || (&client->showname + client->showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) break; // cheater!
-          for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
-            if(server_data[j].id != 0) continue;
-            if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
+          if (client->showname_len > NOVA_PACKET_LEN ||
+              (&client->showname + client->showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) goto ecleanup; // cheater!
+          if (!this->file_template || !this->file_len_template) { Logging::printf("failure - no disk template configured\n"); goto ecleanup; }
 
-//            server_data[j].disks // XXX don't assume only one disk
-            server_data[j].disks[0].size = Endian::hton64(client->disk_size); //actual ntoh64
-            server_data[j].disks[0].internal.diskid = get_free_disk(server_data[j].disks[0].size, server_data[j].disks[0].internal.sectorsize);
-            if (server_data[j].disks[0].internal.diskid == ~0U) {
-              Logging::printf("failure - no free disk with enough space - %llu Byte\n", server_data[j].disks[0].size);
-              server_data[j].id = 0;
-              break;
-            }
+          memcpy(entry->uuid, client->uuid, UUID_LEN);
+          char * _name = new char [client->showname_len];
+          if (!_name) goto ecleanup;
 
-            char * _name = new char [client->showname_len];
-            if (!_name) {
-              server_data[j].id = 0;
-              break;
-            }
-            memcpy(_name, &client->showname, client->showname_len);
-            memcpy(server_data[j].uuid, client->uuid, UUID_LEN);
-            server_data[j].filename     = "";
-            server_data[j].filename_len = 0;
-            server_data[j].showname     = _name;
-            server_data[j].showname_len = client->showname_len;
-            server_data[j].maxmem       = Math::ntohl(client->maxmem) * 1024;
-//            memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
+          memcpy(_name, &client->showname, client->showname_len);
+          memcpy(entry->uuid, client->uuid, UUID_LEN);
+          entry->showname     = _name;
+          entry->showname_len = client->showname_len;
+          entry->maxmem       = Math::ntohl(client->maxmem) * 1024;
 
-            server_data[j].state = server_data::status::BLOCKED;
-            _out->result  = NOVA_OP_SUCCEEDED;
-            break;
-          }
+          unsigned proto_len = sizeof(entry->fsname) - 3;
+          memcpy(entry->fsname, "fs/", 3);
+          file = FsProtocol::parse_file_name(this->file_template, entry->fsname + 3, proto_len);
+          if (!file) { Logging::printf("failure - name of file misformatted %s\n", this->file_template); goto ecleanup; }
+          filelen = this->file_len_template - (file - this->file_template);
         } else {
-            if (!entry->istemplate) break; //only templates may be instantiated and started
-            if (check_uuid(tmp->uuid + UUID_LEN)) break; //if we have this 'new' uuid already deny starting
-            again:
-            for(j=0; j < sizeof(server_data)/sizeof(server_data[0]); j++) {
-              if(server_data[j].id != 0) continue;
-              if (0 != Cpu::cmpxchg4b(&server_data[j].id, 0, j + 1)) goto again;
+          if (!etemplate->istemplate) goto ecleanup; //only templates may be instantiated and started
+          if (check_uuid(tmp->uuid + UUID_LEN)) goto ecleanup; //if we have this 'new' uuid already deny starting
 
-              unsigned crdout;
-              unsigned char rrres;
-              unsigned res = EABORT;
-              char * module = 0;
-              unsigned portal_num = FsProtocol::CAP_SERVER_PT + cpu_count;
-              unsigned cap_base = alloc_cap(portal_num);
-              cap_sel scs_usage = alloc_cap();
-              if (!cap_base || !scs_usage) {
-                if (cap_base) dealloc_cap(cap_base, portal_num);
-                if (scs_usage) dealloc_cap(scs_usage);
-                server_data[j].id = 0;
-                break;
-              }
+          memcpy(entry->uuid, tmp->uuid + UUID_LEN, UUID_LEN);
+          entry->showname_len = etemplate->showname_len + 8;
+          char * tmp     = new char [entry->showname_len];
+          if (!tmp) goto ecleanup;
+          memcpy(tmp, etemplate->showname, etemplate->showname_len);
+          Vprintf::snprintf(tmp + etemplate->showname_len, 8, " %4u", entry->id);
+          tmp[entry->showname_len - 1] = 0;
+          entry->showname = tmp;
 
-              memcpy(server_data[j].uuid, tmp->uuid + UUID_LEN, UUID_LEN);
-              server_data[j].filename     = entry->filename;
-              server_data[j].filename_len = entry->filename_len;
-              server_data[j].showname     = entry->showname; //XXX which name to choose
-              server_data[j].showname_len = entry->showname_len; //XXX which name to choose
-              memcpy(server_data[j].fsname, entry->fsname, sizeof(entry->fsname)); //XXX which name to choose
-
-              FsProtocol::dirent fileinfo;
-              FsProtocol fs_obj(cap_base, server_data[j].fsname);
-              FsProtocol::File file_obj(fs_obj, alloc_cap());
-              if ((res = fs_obj.get(*BaseProgram::myutcb(), file_obj, server_data[j].filename, server_data[j].filename_len)) || 
-                  (res = file_obj.get_info(*BaseProgram::myutcb(), fileinfo)))
-              {
-                Logging::printf("failure - err=0x%x, config %30s could not load file '%s'\n", res, server_data[j].showname, server_data[j].filename);
-                goto cleanup;
-              }
-
-              module = new(4096) char[fileinfo.size];
-              if (!module) goto cleanup;
-
-              res = file_obj.copy(*BaseProgram::myutcb(), module, fileinfo.size);
-              if (res != ENONE) goto cleanup;
-
-              {
-                unsigned short id;
-                unsigned long mem = 0;
-                res = service_config->start_config(*BaseProgram::myutcb(), id, mem, scs_usage, module, fileinfo.size);
-                if (res == ENONE) {
-                  unsigned res_usage;
-                  rrres = nova_syscall(NOVA_LOOKUP, Crd(scs_usage, 0, DESC_CAP_ALL).value(), 0, 0, 0, &crdout); //sanity check that we got a cap
-                  if (rrres != NOVA_ESUCCESS || crdout == 0) { res = EPERM; goto cleanup; }
-                  if (ENONE != (res_usage = service_admission->rebind_usage_cap(*BaseProgram::myutcb(), scs_usage)))
-                    Logging::printf("failure - rebind of sc usage cap %#x failed: %#x\n", scs_usage, res_usage);
-
-                  server_data[j].scs_usage = scs_usage;
-                  server_data[j].maxmem    = mem;
-                  server_data[j].remoteid  = id;
-                  _out->result  = NOVA_OP_SUCCEEDED;
-                } else if (res == ConfigProtocol::ECONFIGTOOBIG)
-                  Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", server_data[j].showname, fileinfo.size);
-                else if (res == ERESOURCE) {
-                  _out->result  = NOVA_OP_FAILED_OUT_OF_MEMORY;
-                  Logging::printf("failure - out of memory\n");
-                }
-              }
-              cleanup:
-
-              if (module) delete [] module;
-              fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
-
-              if (res == ENONE) server_data[j].state = server_data::status::RUNNING;
-              else {
-                Logging::printf("failure - starting VM - reason : %#x\n", res);
-                dealloc_cap(scs_usage); //cap_base is deallocated in fs_obj.destroy
-                server_data[j].id = 0;
-              }
-
-              break;
-            }
-            break;
+          memcpy(entry->fsname, etemplate->fsname, sizeof(etemplate->fsname));
+          file = etemplate->config;
+          filelen = etemplate->config_len;
         }
+
+        fs_obj   = new FsProtocol(cap_base, entry->fsname);
+        if (!fs_obj) goto cleanup;
+        file_obj = new FsProtocol::File(*fs_obj, alloc_cap());
+        if (!file_obj) goto cleanup;
+
+        if ((res = fs_obj->get(*BaseProgram::myutcb(), *file_obj, file, filelen)) ||
+            (res = file_obj->get_info(*BaseProgram::myutcb(), fileinfo)))
+        {
+          Logging::printf("failure - err=0x%x, config %30s could not load file\n '%s'\n", res, entry->showname, file);
+          goto cleanup;
+        }
+
+        module = new(4096) char[fileinfo.size];
+        if (!module) goto cleanup;
+
+        res = file_obj->copy(*BaseProgram::myutcb(), module, fileinfo.size);
+        if (res != ENONE) goto cleanup;
+
+        entry->config       = module;
+        entry->config_len   = fileinfo.size;
+
+        if (!etemplate) {
+          char * replaceuuid = strstr(module, "disk::XXXX:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX");
+          if (!replaceuuid) { Logging::printf("failure - template config is misformatted\n%s\n", module); goto cleanup; }
+          replaceuuid += sizeof("disk::") - 1;
+
+//            entry->disks // XXX don't assume only one disk
+          entry->disks[0].size = Endian::hton64(client->disk_size); //actual ntoh64
+          entry->disks[0].internal.diskid = get_free_disk(entry->disks[0].size, entry->disks[0].internal.sectorsize,
+                                                          replaceuuid, 41);
+          if (entry->disks[0].internal.diskid == ~0U) {
+            Logging::printf("failure - no free disk with enough space - %llu Byte\n", entry->disks[0].size);
+            goto cleanup;
+          }
+
+          entry->state = server_data::status::BLOCKED;
+          uint32_t id = Math::htonl(entry->id);
+          memcpy(&_out->opspecific, &id, sizeof(id));
+          _out->result  = NOVA_OP_SUCCEEDED;
+          break;
+        } else {
+          entry->disks[0].size = 0; //XXX
+          entry->disks[0].internal.diskid = ~0U; //XXX
+        }
+
+        res = start_entry(entry);
+        if (res == ENONE) {
+          uint32_t id = Math::htonl(entry->id);
+          memcpy(&_out->opspecific, &id, sizeof(id));
+          _out->result  = NOVA_OP_SUCCEEDED;
+        } else {
+          if (res == ConfigProtocol::ECONFIGTOOBIG)
+            Logging::printf("failure - configuration '%10s' is to big (size=%llu)\n", entry->showname, fileinfo.size);
+          else if (res == ERESOURCE) {
+            _out->result  = NOVA_OP_FAILED_OUT_OF_MEMORY;
+            Logging::printf("failure - out of memory\n");
+          }
+        }
+
+        cleanup:
+
+        //cap_base is deallocated in fs_obj.destroy
+        if (fs_obj) fs_obj->destroy(*BaseProgram::myutcb(), portal_num, this);
+        if (file_obj) delete file_obj;
+        if (fs_obj) delete fs_obj;
+
+        if (res != ENONE) {
+          Logging::printf("failure - starting VM - reason : %#x\n", res);
+          free_entry(entry);
+        }
+
+        break;
+
+        ecleanup:
+        free_entry(entry);
         break;
       }
     case NOVA_VM_DESTROY:
@@ -345,6 +408,7 @@ void Remcon::handle_packet(void) {
         GET_LOCAL_ID;
         unsigned res = service_config->kill(*BaseProgram::myutcb(), server_data[localid].remoteid);
         if (res == ENONE) {
+          if (server_data[localid].config) delete [] server_data[localid].config;
           if (server_data[localid].disks[0].internal.diskid != ~0U) {
             bool freedisk = clean_disk(server_data[localid].disks[0].internal.diskid); //XXX more than one disk !!!
             if (!freedisk) Logging::printf("failure  - freeing internal disk %u\n", server_data[localid].disks[0].internal.diskid);
@@ -380,6 +444,7 @@ void Remcon::handle_packet(void) {
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
         uint32_t localid = Math::ntohl(*_id);
+        uint32_t eventid = Math::ntohl(*(_id + 1));
 
         if (localid == ~0U) {
           gevents = (op == NOVA_ENABLE_EVENT);
@@ -389,8 +454,22 @@ void Remcon::handle_packet(void) {
 
         localid -= 1;
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break;
-        server_data[localid].events = (op == NOVA_ENABLE_EVENT);
+        unsigned ij = chg_event_slot(&server_data[localid], eventid, op == NOVA_ENABLE_EVENT);
+        if (ij == ~0U) break;
+        //Logging::printf("event enabled %u\n", eventid);
+        _out->result  = NOVA_OP_SUCCEEDED;
+        break;
+      }
+    case NOVA_ATOMIC_RULE:
+      {
+        GET_LOCAL_ID;
+        uint32_t eventid  = Math::ntohl(*(_id + 1));
+        uint32_t actionid = Math::ntohl(*(_id + 2));
 
+        unsigned ij = get_event_slot(&server_data[localid], eventid);
+        if (~0U == ij) break;
+
+        server_data[localid].events[ij].action = actionid;
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
@@ -415,21 +494,25 @@ void Remcon::handle_packet(void) {
         lookfor = Cpu::bsr(mask); //XXX check whether all cores has same number of threads?
         HIP_COUNT(core, lookfor, thread);
 
-        Logging::printf("packages %u, cores %u, threads %u, vendor ", package, core, thread);
+        //Logging::printf("packages %u, cores %u, threads %u, vendor ", package, core, thread);
         unsigned eax = 0, ebx = 0, ecx = 0, edx = 0;
         eax = Cpu::cpuid(eax, ebx, ecx, edx);
 
+        unsigned long long memory_max = 0;
+        service_config->info(*BaseProgram::myutcb(), memory_max);
+        memory_max = memory_max >> 10;
+
         uint32_t * data = reinterpret_cast<uint32_t *>(&_out->opspecific);
-        *data++ = Math::htonl(0); //memory size kb
+        *data++ = Math::htonl(memory_max); //memory size kb
         *data++ = Math::htonl(Global::hip.cpu_count()); //active cpus
         *data++ = Math::htonl(Global::hip.freq_tsc / 1000); //freq in MHz
         *data++ = Math::htonl(1); //NUMA nodes
         *data++ = Math::htonl(package); *data++ = Math::htonl(core); *data++ = Math::htonl(thread);
 
-        char * name = reinterpret_cast<char *>(data);
+        //char * name = reinterpret_cast<char *>(data);
         *data++ = ebx; *data++ = edx; *data++ = ecx; *data++ = 0;
         //be aware not to exceed NOVA_PACKET_LEN here if you add a longer string !
-        Logging::printf("%s\n", name);
+        //Logging::printf("%s\n", name);
 
         _out->result  = NOVA_OP_SUCCEEDED;
       }

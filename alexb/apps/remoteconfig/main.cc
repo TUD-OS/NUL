@@ -30,6 +30,8 @@
 
 EXTERN_C void dlmalloc_init(cap_sel pool);
 
+#define NUL_TCP_EOF (~0u)
+
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
 extern "C" bool nul_ip_config(unsigned para, void * arg);
@@ -41,6 +43,7 @@ extern "C" int32 nul_tls_session(void *&ssl);
 extern "C" int32 nul_tls_len(void * ssl, unsigned char * &buf);
 extern "C" int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                                 void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session);
+extern "C" void  nul_tls_delete_session(void * ssl_session);
 
 enum {
   IP_NUL_VERSION  = 0,
@@ -95,7 +98,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
     static
     void recv_call_back_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len) {
-      remcon->recv_file(remoteip, remoteport, localport, in, in_len);
+      void * out = 0;
+      size_t out_len = 0;
+      remcon->recv_file(remoteip, remoteport, localport, in, in_len, out, out_len);
+      write_out(LIBVIRT_FILE_PORT, out, out_len);
       return;
     }
 
@@ -106,15 +112,21 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       size_t appdata_len, out_len;
       unsigned char * sslbuf;
       int32 rc;
+      void *&tls_session = (localport == LIBVIRT_CMD_PORT) ? tls_session_cmd : tls_session_event;
 
       assert(localport == LIBVIRT_CMD_PORT || localport == LIBVIRT_EVT_PORT);
-      int32 len = nul_tls_len(localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event, sslbuf);
+      if (!in && in_len == NUL_TCP_EOF) {
+        nul_tls_delete_session(tls_session);
+        rc  = nul_tls_session(tls_session); // Prepare new session for the next time???
+        assert(rc == 0);
+        return;
+      }
+      int32 len = nul_tls_len(tls_session, sslbuf);
       if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
       //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
       memcpy(sslbuf, in, in_len);
 
-      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport,
-          localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
+      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport, tls_session);
       if (rc > 0) {
         if (localport == LIBVIRT_EVT_PORT) return; //don't allow to send via event port messages to the daemon
 
@@ -123,8 +135,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         out = 0; out_len = 0;
         remcon->recv_call_back(appdata, appdata_len, out, out_len);
         appdata = out; appdata_len = out_len;
-        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport,
-                            localport == LIBVIRT_CMD_PORT ? tls_session_cmd : tls_session_event);
+        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport, tls_session);
         if (rc > 0) goto loop;
       }
       if (rc < 0) nul_ip_config(IP_TCP_CLOSE, &localport);
@@ -135,12 +146,23 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     }
 
     bool start_services(Utcb *utcb, Hip * hip, EventProducer * producer) {
+      char const *args[16];
+      char const *cmdline = reinterpret_cast<char const *>(hip->get_mod(0)->aux);
+      unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
+      char const * templatefile = 0, * diskuuidfile = 0;
+      unsigned temp_len = 0, disk_len = 0;
+      for (unsigned i=1; i < argv && i < 16; i++) {
+        if (!strncmp("template=", args[i],9)) { templatefile = args[i] + 9; temp_len = strcspn(templatefile, " \n\t\f");}
+        if (!strncmp("diskuuid=", args[i],9)) { diskuuidfile = args[i] + 9; disk_len = strcspn(diskuuidfile, " \n\t\f");}
+        continue;
+      }
+
       //create network service object
       ConfigProtocol *service_config = new ConfigProtocol(alloc_cap(ConfigProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
       unsigned cap_region = alloc_cap_region(1 << 14, 14);
       if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
       remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
-                          cap_region, 14, producer);
+                          cap_region, 14, producer, templatefile, temp_len, diskuuidfile, disk_len);
 
       //create event service object
       EventService * event = new EventService(remcon);
@@ -153,9 +175,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
                      Clock * _clock, KernelSemaphore &sem, TimerProtocol * timer_service)
     {
       unsigned long long arg = 0;
-      char *args[16];
-      char *pos_s;
-      char *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
+      char const *args[16];
+      char const *pos_s;
+      char const *cmdline = reinterpret_cast<char *>(hip->get_mod(0)->aux);
       unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
       unsigned res;
       unsigned char *serverkey = 0, *servercert = 0, *cacert = 0, **crypto;
@@ -232,9 +254,9 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned long addr[4] = { 0, 0x00ffffffUL, 0, 0 }; //addr, netmask, gw
       bool static_ip = false;
       for (unsigned i=1; i < argv && i < 16; i++) {
-        if (!strncmp("ip="  , args[i],3)) { entry=0; pos_s = args[i] + 3; static_ip = true; goto parse; }
-        if (!strncmp("mask=", args[i],5)) { entry=1; pos_s = args[i] + 5; goto parse; }
-        if (!strncmp("gw="  , args[i],3)) { entry=2; pos_s = args[i] + 3; goto parse; }
+        if (!strncmp("ip="      , args[i],3)) { entry=0; pos_s = args[i] + 3; static_ip = true; goto parse; }
+        if (!strncmp("mask="    , args[i],5)) { entry=1; pos_s = args[i] + 5; goto parse; }
+        if (!strncmp("gw="      , args[i],3)) { entry=2; pos_s = args[i] + 3; goto parse; }
         continue;
 
         parse:

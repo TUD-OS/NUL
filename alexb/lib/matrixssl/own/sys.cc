@@ -69,6 +69,11 @@ int32 nul_tls_len(void * ssl, unsigned char * &buf) {
  return len;
 }
 
+void nul_tls_delete_session(void * ssl_session)
+{
+  matrixSslDeleteSession(reinterpret_cast<ssl_t *>(ssl_session));
+}
+
 int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void * out, size_t out_len),
                      void * &appdata, size_t &appdata_len, bool bappdata, uint16 port, void * &ssl_session)
 {
@@ -131,20 +136,21 @@ int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void
           matrixSslSentData(ssl, len);
         }
       }
-      matrixSslDeleteSession(ssl);
+      nul_tls_delete_session(ssl_session);
       rc  = nul_tls_session(ssl_session);
       ssl = reinterpret_cast<ssl_t *>(ssl_session);
       assert(rc == 0);
       return -1;
     case MATRIXSSL_RECEIVED_ALERT:     // 6  An alert was received 
-      Logging::printf("        - tls - received alert %s(%x) type=%x \n",
-        (ubuflen > 1 && buf[0] == SSL_ALERT_LEVEL_WARNING) ? "warning" : (buf[0] == SSL_ALERT_LEVEL_FATAL ? "fatal" : "unknown"),
-        (ubuflen > 1 && buf) ? buf[0] : 0, (ubuflen > 1 && buf) ? buf[1] : 0);
-      if (buf[1] == SSL_ALERT_CLOSE_NOTIFY) {
+      if (buf && ubuflen > 1 && (buf[1] == SSL_ALERT_CLOSE_NOTIFY)) {
         matrixSslProcessedData(ssl, &buf, &ubuflen);
         rc = MATRIXSSL_REQUEST_CLOSE;
-      } else
+      } else {
+        Logging::printf("        - tls - received alert %s(%x) type=%x \n",
+          (buf && ubuflen > 0 && (buf[0] == SSL_ALERT_LEVEL_WARNING)) ? "warning" : ((buf && ubuflen > 0 && (buf[0] == SSL_ALERT_LEVEL_FATAL)) ? "fatal" : "unknown"),
+          (ubuflen > 1 && buf) ? buf[0] : 0, (ubuflen > 1 && buf) ? buf[1] : 0);
         rc = matrixSslProcessedData(ssl, &buf, &ubuflen);
+      }
       goto loop;
 /*
 case PS_FAILURE : //     -1  

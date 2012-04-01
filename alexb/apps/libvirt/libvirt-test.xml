@@ -11,4 +11,8 @@
       <target dev='hda'/>
     </disk>
   </devices>
+  <atomicrules>
+    <rule eventid="9893" action="0"/>
+    <rule eventid="-1"   action="0"/>
+  </atomicrules>
 </domain>
