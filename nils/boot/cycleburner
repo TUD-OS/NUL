@@ -1,0 +1,14 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-s -S -cpu coreduo
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
+    hostide \
+    hostahci \
+    script \
+    script_start:1
+bin/apps/cycleburner.nul
+diskbench.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission sigma0::drive:0 ||
+rom://bin/apps/cycleburner.nul
+EOF
+
