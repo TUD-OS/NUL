@@ -34,6 +34,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
     FREQ = 1000,
     DISK_TIMEOUT = 5000,
     DISK_COMPLETION_CODE = 0x79,
+    DISK_COUNT = 0x75,
     WAKEUP_IRQ = 1,
   };
   unsigned _timer;
@@ -47,6 +48,7 @@ class VirtualBiosDisk : public StaticReceiver<VirtualBiosDisk>, public BiosCommo
       MessageDisk msg2(_disk_count, &_disk_params[_disk_count]);
       if (!_mb.bus_disk.send(msg2) || msg2.error) break;
     }
+    write_bda(DISK_COUNT,_disk_count,1);
   }
 
   bool check_drive(MessageBios &msg, unsigned &disk_nr)

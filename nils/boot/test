@@ -1,0 +1,11 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-cpu phenom -m 256 
+HYPERVISOR_PARAMS=spinner
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 script_start:1,1
+bin/apps/test.nul
+bin/apps/test.nulconfig <<EOF
+namespace::/s0 name::/s0/admission name::/s0/log || 
+rom://bin/apps/test.nul
+EOF
+

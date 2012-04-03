@@ -216,7 +216,8 @@ class VirtualBiosReset : public StaticReceiver<VirtualBiosReset>, public BiosCom
       _resources[index] = Resource(name, r->offset + 0x200, 36, false);
       discovery_write_st(name, 0,  "RSD PTR ", 8);
       discovery_write_st(name, 9,  ACPI_OEM_ID, 6);
-      discovery_write_dw(name, 15, 2, 1);
+      // revision = 0 => ACPI version 1.0
+      discovery_write_dw(name, 15, 0, 1);
       fix_acpi_checksum(_resources + index, 20, 8);
     }
     else {

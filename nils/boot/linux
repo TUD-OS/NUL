@@ -1,0 +1,18 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-cpu phenom -m 256 
+HYPERVISOR_PARAMS=spinner
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga hostkeyb:0,0x60,1,12 \
+	script_start:1,1 service_config 
+bin/apps/vancouver.nul
+bin/boot/munich
+bin/apps/bzImage-js
+bin/apps/initrd-js.lzma
+linux.nulconfig <<EOF
+sigma0::mem:64 sigma0::dma name::/s0/log name::/s0/fs/rom name::/s0/timer name::/s0/admission name::/s0/disk ||
+rom://bin/apps/vancouver.nul PC_PS2 ||
+rom://bin/boot/munich ||
+rom://bin/apps/bzImage-js clocksource=tsc console=ttyS0 ||
+rom://bin/apps/initrd-js.lzma
+EOF
+

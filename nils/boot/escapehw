@@ -1,0 +1,10 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+QEMU_FLAGS=-cpu phenom -m 256 
+HYPERVISOR_PARAMS=spinner
+KERNEL=bin/apps/escape.bin videomode=vga
+bin/apps/escape_romdisk.bin /dev/romdisk bin/apps/escape.iso
+bin/apps/escape_cmos.bin /dev/cmos
+bin/apps/escape_fs.bin /dev/fs /dev/romdisk iso9660
+bin/apps/escape.iso
+
