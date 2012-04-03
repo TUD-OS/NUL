@@ -298,10 +298,12 @@ public:
         {
           ClientData *caller;
           cap_sel stats;
+          unsigned len;
 
           ClientDataStorage<ClientData, AdmissionService>::Guard guard_c(&_storage, utcb, this);
           if (res = _storage.get_client_data(utcb, caller, input.identity())) return res; //caller
           if (!(stats = input.identity(1))) return EPROTO; //client statistic cap
+          char const * name = input.get_zero_string(len);
 
           //input.dump_typed_items();
           //check whether provided stat cap match to one of our client
@@ -311,7 +313,7 @@ public:
           if (!client) return EPERM;
 
           if (op == AdmissionProtocol::TYPE_SC_USAGE) {
-            uint64 time_con = get_usage(client);
+            uint64 time_con = get_usage(client, (!name || len==0 ? NULL : name));
             utcb << time_con;
             return ENONE;
           } else if (op == AdmissionProtocol::TYPE_REBIND_USAGE_CAP) {
@@ -329,12 +331,17 @@ public:
   /*
    * Calculates subsumed time of all SCs of a client on all CPUs
    */
-  timevalue get_usage(ClientData volatile * data) {
+  timevalue get_usage(ClientData * data, const char * name) {
     unsigned i;
     timevalue time_con = 0;
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-      if (!data->scs[i].idx) continue;
-      time_con += data->scs[i].last[0];
+      if (!name) {
+        if (!data->scs[i].idx) continue;
+        time_con += data->scs[i].last[0];
+      } else {
+        if (!strcmp(data->scs[i].name, name))
+          return data->scs[i].last[0];
+      }
     }
     return time_con;
   }

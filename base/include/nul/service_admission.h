@@ -46,9 +46,14 @@ struct AdmissionProtocol : public GenericProtocol {
       << Utcb::TypedMapCap(idx_ec, DESC_TYPE_CAP | DESC_RIGHT_SC) << p << cpu << Utcb::String(name), true);
   }
 
-  unsigned get_statistics(Utcb &utcb, cap_sel client, uint64 &con_time) {
+  /*
+   * Returns subsumed time (since creation) of all SCs on all CPUs or of one named SC of a client
+   * cap_sel client - capability obtained by using get_usage_cap method
+   * uint64 con_tim - time value spent in microseconds since SC was created
+   */
+  unsigned get_statistics(Utcb &utcb, cap_sel client, uint64 &con_time, const char * name = "") {
     if (!client) return EPERM;
-    unsigned res = call_server(init_frame(utcb, TYPE_SC_USAGE) << Utcb::TypedIdentifyCap(client), false);
+    unsigned res = call_server(init_frame(utcb, TYPE_SC_USAGE) << Utcb::TypedIdentifyCap(client) << Utcb::String(name), false);
     utcb >> con_time;
     utcb.drop_frame();
     return res;
