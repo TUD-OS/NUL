@@ -9,6 +9,6 @@ nul.App(target_env, 'test_ip',
         INCLUDE = [ 'sigma0' ],
         OBJS    = [ '#service/simplemalloc.o', '#service/logging.o', '#service/vprintf.o'],
         LIBS    = [ 'ip_lwip', 'runtime' ],
-        MEMSIZE = 1<<20)
+        MEMSIZE = 2<<20)
 
 # EOF

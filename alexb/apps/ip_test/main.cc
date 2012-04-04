@@ -1,5 +1,5 @@
 /*
- * (C) 2010 Alexander Boettcher
+ * (C) 2010-2012 Alexander Boettcher
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -33,7 +33,8 @@ enum {
   IP_UDP_OPEN     = 4,
   IP_TCP_OPEN     = 5,
   IP_SET_ADDR     = 6,
-  IP_TCP_SEND     = 7
+  IP_TCP_SEND     = 7,
+  IP_TCP_CLOSE    = 8
 };
 
 namespace ab {
@@ -58,7 +59,7 @@ class TestIP : public NovaProgram, public ProgramConsole
       unsigned long long arg = 0;
       Clock * _clock = new Clock(hip->freq_tsc);
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x1) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x4) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -67,22 +68,22 @@ class TestIP : public NovaProgram, public ProgramConsole
       TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
       res = timer_service->timer(*utcb, msg);
 
-      Logging::printf("request timer attach - %s\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request timer attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
 
       KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
       res = Sigma0Base::request_network_attach(utcb, netconsumer, sem.sm());
 
-      Logging::printf("request network attach - %s\n", (res == 0 ? "success" : "failure"));
+      Logging::printf("%s - request network attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
 
       MessageNetwork msg_op(MessageNetwork::QUERY_MAC, 0);
       res = Sigma0Base::network(msg_op);
-      Logging::printf("got mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx - %s\n",
+      Logging::printf("%s - got mac %02llx:%02llx:%02llx:%02llx:%02llx:%02llx\n",
+                      (res == 0 ? "success" : "failure"),
                       (msg_op.mac >> 40) & 0xFF, (msg_op.mac >> 32) & 0xFF,
                       (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
-                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF,
-                      (res == 0 ? "success" : "failure"));
+                      (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF);
 
       unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
 
@@ -93,11 +94,21 @@ class TestIP : public NovaProgram, public ProgramConsole
       if (!nul_ip_init(send_network, mac)) Logging::panic("failed - starting ip\n");
       if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failed - starting dhcp\n");
 
-      unsigned long port[2] = { 5555, 0 };
-      if (!nul_ip_config(IP_UDP_OPEN, &port[0])) Logging::panic("failed - creating udp port\n");
-      port[0] = 7777;
-      port[1] = 0;
-      if (!nul_ip_config(IP_TCP_OPEN, &port[0])) Logging::panic("failed - creating tcp port\n");
+      unsigned long port = 5555;
+      bool result;
+
+      result = nul_ip_config(IP_UDP_OPEN, &port);
+      Logging::printf("%s - creating udp port %lu\n", (res == 0 ? "success" : "failure"), port);
+      if (!result) return result;
+
+      struct {
+        unsigned long port;
+        void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
+        unsigned long addr;
+      } conn = { 7777, 0, 0 };
+      result = nul_ip_config(IP_TCP_OPEN, &conn);
+      Logging::printf("%s - creating tcp port %lu\n", (res == 0 ? "success" : "failure"), conn.port);
+      if (!result) return result;
 
       while (1) {
         unsigned char *buf;
@@ -116,7 +127,22 @@ class TestIP : public NovaProgram, public ProgramConsole
             Logging::printf("failed  - starting timer\n");
 
           //dump ip addr if we got one
-          nul_ip_config(IP_IPADDR_DUMP, NULL);
+          if (nul_ip_config(IP_IPADDR_DUMP, NULL)) {
+
+            conn.port = 7777;
+            conn.addr = (1 << 24) | 127; //127.0.0.1
+            result = nul_ip_config(IP_TCP_OPEN, &conn);
+            Logging::printf("%s - connecting from %lu to %lu tcp port\n", (res == 0 ? "success" : "failure"), conn.port, 7777UL);
+            if (!result) return result;
+          }
+
+          //send regulary some test stuff
+            struct {
+              unsigned long port;
+              size_t count;
+              void const * data;
+            } arg = { conn.port, 7, "blabla" };
+            nul_ip_config(IP_TCP_SEND, &arg);
         }
 
         while (netconsumer->has_data()) {

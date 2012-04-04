@@ -218,7 +218,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
           nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x3) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x4) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -295,7 +295,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         unsigned long port;
 //        void (*fn)(uint16 localport, void * in_data, size_t in_len);
         void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
-      } conn = { LIBVIRT_CMD_PORT, recv_call_back };
+        unsigned long addr;
+      } conn = { LIBVIRT_CMD_PORT, recv_call_back, 0 };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 
       conn.port = LIBVIRT_EVT_PORT;

@@ -1,5 +1,5 @@
 /*
- * (C) 2011 Alexander Boettcher
+ * (C) 2011-2012 Alexander Boettcher
  *     economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -201,14 +201,15 @@ bool nul_ip_udp(unsigned _port) {
 
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
-  Logging::printf("[tcp] connection closed - port %u\n", tcp_struct->port);
+  Logging::printf("[tcp]   - connection closed - port %u\n", tcp_struct->port);
   if (tcp_struct->fn_recv_call) {
     tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
                              tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
                              NULL, NUL_TCP_EOF);
   }
+  if (tcp_struct->listening_pcb != tcp_struct->openconn_pcb)
+    tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
   tcp_struct->openconn_pcb = 0;
-  tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
 }
 
 static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
@@ -219,7 +220,7 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
 
     if (!tcp_struct || !tcp_struct->fn_recv_call) {
       total += p->tot_len;
-      Logging::printf("[tcp] %u.%u.%u.%u:%u -> %u - len %u, first part %u - total %lu\n",
+      Logging::printf("[tcp]   - %u.%u.%u.%u:%u -> %u - len %u, first part %u - total %lu\n",
                       (tpcb->remote_ip.addr) & 0xff, (tpcb->remote_ip.addr >> 8) & 0xff,
                       (tpcb->remote_ip.addr >> 16) & 0xff, (tpcb->remote_ip.addr >> 24) & 0xff,
                       tpcb->remote_port, tpcb->local_port, p->tot_len, p->len, total);
@@ -233,20 +234,21 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
   } else {
     total = 0;
     if (tcp_struct) nul_tcp_close(tcp_struct);
-    else Logging::printf("warning - tcp - some struct is NULL\n");
+    else Logging::printf("[tcp]   - warning - some struct is NULL\n");
   }
 
   return ERR_OK;
 }
 
 static void nul_tcp_error(void *arg, err_t err) {
-  Logging::printf("warning - tcp - arg=%p err=%d\n", arg, err);
   struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
   if (tcp_struct) {
-    Logging::printf("warning - tcp - error on port %u openconn=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
-    if (ERR_RST == err && tcp_struct->openconn_pcb)
+    if ((ERR_RST == err) && tcp_struct->openconn_pcb)
       nul_tcp_close(tcp_struct);
-  }
+    else
+      Logging::printf("[tcp]   - warning - error on port %u openconn=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
+  } else
+    Logging::printf("[tcp]   - warning - error arg=%p err=%d\n", arg, err);
 }
 END_EXTERN_C
 
@@ -260,44 +262,93 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   assert(tcp_struct->openconn_pcb == 0);
   tcp_struct->openconn_pcb = newpcb; //XXX
 
-  Logging::printf("[tcp] connection from %u.%u.%u.%u:%u -> %u (%p) \n",
+  Logging::printf("[tcp]   - connection from %u.%u.%u.%u:%u -> %u\n",
                    (newpcb->remote_ip.addr) & 0xff, (newpcb->remote_ip.addr >> 8) & 0xff,
                    (newpcb->remote_ip.addr >> 16) & 0xff, (newpcb->remote_ip.addr >> 24) & 0xff,
-                    newpcb->remote_port, newpcb->local_port, newpcb);
+                    newpcb->remote_port, newpcb->local_port);
 
-  //tcp_accepted(tcp_struct->listening_pcb); //we support for the moment only one incoming connection of the same port XXX
+  //if (tcp_struct->listening_pcb != tcp_struct->openconn_pcb)
+  //  tcp_accepted(tcp_struct->listening_pcb); //we support for the moment only one incoming connection of the same port XXX
+
+  return ERR_OK;
+}
+
+static err_t callback_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
+  struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
+
+  if (err == ERR_OK) {
+    assert(tpcb);
+    assert(arg);
+    assert(tcp_struct->listening_pcb == tpcb);
+
+    tcp_struct->openconn_pcb = tpcb;
+    Logging::printf("[tcp]   - outgoing connection from %u.%u.%u.%u:%u - established\n",
+                     (tpcb->local_ip.addr) & 0xff, (tpcb->local_ip.addr >> 8) & 0xff,
+                     (tpcb->local_ip.addr >> 16) & 0xff, (tpcb->local_ip.addr >> 24) & 0xff,
+                      tpcb->local_port);
+  } else
+    Logging::printf("[tcp]   - error for outgoing connection arg=%p pcb=%p err=%d\n", arg, tpcb, err);
 
   return ERR_OK;
 }
 
 static
-bool nul_ip_tcp(unsigned _port, fn_recv_call_t fn_call_me) {
+bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr) {
   struct tcp_pcb * tmp_pcb = tcp_new();
-  if (!tmp_pcb) Logging::panic("tcp new failed\n");
+  if (!tmp_pcb) { Logging::printf("[tcp]   - new failed\n"); return false; }
+  u16_t port = *_port;
 
-  ip_addr _ipaddr;
-  memset(&_ipaddr, 0, sizeof(_ipaddr));
-  u16_t port = _port;
+  if (addr && addr->addr != 0) {
+    //set callbacks
+    tcp_err(tmp_pcb, nul_tcp_error);
 
-  err_t err = tcp_bind(tmp_pcb, &_ipaddr, port);
-  if (err != ERR_OK) Logging::panic("tcp bind failed\n");
+    err_t err = tcp_connect(tmp_pcb, addr, port, callback_connected);
+    Logging::printf("[tcp]   - %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u - try to connect - err=%d\n",
+                     (tmp_pcb->local_ip.addr) & 0xff, (tmp_pcb->local_ip.addr >> 8) & 0xff,
+                     (tmp_pcb->local_ip.addr >> 16) & 0xff, (tmp_pcb->local_ip.addr >> 24) & 0xff,
+                     tmp_pcb->local_port,
+                     (tmp_pcb->remote_ip.addr) & 0xff, (tmp_pcb->remote_ip.addr >> 8) & 0xff,
+                     (tmp_pcb->remote_ip.addr >> 16) & 0xff, (tmp_pcb->remote_ip.addr >> 24) & 0xff,
+                      tmp_pcb->remote_port, err);
+    if (err != ERR_OK) return false;
 
-  struct tcp_pcb * listening_pcb = tcp_listen(tmp_pcb);
-  if (!listening_pcb) Logging::panic("tcp listen failed\n");
+    for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++)
+      if (nul_tcps[i].listening_pcb == 0) {
+        nul_tcps[i].port          = tmp_pcb->local_port;
+        nul_tcps[i].listening_pcb = tmp_pcb;
+        nul_tcps[i].openconn_pcb  = 0;
+        nul_tcps[i].fn_recv_call  = fn_call_me;
 
-  //set callbacks
-  //XXX only limited number of connections are supported
-  for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++) 
-    if (nul_tcps[i].listening_pcb == 0) {
-      nul_tcps[i].port          = port;
-      nul_tcps[i].listening_pcb = listening_pcb;
-      nul_tcps[i].fn_recv_call  = fn_call_me;
+        //set callback
+        tcp_arg(tmp_pcb, &nul_tcps[i]);
+        *_port = tmp_pcb->local_port;
+        return true;
+      }
 
-      tcp_arg(listening_pcb, &nul_tcps[i]);
-      tcp_accept(listening_pcb, nul_tcp_accept);
+    return true;
+  } else {
+    ip_addr _ipaddr;
+    memset(&_ipaddr, 0, sizeof(_ipaddr));
 
-      return true;
-    }
+    err_t err = tcp_bind(tmp_pcb, &_ipaddr, port);
+    if (err != ERR_OK) { Logging::printf("failure - tcp bind\n"); return false; }
+
+    struct tcp_pcb * listening_pcb = tcp_listen(tmp_pcb);
+    if (!listening_pcb) { Logging::printf("failure - tcp listen\n"); return false; }
+
+    //set callbacks
+    for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++)
+      if (nul_tcps[i].listening_pcb == 0) {
+        nul_tcps[i].port          = port;
+        nul_tcps[i].listening_pcb = listening_pcb;
+        nul_tcps[i].fn_recv_call  = fn_call_me;
+
+        tcp_arg(listening_pcb, &nul_tcps[i]);
+        tcp_accept(listening_pcb, nul_tcp_accept);
+
+        return true;
+      }
+  }
 
   return false;
 }
@@ -328,7 +379,7 @@ bool nul_ip_config(unsigned para, void * arg) {
   switch (para) {
     case 0: /* ask for version of this implementation */
       if (!arg) return false;
-      *reinterpret_cast<unsigned long long *>(arg) = 0x3;
+      *reinterpret_cast<unsigned long long *>(arg) = 0x4;
       return true;
     case 1: /* enable dhcp to get an ip address */
       dhcp_start(&nul_netif);
@@ -354,7 +405,7 @@ bool nul_ip_config(unsigned para, void * arg) {
                         (last_gw.addr >> 8) & 0xff,
                         (last_gw.addr >> 16) & 0xff,
                         (last_gw.addr >> 24) & 0xff);
-       return true;
+        return true;
       }
       return false;
     case 3: /* return next timeout to be fired */
@@ -396,8 +447,10 @@ bool nul_ip_config(unsigned para, void * arg) {
       if (!arg) return false;
 
       assert(sizeof(unsigned long) == sizeof(void *));
-      unsigned long * port = reinterpret_cast<unsigned long *>(arg);
-      return nul_ip_tcp(*port, reinterpret_cast<fn_recv_call_t>(*(port + 1)));
+      unsigned long  * port      = reinterpret_cast<unsigned long *>(arg);
+      fn_recv_call_t * call_recv = reinterpret_cast<fn_recv_call_t *>(port + 1);
+      ip_addr_t      *     addr  = reinterpret_cast<ip_addr_t *>(call_recv + 1);
+      return nul_ip_tcp(port, *call_recv, addr);
       break;
     }
     case 6: /* set ip addr */
