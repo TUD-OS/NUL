@@ -25,6 +25,7 @@ BEGIN_EXTERN_C
   #include "netif/etharp.h"
   #include "lwip/dhcp.h"
   #include "lwip/tcp.h"
+  #include "lwip/tcp_impl.h"
 
  void lwip_init(void);
 
@@ -325,7 +326,7 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
         return true;
       }
 
-    return true;
+    return false;
   } else {
     ip_addr _ipaddr;
     memset(&_ipaddr, 0, sizeof(_ipaddr));
@@ -374,6 +375,9 @@ bool nul_ip_config(unsigned para, void * arg) {
   static unsigned long long etharp_timer = ETHARP_TMR_INTERVAL;
   static unsigned long long dhcp_fine_timer = DHCP_FINE_TIMER_MSECS;
   static unsigned long long dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
+  static unsigned long long tcp_fast_interval = TCP_FAST_INTERVAL;
+  static unsigned long long tcp_slow_interval = TCP_SLOW_INTERVAL;
+
   static ip_addr last_ip, last_mask, last_gw;
 
   switch (para) {
@@ -424,12 +428,27 @@ bool nul_ip_config(unsigned para, void * arg) {
         dhcp_coarse_timer = DHCP_COARSE_TIMER_MSECS;
         dhcp_coarse_tmr();
       }
-      unsigned long long next = etharp_timer < dhcp_fine_timer ? etharp_timer : dhcp_fine_timer;
-      next = next < dhcp_coarse_timer ? next : dhcp_coarse_timer;
+      if (!tcp_fast_interval) {
+        tcp_fast_interval = TCP_FAST_INTERVAL;
+        tcp_fasttmr();
+      }
+      if (!tcp_slow_interval) {
+        tcp_slow_interval = TCP_SLOW_INTERVAL;
+        tcp_slowtmr();
+      }
 
-      etharp_timer -= next;
-      dhcp_fine_timer -= next;
+//      unsigned long long next = etharp_timer < dhcp_fine_timer ? etharp_timer : dhcp_fine_timer;
+//      next = next < dhcp_coarse_timer ? next : dhcp_coarse_timer;
+      unsigned long long next = MIN(etharp_timer, dhcp_fine_timer);
+      next = MIN(next, dhcp_coarse_timer);
+      next = MIN(next, tcp_fast_interval);
+      next = MIN(next, tcp_slow_interval);
+
+      etharp_timer      -= next;
+      dhcp_fine_timer   -= next;
       dhcp_coarse_timer -= next;
+      tcp_fast_interval -= next;
+      tcp_slow_interval -= next;
 
       *reinterpret_cast<unsigned long long *>(arg) = next;
       return true;
@@ -491,7 +510,7 @@ bool nul_ip_config(unsigned para, void * arg) {
       struct nul_tcp_struct * tcp_struct = lookup_internal(port);
       //Logging::printf("close tpcb %p\n", tcp_struct);
       if (tcp_struct) {
-        tcp_close(tcp_struct->openconn_pcb);
+        if (tcp_struct->openconn_pcb) tcp_close(tcp_struct->openconn_pcb);
         nul_tcp_close(tcp_struct);
       }
       break;
