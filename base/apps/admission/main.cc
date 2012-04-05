@@ -313,9 +313,21 @@ public:
           if (!client) return EPERM;
 
           if (op == AdmissionProtocol::TYPE_SC_USAGE) {
-            uint64 time_con = get_usage(client, (!name || len==0 ? NULL : name));
+            unsigned i, res = ERESOURCE;
+            uint64 time_con = 0;
+
+            for (i=0; i < sizeof(client->scs) / sizeof(client->scs[0]); i++) {
+              if (!client->scs[i].idx ||
+                  (len > 0 && strcmp(client->scs[i].name, name) != 0)) continue;
+              res = ENONE;
+
+              timevalue computetime;
+              unsigned res = nova_ctl_sc(client->scs[i].idx, computetime);
+              if (res != NOVA_ESUCCESS) return EPERM;
+              time_con += computetime;
+            }
             utcb << time_con;
-            return ENONE;
+            return res;
           } else if (op == AdmissionProtocol::TYPE_REBIND_USAGE_CAP) {
             nova_revoke(Crd(client->statistics, 0, DESC_CAP_ALL), false); //rebind - revoke old mapping
             utcb << Utcb::TypedMapCap(client->statistics);
