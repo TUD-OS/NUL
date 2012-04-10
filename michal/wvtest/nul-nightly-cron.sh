@@ -23,7 +23,7 @@ else
     ret=1
     (
 	cat <<EOF
-Subject: NUL nighly build/test failed!
+Subject: NUL nightly build/test failed!
 To: commits-nul@os
 
 Full log can be found at erwin:$PWD/$log
