@@ -119,6 +119,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         nul_tls_delete_session(tls_session);
         rc  = nul_tls_session(tls_session); // Prepare new session for the next time???
         assert(rc == 0);
+        remcon->obj_auth->reset();
         return;
       }
       int32 len = nul_tls_len(tls_session, sslbuf);
@@ -145,7 +146,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       return NovaProgram::create_ec4pt(tls, cpunr, excbase, utcb_out, cap);
     }
 
-    bool start_services(Utcb *utcb, Hip * hip, EventProducer * producer) {
+    bool start_services(Utcb *utcb, Hip * hip, EventProducer * prod_event) {
       char const *args[16];
       char const *cmdline = reinterpret_cast<char const *>(hip->get_mod(0)->aux);
       unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
@@ -162,8 +163,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned cap_region = alloc_cap_region(1 << 14, 14);
       if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
       remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
-                          cap_region, 14, producer, templatefile, temp_len, diskuuidfile, disk_len);
-
+                          cap_region, 14, prod_event, NULL, templatefile, temp_len, diskuuidfile, disk_len);
       //create event service object
       EventService * event = new EventService(remcon);
       if (!event || !event->start_service(utcb, hip, this)) return false;
@@ -171,7 +171,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       return true;
     }
 
-    bool use_network(Utcb *utcb, Hip * hip, EventConsumer * sendconsumer,
+    bool use_network(Utcb *utcb, Hip * hip, EventConsumer * sendconsumer, 
                      Clock * _clock, KernelSemaphore &sem, TimerProtocol * timer_service)
     {
       unsigned long long arg = 0;
@@ -218,7 +218,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
           nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x4) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x5) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -293,10 +293,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       struct {
         unsigned long port;
-//        void (*fn)(uint16 localport, void * in_data, size_t in_len);
         void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
         unsigned long addr;
-      } conn = { LIBVIRT_CMD_PORT, recv_call_back, 0 };
+        void (*connected) (bool);
+      } PACKED conn = { LIBVIRT_CMD_PORT, recv_call_back, 0, 0 };
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
 
       conn.port = LIBVIRT_EVT_PORT;
@@ -311,6 +311,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       if (!static_ip)
         Logging::printf(".......   looking for an IP address via DHCP\n");
 
+      bool up = false;
       while (1) {
         unsigned char *buf;
         unsigned tcount = 0;
@@ -326,8 +327,12 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
           if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
 
           //dump ip addr if we got one
-          if (nul_ip_config(IP_IPADDR_DUMP, NULL))
+          if (nul_ip_config(IP_IPADDR_DUMP, NULL)) {
             Logging::printf("ready   - NOVA management daemon is up. Waiting for libvirt connection ... \n");
+            up = true;
+          }
+
+          if (up) remcon->obj_auth->check_connection();
         }
 
         while (netconsumer->has_data()) {

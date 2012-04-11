@@ -66,6 +66,8 @@ void lwip_assert(const char *format, ...);
 //#define TCP_DEBUG   (LWIP_DBG_ON)
 //#define TCP_INPUT_DEBUG   (LWIP_DBG_ON)
 //#define TCP_OUTPUT_DEBUG   (LWIP_DBG_ON)
+//#define TCP_TCP_QLEN_DEBUG (LWIP_DBG_ON)
+//#define TCP_CWND_DEBUG     (LWIP_DBG_ON)
 //#define PBUF_DEBUG   (LWIP_DBG_ON)
 //#define MEMP_DEBUG   (LWIP_DBG_ON)
 //#define ETHARP_DEBUG (LWIP_DBG_ON)

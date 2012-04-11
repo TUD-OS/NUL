@@ -53,12 +53,14 @@ END_EXTERN_C
 void sys_init(void) { }
 
 typedef void (*fn_recv_call_t)(uint32 remoteip, uint16 remoteport, uint16 localport, void * in_data, size_t in_len);
+typedef void (*fn_connected_call_t)(bool);
 struct nul_tcp_struct {
   u16_t port;
   struct tcp_pcb * listening_pcb;
   struct tcp_pcb * openconn_pcb;
   fn_recv_call_t fn_recv_call;
-} nul_tcps[3];
+  fn_connected_call_t fn_connected;
+} nul_tcps[4];
 
 /*
  * time
@@ -203,13 +205,17 @@ bool nul_ip_udp(unsigned _port) {
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
   Logging::printf("[tcp]   - connection closed - port %u\n", tcp_struct->port);
-  if (tcp_struct->fn_recv_call) {
+  if (tcp_struct->fn_recv_call && tcp_struct->openconn_pcb) {
     tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
                              tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
                              NULL, NUL_TCP_EOF);
   }
-  if (tcp_struct->listening_pcb != tcp_struct->openconn_pcb)
+  if (!tcp_struct->openconn_pcb ||
+       tcp_struct->listening_pcb == tcp_struct->openconn_pcb) //outgoing call, either connected or unconnected
+    tcp_struct->listening_pcb = 0; //free old port - it was a outgoing connection
+  else
     tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+
   tcp_struct->openconn_pcb = 0;
 }
 
@@ -244,12 +250,14 @@ static err_t nul_tcp_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t
 static void nul_tcp_error(void *arg, err_t err) {
   struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
   if (tcp_struct) {
-    if ((ERR_RST == err) && tcp_struct->openconn_pcb)
+    if ((ERR_RST == err))
       nul_tcp_close(tcp_struct);
     else
-      Logging::printf("[tcp]   - warning - error on port %u openconn=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
+      Logging::printf("[tcp]   - warning - err %d, port %u, pcb_open=%p, pcb_listing=%p\n", err, tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
+    if (tcp_struct->fn_connected) tcp_struct->fn_connected(false); //signal that attempt failed
+
   } else
-    Logging::printf("[tcp]   - warning - error arg=%p err=%d\n", arg, err);
+    Logging::printf("[tcp]   - warning - err arg=%p err=%d\n", arg, err);
 }
 END_EXTERN_C
 
@@ -283,18 +291,23 @@ static err_t callback_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
     assert(tcp_struct->listening_pcb == tpcb);
 
     tcp_struct->openconn_pcb = tpcb;
+/*
     Logging::printf("[tcp]   - outgoing connection from %u.%u.%u.%u:%u - established\n",
                      (tpcb->local_ip.addr) & 0xff, (tpcb->local_ip.addr >> 8) & 0xff,
                      (tpcb->local_ip.addr >> 16) & 0xff, (tpcb->local_ip.addr >> 24) & 0xff,
                       tpcb->local_port);
+*/
   } else
     Logging::printf("[tcp]   - error for outgoing connection arg=%p pcb=%p err=%d\n", arg, tpcb, err);
+
+  if (tcp_struct->fn_connected)
+    tcp_struct->fn_connected(err == ERR_OK);
 
   return ERR_OK;
 }
 
 static
-bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr) {
+bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr, fn_connected_call_t fn_conn_me) {
   struct tcp_pcb * tmp_pcb = tcp_new();
   if (!tmp_pcb) { Logging::printf("[tcp]   - new failed\n"); return false; }
   u16_t port = *_port;
@@ -319,9 +332,12 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
         nul_tcps[i].listening_pcb = tmp_pcb;
         nul_tcps[i].openconn_pcb  = 0;
         nul_tcps[i].fn_recv_call  = fn_call_me;
+        nul_tcps[i].fn_connected  = fn_conn_me;
 
         //set callback
         tcp_arg(tmp_pcb, &nul_tcps[i]);
+        tcp_recv(tmp_pcb, nul_tcp_recv);
+
         *_port = tmp_pcb->local_port;
         return true;
       }
@@ -342,7 +358,9 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
       if (nul_tcps[i].listening_pcb == 0) {
         nul_tcps[i].port          = port;
         nul_tcps[i].listening_pcb = listening_pcb;
+        nul_tcps[i].openconn_pcb  = 0;
         nul_tcps[i].fn_recv_call  = fn_call_me;
+        nul_tcps[i].fn_connected  = 0;
 
         tcp_arg(listening_pcb, &nul_tcps[i]);
         tcp_accept(listening_pcb, nul_tcp_accept);
@@ -383,7 +401,7 @@ bool nul_ip_config(unsigned para, void * arg) {
   switch (para) {
     case 0: /* ask for version of this implementation */
       if (!arg) return false;
-      *reinterpret_cast<unsigned long long *>(arg) = 0x4;
+      *reinterpret_cast<unsigned long long *>(arg) = 0x5;
       return true;
     case 1: /* enable dhcp to get an ip address */
       dhcp_start(&nul_netif);
@@ -466,10 +484,11 @@ bool nul_ip_config(unsigned para, void * arg) {
       if (!arg) return false;
 
       assert(sizeof(unsigned long) == sizeof(void *));
-      unsigned long  * port      = reinterpret_cast<unsigned long *>(arg);
-      fn_recv_call_t * call_recv = reinterpret_cast<fn_recv_call_t *>(port + 1);
-      ip_addr_t      *     addr  = reinterpret_cast<ip_addr_t *>(call_recv + 1);
-      return nul_ip_tcp(port, *call_recv, addr);
+      unsigned long       * port      = reinterpret_cast<unsigned long *>(arg);
+      fn_recv_call_t      * call_recv = reinterpret_cast<fn_recv_call_t *>(port + 1);
+      ip_addr_t           * addr      = reinterpret_cast<ip_addr_t *>(call_recv + 1);
+      fn_connected_call_t * call_conn = reinterpret_cast<fn_connected_call_t *>(addr + 1);
+      return nul_ip_tcp(port, *call_recv, addr, *call_conn);
       break;
     }
     case 6: /* set ip addr */

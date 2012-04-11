@@ -41,6 +41,8 @@ class ConfigProtocol;
 
 typedef PacketConsumer<NOVA_PACKET_LEN * 64> EventConsumer;
 typedef PacketProducer<NOVA_PACKET_LEN * 64> EventProducer;
+typedef PacketConsumer<NOVA_PACKET_LEN * 4> AuthConsumer;
+typedef PacketProducer<NOVA_PACKET_LEN * 4> AuthProducer;
 
 class Remcon : public CapAllocator {
   private:
@@ -108,6 +110,7 @@ class Remcon : public CapAllocator {
     unsigned start_entry(struct server_data * entry);
 
     EventProducer     * eventproducer;
+    AuthProducer      * authproducer;
     AdmissionProtocol * service_admission;
 
     const char * file_template, * file_diskuuid;
@@ -118,14 +121,32 @@ class Remcon : public CapAllocator {
       bool used;
     } * disks;
 
+
   public:
+    class Auth {
+      protected:
+        bool auth;
+      public:
+        bool is_valid() { return auth; }
+        int auth_port;
+
+        virtual bool do_authentication(bool &success) { auth = true; success = true; return true;};
+        virtual void check_connection() {};
+
+        int get_auth_port(int port = -1) { if (port != -1) auth_port = port; return auth_port; }
+        virtual void reset() { auth = false; }
+
+        Auth() : auth(false), auth_port(-1) {}
+    };
+    class Auth * obj_auth;
+
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
-           unsigned long cap_start, unsigned long cap_order, EventProducer * producer,
+           unsigned long cap_start, unsigned long cap_order, EventProducer * prod_event, AuthProducer * prod_auth,
            const char * templatefile, unsigned len_template, const char * diskfile, unsigned len_disk) :
       CapAllocator(cap_start, cap_start, cap_order), gevents(false),
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
-      cpu_count(_cpu_count), eventproducer(producer),
+      cpu_count(_cpu_count), eventproducer(prod_event), authproducer(prod_auth),
       file_template(templatefile), file_diskuuid(diskfile),
       file_len_template(len_template), file_len_diskuuid(len_disk)
     {
@@ -232,6 +253,8 @@ class Remcon : public CapAllocator {
       disks[n/42].used      = true;
 
       fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
+
+      obj_auth = new Auth();
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len, void * &out, size_t &out_len);
@@ -340,4 +363,6 @@ class Remcon : public CapAllocator {
 
       return true;
     }
+
 };
+

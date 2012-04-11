@@ -127,25 +127,28 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 
 void Remcon::handle_packet(void) {
 
+  unsigned op;
+
   //version check
   if (_in->version != Math::htons(DAEMON_VERSION)) {
     _out->version = Math::htons(DAEMON_VERSION);
     _out->result  = NOVA_UNSUPPORTED_VERSION;
-    if (sizeof(buf_out) != send(buf_out, sizeof(buf_out)))
-      Logging::printf("failure - sending reply\n");
-
     Logging::printf("failure - outdated protocol request version %#x != %#x current\n",
       Math::htons(_in->version), DAEMON_VERSION);
+
+    goto send_out;
 
     return;
   }
 
   //set default values 
-  unsigned op = Math::ntohs(_in->opcode);
+  op = Math::ntohs(_in->opcode);
   _out->version = Math::htons(DAEMON_VERSION);
   _out->opcode  = Math::htons(op);
   _out->result  = NOVA_OP_FAILED;
-  
+
+  if (!obj_auth->is_valid() && (op != NOVA_AUTH)) goto send_out; //no authentication - no service
+
   switch (op) {
     case NOVA_LIST_ACTIVE_DOMAINS:
       {
@@ -524,15 +527,23 @@ void Remcon::handle_packet(void) {
         if (len < 2 || len > NOVA_PACKET_LEN || &_in->opspecific + len > buf_in + NOVA_PACKET_LEN) break; // cheater!
 
         authid[len - 1] = 0;
-        Logging::printf("%u %s\n", len, authid);
+
+        Logging::printf("        - authentication request :%s (%u)\n", authid, len);
+
+        bool success = false;
+        bool reply = obj_auth->do_authentication(success);
+        if (!reply) return; //don't send a packet neither success nor failure if said so
+
+        _out->result  = success ? NOVA_OP_SUCCEEDED : NOVA_OP_FAILED;
       }
       break;
     default:
       Logging::printf("got bad packet op=%u\n", op);
   }
 
+  send_out:
   if (sizeof(buf_out) != send(buf_out, sizeof(buf_out))) {
     Logging::printf("failure - sending reply\n");
-    return;
   }
 }
+
