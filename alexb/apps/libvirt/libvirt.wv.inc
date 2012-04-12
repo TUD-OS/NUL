@@ -1,6 +1,6 @@
 # -*-sh-*-
 
-nulroot=$(readlink -f $(dirname $0)/../../..)
+nulroot=$(readlink -f $(dirname ${BASH_SOURCE:-$0})/../../..)
 wvpath=$nulroot/michal/wvtest
 
 . $wvpath/wvtest.sh

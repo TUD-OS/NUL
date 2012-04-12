@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+_myexit() {
+    code=$?
+    cmd=$BASH_COMMAND
+    echo >&2 "! $0 Command '$cmd' exit with code $code FAILED"
+}
+
+trap '_myexit' EXIT
+
+set -e
+
+mydir=$(readlink -f $(dirname $0))
+. $mydir/wvtest.sh
+
+WVSTART "PASSIVE checkout"
+WVPASS cd $HOME/passive/src
+WVPASS svn up
+
+WVSTART "PASSIVE compilation"
+(set -x; mvn install) || : # Ignore errors here, we are only interested in resource manager
+
+WVSTART "Resource manager compilation"
+WVPASS cd resmgr
+WVPASS mvn compile
+
+WVSTART "NOVA - PASSIVE configuration boot"
+. $(readlink -f $mydir/../../alexb/apps/libvirt/libvirt.wv.inc)
+init
+
+nc 141.76.48.252 23 < /dev/null &
+nc_pid=$!
+trap "set -x; kill $nc_pid" EXIT
+
+WVSTART "Resource manager test"
+export LIBVIRT_DEBUG=1
+WVPASS "mvn test -Dcon.string=nova+tls://$NOVA_IP:9999"
+
+trap - EXIT
