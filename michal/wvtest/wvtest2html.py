@@ -106,6 +106,11 @@ for t in tests_nonempty:
     t.num = num
     num += 1
 
+try:
+    date_and_commit = (time.strftime("%a, %d %b %Y %H:%M:%S +0000", date) + " " + commit)
+except:
+    date_and_commit = time.strftime("%a, %d %b %Y %H:%M:%S %Z")
+    pass
 print """<!DOCTYPE HTML>
 <html>
 <head>
@@ -140,7 +145,7 @@ $(document).ready(function(){
 <h1>NUL Test Report</h1>
 %s
 <table>
-""" % (time.strftime("%a, %d %b %Y %H:%M:%S +0000", date) + " " + commit)
+""" % date_and_commit
 for test in tests_nonempty:
     test.printHtml()
 print """

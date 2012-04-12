@@ -19,6 +19,7 @@ WVPASS svn up
 
 WVSTART "PASSIVE compilation"
 (set -x; mvn install) || : # Ignore errors here, we are only interested in resource manager
+WVPASS true
 
 WVSTART "Resource manager compilation"
 WVPASS cd resmgr

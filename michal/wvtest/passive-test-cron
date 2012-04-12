@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+(set -o pipefail; $(dirname -- $0)/passive-test "$@" 2>&1 | tee passive-test.log)
+success=$?
+
+wvtest2html.py < passive-test.log > passive-test-report.html && mv passive-test-report.html ~/public_html/nul/ || exit 1
+
+if [ $success != 0 ]; then
+    (
+	cat <<EOF
+Subject: PASSIVE Intelligence test failed!
+To: sojka@os
+
+This is an automatically generated message. Full log can be found at
+http://os.inf.tu-dresden.de/~sojka/nul/passive-test-report.html
+
+EOF
+	export COLUMNS=100
+	cat passive-test.log | tr -d '\015' | wvformat | wvwrap #| iconv -f ASCII -t ASCII//IGNORE
+    ) | /usr/sbin/sendmail -ti
+fi
