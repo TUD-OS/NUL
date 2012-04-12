@@ -5,6 +5,7 @@ ret=0
 log=$(date '+nul_%F_%T.log')
 
 cd ~/nul
+umask 022
 
 git fetch --quiet
 git reset --quiet --hard origin/master
