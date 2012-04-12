@@ -49,6 +49,14 @@ sub colourize($$)
     return "$begcolour$leader $result$endcolour";
 }
 
+sub highlight($)
+{
+    my $msg = shift;
+    my $begcolour = $istty ? "\e[1m\e[4m" : "";
+    my $endcolour = $istty ? "\e[0m" : "";
+    return "$begcolour$msg$endcolour";
+}
+
 sub resultline($$$)
 {
     my ($prefix, $name, $result) = @_;
@@ -87,6 +95,9 @@ while (<>)
 	$startup = 0;
 	(undef, $sect, $file) = ($1, $2, $3);
 	@log = ();
+	if ($verbose) {
+	    print highlight($_), "\n";
+	}
     }
     elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
     {
