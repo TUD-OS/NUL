@@ -53,8 +53,8 @@ void lwip_assert(const char *format, ...);
 #define LWIP_NETCONN 0
 #define LWIP_SOCKET 0
 //#define LWIP_ICMP 0
-#define TCP_LISTEN_BACKLOG 1
-#define TCP_DEFAULT_LISTEN_BACKLOG 1
+//#define TCP_LISTEN_BACKLOG 1
+//#define TCP_DEFAULT_LISTEN_BACKLOG 1
 
 #define MEM_ALIGNMENT 4
 
