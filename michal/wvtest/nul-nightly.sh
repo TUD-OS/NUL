@@ -77,7 +77,7 @@ WVTEST_BACKUP_FAILED=/home/sojka/nul-nightly/failed/$date \
 /home/sojka/nul/michal/wvtest/runall --server --iprelay || ret=1
 
 if [ "$ret" = 0 -a -d $HOME/passive/src ]; then
-    $(dirname -- $0)/passive-test-cron --server --iprelay
+    $HOME/nul/michal/wvtest/passive-test-cron --server --iprelay
 fi
 
 novaboot --iprelay=off
