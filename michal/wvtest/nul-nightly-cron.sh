@@ -8,10 +8,12 @@ cd ~/nul
 umask 022
 
 git fetch --quiet
+git stash --quiet # Save any chnages made by humans e.g. some testing
+git checkout --quiet master
 git reset --quiet --hard origin/master
-git clean --quiet -f > /dev/null
+git clean --quiet -fxd > /dev/null
+git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'
 git submodule --quiet update --init
-git submodule --quiet foreach --recursive 'git reset --quiet --hard && git clean --quiet -fxd'
 
 if ! cmp $0 michal/wvtest/nul-nightly-cron.sh; then
     cp michal/wvtest/nul-nightly-cron.sh $0 && exec $0
