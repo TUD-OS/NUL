@@ -37,9 +37,14 @@ init() {
 	pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
 	set +x
 	WVPASS test $NOVA_IP
+	set -x
+	if [ "$nic" = 82576 ]; then nc 141.76.48.252 23 < /dev/null & nc_pid=$!; fi
+	set +x
     fi
 }
 
 finish() {
+    set -x
     if [ "$pid" ]; then kill $pid; fi
+    if [ "$nc_pid" ]; then kill $nc_pid; fi
 }
