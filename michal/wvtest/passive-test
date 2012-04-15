@@ -25,13 +25,10 @@ WVSTART "Resource manager compilation"
 WVPASS cd resmgr
 WVPASS mvn compile
 
-WVSTART "NOVA - PASSIVE configuration boot"
+WVSTART "NOVA boot (PASSIVE configuration)"
 . $(readlink -f $mydir/../../alexb/apps/libvirt/libvirt.wv.inc)
 init
-
-nc 141.76.48.252 23 < /dev/null &
-nc_pid=$!
-trap "set -x; kill $nc_pid" EXIT
+trap "finish" EXIT
 
 WVSTART "Resource manager test"
 export LIBVIRT_DEBUG=1
