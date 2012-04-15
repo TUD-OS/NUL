@@ -96,6 +96,7 @@ sub check_number_of_tests()
 	    $result = "ok";
 	} else {
 	    $result = "FAILED";
+	    $tests_failed++;
 	    print "Expected $expected_test_count tests, executed $executed tests.\n"
 	}
 	print "! $0: tests_expected == tests_executed  $result\n";
