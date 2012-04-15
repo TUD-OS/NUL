@@ -136,9 +136,16 @@ while (<$fh>)
 	    kill 15, $pid;	# Kill novaboot or qemu
 	    $kill_ok = 1;
 	} else {
-	    print "Keeping PID $pid alive\n";
 	    use POSIX;
-	    POSIX:_exit(0);
+	    my $pid = fork();
+	    if ($pid) {
+		print "Keeping PID $pid alive\n";
+		POSIX::_exit(0);
+	    } else {
+		# Continue printing on background
+		while (<$fh>) { print; }
+		POSIX::_exit(0);
+	    }
 	}
     }
 }
