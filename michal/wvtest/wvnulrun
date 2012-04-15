@@ -103,12 +103,17 @@ sub check_number_of_tests()
     }
 }
 
+my $wvtest_output;
+if ($ENV{WVTEST_OUTPUT}) {
+    open $wvtest_output, ">", $ENV{WVTEST_OUTPUT};
+}
 
 alarm($timeout);
 while (<$fh>)
 {
     alarm($timeout);
     print;
+    print $wvtest_output $_ if $wvtest_output;
     chomp;
     s/\r//g;
 
@@ -140,9 +145,12 @@ while (<$fh>)
 	    my $pid = fork();
 	    if ($pid) {
 		print "Keeping PID $pid alive\n";
+		print $wvtest_output "Keeping PID $pid alive\n" if $wvtest_output;
+		close($wvtest_output) if $wvtest_output;
 		POSIX::_exit(0);
 	    } else {
 		# Continue printing on background
+		close($wvtest_output) if $wvtest_output;
 		while (<$fh>) { print; }
 		POSIX::_exit(0);
 	    }
