@@ -315,7 +315,9 @@ void Remcon::handle_packet(void) {
           if (!etemplate->istemplate) goto ecleanup; //only templates may be instantiated and started
           if (check_uuid(tmp->uuid + UUID_LEN)) goto ecleanup; //if we have this 'new' uuid already deny starting
 
-          memcpy(entry->uuid, tmp->uuid + UUID_LEN, UUID_LEN);
+          memcpy(entry->uuid, tmp->uuid, UUID_LEN);
+          memcpy(etemplate->uuid, tmp->uuid + UUID_LEN, UUID_LEN); //swap uuids
+
           entry->showname_len = etemplate->showname_len + 8;
           char * tmp     = new char [entry->showname_len];
           if (!tmp) goto ecleanup;
