@@ -265,7 +265,10 @@ static err_t nul_tcp_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
   struct nul_tcp_struct * tcp_struct = reinterpret_cast<struct nul_tcp_struct *>(arg);
 
   if (tcp_struct->openconn_pcb > 0) {
-    Logging::printf("error - we accept only one connection\n");
+    Logging::printf("error   - we accept only one connection (%u.%u.%u.%u:%u -> %u)\n",
+                    (newpcb->remote_ip.addr) & 0xff, (newpcb->remote_ip.addr >> 8) & 0xff,
+                    (newpcb->remote_ip.addr >> 16) & 0xff, (newpcb->remote_ip.addr >> 24) & 0xff,
+                    newpcb->remote_port, newpcb->local_port);
     return ERR_ISCONN;          // We allow only one connection
   }
 
