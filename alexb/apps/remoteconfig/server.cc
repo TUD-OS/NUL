@@ -25,6 +25,40 @@
 
 #include "server.h"
 
+const char *op2string(unsigned op)
+{
+  switch (op) {
+  case NOVA_OP_FAILED: return "NOVA_OP_FAILED";
+  case NOVA_OP_SUCCEEDED: return "NOVA_OP_SUCCEEDED";
+  case NOVA_OP_FAILED_OUT_OF_MEMORY: return "NOVA_OP_FAILED_OUT_OF_MEMORY";
+  case NOVA_PACKET_LEN: return "NOVA_PACKET_LEN";
+  case NOVA_NUM_OF_ACTIVE_DOMAINS: return "NOVA_NUM_OF_ACTIVE_DOMAINS";
+  case NOVA_NUM_OF_DEFINED_DOMAINS: return "NOVA_NUM_OF_DEFINED_DOMAINS";
+  case NOVA_LIST_ACTIVE_DOMAINS: return "NOVA_LIST_ACTIVE_DOMAINS";
+  case NOVA_LIST_DEFINED_DOMAINS: return "NOVA_LIST_DEFINED_DOMAINS";
+  case NOVA_GET_NAME_ID: return "NOVA_GET_NAME_ID";
+  case NOVA_GET_NAME_UUID: return "NOVA_GET_NAME_UUID";
+  case NOVA_GET_NAME: return "NOVA_GET_NAME";
+  case NOVA_GET_VM_INFO: return "NOVA_GET_VM_INFO";
+  case NOVA_VM_START: return "NOVA_VM_START";
+  case NOVA_VM_PAUSE: return "NOVA_VM_PAUSE";
+  case NOVA_VM_RESUME: return "NOVA_VM_RESUME";
+  case NOVA_VM_DESTROY: return "NOVA_VM_DESTROY";
+  case NOVA_UNSUPPORTED_VERSION: return "NOVA_UNSUPPORTED_VERSION";
+  case NOVA_ENABLE_EVENT: return "NOVA_ENABLE_EVENT";
+  case NOVA_DISABLE_EVENT: return "NOVA_DISABLE_EVENT";
+  case NOVA_EVENT: return "NOVA_EVENT";
+  case NOVA_HW_INFO: return "NOVA_HW_INFO";
+  case NOVA_AUTH: return "NOVA_AUTH";
+  case NOVA_ATOMIC_RULE: return "NOVA_ATOMIC_RULE";
+  case EVENT_REBOOT: return "EVENT_REBOOT";
+  case EVENT_UNSERVED_IOACCESS: return "EVENT_UNSERVED_IOACCESS";
+  case EVENT_DMAR_ACCESS: return "EVENT_DMAR_ACCESS";
+  case EVENT_VDEV_HONEYPOT: return "EVENT_VDEV_HONEYPOT";
+  }
+  return NULL;
+};
+
 struct Remcon::server_data * Remcon::check_uuid(char const uuid[UUID_LEN]) {
   unsigned i;
   for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++)
@@ -553,7 +587,16 @@ void Remcon::handle_packet(void) {
   if (time_diff < 1000) unit = "us";
   else { Math::div64(time_diff, 1000); unit="ms"; }
 
-  if (verbosity) Logging::printf("%s - op %#x, %7llu %s, t=%llu \n", _out->result == NOVA_OP_SUCCEEDED ? "ok     ": "failed ", op, time_diff, unit, time_out);
+
+  if (verbosity) {
+    const char *opstr = op2string(op);
+    char num[20];
+    if (!opstr) {
+      Vprintf::snprintf(num, sizeof(num), "%#x", op);
+      opstr = num;
+    }
+    Logging::printf("%s - op %30s %7llu %s, t=%llu \n", _out->result == NOVA_OP_SUCCEEDED ? "ok     ": "failed ", opstr, time_diff, unit, time_out);
+  }
   if (sizeof(buf_out) != send(buf_out, sizeof(buf_out))) {
     Logging::printf("failure - sending reply\n");
   }

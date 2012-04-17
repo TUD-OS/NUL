@@ -27,6 +27,7 @@ enum LIBVIRT_NOVA_OPCODE {
   EVENT_DMAR_ACCESS = 0xbbd0,
   EVENT_VDEV_HONEYPOT = 0xbbd1,
 };
+// Elisp function to update op2string() server.cc: (update-nul-libvirt-server-cc)
 
 struct incoming_packet {
   uint16_t version;
