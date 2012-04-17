@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011, Alexander Boettcher <boettcher@tudos.org>
+ * Copyright (C) 2011-2012, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL (NOVA user land).
@@ -24,6 +24,7 @@
 #include <nul/service_fs.h>
 #include <nul/capalloc.h>
 #include <nul/disk_helper.h>
+#include <nul/timer.h> //Clock
 
 #include <nul/types.h>
 typedef uint8  uint8_t;
@@ -364,5 +365,6 @@ class Remcon : public CapAllocator {
       return true;
     }
 
+    timevalue time() { return Clock(Global::hip.freq_tsc / 1000).clock(1);}
 };
 

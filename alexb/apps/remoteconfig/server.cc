@@ -127,6 +127,8 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 
 void Remcon::handle_packet(void) {
 
+  timevalue time_in = this->time();
+  MEMORY_BARRIER;
   unsigned op = NOVA_OP_FAILED;
 
   //version check
@@ -545,7 +547,13 @@ void Remcon::handle_packet(void) {
   }
 
   send_out:
-  if (verbosity) Logging::printf("%s - op: %#x\n", _out->result == NOVA_OP_SUCCEEDED ? "ok     ": "failed ", op);
+  char const * unit;
+  timevalue time_out  = this->time();
+  timevalue time_diff = time_out - time_in;
+  if (time_diff < 1000) unit = "us";
+  else { Math::div64(time_diff, 1000); unit="ms"; }
+
+  if (verbosity) Logging::printf("%s - op %#x, %7llu %s, t=%llu \n", _out->result == NOVA_OP_SUCCEEDED ? "ok     ": "failed ", op, time_diff, unit, time_out);
   if (sizeof(buf_out) != send(buf_out, sizeof(buf_out))) {
     Logging::printf("failure - sending reply\n");
   }
