@@ -16,6 +16,7 @@ mydir=$(readlink -f $(dirname $0))
 WVSTART "PASSIVE checkout"
 WVPASS cd $HOME/passive/src
 WVPASS svn up
+WVPASS svn status
 
 WVSTART "PASSIVE compilation"
 (set -x; mvn install) || : # Ignore errors here, we are only interested in resource manager
