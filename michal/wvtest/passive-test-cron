@@ -8,8 +8,8 @@ wvtest2html.py < passive-test.log > passive-test-report.html && mv passive-test-
 if [ $success != 0 ]; then
     (
 	cat <<EOF
-Subject: PASSIVE Intelligence test failed!
-To: sojka@os
+Subject: TUD's testbed: PASSIVE Intelligence test failed!
+To: sojka@os passive-dev@listserv.tssg.org
 
 This is an automatically generated message. Full log can be found at
 http://os.inf.tu-dresden.de/~sojka/nul/passive-test-report.html
