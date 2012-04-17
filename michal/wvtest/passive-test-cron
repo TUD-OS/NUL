@@ -9,7 +9,7 @@ if [ $success != 0 ]; then
     (
 	cat <<EOF
 Subject: TUD's testbed: PASSIVE Intelligence test failed!
-To: sojka@os passive-dev@listserv.tssg.org
+To: sojka@os, passive-dev@listserv.tssg.org
 
 This is an automatically generated message. Full log can be found at
 http://os.inf.tu-dresden.de/~sojka/nul/passive-test-report.html
