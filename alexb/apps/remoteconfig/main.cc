@@ -152,9 +152,12 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned argv = Cmdline::parse(cmdline, args, sizeof(args)/sizeof(char *));
       char const * templatefile = 0, * diskuuidfile = 0;
       unsigned temp_len = 0, disk_len = 0;
+      unsigned verbose = 0;
+
       for (unsigned i=1; i < argv && i < 16; i++) {
         if (!strncmp("template=", args[i],9)) { templatefile = args[i] + 9; temp_len = strcspn(templatefile, " \n\t\f");}
         if (!strncmp("diskuuid=", args[i],9)) { diskuuidfile = args[i] + 9; disk_len = strcspn(diskuuidfile, " \n\t\f");}
+        if (!strncmp("verbose", args[i],7))   { verbose = 1;}
         continue;
       }
 
@@ -163,7 +166,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       unsigned cap_region = alloc_cap_region(1 << 14, 14);
       if (!cap_region) Logging::panic("failure - starting libvirt backend\n");
       remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
-                          cap_region, 14, prod_event, NULL, templatefile, temp_len, diskuuidfile, disk_len);
+                          cap_region, 14, prod_event, NULL, templatefile, temp_len, diskuuidfile, disk_len, verbose);
       //create event service object
       EventService * event = new EventService(remcon);
       if (!event || !event->start_service(utcb, hip, this)) return false;

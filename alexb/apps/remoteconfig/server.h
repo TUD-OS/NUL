@@ -121,7 +121,7 @@ class Remcon : public CapAllocator {
       bool used;
     } * disks;
 
-
+    unsigned long verbosity;
   public:
     class Auth {
       protected:
@@ -143,12 +143,12 @@ class Remcon : public CapAllocator {
 
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
            unsigned long cap_start, unsigned long cap_order, EventProducer * prod_event, AuthProducer * prod_auth,
-           const char * templatefile, unsigned len_template, const char * diskfile, unsigned len_disk) :
+           const char * templatefile, unsigned len_template, const char * diskfile, unsigned len_disk, unsigned long verbose) :
       CapAllocator(cap_start, cap_start, cap_order), gevents(false),
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
       cpu_count(_cpu_count), eventproducer(prod_event), authproducer(prod_auth),
       file_template(templatefile), file_diskuuid(diskfile),
-      file_len_template(len_template), file_len_diskuuid(len_disk)
+      file_len_template(len_template), file_len_diskuuid(len_disk), verbosity(verbose)
     {
       service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _cpu_count));
 

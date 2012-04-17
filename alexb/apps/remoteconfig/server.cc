@@ -127,18 +127,16 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 
 void Remcon::handle_packet(void) {
 
-  unsigned op;
+  unsigned op = NOVA_OP_FAILED;
 
   //version check
   if (_in->version != Math::htons(DAEMON_VERSION)) {
     _out->version = Math::htons(DAEMON_VERSION);
     _out->result  = NOVA_UNSUPPORTED_VERSION;
     Logging::printf("failure - outdated protocol request version %#x != %#x current\n",
-      Math::htons(_in->version), DAEMON_VERSION);
+                    Math::htons(_in->version), DAEMON_VERSION);
 
     goto send_out;
-
-    return;
   }
 
   //set default values 
@@ -247,6 +245,7 @@ void Remcon::handle_packet(void) {
         memcpy(&_out->opspecific + sizeof(id), entry->showname, len);
         *(&_out->opspecific + sizeof(id) + len - 1) = 0;
         _out->result  = NOVA_OP_SUCCEEDED;
+        break;
       }
     case NOVA_GET_NAME_ID:
       {
@@ -530,10 +529,11 @@ void Remcon::handle_packet(void) {
 
         authid[len - 1] = 0;
 
-        Logging::printf("        - authentication request :%s (%u)\n", authid, len);
+        if (verbosity) Logging::printf("        - authentication request :%s (%u)\n", authid, len);
 
         bool success = false;
         bool reply = obj_auth->do_authentication(success);
+        if (verbosity && !reply) Logging::printf("%s - op: %#x\n", "noreply", op);
         if (!reply) return; //don't send a packet neither success nor failure if said so
 
         _out->result  = success ? NOVA_OP_SUCCEEDED : NOVA_OP_FAILED;
@@ -541,9 +541,11 @@ void Remcon::handle_packet(void) {
       break;
     default:
       Logging::printf("got bad packet op=%u\n", op);
+
   }
 
   send_out:
+  if (verbosity) Logging::printf("%s - op: %#x\n", _out->result == NOVA_OP_SUCCEEDED ? "ok     ": "failed ", op);
   if (sizeof(buf_out) != send(buf_out, sizeof(buf_out))) {
     Logging::printf("failure - sending reply\n");
   }
