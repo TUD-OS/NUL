@@ -2,7 +2,7 @@
 # -*-sh-*-
 QEMU_FLAGS=-cpu phenom -smp 2 -m 1024 -hda imgs/gpt-disk-10M.img -net nic,model=ne2k_pci -net user,hostfwd=tcp:127.0.0.1:9999-:9999,hostfwd=tcp:127.0.0.1:10000-:10000,hostfwd=tcp:127.0.0.1:10043-:10043
 HYPERVISOR_PARAMS=iommu serial spinner
-bin/apps/sigma0.nul tracebuffer_verbose verbose S0_DEFAULT hostserial hostvga:0x40000,0x40000 hostvesa hostkeyb:0,0x60,1,12,1 \
+bin/apps/sigma0.nul tracebuffer_verbose verbose S0_DEFAULT hostserial hostvga hostvesa hostkeyb:0,0x60,1,12,1 \
 		    nubus @SIGMA0_ARGS@ service_config service_disk script_start:1 script_waitchild script_start:2 name::/s0/events
 bin/apps/logdisk.nul
 bin/apps/remote_config.nul
