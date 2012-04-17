@@ -31,7 +31,7 @@ init
 trap "finish" EXIT
 
 WVSTART "Resource manager test"
-export LIBVIRT_DEBUG=1
-WVPASS "mvn test -Dcon.string=nova+tls://$NOVA_IP:9999"
+#export LIBVIRT_DEBUG=1
+WVPASS "mvn test -Dcon.string=nova+tls://$NOVA_IP:9999 -Dtest.domain=linux"
 
 trap - EXIT
