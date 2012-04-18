@@ -141,75 +141,6 @@ if (defined $grub2_config) {
 if ($on_opt) { $iprelay="on"; }
 if ($off_opt) { $iprelay="off"; }
 
-my $IPRELAY;
-if (defined $iprelay) {
-    $CFG::iprelay_addr =~ /([.0-9]+)(:([0-9]+))?/;
-    my $addr = $1;
-    my $port = $3 || 23;
-    my $paddr   = sockaddr_in($port, inet_aton($addr));
-    my $proto   = getprotobyname('tcp');
-    socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
-    connect($IPRELAY, $paddr)    || die "connect: $!";
-    $IPRELAY->autoflush(1);
-
-    sub relaycmd($$) {
-	my ($relay, $onoff) = @_;
-	die unless ($relay == 1 || $relay == 2);
-
-	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
-	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
-    }
-
-    sub relayconf($$) {
-	my ($relay, $onoff) = @_;
-	die unless ($relay == 1 || $relay == 2);
-	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
-	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
-    }
-
-    sub relay($$) {
-	my ($relay, $onoff) = @_;
-	my $confirmation = '';
-	print $IPRELAY relaycmd($relay, $onoff);
-
-	# We use non-blocking I/O and polling here because for some
-	# reason read() on blocking FD returns only after all
-	# requested data is available. If we get during the first
-	# read() only a part of confirmation, we may get the rest
-	# after the system boots and print someting, which may be too
-	# long.
-	$IPRELAY->blocking(0);
-
-	alarm(20); # Timeout in seconds
-        local $SIG{ALRM} = sub { die "Relay confirmation timeout"; };
-	my $index;
-	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0) {
-	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
-	    if (!defined($read)) {
-		die($!) unless $! == EAGAIN;
-		usleep(10000);
-		next;
-	    }
-	    #use MIME::QuotedPrint;
-	    #print "confirmation = ".encode_qp($confirmation)."\n";
-	}
-	alarm(0);
-	$IPRELAY->blocking(1);
-    }
-}
-
-if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
-     relay(1, 1); # Press power button
-    if ($iprelay eq "on") {
-	usleep(100000);		# Short press
-    } else {
-	usleep(6000000);	# Long press to switch off
-    }
-    print $IPRELAY relay(1, 0);
-    exit;
-}
-
-
 # Parse the config(s)
 my @scripts;
 my $file;
@@ -505,6 +436,74 @@ if (defined $iso_image) {
 ######################################################################
 # Boot NOVA using various methods and send serial output to stdout
 ######################################################################
+
+my $IPRELAY;
+if (defined $iprelay) {
+    $CFG::iprelay_addr =~ /([.0-9]+)(:([0-9]+))?/;
+    my $addr = $1;
+    my $port = $3 || 23;
+    my $paddr   = sockaddr_in($port, inet_aton($addr));
+    my $proto   = getprotobyname('tcp');
+    socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
+    connect($IPRELAY, $paddr)    || die "connect: $!";
+    $IPRELAY->autoflush(1);
+
+    sub relaycmd($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+
+	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
+	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relayconf($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
+	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relay($$) {
+	my ($relay, $onoff) = @_;
+	my $confirmation = '';
+	print $IPRELAY relaycmd($relay, $onoff);
+
+	# We use non-blocking I/O and polling here because for some
+	# reason read() on blocking FD returns only after all
+	# requested data is available. If we get during the first
+	# read() only a part of confirmation, we may get the rest
+	# after the system boots and print someting, which may be too
+	# long.
+	$IPRELAY->blocking(0);
+
+	alarm(20); # Timeout in seconds
+        local $SIG{ALRM} = sub { die "Relay confirmation timeout"; };
+	my $index;
+	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0) {
+	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
+	    if (!defined($read)) {
+		die($!) unless $! == EAGAIN;
+		usleep(10000);
+		next;
+	    }
+	    #use MIME::QuotedPrint;
+	    #print "confirmation = ".encode_qp($confirmation)."\n";
+	}
+	alarm(0);
+	$IPRELAY->blocking(1);
+    }
+}
+
+if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
+     relay(1, 1); # Press power button
+    if ($iprelay eq "on") {
+	usleep(100000);		# Short press
+    } else {
+	usleep(6000000);	# Long press to switch off
+    }
+    print $IPRELAY relay(1, 0);
+    exit;
+}
 
 if (scalar(@scripts) > 1 && ( defined $dhcp_tftp || defined $serial || defined $iprelay)) {
     die "You cannot do this with multiple scripts simultaneously";
