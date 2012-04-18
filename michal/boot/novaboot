@@ -445,9 +445,9 @@ if (defined $iprelay) {
     my $paddr   = sockaddr_in($port, inet_aton($addr));
     my $proto   = getprotobyname('tcp');
     socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
-    print "novaboot: Connecting to IP relay...";
+    print "novaboot: Connecting to IP relay... ";
     connect($IPRELAY, $paddr)    || die "connect: $!";
-    print " done\n";
+    print "done\n";
     $IPRELAY->autoflush(1);
 
     sub relaycmd($$) {
@@ -581,11 +581,11 @@ host server {
 if ($serial || defined $iprelay) {
     my $CONN;
     if (defined $iprelay) {
-	print "novaboot: Reseting the test box...";
+	print "novaboot: Reseting the test box... ";
 	relay(2, 1); # Reset the machine
 	usleep(100000);
 	relay(2, 0);
-	print " done\n";
+	print "done\n";
 
 	$CONN = $IPRELAY;
     } elsif ($serial) {
