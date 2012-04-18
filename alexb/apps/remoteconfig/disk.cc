@@ -25,6 +25,8 @@
 #include "server.h"
 #include "sha.h"
 
+#define assert_or_ret(cond) do { if (!(cond)) { Logging::printf("assertion failed in %s:%u: %s\n", __FILE__, __LINE__, #cond); return; } } while(0)
+
 void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
                        void * in, size_t in_len, void * &out, size_t &out_len)
 {
@@ -41,7 +43,9 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   Sha1::Context sha[4];
   unsigned i, free = 0;
 
-  if (!in || in_len == 0) return;
+  if (!in) return; // Connection closed
+  assert_or_ret(in_len);
+  assert_or_ret(in_len != ~0u);
 
   for (i=0; i < sizeof(connections) / sizeof(connections[0]); i++) {
     if (!free && !connections[i].buffer) free = i + 1;
@@ -51,21 +55,22 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   }
 
   if (i >= (sizeof(connections) / sizeof(connections[0]))) {
+    // First packet of a new connection
     struct client {
       char uuid[UUID_LEN];
       uint32_t diskid;
       uint64_t disk_size;
     } PACKED * client = reinterpret_cast<struct client *>(in);
-    if (in_len < sizeof(*client)) return;
+    assert_or_ret(in_len >= sizeof(*client));
 
     struct server_data * entry = check_uuid(client->uuid);
-    if (!entry) return;
+    assert_or_ret(entry);
     client->diskid = Math::ntohl(client->diskid);
-    if (client->diskid >= sizeof(entry->disks) / sizeof(entry->disks[0])) return;
-    if (entry->disks[client->diskid].internal.diskid == ~0U ||
-        !entry->disks[client->diskid].internal.sectorsize) return;
-    if (!entry->disks[client->diskid].size ||
-         entry->disks[client->diskid].size != Endian::hton64(client->disk_size)) return; //actual ntoh64
+    assert_or_ret(client->diskid < sizeof(entry->disks) / sizeof(entry->disks[0]));
+    assert_or_ret(entry->disks[client->diskid].internal.diskid != ~0U);
+    assert_or_ret(entry->disks[client->diskid].internal.sectorsize);
+    assert_or_ret(entry->disks[client->diskid].size);
+    assert_or_ret(entry->disks[client->diskid].size == Endian::hton64(client->disk_size)); //actual ntoh64
 
     entry->disks[client->diskid].read = 0;
 
@@ -94,8 +99,8 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   }
 
   struct server_data * entry = check_uuid(connections[i].uuid);
-  if (!entry) return;
-  if (entry->disks[connections[i].diskid].read >= entry->disks[connections[i].diskid].size) return;
+  assert_or_ret(entry);
+  assert_or_ret(entry->disks[connections[i].diskid].read < entry->disks[connections[i].diskid].size);
 
   uint64_t part = entry->disks[connections[i].diskid].size;
   uint64_t pos  = entry->disks[connections[i].diskid].read;
