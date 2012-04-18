@@ -298,14 +298,14 @@ sub generate_pulsar_config($$)
 
 sub exec_verbose(@)
 {
-    print "Running: ".join(' ', map("'$_'", @_))."\n";
+    print "novaboot: Running: ".join(' ', map("'$_'", @_))."\n";
     exec(@_);
 }
 
 sub system_verbose($)
 {
     my $cmd = shift;
-    print "Running: $cmd\n";
+    print "novaboot: Running: $cmd\n";
     my $ret = system($cmd);
     if ($ret & 0x007f) { die("Command terminated by a signal"); }
     if ($ret & 0xff00) {die("Command exit with non-zero exit code"); }
@@ -329,7 +329,7 @@ foreach my $script (@scripts) {
     $generated = $$script{generated};
     $variables = $$script{variables};
     my ($server_grub_prefix);
-    
+
     if (defined $config_name_opt) {
 	$config_name = $config_name_opt;
     } else {
@@ -413,7 +413,7 @@ foreach my $script (@scripts) {
 	my $cmd = "cd $path/.. && cat */menu.lst > menu.lst";
 	if ($combined_menu_lst) { system_verbose($hostname ? "ssh $hostname '$cmd'" : $cmd); }
     }
-    
+
     if (defined $iso_image) {
 	generate_configs("(cd)", $generated, $filename);
 	my $menu;
@@ -445,7 +445,9 @@ if (defined $iprelay) {
     my $paddr   = sockaddr_in($port, inet_aton($addr));
     my $proto   = getprotobyname('tcp');
     socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
+    print "novaboot: Connecting to IP relay...";
     connect($IPRELAY, $paddr)    || die "connect: $!";
+    print " done\n";
     $IPRELAY->autoflush(1);
 
     sub relaycmd($$) {
@@ -579,9 +581,11 @@ host server {
 if ($serial || defined $iprelay) {
     my $CONN;
     if (defined $iprelay) {
+	print "novaboot: Reseting the test box...";
 	relay(2, 1); # Reset the machine
 	usleep(100000);
 	relay(2, 0);
+	print " done\n";
 
 	$CONN = $IPRELAY;
     } elsif ($serial) {
