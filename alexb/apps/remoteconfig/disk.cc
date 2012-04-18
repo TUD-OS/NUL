@@ -115,12 +115,12 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
       connections[i].sector);
 */
   }
-  entry->disks[connections[i].diskid].read += in_len;
 
   size_t rest = in_len;
   while (rest) {
     size_t cplen = (connections[i].buffer_pos + rest) > connections[i].buffer_size ? connections[i].buffer_size - connections[i].buffer_pos : rest;
     rest -= cplen;
+    entry->disks[connections[i].diskid].read += cplen;
 
     memcpy(&connections[i].buffer[connections[i].buffer_pos], in, cplen);
     Sha1::hash(&sha[i], reinterpret_cast<unsigned char *>(in), cplen);
