@@ -40,7 +40,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     unsigned buffer_pos;
     char * buffer;
   } connections[4];
-  Sha1::Context sha[4];
+  static Sha1::Context sha[4];
   unsigned i, free = 0;
 
   if (!in) return; // Connection closed
