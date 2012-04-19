@@ -637,10 +637,11 @@ B<novaboot> --help
 
 This program makes it easier to boot NOVA in different environments.
 It reads a so called novaboot script and uses it either to boot NOVA
-(e.g. in qemu) or to generate the configuration for a specific
-bootloader and optionally to copy the necessary files to the proper
-locations. In case the system is actually booted, its serial output is
-redirected to stdout if possible.
+in an emulator (e.g. in qemu) or to generate the configuration for a
+specific bootloader and optionally to copy the necessary binaries and
+other needed files to proper locations. In case the system is actually
+booted, its serial output is redirected to standard output if
+possible.
 
 With C<novaboot> you can:
 
@@ -842,9 +843,9 @@ When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
 that line.
 
-Lines in the form "FILE < CMD" causes the command CMD to be executed
+Lines in the form "FILE < CMD" cause the command CMD to be executed
 and its standard output to be stored in the FILE. The SRCDIR variable
-in CMD's environemnt is set to the absolute path of the directory
+in CMD's environment is set to the absolute path of the directory
 containing the interpreted novaboot script.
 
 Example:
