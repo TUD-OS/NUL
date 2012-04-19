@@ -27,6 +27,10 @@ rom://bin/apps/vancouver.nul PC_PS2 ahci:0xe0800000,14,0x30 82576vf drive:0,0,0 
 EOF
 diskuuid.config <<EOF
 uuid:6ec3cb42-3c6d-45c7-a07b-02c85ecf12f2
+uuid:4867d304-5b38-475f-90ed-00eec3e44907
+uuid:88d72d2b-d126-4bd8-80e9-a4ddbb86118f
+uuid:2832f211-38dd-44f5-83b7-c6dc86a2a333
+uuid:a4817cb4-f2bc-468b-96ec-337a7709c711
 EOF
 linux.nulconfig <<EOF
 name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 ||
