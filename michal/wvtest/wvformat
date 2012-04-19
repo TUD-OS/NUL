@@ -74,9 +74,11 @@ sub print_and_clear_log()
 
 sub print_test_summary()
 {
-    print(resultline("", sprintf("%s %s [%d/%d]", $file, $sect, $lpasses, $lpasses+$lfails),
-		     $lfails ? "FAILED" : "ok") . "\n");
-    print_and_clear_log() if ($lfails);
+    if (!$verbose) {
+	print(resultline("", sprintf("%s %s [%d/%d]", $file, $sect, $lpasses, $lpasses+$lfails),
+			 $lfails ? "FAILED" : "ok") . "\n");
+	print_and_clear_log() if ($lfails);
+    }
     if ($lfails) { $tfails++; }
     else 	 { $tpasses++; }
     ($lpasses, $lfails) = (0,0);
