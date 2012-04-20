@@ -639,9 +639,14 @@ This program makes it easier to boot NOVA in different environments.
 It reads a so called novaboot script and uses it either to boot NOVA
 in an emulator (e.g. in qemu) or to generate the configuration for a
 specific bootloader and optionally to copy the necessary binaries and
-other needed files to proper locations. In case the system is actually
-booted, its serial output is redirected to standard output if
-possible.
+other needed files to proper locations, perhaps on a remote server. In
+case the system is actually booted, its serial output is redirected to
+standard output if that is possible.
+
+A typical way of using novaboot is to make the novaboot script
+executable and set its first line to I<#!/usr/bin/env novaboot>. Then,
+booting a particular NOVA configuration becomes the same as executing
+local program - the novaboot script.
 
 With C<novaboot> you can:
 
@@ -649,31 +654,32 @@ With C<novaboot> you can:
 
 =item 1.
 
-Run NOVA in qemu. When I<script> is an executable file containing
-novaboot script and starting with C<#!/usr/bin/env novaboot> then
-running the script without any options (e.g. C<./script>) will run
-NOVA configuration in qemu.
+Run NOVA in Qemu. This is the default action when no other action is
+specified by command line switches. Thus running C<novaboot ./script>
+(or C<./script> as described above) will run Qemu with configuration
+specified in the I<script>.
 
 =item 2.
 
-Create bootloader (e.g. GRUB) configuration and copy it with all the
-needed files to a remote TFTP server. E.g.
+Create a bootloader configuration file (currently supported
+bootloaders are GRUB, GRUB2 and Pulsar) and copy it with all files
+needed for booting another, perhaps remote, location.
 
  ./script --server --iprelay
 
-This command copies files to a TFTP server and uses TCP/IP-controlled
-relay to reset the test machine and receive its serial output.
+This command copies files to a TFTP server specified in the
+configuration file and uses TCP/IP-controlled relay to reset the test
+box and receive its serial output.
 
 =item 3.
 
-Run DHCP and TFTP server on your development machine to PXE-boot NOVA
-from it. E.g.
+Run DHCP and TFTP server on developer's machine to PXE-boot NOVA from
+it. E.g.
 
  sudo ./script --dhcp-tftp
 
-When a PXE-bootable machine is connected via Ethernet to your
-development machine, it will boot the configuration described in
-I<script>.
+When a PXE-bootable machine is connected via Ethernet to developer's
+machine, it will boot the configuration described in I<script>.
 
 =item 4.
 
@@ -682,7 +688,8 @@ Create bootable ISO images. E.g.
  novaboot --iso -- script1 script2
 
 The created ISO image will have GRUB bootloader installed on it and
-the boot menu will show the I<script1> and I<script2> configurations.
+the boot menu will allow selecting between I<script1> and I<script2>
+configurations.
 
 =back
 
@@ -825,28 +832,30 @@ output of the machine. The default value is /dev/ttyUSB0.
 
 =head1 NOVABOOT SCRIPT SYNTAX
 
-The syntax tries to mimic POSIX shell syntax. All file names in the
-script are relative to the NUL build directory (see below).
+The syntax tries to mimic POSIX shell syntax. The syntax is defined with the following rules.
 
 Lines starting with "#" are ignored.
 
 Lines that end with "\" are concatenated with the following line after
 removal of the final "\" and leading whitespace of the following line.
 
-Lines matching '^[A-Z_]+=' regexp assign values to internal variables.
-See VARIABLES section.
+Lines in the form I<VARIABLE=...> (i.e. matching '^[A-Z_]+=' regular
+expression) assign values to internal variables. See VARIABLES
+section.
 
-Otherwise, first word on a line represents the filename of the module
-to load, the remaining words are its command line parameters.
+Otherwise, the first word on the line represents the filename
+(relative to the build directory specified in the configuration file)
+of the module to load and the remaining words are passed as the
+command line parameters.
 
 When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
 that line.
 
-Lines in the form "FILE < CMD" cause the command CMD to be executed
-and its standard output to be stored in the FILE. The SRCDIR variable
-in CMD's environment is set to the absolute path of the directory
-containing the interpreted novaboot script.
+When the line ends with "< CMD" the command CMD is executed and its
+standard output is stored in the file named on that line. The SRCDIR
+variable in CMD's environment is set to the absolute path of the
+directory containing the interpreted novaboot script.
 
 Example:
   #!/usr/bin/env novaboot
