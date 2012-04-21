@@ -47,6 +47,7 @@ struct DiskProtocol : public GenericNoXlateProtocol {
     TYPE_DMA_BUFFER,
     TYPE_ADD_LOGICAL_DISK,
     TYPE_CHECK_NAME,
+    TYPE_GET_STATS,
   };
 
   struct Segment {
@@ -54,6 +55,11 @@ struct DiskProtocol : public GenericNoXlateProtocol {
     uint64 start_lba, len_lba;
     Segment() {}
     Segment(unsigned disknum, uint64 start, uint64 len) : disknum(disknum), start_lba(start), len_lba(len) {}
+  };
+
+  struct Stats {
+    uint64 read, written;       ///< Statistics in bytes
+    Stats() : read(0), written(0) {}
   };
 
   typedef Consumer<MessageDiskCommit, DiskProtocol::MAXDISKREQUESTS> DiskConsumer;
@@ -170,6 +176,15 @@ struct DiskProtocol : public GenericNoXlateProtocol {
     unsigned res;
     if (!(res = call_server_keep(init_frame(utcb, TYPE_CHECK_NAME) << disk << Utcb::String(name)))) {
       match = utcb.msg[1];
+      utcb.drop_frame();
+    }
+    return res;
+  }
+
+  unsigned get_stats(Utcb &utcb, unsigned disk, Stats &stats) {
+    unsigned res;
+    if (!(res = call_server_keep(init_frame(utcb, TYPE_GET_STATS) << disk))) {
+      utcb >> stats;
       utcb.drop_frame();
     }
     return res;

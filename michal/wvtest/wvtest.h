@@ -152,6 +152,10 @@ class WvTest
     { Logging::printf("wvtest comparison %ld == 0x%lx %s %ld == 0x%lx FAILED\n",
 		      a, a, op, b, b); }
 
+  static void print_failed_cmp(const char *op, unsigned long long a, unsigned long long b)
+    { Logging::printf("wvtest comparison %llu == 0x%llx %s %llu == 0x%llx FAILED\n",
+		      a, a, op, b, b); }
+
   static void print_failed_cmp(const char *op, int a, int b)
     { Logging::printf("wvtest comparison %d == 0x%x %s %d == 0x%x FAILED\n",
 		      a, a, op, b, b); }

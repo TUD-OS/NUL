@@ -62,12 +62,15 @@ class App : public NovaProgram, ProgramConsole
   unsigned requests;
   unsigned requests_done;
 
-  void submit_disk() {
+  void submit_disk(bool read = true) {
     DmaDescriptor dma;
     unsigned res;
     dma.byteoffset = 0;
     dma.bytecount  = blocksize;
-    res = disk->read(*myutcb(), /*disk*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma);
+    if (read)
+      res = disk->read(*myutcb(), /*disk*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma);
+    else
+      res = disk->write(*myutcb(), /*disk*/0, /*usertag*/requests++, /*sector*/0, /*dmacount*/1, &dma);
     if (res) Logging::panic("submit(%ld) failed: %x\n", blocksize, res);
   }
 
@@ -135,6 +138,16 @@ public:
 	    WVPERF(request_rate, "1/s");
             unsigned request_duration = Math::muldiv128(mb->clock()->freq(), 1, request_rate);
 	    WVPERF(request_duration, "cycles");
+            DiskProtocol::Stats stats;
+            disk->get_stats(*utcb, 0, stats);
+            WVPASSLT(0LLU, stats.read);
+            WVPASSEQ(0LLU, stats.written);
+            WVSHOW(stats.read);
+            WVSHOW(stats.written);
+            submit_disk(false);
+            disk->get_stats(*utcb, 0, stats);
+            WVSHOW(stats.written);
+            WVPASSLT(0LLU, stats.written);
 	    WvTest::exit(0);
 	    block_forever();
 	  }

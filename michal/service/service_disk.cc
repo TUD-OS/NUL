@@ -68,6 +68,11 @@ public:
 
 class Disk {
 public:
+  enum op { READ, WRITE };
+private:
+  virtual bool do_read_write(enum op op, unsigned long usertag, unsigned long long sector,
+                             unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
+public:
   struct Name {
     char *name;
     struct Name *next;
@@ -79,7 +84,10 @@ public:
     }
   };
   List<Name> names;
-  enum op { READ, WRITE };
+  struct stats {
+    uint64 bytes[2]; ///< Read/write statistics (in bytes)
+  } stats;
+
   Disk *next;
   Disk(const char *anames[]) : names() {
     for (unsigned i=0; anames[i]; i++)
@@ -97,8 +105,13 @@ public:
     names.add(new Name(str));
   }
   char *get_name() { assert(names.head); return names.head->name; }
-  virtual bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
-			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize) = 0;
+  bool read_write(enum op op, unsigned long usertag, unsigned long long sector,
+                  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
+  {
+    unsigned len = DmaDescriptor::sum_length(dmacount, dma);
+    stats.bytes[op] += len;
+    return do_read_write(op, usertag, sector, dmacount, dma, physoffset, physsize);
+  }
   virtual bool flush() = 0;
   virtual bool get_params(DiskParameter &params) = 0;
 };
@@ -110,8 +123,8 @@ public:
   S0Disk(DBus<MessageDisk> *bus_disk, unsigned disknr) :
     Disk("%d", disknr), bus_disk(bus_disk), disknr(disknr) {}
 
-  virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
-			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
+  virtual bool do_read_write(op op, unsigned long usertag, unsigned long long sector,
+                             unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
   {
     MessageDisk msg(op == READ ? MessageDisk::DISK_READ : MessageDisk::DISK_WRITE,
 		    disknr, usertag, sector, dmacount, dma, physoffset, physsize);
@@ -139,8 +152,8 @@ public:
   Partition(Disk *parent, uint64 start, uint64 length, const char *names[]) :
     Disk(names), parent(parent), start(start), length(length) {}
 
-  virtual bool read_write(op op, unsigned long usertag, unsigned long long sector,
-			  unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
+  virtual bool do_read_write(op op, unsigned long usertag, unsigned long long sector,
+                             unsigned dmacount, DmaDescriptor *dma, unsigned long physoffset, unsigned long physsize)
   {
     uint64   size = 0;
     if (sector >= length) {
@@ -443,6 +456,15 @@ private:
             match = (strcmp(name, dn->name) == 0);
           Logging::printf("Checking %d for %s: %d\n", disknum, name, match);
           utcb << match;
+          return ENONE;
+        }
+      case DiskProtocol::TYPE_GET_STATS:
+        {
+          unsigned disknum;
+	  if (input.get_word(disknum))     return EPROTO;
+          Disk *disk = client->disk(disknum);
+          if (!disk) return EPERM;
+          utcb << disk->stats;
           return ENONE;
         }
       default:
