@@ -17,9 +17,9 @@
  * General Public License version 2 for more details.
  */
 
-#include "nul/generic_service.h"
-#include "nul/capalloc.h"
-#include "../../../julian/lib/crun/include/ctype.h" /* Grrr */
+#include <nul/generic_service.h>
+#include <nul/capalloc.h>
+#include <ctype.h>
 
 PARAM_HANDLER(namespace, "namespace - namespace to register service names in (server parameter)") {}
 PARAM_HANDLER(name, "name - allow client to access the given service") {}
