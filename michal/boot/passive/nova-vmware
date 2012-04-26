@@ -5,4 +5,4 @@ if [ "$1" = "--dump" ]; then
 else
     cmd=novaboot
 fi
-exec $cmd --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostide/' "$@" $(dirname $0)/nova
+exec $cmd --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostide/' "$@" -- $(dirname $0)/nova

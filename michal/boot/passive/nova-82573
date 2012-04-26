@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-exec novaboot --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostahci/' "$@" $(dirname $0)/nova
+exec novaboot --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostahci/' "$@" -- $(dirname $0)/nova
