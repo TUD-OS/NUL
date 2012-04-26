@@ -63,7 +63,7 @@ GetOptions ("config|c=s" => \$cfg);
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, @scriptmod, $scons, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, @scriptmod, $scons, $serial, $server);
 
 Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
 my %opt_spec = (
@@ -73,6 +73,7 @@ my %opt_spec = (
     "dhcp-tftp|d"    => \$dhcp_tftp,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
+    "grub-prefix=s"  => \$grub_prefix,
     "grub2:s" 	     => \$grub2_config,
     "iprelay:s"	     => \$iprelay,
     "iso|i:s" 	     => \$iso_image,
@@ -113,6 +114,7 @@ if (defined $pulsar) {
 
 if ($scons) { $CFG::scons = $scons; }
 if (!@scriptmod && $CFG::script_modifier) { @scriptmod = ( $CFG::script_modifier ); }
+if (defined $grub_prefix) { $CFG::server_grub_prefix = $grub_prefix; }
 
 if ($dump_config) {
     use Data::Dumper;
@@ -732,6 +734,12 @@ template for a configuration file.
 Generates grub menu file. If the I<filename> is not specified,
 F<menu.lst> is used. The I<filename> is relative to NUL build
 directory.
+
+=item --grub-prefix=I<prefix>
+
+Specifies I<prefix> that is put before every file in GRUB's menu.lst.
+This overrides the value of I<$server_grub_prefix> from the
+configuration file.
 
 =item --grub2[=I<filename>]
 
