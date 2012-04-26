@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+exec novaboot --scriptmod='s/\@SIGMA0_ARGS@/host82576:0 host82576vf:0,0,1 hostahci/' \
+              --scriptmod='s|IP_CONFIG|ip=141.76.48.226/29 mask=255.255.255.248 gw=141.76.48.225|' \
+              --server=erwin:~sojka/boot/passive --grub-prefix="(nd)/tftpboot/sojka/passive" $(dirname $0)/nova
