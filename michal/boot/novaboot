@@ -36,7 +36,7 @@ $CFG::script_modifier = ''; # Depricated, use --scriptmod commandline option or 
 @CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
-%CFG::custom_options = ('I' => '--server --iprelay');
+%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:/home/sojka/boot/novaboot --iprelay --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
 $CFG::scons = "scons -j2";
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
