@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 
     ftime(&start);
     for (count = 1; count; sum += count) {
-      count = read(client, (char *)buffer + offset, BUFFERSIZE);
+      count = read(client, (char *)buffer + offset, SENDSIZE);
       offset += count;
       if (offset > (BUFFERSIZE - SENDSIZE))
 	  offset = 0;
