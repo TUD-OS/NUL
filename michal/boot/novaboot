@@ -163,6 +163,9 @@ while (<>) {
     }
     chomp();
     next if /^#/ || /^\s*$/;	# Skip comments and empty lines
+
+    foreach my $mod(@scriptmod) { eval $mod; }
+
     if (/^([A-Z_]+)=(.*)$/) {	# Internal variable
 	$$variables{$1} = $2;
 	next;
@@ -191,13 +194,7 @@ while (<>) {
     $continuation = 0;
     $line .= $_;
     $line .= " $append" if ($append && scalar(@$modules) == 0);
-    {
-	$_ = $line;
-	foreach my $mod(@scriptmod) {
-	    eval $mod;
-	}
-	$line = $_;
-    }
+
     if ($line =~ /^([^ ]*)(.*?)[[:space:]]*< ?(.*)$/) { # Command substitution
 	push @$modules, "$1$2";
 	push @$generated, {filename => $1, command => $3};
