@@ -995,7 +995,7 @@ public:
       Cpu::cpuid(1, ebx_1, ecx_1, edx_1);
       vcpu->set_cpuid(1, 1, ebx_1 & 0xff00, 0xff00ff00); // clflush size
       vcpu->set_cpuid(1, 2, ecx_1, 0x00000201); // +SSE3,+SSSE3
-      vcpu->set_cpuid(1, 3, edx_1, 0x0f88a9bf | (1 << 28)); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+CLFLUSH,+SEP
+      vcpu->set_cpuid(1, 3, edx_1, 0x0f80a9bf | (1 << 28)); // -PAE,-PSE36, -MTRR,+MMX,+SSE,+SSE2,+SEP
     }
 
     Logging::printf("RESET device state\n");
