@@ -65,6 +65,9 @@ struct TimerProtocol : public GenericProtocol {
     return res;
   }
 
+  /**
+   * Get wallclock timer
+   */
   unsigned time(Utcb &utcb, TimerProtocol::MessageTime &msg) {
     unsigned res = call_server(init_frame(utcb, TYPE_REQUEST_TIME), false);
     if (!res)
@@ -75,6 +78,9 @@ struct TimerProtocol : public GenericProtocol {
   }
 
   unsigned timer(Utcb &utcb, TimerProtocol::MessageTimer &timer) {
+  /**
+   * Program timer for timer.abstime
+   */
     return call_server(init_frame(utcb, TYPE_REQUEST_TIMER) << timer, true);
   }
 
