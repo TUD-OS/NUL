@@ -75,8 +75,4 @@ class Math
 
   static int imod64(long long value, int divisor) {  return idiv64(value, divisor); }
   static unsigned mod64(unsigned long long value, int divisor) {  return div64(value, divisor); }
-  static unsigned long  htonl(unsigned long value)  { asm ("bswap %0" : "+r"(value)); return value; }
-  static unsigned short htons(unsigned short value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
-  static unsigned long  ntohl(unsigned long value)  { asm ("bswap %0" : "+r"(value)); return value; }
-  static unsigned short ntohs(unsigned short value) { asm ("xchg %%al, %%ah" : "+a"(value)); return value; }
 };
