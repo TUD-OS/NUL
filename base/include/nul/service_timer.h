@@ -35,17 +35,6 @@ struct TimerProtocol : public GenericProtocol {
     MessageTimer(timevalue _abstime) : abstime(_abstime) {}
   };
 
-
-  /**
-   * A timeout triggered.
-   */
-  struct MessageTimeout
-  {
-    timevalue time;
-    MessageTimeout(timevalue _time) : time(_time) {}
-  };
-
-
   /**
    * Returns the wall clock time in microseconds.
    *
