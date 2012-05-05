@@ -21,9 +21,8 @@
 #define union64(HIGH, LOW)          ({ unsigned long long res; asm ("" : "=A"(res) : "d"(HIGH), "a"(LOW)); res; })
 #define split64(INPUT, HIGH, LOW)   asm ("" : "=d"(HIGH), "=a"(LOW) : "A"(INPUT));
 
-class Math
+struct Math
 {
- public:
   /**
    * We are limited here by the ability to divide through a unsigned
    * long value, thus factor and divisor needs to be less than 1<<32.
