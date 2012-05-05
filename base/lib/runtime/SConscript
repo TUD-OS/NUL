@@ -11,7 +11,9 @@ nul.Lib(target_env,
         'string.cc',
         'capalloc.cc',
         # compiler-rt
-        'udivdi3.S'
+        'udivdi3.S',
+        'moddi3.S',
+        'umoddi3.S',
         ])
 
 # EOF

@@ -71,7 +71,4 @@ struct Math
 
     return rem;
   }
-
-  static int imod64(long long value, int divisor) {  return idiv64(value, divisor); }
-  static unsigned mod64(unsigned long long value, int divisor) {  return div64(value, divisor); }
 };

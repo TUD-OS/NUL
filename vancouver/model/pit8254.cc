@@ -118,7 +118,7 @@ class PitCounter : public StaticReceiver<PitCounter>
     timevalue t = _clock.clock(FREQ);
     timevalue to= _start;
     if (feature(FPERIODIC))
-      to = t + Math::mod64(_initial + _start - t, _initial);
+      to = t + (_initial + _start - t) % _initial;
     MessageTimer msg(_timer, _clock.abstime((to < t) ? 0 : (to - t), FREQ));
     _bus_timer->send(msg);
   }
@@ -132,16 +132,16 @@ class PitCounter : public StaticReceiver<PitCounter>
     if (_stopped)  return _latch;
 
     long long res = _start - _clock.clock(FREQ);
-    if (_modus & BCD) res = Math::imod64(res, 10000);
+    if (_modus & BCD) res = (res % 10000);
 
     // are we still having an old value?
     if (_start - _initial - 1 == _clock.clock(FREQ))
       return _latch;
 
     if (res <= 0)  load_counter();
-    if (feature(FPERIODIC) && (res <= 0)) res = _initial + Math::imod64(res, _initial);
-    if (feature(FSQUARE_WAVE))            res = (Math::imod64(res*2, _initial+1) + (~_initial & 1)) & ~1;
-    if (_modus & BCD)                     res = 10000 + Math::imod64(res, 10000);
+    if (feature(FPERIODIC) && (res <= 0)) res = _initial + (res % _initial);
+    if (feature(FSQUARE_WAVE))            res = ((res*2 % _initial+1) + (~_initial & 1)) & ~1;
+    if (_modus & BCD)                     res = 10000 + (res % 10000);
     return res;
   }
 
@@ -235,7 +235,7 @@ class PitCounter : public StaticReceiver<PitCounter>
       if (!feature(FSQUARE_WAVE))
 	return get_counter() != 1;
       else
-	return Math::mod64(_clock.clock(FREQ) - _start + _initial, _initial)*2 < _initial;
+	return ((_clock.clock(FREQ) - _start + _initial) % _initial)*2 < _initial;
     return _clock.clock(FREQ) != _start;
   }
 

@@ -167,7 +167,7 @@ private:
     }
 
     // add periods to the time we started to detect the next overflow
-    unsigned done = Math::mod64(delta, _ICT);
+    unsigned done = delta % _ICT;
     _timer_start += (delta - done) << _timer_dcr_shift;
 
     return _ICT - done;
