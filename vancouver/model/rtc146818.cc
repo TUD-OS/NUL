@@ -18,6 +18,9 @@
 
 #include "nul/motherboard.h"
 #include "service/time.h"
+#include "service/bcd.h"
+
+using namespace Bcd;
 
 /**
  * Device model for the MC146818 realtime clock.
@@ -57,7 +60,7 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 
   unsigned char convert_bcd(unsigned char value)
   {
-    if (~_ram[0xb] & 0x4) Math::to_bcd(value);
+    if (~_ram[0xb] & 0x4) to_bcd(value);
     return value;
   }
 
@@ -72,11 +75,11 @@ class Rtc146818 : public StaticReceiver<Rtc146818>
 
     unsigned char value = _ram[index];
     if (!index)  value &= 0x7f;
-    if (~_ram[0xb] & 0x4) Math::from_bcd(value);
+    if (~_ram[0xb] & 0x4) from_bcd(value);
     if ((index == 4 || index == 5) && ~_ram[0xb] & 2)
       {
 	value = _ram[index] & 0x7f;
-	if (~_ram[0xb] & 0x4) Math::from_bcd(value);
+	if (~_ram[0xb] & 0x4) from_bcd(value);
 	value %= 12;
 	if (_ram[index] & 0x80) value += 12;
       }

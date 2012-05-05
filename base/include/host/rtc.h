@@ -18,8 +18,8 @@
 
 #pragma once
 
-#include <service/math.h>
 #include <service/time.h>
+#include <service/bcd.h>
 
 class BasicRtc {
 protected:
@@ -76,17 +76,17 @@ public:
     if (~data[0xb] & 2)
       {
 	unsigned char hour = data[4] & 0x7f;
-	if (~data[0xb] & 4) Math::from_bcd(hour);
+	if (~data[0xb] & 4) Bcd::from_bcd(hour);
 	hour %= 12;
 	if (data[4] & 0x80)  hour += 12;
-	if (~data[0xb] & 4) Math::to_bcd(hour);
+	if (~data[0xb] & 4) Bcd::to_bcd(hour);
 	data[4] = hour;
       }
 
     // convert from BCD to binary
     if (~data[0xb] & 4)
       for (unsigned i=0; i < sizeof(data) && i < 10; i++)
-	Math::from_bcd(data[i]);
+	Bcd::from_bcd(data[i]);
 
 
     // Convert to seconds since 1970.
