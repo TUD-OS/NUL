@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <service/math.h>
 #include <service/string.h>
 #include <service/logging.h>
 

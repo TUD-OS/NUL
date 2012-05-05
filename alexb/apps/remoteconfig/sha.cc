@@ -13,8 +13,10 @@
  */
 
 
+#include <service/endian.h>
 #include "sha.h"
 
+using namespace Endian;
 
 #define ROL(VALUE, COUNT) ((VALUE)<<COUNT | (VALUE)>>(32-COUNT))
 
@@ -36,7 +38,7 @@ unsigned int Sha1::get_w(unsigned char * value, unsigned int round)
       return res;
     }
   else
-    return w[round] = Math::ntohl(w[round]);
+    return w[round] = ntoh32(w[round]);
 }
 
 
@@ -52,7 +54,7 @@ Sha1::process_block(struct Context *ctx)
   unsigned int tmp;
 
   for (i=0; i<5; i++)
-    X[i+1] = Math::ntohl((reinterpret_cast<unsigned int *>(ctx->hash))[i]);
+    X[i+1] = ntoh32((reinterpret_cast<unsigned int *>(ctx->hash))[i]);
 
   for(i = 0; i < 80; i++)
     {
@@ -77,7 +79,7 @@ Sha1::process_block(struct Context *ctx)
 
   /* we store the hash in big endian - this avoids a loop at the end... */
   for (i=0; i<5; i++)
-    (reinterpret_cast<unsigned int *>(ctx->hash))[i] = Math::ntohl(Math::ntohl((reinterpret_cast<unsigned int*>(ctx->hash))[i]) + X[i+1]);
+    (reinterpret_cast<unsigned int *>(ctx->hash))[i] = ntoh32(ntoh32((reinterpret_cast<unsigned int*>(ctx->hash))[i]) + X[i+1]);
 }
 
 /**
@@ -138,6 +140,6 @@ Sha1::finish(struct Context *ctx)
   /* using a 32bit value for blocks and not using the upper bits of
      tmp limits the maximum hash size to 512 MB. */
   unsigned long long tmp = (ctx->blocks << 9)+(ctx->index<<3);
-  (reinterpret_cast<unsigned long *>(ctx->buffer))[15] = Math::ntohl(tmp & 0xffffffff);
+  (reinterpret_cast<unsigned long *>(ctx->buffer))[15] = ntoh32(tmp & 0xffffffff);
   process_block(ctx);
 }

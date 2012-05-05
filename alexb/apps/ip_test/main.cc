@@ -20,6 +20,7 @@
 #include <nul/service_log.h>
 #include <sigma0/sigma0.h> // Sigma0Base object
 #include <sigma0/console.h>
+#include <service/endian.h>
 
 extern "C" void nul_ip_input(void * data, unsigned size);
 extern "C" bool nul_ip_init(void (*send_network)(char unsigned const * data, unsigned len), unsigned long long mac); 
@@ -85,7 +86,7 @@ class TestIP : public NovaProgram, public ProgramConsole
                       (msg_op.mac >> 24) & 0xFF, (msg_op.mac >> 16) & 0xFF,
                       (msg_op.mac >> 8) & 0xFF, (msg_op.mac) & 0xFF);
 
-      unsigned long long mac = ((0ULL + Math::htonl(msg_op.mac)) << 32 | Math::htonl(msg_op.mac >> 32)) >> 16;
+      unsigned long long mac = ((0ULL + Endian::hton32(msg_op.mac)) << 32 | Endian::hton32(msg_op.mac >> 32)) >> 16;
 
       if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failed - requesting timeout\n");
 

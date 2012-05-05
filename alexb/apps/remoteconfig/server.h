@@ -16,7 +16,7 @@
 #pragma once
 
 #include <service/string.h> //memset
-#include <service/math.h> // htonl, htons
+#include <service/endian.h> // hton
 #include <service/logging.h>
 #include <service/helper.h> //assert
 
@@ -351,13 +351,14 @@ class Remcon : public CapAllocator {
         if (!entry || (~0U == get_event_slot(entry, eventid))) return false;
       }
 
-      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN) = Math::htonl(eventid);
-      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN + sizeof(uint32_t)) = Math::htonl(extra_len);
+      using namespace Endian;
+      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN) = hton32(eventid);
+      *reinterpret_cast<uint32_t *>(&out->opspecific + UUID_LEN + sizeof(uint32_t)) = hton32(extra_len);
       if (&out->opspecific - buf + UUID_LEN + 2 * sizeof(uint32_t) + extra_len > NOVA_PACKET_LEN) return false;
       if (extra_len) memcpy(&out->opspecific + UUID_LEN + 2 * sizeof(uint32_t), extra, extra_len);
 
-      out->version = Math::htons(DAEMON_VERSION);
-      out->opcode  = Math::htons(NOVA_EVENT);
+      out->version = hton16(DAEMON_VERSION);
+      out->opcode  = hton16(NOVA_EVENT);
       out->result  = NOVA_OP_SUCCEEDED;
 
       eventproducer->produce(buf, NOVA_PACKET_LEN);

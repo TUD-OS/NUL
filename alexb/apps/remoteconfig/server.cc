@@ -15,7 +15,6 @@
  */
 
 #include <service/string.h> //memset
-#include <service/math.h> // htonl, htons
 #include <service/logging.h>
 
 #include <nul/service_config.h>
@@ -24,6 +23,8 @@
 #include <service/endian.h>
 
 #include "server.h"
+
+using namespace Endian;
 
 const char *op2string(unsigned op)
 {
@@ -143,7 +144,7 @@ void Remcon::recv_call_back(void * in_mem, size_t in_len, void * &out, size_t &o
 
 #define GET_LOCAL_ID \
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific); \
-        uint32_t localid = Math::ntohl(*_id) - 1; \
+        uint32_t localid = ntoh32(*_id) - 1; \
         if (localid > sizeof(server_data)/sizeof(server_data[0]) || server_data[localid].id == 0) break
 
 #define HIP_COUNT(X, XNUM, Y) \
@@ -166,19 +167,19 @@ void Remcon::handle_packet(void) {
   unsigned op = NOVA_OP_FAILED;
 
   //version check
-  if (_in->version != Math::htons(DAEMON_VERSION)) {
-    _out->version = Math::htons(DAEMON_VERSION);
+  if (_in->version != hton16(DAEMON_VERSION)) {
+    _out->version = hton16(DAEMON_VERSION);
     _out->result  = NOVA_UNSUPPORTED_VERSION;
     Logging::printf("failure - outdated protocol request version %#x != %#x current\n",
-                    Math::htons(_in->version), DAEMON_VERSION);
+                    hton16(_in->version), DAEMON_VERSION);
 
     goto send_out;
   }
 
   //set default values 
-  op = Math::ntohs(_in->opcode);
-  _out->version = Math::htons(DAEMON_VERSION);
-  _out->opcode  = Math::htons(op);
+  op = ntoh16(_in->opcode);
+  _out->version = hton16(DAEMON_VERSION);
+  _out->opcode  = hton16(op);
   _out->result  = NOVA_OP_FAILED;
 
   if (!obj_auth->is_valid() && (op != NOVA_AUTH)) goto send_out; //no authentication - no service
@@ -193,11 +194,11 @@ void Remcon::handle_packet(void) {
           if (server_data[i].id == 0 || server_data[i].state == server_data::status::OFF) continue;
 
           k++;
-          ids[k] = Math::htonl(server_data[i].id);
+          ids[k] = hton32(server_data[i].id);
   
           if (reinterpret_cast<unsigned char *>(&ids[k + 1]) >= buf_out + NOVA_PACKET_LEN) break; //no space left
         }
-        ids[0] = Math::htonl(k); //num of ids
+        ids[0] = hton32(k); //num of ids
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
@@ -209,7 +210,7 @@ void Remcon::handle_packet(void) {
           k++;
         }
 
-        uint32_t _num = Math::htonl(k);
+        uint32_t _num = hton32(k);
         memcpy(&_out->opspecific, &_num, 4);
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
@@ -222,7 +223,7 @@ void Remcon::handle_packet(void) {
           k++;
         }
 
-        uint32_t num = Math::htonl(k);
+        uint32_t num = hton32(k);
         memcpy(&_out->opspecific, &num, 4);
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
@@ -245,7 +246,7 @@ void Remcon::handle_packet(void) {
           names += server_data[i].showname_len + 1;
           k++; 
         }
-        *num = Math::htonl(k);
+        *num = hton32(k);
         _out->result  = NOVA_OP_SUCCEEDED;
 
         break;
@@ -276,7 +277,7 @@ void Remcon::handle_packet(void) {
         if (!entry) break;
 
         unsigned len = entry->showname_len + 1;
-        uint32_t id = Math::htonl(entry->id);
+        uint32_t id = hton32(entry->id);
         memcpy(&_out->opspecific, &id, sizeof(id));
         memcpy(&_out->opspecific + sizeof(id), entry->showname, len);
         *(&_out->opspecific + sizeof(id) + len - 1) = 0;
@@ -326,7 +327,7 @@ void Remcon::handle_packet(void) {
 
         if (!etemplate) {
           client = reinterpret_cast<struct tmp1 *>(&_in->opspecific);
-          client->showname_len = Math::ntohl(client->showname_len);
+          client->showname_len = ntoh32(client->showname_len);
           if (client->showname_len > NOVA_PACKET_LEN ||
               (&client->showname + client->showname_len > reinterpret_cast<char *>(buf_in) + NOVA_PACKET_LEN)) goto ecleanup; // cheater!
           if (!this->file_template || !this->file_len_template) { Logging::printf("failure - no disk template configured\n"); goto ecleanup; }
@@ -339,7 +340,7 @@ void Remcon::handle_packet(void) {
           memcpy(entry->uuid, client->uuid, UUID_LEN);
           entry->showname     = _name;
           entry->showname_len = client->showname_len;
-          entry->maxmem       = Math::ntohl(client->maxmem) * 1024;
+          entry->maxmem       = ntoh32(client->maxmem) * 1024;
 
           unsigned proto_len = sizeof(entry->fsname) - 3;
           memcpy(entry->fsname, "fs/", 3);
@@ -402,7 +403,7 @@ void Remcon::handle_packet(void) {
           }
 
           entry->state = server_data::status::BLOCKED;
-          uint32_t id = Math::htonl(entry->id);
+          uint32_t id = hton32(entry->id);
           memcpy(&_out->opspecific, &id, sizeof(id));
           _out->result  = NOVA_OP_SUCCEEDED;
           break;
@@ -413,7 +414,7 @@ void Remcon::handle_packet(void) {
 
         res = start_entry(entry);
         if (res == ENONE) {
-          uint32_t id = Math::htonl(entry->id);
+          uint32_t id = hton32(entry->id);
           memcpy(&_out->opspecific, &id, sizeof(id));
           _out->result  = NOVA_OP_SUCCEEDED;
         } else {
@@ -471,10 +472,10 @@ void Remcon::handle_packet(void) {
         }
 
         char  * ptr = reinterpret_cast<char *>(&_out->opspecific);
-        *reinterpret_cast<uint32_t *>(ptr) = Math::htonl(entry->maxmem / 1024); //in kB
-        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint32_t)) = Math::htonl(1); //vcpus
-        *reinterpret_cast<uint64_t *>(ptr += sizeof(uint32_t)) = (0ULL + Math::htonl(consumed_time)) << 32 + Math::htonl(consumed_time >> 32); //in microseconds
-        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint64_t)) = Math::htonl(entry->state);
+        *reinterpret_cast<uint32_t *>(ptr) = hton32(entry->maxmem / 1024); //in kB
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint32_t)) = hton32(1); //vcpus
+        *reinterpret_cast<uint64_t *>(ptr += sizeof(uint32_t)) = (0ULL + hton32(consumed_time)) << 32 + hton32(consumed_time >> 32); //in microseconds
+        *reinterpret_cast<uint32_t *>(ptr += sizeof(uint64_t)) = hton32(entry->state);
         _out->result  = NOVA_OP_SUCCEEDED;
 
         break;
@@ -483,8 +484,8 @@ void Remcon::handle_packet(void) {
     case NOVA_DISABLE_EVENT:
       {
         uint32_t * _id = reinterpret_cast<uint32_t *>(&_in->opspecific);
-        uint32_t localid = Math::ntohl(*_id);
-        uint32_t eventid = Math::ntohl(*(_id + 1));
+        uint32_t localid = ntoh32(*_id);
+        uint32_t eventid = ntoh32(*(_id + 1));
 
         if (localid == ~0U) {
           gevents = (op == NOVA_ENABLE_EVENT);
@@ -503,8 +504,8 @@ void Remcon::handle_packet(void) {
     case NOVA_ATOMIC_RULE:
       {
         GET_LOCAL_ID;
-        uint32_t eventid  = Math::ntohl(*(_id + 1));
-        uint32_t actionid = Math::ntohl(*(_id + 2));
+        uint32_t eventid  = ntoh32(*(_id + 1));
+        uint32_t actionid = ntoh32(*(_id + 2));
 
         unsigned ij = get_event_slot(&server_data[localid], eventid);
         if (~0U == ij) break;
@@ -543,11 +544,11 @@ void Remcon::handle_packet(void) {
         memory_max = memory_max >> 10;
 
         uint32_t * data = reinterpret_cast<uint32_t *>(&_out->opspecific);
-        *data++ = Math::htonl(memory_max); //memory size kb
-        *data++ = Math::htonl(Global::hip.cpu_count()); //active cpus
-        *data++ = Math::htonl(Global::hip.freq_tsc / 1000); //freq in MHz
-        *data++ = Math::htonl(1); //NUMA nodes
-        *data++ = Math::htonl(package); *data++ = Math::htonl(core); *data++ = Math::htonl(thread);
+        *data++ = hton32(memory_max); //memory size kb
+        *data++ = hton32(Global::hip.cpu_count()); //active cpus
+        *data++ = hton32(Global::hip.freq_tsc / 1000); //freq in MHz
+        *data++ = hton32(1); //NUMA nodes
+        *data++ = hton32(package); *data++ = hton32(core); *data++ = hton32(thread);
 
         //char * name = reinterpret_cast<char *>(data);
         *data++ = ebx; *data++ = edx; *data++ = ecx; *data++ = 0;
@@ -559,7 +560,7 @@ void Remcon::handle_packet(void) {
       break;
     case NOVA_AUTH:
       {
-        uint32_t len = Math::ntohl(*reinterpret_cast<uint32_t *>(&_in->opspecific));
+        uint32_t len = ntoh32(*reinterpret_cast<uint32_t *>(&_in->opspecific));
         unsigned char * authid = reinterpret_cast<unsigned char *>(&_in->opspecific) + sizeof(len);
         if (len < 2 || len > NOVA_PACKET_LEN || &_in->opspecific + len > buf_in + NOVA_PACKET_LEN) break; // cheater!
 

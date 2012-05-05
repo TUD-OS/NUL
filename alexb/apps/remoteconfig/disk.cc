@@ -15,7 +15,6 @@
  */
 
 #include <service/string.h> //memset
-#include <service/math.h> // htonl, htons
 #include <service/logging.h>
 
 #include <nul/baseprogram.h>
@@ -24,6 +23,8 @@
 
 #include "server.h"
 #include "sha.h"
+
+using namespace Endian;
 
 #define assert_or_ret(cond) do { if (!(cond)) { Logging::printf("assertion failed in %s:%u: %s\n", __FILE__, __LINE__, #cond); return; } } while(0)
 
@@ -65,7 +66,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
 
     struct server_data * entry = check_uuid(client->uuid);
     assert_or_ret(entry);
-    client->diskid = Math::ntohl(client->diskid);
+    client->diskid = ntoh32(client->diskid);
     assert_or_ret(client->diskid < sizeof(entry->disks) / sizeof(entry->disks[0]));
     assert_or_ret(entry->disks[client->diskid].internal.diskid != ~0U);
     assert_or_ret(entry->disks[client->diskid].internal.sectorsize);
