@@ -10,6 +10,8 @@ nul.Lib(target_env,
         'cpp-support.cc',
         'string.cc',
         'capalloc.cc',
+        # compiler-rt
+        'udivdi3.S'
         ])
 
 # EOF
