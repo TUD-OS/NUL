@@ -67,31 +67,30 @@
 
 static uint64 uninterruptible_read(volatile uint64 &v)
 {
- again:
-  uint64 old = v;
+  uint32 lo = 0;
+  uint32 hi = 0;
   // We don't need a lock prefix, because this is only meant to be
   // uninterruptible not atomic. So don't use this for SMP!
-  asm goto ("cmpxchg8b %0\n"
-            "jne %l[again]\n"
-            : // control transfer statements cannot have outputs, we clobber memory instead.
-            : "m" (v), "a" (static_cast<uint32>(old)), "d" (static_cast<uint32>(old >> 32)),
-              "b" (static_cast<uint32>(old)), "c" (static_cast<uint32>(old >> 32))
-            : "memory"
-            : again);
-  return old;
+  asm ("cmpxchg8b %2\n"
+       : "+a" (static_cast<uint32>(lo)), "+d" (static_cast<uint32>(hi))
+       : "m" (v), "b" (static_cast<uint32>(lo)), "c" (static_cast<uint32>(hi)));
+  return (static_cast<uint64>(hi) << 32) | lo;
 }
 
 static void uninterruptible_write(volatile uint64 &to, uint64 value)
 {
- again:
-  uint64 old = to;
-  asm goto ("cmpxchg8b %0\n"
-            "jne %l[again]\n"
-            : // control transfer statements cannot have outputs, we clobber memory instead.
-            : "m" (to), "a" (static_cast<uint32>(old)), "d" (static_cast<uint32>(old >> 32)),
-              "b" (static_cast<uint32>(value)), "c" (static_cast<uint32>(value >> 32))
-            : "memory"
-            : again);
+  uint32 nlo = value;
+  uint32 nhi = value >> 32;
+  uint32 olo = 0;
+  uint32 ohi = 0;
+
+  // We iterate at least twice to get the correct old value and then
+  // to substitute it.
+  asm ("1: cmpxchg8b %0\n"
+       "jne 1b"
+       : "+m" (to),
+         "+a" (static_cast<uint32>(olo)), "+d" (static_cast<uint32>(ohi))
+       : "b" (static_cast<uint32>(nlo)), "c" (static_cast<uint32>(nhi)));
 }
 
 class ClockSyncInfo {
