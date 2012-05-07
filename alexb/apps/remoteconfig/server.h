@@ -256,6 +256,8 @@ class Remcon : public CapAllocator {
       fs_obj.destroy(*BaseProgram::myutcb(), portal_num, this);
 
       obj_auth = new Auth();
+
+      Logging::printf("        - libvirt protocol version %#x\n", DAEMON_VERSION);
     }
 
     void recv_file(uint32 remoteip, uint16 remoteport, uint16 localport, void * in, size_t in_len, void * &out, size_t &out_len);
