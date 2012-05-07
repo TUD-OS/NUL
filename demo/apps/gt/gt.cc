@@ -87,8 +87,7 @@ public:
     Logging::printf("request timer\n");
     Clock * clock = new Clock(hip->freq_tsc*1000);
     TimerProtocol *_timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-    TimerProtocol::MessageTimer msg_ti(clock->abstime(0, 1000));
-    if (_timer_service->timer(*utcb, msg_ti))
+    if (_timer_service->timer(*utcb, clock->abstime(0, 1000)))
       Logging::panic("setting timeout failed\n");
 
     KernelSemaphore sem = KernelSemaphore(_timer_service->get_notify_sm());
@@ -102,8 +101,7 @@ public:
     Logging::printf("start animation\n");
     while (1)
       {
-        TimerProtocol::MessageTimer msg3(clock->abstime(1, 50));
-        _timer_service->timer(*utcb, msg3);
+        _timer_service->timer(*utcb, clock->abstime(1, 50));
 
         sem.downmulti(); 
 

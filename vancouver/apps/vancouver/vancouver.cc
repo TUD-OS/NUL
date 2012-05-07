@@ -320,9 +320,8 @@ class Vancouver : public NovaProgram, public ProgramConsole, public StaticReceiv
     _mb->bus_legacy.add  (this, receive_static<MessageLegacy>);
 
     service_timer = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-    TimerProtocol::MessageTimer msg(_mb->clock()->abstime(0, 1000));
     unsigned res;
-    if ((res = service_timer->timer(*utcb, msg)))
+    if ((res = service_timer->timer(*utcb, _mb->clock()->abstime(0, 1000))))
       Logging::panic("Timer service unreachable (error: %x).\n", res);
 
     service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
@@ -883,8 +882,7 @@ public:
       timevalue next_to = _timeouts.timeout();
       if (next_to != _last_to) {
         _last_to = next_to;
-        TimerProtocol::MessageTimer msg2(next_to);
-        unsigned res = service_timer->timer(*myutcb(), msg2);
+        unsigned res = service_timer->timer(*myutcb(), next_to);
         assert(!res);
       }
     }
@@ -927,13 +925,7 @@ public:
   }
 
   bool  receive(MessageTime &msg) {
-    TimerProtocol::MessageTime _msg;
-    _msg.wallclocktime = msg.wallclocktime;
-    _msg.timestamp = msg.timestamp;
-    bool res = !service_timer->time(*myutcb(), _msg);
-    msg.wallclocktime = _msg.wallclocktime;
-    msg.timestamp = _msg.timestamp;
-    return res;
+    return !service_timer->time(*myutcb(), msg.wallclocktime, msg.timestamp);
   }
 
   bool  receive(MessageLegacy &msg) {

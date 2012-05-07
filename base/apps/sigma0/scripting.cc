@@ -70,9 +70,8 @@ struct Script : public StaticReceiver<Script> {
         _head = item.next;
 
         if (item.type == ScriptItem::TYPE_WAIT) {
-          TimerProtocol::MessageTimer msg1(_clock->abstime(item.param0, 1000));
           Logging::printf("sc: wait %ldms\n", item.param0);
-          if (_service_timer->timer(utcb, msg1))
+          if (_service_timer->timer(utcb, _clock->abstime(item.param0, 1000)))
             Logging::printf("sc: setting timeout failed\n");
           break;
       	} else
@@ -127,8 +126,7 @@ struct Script : public StaticReceiver<Script> {
     if (msg.type != MessageLegacy::RESET) return false;
 
     // prog a zero timeout
-    TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
-    check1(false, _service_timer->timer(*BaseProgram::myutcb(),msg1));
+    check1(false, _service_timer->timer(*BaseProgram::myutcb(), _clock->abstime(0, 1000)));
     return true;
   }
 
@@ -140,8 +138,7 @@ struct Script : public StaticReceiver<Script> {
     _service_timer = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + mb->hip()->cpu_desc_count(), 0));
 
     unsigned res;
-    TimerProtocol::MessageTimer msg1(_clock->abstime(0, 1000));
-    if ((res = _service_timer->timer(*BaseProgram::myutcb(), msg1)))
+    if ((res = _service_timer->timer(*BaseProgram::myutcb(), _clock->abstime(0, 1000))))
       Logging::panic("sc: setting timeout failed with %x\n", res);
 
     _worker = KernelSemaphore(_service_timer->get_notify_sm());

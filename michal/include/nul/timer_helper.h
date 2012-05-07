@@ -30,8 +30,7 @@ public:
   unsigned msleep(unsigned msecs)
   {
     unsigned res;
-    TimerProtocol::MessageTimer msg(clock.abstime(msecs, 1000));
-    res = timer(*BaseProgram::myutcb(), msg);
+    res = timer(*BaseProgram::myutcb(), clock.abstime(msecs, 1000));
     if (res) return res;
     timersem.downmulti();
     return ENONE;

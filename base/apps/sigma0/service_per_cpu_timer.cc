@@ -783,8 +783,8 @@ public:
           our->clock_sync.current_hpet(_reg->counter[0]) :
           atomic_read(_pit_ticks);
 
-        msg.timestamp = _mb.clock()->clock(MessageTime::FREQUENCY);
-        msg.wallclocktime = Math::muldiv128(counter, MessageTime::FREQUENCY, _timer_freq);
+        msg.timestamp = _mb.clock()->clock(TimerProtocol::WALLCLOCK_FREQUENCY);
+        msg.wallclocktime = Math::muldiv128(counter, TimerProtocol::WALLCLOCK_FREQUENCY, _timer_freq);
         utcb << msg;
         return ENONE;
       }
@@ -809,12 +809,11 @@ public:
     BasicRtc rtc(_mb.bus_hwioin, _mb.bus_hwioout, iobase);
     if (_slow_wallclock) rtc.rtc_sync(_mb.clock());
     uint64 msecs  = rtc.rtc_wallclock();
-    uint64 ticks  = Math::muldiv128(msecs, _timer_freq, MessageTime::FREQUENCY);
+    uint64 ticks  = Math::muldiv128(msecs, _timer_freq, TimerProtocol::WALLCLOCK_FREQUENCY);
 
     tm_simple time;
 
-    Math::div64(msecs, MessageTime::FREQUENCY);
-    gmtime(msecs, &time);
+    gmtime(msecs / TimerProtocol::WALLCLOCK_FREQUENCY, &time);
     if (_verbose)
       Logging::printf("TIMER: %d.%02d.%02d %d:%02d:%02d\n", time.mday, time.mon, time.year, time.hour, time.min, time.sec);
 

@@ -309,7 +309,7 @@ public:
     _ram[0xb] = 0x02; // 24h+BCD mode
     _ram[0xd] = 0x80; // Valid RAM and Time
 
-    timevalue now = Math::muldiv128(time.wallclocktime - time.timestamp, FREQ, MessageTime::FREQUENCY);
+    timevalue now = Math::muldiv128(time.wallclocktime - time.timestamp, FREQ, Config::WALLCLOCK_FREQUENCY);
     update_ram(now / FREQ);
     set_irqflags(0);
     _offset = _last = 0;

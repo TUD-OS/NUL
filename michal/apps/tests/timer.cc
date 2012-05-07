@@ -34,8 +34,7 @@ public:
     unsigned t1, t2;
 
     t1 = clock->time();
-    TimerProtocol::MessageTimer msg(clock->abstime(100, 1000)); // 100 ms
-    WVNUL(timer_service->timer(*utcb, msg));
+    WVNUL(timer_service->timer(*utcb, clock->abstime(100, 1000))); // 100 ms
     KernelSemaphore timersem = KernelSemaphore(timer_service->get_notify_sm());
     
     timersem.downmulti();

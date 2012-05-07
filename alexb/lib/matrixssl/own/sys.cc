@@ -214,7 +214,8 @@ int osdepTimeOpen(void) {
   if (!cap_base) return PS_FAILURE;
 
   service_timer = new TimerProtocol(cap_base);
-  if (!service_timer || service_timer->time(*BaseProgram::myutcb(),msg)) return PS_FAILURE;
+  timevalue wc, ts;
+  if (!service_timer || service_timer->time(*BaseProgram::myutcb(), wc, ts)) return PS_FAILURE;
   return PS_SUCCESS;
 }
 
@@ -233,11 +234,10 @@ void osdepEntropyClose(void) { Logging::printf("warning - osdepentropyclose not 
 
 int32 psGetTime(psTime_t *t)
 {
-  TimerProtocol::MessageTime msg;
-  if (service_timer->time(*BaseProgram::myutcb(),msg)) return PS_FAILURE;
-  if (t) *t = msg.wallclocktime;
-  Math::div64(msg.wallclocktime, 1000000U);
-  return msg.wallclocktime;
+  timevalue wc, ts;
+  if (service_timer->time(*BaseProgram::myutcb(), wc, ts)) return PS_FAILURE;
+  if (t) *t = wc;
+  return wc / 1000000;
 }
 
 int32 psCompareTime(psTime_t a, psTime_t b)

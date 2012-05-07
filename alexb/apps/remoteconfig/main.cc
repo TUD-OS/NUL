@@ -248,8 +248,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
       if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failure - request for timeout\n");
 
-      TimerProtocol::MessageTimer to(_clock->abstime(arg, 1));
-      if (timer_service->timer(*utcb, to)) Logging::panic("failure - programming timer\n");
+      if (timer_service->timer(*utcb, _clock->abstime(arg, 1))) Logging::panic("failure - programming timer\n");
       if (!nul_ip_init(send_network, mac)) Logging::panic("failure - starting ip stack\n");
 
       // check for static ip - otherwise use dhcp
@@ -326,8 +325,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
           unsigned long long timeout;
 
           nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
-          TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-          if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
+          if (timer_service->timer(*utcb, _clock->time() + timeout * hip->freq_tsc))
+            Logging::printf("failure - programming timer\n");
 
           //dump ip addr if we got one
           if (nul_ip_config(IP_IPADDR_DUMP, NULL)) {
@@ -372,8 +371,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
     Clock * _clock = new Clock(hip->freq_tsc);
 
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-    TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-    bool res = timer_service->timer(*utcb, msg);
+    bool res = timer_service->timer(*utcb, _clock->abstime(0, 1000));
 
     Logging::printf("%s - request timer attach\n", (res == 0 ? "done   " : "failure"));
     if (res) Logging::panic("failure - attaching to timer service");

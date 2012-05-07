@@ -18,9 +18,10 @@
  */
 #pragma once
 
-#include "nul/parent.h"
-#include "nul/generic_service.h"
-#include "nul/timer.h"
+#include <nul/config.h>
+#include <nul/parent.h>
+#include <nul/generic_service.h>
+#include <nul/timer.h>
 
 struct TimerProtocol : public GenericProtocol {
   /**
@@ -29,22 +30,18 @@ struct TimerProtocol : public GenericProtocol {
    * There is no frequency and clock here, as all is based on the same
    * clocksource.
    */
+
+  /* Resolution of the wallclock. In ticks per second. */
+  static const unsigned long WALLCLOCK_FREQUENCY = Config::WALLCLOCK_FREQUENCY;
+
   struct MessageTimer
   {
     timevalue abstime;
     MessageTimer(timevalue _abstime) : abstime(_abstime) {}
   };
 
-  /**
-   * Returns the wall clock time in microseconds.
-   *
-   * It also contains a timestamp of the Motherboard clock in
-   * microseconds, to be able to adjust to the time already passed and
-   * to detect out-of-date values.
-   */
   struct MessageTime
   {
-    enum { FREQUENCY = 1000000 };
     timevalue wallclocktime;
     timevalue timestamp;
     MessageTime() :  wallclocktime(0), timestamp(0) {}
@@ -66,22 +63,29 @@ struct TimerProtocol : public GenericProtocol {
   }
 
   /**
-   * Get wallclock timer
+   * Returns the wall clock time in microseconds.
+   *
+   * It also contains a timestamp of the Motherboard clock in
+   * microseconds, to be able to adjust to the time already passed and
+   * to detect out-of-date values.
    */
-  unsigned time(Utcb &utcb, TimerProtocol::MessageTime &msg) {
+  unsigned time(Utcb &utcb, timevalue &wallclocktime, timevalue &timestamp) {
+    MessageTime m;
     unsigned res = call_server(init_frame(utcb, TYPE_REQUEST_TIME), false);
     if (!res)
-      utcb >> msg;
-
+      utcb >> m;
+    wallclocktime = m.wallclocktime;
+    timestamp     = m.timestamp;
     utcb.drop_frame();
     return res;
   }
 
-  unsigned timer(Utcb &utcb, TimerProtocol::MessageTimer &timer) {
   /**
    * Program timer for timer.abstime
    */
-    return call_server(init_frame(utcb, TYPE_REQUEST_TIMER) << timer, true);
+  unsigned timer(Utcb &utcb, timevalue abstime) {
+    MessageTimer t(abstime);
+    return call_server(init_frame(utcb, TYPE_REQUEST_TIMER) << t, true);
   }
 
   TimerProtocol(unsigned cap_base, unsigned instance=0) : GenericProtocol("timer", instance, cap_base, true) {}

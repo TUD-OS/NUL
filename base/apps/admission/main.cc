@@ -448,8 +448,7 @@ public:
     if (!_clock) return false;
 
     TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-    TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-    unsigned res = timer_service->timer(*utcb, msg);
+    unsigned res = timer_service->timer(*utcb, _clock->abstime(0, 1000));
     if (res) return false;
 
     KernelSemaphore sem = KernelSemaphore(timer_service->get_notify_sm());
@@ -520,8 +519,8 @@ public:
         }
       }
 
-      TimerProtocol::MessageTimer to(_clock->abstime(interval, 1));
-      if (timer_service->timer(*utcb,to)) Logging::printf("failure - programming timer\n");
+      if (timer_service->timer(*utcb, _clock->abstime(interval, 1)))
+        Logging::printf("failure - programming timer\n");
 
       sem.downmulti();
       update = false;

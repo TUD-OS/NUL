@@ -22,6 +22,7 @@
 
 #include <nul/types.h>
 #include <nul/compiler.h>
+#include <nul/config.h>
 #include <sys/desc.h>
 #include <sys/utcb.h>
 
@@ -749,7 +750,7 @@ struct MessageTimeout
  */
 struct MessageTime
 {
-  enum { FREQUENCY = 1000000 };
+  enum { FREQUENCY = Config::WALLCLOCK_FREQUENCY };
   timevalue wallclocktime;
   timevalue timestamp;
   MessageTime() :  wallclocktime(0), timestamp(0) {}

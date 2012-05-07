@@ -66,8 +66,7 @@ class TestIP : public NovaProgram, public ProgramConsole
       if (!netconsumer) return false;
 
       TimerProtocol * timer_service = new TimerProtocol(alloc_cap(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
-      TimerProtocol::MessageTimer msg(_clock->abstime(0, 1000));
-      res = timer_service->timer(*utcb, msg);
+      res = timer_service->timer(*utcb, _clock->abstime(0, 1000));
 
       Logging::printf("%s - request timer attach\n", (res == 0 ? "success" : "failure"));
       if (res) return false;
@@ -90,8 +89,8 @@ class TestIP : public NovaProgram, public ProgramConsole
 
       if (!nul_ip_config(IP_TIMEOUT_NEXT, &arg)) Logging::panic("failed - requesting timeout\n");
 
-      TimerProtocol::MessageTimer to(_clock->time() + arg * hip->freq_tsc);
-      if (timer_service->timer(*utcb, to)) Logging::panic("failed  - starting timer\n");
+      if (timer_service->timer(*utcb, _clock->time() + arg * hip->freq_tsc))
+        Logging::panic("failed  - starting timer\n");
       if (!nul_ip_init(send_network, mac)) Logging::panic("failed - starting ip\n");
       if (!nul_ip_config(IP_DHCP_START, NULL)) Logging::panic("failed - starting dhcp\n");
 
@@ -123,8 +122,7 @@ class TestIP : public NovaProgram, public ProgramConsole
           nul_ip_config(IP_TIMEOUT_NEXT, &timeout);
           //Logging::printf("info    - next timeout in %llu ms\n", timeout);
 
-          TimerProtocol::MessageTimer to(_clock->time() + timeout * hip->freq_tsc);
-          if (timer_service->timer(*utcb,to))
+          if (timer_service->timer(*utcb, _clock->time() + timeout * hip->freq_tsc))
             Logging::printf("failed  - starting timer\n");
 
           //dump ip addr if we got one

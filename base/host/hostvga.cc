@@ -93,8 +93,7 @@ private:
   {
     if (!_refresh_freq) return;
 
-    TimerProtocol::MessageTimer msg(_mb.clock()->abstime(1, _refresh_freq));
-    unsigned res = _timer_service->timer(utcb, msg);
+    unsigned res = _timer_service->timer(utcb, _mb.clock()->abstime(1, _refresh_freq));
     assert(!res);
   }
 
@@ -441,9 +440,8 @@ public:
     _timer_service = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + mb.hip()->cpu_desc_count(), 0));
 
     // get a timer
-    TimerProtocol::MessageTimer msg0(mb.clock()->abstime(0, 1000));
     unsigned res;
-    if ((res = _timer_service->timer(*BaseProgram::myutcb(), msg0)))
+    if ((res = _timer_service->timer(*BaseProgram::myutcb(), mb.clock()->abstime(0, 1000))))
       Logging::panic("%s can't get a timer %x", __func__, res);
 
     // switch to sigma0 console
