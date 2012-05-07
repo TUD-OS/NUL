@@ -65,16 +65,33 @@
 #define PIT_IRQ  2
 #define PIT_PORT 0x40
 
-static uint64 atomic_read(volatile uint64 &v)
+static uint64 uninterruptible_read(volatile uint64 &v)
 {
-  uint64 res;
-  asm ("movq %1, %0" : "=x" (res) : "m" (v));
-  return res;
+ again:
+  uint64 old = v;
+  // We don't need a lock prefix, because this is only meant to be
+  // uninterruptible not atomic. So don't use this for SMP!
+  asm goto ("cmpxchg8b %0\n"
+            "jne %l[again]\n"
+            : // control transfer statements cannot have outputs, we clobber memory instead.
+            : "m" (v), "a" (static_cast<uint32>(old)), "d" (static_cast<uint32>(old >> 32)),
+              "b" (static_cast<uint32>(old)), "c" (static_cast<uint32>(old >> 32))
+            : "memory"
+            : again);
+  return old;
 }
 
-static void atomic_write(volatile uint64 &to, uint64 value)
+static void uninterruptible_write(volatile uint64 &to, uint64 value)
 {
-  asm ("movq %1, %0" : "=m" (to) : "x" (value));
+ again:
+  uint64 old = to;
+  asm goto ("cmpxchg8b %0\n"
+            "jne %l[again]\n"
+            : // control transfer statements cannot have outputs, we clobber memory instead.
+            : "m" (to), "a" (static_cast<uint32>(old)), "d" (static_cast<uint32>(old >> 32)),
+              "b" (static_cast<uint32>(value)), "c" (static_cast<uint32>(value >> 32))
+            : "memory"
+            : again);
 }
 
 class ClockSyncInfo {
@@ -99,16 +116,16 @@ public:
   // value.
   uint64 current_hpet(uint32 r)
   {
-    return correct_overflow(atomic_read(last_hpet), r);
+    return correct_overflow(uninterruptible_read(last_hpet), r);
   }
 
   // Fetch a new timer value.
   uint64 fetch(volatile uint32 &r)
   {
     uint64 newv = r;
-    newv = correct_overflow(atomic_read(last_hpet), newv);
+    newv = correct_overflow(uninterruptible_read(last_hpet), newv);
 
-    atomic_write(last_hpet, newv);
+    uninterruptible_write(last_hpet, newv);
     return newv;
   }
 };
@@ -781,7 +798,7 @@ public:
         MessageTime msg;
         uint64 counter = _reg ?
           our->clock_sync.current_hpet(_reg->counter[0]) :
-          atomic_read(_pit_ticks);
+          uninterruptible_read(_pit_ticks);
 
         msg.timestamp = _mb.clock()->clock(TimerProtocol::WALLCLOCK_FREQUENCY);
         msg.wallclocktime = Math::muldiv128(counter, TimerProtocol::WALLCLOCK_FREQUENCY, _timer_freq);
