@@ -100,6 +100,7 @@ pod2usage(1) if $help;
 pod2usage(-exitstatus => 0, -verbose => 2) if $man;
 
 $CFG::iprelay_addr = $ENV{'NOVABOOT_IPRELAY'} if $ENV{'NOVABOOT_IPRELAY'};
+if ($iprelay && $iprelay ne "on" && $iprelay ne "off") { $CFG::iprelay_addr = $iprelay; }
 
 if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name with multiple scripts"; }
 
@@ -766,11 +767,12 @@ i.e. run update-grub on Debian/Ubuntu.
 
 Print short (B<-h>) or long (B<--help>) help.
 
-=item --iprelay[=cmd]
+=item --iprelay[=addr or cmd]
 
 If no I<cmd> is given, use IP relay to reset the machine and to get
-the serial output. The IP address of the relay is determined by
-$iprelay_addr variable in the configuration file.
+the serial output. The IP address of the relay is given by I<addr>
+parameter if specified or by $iprelay_addr variable in the
+configuration file.
 
 If I<cmd> is one of "on" or "off", the IP relay is used to press power
 button for a short (in case of "on") or long (in case of "off") time.
