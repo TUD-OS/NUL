@@ -806,6 +806,12 @@ Generates the ISO image that boots NOVA system via GRUB. If no filename
 is given, the image is stored under I<NAME>.iso, where I<NAME> is the name
 of novaboot script (see also B<--name>).
 
+=item -I
+
+This is an alias (see C<%custom_options> below) defined in the default
+configuration. When used, it causes novaboot to use Michal's remotely
+controllable test bed.
+
 =item --on, --off
 
 Synonym for --iprelay=on/off.
