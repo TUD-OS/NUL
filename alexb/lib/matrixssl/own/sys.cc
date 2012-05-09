@@ -90,7 +90,10 @@ int32 nul_tls_config(int32 transferred, void (*write_out)(uint16 localport, void
         Logging::panic("failure - tls - processdata error %d\n", rc);
       }
       len = matrixSslEncodeToOutdata(ssl, reinterpret_cast<unsigned char *>(appdata), appdata_len);
-      assert(len > 0);
+      if (len <= 0) {
+        Logging::printf("failure - tls - matrixssl/own/sys.cc:%u - encodeoutdata %d\n", __LINE__, len);
+        return (len == 0) ? -1 : len;
+      }
       rc = MATRIXSSL_REQUEST_SEND;
       //matrixSslGetWritebuf
       //matrixSslEncodeWritebuf
