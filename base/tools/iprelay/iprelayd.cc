@@ -287,7 +287,7 @@ int connect_ip_relay(const char *node, const char *service)
 {
   struct addrinfo hints;
   struct addrinfo *result, *rp;
-  int ret, sfd;
+  int ret, sfd = -1;
 
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
