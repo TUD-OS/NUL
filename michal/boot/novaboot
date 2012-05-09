@@ -454,6 +454,23 @@ if (defined $iprelay) {
     print "done\n";
     $IPRELAY->autoflush(1);
 
+    while (1) {
+	print $IPRELAY "\xFF\xF6";
+	alarm(20);
+	local $SIG{ALRM} = sub { die "Relay AYT timeout"; };
+	my $ayt_reponse = "";
+	my $read = sysread($IPRELAY, $ayt_reponse, 100);
+	alarm(0);
+
+	chomp($ayt_reponse);
+	print "$ayt_reponse\n";
+	if ($ayt_reponse =~ /<iprelayd: not connected/) {
+	    sleep(10);
+	    next;
+	}
+	last;
+    }
+
     sub relaycmd($$) {
 	my ($relay, $onoff) = @_;
 	die unless ($relay == 1 || $relay == 2);
