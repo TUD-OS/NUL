@@ -36,7 +36,7 @@ $CFG::script_modifier = ''; # Depricated, use --scriptmod commandline option or 
 @CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
-%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:/home/sojka/boot/novaboot --grub-prefix=(nd)/tftpboot/sojka/novaboot/ --iprelay --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
+%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:/home/sojka/boot/novaboot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+X --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/sojka/novaboot/ --iprelay --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
 $CFG::scons = "scons -j2";
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
@@ -63,7 +63,9 @@ GetOptions ("config|c=s" => \$cfg);
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, @scriptmod, $scons, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $rsync_flags, @scriptmod, $scons, $serial, $server);
+
+$rsync_flags = '';
 
 Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
 my %opt_spec = (
@@ -85,6 +87,7 @@ my %opt_spec = (
     "qemu|Q=s" 	     => \$qemu,
     "qemu-append=s"  => \$qemu_append,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
+    "rsync-flags=s"  => \$rsync_flags,
     "scons:s"	     => \$scons,
     "scriptmod=s"    => \@scriptmod,
     "serial|s:s"     => \$serial,
@@ -413,7 +416,7 @@ foreach my $script (@scripts) {
 	map({ my $file = (split)[0]; die "$file: $!" if ! -f $file; } @$modules);
 	my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
 	my $progress = $istty ? "--progress" : "";
-	system_verbose("rsync $progress -RLp $files $server");
+	system_verbose("rsync $progress -RLp $rsync_flags $files $server");
 	my $cmd = "cd $path/.. && cat */menu.lst > menu.lst";
 	if ($combined_menu_lst) { system_verbose($hostname ? "ssh $hostname '$cmd'" : $cmd); }
     }
@@ -837,6 +840,11 @@ C<-cpu coreduo -smp 2>).
 
 Replace the default qemu flags (QEMU_FLAGS variable or C<-cpu coreduo
 -smp 2>) with I<flags> specified here.
+
+=item --rsync-flags=I<flags>
+
+Specifies which I<flags> are appended to F<rsync> comand line when
+copying files as a result of I<--server> option.
 
 =item --scons[=scons command]
 
