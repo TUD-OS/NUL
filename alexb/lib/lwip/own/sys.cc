@@ -55,6 +55,7 @@ void sys_init(void) { }
 typedef void (*fn_recv_call_t)(uint32 remoteip, uint16 remoteport, uint16 localport, void * in_data, size_t in_len);
 typedef void (*fn_connected_call_t)(bool);
 struct nul_tcp_struct {
+  bool outgoing;
   u16_t port;
   struct tcp_pcb * listening_pcb;
   struct tcp_pcb * openconn_pcb;
@@ -204,17 +205,17 @@ bool nul_ip_udp(unsigned _port) {
 
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
-  Logging::printf("[tcp]   - connection closed - port %u\n", tcp_struct->port);
+  Logging::printf("[tcp]   - connection closed - port %u open_pcb=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
   if (tcp_struct->fn_recv_call && tcp_struct->openconn_pcb) {
     tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
                              tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
                              NULL, NUL_TCP_EOF);
   }
-  if (!tcp_struct->openconn_pcb ||
-       tcp_struct->listening_pcb == tcp_struct->openconn_pcb) //outgoing call, either connected or unconnected
+  if (tcp_struct->outgoing) //outgoing call, either connected or unconnected
     tcp_struct->listening_pcb = 0; //free old port - it was a outgoing connection
   else
-    tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
+    if (tcp_struct->listening_pcb)
+      tcp_accepted(tcp_struct->listening_pcb); //acknowledge now the old listen pcb to be able to get new connections of same port XXX
 
   tcp_struct->openconn_pcb = 0;
 }
@@ -335,6 +336,7 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
 
     for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++)
       if (nul_tcps[i].listening_pcb == 0) {
+        nul_tcps[i].outgoing      = true;
         nul_tcps[i].port          = tmp_pcb->local_port;
         nul_tcps[i].listening_pcb = tmp_pcb;
         nul_tcps[i].openconn_pcb  = 0;
@@ -363,6 +365,7 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
     //set callbacks
     for (unsigned i=0; i < sizeof(nul_tcps) / sizeof(nul_tcps[0]); i++)
       if (nul_tcps[i].listening_pcb == 0) {
+        nul_tcps[i].outgoing      = false;
         nul_tcps[i].port          = port;
         nul_tcps[i].listening_pcb = listening_pcb;
         nul_tcps[i].openconn_pcb  = 0;
