@@ -512,7 +512,7 @@ if (defined $iprelay) {
 	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0 && !$giveup) {
 	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
 	    if (!defined($read)) {
-		die($!) unless $! == EAGAIN;
+		die("IP relay: $!") unless $! == EAGAIN;
 		usleep(10000);
 		next;
 	    }
