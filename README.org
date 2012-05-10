@@ -49,7 +49,7 @@
   Github: https://github.com/TUD-OS/NUL
 
   Hypervisor development happens also on Github:
-  https://github.com/TUD-OS/NUL
+  https://github.com/IntelLabs/NOVA
 
 * Development
 
