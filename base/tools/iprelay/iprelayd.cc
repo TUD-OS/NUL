@@ -39,6 +39,7 @@
 #include <string>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 
 using namespace std;
@@ -68,6 +69,27 @@ enum {
   FD_CLIENT,
   FD_COUNT = FD_CLIENT + MAX_CLIENTS
 };
+
+int msg(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
+int msg(const char* fmt, ...)
+{
+  va_list ap;
+  int ret;
+  char *str;
+  va_start(ap, fmt);
+  ret = vasprintf(&str, fmt, ap);
+  va_end(ap);
+  unsigned l = strlen(str);
+  if (l > 0 && str[l-1] == '\n')
+    str[l-1] = 0;
+  char time_str[30];
+  time_t t = time(NULL);
+  strftime(time_str, sizeof(time_str), "%F %T", localtime(&t));
+  fprintf(stderr, "%s %s\n", time_str, str);
+  free(str);
+  return ret;
+}
+
 
 class Client {
 
@@ -136,7 +158,7 @@ public:
     unsigned l = strlen(str);
     if (l > 0 && str[l-1] == '\n')
       str[l-1] = 0;
-    fprintf(stderr, "%s: %s\n", name().c_str(), str);
+    ::msg("%s: %s\n", name().c_str(), str);
     free(str);
     return ret;
   }
@@ -296,7 +318,7 @@ int connect_ip_relay(const char *node, const char *service)
   hints.ai_protocol = 0;          /* Any protocol */
   ret = getaddrinfo(node, service, &hints, &result);
   if (ret != 0) {
-    fprintf(stderr, "getaddrinfo(%s, %s): %s\n", node, service, gai_strerror(ret));
+    msg("getaddrinfo(%s, %s): %s\n", node, service, gai_strerror(ret));
     exit(1);
   }
 
@@ -317,11 +339,11 @@ int connect_ip_relay(const char *node, const char *service)
   if (rp == NULL) {               /* No address succeeded */
     static bool first = true;
     if (first)
-      fprintf(stderr, "Could not connect to IP relay at %s:%s - will try later\n", node, service);
+      msg("Could not connect to IP relay at %s:%s - will try later\n", node, service);
     first = false;
     return -1;
   }
-  fprintf(stderr, "Connected to IP relay at %s:%s\n", node, service);
+  msg("Connected to IP relay at %s:%s\n", node, service);
   return sfd;
 }
 
@@ -428,13 +450,14 @@ int main(int argc, char *argv[])
 
     if (pollfds[FD_IP_RELAY].revents) {
       unsigned revents = pollfds[FD_IP_RELAY].revents;
+      msg("ip_relay handle %#x\n", revents);
       if (revents & POLLIN) {
         char buf[2000];
         int ret;
         ret = read(Client::fd_ip_relay, buf, sizeof(buf));
 
         if (ret == -1) {
-          perror("iprelay read");
+          msg("iprelay read: %s", strerror(errno));
           exit(1);
         }
 
@@ -444,7 +467,7 @@ int main(int argc, char *argv[])
       }
 
       if (revents & POLLRDHUP) {
-        fprintf(stderr, "IP relay disconnected\n");
+        msg("IP relay disconnected\n");
         Client::fd_ip_relay = -1;
         memset(&pollfds[FD_IP_RELAY], 0, sizeof(pollfds[FD_IP_RELAY]));
       }
