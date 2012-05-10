@@ -17,8 +17,8 @@
 
   Useful points of reference:
 
-  http://os.inf.tu-dresden.de/
-  http://hypervisor.org/
+  - http://os.inf.tu-dresden.de/
+  - http://hypervisor.org/
   
 
 * Org-Mode HOWTO						   :noexport:
