@@ -5,6 +5,22 @@
 #+TODO: TODO INPROGRESS | CLOSED CANCELED
 #+STARTUP: showall hidestars
 
+* Introduction
+
+  This is the development version of NUL, the NOVA UserLand, developed
+  at the Operating Systems Group at TU Dresden. It complements the
+  NOVA microhypervisor with applications, mainly a virtual machine
+  monitor and a hardware resource multiplexer.
+
+  The code is still experimental and far from feature complete.  Use
+  it on your own risk.  If it breaks, you get to keep both pieces.
+
+  Useful points of reference:
+
+  http://os.inf.tu-dresden.de/
+  http://hypervisor.org/
+  
+
 * Org-Mode HOWTO						   :noexport:
 
   This file uses Org-Mode, which ships with a nice manual that you can
@@ -19,14 +35,6 @@
   Shift-TAB: Toggle overview.
   C-c C-e l: Export as LaTeX. :-D
 
-* Introduction
-
-  This is the development version of NUL, the NOVA UserLand.  It
-  complements the NOVA microhypervisor with applications, mainly a
-  virtual machine monitor and a hardware resource multiplexer.
-
-  The code is still experimental and far from feature complete.  Use
-  it on your own risk.  If it breaks, you get to keep both pieces.
 
 * Prerequisites
 
@@ -37,11 +45,11 @@
 
 * Where To Get It                                                  :noexport:
 
-  The latest public version is available by cloning our Git
-  repository. You have to be member of the =nul-hackers= group to
-  commit.
+  The latest public version of the NOVA userland is available from
+  Github: https://github.com/TUD-OS/NUL
 
-  =git clone ssh://os.inf.tu-dresden.de/srv/git/repos/nul.git=
+  Hypervisor development happens also on Github:
+  https://github.com/TUD-OS/NUL
 
 * Development
 
@@ -206,7 +214,12 @@
 
 * Feedback
 
-  NUL is the work of Bernhard Kauer <bk@vmmon.org>, Alexander
-  Böttcher <boettcher@tudos.org>, and Julian Stecklina
-  <jsteckli@tudos.org>. The author of the NOVA hypervisor is Udo
-  Steinberg <udo@hypervisor.org>.
+  Bugs can be reported using Github or via sending a mail to Julian
+  Stecklina <jsteckli@tudos.org>. General discussion is happening on
+  the l4-hackers mailing list:
+  http://os.inf.tu-dresden.de/mailman/listinfo/l4-hackers
+
+  NUL is the work of Bernhard Kauer <bk@vmmon.org>, Alexander Böttcher
+  <boettcher@tudos.org>, Michal Sojka <sojka@tudos.org> and Julian
+  Stecklina <jsteckli@tudos.org>. The author of the NOVA hypervisor is
+  Udo Steinberg <udo@hypervisor.org>.
