@@ -57,14 +57,14 @@ using namespace std;
 #define  IAC  "\xFF"
 
 const string are_you_there(IAC AYT);
-const string reset_on (IAC SB "\x2C\x32\x25" IAC SE);
-const string reset_off(IAC SB "\x2C\x32\x15" IAC SE);
-const string power_on (IAC SB "\x2C\x32\x26" IAC SE);
-const string power_off(IAC SB "\x2C\x32\x26" IAC SE);
+const string reset_on (IAC SB "\x2C\x32\x26" IAC SE);
+const string reset_off(IAC SB "\x2C\x32\x16" IAC SE);
+const string power_on (IAC SB "\x2C\x32\x25" IAC SE);
+const string power_off(IAC SB "\x2C\x32\x15" IAC SE);
 
-const string reset_on_confirmation (IAC SB "\x2C\x97\xDF" IAC SE);
+const string reset_on_confirmation (IAC SB "\x2C\x97\xBF" IAC SE);
 const string reset_off_confirmation(IAC SB "\x2C\x97\xFF" IAC SE);
-const string power_on_confirmation (IAC SB "\x2C\x97\xBF" IAC SE);
+const string power_on_confirmation (IAC SB "\x2C\x97\xDF" IAC SE);
 const string power_off_confirmation(IAC SB "\x2C\x97\xFF" IAC SE);
 
 enum {
@@ -94,18 +94,21 @@ int msg(const char* fmt, ...)
 }
 
 class CommandStr : public string {
-  bool  _can_match_later;
+  bool _can_match_later;
+  bool _matched;
 public:
-  CommandStr() : string(), _can_match_later(false) {}
-  CommandStr(char *str, size_t len) : string(str, len), _can_match_later(false) {}
+  CommandStr() : string(), _can_match_later(false), _matched(false) {}
+  CommandStr(char *str, size_t len) : string(str, len), _can_match_later(false), _matched(false) {}
 
   void reset_match() {
     _can_match_later = false;
+    _matched = false;
   }
 
   bool match(const string &str)
   {
     if (*this == str) {
+      _matched = true;
       return true;
     }
 
@@ -115,7 +118,31 @@ public:
     return false;
   }
 
+  int dio_confirmation()
+  {
+    size_t prefix = find(IAC SB "\x2C\x97");
+    if (prefix == string::npos)
+      return -1;
+    if (find(IAC SE, prefix + 5) != prefix + 5)
+      return -1;
+    return at(prefix + 4) & 0xff;
+  }
+
+
   bool can_match_later() const { return _can_match_later; }
+  bool matched() const { return _matched; }
+
+  string as_hex()
+  {
+    string hex;
+    char b[3];
+
+    for (size_t i=0; i<length(); i++) {
+      snprintf(b, sizeof(b), "%02hhx", at(i));
+      hex.append(b);
+    }
+    return hex;
+  }
 };
 
 
@@ -198,12 +225,14 @@ public:
 
   void reset()
   {
+    msg("Starting reset/power-on sequence");
     send(reset_on);
     state = RST1;
   }
 
   void poweroff()
   {
+    msg("Starting power-off sequence");
     send(power_on);
     state = PWROFF1;
   }
@@ -222,7 +251,8 @@ public:
       if (ret == -1)
         return ret;
 
-      CommandStr reply(buf, size);
+      CommandStr reply(buf, ret);
+      //msg("reply: %s\n", reply.as_hex().c_str());
       switch (state) {
       case OFF:
         msg("data in OFF state");
@@ -230,43 +260,44 @@ public:
         return ret;
 
       case RST1:
-        if (reply.match(reset_on_confirmation)) {
-          usleep(100000);
-          send(reset_off);
+        if (~reply.dio_confirmation() & 0x40) {
+	  usleep(100000);
+	  send(reset_off);
           state = RST2;
         }
         break;
       case RST2:
-        if (reply.match(reset_off_confirmation)) {
+        if (reply.dio_confirmation() & 0x40) {
           send(power_on);
           state = PWRON1;
         }
         break;
       case PWRON1:
-        if (reply.match(power_on_confirmation)) {
+        if (~reply.dio_confirmation() & 0x20) {
           usleep(100000);
           send(power_off);
           state = PWRON2;
         }
         break;
       case PWRON2:
-        if (reply.match(reset_off_confirmation))
+	if (reply.dio_confirmation() == 0xff)
           state = DATA;
         break;
       case PWROFF1:
-        if (reply.match(power_on_confirmation)) {
+        if (~reply.dio_confirmation() & 0x20) {
           sleep(6);
           send(power_off);
           state = PWROFF2;
         }
         break;
       case PWROFF2:
-        if (reply.match(reset_off_confirmation))
+	if (reply.dio_confirmation() & 0x20)
           state = OFF;
-        break;
+	break;
       }
       return 0;
     }
+    msg("ip_relay unhandled revent %#x\n", pfd.revents);
     return -1;
   }
 };
@@ -396,6 +427,7 @@ public:
 
     command += ch;
     command.reset_match();
+    //msg("command: %s", command.as_hex().c_str());
 
     if (command.match(are_you_there)) {
       char buf[100];
@@ -407,7 +439,6 @@ public:
       }
       send(buf, strlen(buf));
     } else if (command.match(reset_on)) {
-      msg("reseting");
       ip_relay->reset();
       send(reset_on_confirmation);
     } else if (command.match(reset_off)) {
@@ -417,9 +448,12 @@ public:
     } else if (command.match(power_off)) {
       send(power_off_confirmation);
     } else if (!command.can_match_later()) {
+      msg("unknown command: %s", command.as_hex().c_str());
       to_relay += command;
       command.clear();
     }
+    if (command.matched())
+      command.clear();
     return true;
   }
 
@@ -561,9 +595,6 @@ int main(int argc, char *argv[])
     }
 
     if (pollfds[FD_IP_RELAY].revents) {
-      unsigned revents = pollfds[FD_IP_RELAY].revents;
-      msg("ip_relay handle %#x\n", revents);
-
       char buf[2000];
       int ret = ip_relay.handle(pollfds[FD_IP_RELAY], buf, sizeof(buf));
 
