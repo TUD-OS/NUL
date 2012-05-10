@@ -57,10 +57,15 @@ using namespace std;
 #define  IAC  "\xFF"
 
 const string are_you_there(IAC AYT);
-// const string reset_on (IAC SB "\x2C\x32\x25" IAC SE);
-// const string reset_off(IAC SB "\x2C\x32\x15" IAC SE);
-// const string power_on (IAC SB "\x2C\x32\x26" IAC SE);
-// const string power_off(IAC SB "\x2C\x32\x26" IAC SE);
+const string reset_on (IAC SB "\x2C\x32\x25" IAC SE);
+const string reset_off(IAC SB "\x2C\x32\x15" IAC SE);
+const string power_on (IAC SB "\x2C\x32\x26" IAC SE);
+const string power_off(IAC SB "\x2C\x32\x26" IAC SE);
+
+const string reset_on_confirmation (IAC SB "\x2C\x97\xDF" IAC SE);
+const string reset_off_confirmation(IAC SB "\x2C\x97\xFF" IAC SE);
+const string power_on_confirmation (IAC SB "\x2C\x97\xBF" IAC SE);
+const string power_off_confirmation(IAC SB "\x2C\x97\xFF" IAC SE);
 
 enum {
   FD_LISTEN_LP,
@@ -88,35 +93,185 @@ int msg(const char* fmt, ...)
   return ret;
 }
 
+class CommandStr : public string {
+  bool  _can_match_later;
+public:
+  CommandStr() : string(), _can_match_later(false) {}
+  CommandStr(char *str, size_t len) : string(str, len), _can_match_later(false) {}
+
+  void reset_match() {
+    _can_match_later = false;
+  }
+
+  bool match(const string &str)
+  {
+    if (*this == str) {
+      return true;
+    }
+
+    if (*this == str.substr(0, length()))
+      _can_match_later = true;
+
+    return false;
+  }
+
+  bool can_match_later() const { return _can_match_later; }
+};
+
+
+
+class IpRelay {
+  int              fd;
+  struct addrinfo *ai;
+  const char      *node;
+  const char      *service;
+  enum state {
+    OFF, RST1, RST2, PWRON1, PWRON2, DATA, PWROFF1, PWROFF2
+  } state;
+
+  IpRelay(const IpRelay&);
+  IpRelay& operator=(const IpRelay&);
+public:
+  IpRelay(const char *node, const char *service) : fd(-1), ai(0), node(node), service(service), state(OFF)
+  {
+    struct addrinfo hints;
+    int ret;
+
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_ADDRCONFIG;
+    hints.ai_protocol = 0;          /* Any protocol */
+    ret = getaddrinfo(node, service, &hints, &ai);
+    if (ret != 0) {
+      msg("getaddrinfo(%s, %s): %s\n", node, service, gai_strerror(ret));
+      exit(1);
+    }
+  }
+
+  ~IpRelay()
+  {
+    freeaddrinfo(ai);
+  }
+
+  int connect()
+  {
+    struct addrinfo *aip;
+
+    for (aip = ai; aip != NULL; aip = aip->ai_next) {
+      fd = socket(aip->ai_family, aip->ai_socktype,
+                  aip->ai_protocol);
+      if (fd == -1)
+        continue;
+
+      if (::connect(fd, aip->ai_addr, aip->ai_addrlen) != -1)
+        break; /* Success */
+
+      close(fd);
+    }
+
+    if (aip == NULL) {          /* No address succeeded */
+      static bool first = true;
+      if (first)
+        msg("Could not connect to IP relay at %s:%s - will try later\n", node, service);
+      first = false;
+      fd = -1;
+    } else
+      msg("Connected to IP relay at %s:%s\n", node, service);
+    return fd;
+  }
+
+  bool connected() const { return fd != -1; }
+
+  void disconnect()
+  {
+    close(fd);
+    fd = -1;
+  }
+
+  int send(const string &str)
+  {
+    if (!connected())
+      msg("attempt to write to disconnected relay");
+    return write(fd, str.data(), str.length());
+  }
+
+  void reset()
+  {
+    send(reset_on);
+    state = RST1;
+  }
+
+  void poweroff()
+  {
+    send(power_on);
+    state = PWROFF1;
+  }
+
+  int handle(pollfd &pfd, char *buf, size_t size)
+  {
+    if (pfd.revents & POLLRDHUP) {
+      msg("IP relay disconnected\n");
+      disconnect();
+      memset(&pfd, 0, sizeof(pfd));
+      return 0;
+    }
+
+    if (pfd.revents & POLLIN) {
+      int ret = ::read(fd, buf, size);
+      if (ret == -1)
+        return ret;
+
+      CommandStr reply(buf, size);
+      switch (state) {
+      case OFF:
+        msg("data in OFF state");
+      case DATA:
+        return ret;
+
+      case RST1:
+        if (reply.match(reset_on_confirmation)) {
+          usleep(100000);
+          send(reset_off);
+          state = RST2;
+        }
+        break;
+      case RST2:
+        if (reply.match(reset_off_confirmation)) {
+          send(power_on);
+          state = PWRON1;
+        }
+        break;
+      case PWRON1:
+        if (reply.match(power_on_confirmation)) {
+          usleep(100000);
+          send(power_off);
+          state = PWRON2;
+        }
+        break;
+      case PWRON2:
+        if (reply.match(reset_off_confirmation))
+          state = DATA;
+        break;
+      case PWROFF1:
+        if (reply.match(power_on_confirmation)) {
+          sleep(6);
+          send(power_off);
+          state = PWROFF2;
+        }
+        break;
+      case PWROFF2:
+        if (reply.match(reset_off_confirmation))
+          state = OFF;
+        break;
+      }
+      return 0;
+    }
+    return -1;
+  }
+};
 
 class Client {
-
-  class CommandStr : public string {
-    bool  _can_match_later;
-  public:
-    CommandStr() : string(), _can_match_later(false) {}
-
-    void reset_match() {
-      _can_match_later = false;
-    }
-
-    bool match(const string &str)
-    {
-      if (*this == str) {
-        clear();
-        return true;
-      }
-
-      if (*this == str.substr(0, length()))
-        _can_match_later = true;
-
-      return false;
-    }
-
-    bool matched() const { return empty(); }
-    bool can_match_later() const { return _can_match_later; }
-  };
-
   Client             *next;
   int                 fd;
   struct sockaddr_in  addr;
@@ -124,12 +279,12 @@ class Client {
   string              to_relay;
   CommandStr          command;
 
-  Client(const Client&);     // disable copy constructor
-  Client& operator=(const Client&);
+  Client(const Client&);        // disable copy constructor
+  Client&         operator = (const Client&);
 public:
-  static Client *active;
-  static int     fd_ip_relay;
-  bool           high_prio;
+  static Client  *active;
+  static IpRelay *ip_relay;
+  bool            high_prio;
 
   Client(int fd, struct sockaddr_in &addr, bool hp = false) :
     next(0), fd(fd), addr(addr), to_relay(), command(), high_prio(hp) {}
@@ -251,9 +406,17 @@ public:
         snprintf(buf, sizeof(buf), "<iprelayd: not connected (%d client%s before you)>\n", q, q > 1 ? "s":"");
       }
       send(buf, strlen(buf));
-    }
-
-    if (!command.matched() && !command.can_match_later()) {
+    } else if (command.match(reset_on)) {
+      msg("reseting");
+      ip_relay->reset();
+      send(reset_on_confirmation);
+    } else if (command.match(reset_off)) {
+      send(reset_off_confirmation);
+    } else if (command.match(power_on)) {
+      send(power_on_confirmation);
+    } else if (command.match(power_off)) {
+      send(power_off_confirmation);
+    } else if (!command.can_match_later()) {
       to_relay += command;
       command.clear();
     }
@@ -279,7 +442,7 @@ public:
 
     if (!to_relay.empty()) {
       if (active == this) {
-        write(fd_ip_relay, to_relay.data(), to_relay.length());
+        ip_relay->send(to_relay);
         to_relay.clear();
       } else {
         bye_bye("IP relay is used by somebody else");
@@ -300,50 +463,8 @@ public:
   }
 };
 
-Client *Client::active;
-int     Client::fd_ip_relay;
-
-int connect_ip_relay(const char *node, const char *service)
-{
-  struct addrinfo hints;
-  struct addrinfo *result, *rp;
-  int ret, sfd = -1;
-
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
-  hints.ai_socktype = SOCK_STREAM;
-  hints.ai_flags = AI_ADDRCONFIG;
-  hints.ai_protocol = 0;          /* Any protocol */
-  ret = getaddrinfo(node, service, &hints, &result);
-  if (ret != 0) {
-    msg("getaddrinfo(%s, %s): %s\n", node, service, gai_strerror(ret));
-    exit(1);
-  }
-
-  for (rp = result; rp != NULL; rp = rp->ai_next) {
-    sfd = socket(rp->ai_family, rp->ai_socktype,
-                 rp->ai_protocol);
-    if (sfd == -1)
-      continue;
-
-    if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-      break;                  /* Success */
-
-    close(sfd);
-  }
-
-  freeaddrinfo(result);
-
-  if (rp == NULL) {               /* No address succeeded */
-    static bool first = true;
-    if (first)
-      msg("Could not connect to IP relay at %s:%s - will try later\n", node, service);
-    first = false;
-    return -1;
-  }
-  msg("Connected to IP relay at %s:%s\n", node, service);
-  return sfd;
-}
+Client  *Client::active;
+IpRelay *Client::ip_relay;
 
 #define CHECK(cmd) ({ int ret = (cmd); if (ret == -1) { perror(#cmd); exit(1); }; ret; })
 
@@ -359,7 +480,10 @@ int main(int argc, char *argv[])
     exit(1);
   }
 
-  Client::fd_ip_relay = -1;    // Connect later
+  msg("Starting iprelayd");
+
+  IpRelay ip_relay(argv[1], argc > 2 ? argv[2] : "23");
+  Client::ip_relay = &ip_relay;
 
   int sfd;
   sfd = CHECK(socket(PF_INET, SOCK_STREAM, 0));
@@ -380,13 +504,13 @@ int main(int argc, char *argv[])
   pollfds[FD_LISTEN_HP] = { sfd, POLLIN };
 
   while (1) {
-    if (Client::fd_ip_relay == -1)
-      Client::fd_ip_relay = connect_ip_relay(argv[1], argc > 2 ? argv[2] : "23");
+    if (!ip_relay.connected()) {
+      int fd = ip_relay.connect();
+      if (ip_relay.connected())
+        pollfds[FD_IP_RELAY] = { fd, POLLIN | POLLRDHUP };
+    }
 
-    if (Client::fd_ip_relay != -1)
-      pollfds[FD_IP_RELAY] = { Client::fd_ip_relay, POLLIN | POLLRDHUP };
-
-    CHECK(poll(pollfds, FD_COUNT, Client::fd_ip_relay != -1 ? -1 : 1000));
+    CHECK(poll(pollfds, FD_COUNT, ip_relay.connected() ? -1 : 1000));
 
     if (pollfds[FD_LISTEN_LP].revents) {
       socklen_t          sin_size;
@@ -397,19 +521,14 @@ int main(int argc, char *argv[])
       int new_fd = CHECK(accept(pollfds[FD_LISTEN_LP].fd, (struct sockaddr *)&their_addr, &sin_size));
       Client *c = new Client(new_fd, their_addr);
       c->msg("connected");
-      if (Client::fd_ip_relay == -1) {
-        c->bye_bye("IP relay is offline");
-        delete c;
+      for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
+      if (i < FD_COUNT) {
+        pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
+        clients[i] = c;
+        c->add_to_queue();
       } else {
-        for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
-        if (i < FD_COUNT) {
-          pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
-          clients[i] = c;
-          c->add_to_queue();
-        } else {
-          c->bye_bye("Too many connections");
-          delete c;
-        }
+        c->bye_bye("Too many connections");
+        delete c;
       }
     }
 
@@ -422,53 +541,40 @@ int main(int argc, char *argv[])
       int new_fd = CHECK(accept(pollfds[FD_LISTEN_HP].fd, (struct sockaddr *)&their_addr, &sin_size));
       Client *c = new Client(new_fd, their_addr, true);
       c->msg("connected (high prio)");
-      if (Client::fd_ip_relay == -1) {
-        c->bye_bye("IP relay is offline");
-        delete c;
+      Client *kicked = c->add_to_queue();
+      if (kicked) {
+        for (i = FD_CLIENT; i < FD_COUNT && clients[i] != kicked; i++);
+        assert(i < FD_COUNT);
+        memset(&pollfds[i], 0, sizeof(pollfds[i]));
+        clients[i] = 0;
+        delete kicked;
+      } else
+        for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
+      if (i < FD_COUNT) {
+        pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
+        clients[i] = c;
       } else {
-        Client *kicked = c->add_to_queue();
-        if (kicked) {
-          for (i = FD_CLIENT; i < FD_COUNT && clients[i] != kicked; i++);
-          assert(i < FD_COUNT);
-          memset(&pollfds[i], 0, sizeof(pollfds[i]));
-          clients[i] = 0;
-          delete kicked;
-        } else
-          for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
-        if (i < FD_COUNT) {
-          pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
-          clients[i] = c;
-        } else {
-          c->bye_bye("Too many connections");
-          c->del_from_queue();
-          delete c;
-        }
+        c->bye_bye("Too many connections");
+        c->del_from_queue();
+        delete c;
       }
     }
 
     if (pollfds[FD_IP_RELAY].revents) {
       unsigned revents = pollfds[FD_IP_RELAY].revents;
       msg("ip_relay handle %#x\n", revents);
-      if (revents & POLLIN) {
-        char buf[2000];
-        int ret;
-        ret = read(Client::fd_ip_relay, buf, sizeof(buf));
 
-        if (ret == -1) {
-          msg("iprelay read: %s", strerror(errno));
-          exit(1);
-        }
+      char buf[2000];
+      int ret = ip_relay.handle(pollfds[FD_IP_RELAY], buf, sizeof(buf));
 
-        if (Client::active)
-          Client::active->send(buf, ret);
-        write(1, buf, ret);     // Copy to stdout
+      if (ret == -1) {
+        msg("iprelay error: %s", strerror(errno));
+        exit(1);
       }
 
-      if (revents & POLLRDHUP) {
-        msg("IP relay disconnected\n");
-        Client::fd_ip_relay = -1;
-        memset(&pollfds[FD_IP_RELAY], 0, sizeof(pollfds[FD_IP_RELAY]));
-      }
+      if (Client::active)
+        Client::active->send(buf, ret);
+      write(1, buf, ret);     // Copy to stdout
     }
 
     for (unsigned i = FD_CLIENT; i < FD_COUNT; i++) {
