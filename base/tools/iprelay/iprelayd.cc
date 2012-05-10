@@ -82,10 +82,8 @@ int msg(const char* fmt, ...)
   unsigned l = strlen(str);
   if (l > 0 && str[l-1] == '\n')
     str[l-1] = 0;
-  char time_str[30];
-  time_t t = time(NULL);
-  strftime(time_str, sizeof(time_str), "%F %T", localtime(&t));
-  fprintf(stderr, "%s %s\n", time_str, str);
+  printf("%s\n", str);
+  fflush(stdout);
   free(str);
   return ret;
 }
