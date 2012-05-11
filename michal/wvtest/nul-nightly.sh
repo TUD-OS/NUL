@@ -28,24 +28,24 @@ $CXX --version
 cd build
 git clean --quiet -fxd
 
-cat <<EOF > ../kernel/contrib/nova-patches/remove-timestamp.patch
-diff --git a/src/init.cpp b/src/init.cpp
-index 36c0d95..c66feaf 100644
---- a/src/init.cpp
-+++ b/src/init.cpp
-@@ -63,7 +63,7 @@ void init (mword mbi)
-     screen.init();
+# cat <<EOF > ../kernel/contrib/nova-patches/remove-timestamp.patch
+# diff --git a/src/init.cpp b/src/init.cpp
+# index 36c0d95..c66feaf 100644
+# --- a/src/init.cpp
+# +++ b/src/init.cpp
+# @@ -63,7 +63,7 @@ void init (mword mbi)
+#      screen.init();
  
-      // Now we're ready to talk to the world
--    printf ("\f%s: %s %s [%s]\n\n", version, __DATE__, __TIME__, COMPILER_STRING);
-+    printf ("\f%s: %s %s [%s]\n\n", version, "??? ?? ????", "??:??:??", COMPILER_STRING);
+#       // Now we're ready to talk to the world
+# -    printf ("\f%s: %s %s [%s]\n\n", version, __DATE__, __TIME__, COMPILER_STRING);
+# +    printf ("\f%s: %s %s [%s]\n\n", version, "??? ?? ????", "??:??:??", COMPILER_STRING);
  
-     Idt::build();
-     Gsi::setup();
-EOF
+#      Idt::build();
+#      Gsi::setup();
+# EOF
 
-cp ../kernel/contrib/Chanage-serial-console-to-work-with-mmio-based-card-.patch ../kernel/contrib/nova-patches
-cp ../kernel/contrib/Print-panic-message-also-to-serial-line.patch ../kernel/contrib/nova-patches
+# cp ../kernel/contrib/Chanage-serial-console-to-work-with-mmio-based-card-.patch ../kernel/contrib/nova-patches
+# cp ../kernel/contrib/Print-panic-message-also-to-serial-line.patch ../kernel/contrib/nova-patches
 
 scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
