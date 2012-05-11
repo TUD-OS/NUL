@@ -480,6 +480,61 @@ void Remcon::handle_packet(void) {
 
         break;
       }
+    case NOVA_GET_DISK_INFO:
+      {
+        struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
+        if (!entry) break;
+
+        DiskProtocol::Stats stats;
+        if ((entry->disks[0].internal.diskid != ~0U) &&
+            (ENONE != service_disk->get_stats(*BaseProgram::myutcb(), entry->disks[0].internal.diskid, stats)))
+          Logging::printf("failure - could not get disk statistics of client\n");
+
+        struct tmp {
+          uint64_t read;
+          uint64_t read_rq;
+          uint64_t written;
+          uint64_t write_rq;
+          uint64_t errors;
+        } PACKED * send_stats = reinterpret_cast<struct tmp *>(&_out->opspecific);
+
+        if (entry->disks[0].internal.sectorsize == 0) break; //XXX
+
+        send_stats->read     = hton64(stats.read);
+        send_stats->read_rq  = hton64(stats.read / entry->disks[0].internal.sectorsize);
+        send_stats->written  = hton64(stats.written);
+        send_stats->write_rq = hton64(stats.written / entry->disks[0].internal.sectorsize);
+        send_stats->errors   = hton64(0);
+
+        _out->result  = NOVA_OP_SUCCEEDED;
+
+        break;
+      }
+    case NOVA_GET_NET_INFO:
+      {
+        struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
+        if (!entry) break;
+
+        struct tmp {
+          uint64_t rx;
+          uint64_t rx_packets;
+          uint64_t rx_drop;
+          uint64_t tx;
+          uint64_t tx_packets;
+          uint64_t tx_drop;
+        } PACKED * send_stats = reinterpret_cast<struct tmp *>(&_out->opspecific);
+
+        send_stats->rx         = hton64(0);
+        send_stats->rx_packets = hton64(0);
+        send_stats->rx_drop    = hton64(0);
+        send_stats->tx         = hton64(0);
+        send_stats->tx_packets = hton64(0);
+        send_stats->tx_drop    = hton64(0);
+
+        _out->result  = NOVA_OP_SUCCEEDED;
+
+        break;
+      }
     case NOVA_ENABLE_EVENT:
     case NOVA_DISABLE_EVENT:
       {
@@ -577,7 +632,7 @@ void Remcon::handle_packet(void) {
       }
       break;
     default:
-      Logging::printf("got bad packet op=%u\n", op);
+      Logging::printf("failure - unknown op code, got bad packet op=%u\n", op);
 
   }
 
