@@ -30,13 +30,13 @@ $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/\$NAME";
 $CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
 $CFG::grub2_prolog = "  set root='(hd0,msdos1)'";
 $CFG::genisoimage = "genisoimage";
-$CFG::iprelay_addr = '141.76.48.252';
+$CFG::iprelay_addr = '141.76.48.80:2324'; #'141.76.48.252';
 $CFG::qemu = 'qemu';
 $CFG::script_modifier = ''; # Depricated, use --scriptmod commandline option or custom_options.
 @CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
-%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:/home/sojka/boot/novaboot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+X --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/sojka/novaboot/ --iprelay --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
+%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:~passive/boot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/passive/ --iprelay=141.76.48.80:2324 --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
 $CFG::scons = "scons -j2";
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
