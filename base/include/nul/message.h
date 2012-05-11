@@ -392,6 +392,13 @@ struct MessageConsole
       unsigned res;
       char const * cmdline;
     };
+    struct {
+      unsigned long long net_rx;
+      unsigned long long net_rx_packets;
+      unsigned long long net_rx_drop;
+      unsigned long long net_tx;
+      unsigned long long net_tx_packets;
+    };
   };
   MessageConsole(Type _type = TYPE_ALLOC_CLIENT, unsigned short _id=0) : type(_type), id(_id), ptr(0) {}
   MessageConsole(unsigned _index, ConsoleModeInfo *_info) : type(TYPE_GET_MODEINFO), index(_index), info(_info) {}

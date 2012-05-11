@@ -515,6 +515,10 @@ void Remcon::handle_packet(void) {
         struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
         if (!entry) break;
 
+        struct ConfigProtocol::info_net net;
+        unsigned res = service_config->info_vm(*BaseProgram::myutcb(), entry->remoteid, net);
+        if (res != ENONE) break;
+
         struct tmp {
           uint64_t rx;
           uint64_t rx_packets;
@@ -524,11 +528,11 @@ void Remcon::handle_packet(void) {
           uint64_t tx_drop;
         } PACKED * send_stats = reinterpret_cast<struct tmp *>(&_out->opspecific);
 
-        send_stats->rx         = hton64(0);
-        send_stats->rx_packets = hton64(0);
-        send_stats->rx_drop    = hton64(0);
-        send_stats->tx         = hton64(0);
-        send_stats->tx_packets = hton64(0);
+        send_stats->rx         = hton64(net.rx);
+        send_stats->rx_packets = hton64(net.rx_packets);
+        send_stats->rx_drop    = hton64(net.rx_drop);
+        send_stats->tx         = hton64(net.tx);
+        send_stats->tx_packets = hton64(net.tx_packets);
         send_stats->tx_drop    = hton64(0);
 
         _out->result  = NOVA_OP_SUCCEEDED;
@@ -595,7 +599,7 @@ void Remcon::handle_packet(void) {
         eax = Cpu::cpuid(eax, ebx, ecx, edx);
 
         unsigned long long memory_max = 0;
-        service_config->info(*BaseProgram::myutcb(), memory_max);
+        service_config->info_host(*BaseProgram::myutcb(), memory_max);
         memory_max = memory_max >> 10;
 
         uint32_t * data = reinterpret_cast<uint32_t *>(&_out->opspecific);

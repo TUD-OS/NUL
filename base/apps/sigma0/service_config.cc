@@ -87,6 +87,24 @@ public:
         utcb << maxmem;
         return ENONE;
       }
+    case ConfigProtocol::TYPE_INFO_VM: //XXX should be available via service_net interface - as soon as it gets integrated 
+      {
+        unsigned short id;
+        check1(EPROTO, input.get_word(id));
+
+        MessageConsole msg(MessageConsole::TYPE_DEBUG, 1); //XXX hardcoded type - 1
+        msg.view = id;
+        if (!_bus_console.send(msg)) return EABORT;
+
+        struct ConfigProtocol::info_net net;
+        net.rx         = msg.net_rx;
+        net.rx_packets = msg.net_rx_packets;
+        net.rx_drop    = msg.net_rx_drop;
+        net.tx         = msg.net_tx;
+        net.tx_packets = msg.net_tx_packets;
+        utcb << net;
+        return ENONE;
+      }
     default:
       return EPROTO;
     }

@@ -28,7 +28,13 @@ struct ConfigProtocol : public GenericProtocol {
     TYPE_START_CONFIG = ParentProtocol::TYPE_GENERIC_END,
     TYPE_KILL,
     TYPE_INFO_HOST,
+    TYPE_INFO_VM,
     ECONFIGTOOBIG = ELASTGLOBAL,
+  };
+
+  struct info_net {
+    unsigned long long rx, rx_packets, rx_drop;
+    unsigned long long tx, tx_packets;
   };
 
   unsigned start_config(Utcb &utcb, unsigned short &id, unsigned long &maxmem,
@@ -46,9 +52,16 @@ struct ConfigProtocol : public GenericProtocol {
     return res;
   }
 
-  unsigned info(Utcb &utcb, unsigned long long &maxmem) {
+  unsigned info_host(Utcb &utcb, unsigned long long &maxmem) {
     unsigned res = call_server(init_frame(utcb, TYPE_INFO_HOST), false);
-    utcb >> maxmem;
+    if (res == ENONE) utcb >> maxmem;
+    utcb.drop_frame();
+    return res;
+  }
+
+  unsigned info_vm(Utcb &utcb, unsigned short id, struct info_net &net) {
+    unsigned res = call_server(init_frame(utcb, TYPE_INFO_VM) << id, false);
+    if (res == ENONE) utcb >> net;
     utcb.drop_frame();
     return res;
   }

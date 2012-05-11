@@ -72,9 +72,9 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
     // Network statistics
     unsigned long long net_rx;
     unsigned long long net_rx_packets;
+    unsigned long long net_rx_drop;
     unsigned long long net_tx;
     unsigned long long net_tx_packets;
-    unsigned long long net_drop;
 
     char *          mem; //have to be last element - see free_module
   };
@@ -1341,7 +1341,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
           _modinfo[i].net_rx         += msg.len;
           _modinfo[i].net_rx_packets += 1;
           bool success = _prod_network[i].produce(msg.buffer, msg.len);
-          _modinfo[i].net_drop += success ? 0 : 1;
+          _modinfo[i].net_rx_drop += success ? 0 : 1;
         }
       }
       return true;
@@ -1660,7 +1660,22 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
             }
         }
         break;
+      case 1: //XXX statistics about network interface - drop this if we have service_net and service_disk fully available
+        {
+          ModuleInfo * modinfo = sigma0->get_module(msg.view); //msg.view contains module id
+          if (!modinfo) break;
+
+          msg.net_rx         = modinfo->net_rx;
+          msg.net_rx_packets = modinfo->net_rx_packets;
+          msg.net_rx_drop    = modinfo->net_rx_drop;
+          msg.net_tx         = modinfo->net_tx;
+          msg.net_tx_packets = modinfo->net_tx_packets;
+
+          return true;
+        }
+        break;
       }
+
       Logging::printf("s0: DEBUG(%x) = %x time %llx\n", msg.id, nova_syscall(15, msg.id, 0, 0, 0), _mb->clock()->time());
       return true;
     case MessageConsole::TYPE_ALLOC_CLIENT:
