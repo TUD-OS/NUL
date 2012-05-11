@@ -80,6 +80,12 @@ if [ "$ret" = 0 -a -d $HOME/passive/src ]; then
     $HOME/nul/michal/wvtest/passive-test-cron -I
 fi
 
+if [ "$ret" = 0 -a -d ~passive/deploy ]; then # Update PASSIVE testbed
+    echo "Testing \"PASSIVE testbed update\" in $0:"
+    $HOME/nul/michal/boot/passive/nova-82576 --server=~passive/deploy --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\""
+    cp $HOME/nul/michal/boot/passive/nova-82576 ~passive/deploy/boot
+fi
+
 novaboot --iprelay=off
 date
 trap - EXIT
