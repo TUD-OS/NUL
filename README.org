@@ -17,7 +17,7 @@
 
   Useful points of reference:
 
-  - http://os.inf.tu-dresden.de/
+  - http://os.inf.tu-dresden.de/nul
   - http://hypervisor.org/
   
 
