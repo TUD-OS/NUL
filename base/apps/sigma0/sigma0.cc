@@ -71,7 +71,9 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
 
     // Network statistics
     unsigned long long net_rx;
+    unsigned long long net_rx_packets;
     unsigned long long net_tx;
+    unsigned long long net_tx_packets;
     unsigned long long net_drop;
 
     char *          mem; //have to be last element - see free_module
@@ -1314,7 +1316,12 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
                  convert_client_ptr(modinfo, msg2.buffer, msg2.len))
               return false;
             msg2.client = modinfo->id;
-            modinfo->net_tx += msg2.len;
+
+            if (msg2.type == MessageNetwork::PACKET) {
+              modinfo->net_tx         += msg2.len;
+              modinfo->net_tx_packets += 1;
+            }
+
             utcb->msg[0] = _mb->bus_network.send(msg2) ? 0 : ~0x10u;
             if (msg2.type == MessageNetwork::QUERY_MAC)
               msg->mac = msg2.mac;
@@ -1331,7 +1338,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     if (msg.type == MessageNetwork::PACKET) {
       for (unsigned i = 0; i < MAXMODULES; i++) {
         if (i != msg.client) {
-          _modinfo[i].net_rx += msg.len;
+          _modinfo[i].net_rx         += msg.len;
+          _modinfo[i].net_rx_packets += 1;
           bool success = _prod_network[i].produce(msg.buffer, msg.len);
           _modinfo[i].net_drop += success ? 0 : 1;
         }
