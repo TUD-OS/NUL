@@ -72,6 +72,7 @@ PARAM_ALIAS(S0_DEFAULT,   "an alias for the default sigma0 parameters",
     // Network statistics
     unsigned long long net_rx;
     unsigned long long net_tx;
+    unsigned long long net_drop;
 
     char *          mem; //have to be last element - see free_module
   };
@@ -1331,7 +1332,8 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       for (unsigned i = 0; i < MAXMODULES; i++) {
         if (i != msg.client) {
           _modinfo[i].net_rx += msg.len;
-          _prod_network[i].produce(msg.buffer, msg.len);
+          bool success = _prod_network[i].produce(msg.buffer, msg.len);
+          _modinfo[i].net_drop += success ? 0 : 1;
         }
       }
       return true;
