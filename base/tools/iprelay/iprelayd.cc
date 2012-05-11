@@ -403,10 +403,12 @@ public:
   {
     char *bye_msg;
 
-    asprintf(&bye_msg, "%s. Closing connecion.\n", message.c_str());
+    int res = asprintf(&bye_msg, "%s. Closing connecion.\n", message.c_str());
+    if (res < 0) goto done;
     msg("%s", bye_msg);
     send(bye_msg);
     free(bye_msg);
+   done:
     close(fd);
   }
 
@@ -605,7 +607,8 @@ int main(int argc, char *argv[])
 
       if (Client::active)
         Client::active->send(buf, ret);
-      write(1, buf, ret);     // Copy to stdout
+      int res = write(1, buf, ret);     // Copy to stdout
+      (void)res;
     }
 
     for (unsigned i = FD_CLIENT; i < FD_COUNT; i++) {
