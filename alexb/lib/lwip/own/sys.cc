@@ -205,7 +205,7 @@ bool nul_ip_udp(unsigned _port) {
 
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
-  Logging::printf("[tcp]   - connection closed - port %u open_pcb=%p listening_pcb=%p\n", tcp_struct->port, tcp_struct->openconn_pcb, tcp_struct->listening_pcb);
+  Logging::printf("[tcp]   - connection closed - port %u\n", tcp_struct->port);
   if (tcp_struct->fn_recv_call && tcp_struct->openconn_pcb) {
     tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
                              tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
