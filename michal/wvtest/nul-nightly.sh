@@ -66,12 +66,6 @@ fi
 
 PATH=$HOME/bin:$PATH
 
-# Run the tests
-novaboot --iprelay=on
-
-# Reseting the machine just after power on confuses BIOS and causes it to ask some stupid question.
-sleep 20
-
 ret=0
 WVTEST_BACKUP_FAILED=/home/sojka/nul-nightly/failed/$date \
 /home/sojka/nul/michal/wvtest/runall -I || ret=1
@@ -86,7 +80,6 @@ if [ "$ret" = 0 -a -d ~passive/deploy ]; then # Update PASSIVE testbed
     cp $HOME/nul/michal/boot/passive/nova-82576 ~passive/deploy/boot
 fi
 
-novaboot --iprelay=off
 date
 trap - EXIT
 exit $ret
