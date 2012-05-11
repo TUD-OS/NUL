@@ -14,12 +14,12 @@ if 'SSH_AUTH_SOCK' in os.environ:
 checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],
                             "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
 
-build = target_env.Command("nova/build/hypervisor", "nova/README",
-                         "make -sC `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
+build = target_env.Command("nova/build/hypervisor-x86_32", "nova/README",
+                           "make -sC `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 AlwaysBuild(build)
 Precious(build)
 
-host_env.Install("#bin/apps/", build)
+host_env.InstallAs("#bin/apps/hypervisor", build)
                          
 
 # EOF

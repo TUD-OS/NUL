@@ -5,10 +5,10 @@ index c6e65f3..628563b 100644
 @@ -84,6 +84,9 @@ class Sys_create_sc : public Sys_regs
  
          ALWAYS_INLINE
-         inline Qpd qpd() const { return Qpd (ebx); }
+         inline Qpd qpd() const { return Qpd (ARG_4); }
 +
 +        ALWAYS_INLINE
-+        inline unsigned long cpu() const { return ebp; }
++        inline unsigned long cpu() const { return ARG_5; }
  };
  
  class Sys_create_pt : public Sys_regs
