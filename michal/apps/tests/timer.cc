@@ -31,7 +31,7 @@ public:
     WVPASS(clock);
     WVPASS(timer_service);
 
-    unsigned t1, t2;
+    timevalue t1, t2;
 
     t1 = clock->time();
     WVNUL(timer_service->timer(*utcb, clock->abstime(100, 1000))); // 100 ms
@@ -39,9 +39,9 @@ public:
     
     timersem.downmulti();
     t2 = clock->time();
-    int sleep_time_ms = Math::muldiv128(t2 - t1, 1000, hip->freq_tsc * 1000);
+    timevalue sleep_time_ms = (t2 - t1 /* HZ */) / hip->freq_tsc /* kHz */;
 
-    WVPASSGE(sleep_time_ms, 100); // Broken in qemu
+    WVPASSGE(static_cast<int>(sleep_time_ms), 100); // Broken in qemu
   }
 };
 
