@@ -1,0 +1,9 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+bin/apps/sigma0.nul tracebuffer_verbose S0_DEFAULT hostserial hostvga verbose hostkeyb:0,0x60,1,12,2 \
+    script_start:1 script_waitchild
+bin/apps/timer2.nul
+bin/apps/timer2.nulconfig <<EOF
+namespace::/tmp sigma0::mem:16 name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission ||
+rom://bin/apps/timer2.nul
+EOF
