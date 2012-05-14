@@ -103,7 +103,7 @@ unsigned Remcon::start_entry(struct Remcon::server_data * entry)
 void Remcon::free_entry(struct Remcon::server_data * entry) {
   if (entry->showname) delete [] entry->showname;
   if (entry->config) delete [] entry->config;
-  memset(entry, 0, sizeof(entry));
+  memset(entry, 0, sizeof(*entry));
 }
 
 struct Remcon::server_data * Remcon::get_free_entry() {
@@ -399,6 +399,7 @@ void Remcon::handle_packet(void) {
                                                           replaceuuid, 41);
           if (entry->disks[0].internal.diskid == ~0U) {
             Logging::printf("failure - no free disk with enough space - %llu Byte\n", entry->disks[0].size);
+            res = ERESOURCE;
             goto cleanup;
           }
 
