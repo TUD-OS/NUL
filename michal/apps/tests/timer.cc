@@ -31,17 +31,22 @@ public:
     WVPASS(clock);
     WVPASS(timer_service);
 
+    // Give the system a bit time to settle
+    WVNUL(timer_service->timer(*utcb, clock->abstime(1, 1))); // 1s
+    KernelSemaphore timersem = KernelSemaphore(timer_service->get_notify_sm());
+    timersem.downmulti();
+
+
     timevalue t1, t2;
 
-    t1 = clock->time();
-    WVNUL(timer_service->timer(*utcb, clock->abstime(100, 1000))); // 100 ms
-    KernelSemaphore timersem = KernelSemaphore(timer_service->get_notify_sm());
-    
+    t1 = clock->clock(1000000);
+    WVNUL(timer_service->timer(*utcb, clock->abstime(1, 1))); // 1s
     timersem.downmulti();
-    t2 = clock->time();
-    timevalue sleep_time_ms = (t2 - t1 /* HZ */) / hip->freq_tsc /* kHz */;
+    t2 = clock->clock(1000000);
+    timevalue sleep_time_us = t2 - t1;
 
-    WVPASSGE(static_cast<int>(sleep_time_ms), 100); // Broken in qemu
+    Logging::printf("Slept %lluus\n", sleep_time_us);
+    WVPASSGE(static_cast<int>(sleep_time_us), 1000000); // Broken in qemu
   }
 };
 
