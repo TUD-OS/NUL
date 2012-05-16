@@ -270,7 +270,7 @@ class PerCpuTimerService : private BasicHpet,
       return 0;
     }
 
-    Math::idiv64(diff, static_cast<int32>((_nominal_tsc_ticks_per_timer_tick/CPT_RESOLUTION)));
+    diff = Math::muldiv128(diff, CPT_RESOLUTION, _nominal_tsc_ticks_per_timer_tick);
     uint64 estimated_main;
     if (_reg)
       estimated_main = per_cpu->clock_sync.current_hpet(_reg->counter[0]);
