@@ -103,18 +103,14 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   assert_or_ret(entry);
   assert_or_ret(entry->disks[connections[i].diskid].read < entry->disks[connections[i].diskid].size);
 
-  uint64_t part = entry->disks[connections[i].diskid].size;
-  uint64_t pos  = entry->disks[connections[i].diskid].read;
-  Math::div64(part, 68);
-  Math::div64(pos, part);
-  if (((pos + 1) * part) <= (entry->disks[connections[i].diskid].read + in_len)) {
-    Logging::printf("=");
-/*
-    Logging::printf("connection %u, disk id %u, internal disk id %u, sector %llu\n", i,
-      connections[i].diskid,
-      entry->disks[connections[i].diskid].internal.diskid,
-      connections[i].sector);
-*/
+  if (!verbosity) {
+    uint64_t part = entry->disks[connections[i].diskid].size;
+    uint64_t pos  = entry->disks[connections[i].diskid].read;
+    Math::div64(part, 68);
+    Math::div64(pos, part);
+    if (((pos + 1) * part) <= (entry->disks[connections[i].diskid].read + in_len)) {
+      Logging::printf("=");
+    }
   }
 
   size_t rest = in_len;
@@ -153,6 +149,12 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
       connections[i].buffer_pos = 0;
     }
   }
+
+  if (verbosity)
+    Logging::printf("%u/%llu/%llu ",
+      in_len,
+      entry->disks[connections[i].diskid].read,
+      entry->disks[connections[i].diskid].size);
 
   if (entry->disks[connections[i].diskid].read >= entry->disks[connections[i].diskid].size) {
     Sha1::finish(&sha[i]);
