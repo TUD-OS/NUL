@@ -131,11 +131,12 @@ class Remcon : public CapAllocator {
         bool is_valid() { return auth; }
         int auth_port;
 
-        virtual bool do_authentication(bool &success) { auth = true; success = true; return true;};
-        virtual void check_connection() {};
+        virtual bool set_auth_cap(const char *) { return true;}
+        virtual bool do_authentication(bool &success) { auth = true; success = true; return true;}
+        virtual void check_connection() {}
 
         int get_auth_port(int port = -1) { if (port != -1) auth_port = port; return auth_port; }
-        virtual void reset() { auth = false; }
+        virtual void reset(bool close = false) { auth = false; }
 
         Auth() : auth(false), auth_port(-1) {}
     };

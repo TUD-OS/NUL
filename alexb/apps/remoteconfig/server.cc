@@ -621,7 +621,7 @@ void Remcon::handle_packet(void) {
     case NOVA_AUTH:
       {
         uint32_t len = ntoh32(*reinterpret_cast<uint32_t *>(&_in->opspecific));
-        unsigned char * authid = reinterpret_cast<unsigned char *>(&_in->opspecific) + sizeof(len);
+        char * authid = reinterpret_cast<char *>(&_in->opspecific) + sizeof(len);
         if (len < 2 || len > NOVA_PACKET_LEN || &_in->opspecific + len > buf_in + NOVA_PACKET_LEN) break; // cheater!
 
         authid[len - 1] = 0;
