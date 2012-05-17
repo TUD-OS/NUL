@@ -25,7 +25,7 @@ class TimerTest : public WvProgram
 public:
   void wvrun(Utcb *utcb, Hip *hip)
   {
-    Clock *clock = new Clock(hip->freq_tsc * 1000);
+    Clock *clock = new Clock((hip->freq_tsc + 1) * 1000); //freq_tsc is rounded down, add 1KHz to program it not before our intended point in time
     TimerProtocol *timer_service = new TimerProtocol(alloc_cap_region(TimerProtocol::CAP_SERVER_PT + hip->cpu_desc_count(), 0));
 
     WVPASS(clock);
