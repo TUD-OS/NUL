@@ -40,7 +40,7 @@ class Clock
   /**
    * Returns the current clock in freq-time.
    */
-  timevalue clock(timevalue freq) { return Math::muldiv128(time(), freq, _source_freq); }
+  timevalue clock(timevalue freq, timevalue t_cur = 0) { return Math::muldiv128(t_cur == 0 ? time() : t_cur, freq, _source_freq); }
 
   /**
    * Frequency of the clock.
