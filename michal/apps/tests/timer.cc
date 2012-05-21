@@ -47,7 +47,7 @@ public:
     timevalue sleep_time_us_service = (t2 - t1 /* us */);
     timevalue sleep_time_us_tsc     = clock->clock(1000000, t2_tsc - t1_tsc);
 
-    Logging::printf("Slept: service->time()=%lluus, tsc_time=%lluus \n", sleep_time_us_service, sleep_time_us_tsc);
+    Logging::printf("Slept: service->time()=%lluus, tsc_time=%lluus, tsc_freq=%u \n", sleep_time_us_service, sleep_time_us_tsc, hip->freq_tsc);
     WVPASSGE(static_cast<int>(sleep_time_us_service), 1000000); // Broken in qemu
     //WVPASSGE(static_cast<int>(sleep_time_us_tsc), 1000000); // Broken in qemu //drift to large between service(HPET) and tsc
   }
