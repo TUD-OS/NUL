@@ -3,15 +3,17 @@
  * Test application for disk service.
  *
  * Copyright (C) 2011 Michal Sojka <sojka@os.inf.tu-dresden.de>
+ * Copyright (C) 2012 Julian Stecklina <jsteckli@os.inf.tu-dresden.de>
+ * Copyright (C) 2012 Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
- * This file is part of Vancouver.nova.
+ * This file is part of NUL (NOVA user land).
  *
- * Vancouver.nova is free software: you can redistribute it and/or
+ * NUL is free software: you can redistribute it and/or
  * modify it under the terms of the GNU General Public License version
  * 2 as published by the Free Software Foundation.
  *
- * Vancouver.nova is distributed in the hope that it will be useful,
+ * NUL is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
  * General Public License version 2 for more details.
@@ -31,22 +33,23 @@ public:
     WVPASS(clock);
     WVPASS(timer_service);
 
-    // Give the system a bit time to settle
+    timevalue t1, t2, t1_tsc, t2_tsc;
+    timevalue ts;
+
+    WVNUL(timer_service->time(*utcb, t1, ts));
+    t1_tsc = clock->time();
     WVNUL(timer_service->timer(*utcb, clock->abstime(1, 1))); // 1s
     KernelSemaphore timersem = KernelSemaphore(timer_service->get_notify_sm());
+
     timersem.downmulti();
+    t2_tsc = clock->time();
+    WVNUL(timer_service->time(*utcb, t2, ts));
+    timevalue sleep_time_us_service = (t2 - t1 /* us */);
+    timevalue sleep_time_us_tsc     = clock->clock(1000000, t2_tsc - t1_tsc);
 
-
-    timevalue t1, t2;
-
-    t1 = clock->clock(1000000);
-    WVNUL(timer_service->timer(*utcb, clock->abstime(1, 1))); // 1s
-    timersem.downmulti();
-    t2 = clock->clock(1000000);
-    timevalue sleep_time_us = t2 - t1;
-
-    Logging::printf("Slept %lluus\n", sleep_time_us);
-    WVPASSGE(static_cast<int>(sleep_time_us), 1000000); // Broken in qemu
+    Logging::printf("Slept: service->time()=%lluus, tsc_time=%lluus \n", sleep_time_us_service, sleep_time_us_tsc);
+    WVPASSGE(static_cast<int>(sleep_time_us_service), 1000000); // Broken in qemu
+    //WVPASSGE(static_cast<int>(sleep_time_us_tsc), 1000000); // Broken in qemu //drift to large between service(HPET) and tsc
   }
 };
 
