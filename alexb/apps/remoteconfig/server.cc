@@ -186,6 +186,7 @@ void Remcon::handle_packet(void) {
 
   switch (op) {
     case NOVA_LIST_ACTIVE_DOMAINS:
+    case NOVA_NUM_OF_ACTIVE_DOMAINS:
       {
         unsigned i, k = 0;
         uint32_t * ids = reinterpret_cast<uint32_t *>(&_out->opspecific);
@@ -194,24 +195,12 @@ void Remcon::handle_packet(void) {
           if (server_data[i].id == 0 || server_data[i].state == server_data::status::OFF) continue;
 
           k++;
+          if (op != NOVA_LIST_ACTIVE_DOMAINS) continue;
+
           ids[k] = hton32(server_data[i].id);
-  
           if (reinterpret_cast<unsigned char *>(&ids[k + 1]) >= buf_out + NOVA_PACKET_LEN) break; //no space left
         }
         ids[0] = hton32(k); //num of ids
-        _out->result  = NOVA_OP_SUCCEEDED;
-        break;
-      }
-    case NOVA_NUM_OF_ACTIVE_DOMAINS:
-      {
-        unsigned i, k = 0;
-        for(i=0; i < sizeof(server_data)/sizeof(server_data[0]); i++) {
-          if (server_data[i].id == 0) continue;
-          k++;
-        }
-
-        uint32_t _num = hton32(k);
-        memcpy(&_out->opspecific, &_num, 4);
         _out->result  = NOVA_OP_SUCCEEDED;
         break;
       }
