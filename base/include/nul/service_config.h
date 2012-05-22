@@ -35,6 +35,11 @@ struct ConfigProtocol : public GenericProtocol {
   struct info_net {
     unsigned long long rx, rx_packets, rx_drop;
     unsigned long long tx, tx_packets;
+
+  info_net()
+    : rx(0), rx_packets(0), rx_drop(0),
+      tx(0), tx_packets(0)
+    {}
   };
 
   unsigned start_config(Utcb &utcb, unsigned short &id, unsigned long &maxmem,
