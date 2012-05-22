@@ -313,20 +313,9 @@ public:
           if (!client) return EPERM;
 
           if (op == AdmissionProtocol::TYPE_SC_USAGE) {
-            unsigned i, res = ERESOURCE;
-            uint64 time_con = 0;
-
-            for (i=0; i < sizeof(client->scs) / sizeof(client->scs[0]); i++) {
-              if (!client->scs[i].idx ||
-                  (len > 0 && strcmp(client->scs[i].name, name) != 0)) continue;
-              res = ENONE;
-
-              timevalue computetime;
-              unsigned res = nova_ctl_sc(client->scs[i].idx, computetime);
-              if (res != NOVA_ESUCCESS) return EPERM;
-              time_con += computetime;
-            }
-            utcb << time_con;
+            timevalue time_con = 0;
+            unsigned res = get_usage(client, time_con, ((!name || (len==0)) ? NULL : name), true);
+            if (res == ENONE) utcb << time_con;
             return res;
           } else if (op == AdmissionProtocol::TYPE_REBIND_USAGE_CAP) {
             nova_revoke(Crd(client->statistics, 0, DESC_CAP_ALL), false); //rebind - revoke old mapping
@@ -343,19 +332,24 @@ public:
   /*
    * Calculates subsumed time of all SCs of a client on all CPUs
    */
-  timevalue get_usage(ClientData * data, const char * name) {
+  unsigned get_usage(ClientData * data, timevalue &time_con, const char * name, bool fresh) {
     unsigned i;
-    timevalue time_con = 0;
+
     for (i=0; i < sizeof(data->scs) / sizeof(data->scs[0]); i++) {
-      if (!name) {
-        if (!data->scs[i].idx) continue;
+      if (!data->scs[i].idx) continue;
+      if (name && strcmp(data->scs[i].name, name)) continue;
+
+      if (!fresh) {
         time_con += data->scs[i].last[0];
-      } else {
-        if (!strcmp(data->scs[i].name, name))
-          return data->scs[i].last[0];
+        continue;
       }
+
+      timevalue computetime;
+      unsigned res = nova_ctl_sc(data->scs[i].idx, computetime);
+      if (res != NOVA_ESUCCESS) return EPERM;
+      time_con += computetime;
     }
-    return time_con;
+    return ENONE;
   }
 
   /*
