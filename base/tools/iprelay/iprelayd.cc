@@ -39,6 +39,7 @@
 #include <string.h>
 #include <string>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -337,6 +338,7 @@ class Client {
   char                buf[4096];
   string              to_client;
   CommandStr          command;
+  struct timeval      last_activity;
 
   Client(const Client&);        // disable copy constructor
   Client&         operator = (const Client&);
@@ -346,17 +348,36 @@ public:
   bool            high_prio;
 
   Client(pollfd &pfd, struct sockaddr_in &addr, bool hp = false) :
-    next(0), fd(pfd.fd), pfd(&pfd), addr(addr), to_client(), command(), high_prio(hp)
+    next(0), fd(pfd.fd), pfd(&pfd), addr(addr), to_client(), command(), last_activity(), high_prio(hp)
   {
     msg("client connected%s", hp ? " (high prio)" : "");
     CHECK(fcntl(fd, F_SETFL, O_NONBLOCK));
+    touch();
   }
 
   Client(int fd, struct sockaddr_in &addr, bool hp = false) :
-    next(0), fd(fd), pfd(0), addr(addr), to_client(), command(), high_prio(hp)
+    next(0), fd(fd), pfd(0), addr(addr), to_client(), command(), last_activity(), high_prio(hp)
   {
     msg("client connected%s", hp ? " (high prio)" : "");
     CHECK(fcntl(fd, F_SETFL, O_NONBLOCK));
+    touch();
+  }
+
+  void touch()
+  {
+    gettimeofday(&last_activity, 0);
+  }
+
+  unsigned inactive_secs()
+  {
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return tv.tv_sec - last_activity.tv_sec;
+  }
+
+  unsigned secs_until_timeout()
+  {
+    return max(0, 20*60 - static_cast<int>(inactive_secs()));
   }
 
   string name()
@@ -461,6 +482,14 @@ public:
       if (!who.empty())
         who += ", ";
       who += c->name();
+      if  (c->inactive_secs() > 15) {
+        char t[20];
+        if (c->secs_until_timeout() > 60)
+          snprintf(t, sizeof(t), " (%u min)", c->secs_until_timeout()/60);
+        else
+          snprintf(t, sizeof(t), " (%u s)", c->secs_until_timeout());
+        who += t;
+      }
     }
     return i;
   }
@@ -481,7 +510,7 @@ public:
       else {
         string names;
         unsigned q = clients_before(names);
-        asprintf(&buf, "<iprelayd: not connected (%d client%s before you: %s)>\n", q, q > 1 ? "s":"", names.c_str());
+        asprintf(&buf, "<iprelayd: not connected - %d client%s before you: %s>\n", q, q > 1 ? "s":"", names.c_str());
       }
       send(buf, strlen(buf));
       free(buf);
@@ -514,7 +543,13 @@ public:
       return false;
     }
 
+    if (secs_until_timeout() == 0) {
+      bye_bye("Timeout (iprelayd)");
+      return false;
+    }
+
     if (pfd->revents & POLLIN) {
+      touch();
       ret = read(fd, buf, sizeof(buf));
 
       if (ret < 0) {
@@ -550,6 +585,7 @@ public:
       } else {
         to_client.erase(0, ret);
       }
+      touch();
     }
 
     return true;
@@ -562,6 +598,7 @@ public:
       to_client.append(&str[ret], len - ret);
       pfd->events |= POLLOUT;
     }
+    touch();
   }
 
   void send(const string &str)
@@ -616,7 +653,15 @@ int main(int argc, char *argv[])
         pollfds[FD_IP_RELAY] = { fd, POLLIN | POLLRDHUP };
     }
 
-    CHECK(poll(pollfds, FD_COUNT, ip_relay.connected() ? -1 : 1000));
+    int timeout;
+    if (!ip_relay.connected())
+      timeout = 1000;
+    else if (Client::active)
+      timeout = 1000 * Client::active->secs_until_timeout() + 100;
+    else
+      timeout = -1;
+
+    CHECK(poll(pollfds, FD_COUNT, timeout));
 
     if (pollfds[FD_LISTEN_LP].revents) {
       socklen_t          sin_size;
@@ -683,16 +728,14 @@ int main(int argc, char *argv[])
     }
 
     for (unsigned i = FD_CLIENT; i < FD_COUNT; i++) {
-      if (pollfds[i].revents) {
-        Client *c = clients[i];
+      Client *c = clients[i];
 
-        if (!c->handle()) {
-          // client disconnected
-          c->del_from_queue();
-          delete c;
-          memset(&pollfds[i], 0, sizeof(pollfds[i]));
-          clients[i] = 0;
-        }
+      if (c && !c->handle()) {
+        // client disconnected
+        c->del_from_queue();
+        delete c;
+        memset(&pollfds[i], 0, sizeof(pollfds[i]));
+        clients[i] = 0;
       }
     }
   }
