@@ -453,11 +453,15 @@ public:
 
   bool is_active() const { return active == this; }
 
-  unsigned clients_before() const
+  unsigned clients_before(string &who)
   {
     unsigned i;
     Client *c = active;
-    for (i = 0; c != this; i++, c = c->next);
+    for (i = 0; c != this; i++, c = c->next) {
+      if (!who.empty())
+        who += ", ";
+      who += c->name();
+    }
     return i;
   }
 
@@ -471,14 +475,16 @@ public:
     //msg("command: %s", command.as_hex().c_str());
 
     if (command.match(are_you_there)) {
-      char buf[100];
+      char *buf;
       if (is_active())
-        snprintf(buf, sizeof(buf), "<iprelayd: connected>\n");
+        asprintf(&buf, "<iprelayd: connected>\n");
       else {
-        unsigned q = clients_before();
-        snprintf(buf, sizeof(buf), "<iprelayd: not connected (%d client%s before you)>\n", q, q > 1 ? "s":"");
+        string names;
+        unsigned q = clients_before(names);
+        asprintf(&buf, "<iprelayd: not connected (%d client%s before you: %s)>\n", q, q > 1 ? "s":"", names.c_str());
       }
       send(buf, strlen(buf));
+      free(buf);
     } else if (command.match(reset_on)) {
       ip_relay->reset();
       send(reset_on_confirmation);
