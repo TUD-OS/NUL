@@ -442,7 +442,7 @@ public:
   {
     char *bye_msg;
 
-    int res = asprintf(&bye_msg, "%s. Closing connecion.\n", message.c_str());
+    int res = asprintf(&bye_msg, "%s. Closing connection.\n", message.c_str());
     if (res < 0) goto done;
     msg("%s", bye_msg);
     send(bye_msg);
