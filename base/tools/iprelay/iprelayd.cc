@@ -28,6 +28,7 @@
 
 #include <arpa/inet.h>
 #include <assert.h>
+#include <fcntl.h>
 #include <iostream>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -74,6 +75,8 @@ enum {
   FD_CLIENT,
   FD_COUNT = FD_CLIENT + MAX_CLIENTS
 };
+
+#define CHECK(cmd) ({ int ret = (cmd); if (ret == -1) { printf("error on line %d: " #cmd ": %s\n", __LINE__, strerror(errno)); exit(1); }; ret; })
 
 int msg(const char* fmt, ...) __attribute__ ((format (printf, 1, 2)));
 int msg(const char* fmt, ...)
@@ -155,11 +158,13 @@ class IpRelay {
   enum state {
     OFF, RST1, RST2, PWRON1, PWRON2, DATA, PWROFF1, PWROFF2
   } state;
+  pollfd          &pfd;
+  string           to_relay;
 
   IpRelay(const IpRelay&);
   IpRelay& operator=(const IpRelay&);
 public:
-  IpRelay(const char *node, const char *service) : fd(-1), ai(0), node(node), service(service), state(OFF)
+  IpRelay(const char *node, const char *service, pollfd &pfd) : fd(-1), ai(0), node(node), service(service), state(OFF), pfd(pfd), to_relay()
   {
     struct addrinfo hints;
     int ret;
@@ -191,8 +196,10 @@ public:
       if (fd == -1)
         continue;
 
-      if (::connect(fd, aip->ai_addr, aip->ai_addrlen) != -1)
+      if (::connect(fd, aip->ai_addr, aip->ai_addrlen) != -1) {
+        CHECK(fcntl(fd, F_SETFL, O_NONBLOCK));
         break; /* Success */
+      }
 
       close(fd);
     }
@@ -216,12 +223,19 @@ public:
     fd = -1;
   }
 
-  int send(const string &str)
+  void send(const string &str)
   {
     if (!connected())
       msg("attempt to write to disconnected relay");
-    return write(fd, str.data(), str.length());
+
+    int len = str.length();
+    int ret = CHECK(write(fd, str.data(), len));
+    if (ret < len) {
+      to_relay.append(str.c_str() + ret);
+      pfd.events |= POLLOUT;
+    }
   }
+
 
   void reset()
   {
@@ -297,6 +311,19 @@ public:
       }
       return 0;
     }
+
+    if (pfd.revents & POLLOUT) {
+      int len = to_relay.length();
+      int ret = CHECK(write(fd, to_relay.data(), len));
+
+      if (ret == len) {
+        to_relay.clear();
+        pfd.events &= ~POLLOUT;
+      } else {
+        to_relay.erase(0, ret);
+      }
+      return 0;
+    }
     msg("ip_relay unhandled revent %#x\n", pfd.revents);
     return -1;
   }
@@ -305,9 +332,10 @@ public:
 class Client {
   Client             *next;
   int                 fd;
+  pollfd             *pfd;
   struct sockaddr_in  addr;
   char                buf[4096];
-  string              to_relay;
+  string              to_client;
   CommandStr          command;
 
   Client(const Client&);        // disable copy constructor
@@ -317,8 +345,19 @@ public:
   static IpRelay *ip_relay;
   bool            high_prio;
 
+  Client(pollfd &pfd, struct sockaddr_in &addr, bool hp = false) :
+    next(0), fd(pfd.fd), pfd(&pfd), addr(addr), to_client(), command(), high_prio(hp)
+  {
+    msg("client connected%s", hp ? " (high prio)" : "");
+    CHECK(fcntl(fd, F_SETFL, O_NONBLOCK));
+  }
+
   Client(int fd, struct sockaddr_in &addr, bool hp = false) :
-    next(0), fd(fd), addr(addr), to_relay(), command(), high_prio(hp) {}
+    next(0), fd(fd), pfd(0), addr(addr), to_client(), command(), high_prio(hp)
+  {
+    msg("client connected%s", hp ? " (high prio)" : "");
+    CHECK(fcntl(fd, F_SETFL, O_NONBLOCK));
+  }
 
   string name()
   {
@@ -330,6 +369,8 @@ public:
     else
       return NULL;
   }
+
+  pollfd *get_pfd() const { return pfd; }
 
   int msg(const char* fmt, ...) __attribute__ ((format (printf, 2, 3)))
   {
@@ -347,33 +388,31 @@ public:
     return ret;
   }
 
-  Client *add_to_queue()
+  void add_to_queue(bool as_first = false)
   {
-    Client *kicked = 0;
-    if (!active)
+    if (!active) {
       active = this;
-    else {
-      // Add ourselves to the queue
-      Client *c;
-      if (!high_prio) {
-        for (c = active; c->next; c = c->next);
-        c->next = this;
-      } else {
-        // High prio clients can interrupt low prio ones :)
-        if (!active->high_prio) {
-          active->bye_bye("More privileged user connected");
-          kicked = active;
-          next = active->next;
-          active = this;
-        } else {
-          Client *last_hp = 0;
-          for (c = active; c && c->high_prio; last_hp = c, c = c->next);
-          next = last_hp->next;
-          last_hp->next = this;
-        }
-      }
+      return;
     }
-    return kicked;
+
+    if (as_first) {
+      next = active;
+      active = this;
+      return;
+    }
+
+    Client *c;
+    if (!high_prio) {
+      // Add ourselves to the end of the queue
+      for (c = active; c->next; c = c->next);
+      c->next = this;
+    } else {
+      // Add ourselves to the end of high prio clients in the queue
+      Client *last_hp = 0;
+      for (c = active; c && c->high_prio; last_hp = c, c = c->next);
+      next = last_hp->next;
+      last_hp->next = this;
+    }
   }
 
   void print_queue()
@@ -422,7 +461,7 @@ public:
     return i;
   }
 
-  bool interpret_as_command(char ch)
+  bool interpret_as_command(char ch, string &to_relay)
   {
     if (ch != IAC[0] && command.empty())
       return false;
@@ -462,47 +501,71 @@ public:
   bool handle()
   {
     int ret;
-    ret = read(fd, buf, sizeof(buf));
+    string to_relay;
 
-    if (ret < 0) {
-      msg("read: %s", strerror(errno));
+    if (pfd->revents & POLLRDHUP) {
+      msg("disconnected");
       return false;
     }
 
-    msg("read len=%d\n", ret);
+    if (pfd->revents & POLLIN) {
+      ret = read(fd, buf, sizeof(buf));
 
-    for (int i = 0; i < ret; i++) {
-      if (!interpret_as_command(buf[i]))
-        to_relay += buf[i];
-    }
-
-    if (!to_relay.empty()) {
-      if (active == this) {
-        ip_relay->send(to_relay);
-        to_relay.clear();
-      } else {
-        bye_bye("IP relay is used by somebody else");
+      if (ret < 0) {
+        msg("read: %s", strerror(errno));
         return false;
       }
+
+      msg("read len=%d\n", ret);
+
+      for (int i = 0; i < ret; i++) {
+        if (!interpret_as_command(buf[i], to_relay))
+          to_relay += buf[i];
+      }
+
+      if (!to_relay.empty()) {
+        if (active == this) {
+          ip_relay->send(to_relay);
+          to_relay.clear();
+        } else {
+          bye_bye("IP relay is used by somebody else");
+          return false;
+        }
+      }
     }
+
+    if (pfd->revents & POLLOUT) {
+      int len = to_client.length();
+      ret = CHECK(write(fd, to_client.data(), len));
+
+      if (ret == len) {
+        to_client.clear();
+        pfd->events &= ~POLLOUT;
+      } else {
+        to_client.erase(0, ret);
+      }
+    }
+
     return true;
   }
 
-  int send(const char *str, size_t len)
+  void send(const char *str, size_t len)
   {
-    return write(fd, str, len);
+    int ret = CHECK(write(fd, str, len));
+    if (ret >= 0 && ret < static_cast<int>(len)) {
+      to_client.append(&str[ret], len - ret);
+      pfd->events |= POLLOUT;
+    }
   }
 
-  int send(const string &str)
+  void send(const string &str)
   {
-    return write(fd, str.data(), str.length());
+    send(str.data(), str.length());
   }
 };
 
 Client  *Client::active;
 IpRelay *Client::ip_relay;
-
-#define CHECK(cmd) ({ int ret = (cmd); if (ret == -1) { perror(#cmd); exit(1); }; ret; })
 
 int main(int argc, char *argv[])
 {
@@ -518,10 +581,11 @@ int main(int argc, char *argv[])
 
   msg("Starting iprelayd");
 
-  IpRelay ip_relay(argv[1], argc > 2 ? argv[2] : "23");
+  IpRelay ip_relay(argv[1], argc > 2 ? argv[2] : "23", pollfds[FD_IP_RELAY]);
   Client::ip_relay = &ip_relay;
 
   int sfd;
+
   sfd = CHECK(socket(PF_INET, SOCK_STREAM, 0));
   CHECK(setsockopt(sfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)));
   memset(&my_addr, 0, sizeof(my_addr));
@@ -555,16 +619,15 @@ int main(int argc, char *argv[])
 
       sin_size   = sizeof(their_addr);
       int new_fd = CHECK(accept(pollfds[FD_LISTEN_LP].fd, (struct sockaddr *)&their_addr, &sin_size));
-      Client *c = new Client(new_fd, their_addr);
-      c->msg("connected");
       for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
       if (i < FD_COUNT) {
         pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
-        clients[i] = c;
+        Client *c = new Client(pollfds[i], their_addr);
         c->add_to_queue();
+        clients[i] = c;
       } else {
-        c->bye_bye("Too many connections");
-        delete c;
+        Client c(new_fd, their_addr);
+        c.bye_bye("Too many connections");
       }
     }
 
@@ -572,27 +635,29 @@ int main(int argc, char *argv[])
       socklen_t           sin_size;
       struct sockaddr_in  their_addr;
       unsigned            i;
+      bool                add_as_first = false;
 
       sin_size   = sizeof(their_addr);
       int new_fd = CHECK(accept(pollfds[FD_LISTEN_HP].fd, (struct sockaddr *)&their_addr, &sin_size));
-      Client *c = new Client(new_fd, their_addr, true);
-      c->msg("connected (high prio)");
-      Client *kicked = c->add_to_queue();
-      if (kicked) {
-        for (i = FD_CLIENT; i < FD_COUNT && clients[i] != kicked; i++);
-        assert(i < FD_COUNT);
-        memset(&pollfds[i], 0, sizeof(pollfds[i]));
-        clients[i] = 0;
-        delete kicked;
-      } else
+      if (Client::active && !Client::active->high_prio) {
+        Client *c = Client::active;
+        c->bye_bye("More privileged user connected");
+        c->del_from_queue();
+        i = c->get_pfd() - pollfds;
+        delete c;
+        add_as_first = true;
+      } else {
         for (i = FD_CLIENT; i < FD_COUNT && pollfds[i].events; i++);
+      }
+
       if (i < FD_COUNT) {
         pollfds[i] = { new_fd, POLLIN | POLLRDHUP };
+        Client *c = new Client(pollfds[i], their_addr, true);
+        c->add_to_queue(add_as_first);
         clients[i] = c;
       } else {
-        c->bye_bye("Too many connections");
-        c->del_from_queue();
-        delete c;
+        Client c(new_fd, their_addr);
+        c.bye_bye("Too many connections");
       }
     }
 
@@ -614,13 +679,9 @@ int main(int argc, char *argv[])
     for (unsigned i = FD_CLIENT; i < FD_COUNT; i++) {
       if (pollfds[i].revents) {
         Client *c = clients[i];
-        c->msg("handle %#x", pollfds[i].revents);
-        bool disconnected = false;
-        if (pollfds[i].revents & POLLIN)
-          disconnected = !c->handle();
 
-        if (disconnected || pollfds[i].revents & POLLRDHUP) {
-          c->msg("disconnected");
+        if (!c->handle()) {
+          // client disconnected
           c->del_from_queue();
           delete c;
           memset(&pollfds[i], 0, sizeof(pollfds[i]));
