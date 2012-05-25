@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-# @file 
+# @file
 # Script to supervise the execution of wvtest-based tests.
 #
 # It takes care of killing test (qemu or serial reader) when the test
@@ -22,32 +22,58 @@
 #/
 
 use strict;
+use IO::Pty;
 
 # always flush
 $| = 1;
 
-my $pid = open(my $fh, "-|");
+my $pty = new IO::Pty;
+
+my $pid = fork();
+die "Cannot fork" if not defined $pid;
 if (!$pid) {
     # child
-    open STDERR, '>&STDOUT' or die("Can't dup stdout: $!\n");
+    $pty->make_slave_controlling_terminal();
 #    setpgrp(); # Terminal won't send signals to the child
+    my $slave = $pty->slave();
+    close $pty;
+    $slave->clone_winsize_from(\*STDIN);
+    $slave->set_raw();
+
+    open(STDIN,"<&". $slave->fileno())
+      or die "Couldn't reopen STDIN for reading, $!\n";
+    open(STDOUT,">&". $slave->fileno())
+      or die "Couldn't reopen STDOUT for writing, $!\n";
+    open(STDERR,">&". $slave->fileno())
+      or die "Couldn't reopen STDERR for writing, $!\n";
+
+    close $slave;
+
     exec(@ARGV);
-    exit 126; # just in case
+    die "Cannot exec(@ARGV): $!";
 }
+
+$pty->close_slave();
+#$pty->set_raw(); # from IO::Pty "try" script. Do we need this?
+
+sub winch {
+  $pty->slave->clone_winsize_from(\*STDIN);
+  kill WINCH => $pid if $pid;
+  $SIG{WINCH} = \&winch;
+}
+
+$SIG{WINCH} = \&winch;
 
 sub bigkill($)
 {
     my $pid = shift;
     ($pid > 0) || die("pid is '$pid'?!\n");
-
+    my $count;
     local $SIG{CHLD} = sub { }; # this will wake us from sleep() faster
-    kill 15, $pid;
+    $count = kill -15, $pid;
     sleep(2);
 
-    if ($pid > 1) {
-	kill 9, -$pid;
-    }
-    kill 9, $pid;
+    kill -9, $pid if ($pid > 1);
 
     exit(125);
 }
@@ -109,7 +135,7 @@ if ($ENV{WVTEST_OUTPUT}) {
 }
 
 alarm($timeout);
-while (<$fh>)
+while (<$pty>)
 {
     alarm($timeout);
     print;
@@ -148,7 +174,7 @@ while (<$fh>)
 	    } else {
 		# Continue printing on background
 		close($wvtest_output) if $wvtest_output;
-		while (<$fh>) { print; }
+		while (<$pty>) { print; }
 		POSIX::_exit(0);
 	    }
 	}
