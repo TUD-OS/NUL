@@ -27,6 +27,7 @@ use IO::Pty;
 # always flush
 $| = 1;
 
+my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
 my $pty = new IO::Pty;
 
 my $pid = fork();
@@ -37,7 +38,7 @@ if (!$pid) {
 #    setpgrp(); # Terminal won't send signals to the child
     my $slave = $pty->slave();
     close $pty;
-    $slave->clone_winsize_from(\*STDIN);
+    $slave->clone_winsize_from(\*STDIN) if $istty;
     $slave->set_raw();
 
     open(STDIN,"<&". $slave->fileno())
@@ -62,7 +63,7 @@ sub winch {
   $SIG{WINCH} = \&winch;
 }
 
-$SIG{WINCH} = \&winch;
+$SIG{WINCH} = \&winch if $istty;
 
 sub bigkill($)
 {
