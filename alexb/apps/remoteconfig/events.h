@@ -20,10 +20,6 @@
 
 #include <util/capalloc_partition.h>
 
-enum {
-  CONST_CAP_RANGE = 16U,
-};
-
 #include "server.h"
 
 class EventService : public CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE> 
@@ -43,7 +39,10 @@ private:
 
 public:
 
-  EventService(Remcon * _server) : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1), server(_server) {
+  EventService(Remcon * _server, bool verbose) : CapAllocatorAtomicPartition<1 << CONST_CAP_RANGE>(1),
+        enable_verbose(verbose), 
+        server(_server)
+  {
     unsigned long long base = alloc_cap_region(1 << CONST_CAP_RANGE, 12);
     assert(base && !(base & 0xFFFULL));
     _cap_base = base;

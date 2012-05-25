@@ -45,6 +45,11 @@ typedef PacketProducer<NOVA_PACKET_LEN * 64> EventProducer;
 typedef PacketConsumer<NOVA_PACKET_LEN * 4> AuthConsumer;
 typedef PacketProducer<NOVA_PACKET_LEN * 4> AuthProducer;
 
+enum {
+  CONST_CAP_RANGE = 16U,
+};
+
+
 class Remcon : public CapAllocator {
   private:
     DiskHelper<Remcon, 4096> * service_disk;
@@ -146,7 +151,7 @@ class Remcon : public CapAllocator {
     Remcon(char const * _cmdline, ConfigProtocol * _sconfig, unsigned _cpu_count,
            unsigned long cap_start, unsigned long cap_order, EventProducer * prod_event, AuthProducer * prod_auth,
            const char * templatefile, unsigned len_template, const char * diskfile, unsigned len_disk, unsigned long verbose) :
-      CapAllocator(cap_start, cap_start, cap_order), gevents(false),
+      CapAllocator(cap_start, cap_start, cap_order), gevents(true),
       data_received(0), dowrite(false), cmdline(_cmdline), service_config(_sconfig),
       cpu_count(_cpu_count), eventproducer(prod_event), authproducer(prod_auth),
       file_template(templatefile), file_diskuuid(diskfile),

@@ -27,6 +27,7 @@
 
 #include "server.h"
 #include "events.h"
+//#include "log.h"
 
 EXTERN_C void dlmalloc_init(cap_sel pool);
 
@@ -71,6 +72,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       LIBVIRT_FILE_PORT=10043,
     };
 
+    static bool enable_tls;
   public:
 
     static void send_network(char unsigned const * data, unsigned len) {
@@ -111,23 +113,31 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       void * appdata, * out;
       size_t appdata_len, out_len;
       unsigned char * sslbuf;
-      int32 rc;
+      int32 rc = 1;
       void *&tls_session = (localport == LIBVIRT_CMD_PORT) ? tls_session_cmd : tls_session_event;
 
       assert(localport == LIBVIRT_CMD_PORT || localport == LIBVIRT_EVT_PORT);
-      if (!in && in_len == NUL_TCP_EOF) {
-        nul_tls_delete_session(tls_session);
-        rc  = nul_tls_session(tls_session); // Prepare new session for the next time???
-        assert(rc == 0);
+
+      if (!in && (in_len == NUL_TCP_EOF)) {
+        if (enable_tls) {
+          nul_tls_delete_session(tls_session);
+          rc  = nul_tls_session(tls_session); // Prepare new session for the next time???
+          assert(rc == 0);
+        }
         remcon->obj_auth->reset();
         return;
       }
-      int32 len = nul_tls_len(tls_session, sslbuf);
-      if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
-      //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
-      memcpy(sslbuf, in, in_len);
+      if (enable_tls) {
+        int32 len = nul_tls_len(tls_session, sslbuf);
+        if (len < 0 || (0UL + len) < in_len) Logging::panic("buffer to small!!! %d %zu\n", len, in_len);
+        //Logging::printf("[da ip] - port %u sslbuf=%p ssllen=%d in_len=%u\n", localport, sslbuf, len, in_len);
+        memcpy(sslbuf, in, in_len);
 
-      rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport, tls_session);
+        rc = nul_tls_config(in_len, write_out, appdata, appdata_len, false, localport, tls_session);
+      } else {
+       appdata = in; appdata_len = in_len;
+      }
+
       if (rc > 0) {
         if (localport == LIBVIRT_EVT_PORT) return; //don't allow to send via event port messages to the daemon
 
@@ -136,8 +146,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         out = 0; out_len = 0;
         remcon->recv_call_back(appdata, appdata_len, out, out_len);
         appdata = out; appdata_len = out_len;
-        rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport, tls_session);
-        if (rc > 0) goto loop;
+        if (enable_tls) {
+          rc = nul_tls_config(0, write_out, appdata, appdata_len, true, localport, tls_session);
+          if (rc > 0) goto loop;
+        } else write_out(localport, appdata, appdata_len);
       }
       if (rc < 0) nul_ip_config(IP_TCP_CLOSE, &localport);
     }
@@ -157,7 +169,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       for (unsigned i=1; i < argv && i < 16; i++) {
         if (!strncmp("template=", args[i],9)) { templatefile = args[i] + 9; temp_len = strcspn(templatefile, " \n\t\f");}
         if (!strncmp("diskuuid=", args[i],9)) { diskuuidfile = args[i] + 9; disk_len = strcspn(diskuuidfile, " \n\t\f");}
-        if (!strncmp("verbose", args[i],7))   { verbose = 1;}
+        if (!strncmp("verbose",   args[i],7)) { verbose = 1;}
+        if (!strncmp("nossltls",  args[i],8)) { enable_tls = false;}
         continue;
       }
 
@@ -168,8 +181,11 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       remcon = new Remcon(reinterpret_cast<char const *>(_hip->get_mod(0)->aux), service_config, hip->cpu_desc_count(),
                           cap_region, 14, prod_event, NULL, templatefile, temp_len, diskuuidfile, disk_len, verbose);
       //create event service object
-      EventService * event = new EventService(remcon);
+      EventService * event = new EventService(remcon, verbose);
       if (!event || !event->start_service(utcb, hip, this)) return false;
+      //create log service object
+//      LogService * log = new LogService(remcon, verbose);
+//      if (!log || !log->start_service(utcb, hip, this)) return false;
 
       return true;
     }
@@ -218,8 +234,8 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
         fs_obj.destroy(*utcb, portal_num, this);
       }
-      if (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
-          nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0) return false;
+      if (enable_tls && (!nul_tls_init(servercert, servercert_len, serverkey, serverkey_len, cacert, cacert_len) ||
+          nul_tls_session(tls_session_cmd) < 0 || nul_tls_session(tls_session_event) < 0)) return false;
 
       if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x5) return false;
 
@@ -308,7 +324,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
       conn.port = LIBVIRT_FILE_PORT;
       conn.fn = recv_call_back_file;
       if (!nul_ip_config(IP_TCP_OPEN, &conn.port)) Logging::panic("failure - opening tcp port %lu\n", conn.port);
-      Logging::printf("done    - open tcp port %d, %d, %d\n", LIBVIRT_CMD_PORT, LIBVIRT_EVT_PORT, LIBVIRT_FILE_PORT);
+      Logging::printf("done    - open tcp port %d, %d, %d - ssl/tls %s\n", LIBVIRT_CMD_PORT, LIBVIRT_EVT_PORT, LIBVIRT_FILE_PORT, enable_tls ? "enabled" : "disabled");
 
       if (!static_ip)
         Logging::printf(".......   looking for an IP address via DHCP\n");
@@ -346,7 +362,10 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
         while (sendconsumer->has_data()) {
           unsigned size = sendconsumer->get_buffer(buf);
           void * data   = buf;
-          nul_tls_config(0, write_out, data, size, true, LIBVIRT_EVT_PORT, tls_session_event); //XXX check here
+
+          if (enable_tls) nul_tls_config(0, write_out, data, size, true, LIBVIRT_EVT_PORT, tls_session_event); //XXX check here
+          else write_out(LIBVIRT_EVT_PORT, data, size);
+
           sendconsumer->free_buffer();
         }
       }
@@ -356,7 +375,7 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
   void run(Utcb *utcb, Hip *hip)
   {
-
+    enable_tls = true;
 
     init(hip);
     init_mem(hip);
@@ -391,5 +410,6 @@ class RemoteConfig : public NovaProgram, public ProgramConsole
 
 Remcon * ab::RemoteConfig::remcon;
 void * ab::RemoteConfig::tls_session_cmd, * ab::RemoteConfig::tls_session_event;
+bool ab::RemoteConfig::enable_tls;
 
 ASMFUNCS(ab::RemoteConfig, NovaProgram)

@@ -57,7 +57,7 @@
         res = ParentProtocol::get_quota(utcb, data->pseudonym, "guid", 0, &guid);
  
         bool bres = server->push_event(guid, eventid, extra_len, extra);
-        //Logging::printf("        - got event from guid=%ld eventid=%x res=0x%x forwarded=%s\n", guid, eventid, res, bres ? "yes" : "no");
+        if (enable_verbose) Logging::printf("        - got event from guid=%ld eventid=%x res=0x%x forwarded=%s\n", guid, eventid, res, bres ? "yes" : "no");
         return bres ? ENONE : EABORT;
       }
       case ParentProtocol::TYPE_OPEN:
