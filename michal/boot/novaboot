@@ -325,6 +325,97 @@ if (exists $variables->{WVDESC}) {
     print "Testing \"all\" in $last_fn:\n";
 }
 
+my $IPRELAY;
+if (defined $iprelay) {
+    $CFG::iprelay_addr =~ /([.0-9]+)(:([0-9]+))?/;
+    my $addr = $1;
+    my $port = $3 || 23;
+    my $paddr   = sockaddr_in($port, inet_aton($addr));
+    my $proto   = getprotobyname('tcp');
+    socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
+    print "novaboot: Connecting to IP relay... ";
+    connect($IPRELAY, $paddr)    || die "connect: $!";
+    print "done\n";
+    $IPRELAY->autoflush(1);
+
+    while (1) {
+	print $IPRELAY "\xFF\xF6";
+	alarm(20);
+	local $SIG{ALRM} = sub { die "Relay AYT timeout"; };
+	my $ayt_reponse = "";
+	my $read = sysread($IPRELAY, $ayt_reponse, 100);
+	alarm(0);
+
+	chomp($ayt_reponse);
+	print "$ayt_reponse\n";
+	if ($ayt_reponse =~ /<iprelayd: not connected/) {
+	    sleep(10);
+	    next;
+	}
+	last;
+    }
+
+    sub relaycmd($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+
+	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
+	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relayconf($$) {
+	my ($relay, $onoff) = @_;
+	die unless ($relay == 1 || $relay == 2);
+	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
+	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
+    }
+
+    sub relay($$;$) {
+	my ($relay, $onoff, $can_giveup) = @_;
+	my $confirmation = '';
+	print $IPRELAY relaycmd($relay, $onoff);
+
+	# We use non-blocking I/O and polling here because for some
+	# reason read() on blocking FD returns only after all
+	# requested data is available. If we get during the first
+	# read() only a part of confirmation, we may get the rest
+	# after the system boots and print someting, which may be too
+	# long.
+	$IPRELAY->blocking(0);
+
+	alarm(20); # Timeout in seconds
+	my $giveup = 0;
+        local $SIG{ALRM} = sub {
+	    if ($can_giveup) { print("Relay confirmation timeout - ignoring\n"); $giveup = 1;}
+	    else {die "Relay confirmation timeout";}
+	};
+	my $index;
+	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0 && !$giveup) {
+	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
+	    if (!defined($read)) {
+		die("IP relay: $!") unless $! == EAGAIN;
+		usleep(10000);
+		next;
+	    }
+	    #use MIME::QuotedPrint;
+	    #print "confirmation = ".encode_qp($confirmation)."\n";
+	}
+	alarm(0);
+	$IPRELAY->blocking(1);
+    }
+}
+
+if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
+     relay(1, 1); # Press power button
+    if ($iprelay eq "on") {
+	usleep(100000);		# Short press
+    } else {
+	usleep(6000000);	# Long press to switch off
+    }
+    print $IPRELAY relay(1, 0);
+    exit;
+}
+
 chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
 print "novaboot: Entering directory `$CFG::builddir'\n";
 
@@ -443,97 +534,6 @@ if (defined $iso_image) {
 ######################################################################
 # Boot NOVA using various methods and send serial output to stdout
 ######################################################################
-
-my $IPRELAY;
-if (defined $iprelay) {
-    $CFG::iprelay_addr =~ /([.0-9]+)(:([0-9]+))?/;
-    my $addr = $1;
-    my $port = $3 || 23;
-    my $paddr   = sockaddr_in($port, inet_aton($addr));
-    my $proto   = getprotobyname('tcp');
-    socket($IPRELAY, PF_INET, SOCK_STREAM, $proto)  || die "socket: $!";
-    print "novaboot: Connecting to IP relay... ";
-    connect($IPRELAY, $paddr)    || die "connect: $!";
-    print "done\n";
-    $IPRELAY->autoflush(1);
-
-    while (1) {
-	print $IPRELAY "\xFF\xF6";
-	alarm(20);
-	local $SIG{ALRM} = sub { die "Relay AYT timeout"; };
-	my $ayt_reponse = "";
-	my $read = sysread($IPRELAY, $ayt_reponse, 100);
-	alarm(0);
-
-	chomp($ayt_reponse);
-	print "$ayt_reponse\n";
-	if ($ayt_reponse =~ /<iprelayd: not connected/) {
-	    sleep(10);
-	    next;
-	}
-	last;
-    }
-
-    sub relaycmd($$) {
-	my ($relay, $onoff) = @_;
-	die unless ($relay == 1 || $relay == 2);
-
-	my $cmd = ($relay == 1 ? 0x5 : 0x6) | ($onoff ? 0x20 : 0x10);
-	return "\xFF\xFA\x2C\x32".chr($cmd)."\xFF\xF0";
-    }
-
-    sub relayconf($$) {
-	my ($relay, $onoff) = @_;
-	die unless ($relay == 1 || $relay == 2);
-	my $cmd = ($relay == 1 ? 0xdf : 0xbf) | ($onoff ? 0x00 : 0xff);
-	return "\xFF\xFA\x2C\x97".chr($cmd)."\xFF\xF0";
-    }
-
-    sub relay($$;$) {
-	my ($relay, $onoff, $can_giveup) = @_;
-	my $confirmation = '';
-	print $IPRELAY relaycmd($relay, $onoff);
-
-	# We use non-blocking I/O and polling here because for some
-	# reason read() on blocking FD returns only after all
-	# requested data is available. If we get during the first
-	# read() only a part of confirmation, we may get the rest
-	# after the system boots and print someting, which may be too
-	# long.
-	$IPRELAY->blocking(0);
-
-	alarm(20); # Timeout in seconds
-	my $giveup = 0;
-        local $SIG{ALRM} = sub {
-	    if ($can_giveup) { print("Relay confirmation timeout - ignoring\n"); $giveup = 1;}
-	    else {die "Relay confirmation timeout";}
-	};
-	my $index;
-	while (($index=index($confirmation, relayconf($relay, $onoff))) < 0 && !$giveup) {
-	    my $read = read($IPRELAY, $confirmation, 70, length($confirmation));
-	    if (!defined($read)) {
-		die("IP relay: $!") unless $! == EAGAIN;
-		usleep(10000);
-		next;
-	    }
-	    #use MIME::QuotedPrint;
-	    #print "confirmation = ".encode_qp($confirmation)."\n";
-	}
-	alarm(0);
-	$IPRELAY->blocking(1);
-    }
-}
-
-if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
-     relay(1, 1); # Press power button
-    if ($iprelay eq "on") {
-	usleep(100000);		# Short press
-    } else {
-	usleep(6000000);	# Long press to switch off
-    }
-    print $IPRELAY relay(1, 0);
-    exit;
-}
 
 if (scalar(@scripts) > 1 && ( defined $dhcp_tftp || defined $serial || defined $iprelay)) {
     die "You cannot do this with multiple scripts simultaneously";
