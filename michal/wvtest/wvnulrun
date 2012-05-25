@@ -123,10 +123,7 @@ while (<$fh>)
     }
     elsif (/wvtest: timeout (\d+)\s*$/) {
 	$timeout=$1;
-	if ($ENV{WVTEST_SKIP_LONG} && $timeout > 100) {
-	    kill 15, $pid;		# Kill novaboot or qemu
-	    exit 0;
-	}
+	alarm($timeout);
     }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif (/wvtest: ignore exit patterns/) { $ignore_exit_patterns = 1; }
