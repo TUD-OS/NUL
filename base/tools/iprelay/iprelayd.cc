@@ -540,6 +540,8 @@ public:
     int ret;
     string to_relay;
 
+    msg("handle called: revents=%#x", pfd->revents);
+
     if (pfd->revents & POLLRDHUP) {
       msg("disconnected");
       return false;
@@ -723,10 +725,12 @@ int main(int argc, char *argv[])
         exit(1);
       }
 
-      if (Client::active)
-        Client::active->send(buf, ret);
-      int res = write(1, buf, ret);     // Copy to stdout
-      (void)res;
+      if (ret > 0) {
+        if (Client::active)
+          Client::active->send(buf, ret);
+        int res = write(1, buf, ret);     // Copy to stdout
+        (void)res;
+      }
     }
 
     for (unsigned i = FD_CLIENT; i < FD_COUNT; i++) {
