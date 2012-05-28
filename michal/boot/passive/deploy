@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+d=$(dirname $0)
+
+$d/nova-82576 --server=~passive/deploy --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\""
+cp $d/nova $d/nova-82576 ~passive/deploy/
