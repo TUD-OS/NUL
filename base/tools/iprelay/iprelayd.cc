@@ -368,16 +368,18 @@ public:
     gettimeofday(&last_activity, 0);
   }
 
-  unsigned inactive_secs()
+  unsigned idle_secs()
   {
     struct timeval tv;
     gettimeofday(&tv, 0);
     return tv.tv_sec - last_activity.tv_sec;
   }
 
+  static const int timeout_secs = 20*60;
+
   unsigned secs_until_timeout()
   {
-    return max(0, 20*60 - static_cast<int>(inactive_secs()));
+    return max(0, timeout_secs - static_cast<int>(idle_secs()));
   }
 
   string name()
@@ -482,12 +484,12 @@ public:
       if (!who.empty())
         who += ", ";
       who += c->name();
-      if  (c->inactive_secs() > 15) {
+      if  (c->idle_secs() > 15) {
         char t[20];
-        if (c->secs_until_timeout() > 60)
-          snprintf(t, sizeof(t), " (%u min)", c->secs_until_timeout()/60);
+        if (c->idle_secs() > 60)
+          snprintf(t, sizeof(t), " (idle %u/%d min)", c->idle_secs()/60, timeout_secs/60);
         else
-          snprintf(t, sizeof(t), " (%u s)", c->secs_until_timeout());
+          snprintf(t, sizeof(t), " (idle %u s/%d min)", c->secs_until_timeout(), timeout_secs/60);
         who += t;
       }
     }
