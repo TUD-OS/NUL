@@ -559,7 +559,7 @@ public:
       touch();
       ret = read(fd, buf, sizeof(buf));
 
-      if (ret < 0) {
+      if (ret < 0 && errno != EAGAIN) {
         msg("read: %s", strerror(errno));
         return false;
       }
