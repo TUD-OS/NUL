@@ -485,11 +485,11 @@ public:
         who += ", ";
       who += c->name();
       if  (c->idle_secs() > 15) {
-        char t[20];
+        char t[30];
         if (c->idle_secs() > 60)
           snprintf(t, sizeof(t), " (idle %u/%d min)", c->idle_secs()/60, timeout_secs/60);
         else
-          snprintf(t, sizeof(t), " (idle %u s/%d min)", c->secs_until_timeout(), timeout_secs/60);
+          snprintf(t, sizeof(t), " (idle %u s/%d min)", c->idle_secs(), timeout_secs/60);
         who += t;
       }
     }
@@ -539,8 +539,6 @@ public:
   {
     int ret;
     string to_relay;
-
-    msg("handle called: revents=%#x", pfd->revents);
 
     if (pfd->revents & POLLRDHUP) {
       msg("disconnected");
