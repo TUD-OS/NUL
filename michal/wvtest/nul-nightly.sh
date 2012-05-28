@@ -45,7 +45,6 @@ git clean --quiet -fxd
 # EOF
 
 cp ../kernel/contrib/Chanage-serial-console-to-work-with-mmio-based-card-.patch ../kernel/contrib/nova-patches
-# cp ../kernel/contrib/Print-panic-message-also-to-serial-line.patch ../kernel/contrib/nova-patches
 
 scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
