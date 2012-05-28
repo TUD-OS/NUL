@@ -161,11 +161,12 @@ class IpRelay {
   } state;
   pollfd          &pfd;
   string           to_relay;
+  struct timeval   poweroff_countdown;
 
   IpRelay(const IpRelay&);
   IpRelay& operator=(const IpRelay&);
 public:
-  IpRelay(const char *node, const char *service, pollfd &pfd) : fd(-1), ai(0), node(node), service(service), state(OFF), pfd(pfd), to_relay()
+  IpRelay(const char *node, const char *service, pollfd &pfd) : fd(-1), ai(0), node(node), service(service), state(DATA), pfd(pfd), to_relay(), poweroff_countdown()
   {
     struct addrinfo hints;
     int ret;
@@ -180,6 +181,8 @@ public:
       msg("getaddrinfo(%s, %s): %s\n", node, service, gai_strerror(ret));
       exit(1);
     }
+
+    start_poweroff_countdown();
   }
 
   ~IpRelay()
@@ -250,6 +253,7 @@ public:
     msg("Starting power-off sequence");
     send(power_on);
     state = PWROFF1;
+    poweroff_countdown = {0,0};
   }
 
   int handle(pollfd &pfd, char *buf, size_t size)
@@ -327,6 +331,22 @@ public:
     }
     msg("ip_relay unhandled revent %#x\n", pfd.revents);
     return -1;
+  }
+
+  void start_poweroff_countdown()
+  {
+    gettimeofday(&poweroff_countdown, 0);
+    msg("starting power off countdown");
+  }
+
+  int secs_until_poweroff()
+  {
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    if (poweroff_countdown.tv_sec == 0)
+      return -1;
+    else
+      return max(0, 10*60 - static_cast<int>(tv.tv_sec - poweroff_countdown.tv_sec));
   }
 };
 
@@ -665,10 +685,15 @@ int main(int argc, char *argv[])
       timeout = 1000;
     else if (Client::active)
       timeout = 1000 * Client::active->secs_until_timeout() + 100;
-    else
-      timeout = -1;
+    else {
+      int secs = ip_relay.secs_until_poweroff();
+      timeout = (secs >= 0) ? 1000 * secs + 100 : -1;
+    }
 
     CHECK(poll(pollfds, FD_COUNT, timeout));
+
+    if (!Client::active && ip_relay.secs_until_poweroff() == 0)
+      ip_relay.poweroff();
 
     if (pollfds[FD_LISTEN_LP].revents) {
       socklen_t          sin_size;
@@ -745,6 +770,8 @@ int main(int argc, char *argv[])
         delete c;
         memset(&pollfds[i], 0, sizeof(pollfds[i]));
         clients[i] = 0;
+        if (!Client::active)
+          ip_relay.start_poweroff_countdown();
       }
     }
   }
