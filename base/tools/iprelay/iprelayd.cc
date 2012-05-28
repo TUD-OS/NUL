@@ -507,6 +507,7 @@ public:
 
     if (command.match(are_you_there)) {
       char *buf;
+      msg("received AYT");
       if (is_active())
         asprintf(&buf, "<iprelayd: connected>\n");
       else {
@@ -517,13 +518,17 @@ public:
       send(buf, strlen(buf));
       free(buf);
     } else if (command.match(reset_on)) {
+      msg("received reset on");
       ip_relay->reset();
       send(reset_on_confirmation);
     } else if (command.match(reset_off)) {
+      msg("received reset off");
       send(reset_off_confirmation);
     } else if (command.match(power_on)) {
+      msg("received power on");
       send(power_on_confirmation);
     } else if (command.match(power_off)) {
+      msg("received power off");
       send(power_off_confirmation);
     } else if (!command.can_match_later()) {
       msg("unknown command: %s", command.as_hex().c_str());
@@ -559,11 +564,11 @@ public:
         return false;
       }
 
-      msg("read len=%d\n", ret);
-
       for (int i = 0; i < ret; i++) {
-        if (!interpret_as_command(buf[i], to_relay))
+        if (!interpret_as_command(buf[i], to_relay)) {
           to_relay += buf[i];
+          msg("received non-command len=%d\n", ret);
+        }
       }
 
       if (!to_relay.empty()) {
