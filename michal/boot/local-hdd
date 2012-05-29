@@ -1,0 +1,9 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+menu.lst <<EOF
+timeout 1
+title Local harddisk
+rootnoverify (hd0)
+chainloader +1
+boot
+EOF
