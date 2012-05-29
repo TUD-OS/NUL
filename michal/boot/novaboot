@@ -494,8 +494,10 @@ foreach my $script (@scripts) {
 	} else {
 	    generate_configs($server_grub_prefix, $generated, $filename);
 	    $bootloader_config ||= "menu.lst";
-	    generate_grub_config($bootloader_config, $config_name, $server_grub_prefix, $modules,
-				 $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
+	    if (!grep { $_ eq $bootloader_config } @$modules) {
+		generate_grub_config($bootloader_config, $config_name, $server_grub_prefix, $modules,
+				     $server_grub_prefix eq $CFG::server_grub_prefix ? "timeout 0" : undef);
+	    }
 	}
 	my ($hostname, $path) = split(":", $server, 2);
 	if (! defined $path) {
