@@ -205,7 +205,7 @@ bool nul_ip_udp(unsigned _port) {
 
 BEGIN_EXTERN_C
 static void nul_tcp_close(struct nul_tcp_struct * tcp_struct) {
-  Logging::printf("[tcp]   - connection closed - port %u\n", tcp_struct->port);
+  Logging::printf("[tcp]   - %s connection closed - port %u\n", tcp_struct->outgoing ? "outgoing" : "incoming", tcp_struct->port);
   if (tcp_struct->fn_recv_call && tcp_struct->openconn_pcb) {
     tcp_struct->fn_recv_call(tcp_struct->openconn_pcb->remote_ip.addr,
                              tcp_struct->openconn_pcb->remote_port, tcp_struct->openconn_pcb->local_port,
@@ -325,7 +325,7 @@ bool nul_ip_tcp(unsigned long * _port, fn_recv_call_t fn_call_me, ip_addr * addr
     tcp_err(tmp_pcb, nul_tcp_error);
 
     err_t err = tcp_connect(tmp_pcb, addr, port, callback_connected);
-    Logging::printf("[tcp]   - %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u - try to connect - err=%d\n",
+    Logging::printf("[tcp]   - trying to connect %u.%u.%u.%u:%u -> %u.%u.%u.%u:%u - err=%d\n",
                      (tmp_pcb->local_ip.addr) & 0xff, (tmp_pcb->local_ip.addr >> 8) & 0xff,
                      (tmp_pcb->local_ip.addr >> 16) & 0xff, (tmp_pcb->local_ip.addr >> 24) & 0xff,
                      tmp_pcb->local_port,
