@@ -150,11 +150,11 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     }
   }
 
-  if (verbosity)
-    Logging::printf("%u/%llu/%llu ",
-      in_len,
-      entry->disks[connections[i].diskid].read,
-      entry->disks[connections[i].diskid].size);
+//   if (verbosity)
+//     Logging::printf("%u/%llu/%llu ",
+//       in_len,
+//       entry->disks[connections[i].diskid].read,
+//       entry->disks[connections[i].diskid].size);
 
   if (entry->disks[connections[i].diskid].read >= entry->disks[connections[i].diskid].size) {
     Sha1::finish(&sha[i]);
