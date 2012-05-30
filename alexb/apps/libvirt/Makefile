@@ -33,13 +33,13 @@ $(info New libvirt version: rebuild forced)
 endif
 endif
 
-# ifeq ($(VERSION),repo)
-# .version.stamp: libvirt-repo/.git
-# 	@echo newer: $?
-# 	echo $(LIBVIRT_HASH) > $@
-# else
+ifeq ($(VERSION),repo)
+.version.stamp: libvirt-repo/.git
+	@echo newer: $?
+	echo $(LIBVIRT_HASH) > $@
+else
 .version.stamp:
-# endif
+endif
 
 .configure.stamp: .version.stamp
 	cd libvirt-$(VERSION) && autoreconf -v && ./autogen.sh		\
