@@ -27,12 +27,12 @@ WVPASS scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
 WVPASS make -C ../alexb/apps/libvirt
 
 cd ../alexb/apps/libvirt
-wvnulrun libvirt-connect.wv $@ || :
-wvnulrun libvirt-start-stop.wv $@ || :
-wvnulrun libvirt-stat.wv $@ || :
-wvnulrun libvirt-suspend-resume.wv $@ || :
-wvnulrun libvirt.wv $@ || :
-wvnulrun libvirt-xml.wv $@ || :
+wvnulrun ./libvirt-connect.wv $@ || :
+wvnulrun ./libvirt-start-stop.wv $@ || :
+wvnulrun ./libvirt-stat.wv $@ || :
+wvnulrun ./libvirt-suspend-resume.wv $@ || :
+wvnulrun ./libvirt.wv $@ || :
+wvnulrun ./libvirt-xml.wv $@ || :
 
 WVSTART "PASSIVE SVN checkout"
 WVPASS cd $HOME/passive/src
