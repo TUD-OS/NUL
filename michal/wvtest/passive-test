@@ -13,7 +13,27 @@ set -e
 mydir=$(readlink -f $(dirname $0))
 . $mydir/wvtest.sh
 
-WVSTART "PASSIVE checkout"
+WVSTART "NUL for PASSIVE compilation"
+cd ~/nul
+WVPASS git checkout --quiet passive-alucid
+WVPASS git reset --quiet --hard origin/pasive-alucid
+WVPASS git submodule --quiet update --init
+
+cd build
+CC=/home/sojka/gcc/gcc-4.6/bin/gcc
+CXX=/home/sojka/gcc/gcc-4.6/bin/g++
+WVPASS scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
+WVPASS make -C ../alexb/apps/libvirt
+
+cd ../alexb/apps/libvirt
+wvnulrun libvirt-connect.wv $@ || :
+wvnulrun libvirt-start-stop.wv $@ || :
+wvnulrun libvirt-stat.wv $@ || :
+wvnulrun libvirt-suspend-resume.wv $@ || :
+wvnulrun libvirt.wv $@ || :
+wvnulrun libvirt-xml.wv $@ || :
+
+WVSTART "PASSIVE SVN checkout"
 WVPASS cd $HOME/passive/src
 WVPASS svn up
 WVPASS svn status
