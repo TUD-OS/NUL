@@ -16,7 +16,8 @@ mydir=$(readlink -f $(dirname $0))
 WVSTART "NUL for PASSIVE compilation"
 cd ~/nul
 WVPASS git checkout --quiet passive-alucid
-WVPASS git reset --quiet --hard origin/pasive-alucid
+WVPASS git reset --quiet --hard origin/passive-alucid
+WVPASS git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'
 WVPASS git submodule --quiet update --init
 
 cd build
