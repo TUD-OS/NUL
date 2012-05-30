@@ -34,7 +34,11 @@ endif
 endif
 
 ifeq ($(VERSION),repo)
+ifeq ($(wildcard libvirt-repo/.git),)
 .version.stamp: libvirt-repo/.git
+endif
+
+version.stamp:
 	@echo newer: $?
 	echo $(LIBVIRT_HASH) > $@
 else
