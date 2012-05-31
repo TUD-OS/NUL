@@ -158,6 +158,7 @@ class Remcon : public CapAllocator {
       file_len_template(len_template), file_len_diskuuid(len_disk), verbosity(verbose)
     {
       service_admission = new AdmissionProtocol(alloc_cap(AdmissionProtocol::CAP_SERVER_PT + _cpu_count));
+      service_admission->set_name(*BaseProgram::myutcb(), "NOVA daemon");
 
       _in  = reinterpret_cast<struct incoming_packet *>(buf_in);
       _out = reinterpret_cast<struct outgoing_packet *>(buf_out);
