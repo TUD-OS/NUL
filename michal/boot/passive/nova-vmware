@@ -1,8 +1,2 @@
 #!/usr/bin/env bash
-if [ "$1" = "--dump" ]; then
-    cmd=cat
-    set --
-else
-    cmd=novaboot
-fi
-exec $cmd --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostide/' "$@" -- $(dirname $0)/nova
+exec novaboot --scriptmod='s/\@SIGMA0_ARGS@/host82573:0 hostide/' "$@" -- $(dirname $0)/nova
