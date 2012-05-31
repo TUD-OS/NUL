@@ -13,26 +13,26 @@ set -e
 mydir=$(readlink -f $(dirname $0))
 . $mydir/wvtest.sh
 
-# WVSTART "NUL for PASSIVE compilation"
-# cd ~/nul
-# WVPASS git checkout --quiet passive-alucid
-# WVPASS git reset --quiet --hard origin/passive-alucid
-# WVPASS git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'
-# WVPASS git submodule --quiet update --init
+WVSTART "NOVA & NUL compilation (PASSIVE branch)"
+cd ~/nul
+WVPASS git checkout --quiet suspend
+WVPASS git reset --quiet --hard origin/suspend
+WVPASS git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'
+WVPASS git submodule --quiet update --init
 
-# cd build
-# CC=/home/sojka/gcc/gcc-4.6/bin/gcc
-# CXX=/home/sojka/gcc/gcc-4.6/bin/g++
-# WVPASS scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
-# WVPASS make -C ../alexb/apps/libvirt
+cd build
+CC=/home/sojka/gcc/gcc-4.6/bin/gcc
+CXX=/home/sojka/gcc/gcc-4.6/bin/g++
+WVPASS scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
+WVPASS make -C ../alexb/apps/libvirt
 
-# cd ../alexb/apps/libvirt
-# wvnulrun ./libvirt-connect.wv $@ || :
-# wvnulrun ./libvirt-start-stop.wv $@ || :
-# wvnulrun ./libvirt-stat.wv $@ || :
-# wvnulrun ./libvirt-suspend-resume.wv $@ || :
-# wvnulrun ./libvirt.wv $@ || :
-# wvnulrun ./libvirt-xml.wv $@ || :
+cd ../alexb/apps/libvirt
+wvnulrun ./libvirt-connect.wv $@ || :
+wvnulrun ./libvirt-start-stop.wv $@ || :
+wvnulrun ./libvirt-stat.wv $@ || :
+wvnulrun ./libvirt-suspend-resume.wv $@ || :
+wvnulrun ./libvirt.wv $@ || :
+wvnulrun ./libvirt-xml.wv $@ || :
 
 WVSTART "PASSIVE SVN checkout"
 WVPASS cd $HOME/passive/src
