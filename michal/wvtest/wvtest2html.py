@@ -38,17 +38,36 @@ class Test:
             if result != "ok":
                 self.status = result
                 self.failures += 1
-
-    def printHtml(self):
+    def title(self):
         if self.what == "all":
             title = self.where
         else:
             title = '%s (%s)' % (self.what, self.where)
+	return title
+
+    def printSummaryHtml(self, file):
         if self.status == "ok": status_class="ok"
         else: status_class = "failed"
-        print "<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='#test%d'>%s</a></td>" % (status_class, self.num, self.num, cgi.escape(title)),
-        print "<td>%s</td></tr>" % (cgi.escape(self.status))
-        print "<tr class='outputrow' id='test%d'><td></td><td colspan='2'><table class='output'>" % self.num
+        file.write("<tr class='testheader status-%s'><td class='testnum'>%d.</td><td class='testname'><a href='test%d.html'>%s</a></td>"
+		   % (status_class, self.num, self.num, cgi.escape(self.title())))
+        file.write("<td>%s</td></tr>\n" % (cgi.escape(self.status)))
+
+    def printDetailHtml(self, file):
+	file.write("""\
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NUL Test Report</title>
+<link rel="stylesheet" href="wvtest.css" type="text/css" />
+</head>
+
+<body>
+<h1>NUL Test Report</h1>
+%s
+<h2>%d. %s</h2>
+<table class='output'>
+""" % (date_and_commit, self.num, cgi.escape(self.title())))
         for line in self.output:
             match = re_check.match(line)
             if match:
@@ -64,9 +83,9 @@ class Test:
                 resultstatus = ''
                 result = ''
 
-            print "<tr><td></td><td class='outputline%s'>%s</td><td%s>%s</td></tr>" % \
-                (linestatus, cgi.escape(line), resultstatus, cgi.escape(result))
-        print "</table></td></tr>"
+            file.write("<tr><td class='outputline%s'>%s</td><td%s>%s</td></tr>\n" % \
+                (linestatus, cgi.escape(line), resultstatus, cgi.escape(result)))
+	file.write("</table></body></html>")
 
 tests = []
 test = None
@@ -111,12 +130,13 @@ try:
 except:
     date_and_commit = time.strftime("%a, %d %b %Y %H:%M:%S %Z")
     pass
-print """<!DOCTYPE HTML>
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>NUL Test Report</title>
-<style>
+
+targetDir = sys.argv[1]
+if not os.path.isdir(targetDir):
+    os.mkdir(targetDir)
+
+wvtest_css = open(os.path.join(targetDir, "wvtest.css"), 'w')
+wvtest_css.write("""\
 table {
   border: solid 1px black;
   max-width: 100%%;
@@ -128,32 +148,39 @@ table {
 .output { width: 100%%; }
 .outputline { white-space: pre-wrap; font-family: monospace; }
 .testheader { font-weight: bold; }
-</style>
-<script src="http://code.jquery.com/jquery-latest.js"></script>
-<script>
-$(document).ready(function(){
-   $(".testheader a").click(function(event){
-     $($(this).attr('href')).toggle();
-     //$("#ipctest-wv").toggle();
-     event.preventDefault();
-   });
- });
-</script>
+""")
+wvtest_css.close()
+
+index_html = open(os.path.join(targetDir, "index.html"), 'w')
+
+index_html.write("""\
+<!DOCTYPE HTML>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>NUL Test Report</title>
+<link rel="stylesheet" href="wvtest.css" type="text/css" />
 </head>
 
 <body>
 <h1>NUL Test Report</h1>
 %s
 <table>
-""" % date_and_commit
+""" % date_and_commit)
 for test in tests_nonempty:
-    test.printHtml()
-print """
+    test.printSummaryHtml(index_html)
+index_html.write("""\
 </table>
 </body>
 </html>
-"""
+""")
+
+for test in tests_nonempty:
+    f = open(os.path.join(targetDir, "test%d.html" % test.num), 'w')
+    test.printDetailHtml(f)
+    f.close()
+
 
 # Local Variables:
-# compile-command: "cat $(ls nul-nightly/nul_*.log|tail -n 1)|./wvtest2html.py > test-report.html"
+# compile-command: "cat $(ls nul-nightly/nul_*.log|tail -n 1)|./wvtest2html.py html"
 # End:
