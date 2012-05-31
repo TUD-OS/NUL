@@ -619,7 +619,7 @@ void Remcon::handle_packet(void) {
 
         bool success = false;
         bool reply = obj_auth->do_authentication(success);
-        if (verbosity && !reply) Logging::printf("%s - op: %#x\n", "noreply", op);
+        if (verbosity && !reply) Logging::printf("%s - op: %s (%#x)\n", "noreply", op2string(op), op);
         if (!reply) return; //don't send a packet neither success nor failure if said so
 
         _out->result  = success ? NOVA_OP_SUCCEEDED : NOVA_OP_FAILED;
