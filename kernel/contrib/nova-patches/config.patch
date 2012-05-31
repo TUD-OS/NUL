@@ -1,0 +1,13 @@
+diff --git a/include/config.h b/include/config.h
+index f891bd1..c6932f2 100644
+--- a/include/config.h
++++ b/include/config.h
+@@ -22,7 +22,7 @@
+ 
+ #define CFG_VER         5
+ 
+-#define NUM_CPU         64
++#define NUM_CPU         32
+ #define NUM_IRQ         16
+ #define NUM_EXC         32
+ #define NUM_VMI         256
