@@ -63,7 +63,7 @@ GetOptions ("config|c=s" => \$cfg);
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $rsync_flags, @scriptmod, $scons, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_opt, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $rsync_flags, @scriptmod, $scons, $serial, $server);
 
 $rsync_flags = '';
 
@@ -73,6 +73,7 @@ my %opt_spec = (
     "bender|b"       => \$bender,
     "build-dir=s"    => \$builddir,
     "dhcp-tftp|d"    => \$dhcp_tftp,
+    "dump"	     => \$dump_opt,
     "dump-config"    => \$dump_config,
     "grub|g:s" 	     => \$grub_config,
     "grub-prefix=s"  => \$grub_prefix,
@@ -172,6 +173,8 @@ while (<>) {
 
     foreach my $mod(@scriptmod) { eval $mod; }
 
+    print "$_\n" if $dump_opt;
+
     if (/^([A-Z_]+)=(.*)$/) {	# Internal variable
 	$$variables{$1} = $2;
 	next;
@@ -212,6 +215,8 @@ while (<>) {
 }
 #use Data::Dumper;
 #print Dumper(\@scripts);
+
+exit if $dump_opt;
 
 sub generate_configs($$$) {
     my ($base, $generated, $filename) = @_;
@@ -750,6 +755,11 @@ F<~/.novaboot>).
 Turns your workstation into a DHCP and TFTP server so that NOVA
 can be booted via PXE BIOS on a test machine directly connected by
 a plain Ethernet cable to your workstation.
+
+=item --dump
+
+Prints the content on novaboot script after removing comments and
+evaluating all I<--scriptmod> expressions.
 
 =item --dump-config
 
