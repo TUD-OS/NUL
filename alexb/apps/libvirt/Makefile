@@ -73,7 +73,7 @@ FORCE:
 
 libvirt-$(VERSION)-nova: libvirt-repo FORCE
 	rm -rf $@
-	git --git-dir=$</.git checkout-index --prefix=$@/ -a -f
+	git --git-dir=$</.git checkout-index --prefix=$(PWD)/$@/ -a -f
 	cd $@ && autoreconf -v -f
 
 
