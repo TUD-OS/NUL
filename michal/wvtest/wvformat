@@ -9,17 +9,16 @@ use strict;
 use Getopt::Long;
 
 sub usage() {
-    print STDERR "Usage: $0 [-v] < wvtest.log\n";
+    print STDERR "Usage: $0 [-vs] <file>\n";
     exit 127;
 }
 
-my $verbose;
+my ($verbose, $summary);
 
 GetOptions (
     "verbose|v" 	     => \$verbose,
+    "summary|s"		     => \$summary,
     ) or usage();
-
-usage() if (@ARGV > 0);
 
 my $istty = -t STDOUT && $ENV{'TERM'} ne "dumb";
 my $columns;
@@ -77,7 +76,7 @@ sub print_test_summary()
     if (!$verbose) {
 	print(resultline("", sprintf("%s %s [%d/%d]", $file, $sect, $lpasses, $lpasses+$lfails),
 			 $lfails ? "FAILED" : "ok") . "\n");
-	print_and_clear_log() if ($lfails);
+	print_and_clear_log() if ($lfails && !$summary);
     }
     if ($lfails) { $tfails++; }
     else 	 { $tpasses++; }
