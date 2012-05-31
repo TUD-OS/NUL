@@ -16,10 +16,10 @@ Subject: TUD's testbed: PASSIVE Intelligence test failed!
 To: sojka@os, passive-dev@listserv.tssg.org
 
 This is an automatically generated message. Full log can be found at
-http://os.inf.tu-dresden.de/~sojka/nul/passive-test-report.html
+http://os.inf.tu-dresden.de/~sojka/nul/passive-test-report/
 
 EOF
 	export COLUMNS=100
-	cat passive-test.log | tr -d '\015' | wvformat | wvwrap #| iconv -f ASCII -t ASCII//IGNORE
+	cat passive-test.log | tr -d '\015' | wvformat -s | wvwrap #| iconv -f ASCII -t ASCII//IGNORE
     ) | /usr/sbin/sendmail -ti
 fi
