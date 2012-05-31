@@ -103,7 +103,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
   assert_or_ret(entry);
   assert_or_ret(entry->disks[connections[i].diskid].read < entry->disks[connections[i].diskid].size);
 
-  if (!verbosity) {
+//  if (!verbosity) {
     uint64_t part = entry->disks[connections[i].diskid].size;
     uint64_t pos  = entry->disks[connections[i].diskid].read;
     Math::div64(part, 68);
@@ -111,7 +111,7 @@ void Remcon::recv_file(uint32 remoteip, uint16 remoteport, uint16 localport,
     if (((pos + 1) * part) <= (entry->disks[connections[i].diskid].read + in_len)) {
       Logging::printf("=");
     }
-  }
+//  }
 
   size_t rest = in_len;
   while (rest) {
