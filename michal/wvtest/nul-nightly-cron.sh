@@ -21,7 +21,7 @@ fi
 
 cd ~/nul-nightly
 if nul-nightly.sh > $log 2>&1; then
-    ( cd ~/nul; git push --quiet -f origin HEAD:tested ) || :
+    ( cd ~/nul; git push --quiet -f origin master:tested ) || :
 else
     ret=1
     (
