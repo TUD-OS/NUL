@@ -46,7 +46,8 @@ git clean --quiet -fxd
 
 cp ../kernel/contrib/Chanage-serial-console-to-work-with-mmio-based-card-.patch ../kernel/contrib/nova-patches
 
-scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1
+export SCONSFLAGS="target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1"
+scons
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
 
 find \( -name src -o -name .git -o -path ./contrib/nova -o -path ./.sconf_temp \) -prune -o \
@@ -55,7 +56,7 @@ find \( -name src -o -name .git -o -path ./contrib/nova -o -path ./.sconf_temp \
 echo "! $0 compilation finished  ok"
 
 echo "Testing \"Documentation build\" in $0:"
-if scons target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1 DOXYGEN=$HOME/bin/doxygen doc; then
+if scons DOXYGEN=$HOME/bin/doxygen doc; then
     echo "! $0 doc build  ok"
     rm -rf $HOME/public_html/nul/doc || echo "! $0 doc publish rm  FAILED"
     mv doc/html $HOME/public_html/nul/doc || echo "! $0 doc publish mv  FAILED"
