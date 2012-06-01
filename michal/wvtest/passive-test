@@ -15,8 +15,6 @@ mydir=$(readlink -f $(dirname $0))
 
 WVSTART "NOVA & NUL compilation (PASSIVE branch)"
 cd ~/nul
-WVPASS git checkout --quiet suspend
-WVPASS git reset --quiet --hard origin/suspend
 WVPASS git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'
 WVPASS git submodule --quiet update --init
 

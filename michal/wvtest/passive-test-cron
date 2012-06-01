@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 
-# Copy test script somewhere else so that it is not overwritten while
-# it changes branches
-cp $(dirname -- $0)/passive-test ~/bin
+set -e
 
-(set -o pipefail; ~/bin/passive-test "$@" 2>&1 | tee passive-test.log)
+cd ~/nul
+
+# Switch to suspend branch used for PASSIVE
+git checkout --quiet suspend
+git reset --quiet --hard origin/suspend
+
+if ! cmp $0 michal/wvtest/passive-test-cron; then
+    cp michal/wvtest/passive-test-cron $0 && exec $0
+fi
+
+(set -o pipefail; michal/wvtest/passive-test "$@" 2>&1 | tee passive-test.log)
 success=$?
 
 wvtest2html.py ~/public_html/nul/passive-test-report < passive-test.log || exit 1
