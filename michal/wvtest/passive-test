@@ -27,7 +27,7 @@ WVPASS make -C ../alexb/apps/libvirt
 
 cd ../alexb/apps/libvirt
 wvnulrun ./libvirt-connect.wv $@ || :
-wvnulrun ./libvirt-start-stop.wv $@ || :
+# wvnulrun ./libvirt-start-stop.wv $@ || : # BROKEN!!!!
 wvnulrun ./libvirt-stat.wv $@ || :
 wvnulrun ./libvirt-suspend-resume.wv $@ || :
 wvnulrun ./libvirt.wv $@ || :
