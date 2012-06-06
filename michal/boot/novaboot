@@ -228,6 +228,7 @@ sub generate_configs($$$) {
 	open(my $f, '>', $fn) || die("$fn: $!");
 	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
 	close($f);
+	print "novaboot: Created $fn\n";
       } elsif (exists $$g{command} && ! $no_file_gen) {
 	$ENV{SRCDIR} = dirname(File::Spec->rel2abs( $filename, $invocation_dir ));
 	system_verbose("( $$g{command} ) > $$g{filename}");
