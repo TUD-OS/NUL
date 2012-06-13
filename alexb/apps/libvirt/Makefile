@@ -1,4 +1,4 @@
-all: .patch.stamp .build.stamp
+all: .patch.stamp .build.stamp event-test
 
 ifneq ($(shell git config --get remote.origin.url),git://github.com/TUD-OS/NUL.git)
 VERSION=repo
@@ -82,3 +82,7 @@ dist: libvirt-$(VERSION)-nova
 
 nova.diff:
 	git --git-dir=libvirt-repo/.git diff origin/upstream master > $@
+
+event-test: CFLAGS = -Ilibvirt-repo -Ilibvirt-repo/include -Wall -g
+event-test: LDFLAGS = -Llibvirt-repo/src/.libs -lvirt
+event-test: event-test.c | .build.stamp
