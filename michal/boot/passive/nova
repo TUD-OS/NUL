@@ -34,7 +34,7 @@ uuid:2832f211-38dd-44f5-83b7-c6dc86a2a333
 uuid:a4817cb4-f2bc-468b-96ec-337a7709c711
 EOF
 linux.nulconfig <<EOF
-name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 ||
+name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 ||
 rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 82576vf service_events ||
 rom://bin/boot/munich ||
 rom://imgs/passive/bzImage vga=0 ||
