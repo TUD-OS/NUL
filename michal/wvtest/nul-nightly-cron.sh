@@ -33,7 +33,7 @@ Full log can be found at erwin:$PWD/$log
 
 EOF
 	export COLUMNS=100
-	cat $log | tr -d '\015' | wvformat | wvwrap #| iconv -f ASCII -t ASCII//IGNORE
+	cat $log | tr -d '\015' | wvformat --before-failure=10 | wvwrap #| iconv -f ASCII -t ASCII//IGNORE
     ) | /usr/sbin/sendmail -ti
 fi
 
