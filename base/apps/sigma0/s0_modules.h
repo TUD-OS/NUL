@@ -439,6 +439,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     revoke_all_mem(modinfo->mem, modinfo->physsize, DESC_MEM_ALL, false);
     revoke_all_mem(modinfo->hip, 0x1000U, DESC_MEM_ALL, false);
 
+    LOG_VERBOSE("s0: [%2u]   revoke all memory %p + hip %p - done \n", modinfo->id, modinfo->mem, modinfo->hip);
     // change the tag
     Vprintf::snprintf(_console_data[modinfo->id].tag, sizeof(_console_data[modinfo->id].tag), "DEAD - CPU(%x) MEM(%ld)", modinfo->cpunr, modinfo->physsize >> 20);
     // switch to view 0 so that you can see the changed tag
@@ -446,6 +447,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
 
     // free resources
     {
+      LOG_VERBOSE("s0: [%2u]   before lock\n", modinfo->id);
       SemaphoreGuard l(_lock_mem);
       Region * r = _virt_phys.find(reinterpret_cast<unsigned long>(modinfo->mem));
       assert(r);
