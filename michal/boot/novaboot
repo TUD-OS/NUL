@@ -598,18 +598,18 @@ host server {
 	fixed-address 10.23.23.1;
 }";
     close($fh);
-    system_verbose("ip a add 10.23.23.1/24 dev eth0;
-	    ip l set dev eth0 up;
-	    touch dhcpd.leases");
+    system_verbose("sudo ip a add 10.23.23.1/24 dev eth0;
+	    sudo ip l set dev eth0 up;
+	    sudo touch dhcpd.leases");
 
     $dhcpd_pid = fork();
     if ($dhcpd_pid == 0) {
 	# This way, the spawned server are killed when this script is killed.
-	exec_verbose("dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid");
+	exec_verbose("sudo dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid");
     }
     $tftpd_pid = fork();
     if ($tftpd_pid == 0) {
-	exec_verbose("in.tftpd --foreground --secure -v -v -v $CFG::builddir");
+	exec_verbose("sudo in.tftpd --foreground --secure -v -v -v $CFG::builddir");
     }
     $SIG{TERM} = sub { print "CHILDS KILLED\n"; kill 15, $dhcpd_pid, $tftpd_pid; };
 }
@@ -712,7 +712,7 @@ box and receive its serial output.
 Run DHCP and TFTP server on developer's machine to PXE-boot NOVA from
 it. E.g.
 
- sudo ./script --dhcp-tftp
+ ./script --dhcp-tftp
 
 When a PXE-bootable machine is connected via Ethernet to developer's
 machine, it will boot the configuration described in I<script>.
@@ -756,6 +756,14 @@ F<~/.novaboot>).
 Turns your workstation into a DHCP and TFTP server so that NOVA
 can be booted via PXE BIOS on a test machine directly connected by
 a plain Ethernet cable to your workstation.
+
+The DHCP and TFTP servers require root proviledges and C<novaboot>
+uses C<sudo> command to obtain those. You can put the following to
+I</etc/sudoers> to allow running the necessary commmands without
+asking for password.
+
+ Cmnd_Alias NOVABOOT = /bin/ip a add 10.23.23.1/24 dev eth0, /bin/ip l set dev eth0 up, /usr/sbin/dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid, /usr/sbin/in.tftpd --foreground --secure -v -v -v *, /usr/bin/touch dhcpd.leases
+ your_login ALL=NOPASSWD: NOVABOOT
 
 =item --dump
 
