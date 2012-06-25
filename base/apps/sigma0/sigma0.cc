@@ -1535,6 +1535,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
       MessageConsole msg1;
       msg1.view = bswitch; //switch view when creating client (!0) ?
       msg1.clientname = _console_data[client].tag;
+      msg1.id = client;
       _console_data[client].console = _mb->bus_console.send(msg1) ? msg1.id : ~0UL;
       if (_console_data[client].console == ~0UL) Logging::printf("s0: [%2u] allocation of console failed\n", modinfo->id);
     }

@@ -77,6 +77,7 @@ private:
     const char *clientname;
     unsigned short num_views;
     unsigned short active_view;
+    unsigned short module;
     View views[MAXVIEWS];
   } _clients[MAXCLIENTS];
 
@@ -197,7 +198,7 @@ private:
 	  _clients[_active_client].active_view = 0;
 
 	  // send kill message
-	  MessageConsole msg1(MessageConsole::TYPE_KILL, _active_client);
+	  MessageConsole msg1(MessageConsole::TYPE_KILL, _clients[_active_client].module);
 	  _mb.bus_console.send(msg1);
 	  break;
 	}
@@ -350,18 +351,22 @@ public:
     switch (msg.type)
       {
       case MessageConsole::TYPE_ALLOC_CLIENT:
+       {
         // do we have a new client?
         if (_count >=  MAXCLIENTS) return false;
-        msg.id = _count++;
-        _clients[msg.id].num_views = 0;
-        _clients[msg.id].clientname = msg.clientname;
+        unsigned client = _count++;
+        _clients[client].num_views = 0;
+        _clients[client].clientname = msg.clientname;
+        _clients[client].module = msg.id; // Remember module for killing
 
         // switch in the case of a new client and if wanted (msg.view set)
         if (msg.view) {
-          _active_client = msg.id;
+          _active_client = client;
           switch_client();
         }
+        msg.id = client;        // return console number
         return true;
+       }
       case MessageConsole::TYPE_ALLOC_VIEW:
 	{
 	  if (msg.id >=  _count) return false;
