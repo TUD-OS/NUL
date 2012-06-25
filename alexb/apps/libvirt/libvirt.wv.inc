@@ -22,7 +22,7 @@ init() {
     if [ -z "$NOVA_IP" ]; then
         # Boot NOVA up to the point it is receiving libvirt connections
 	export WVTEST_EXIT_PATTERN="NOVA management daemon is up. Waiting for libvirt connection"
-	if ! echo " $_args"|grep -Eq '(--server|-I)'; then # It seems that the test will run in qemu
+	if ! echo " $_args"|grep -Eq '(--server|-I|--dhcp-tftp)'; then # It seems that the test will run in qemu
 	    nic=qemu
 	    NOVA_IP=127.0.0.1
 	else
