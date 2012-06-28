@@ -29,6 +29,12 @@ else
 	}
 fi
 
+_wvprintcmd()
+{
+    echo ">>> $1"
+}
+
+
 
 _wvcheck()
 {
@@ -38,7 +44,7 @@ _wvcheck()
 	if [ "$CODE" -ne 0 ]; then
 		OK=FAILED
 	fi
-	echo "! $WVCALLER_FILE:$WVCALLER_LINE  $TEXT  $OK" >&2
+	echo "! $WVCALLER_FILE:$WVCALLER_LINE  $TEXT  $OK"
 	if [ "$CODE" -ne 0 ]; then
 		exit $CODE
 	else
@@ -58,6 +64,7 @@ WVPASS()
 		WRAPPER="bash -o pipefail -c"
 	fi
 
+	_wvprintcmd "$TEXT"
 	if $WRAPPER "$@"; then
 		_wvcheck 0 "$TEXT"
 		return 0
@@ -73,6 +80,7 @@ WVSHPASS() # runs the test in a subshell (to support pipes and I/O redirections)
 	TEXT="$*"
 
 	_wvfind_caller
+	_wvprintcmd "$TEXT"
 	if bash -o pipefail -c "$*"; then
 		_wvcheck 0 "$TEXT"
 		return 0
@@ -88,6 +96,7 @@ WVFAIL()
 	TEXT="$*"
 
 	_wvfind_caller
+	_wvprintcmd "$TEXT"
 	if "$@"; then
 		_wvcheck 1 "NOT($TEXT)"
 		# NOTREACHED
