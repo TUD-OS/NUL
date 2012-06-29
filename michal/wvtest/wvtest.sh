@@ -31,7 +31,7 @@ fi
 
 _wvprintcmd()
 {
-    echo ">>> $1"
+    test "$WVPRINTCMD" && echo ">>> $1"
 }
 
 
@@ -44,7 +44,7 @@ _wvcheck()
 	if [ "$CODE" -ne 0 ]; then
 		OK=FAILED
 	fi
-	echo "! $WVCALLER_FILE:$WVCALLER_LINE  $TEXT  $OK"
+	echo "! $WVCALLER_FILE:$WVCALLER_LINE  $TEXT  $OK" >&2
 	if [ "$CODE" -ne 0 ]; then
 		exit $CODE
 	else

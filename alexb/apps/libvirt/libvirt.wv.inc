@@ -6,6 +6,7 @@ wvpath=$nulroot/michal/wvtest
 . $wvpath/wvtest.sh
 
 _args="$*"
+WVPRINTCMD=yes
 
 init() {
     # Setup libvirt environment
