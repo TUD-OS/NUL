@@ -13,6 +13,8 @@ set -e
 mydir=$(readlink -f $(dirname $0))
 . $mydir/wvtest.sh
 
+WVPRINTCMD=yes
+
 WVSTART "NOVA & NUL compilation (PASSIVE branch)"
 cd ~/nul
 WVPASS git submodule --quiet foreach --recursive 'git stash --quiet; git clean --quiet -fxd'

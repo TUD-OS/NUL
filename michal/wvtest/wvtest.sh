@@ -31,7 +31,7 @@ fi
 
 _wvprintcmd()
 {
-    test "$WVPRINTCMD" && echo ">>> $1"
+    test "$WVPRINTCMD" && echo ">>> $1" || :
 }
 
 
