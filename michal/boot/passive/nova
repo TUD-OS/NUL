@@ -19,7 +19,7 @@ rom://bin/apps/logdisk.nul
 EOF
 bin/apps/remote_config.nulconfig <<EOF
 namespace::/s0 name::/s0/events name::/s0/log name::/s0/timer name::/s0/fs/rom name::/s0/admission name::/s0/config sigma0::mem:64  quota::guid name::/s0/disk disk::type:2be899e8-009f-47d1-a069-bd4bc05c20ea ||
-rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt template=rom://template.config diskuuid=rom://diskuuid.config verbose
+rom://bin/apps/remote_config.nul linux:rom://linux.nulconfig demo:rom://passive-demo.nulconfig cpuload:rom://cpuload.nulconfig reboot:rom://reboot.nulconfig servercert=rom://imgs/passive/certSrv.crt serverkey=rom://imgs/passive/privkeySrv.der cacert=rom://imgs/passive/CAcertSrv.crt template=rom://template.config diskuuid=rom://diskuuid.config verbose
 IP_CONFIG
 EOF
 template.config <<EOF
@@ -34,6 +34,9 @@ uuid:2832f211-38dd-44f5-83b7-c6dc86a2a333
 uuid:a4817cb4-f2bc-468b-96ec-337a7709c711
 uuid:c297613e-14d5-4d74-9390-b47e9ae1f359
 uuid:a586ae52-1fcf-47c5-82df-1577460a5f04
+uuid:531945c3-5605-4a2e-ad42-fe7d2707b069
+uuid:145d8ac4-85ad-4b35-aba1-1bf11d1e6721
+uuid:e37af749-a69a-46ee-81f3-4dcd9b8c46d1
 EOF
 linux.nulconfig <<EOF
 name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 ||
@@ -44,23 +47,14 @@ rom://imgs/passive/initramfs
 EOF
 
 passive-demo.nulconfig <<EOF
-name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::uuid:d7c88b36-13e8-4379-9f85-40fd6e913e63 ||
+name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::name:passive-demo ||
 rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 82576vf service_events ahci:0xe0800000,14,0x30 drive:0,0,0 ||
-rom://bin/boot/munich ||
-rom://imgs/passive/bzImage vga=0 ||
-rom://imgs/passive/initramfs
 EOF
 cpuload.nulconfig <<EOF
-name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::uuid:c7f7af37-cbbd-497c-91a1-bca55caf36ec ||
+name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::name:passive-cpuload ||
 rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 82576vf service_events ahci:0xe0800000,14,0x30 drive:0,0,0 ||
-rom://bin/boot/munich ||
-rom://imgs/passive/bzImage vga=0 ||
-rom://imgs/passive/initramfs
 EOF
 reboot.nulconfig <<EOF
-name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::uuid:a516be9b-4bde-4a85-b562-e5d290958834 ||
+name::/s0/log name::/s0/admission name::/s0/events name::/s0/timer name::/s0/fs/rom name::/s0/disk sigma0::mem:256 disk::name:passive-reboot ||
 rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 82576vf service_events ahci:0xe0800000,14,0x30 drive:0,0,0 ||
-rom://bin/boot/munich ||
-rom://imgs/passive/bzImage vga=0 ||
-rom://imgs/passive/initramfs
 EOF
