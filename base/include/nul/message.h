@@ -499,6 +499,7 @@ struct MessageHostOp
       unsigned msi_gsi;
       unsigned msi_value;
       unsigned long long msi_address;
+      bool     is_hpet;
     };
     struct {
       unsigned long long mac;
@@ -551,8 +552,18 @@ struct MessageHostOp
   {
     MessageHostOp n(OP_ATTACH_MSI, rid, !locked, cpu);
     n.desc = name;
+    n.is_hpet = false;
     return n;
   }
+
+  static MessageHostOp attach_hpet_msi(phy_cpu_no cpu, bool locked, void *mmio, char const * name)
+  {
+    MessageHostOp n(OP_ATTACH_MSI, reinterpret_cast<unsigned long>(mmio), !locked, cpu);
+    n.desc = name;
+    n.is_hpet = true;
+    return n;
+  }
+
 
   static MessageHostOp attach_irq(unsigned irq, phy_cpu_no cpu, bool locked, char const * name)
   {
