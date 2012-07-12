@@ -279,19 +279,16 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
     return msg_resolve.ptr;
   }
 
-  // HPET is special because, we give the kernel its MMIO space and
-  // not the MMCONFIG page.
   unsigned attach_msi(MessageHostOp *msg, phy_cpu_no cpunr) {
-    void    *mconf   = msg->is_hpet ?
-      reinterpret_cast<void *>(msg->value) : get_config_space(msg->value);
-    if (mconf == NULL) {
-      Logging::printf("s0: could not assign gsi for device %lx:%lx:%lx. No mmconfig?\n", msg->value >> 8 & 0xff, msg->value >> 3 & 0x1f, msg->value & 0x7);
-      return false;
-    }
     //XXX if attach failed msivector should be reused!
     msg->msi_gsi = _hip->cfg_gsi - ++_msivector;
     if (msg->msi_gsi >= _hip->cfg_gsi) return 0;
     unsigned irq_cap = _irq_cap_base + msg->msi_gsi;
+    void    *mconf   = get_config_space(msg->value);
+    if (mconf == NULL) {
+      Logging::printf("s0: could not assign gsi for device %lx:%lx:%lx. No mmconfig?\n", msg->value >> 8 & 0xff, msg->value >> 3 & 0x1f, msg->value & 0x7);
+      return false;
+    }
 
     unsigned res = nova_assign_gsi(irq_cap, cpunr, mconf, &msg->msi_address, &msg->msi_value);
     if (res != NOVA_ESUCCESS)
@@ -1052,10 +1049,6 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  break;
 			case MessageHostOp::OP_ATTACH_MSI:
 			  {
-                            if (msg->is_hpet) {
-                              Logging::printf("s0: Client tried to map HPET MSI. He can do that himself!\n");
-                              goto fail;
-                            }
 			    unsigned cap = attach_msi(msg, modinfo->cpunr);
 			    if (!cap) {
                               Logging::printf("s0: [%2u] granting msi to cpu %u failed\n", modinfo->id, modinfo->cpunr);
