@@ -631,6 +631,7 @@ if ($serial || defined $iprelay) {
     }
     if (!defined $dhcp_tftp && $CFG::grub_keys) {
 	# Control grub via serial line
+	print "Waiting for GRUB's serial output... ";
 	while (<$CONN>) {
 	    if (/Press any key to continue/) { print $CONN "\n"; last; }
 	}
@@ -641,6 +642,7 @@ if ($serial || defined $iprelay) {
 	    usleep($_ eq "\n" ? 100000 : 10000);
 	}
 	print $CONN "\n";
+	print "done\n";
     }
     # Pass the NOVA output to stdout.
     while (<$CONN>) {
