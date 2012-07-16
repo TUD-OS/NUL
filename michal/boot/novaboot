@@ -27,7 +27,7 @@ $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::hypervisor_params = "serial";
 $CFG::server = "erwin.inf.tu-dresden.de:boot/novaboot/\$NAME";
 $CFG::server_grub_prefix = "(nd)/tftpboot/sojka/novaboot/\$NAME";
-$CFG::grub_keys = "/novaboot\n\n/\$NAME\n\n";
+$CFG::grub_keys = ''; #"/novaboot\n\n/\$NAME\n\n";
 $CFG::grub2_prolog = "  set root='(hd0,msdos1)'";
 $CFG::genisoimage = "genisoimage";
 $CFG::iprelay_addr = '141.76.48.80:2324'; #'141.76.48.252';
