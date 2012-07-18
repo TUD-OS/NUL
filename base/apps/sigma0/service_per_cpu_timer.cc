@@ -208,11 +208,8 @@ class PerCpuTimerService : private BasicHpet,
     if (not (_reg->config & LEG_RT_CNF) and
         (timer->_reg->config & FSB_INT_DEL_CAP)) {
 
-      uint16 hpet_rid = get_hpet_rid(_mb.bus_acpi, 0, timer->_no);
-      if (_verbose)
-        Logging::printf("HPET comparator %u RID %x\n", timer->_no, hpet_rid);
 
-      MessageHostOp msg1 = MessageHostOp::attach_msi(cpu, false, hpet_rid, "hpet msi");
+      MessageHostOp msg1 = MessageHostOp::attach_hpet_msi(cpu, false, _reg, "hpet msi");
       if (not bus_hostop.send(msg1)) Logging::panic("MSI allocation failed.");
 
       if (_verbose)
