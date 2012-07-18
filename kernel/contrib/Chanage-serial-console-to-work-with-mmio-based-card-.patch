@@ -1,33 +1,39 @@
-From 64b702c1247527b356edfe4c2f7ee3bf1dbf0640 Mon Sep 17 00:00:00 2001
+From d47c3e3f4f706093e9802ebd8317c298b86939f4 Mon Sep 17 00:00:00 2001
 From: Michal Sojka <sojka@os.inf.tu-dresden.de>
 Date: Tue, 10 Jan 2012 11:24:05 +0100
 Subject: [PATCH] Chanage serial console to work with mmio-based card in my
  test box
 
 ---
- include/console_serial.h |    4 ++--
- src/console_serial.cpp   |   13 +++++++------
- 2 files changed, 9 insertions(+), 8 deletions(-)
+ include/console_serial.h |    6 +++---
+ src/console_serial.cpp   |    8 ++++----
+ 2 files changed, 7 insertions(+), 7 deletions(-)
 
 diff --git a/include/console_serial.h b/include/console_serial.h
-index 5597a32..c367936 100644
+index 4a65c3a..41a6966 100644
 --- a/include/console_serial.h
 +++ b/include/console_serial.h
-@@ -45,10 +45,10 @@ class Console_serial : public Console
+@@ -38,15 +38,15 @@ class Console_serial : public Console
+             DLM = 1,                    // Divisor Latch (MSB)
+         };
+ 
+-        static unsigned const freq = 115200;
++        static unsigned const freq = 4000000;
+ 
          unsigned base;
  
          ALWAYS_INLINE
--        inline unsigned in (Reg reg) { return Io::in<uint8>(base + reg); }
-+        inline unsigned in (Reg reg) { return *reinterpret_cast<volatile uint8*>(base + reg); }
+-        inline unsigned in (Register r) { return Io::in<uint8>(base + r); }
++        inline unsigned in (Register r) { return *reinterpret_cast<volatile uint8*>(base + r); }
  
          ALWAYS_INLINE
--        inline void out (Reg reg, unsigned val) { Io::out (base + reg, static_cast<uint8>(val)); }
-+        inline void out (Reg reg, unsigned val) { *reinterpret_cast<volatile uint8*>(base + reg) = static_cast<uint8>(val); }
+-        inline void out (Register r, unsigned v) { Io::out (base + r, static_cast<uint8>(v)); }
++        inline void out (Register r, unsigned v) { *reinterpret_cast<volatile uint8*>(base + r) = static_cast<uint8>(v); }
  
          void putc (int c);
  
 diff --git a/src/console_serial.cpp b/src/console_serial.cpp
-index ed491bc..c64fb85 100644
+index 0f171dc..af1a58e 100644
 --- a/src/console_serial.cpp
 +++ b/src/console_serial.cpp
 @@ -22,6 +22,7 @@
@@ -38,7 +44,7 @@ index ed491bc..c64fb85 100644
  
  INIT_PRIORITY (PRIO_CONSOLE) Console_serial Console_serial::con;
  
-@@ -30,14 +31,14 @@ Console_serial::Console_serial()
+@@ -30,10 +31,9 @@ Console_serial::Console_serial()
      if (!Cmdline::serial)
          return;
  
@@ -51,14 +57,7 @@ index ed491bc..c64fb85 100644
 +    Pd::kern.Space_mem::insert (base & ~PAGE_MASK, 0, Hpt::HPT_NX | Hpt::HPT_G | Hpt::HPT_UC | Hpt::HPT_W | Hpt::HPT_P, phys & ~PAGE_MASK);
  
      out (LCR, 0x80);
--    out (DLR_LO, 1);
--    out (DLR_HI, 0);
-+    unsigned clk = 4000000/115200;
-+    out (DLR_LO, clk&0xff);
-+    out (DLR_HI, clk>>8);
-     out (LCR, 3);
-     out (IER, 0);
-     out (FCR, 7);
+     out (DLL, (freq / 115200) & 0xff);
 -- 
 1.7.10
 
