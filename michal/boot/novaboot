@@ -657,6 +657,7 @@ if (defined $dhcp_tftp) {
     if ($pid == $dhcpd_pid) { print "dhcpd exited!\n"; }
     elsif ($pid == $tftpd_pid) { print "tftpd exited!\n"; }
     else { print "wait returned: $pid\n"; }
+    kill(15, 0); # Kill current process group i.e. all remaining children
 }
 
 =head1 NAME
