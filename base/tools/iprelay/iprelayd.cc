@@ -50,6 +50,7 @@ using namespace std;
 
 // NVT codes (http://www.ietf.org/rfc/rfc854.txt)
 #define  SE   "\xF0"
+#define  NOP  "\xF1"
 #define  AYT  "\xF6"
 #define  SB   "\xFA"
 #define  WILL "\xFB"
@@ -59,6 +60,7 @@ using namespace std;
 #define  IAC  "\xFF"
 
 const string are_you_there(IAC AYT);
+const string nop(IAC NOP);
 const string reset_on (IAC SB "\x2C\x32\x26" IAC SE);
 const string reset_off(IAC SB "\x2C\x32\x16" IAC SE);
 const string power_on (IAC SB "\x2C\x32\x25" IAC SE);
@@ -146,6 +148,12 @@ public:
       hex.append(b);
     }
     return hex;
+  }
+
+  void remove_nop() {
+    size_t where;
+    while ((where = find(nop)) != string::npos)
+      erase(where, nop.length());
   }
 };
 
@@ -271,12 +279,16 @@ public:
         return ret;
 
       CommandStr reply(buf, ret);
+      reply.remove_nop();
+
       //msg("reply: %s\n", reply.as_hex().c_str());
       switch (state) {
       case OFF:
-        msg("data in OFF state");
+        if (reply.length() > 0)
+          msg("data in OFF state");
       case DATA:
-        return ret;
+        strncpy(buf, reply.c_str(), size); // Copy back without NOPs
+        return reply.length();
 
       case RST1:
         if (~reply.dio_confirmation() & 0x40) {
