@@ -760,9 +760,9 @@ Turns your workstation into a DHCP and TFTP server so that NOVA
 can be booted via PXE BIOS on a test machine directly connected by
 a plain Ethernet cable to your workstation.
 
-The DHCP and TFTP servers require root proviledges and C<novaboot>
+The DHCP and TFTP servers require root privileges and C<novaboot>
 uses C<sudo> command to obtain those. You can put the following to
-I</etc/sudoers> to allow running the necessary commmands without
+I</etc/sudoers> to allow running the necessary commands without
 asking for password.
 
  Cmnd_Alias NOVABOOT = /bin/ip a add 10.23.23.1/24 dev eth0, /bin/ip l set dev eth0 up, /usr/sbin/dhcpd -d -cf dhcpd.conf -lf dhcpd.leases -pf dhcpd.pid, /usr/sbin/in.tftpd --foreground --secure -v -v -v *, /usr/bin/touch dhcpd.leases
@@ -770,7 +770,7 @@ asking for password.
 
 =item --dump
 
-Prints the content on novaboot script after removing comments and
+Prints the content of the novaboot script after removing comments and
 evaluating all I<--scriptmod> expressions.
 
 =item --dump-config
@@ -873,7 +873,7 @@ Replace the default qemu flags (QEMU_FLAGS variable or C<-cpu coreduo
 
 =item --rsync-flags=I<flags>
 
-Specifies which I<flags> are appended to F<rsync> comand line when
+Specifies which I<flags> are appended to F<rsync> command line when
 copying files as a result of I<--server> option.
 
 =item --scons[=scons command]
@@ -889,7 +889,7 @@ line (in $_ variable). For example, C<novaboot
 in the script with I<omega6>.
 
 When this option is present, it overrides I<$script_modifier> variable
-from the configuration file, which has the same efect. If this option
+from the configuration file, which has the same effect. If this option
 is given multiple times all expressions are evaluated in the command
 line order.
 
@@ -1038,7 +1038,7 @@ Defining this variable has the same meaning as B<--bender> option.
 
 =item NOVABOOT_IPRELAY
 
-The IP address (and optionaly the port) of the IP relay. This
+The IP address (and optionally the port) of the IP relay. This
 overrides $iprelay_addr variable from the configuration file.
 
 =back
