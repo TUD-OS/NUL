@@ -22,7 +22,6 @@ my $invocation_dir = getcwd();
 chomp(my $gittop = `git rev-parse --show-toplevel 2>/dev/null`);
 
 # Default configuration
-$CFG::builddir = ( $gittop || $ENV{'HOME'}."/nul" ) . "/build";
 $CFG::hypervisor = "bin/apps/hypervisor";
 $CFG::hypervisor_params = "serial";
 $CFG::server = "erwin.inf.tu-dresden.de:boot/novaboot/\$NAME";
@@ -111,7 +110,6 @@ if (defined $config_name_opt && scalar(@ARGV) > 1) { die "You cannot use --name 
 if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
 $qemu_append ||= '';
-if ($builddir) { $CFG::builddir = $builddir; }
 
 if (defined $pulsar) {
     $CFG::pulsar_mac = $pulsar;
@@ -424,7 +422,18 @@ if ($iprelay && ($iprelay eq "on" || $iprelay eq "off")) {
     exit;
 }
 
-chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!\nPlease update your configuration in $cfg\n";
+if ($builddir) {
+    $CFG::builddir = $builddir;
+} else {
+    if (! defined $CFG::builddir) {
+	$CFG::builddir = ( $gittop || $ENV{'HOME'}."/nul" ) . "/build";
+	if (! -d $CFG::builddir) {
+	    $CFG::builddir = $ENV{SRCDIR} = dirname(File::Spec->rel2abs( ${$scripts[0]}{filename}, $invocation_dir ));
+	}
+    }
+}
+
+chdir($CFG::builddir) or die "Can't change directory to $CFG::builddir: $!";
 print "novaboot: Entering directory `$CFG::builddir'\n";
 
 my (%files_iso, $menu_iso, $config_name, $filename);
@@ -676,17 +685,18 @@ B<novaboot> --help
 
 =head1 DESCRIPTION
 
-This program makes it easier to boot NOVA in different environments.
-It reads a so called novaboot script and uses it either to boot NOVA
-in an emulator (e.g. in qemu) or to generate the configuration for a
-specific bootloader and optionally to copy the necessary binaries and
-other needed files to proper locations, perhaps on a remote server. In
-case the system is actually booted, its serial output is redirected to
-standard output if that is possible.
+This program makes it easier to boot NOVA or other operating system
+(OS) in different environments. It reads a so called novaboot script
+and uses it either to boot the OS in an emulator (e.g. in qemu) or to
+generate the configuration for a specific bootloader and optionally to
+copy the necessary binaries and other needed files to proper
+locations, perhaps on a remote server. In case the system is actually
+booted, its serial output is redirected to standard output if that is
+possible.
 
 A typical way of using novaboot is to make the novaboot script
 executable and set its first line to I<#!/usr/bin/env novaboot>. Then,
-booting a particular NOVA configuration becomes the same as executing
+booting a particular OS configuration becomes the same as executing a
 local program - the novaboot script.
 
 With C<novaboot> you can:
@@ -748,8 +758,16 @@ Boot bender tool before the kernel to find PCI serial ports.
 
 =item --build-dir=<directory>
 
-Overrides build directory location specified in the configuration
-file.
+Overrides the default build directory location.
+
+The default build directory location is determined as follows:
+
+If there is a configuration file, the value specified in I<$builddir>
+variable is used. Otherwise, if the current working directory is
+inside git work tree and there is F<build> directory at the top of
+that tree, it is used. Otherwise, if directory F<~/nul/build> exists,
+it is used. Otherwise, it is the directory that contains the first
+processed novaboot script.
 
 =item -c, --config=<filename>
 
@@ -928,18 +946,18 @@ expression) assign values to internal variables. See VARIABLES
 section.
 
 Otherwise, the first word on the line represents the filename
-(relative to the build directory specified in the configuration file)
-of the module to load and the remaining words are passed as the
-command line parameters.
+(relative to the build directory (see I<--build-dir>) of the module to
+load and the remaining words are passed as the command line
+parameters.
 
 When the line ends with "<<WORD" then the subsequent lines until the
 line containing only WORD are copied literally to the file named on
 that line.
 
-When the line ends with "< CMD" the command CMD is executed and its
-standard output is stored in the file named on that line. The SRCDIR
-variable in CMD's environment is set to the absolute path of the
-directory containing the interpreted novaboot script.
+When the line ends with "< CMD" the command CMD is executed with
+C</bin/sh> and its standard output is stored in the file named on that
+line. The SRCDIR variable in CMD's environment is set to the absolute
+path of the directory containing the interpreted novaboot script.
 
 Example:
   #!/usr/bin/env novaboot
