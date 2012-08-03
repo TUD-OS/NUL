@@ -295,17 +295,19 @@ sub generate_pulsar_config($$)
     open(my $fg, '>', $filename) or die "$filename: $!";
     print $fg "root $CFG::pulsar_root\n" if $CFG::pulsar_root;
     my $first = 1;
+    my ($kbin, $kcmd);
     foreach (@$modules_ref) {
 	if ($first) {
 	    $first = 0;
-	    my ($kbin, $kcmd) = split(' ', $_, 2);
+	    ($kbin, $kcmd) = split(' ', $_, 2);
 	    $kcmd = '' if !defined $kcmd;
-	    print $fg "exec $kbin $kcmd\n";
 	} else {
 	    my @args = split;
 	    print $fg "load $_\n";
 	}
     }
+    # Put kernel as last - this is needed for booting Linux and has no influence on non-Linux OSes
+    print $fg "exec $kbin $kcmd\n";
     close($fg);
 }
 
