@@ -35,7 +35,8 @@ $CFG::script_modifier = ''; # Depricated, use --scriptmod commandline option or 
 @CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
-%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:~passive/boot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/passive/ --iprelay=141.76.48.80:2324 --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g');
+%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:~passive/boot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/passive/ --iprelay=141.76.48.80:2324 --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g',
+		        'J' => '--server=rtime.felk.cvut.cz:/srv/tftp/novaboot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --pulsar=novaboot --iprelay=147.32.86.92:2324');
 $CFG::scons = "scons -j2";
 
 my @qemu_flags = qw(-cpu coreduo -smp 2);
@@ -854,6 +855,12 @@ of novaboot script (see also B<--name>).
 
 This is an alias (see C<%custom_options> below) defined in the default
 configuration. When used, it causes novaboot to use Michal's remotely
+controllable test bed.
+
+=item -J
+
+This is an alias (see C<%custom_options> below) defined in the default
+configuration. When used, it causes novaboot to use another remotely
 controllable test bed.
 
 =item --on, --off
