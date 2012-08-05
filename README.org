@@ -182,8 +182,8 @@
   The =novaboot= program is currently able to:
 
   1) run NOVA in qemu,
-  2) create GRUB configuration (GRUB2 is not yet supported) and copy
-     it with all the needed files to a remote TFTP server,
+  2) create GRUB/GRUB2/Pulsar bootloader configuration and copy it
+     with all the needed files to a remote TFTP server,
   3) run DHCP and TFTP server on your development machine to PXE boot
      NOVA from it,
   4) create bootable ISO images.
@@ -193,15 +193,16 @@
     0. =cd michal/boot=
     1. Copy novaboot somewhere to your path e.g. 
        =cp novaboot ~/bin=.
-    2. Configure novaboot for your system
+    2. Configure novaboot for your system (optional)
        =novaboot --dump-config > ~/.novaboot=
-       =vi ~/.novaboot=  # edit at least $builddir variable
+       =vi ~/.novaboot=
     3. Try to run "hello world" in qemu
        =./hello=
        or copy the needed files to your TFTP server
        =./hello --server=
 
-    See =novaboot --help= for more details.
+    See =novaboot --help= for more details (you need perl-doc package
+    installed for this to work).
 
 ** Booting a Vancouver System
 
