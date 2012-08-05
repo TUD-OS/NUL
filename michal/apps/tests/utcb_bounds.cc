@@ -33,9 +33,9 @@ public:
   {
     static Utcb u;
     unsigned size;
-    WVSHOW(Utcb::STACK_START);
-    WVSHOW(Utcb::MAX_DATA_WORDS);
-    WVSHOW(Utcb::MAX_FRAME_WORDS);
+    WVSHOW(static_cast<int>(Utcb::STACK_START));
+    WVSHOW(static_cast<int>(Utcb::MAX_DATA_WORDS));
+    WVSHOW(static_cast<int>(Utcb::MAX_FRAME_WORDS));
     u.reset();
     WVSHOW(size = u.frame_words());
     WVPASSEQ((u << 1).frame_words(), size + 1);
