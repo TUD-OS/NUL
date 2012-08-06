@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+
+. $(dirname $0)/libvirt.wv.inc
+
+WVSTART libvirt basic functionality
+
+init
+
+WVPASS "$(dirname $0)/event-test nova+tls://$NOVA_IP:9999 |& tee event-test.log"
+
+# Note: <(...) stands for Process Substitution
+WVPASS diff -u <(grep "NOVA EVENT" event-test.log) <(cat <<EOF
+NOVA EVENT: Domain linux(5): Started Booted
+NOVA EVENT: Domain linux    5(5) rebooted
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xf0
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xf1
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xcfe
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xcfc
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xcfd
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0xcfc
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0x2f9
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0x2f9
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0x3e9
+NOVA EVENT: Domain linux    5(5): Unserved IO access port 0x3e9
+EOF
+)
+
+finish

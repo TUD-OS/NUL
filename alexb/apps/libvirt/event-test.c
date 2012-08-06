@@ -7,6 +7,7 @@
 
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
+#include "libvirt-repo/src/nova/nova_types.h"
 
 #define VIR_DEBUG(fmt) printf("%s:%d: " fmt "\n", __func__, __LINE__)
 #define STREQ(a,b) (strcmp(a,b) == 0)
@@ -61,6 +62,18 @@ const char *eventToString(int event) {
             break;
         case VIR_DOMAIN_EVENT_SHUTDOWN:
             ret = "Shutdown";
+            break;
+        case EVENT_REBOOT:
+            ret = "NOVA reboot";
+            break;
+        case EVENT_UNSERVED_IOACCESS:
+            ret = "Unserved IO access";
+            break;
+        case EVENT_DMAR_ACCESS:
+            ret = "DMAR access";
+            break;
+        case EVENT_VDEV_HONEYPOT:
+            ret = "VDEV honeypot";
             break;
     }
     return ret;
@@ -162,20 +175,20 @@ static const char *eventDetailToString(int event, int detail) {
                 break;
             }
             break;
+        case EVENT_REBOOT:
+            break;
+        case EVENT_UNSERVED_IOACCESS: {
+            static char port[20];
+            snprintf(port, sizeof(port), "port %#x", detail);
+            ret = port;
+            break;
+        }
+        case EVENT_DMAR_ACCESS:
+            break;
+        case EVENT_VDEV_HONEYPOT:
+            break;
     }
     return ret;
-}
-
-static int myDomainEventCallback1(virConnectPtr conn ATTRIBUTE_UNUSED,
-                                  virDomainPtr dom,
-                                  int event,
-                                  int detail,
-                                  void *opaque ATTRIBUTE_UNUSED)
-{
-    printf("%s EVENT: Domain %s(%d) %s %s detail=%x\n", __func__, virDomainGetName(dom),
-           virDomainGetID(dom), eventToString(event),
-           eventDetailToString(event, detail), detail);
-    return 0;
 }
 
 static int myDomainEventCallback2(virConnectPtr conn ATTRIBUTE_UNUSED,
@@ -184,7 +197,7 @@ static int myDomainEventCallback2(virConnectPtr conn ATTRIBUTE_UNUSED,
                                   int detail,
                                   void *opaque ATTRIBUTE_UNUSED)
 {
-    printf("%s EVENT: Domain %s(%d) %s %s\n", __func__, virDomainGetName(dom),
+    printf("NOVA EVENT: Domain %s(%d): %s %s\n", virDomainGetName(dom),
            virDomainGetID(dom), eventToString(event),
            eventDetailToString(event, detail));
     return 0;
@@ -194,7 +207,7 @@ static int myDomainEventRebootCallback(virConnectPtr conn ATTRIBUTE_UNUSED,
                                        virDomainPtr dom,
                                        void *opaque ATTRIBUTE_UNUSED)
 {
-    printf("%s EVENT: Domain %s(%d) rebooted\n", __func__, virDomainGetName(dom),
+    printf("NOVA EVENT: Domain %s(%d) rebooted\n", virDomainGetName(dom),
            virDomainGetID(dom));
 
     return 0;
@@ -337,10 +350,17 @@ static void stop(int sig)
     run = 0;
 }
 
+#define WVPASS(cond)							\
+	({								\
+		typeof (cond) _res = (cond);				\
+		printf ("! %s:%d %s  %s\n", __FILE__, __LINE__, #cond, _res ? "ok" : "FAILED"); \
+		_res;							\
+	})
+
+
 
 int main(int argc, char **argv)
 {
-    int callback1ret = -1;
     int callback2ret = -1;
     int callback3ret = -1;
     int callback4ret = -1;
@@ -365,7 +385,7 @@ int main(int argc, char **argv)
     virConnectPtr dconn = NULL;
     dconn = virConnectOpenAuth(argc > 1 ? argv[1] : NULL,
                                virConnectAuthPtrDefault,
-                               VIR_CONNECT_RO);
+                               0);
     if (!dconn) {
         printf("error opening\n");
         return -1;
@@ -376,9 +396,6 @@ int main(int argc, char **argv)
 
     VIR_DEBUG("Registering domain event cbs");
 
-    /* Add 2 callbacks to prove this works with more than just one */
-    callback1ret = virConnectDomainEventRegister(dconn, myDomainEventCallback1,
-                                                 strdup("callback 1"), myFreeFunc);
     callback2ret = virConnectDomainEventRegisterAny(dconn,
                                                     NULL,
                                                     VIR_DOMAIN_EVENT_ID_LIFECYCLE,
@@ -420,8 +437,7 @@ int main(int argc, char **argv)
                                                     VIR_DOMAIN_EVENT_CALLBACK(myDomainEventDiskChangeCallback),
                                                     strdup("disk change"), myFreeFunc);
 
-    if (//(callback1ret != -1) &&
-        (callback2ret != -1) &&
+    if ((callback2ret != -1) &&
         (callback3ret != -1) &&
         (callback4ret != -1) &&
         (callback5ret != -1) &&
@@ -435,16 +451,28 @@ int main(int argc, char **argv)
             run = 0;
         }
 
+
+        virDomainPtr d = WVPASS(virDomainLookupByName(dconn, "linux"));
+        WVPASS(virDomainCreate(d) == 0);
+
+
         while (run && virConnectIsAlive(dconn) == 1) {
             if (virEventRunDefaultImpl() < 0) {
                 virErrorPtr err = virGetLastError();
                 fprintf(stderr, "Failed to run event loop: %s\n",
                         err && err->message ? err->message : "Unknown error");
             }
+            fflush(stdout);
+            fflush(stderr);
+
+	    static int events;
+	    if (++events == 12) {
+		    printf ("Exiting after 12 events\n");
+		    break;
+	    }
         }
 
         VIR_DEBUG("Deregistering event handlers");
-        virConnectDomainEventDeregister(dconn, myDomainEventCallback1);
         virConnectDomainEventDeregisterAny(dconn, callback2ret);
         virConnectDomainEventDeregisterAny(dconn, callback3ret);
         virConnectDomainEventDeregisterAny(dconn, callback4ret);
