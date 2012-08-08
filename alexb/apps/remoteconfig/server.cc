@@ -52,6 +52,8 @@ const char *op2string(unsigned op)
   case NOVA_HW_INFO: return "NOVA_HW_INFO";
   case NOVA_AUTH: return "NOVA_AUTH";
   case NOVA_ATOMIC_RULE: return "NOVA_ATOMIC_RULE";
+  case NOVA_GET_DISK_INFO: return "NOVA_GET_DISK_INFO";
+  case NOVA_GET_NET_INFO: return "NOVA_GET_NET_INFO";
   case EVENT_REBOOT: return "EVENT_REBOOT";
   case EVENT_UNSERVED_IOACCESS: return "EVENT_UNSERVED_IOACCESS";
   case EVENT_DMAR_ACCESS: return "EVENT_DMAR_ACCESS";
