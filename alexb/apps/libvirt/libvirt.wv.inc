@@ -37,10 +37,12 @@ init() {
 	pid=$(sed -ne 's/^Keeping PID \([0-9]\+\) alive$/\1/p' passive.log)
 	set +x
 	WVPASS test $NOVA_IP
+	trap 'finish' EXIT
     fi
 }
 
 finish() {
     set -x
+    trap - EXIT
     if [ "$pid" ]; then kill $pid; fi
 }
