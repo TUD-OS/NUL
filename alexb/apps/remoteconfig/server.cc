@@ -400,8 +400,21 @@ void Remcon::handle_packet(void) {
           _out->result  = NOVA_OP_SUCCEEDED;
           break;
         } else {
-          entry->disks[0].size = 0; //XXX
-          entry->disks[0].internal.diskid = ~0U; //XXX
+          char * disk_name = strstr(module, "disk::");
+          if (!disk_name) {
+            entry->disks[0].size = 0;
+            entry->disks[0].internal.diskid = ~0U;
+          } else {
+            disk_name += strlen("disk::");
+            unsigned len = strcspn(disk_name, " \t\r\n\f");
+            char name[50];
+            assert(len+1 < sizeof(name));
+            memcpy(name, disk_name, len);
+            name[len] = 0;
+            entry->disks[0].size = 0;
+            entry->disks[0].internal.diskid = get_disk_id_from_name(name);
+            entry->disks[0].internal.sectorsize = 512; //XXX
+          }
         }
 
         res = start_entry(entry);
@@ -477,10 +490,11 @@ void Remcon::handle_packet(void) {
         struct server_data * entry = check_uuid(reinterpret_cast<char *>(&_in->opspecific));
         if (!entry) break;
 
+        unsigned res = 0;
         DiskProtocol::Stats stats;
         if ((entry->disks[0].internal.diskid != ~0U) &&
-            (ENONE != service_disk->get_stats(*BaseProgram::myutcb(), entry->disks[0].internal.diskid, stats)))
-          Logging::printf("failure - could not get disk statistics of client\n");
+            (ENONE != (res = service_disk->get_stats(*BaseProgram::myutcb(), entry->disks[0].internal.diskid, stats))))
+          Logging::printf("failure - could not get disk statistics of client: %u\n", res);
 
         struct tmp {
           uint64_t read;

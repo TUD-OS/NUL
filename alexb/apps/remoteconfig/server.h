@@ -329,6 +329,19 @@ class Remcon : public CapAllocator {
       return ~0U;
     }
 
+    unsigned get_disk_id_from_name(const char *name) {
+      unsigned count = 0, i;
+      if (ENONE != service_disk->get_disk_count(*BaseProgram::myutcb(), count)) return ~0U;
+
+      for (i=0; i < count; i++) {
+          bool match;
+          unsigned res = service_disk->check_name(*BaseProgram::myutcb(), i, name, match);
+          if (res == ENONE && match)
+            return i;
+      }
+      return ~0U;
+    }
+
     unsigned chg_event_slot(struct server_data * entry, uint32_t eventID, bool newentry) {
       for(unsigned i=0; i < sizeof(entry->events)/sizeof(entry->events[0]); i++) {
         if (newentry && entry->events[i].used) continue;
