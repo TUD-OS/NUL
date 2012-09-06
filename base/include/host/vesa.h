@@ -52,8 +52,11 @@ struct Vbe
     unsigned char  bpp;
     unsigned char  banks;
     unsigned char  memory_model;
+    unsigned char  bank_size;
     unsigned char  number_images;
-    unsigned char  vbe1[11];
+    unsigned char  res0;
+    unsigned char  vbe1[8];
+    unsigned char  colormode;
     // vbe2
     unsigned int   phys_base;
     unsigned short res1[3];
