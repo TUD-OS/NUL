@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Check different patterns to get the encoding of an instruction and
 generate optimized handler functions.
 

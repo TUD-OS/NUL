@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 # Analyze the L1 cache footprint of a given binary.
 

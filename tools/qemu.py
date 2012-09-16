@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Start qemu with kernel from pulsar style config file."""
 
 import os, sys, re
