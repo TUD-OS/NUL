@@ -1072,7 +1072,7 @@ struct Sigma0 : public Sigma0Base, public NovaProgram, public StaticReceiver<Sig
 			  // XXX make sure only one gets it
 			  map_self(utcb, (msg->value >> 8) << Utcb::MINSHIFT, 1 << (Utcb::MINSHIFT + msg->value & 0xff), DESC_IO_ALL);
 			  utcb->set_header(1, 0);
-			  utcb->msg[0] = utcb->add_mappings((msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_CAP_ALL);
+			  utcb->msg[0] = utcb->add_mappings((msg->value >> 8) << Utcb::MINSHIFT, (1 << (Utcb::MINSHIFT + msg->value & 0xff)), MAP_MAP, DESC_IO_ALL);
 			  if (utcb->msg[0]) goto fail;
 			  break;
 			case MessageHostOp::OP_ALLOC_IOMEM:
