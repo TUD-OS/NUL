@@ -23,7 +23,7 @@ WVPASS git submodule --quiet update --init
 cd build
 CC=/home/sojka/gcc/gcc-4.6/bin/gcc
 CXX=/home/sojka/gcc/gcc-4.6/bin/g++
-export SCONSFLAGS="target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1"
+export SCONSFLAGS="target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1 prepend_path=$HOME/bin"
 WVPASS scons
 WVPASS make -C ../alexb/apps/libvirt
 

@@ -46,7 +46,7 @@ git clean --quiet -fxd
 
 cp ../kernel/contrib/Chanage-serial-console-to-work-with-mmio-based-card-.patch ../kernel/contrib/nova-patches
 
-export SCONSFLAGS="target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1"
+export SCONSFLAGS="target_cc=$CC target_cxx=$CXX NO_TIMESTAMP=1 prepend_path=$HOME/bin"
 scons
 make -C ../alexb/apps/libvirt || echo "! $0 libvirt build  FAILED"
 
