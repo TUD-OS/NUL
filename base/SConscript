@@ -52,6 +52,7 @@ target_cxx  = ARGUMENTS.get('target_cxx')
 default_target_arch = "core2"
 target_arch = ARGUMENTS.get('target_arch')
 ld_path     = ARGUMENTS.get('ld_path')
+prepend_path = ARGUMENTS.get('prepend_path')
 # Optimization flags
 
 debug = ARGUMENTS.get('debug', 0)
@@ -112,6 +113,10 @@ if target_cxx:
 if ld_path:
     print("Add LD_LIBRARY_PATH = '%s' to Target env" % ld_path)
     target_env['ENV']['LD_LIBRARY_PATH'] = ld_path
+
+if prepend_path:
+    print("Target PATH starts with '%s'" % prepend_path)
+    target_env['ENV']['PATH'] = prepend_path + ":" + target_env['ENV']['PATH'] 
 
 target_env['CCFLAGS'] = '-m32 '
 target_env.Append(CCFLAGS = '-mregparm=3 -pipe -nostdlib -ffreestanding -ffunction-sections -fshort-enums -fno-strict-aliasing -fno-exceptions  -minline-all-stringops -nostdinc -Wall -Winit-self -Wextra -Wno-parentheses -Wno-unused-parameter -Wswitch-enum -Wstrict-aliasing=2 -Wmissing-noreturn')
