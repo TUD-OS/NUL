@@ -74,11 +74,6 @@ if [ "$ret" = 0 -a -d $HOME/passive/src ]; then
     $HOME/nul/michal/wvtest/passive-test-cron -I
 fi
 
-if [ "$ret" = 0 -a -d ~passive/deploy ]; then # Update PASSIVE testbed
-    echo "Testing \"PASSIVE testbed update\" in $0:"
-    $HOME/nul/michal/boot/passive/deploy
-fi
-
 date
 trap - EXIT
 exit $ret
