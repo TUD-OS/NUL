@@ -35,7 +35,7 @@ $CFG::script_modifier = ''; # Depricated, use --scriptmod commandline option or 
 @CFG::chainloaders = (); #('bin/boot/bender promisc');
 $CFG::pulsar_root = '';
 $CFG::pulsar_mac = '52-54-00-12-34-56';
-%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:~passive/boot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/passive/ --iprelay=141.76.48.80:2324 --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g',
+%CFG::custom_options = ('I' => '--server=erwin.inf.tu-dresden.de:~sojka/boot/novaboot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --grub-prefix=(nd)/tftpboot/sojka/novaboot --iprelay=141.76.48.80:2324 --scriptmod=s/\\\\bhostserial\\\\b/hostserialpci/g',
 		        'J' => '--server=rtime.felk.cvut.cz:/srv/tftp/novaboot --rsync-flags="--chmod=Dg+s,ug+w,o-w,+rX --rsync-path=\"umask 002 && rsync\"" --pulsar=novaboot --iprelay=147.32.86.92:2324');
 $CFG::scons = "scons -j2";
 
