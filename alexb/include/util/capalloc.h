@@ -18,7 +18,7 @@
 #include <service/cpu.h>
 #include <sys/syscalls.h>
 
-template <unsigned BITS, bool error_doublefree = true>
+template <unsigned BITS>
 class CapAllocatorAtomic {
 
   protected:
@@ -81,21 +81,20 @@ class CapAllocatorAtomic {
         unsigned i   = (cap + count - _cap_base) / BITS_PER_UNSIGNED;
         unsigned pos = (cap + count - _cap_base) % BITS_PER_UNSIGNED;
 
+        unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true);
+        assert(res == NOVA_ESUCCESS);
+
         redo:
 
         unsigned _new, _old = _bits[i];
         if (!(_old & (1U << pos))) {
-          if (error_doublefree) Logging::panic("double free detected\n");
-          //someone else freed the slot and it is ok according to error_doublefree variable
+          Logging::panic("cap index already freed\n");
           return;
         }
 
         _new = _old & ~(1U << pos);
         unsigned _got = Cpu::cmpxchg4b(&_bits[i], _old, _new);
         if (_got != _old) goto redo;
-
-        unsigned res = nova_revoke(Crd(cap + count, 0, DESC_CAP_ALL), true);
-        assert(res == NOVA_ESUCCESS);
       }
     }
 };

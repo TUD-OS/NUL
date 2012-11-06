@@ -18,27 +18,27 @@
 #include <nul/baseprogram.h>
 #include "capalloc.h"
 
-template <unsigned BITS, bool error_doublefree = true>
-class CapAllocatorAtomicPartition : public CapAllocatorAtomic<BITS, error_doublefree> {
+template <unsigned BITS>
+class CapAllocatorAtomicPartition : public CapAllocatorAtomic<BITS> {
 
 protected:
     unsigned _divider;
 
 public:
   CapAllocatorAtomicPartition(cap_sel _cap_start = ~0UL, unsigned divider = 1) //~0UL means disabled
-     : CapAllocatorAtomic<BITS, error_doublefree>(_cap_start), _divider(divider) {}
+     : CapAllocatorAtomic<BITS>(_cap_start), _divider(divider) {}
 
   cap_sel alloc_cap(unsigned count = 1, unsigned cpu = ~0U) {
     if (cpu == ~0U) cpu = BaseProgram::mycpu();
-    unsigned start = (cpu * (BITS / _divider / CapAllocatorAtomic<BITS, error_doublefree>::BITS_PER_UNSIGNED));
-    start %= CapAllocatorAtomic<BITS, error_doublefree>::bytes_max();
-    unsigned res = CapAllocatorAtomic<BITS, error_doublefree>::internal_alloc_cap(count, start);
+    unsigned start = (cpu * (BITS / _divider / CapAllocatorAtomic<BITS>::BITS_PER_UNSIGNED));
+    start %= CapAllocatorAtomic<BITS>::bytes_max();
+    unsigned res = CapAllocatorAtomic<BITS>::internal_alloc_cap(count, start);
 /*
     Logging::printf("cap=%x cpu %u/%u (valid range %x %x, cpu starts at %x)\n", res, cpu, _divider,
-                    CapAllocatorAtomic<BITS, error_doublefree>::_cap_base,
-                    CapAllocatorAtomic<BITS, error_doublefree>::_cap_base
-                     + CapAllocatorAtomic<BITS, error_doublefree>::bytes_max(),
-                    CapAllocatorAtomic<BITS, error_doublefree>::_cap_base + start);
+                    CapAllocatorAtomic<BITS>::_cap_base,
+                    CapAllocatorAtomic<BITS>::_cap_base
+                     + CapAllocatorAtomic<BITS>::bytes_max(),
+                    CapAllocatorAtomic<BITS>::_cap_base + start);
 */
     return res;
   }
