@@ -11,10 +11,10 @@ if 'SSH_AUTH_SOCK' in os.environ:
 
 # If a NOVA directory exists, use it as-is, otherwise checkout a
 # known-good revision and apply our patches (if there are any).
-checkout = host_env.Command("nova/README", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],
+checkout = host_env.Command("nova/README.md", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],
                             "${SOURCES[2]} `dirname $TARGET` `cat ${SOURCES[0]}` `cat ${SOURCES[1]}` ${SOURCES[3:]}")
 
-build = target_env.Command("nova/build/hypervisor-x86_32", "nova/README",
+build = target_env.Command("nova/build/hypervisor-x86_32", "nova/README.md",
                            "make -sC `dirname $TARGET` CC=${CC} CXX=${CXX}" % target_env)
 AlwaysBuild(build)
 Precious(build)
