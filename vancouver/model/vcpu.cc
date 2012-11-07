@@ -72,10 +72,22 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
     return res;
   }
 
+  /**
+   * Return current TSC offset. Works around destroyed value in
+   * msg.cpu->tsc_off when we want to change the TSC offset.
+   */
+  long long get_tsc_off(CpuMessage &msg)
+  {
+    assert(msg.mtr_in & MTD_TSC);
+
+    return (msg.mtr_out & MTD_TSC) ? msg.current_tsc_off : msg.cpu->tsc_off;
+  }
+
+
 
   void handle_rdtsc(CpuMessage &msg) {
     assert((msg.mtr_in & MTD_TSC) and (msg.mtr_in & MTD_GPR_ACDB));
-    msg.cpu->edx_eax(msg.cpu->tsc_off + Cpu::rdtsc());
+    msg.cpu->edx_eax(get_tsc_off(msg) + Cpu::rdtsc());
     msg.mtr_out |= MTD_GPR_ACDB;
   }
 
@@ -113,7 +125,12 @@ class VirtualCpu : public VCpu, public StaticReceiver<VirtualCpu>
       {
       case 0x10:
 	assert(msg.mtr_in & MTD_TSC);
-	cpu->tsc_off = - Cpu::rdtsc() + cpu->edx_eax() - cpu->tsc_off;
+        {
+          long long offset    = get_tsc_off(msg);
+
+          msg.current_tsc_off = - Cpu::rdtsc()        + cpu->edx_eax();
+          cpu->tsc_off        =   msg.current_tsc_off - offset;
+        }
 	msg.mtr_out |= MTD_TSC;
 	break;
       case 0x174 ... 0x176:
@@ -364,13 +381,13 @@ public:
     return false;
   }
 
-
   bool receive(CpuMessage &msg) {
 
-    // TSC drift compensation
+    // TSC drift compensation.
     if (msg.type != CpuMessage::TYPE_CPUID_WRITE && msg.mtr_in & MTD_TSC && ~msg.mtr_out & MTD_TSC) {
       COUNTER_INC("tsc adoption");
-      msg.cpu->tsc_off = _reset_tsc_off - msg.cpu->tsc_off;
+      msg.current_tsc_off = _reset_tsc_off;
+      msg.cpu->tsc_off    = msg.current_tsc_off - msg.cpu->tsc_off;
       msg.mtr_out |= MTD_TSC;
     }
 

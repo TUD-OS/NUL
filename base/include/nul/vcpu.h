@@ -60,6 +60,13 @@ struct CpuMessage {
   unsigned mtr_in;
   unsigned mtr_out;
   unsigned consumed; //info whether a model consumed this event
+
+  // When TSC offset is adjusted, the current absolute offset is kept
+  // here, as the vcpu structure will then only contain the adjustment
+  // the kernel is to apply. This member is only valid, iff mtr_out &
+  // MTD_TSC is true;
+  long long current_tsc_off;
+
   CpuMessage(Type _type, CpuState *_cpu, unsigned _mtr_in) : type(_type), cpu(_cpu), mtr_in(_mtr_in), mtr_out(0), consumed(0) { if (type == TYPE_CPUID) cpuid_index = cpu->eax; }
   CpuMessage(unsigned _nr, unsigned _reg, unsigned _mask, unsigned _value) : type(TYPE_CPUID_WRITE), nr(_nr), reg(_reg), mask(_mask), value(_value), consumed(0) {}
   CpuMessage(bool is_in, CpuState *_cpu, unsigned _io_order, unsigned _port, void *_dst, unsigned _mtr_in)
