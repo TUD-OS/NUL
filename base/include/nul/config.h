@@ -27,6 +27,8 @@ struct Config {
     EXC_PORTALS         = 32,    // Number of exception portals
     MAX_CPUS            = 32,
 
+    DEFAULT_QUANTUM     = 10000U, // Default time slice length
+
     CAP_PARENT_BEGIN    = EXC_PORTALS * MAX_CPUS,
   };
 };

@@ -253,7 +253,7 @@ public:
 
           if (sched.type < sched.TYPE_APERIODIC || sched.type > sched.TYPE_SYSTEM) sched.type = sched.TYPE_APERIODIC; //sanity check
           data->scs[i].prio    = (op == AdmissionProtocol::TYPE_SC_PUSH) ? sched.type : (sched.type > sched.TYPE_PERIODIC ? sched.TYPE_PERIODIC : sched.type);
-          data->scs[i].quantum = 10000U;
+          data->scs[i].quantum = Config::DEFAULT_QUANTUM;
           data->scs[i].cpu = cpu;
           memset(data->scs[i].last, 0, sizeof(data->scs[i].last));
           memcpy(data->scs[i].name, name, len > sizeof(data->scs[i].name) - 1 ? sizeof(data->scs[i].name) - 1 : len);
