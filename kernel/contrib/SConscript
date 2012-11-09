@@ -6,9 +6,6 @@ import os
 Import('target_env')
 Import('host_env')
 
-if 'SSH_AUTH_SOCK' in os.environ:
-    host_env['ENV']['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK'];
-
 # If a NOVA directory exists, use it as-is, otherwise checkout a
 # known-good revision and apply our patches (if there are any).
 checkout = host_env.Command("nova/README.md", ["NOVA_URL", "NOVA_REVISION", "checkout-nova.sh", Glob("nova-patches/*.patch")],

@@ -72,6 +72,13 @@ host_env["CCFLAGS"]  = "-g -Wall " + debug_opts
 host_env["CXXFLAGS"] = "-std=c++0x -Weffc++ "
 host_env["CFLAGS"]   = "-std=c99 "
 
+# Populate host_env with necessary environment variables for poor
+# people behind proxies.
+
+for env in [ 'SSH_AUTH_SOCK', 'http_proxy', 'https_proxy', 'ftp_proxy', 'no_proxy' ]:
+    if env in os.environ:
+        host_env['ENV'][env] = os.environ[env];
+
 # Environment for utilities that are put on custom build Linux
 # initrds.
 initrd32_works = True
