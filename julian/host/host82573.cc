@@ -524,12 +524,11 @@ public:
 
     _mac = mac_get_ethernet_addr();
     msg(INFO, "We are " MAC_FMT "\n", MAC_SPLIT(&_mac));
+
     // We assume that the other RA registers have been disabled by the
     // software reset. (The spec says so.)
-    // _hwreg[RAL0] = _mac.raw & 0xFFFFFFFFU;
-    // _hwreg[RAH0] = 1ULL<<31 | _mac.raw >> 32;
-    // XXX Disable all address filtering. We use promiscuous mode.
-    _hwreg[RAH0] = 0;
+    _hwreg[RAL0] = _mac.raw & 0xFFFFFFFFU;
+    _hwreg[RAH0] = 1ULL<<31 | _mac.raw >> 32;
 
     tx_configure();
     rx_configure();

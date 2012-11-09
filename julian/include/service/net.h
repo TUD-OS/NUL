@@ -44,7 +44,7 @@ struct EthernetAddr {
   EthernetAddr(uint8 b1, uint8 b2, uint8 b3, uint8 b4, uint8 b5, uint8 b6)
   { byte[0] = b1; byte[1] = b2; byte[2] = b3; byte[3] = b4; byte[4] = b5; byte[5] = b6; }
   explicit EthernetAddr(uint64 _raw) : raw(_raw & ETHERNET_ADDR_MASK) {}
-  
+
 };
 
 static inline bool
