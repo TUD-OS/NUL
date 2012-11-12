@@ -42,7 +42,7 @@ namespace ab {
 
 class TestIP : public NovaProgram, public ProgramConsole
 {
-  public:
+    static bool _connection_online;
 
     static void send_network(char unsigned const * data, unsigned len) {
       bool res;
@@ -55,12 +55,19 @@ class TestIP : public NovaProgram, public ProgramConsole
                       (res == 0 ? "success" : "failure"), len);
     }
 
+    static
+    void fn_connected(bool status) {
+        Logging::printf("%s - connection established\n", 
+                        status ? "success" : "failure");
+        _connection_online = status;
+    }
+
     bool use_network(Utcb *utcb, Hip * hip, unsigned sm) {
       bool res;
       unsigned long long arg = 0;
       Clock * _clock = new Clock(hip->freq_tsc);
 
-      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x4) return false;
+      if (!nul_ip_config(IP_NUL_VERSION, &arg) || arg != 0x5) return false;
 
       NetworkConsumer * netconsumer = new NetworkConsumer();
       if (!netconsumer) return false;
@@ -105,7 +112,8 @@ class TestIP : public NovaProgram, public ProgramConsole
         unsigned long port;
         void (*fn)(uint32 remoteip, uint16 remoteport, uint16 localport, void * data, size_t in_len);
         unsigned long addr;
-      } conn = { 7777, 0, 0 };
+        void (*connected) (bool);
+      } PACKED conn = { 7777, 0, 0, 0 };
       result = nul_ip_config(IP_TCP_OPEN, &conn);
       Logging::printf("%s - creating tcp port %lu\n", (res == 0 ? "success" : "failure"), conn.port);
       if (!result) return result;
@@ -130,18 +138,23 @@ class TestIP : public NovaProgram, public ProgramConsole
 
             conn.port = 7777;
             conn.addr = (1 << 24) | 127; //127.0.0.1
+            conn.connected = fn_connected;
+
             result = nul_ip_config(IP_TCP_OPEN, &conn);
-            Logging::printf("%s - connecting from %lu to %lu tcp port\n", (res == 0 ? "success" : "failure"), conn.port, 7777UL);
+            Logging::printf("%s - connecting from %lu to %lu tcp port\n",
+                            (res == 0 ? "success" : "failure"), conn.port, 7777UL);
             if (!result) return result;
           }
 
-          //send regulary some test stuff
-            struct {
-              unsigned long port;
-              size_t count;
-              void const * data;
-            } arg = { conn.port, 7, "blabla" };
-            nul_ip_config(IP_TCP_SEND, &arg);
+          if (!_connection_online) continue;
+
+          //send regularly some test stuff
+          struct {
+            unsigned long port;
+            size_t count;
+            void const * data;
+          } arg = { conn.port, 7, "blabla" };
+          nul_ip_config(IP_TCP_SEND, &arg);
         }
 
         while (netconsumer->has_data()) {
@@ -154,25 +167,27 @@ class TestIP : public NovaProgram, public ProgramConsole
       return !res;
     }
 
-  void run(Utcb *utcb, Hip *hip)
-  {
+  public:
 
-    init(hip);
-    init_mem(hip);
+    void run(Utcb *utcb, Hip *hip)
+    {
 
-    console_init("IP test", new Semaphore(alloc_cap(), true));
-    _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
+      init(hip);
+      init_mem(hip);
 
-    Logging::printf("Hello\n");
+      console_init("IP test", new Semaphore(alloc_cap(), true));
+      _console_data.log = new LogProtocol(alloc_cap(LogProtocol::CAP_SERVER_PT + hip->cpu_desc_count()));
 
-    _virt_phys.debug_dump("");
+      Logging::printf("Hello\n");
 
-    if (!use_network(utcb, hip, alloc_cap()))
-      Logging::printf("failed  - starting ip stack\n");
+      _virt_phys.debug_dump("");
 
-  }
+      if (!use_network(utcb, hip, alloc_cap()))
+        Logging::printf("failed  - starting ip stack\n");
+    }
 };
 
+ bool TestIP::_connection_online = false;
 } /* namespace */
 
 ASMFUNCS(ab::TestIP, NovaProgram)
