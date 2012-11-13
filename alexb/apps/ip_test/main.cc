@@ -134,7 +134,8 @@ class TestIP : public NovaProgram, public ProgramConsole
             Logging::printf("failed  - starting timer\n");
 
           //dump ip addr if we got one
-          if (nul_ip_config(IP_IPADDR_DUMP, NULL)) {
+          if (nul_ip_config(IP_IPADDR_DUMP, NULL)) { }
+/*
 
             conn.port = 7777;
             conn.addr = (1 << 24) | 127; //127.0.0.1
@@ -155,6 +156,7 @@ class TestIP : public NovaProgram, public ProgramConsole
             void const * data;
           } arg = { conn.port, 7, "blabla" };
           nul_ip_config(IP_TCP_SEND, &arg);
+*/
         }
 
         while (netconsumer->has_data()) {
