@@ -77,11 +77,12 @@ struct Utcb
       };
       unsigned long long qual[2];
       unsigned     ctrl[2];
-      long long tsc_off;
+      long long reserved;
       unsigned     cr0, cr2, cr3, cr4;
       unsigned     dr7, sysenter_cs, sysenter_esp, sysenter_eip;
       Descriptor   es, cs, ss, ds, fs, gs;
       Descriptor   ld, tr, gd, id;
+      long long tsc_value, tsc_off;
     };
     unsigned msg[(4096 - sizeof(struct head)) / sizeof(unsigned)];
   };
@@ -437,7 +438,7 @@ struct Utcb
   }
 };
 enum {
-  EXCEPTION_WORDS = 72,
+  EXCEPTION_WORDS = 76,
 };
 
 
