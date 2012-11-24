@@ -343,7 +343,7 @@ bool map_exc_pts(const ModuleInfo * modinfo, unsigned pt)
     LOG_VERBOSE("s0: [%2u] creating PD%s on CPU %d\n", modinfo->id, modinfo->dma ? " with DMA" : "", modinfo->cpunr);
 
     check2(_free_caps, nova_create_pd(pt + NOVA_DEFAULT_PD_CAP, Crd(pt, CLIENT_PT_SHIFT,
-           DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC | DESC_RIGHT_PD)))));
+           DESC_CAP_ALL & ((modinfo->type == ModuleInfo::TYPE_ADMISSION) ? ~0U : ~(DESC_RIGHT_SC)))));
     check2(_free_caps, nova_create_ec(pt + ParentProtocol::CAP_CHILD_EC,
 			     reinterpret_cast<void *>(CLIENT_BOOT_UTCB), 0U,
                                       modinfo->cpunr, Config::EXC_PORTALS * modinfo->cpunr,
