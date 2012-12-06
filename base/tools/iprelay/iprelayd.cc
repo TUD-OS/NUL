@@ -780,6 +780,7 @@ int main(int argc, char *argv[])
         // client disconnected
         c->del_from_queue();
         delete c;
+        close(pollfds[i].fd);
         memset(&pollfds[i], 0, sizeof(pollfds[i]));
         clients[i] = 0;
         if (!Client::active)
