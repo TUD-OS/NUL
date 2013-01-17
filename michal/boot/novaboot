@@ -86,7 +86,7 @@ my %opt_spec = (
     "on"	     => \$on_opt,
     "pulsar|p:s"     => \$pulsar,
     "qemu|Q=s" 	     => \$qemu,
-    "qemu-append=s"  => \$qemu_append,
+    "qemu-append:s"  => \$qemu_append,
     "qemu-flags|q=s" => \$qemu_flags_cmd,
     "rsync-flags=s"  => \$rsync_flags,
     "scons:s"	     => \$scons,
@@ -112,7 +112,7 @@ if ($server) { $CFG::server = $server; }
 if ($qemu) { $CFG::qemu = $qemu; }
 $qemu_append ||= '';
 
-if (defined $pulsar) {
+if ($pulsar) {
     $CFG::pulsar_mac = $pulsar;
 }
 
@@ -563,11 +563,17 @@ if ($variables->{WVTEST_TIMEOUT}) {
     print "wvtest: timeout ", $variables->{WVTEST_TIMEOUT}, "\n";
 }
 
+sub trim($) {
+    my ($str) = @_;
+    $str =~ s/^\s+|\s+$//g;
+    return $str
+}
+
 if (!(defined $dhcp_tftp || defined $serial || defined $iprelay || defined $server || defined $iso_image)) {
     # Qemu
-    @qemu_flags = split(/ /, $variables->{QEMU_FLAGS}) if exists $variables->{QEMU_FLAGS};
-    @qemu_flags = split(/ /, $qemu_flags_cmd) if $qemu_flags_cmd;
-    push(@qemu_flags, split(/ /, $qemu_append));
+    @qemu_flags = split(/ +/, trim($variables->{QEMU_FLAGS})) if exists $variables->{QEMU_FLAGS};
+    @qemu_flags = split(/ +/, trim($qemu_flags_cmd)) if $qemu_flags_cmd;
+    push(@qemu_flags, split(/ +/, trim($qemu_append)));
 
     if (defined $iso_image) {
 	# Boot NOVA with grub (and test the iso image)
