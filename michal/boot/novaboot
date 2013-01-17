@@ -63,9 +63,10 @@ GetOptions ("config|c=s" => \$cfg);
 if (-s $cfg) { read_config($cfg); }
 
 # Command line
-my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_opt, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $rsync_flags, @scriptmod, $scons, $serial, $server);
+my ($append, $bender, $builddir, $config_name_opt, $dhcp_tftp, $dump_opt, $dump_config, $grub_config, $grub_prefix, $grub2_config, $help, $iprelay, $iso_image, $man, $no_file_gen, $off_opt, $on_opt, $pulsar, $qemu, $qemu_append, $qemu_flags_cmd, $rom_prefix, $rsync_flags, @scriptmod, $scons, $serial, $server);
 
 $rsync_flags = '';
+$rom_prefix = 'rom://';
 
 Getopt::Long::Configure(qw/no_ignore_case no_pass_through/);
 my %opt_spec = (
@@ -93,6 +94,7 @@ my %opt_spec = (
     "scriptmod=s"    => \@scriptmod,
     "serial|s:s"     => \$serial,
     "server:s" 	     => \$server,
+    "strip-rom"	     => sub { $rom_prefix = ''; },
     "h" 	     => \$help,
     "help" 	     => \$man,
     );
@@ -225,7 +227,7 @@ sub generate_configs($$$) {
 	my $config = $$g{content};
 	my $fn = $$g{filename};
 	open(my $f, '>', $fn) || die("$fn: $!");
-	map { s|\brom://([^ ]*)|rom://$base$1|g; print $f "$_"; } @{$config};
+	map { s|\brom://([^ ]*)|$rom_prefix$base$1|g; print $f "$_"; } @{$config};
 	close($f);
 	print "novaboot: Created $fn\n";
       } elsif (exists $$g{command} && ! $no_file_gen) {
@@ -252,7 +254,7 @@ sub generate_grub_config($$$$;$)
 	    $kcmd = '' if !defined $kcmd;
 	    print $fg "kernel ${base}$kbin $kcmd\n";
 	} else {
-	    s|\brom://([^ ]*)|rom://$base$1|g; # Translate rom:// files - needed for vdisk parameter of sigma0
+	    s|\brom://([^ ]*)|$rom_prefix$base$1|g; # Translate rom:// files - needed for vdisk parameter of sigma0
 	    print $fg "module $base$_\n";
 	}
     }
@@ -280,7 +282,7 @@ sub generate_grub2_config($$$$;$)
 	    my @args = split;
 	    # GRUB2 doesn't pass filename in multiboot info so we have to duplicate it here
 	    $_ = join(' ', ($args[0], @args));
-	    #s|\brom://([^ ]*)|rom://$base$1|g; # Translate rom:// files - needed for vdisk parameter of sigma0
+	    s|\brom://|$rom_prefix|g; # We do not need to translate path for GRUB2
 	    print $fg "  module $base$_\n";
 	}
     }
@@ -302,6 +304,7 @@ sub generate_pulsar_config($$)
 	    $kcmd = '' if !defined $kcmd;
 	} else {
 	    my @args = split;
+	    s|\brom://|$rom_prefix|g;
 	    print $fg "load $_\n";
 	}
     }
@@ -942,6 +945,11 @@ $NAME removed from the I<path>) files found on the server.
 
 Use serial line to control GRUB bootloader and to get the serial
 output of the machine. The default value is /dev/ttyUSB0.
+
+=item --strip-rom
+
+Strip I<rom://> prefix from command lines and generated config files.
+This is needed for NRE.
 
 =back
 
