@@ -1,4 +1,11 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
+#
+# WvTest:
+#   Copyright (C) 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
+#       Licensed under the GNU Library General Public License, version 2.
+#       See the included file named LICENSE for license information.
+#
+# This script converts wvtest protocol output to HTML pages.
 
 import sys
 import re
@@ -9,12 +16,13 @@ import time
 import numpy as np
 import cgi
 
+re_prefix = "\([0-9]+\) (?:#   )?"
 re_date = re.compile('^Date: (.*)')
-re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
+re_testing = re.compile('^('+re_prefix+')?\s*Testing "(.*)" in (.*):\s*$')
 re_commit = re.compile('.*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*, commit: (.*)')
 re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
-re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
-re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
+re_assertion = re.compile('^('+re_prefix+')?!\s*(.*?)\s+(\S+)\s*$')
+re_perf =  re.compile('^('+re_prefix+')?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
 re_perfaxis = re.compile('axis="([^"]+)"')
 
 date = time.localtime(time.time())
@@ -31,10 +39,10 @@ class Test:
 
     def add_line(self, line):
         self.output.append(line)
-        match = re_check.match(line)
+        match = re_assertion.match(line)
         if match:
             self.check_count += 1
-            result = match.group(4)
+            result = match.group(3)
             if result != "ok":
                 self.status = result
                 self.failures += 1
@@ -69,9 +77,9 @@ class Test:
 <table class='output'>
 """ % (date_and_commit, self.num, cgi.escape(self.title())))
         for line in self.output:
-            match = re_check.match(line)
+            match = re_assertion.match(line)
             if match:
-                result = match.group(4)
+                result = match.group(3)
                 if result == "ok":
                     status_class = "ok"
                 else:
@@ -100,8 +108,8 @@ for line in sys.stdin.readlines():
 
     match = re_testing.match(line)
     if match:
-        what = match.group(3)
-        where = match.group(4)
+        what = match.group(2)
+        where = match.group(3)
 
         test = Test(what, where)
         tests.append(test)

@@ -1,4 +1,14 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
+#
+# WvTest:
+#   Copyright (C) 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
+#       Licensed under the GNU Library General Public License, version 2.
+#       See the included file named LICENSE for license information.
+#
+# This script converts a sequence of wvtest protocol outputs with
+# results of performance measurements to interactive graphs (HTML +
+# JavaScript). An example can be seen at
+# http://os.inf.tu-dresden.de/~sojka/nul/performance.html.
 
 import sys
 import re
@@ -7,6 +17,15 @@ import os.path
 import string
 import time
 import numpy as np
+
+re_prefix = "\([0-9]+\) (?:#   )?"
+re_date = re.compile('^Date: (.*)')
+re_testing = re.compile('^('+re_prefix+')?\s*Testing "(.*)" in (.*):\s*$')
+re_commit = re.compile('.*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*, commit: (.*)')
+re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
+re_assertion = re.compile('^('+re_prefix+')?!\s*(.*?)\s+(\S+)\s*$')
+re_perf =  re.compile('^('+re_prefix+')?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
+re_perfaxis = re.compile('axis="([^"]+)"')
 
 class Axis:
     def __init__(self, name=None, units=None):
@@ -214,14 +233,6 @@ class Graphs(dict):
 graphs = Graphs()
 commits = {}
 
-re_date = re.compile('^Date: (.*)')
-re_testing = re.compile('^(\([0-9]+\) (#   )?)?\s*Testing "(.*)" in (.*):\s*$')
-re_commit = re.compile('.*(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}).*, commit: (.*)')
-re_commithash = re.compile('([0-9a-f]{7})(-dirty)? \(')
-re_check = re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$')
-re_perf =  re.compile('^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+PERF:\s*(.*?)\s+(\S+)\s*$')
-re_perfaxis = re.compile('axis="([^"]+)"')
-
 date = time.localtime(time.time())
 
 for line in sys.stdin.readlines():
@@ -234,8 +245,8 @@ for line in sys.stdin.readlines():
 
     match = re_testing.match(line)
     if match:
-        what = match.group(3)
-        where = match.group(4)
+        what = match.group(2)
+        where = match.group(3)
 
         match = re_commit.match(what)
         if match:
@@ -261,7 +272,7 @@ for line in sys.stdin.readlines():
 
     match = re_perf.match(line)
     if match:
-        perfstr = match.group(4)
+        perfstr = match.group(3)
         perf = perfstr.split()
         col = perf[0]
         try:
@@ -273,7 +284,7 @@ for line in sys.stdin.readlines():
             if '=' in units: units = None
         except:
             units = None
-        if match.group(5) != "ok":
+        if match.group(4) != "ok":
             val=None
 
         graph.addValue(date, col, val, units)

@@ -1,10 +1,14 @@
 #!/usr/bin/perl -w
 #
 # @file
-# Script to supervise the execution of wvtest-based tests.
+# Script to supervise the execution of wvtest-based tests. It is a
+# modified version of wvtestrun with some features added and without
+# pretty-printing which was moved to wvformat script.
 #
 # It takes care of killing test (qemu or serial reader) when the test
-# finishes or hangs.
+# finishes or hangs. It has flexible timeout management and is able to
+# check that the number of executed assertions is the same as was
+# expected.
 #
 # Copyright (C) 2011, 2012, Michal Sojka <sojka@os.inf.tu-dresden.de>
 # Economic rights: Technische Universitaet Dresden (Germany)
@@ -23,6 +27,9 @@
 
 use strict;
 use IO::Pty;
+
+# Optional prefix of wvtest protocol lines
+my $prefix_re = '\([0-9]+\) (?:#   )?';
 
 # always flush
 $| = 1;
@@ -91,13 +98,13 @@ local $SIG{ALRM} = sub {
 
 my $allstart = time();
 my ($start, $stop);
-my $tests_executed = 0;
-my $tests_failed = 0;
+my $assertions_executed = 0;
+my $assertions_failed = 0;
 my $waits_for_child = 0;
 my $kill_ok = 0;
 my $ignore_exit_patterns = 0;
-my $expected_test_count = 0;
-my $expected_test_base = 0;
+my $expected_assertion_count = 0;
+my $expected_assertion_base = 0;
 
 sub matches_exit_pattern($)
 {
@@ -114,19 +121,19 @@ sub matches_exit_pattern($)
     }
 }
 
-sub check_number_of_tests()
+sub check_number_of_assertions()
 {
-    if ($expected_test_count) {
-	my $executed = $tests_executed - $expected_test_base;
+    if ($expected_assertion_count) {
+	my $executed = $assertions_executed - $expected_assertion_base;
 	my $result;
-	if ($executed == $expected_test_count) {
+	if ($executed == $expected_assertion_count) {
 	    $result = "ok";
 	} else {
 	    $result = "FAILED";
-	    $tests_failed++;
-	    print "Expected $expected_test_count tests, executed $executed tests.\n"
+	    $assertions_failed++;
+	    print "Expected $expected_assertion_count tests, executed $executed tests.\n"
 	}
-	print "! $0: tests_expected == tests_executed  $result\n";
+	print "! $0: tests_expected == assertions_executed  $result\n";
     }
 }
 
@@ -144,9 +151,9 @@ while (<$pty>)
     chomp;
     s/\r//g;
 
-    if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
-	$tests_executed++;
-	$tests_failed++ if ($4 ne "ok");
+    if (/^($prefix_re?)?!\s*(.*?)\s+(\S+)\s*$/) {
+	$assertions_executed++;
+	$assertions_failed++ if ($3 ne "ok");
     }
     elsif (/wvtest: timeout (\d+)\s*$/) {
 	$timeout=$1;
@@ -154,10 +161,10 @@ while (<$pty>)
     }
     elsif (/sc: wait for child/) { $waits_for_child = 1; }
     elsif (/wvtest: ignore exit patterns/) { $ignore_exit_patterns = 1; }
-    elsif (/wvtest: expect ([0-9]+) tests/) {
-	check_number_of_tests();
-	$expected_test_count = $1;
-	$expected_test_base = $tests_executed;
+    elsif (/wvtest: expect ([0-9]+) (tests|assertions)/) {
+	check_number_of_assertions();
+	$expected_assertion_count = $1;
+	$expected_assertion_base = $assertions_executed;
     }
     elsif (matches_exit_pattern($_))
     {
@@ -205,11 +212,11 @@ if ($ret != 0) {
 }
 
 if (!$ENV{WVTEST_EXIT_PATTERN}) {
-    printf "! $0: \$tests_executed > 0  %s\n", ($tests_executed > 0) ? "ok" : "FAILED";
+    printf "! $0: \$assertions_executed > 0  %s\n", ($assertions_executed > 0) ? "ok" : "FAILED";
 }
-check_number_of_tests();
+check_number_of_assertions();
 
-if ($tests_failed > 0) { $ret = 1; }
-if ($ret == 0 && $tests_executed == 0) { $ret = 1; }
+if ($assertions_failed > 0) { $ret = 1; }
+if ($ret == 0 && $assertions_executed == 0) { $ret = 1; }
 
 exit $ret;

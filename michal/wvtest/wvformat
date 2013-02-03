@@ -2,8 +2,13 @@
 #
 # WvTest:
 #   Copyright (C)2007-2009 Versabanq Innovations Inc. and contributors.
+#   Copyright (C) 2012 Michal Sojka <sojka@os.inf.tu-dresden.de>
 #       Licensed under the GNU Library General Public License, version 2.
 #       See the included file named LICENSE for license information.
+#
+# This script aligns assertion results to the same column and, if run
+# on a tty, it colorizes the output. At the end, it summarizes the
+# results.
 #
 use strict;
 use Getopt::Long;
@@ -12,6 +17,9 @@ sub usage() {
     print STDERR "Usage: $0 [-vs] <file>\n";
     exit 127;
 }
+
+# Optional prefix of wvtest protocol lines
+my $prefix_re = '\([0-9]+\) (?:#   )?';
 
 my ($verbose, $summary, $limit_lines);
 
@@ -70,8 +78,8 @@ sub print_and_clear_log()
     my @log2print = ();
     my $skipped = 0;
     foreach (@log) {
-	if (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/) {
-	    my ($prefix, $name, $result) = ($1, $3, $4);
+	if (/^($prefix_re)?!\s*(.*?)\s+(\S+)\s*$/) {
+	    my ($prefix, $name, $result) = ($1, $2, $3);
 	    push @log2print, resultline($prefix, $name, $result);
 	    if ($result ne "ok") {
 		print "wvformat: skipped $skipped lines\n" if $skipped;
@@ -112,7 +120,7 @@ while (<>)
     chomp;
     s/\r//g;
 
-    if (/^(\([0-9]+\) )?\s*Testing "(.*)" in (.*):\s*$/)
+    if (/^($prefix_re)?\s*Testing "(.*)" in (.*):\s*$/)
     {
 	print_test_summary() unless $startup;
 	$startup = 0;
@@ -122,9 +130,9 @@ while (<>)
 	    print highlight($_), "\n";
 	}
     }
-    elsif (/^(\([0-9]+\) (#   )?)?!\s*(.*?)\s+(\S+)\s*$/)
+    elsif (/^($prefix_re)?!\s*(.*?)\s+(\S+)\s*$/)
     {
-	my ($prefix, $name, $result) = ($1, $3, $4);
+	my ($prefix, $name, $result) = ($1, $2, $3);
 
 	if ($startup) {
 	    $file = "";
