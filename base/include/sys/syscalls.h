@@ -2,6 +2,7 @@
  * NOVA system-call interface.
  *
  * Copyright (C) 2008, Bernhard Kauer <bk@vmmon.org>
+ * Copyright (C) 2013, Alexander Boettcher <boettcher@tudos.org>
  * Economic rights: Technische Universitaet Dresden (Germany)
  *
  * This file is part of NUL.
@@ -34,6 +35,7 @@ enum
   NOVA_LOOKUP,
   NOVA_RECALL,
   NOVA_SC_CTL,
+  NOVA_PT_CTL,
   NOVA_SEMCTL,
   NOVA_ASSIGN_PCI,
   NOVA_ASSIGN_GSI,
@@ -115,17 +117,33 @@ WARN_UNUSED static inline unsigned char  nova_create_sc (unsigned idx_sc, unsign
 WARN_UNUSED static inline unsigned char  nova_ctl_sc(unsigned idx_sc, unsigned long long &computetime)
 {  return nova_syscall(idx_sc << 8 | NOVA_SC_CTL, 0, 0, 0, 0, reinterpret_cast<unsigned *>(&computetime) + 1, reinterpret_cast<unsigned *>(&computetime)); }
 
-WARN_UNUSED static inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
-{  return nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, dstpd, idx_ec, mtd, eip); }
+WARN_UNUSED static inline unsigned char  nova_ctl_pt(unsigned idx_pt, unsigned long id)
+{  return nova_syscall(idx_pt << 8 | NOVA_PT_CTL, id, 0, 0, 0); }
 
 WARN_UNUSED static inline unsigned char  nova_create_sm(unsigned idx_sm, unsigned initial=0, unsigned dstpd = NOVA_DEFAULT_PD_CAP)
 {  return nova_syscall(idx_sm << 8 | NOVA_CREATE_SM, dstpd, initial, 0, 0); }
 
 static inline unsigned char  nova_revoke(Crd crd, bool myself)
-{  return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
+{   return nova_syscall(myself ? NOVA_REVOKE_MYSELF : NOVA_REVOKE, crd.value(), 0, 0, 0); }
 
 static inline unsigned char  nova_revoke_self(Crd crd) { return nova_revoke(crd, true); }
 static inline unsigned char  nova_revoke_children(Crd crd) { return nova_revoke(crd, false); }
+
+WARN_UNUSED static inline unsigned char  nova_create_pt(unsigned idx_pt, unsigned idx_ec, unsigned long eip, unsigned mtd, unsigned dstpd = NOVA_DEFAULT_PD_CAP, unsigned long pid = 0)
+{
+  unsigned char res = nova_syscall(idx_pt << 8 | NOVA_CREATE_PT, dstpd, idx_ec, mtd, eip);
+  if (res != NOVA_ESUCCESS)
+    return res;
+
+  res = nova_ctl_pt(idx_pt, pid ? pid : idx_pt);
+
+  if (res != NOVA_ESUCCESS)
+    nova_revoke(Crd(idx_pt, 0, DESC_CAP_ALL), true);
+  else if (!pid)
+    nova_revoke(Crd(idx_pt, 0, DESC_TYPE_CAP | DESC_RIGHT_PT_CTRL), true);
+
+  return res;
+}
 
 inline Crd nova_lookup(Crd crd)
 {

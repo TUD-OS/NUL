@@ -4,7 +4,7 @@ index f891bd1..c6932f2 100644
 +++ b/include/config.h
 @@ -22,7 +22,7 @@
  
- #define CFG_VER         5
+ #define CFG_VER         6
  
 -#define NUM_CPU         64
 +#define NUM_CPU         32
