@@ -17,8 +17,8 @@ date=$(date "+%F_%T")
 echo "Testing \"$(date "+%A %F %T"), commit: $ver\" in $0:"
 echo "Testing \"Compilation etc.\" in $0:"
 
-CC=/home/sojka/gcc/gcc-4.6/bin/gcc
-CXX=/home/sojka/gcc/gcc-4.6/bin/g++
+CC=/usr/bin/gcc
+CXX=/usr/bin/g++
 
 echo sha1: $(sha1sum $CC)
 $CC --version
