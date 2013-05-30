@@ -56,7 +56,7 @@ find \( -name src -o -name .git -o -path ./contrib/nova -o -path ./.sconf_temp \
 echo "! $0 compilation finished  ok"
 
 echo "Testing \"Documentation build\" in $0:"
-if scons DOXYGEN=$HOME/bin/doxygen doc; then
+if scons doc; then
     echo "! $0 doc build  ok"
     rm -rf $HOME/public_html/nul/doc || echo "! $0 doc publish rm  FAILED"
     mv doc/html $HOME/public_html/nul/doc || echo "! $0 doc publish mv  FAILED"
