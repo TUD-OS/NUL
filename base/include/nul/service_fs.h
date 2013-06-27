@@ -55,7 +55,7 @@ struct FsProtocol : public GenericProtocol {
     const char *name = strstr(url, "://");
     if (name == NULL) { return NULL; }
 
-    if ((name - url + 1) > proto_len) {
+    if (size_t(name - url + 1) > proto_len) {
       proto_len = name - url + 1;
       return NULL;
     }
