@@ -231,11 +231,10 @@ class Host82573 : public PciDriver,
   // Consume and distribute all received packets from the RX queue.
   void rx_handle()
   {
-    unsigned processed = 0;
+    unsigned quota = desc_ring_len/2;
 
     // Process all filled RX buffers
-    while ((processed < desc_ring_len/2)
-           and rx_desc_done(_rx_ring[_rx_last])) {
+    while (--quota and rx_desc_done(_rx_ring[_rx_last])) {
       // Propagate packet
       //rx_packet_process(_rx_buf[_rx_last], rx_desc_size(_rx_ring[_rx_last]));
 
@@ -250,8 +249,6 @@ class Host82573 : public PciDriver,
       _rx_ring[_rx_last].lo = 0;
       _rx_ring[_rx_last].hi = 0;
 
-
-      processed += 1;
       _rx_last = (_rx_last+1) % desc_ring_len;
 
       // XXX Use shadow RDT
@@ -261,9 +258,11 @@ class Host82573 : public PciDriver,
       _hwreg[RDT] = (rdt+1) % desc_ring_len;
     }
 
-//     if (processed != 0)
-//       msg(RX, "Processed %d packet%s.\n", processed, (processed == 1) ? "" : "s");
-
+    if (quota == 0) {
+      // Processed too many descriptors. Give other code a chance to
+      // do something useful. Reraise IRQ to be scheduled again later.
+      _hwreg[ICS] = _multi_irq_mode ? (1U << 20 /* RX0 */) : ICR_RXT;
+    }
   }
 
   // Returns the index into the (real) TX queue
