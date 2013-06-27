@@ -108,6 +108,8 @@ class Host82573 : public PciDriver,
   bool             _multi_irq_mode; // True for MSI-X
   unsigned         _hostirq;        // In multi_irq_mode used only for stuff not RX/TX related.
 
+  bool             _rxo_warned;	// Have we warned about receiver overrun yet?
+
   enum {
     IRQ_MISC = 0,
     IRQ_RX   = 1,
@@ -355,10 +357,9 @@ public:
     if (icr & ICR_LSC)
       msg(INFO, "Link is %s.\n", ((_hwreg[STATUS] & STATUS_LU) != 0) ? "UP" : "DOWN");
 
-    if (icr & ICR_RXO) {
-      msg(WARN, "Receiver overrun. Report this.\n");
-      // Mask this, so we don't spam the console.
-      _hwreg[IMC] = ICR_RXO;
+    if ((icr & ICR_RXO) and not not _rxo_warned) {
+      msg(WARN, "Receiver overrun. Maybe RX queue is too short. Report this.\n");
+      _rxo_warned = true;
     }
   }
 
@@ -369,7 +370,7 @@ public:
           irq_msg.line != _hostirq_rx and
           irq_msg.line != _hostirq_tx) return false;
 
-      // Don't believe this to much. Reading ICR might be racy.
+      // Don't believe this too much. Reading ICR might be racy.
       //log_irq_status(irq_msg.line);
 
       // MSI-X mode, autoclear
@@ -474,7 +475,7 @@ public:
             Clock *clock, unsigned bdf, const NICInfo &info)
     : PciDriver("82573", bus_hostop, clock, ALL, bdf),
       _info(info),
-      _bus_hostop(bus_hostop), _bus_network(bus_network),
+      _bus_hostop(bus_hostop), _bus_network(bus_network), _rxo_warned(false),
       _rx_last(0), _tx_last(0), _tx_tail(0)
   {
     msg(INFO, "Type: %s\n", info.name);
