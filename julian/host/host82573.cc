@@ -86,7 +86,9 @@ static const NICInfo intel_nics[] = {
   // XXX Completely untested
   { "82545EM",           INTEL_82540EM, 0x100F, HAS_EERD },
 
+  // Seems to work fine.
   { "82567LM-2",         INTEL_82567,   0x10CC, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
+
   { "82567LM-3",         INTEL_82567,   0x10DE, ADVANCED_QUEUE | NO_LINK_UP | MASTER_DISABLE | PHY_RESET },
 };
 
