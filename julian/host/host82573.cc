@@ -93,7 +93,7 @@ static const NICInfo intel_nics[] = {
 class Host82573 : public PciDriver,
                   public StaticReceiver<Host82573>
 {
-  static const unsigned desc_ring_len = 32;
+  static const unsigned desc_ring_len = 512;
 
   const NICInfo &_info;
   EthernetAddr   _mac;
