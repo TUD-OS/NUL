@@ -18,8 +18,8 @@
 
 #include <nul/compiler.h>
 
-EXTERN_C void __cxa_pure_virtual(void) __attribute__((noreturn));
-EXTERN_C void __cxa_pure_virtual(void) { __builtin_trap(); }
+EXTERN_C NORETURN void __cxa_pure_virtual(void)               { __builtin_trap(); }
+EXTERN_C NORETURN void __cxa_throw_bad_array_new_length(void) { __builtin_trap(); }
 
 EXTERN_C int
 __popcountsi2(unsigned int v)
