@@ -1,7 +1,7 @@
-diff --git a/include/config.h b/include/config.h
+diff --git a/include/config.hpp b/include/config.hpp
 index f891bd1..c6932f2 100644
---- a/include/config.h
-+++ b/include/config.h
+--- a/include/config.hpp
++++ b/include/config.hpp
 @@ -22,7 +22,7 @@
  
  #define CFG_VER         6

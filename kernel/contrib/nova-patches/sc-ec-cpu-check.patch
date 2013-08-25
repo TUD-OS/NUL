@@ -1,7 +1,7 @@
-diff --git a/include/syscall.h b/include/syscall.h
+diff --git a/include/syscall.hpp b/include/syscall.hpp
 index c6e65f3..628563b 100644
---- a/include/syscall.h
-+++ b/include/syscall.h
+--- a/include/syscall.hpp
++++ b/include/syscall.hpp
 @@ -84,6 +84,9 @@ class Sys_create_sc : public Sys_regs
  
          ALWAYS_INLINE
