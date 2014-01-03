@@ -1,0 +1,81 @@
+#!/usr/bin/env novaboot
+# -*-sh-*-
+
+# To use this script download
+# http://os.inf.tu-dresden.de/nul/NOVA-0.3.iso.bz2 and copy its
+# content to the build directory (../../build). This is needed to get
+# various "data" files such as Linux kernel and disk images to the
+# location where it can be found by this script. Then simply run this
+# script to run the demo in qemu or pass it the --iso option to create
+# an ISO image of a bootable CD.
+
+LABEL=NOVA Userland Demo (VESA)
+HELP=Needs VT-x/VT-d for full functionality.
+QEMU_FLAGS=-cpu phenom -smp 2 -m 768
+bin/apps/sigma0.nul S0_DEFAULT \
+                    hostvga:0x40000,0x40000 \
+                    hostkeyb:0,0x60,1,12 \
+                    tracebuffer:10240 \
+                    vdisk:rom://linux/grml.iso \
+                    hostvesa \
+                    service_disk \
+                    script_start:1
+bin/apps/tutor.nul
+bin/apps/cycleburner.nul
+bin/apps/rocknshine.nul
+nul/eurosys.slides
+bin/apps/vancouver.nul
+bin/boot/munich
+linux/bzImage.x
+linux/bzImage
+linux/initrd
+linux/grml.iso
+pistachio/i686_kernel
+pistachio/kickstart
+pistachio/sigma0
+pistachio/pingpong
+fiasco/fiasco
+fiasco/bootstrap
+fiasco/pingpong
+fiasco/roottask
+fiasco/sigma0
+tutor.nulconfig <<EOF
+name::/s0/log name::/s0/admission ||
+rom://bin/apps/tutor.nul
+EOF
+linux.nulconfig <<EOF
+name::/s0/log name::/s0/admission name::/s0/disk name::/s0/timer name::/s0/fs/rom sigma0::mem:96 sigma0::dma ||
+rom://bin/apps/vancouver.nul vga_fbsize:4096 kbmodifier:0x40000 PC_PS2 dpci:2,,0 82576vf ||
+rom://bin/boot/munich ||
+rom://linux/bzImage.x root=/dev/ram0 ||
+rom://linux/initrd
+EOF
+grml.nulconfig <<EOF
+name::/s0/log name::/s0/admission name::/s0/timer name::/s0/fs/rom sigma0::mem:256 sigma0::log name::/s0/disk sigma0::drive:0 sigma0::dma ||
+rom://bin/apps/vancouver.nul kbmodifier:0x40000 PC_PS2 ahci:0xe0800000,14 drive:0,0,0 rtl8029:,9,0x300
+EOF
+pistachio.nulconfig <<EOF
+sigma0::mem:64 name::/s0/admission name::/s0/log name::/s0/timer name::/s0/fs/rom ||
+rom://bin/apps/vancouver.nul kbmodifier:0x40000 vga_fbsize:4096 PC_PS2 ||
+rom://pistachio/kickstart ||
+rom://pistachio/i686_kernel ||
+rom://pistachio/sigma0 ||
+rom://pistachio/pingpong
+EOF
+fiasco.nulconfig <<EOF
+sigma0::mem:128 name::/s0/admission name::/s0/log name::/s0/timer name::/s0/fs/rom ||
+rom://bin/apps/vancouver.nul kbmodifier:0x40000 vga_fbsize:4096 PC_PS2 ||
+rom://fiasco/bootstrap	||
+rom://fiasco/fiasco	||
+rom://fiasco/sigma0 	||
+rom://fiasco/roottask 	||
+rom://fiasco/pingpong
+EOF
+cycleburner.nulconfig <<EOF
+name::/s0/log name::/s0/timer  name::/s0/admission ||
+rom://bin/apps/cycleburner.nul
+EOF
+rocknshine.nulconfig <<EOF
+name::/s0/log name::/s0/fs/rom sigma0::mem:16 name::/s0/admission ||
+rom://bin/apps/rocknshine.nul rom://nul/eurosys.slides
+EOF

@@ -1,0 +1,2 @@
+#!/bin/sh
+novaboot --scriptmod='s/hostkeyb:0,0x60,1,12/hostkeyb:0,0x60,1,12,1,1/' democd "$@"
